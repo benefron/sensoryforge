@@ -26,10 +26,10 @@ import yaml
 
 from torch import Tensor
 
-from .grid_torch import GridManager
-from .stimulus_torch import StimulusGenerator
-from .innervation_torch import create_sa_innervation, create_ra_innervation
-from .filters_torch import CombinedSARAFilter
+from .grid import GridManager
+from sensoryforge.stimuli.stimulus import StimulusGenerator
+from .innervation import create_sa_innervation, create_ra_innervation
+from sensoryforge.filters.sa_ra import CombinedSARAFilter
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.filters.noise import MembraneNoiseTorch, ReceptorNoiseTorch
 

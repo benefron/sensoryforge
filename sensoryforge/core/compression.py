@@ -13,7 +13,7 @@ from typing import Dict, Tuple, TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .pipeline_torch import TactileEncodingPipelineTorch
+    from .pipeline import TactileEncodingPipelineTorch
 
 
 @dataclass

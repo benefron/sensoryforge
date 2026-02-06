@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 
 if TYPE_CHECKING:
-    from .grid_torch import GridManager
+    from .grid import GridManager
 
 
 def create_neuron_centers(
