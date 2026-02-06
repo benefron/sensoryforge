@@ -1,0 +1,93 @@
+{
+  "simulation": {
+    "dt": 0.1,
+    "device": "cpu",
+    "seed": 42
+  },
+  "models": {
+    "Izhikevich": {
+      "a": 0.02,
+      "b": 0.2,
+      "c": -65.0,
+      "d": 8.0,
+      "threshold": 30.0,
+      "noise_std": 0.0
+    },
+    "AdEx": {
+      "EL": -70.0,
+      "VT": -50.0,
+      "DeltaT": 2.0,
+      "tau_m": 20.0,
+      "tau_w": 100.0,
+      "a": 2.0,
+      "b": 0.0,
+      "v_reset": -58.0,
+      "v_spike": 20.0,
+      "R": 1.0,
+      "noise_std": 0.0
+    },
+    "MQIF": {
+      "a": 0.04,
+      "b": 0.2,
+      "vr": -60.0,
+      "vt": -40.0,
+      "v_reset": -60.0,
+      "v_peak": 30.0,
+      "d": 2.0,
+      "tau_m": 10.0,
+      "tau_u": 100.0,
+      "noise_std": 0.0
+    },
+    "FA": {
+      "vb": 0.0,
+      "A": 1.0,
+      "theta": 0.08,
+      "tau_ref": 2.0,
+      "input_gain": 0.001,
+      "baseline_mode": "ema",
+      "tau_dc": 50.0,
+      "noise_std": 0.0
+    },
+    "SA": {
+      "I_tau": 2.5e-11,
+      "I_th": 8.3e-09,
+      "I_tau_ahp": 2e-11,
+      "I_th_ahp": 1.66e-11,
+      "I_tau_refractory": 1.6e-09,
+      "C_mem": 1e-13,
+      "C_adap": 2.5e-13,
+      "C_refractory": 2e-13,
+      "U_T": 0.026,
+      "kappa": 0.7,
+      "v_init": 0.0,
+      "v_reset": 0.0,
+      "v_spike_vis": 20.0,
+      "current_scale": 1e-20,
+      "noise_std": 0.0,
+      "Ia_frac": 0.8,
+      "z_reset": 0.0,
+      "I_in_op": 5e-10
+    }
+  },
+  "filters": {
+    "SA": {
+      "tau_r": 5,
+      "tau_d": 30,
+      "k1": 0.05,
+      "k2": 3.0
+    },
+    "RA": {
+      "tau_RA": 30,
+      "k3": 100.0
+    }
+  },
+  "stimulus": {
+    "shape": "step",
+    "amplitude": 5.0,
+    "frequency": 5.0,
+    "duration_ms": 1000,
+    "pre_ms": 100,
+    "post_ms": 100,
+    "ramp_ms": 50
+  }
+}
