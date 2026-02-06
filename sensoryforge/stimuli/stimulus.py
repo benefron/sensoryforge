@@ -14,7 +14,7 @@ import math
 from typing import Dict, List, Sequence, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from encoding.grid_torch import GridManager
+    from sensoryforge.core.grid import GridManager
 
 import torch
 import torch.nn.functional as F

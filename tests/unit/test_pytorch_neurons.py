@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from neurons import (
+from sensoryforge.neurons import (
     AdExNeuronTorch,
     FANeuronTorch,
     IzhikevichNeuronTorch,

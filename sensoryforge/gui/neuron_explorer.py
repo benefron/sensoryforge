@@ -27,14 +27,14 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # Local imports from the repository
-from neurons import (  # noqa: E402
+from sensoryforge.neurons import (  # noqa: E402
     IzhikevichNeuronTorch,
     AdExNeuronTorch,
     MQIFNeuronTorch,
     FANeuronTorch,
     SANeuronTorch,
 )
-from encoding.filters_torch import SAFilterTorch, RAFilterTorch  # noqa: E402
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch  # noqa: E402
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))

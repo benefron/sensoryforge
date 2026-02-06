@@ -4,7 +4,7 @@ Shows how to use defaults, YAML config, and multiple stimulus types.
 """
 import torch
 import matplotlib.pyplot as plt
-from encoding.generalized_pipeline_torch import create_generalized_pipeline
+from sensoryforge.core.generalized_pipeline import create_generalized_pipeline
 
 
 def test_defaults():

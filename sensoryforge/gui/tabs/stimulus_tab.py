@@ -11,13 +11,13 @@ import torch
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
 
-from encoding.stimulus_torch import (
+from sensoryforge.stimuli.stimulus import (
     StimulusGenerator,
     edge_stimulus_torch,
     gaussian_pressure_torch,
     point_pressure_torch,
 )
-from encoding.grid_torch import GridManager
+from sensoryforge.core.grid import GridManager
 
 
 STIMULUS_SCHEMA_VERSION = "1.0.0"

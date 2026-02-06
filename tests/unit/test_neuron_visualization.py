@@ -1,4 +1,4 @@
-from encoding.pipeline_torch import create_small_pipeline
+from sensoryforge.core.pipeline import create_small_pipeline
 
 
 def test_visualize_receptive_field_returns_grid_shape():

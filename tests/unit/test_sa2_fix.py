@@ -3,7 +3,7 @@
 Test comprehensive parameter control for all neuron types and membrane noise.
 """
 import torch
-from encoding.generalized_pipeline_torch import GeneralizedTactileEncodingPipeline
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
 
 def test_individual_neuron_control():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from encoding import GridManager, create_ra_innervation, create_sa_innervation
+from sensoryforge.core import GridManager, create_ra_innervation, create_sa_innervation
 
 
 def _build_grid_manager(

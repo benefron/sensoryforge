@@ -3,8 +3,8 @@
 import numpy as np
 import torch
 
-from encoding.grid_torch import GridManager
-from encoding.innervation_torch import (
+from sensoryforge.core.grid import GridManager
+from sensoryforge.core.innervation import (
     create_innervation_map_tensor,
     create_neuron_centers,
 )

@@ -1,6 +1,6 @@
 import torch
 
-from neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 
 
 def test_vectorized_and_scalar_runs_match():

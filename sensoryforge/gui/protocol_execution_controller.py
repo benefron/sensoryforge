@@ -11,20 +11,20 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 import torch
 from PyQt5 import QtCore
 
-from GUIs.protocol_backend import ProtocolWorker, RunResult
-from utils.project_registry import (
+from sensoryforge.gui.protocol_backend import ProtocolWorker, RunResult
+from sensoryforge.utils.project_registry import (
     NeuronModuleManifest,
     ProjectRegistry,
     ProtocolRunRecord,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import for type checking only
-    from GUIs.tabs.mechanoreceptor_tab import (
+    from sensoryforge.gui.tabs.mechanoreceptor_tab import (
         MechanoreceptorTab,
         NeuronPopulation,
     )
-    from GUIs.tabs.protocol_suite_tab import ProtocolSuiteTab
-    from GUIs.tabs.spiking_tab import PopulationConfig, SpikingNeuronTab
+    from sensoryforge.gui.tabs.protocol_suite_tab import ProtocolSuiteTab
+    from sensoryforge.gui.tabs.spiking_tab import PopulationConfig, SpikingNeuronTab
 
 
 class ProtocolExecutionController(QtCore.QObject):

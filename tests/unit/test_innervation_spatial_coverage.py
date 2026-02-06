@@ -11,8 +11,8 @@ if project_root not in sys.path:
 
 import torch
 import numpy as np
-from encoding.grid_torch import GridManager
-from encoding.innervation_torch import create_sa_innervation, create_ra_innervation
+from sensoryforge.core.grid import GridManager
+from sensoryforge.core.innervation import create_sa_innervation, create_ra_innervation
 
 # Configuration
 GRID_SIZE = 40

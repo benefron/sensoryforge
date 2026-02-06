@@ -1,6 +1,6 @@
 import torch
 
-from neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 
 
 def test_batched_integration_matches_iterating_batches():

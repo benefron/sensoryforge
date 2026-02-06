@@ -1,6 +1,6 @@
 import torch
 
-from encoding.pipeline_torch import (
+from sensoryforge.core.pipeline import (
     TactileEncodingPipelineTorch,
     create_small_pipeline,
 )
