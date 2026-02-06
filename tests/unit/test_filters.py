@@ -1,6 +1,6 @@
 import torch
 
-from encoding.pipeline_torch import create_small_pipeline
+from sensoryforge.core.pipeline import create_small_pipeline
 
 
 def test_filter_methods_produce_expected_shapes():

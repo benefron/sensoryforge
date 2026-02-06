@@ -12,7 +12,7 @@ from .grid_torch import GridManager
 from .stimulus_torch import gaussian_pressure_torch, StimulusGenerator
 from .innervation_torch import create_sa_innervation, create_ra_innervation
 from .filters_torch import SAFilterTorch, RAFilterTorch
-from neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from .noise_torch import MembraneNoiseTorch
 
 

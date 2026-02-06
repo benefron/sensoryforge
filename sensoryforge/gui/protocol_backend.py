@@ -30,19 +30,19 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from encoding.grid_torch import GridManager  # noqa: E402
-from encoding.stimulus_torch import (  # noqa: E402
+from sensoryforge.core.grid import GridManager  # noqa: E402
+from sensoryforge.stimuli.stimulus import (  # noqa: E402
     edge_stimulus_torch,
     gaussian_pressure_torch,
     point_pressure_torch,
 )
-from encoding.filters_torch import RAFilterTorch, SAFilterTorch  # noqa: E402
-from neurons.adex import AdExNeuronTorch  # noqa: E402
-from neurons.fa import FANeuronTorch  # noqa: E402
-from neurons.izhikevich import IzhikevichNeuronTorch  # noqa: E402
-from neurons.mqif import MQIFNeuronTorch  # noqa: E402
-from neurons.sa import SANeuronTorch  # noqa: E402
-from GUIs.filter_utils import normalize_filter_method  # noqa: E402
+from sensoryforge.filters.sa_ra import RAFilterTorch, SAFilterTorch  # noqa: E402
+from sensoryforge.neurons.adex import AdExNeuronTorch  # noqa: E402
+from sensoryforge.neurons.fa import FANeuronTorch  # noqa: E402
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch  # noqa: E402
+from sensoryforge.neurons.mqif import MQIFNeuronTorch  # noqa: E402
+from sensoryforge.neurons.sa import SANeuronTorch  # noqa: E402
+from sensoryforge.gui.filter_utils import normalize_filter_method  # noqa: E402
 
 
 DEFAULT_DT_MS = 1.0

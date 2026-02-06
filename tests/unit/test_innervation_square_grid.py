@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-from encoding.grid_torch import GridManager
-from encoding.innervation_torch import create_sa_innervation
+from sensoryforge.core.grid import GridManager
+from sensoryforge.core.innervation import create_sa_innervation
 
 
 def test_square_neuron_grid():

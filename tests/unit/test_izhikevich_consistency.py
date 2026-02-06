@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 
 
 def _numpy_reference(a, b, c, d, v_init, dt, current, steps):

@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 try:
-    from neurons.izhikevich import IzhikevichNeuronTorch
+    from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 except ImportError:  # pragma: no cover - fallback for script execution
     NEURON_PATH = os.path.join(os.path.dirname(__file__), "..", "neurons")
     if NEURON_PATH not in sys.path:
@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - fallback for script execution
     from izhikevich import IzhikevichNeuronTorch  # type: ignore
 
 if TYPE_CHECKING:
-    from encoding.pipeline_torch import TactileEncodingPipelineTorch
+    from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
 
 
 class TactileNeuronAdapter(nn.Module):

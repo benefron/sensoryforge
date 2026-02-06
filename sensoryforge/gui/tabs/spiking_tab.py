@@ -21,23 +21,23 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from GUIs.tabs.stimulus_tab import (  # noqa: E402
+from sensoryforge.gui.tabs.stimulus_tab import (  # noqa: E402
     STIMULUS_SCHEMA_VERSION,
     StimulusConfig,
 )
-from encoding.stimulus_torch import (  # noqa: E402
+from sensoryforge.stimuli.stimulus import (  # noqa: E402
     StimulusGenerator,
     edge_stimulus_torch,
     gaussian_pressure_torch,
     point_pressure_torch,
 )
-from encoding.filters_torch import SAFilterTorch, RAFilterTorch  # noqa: E402
-from neurons.izhikevich import IzhikevichNeuronTorch  # noqa: E402
-from neurons.adex import AdExNeuronTorch  # noqa: E402
-from neurons.mqif import MQIFNeuronTorch  # noqa: E402
-from neurons.fa import FANeuronTorch  # noqa: E402
-from neurons.sa import SANeuronTorch  # noqa: E402
-from GUIs.filter_utils import normalize_filter_method  # noqa: E402
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch  # noqa: E402
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch  # noqa: E402
+from sensoryforge.neurons.adex import AdExNeuronTorch  # noqa: E402
+from sensoryforge.neurons.mqif import MQIFNeuronTorch  # noqa: E402
+from sensoryforge.neurons.fa import FANeuronTorch  # noqa: E402
+from sensoryforge.neurons.sa import SANeuronTorch  # noqa: E402
+from sensoryforge.gui.filter_utils import normalize_filter_method  # noqa: E402
 
 
 MODULE_SCHEMA_VERSION = "1.0.0"

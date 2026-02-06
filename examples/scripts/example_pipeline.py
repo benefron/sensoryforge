@@ -1,11 +1,11 @@
 import torch
 import matplotlib.pyplot as plt
-from encoding.pipeline_torch import TactileEncodingPipelineTorch
+from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
 
 
 def main():
     # Load canonical configuration shared by GUI/tests
-    config_path = "config/pipeline_config.yml"
+    config_path = "sensoryforge/config/default_config.yml"
     pipeline = TactileEncodingPipelineTorch(config_path=config_path)
 
     # Generate trapezoid stimulus steps

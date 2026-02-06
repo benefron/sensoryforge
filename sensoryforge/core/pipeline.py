@@ -30,8 +30,8 @@ from .grid_torch import GridManager
 from .stimulus_torch import StimulusGenerator
 from .innervation_torch import create_sa_innervation, create_ra_innervation
 from .filters_torch import CombinedSARAFilter
-from neurons.izhikevich import IzhikevichNeuronTorch
-from encoding.noise_torch import MembraneNoiseTorch, ReceptorNoiseTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.filters.noise import MembraneNoiseTorch, ReceptorNoiseTorch
 
 
 def _deep_update(
@@ -83,7 +83,7 @@ class TactileEncodingPipelineTorch(nn.Module):
 
     def __init__(
         self,
-        config_path: str = "config/pipeline_config.yml",
+        config_path: str = "sensoryforge/config/default_config.yml",
         *,
         config: Optional[Dict[str, Any]] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -388,7 +388,7 @@ def create_standard_pipeline(
     grid_size: Optional[int] = None,
     device: Optional[str] = None,
     seed: Optional[int] = None,
-    config_path: str = "config/pipeline_config.yml",
+    config_path: str = "sensoryforge/config/default_config.yml",
     overrides: Optional[Dict[str, Any]] = None,
 ):
     """Factory for the default pipeline configuration used in experiments."""
@@ -418,7 +418,7 @@ def create_small_pipeline(
     grid_size: int = 40,
     device: Optional[str] = None,
     seed: Optional[int] = None,
-    config_path: str = "config/pipeline_config.yml",
+    config_path: str = "sensoryforge/config/default_config.yml",
     overrides: Optional[Dict[str, Any]] = None,
 ):
     """Factory for a reduced pipeline footprint convenient in tests/visuals."""

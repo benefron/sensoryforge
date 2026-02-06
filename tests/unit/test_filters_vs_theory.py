@@ -1,6 +1,6 @@
 import torch
 
-from encoding.filters_torch import RAFilterTorch, SAFilterTorch
+from sensoryforge.filters.sa_ra import RAFilterTorch, SAFilterTorch
 
 
 def test_sa_filter_step_response_matches_analytic_shape():

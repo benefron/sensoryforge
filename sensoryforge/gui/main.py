@@ -12,17 +12,16 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from GUIs.protocol_execution_controller import (  # noqa: E402
+from sensoryforge.gui.protocol_execution_controller import (  # noqa: E402
     ProtocolExecutionController,
 )
-from GUIs.tabs import (  # noqa: E402
+from sensoryforge.gui.tabs import (  # noqa: E402
     MechanoreceptorTab,
     StimulusDesignerTab,
     SpikingNeuronTab,
     ProtocolSuiteTab,
-    AnalyticalInversionTab,
 )
-from utils.project_registry import ProjectRegistry  # noqa: E402
+from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 
 
 class TactileSimulationWindow(QtWidgets.QMainWindow):
@@ -30,7 +29,7 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Bio-inspired Tactile Simulation")
+        self.setWindowTitle("SensoryForge – Sensory Encoding")
         self.setMinimumSize(1024, 680)
         self.resize(1200, 780)
 
@@ -63,11 +62,8 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
         )
         tabs.addTab(self.protocol_tab, "Protocol Suite")
 
-        self.analytical_inversion_tab = AnalyticalInversionTab(
-            self.mechanoreceptor_tab,
-            self.stimulus_tab,
-        )
-        tabs.addTab(self.analytical_inversion_tab, "Analytical Inversion")
+        # NOTE: AnalyticalInversion tab excluded from v0.1.0 (requires decoding).
+        # Will be added in v0.2.0+ after Papers 2-3 publication.
 
         self.execution_controller = ProtocolExecutionController(
             self.mechanoreceptor_tab,
@@ -83,9 +79,6 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
         self.execution_controller.batch_finished.connect(
             lambda: self.protocol_tab.set_running(False)
         )
-
-        existing_runs = self.execution_controller.bootstrap_analysis_runs()
-        # self.sta_analysis_tab.load_runs(existing_runs)
 
 
 def main() -> None:

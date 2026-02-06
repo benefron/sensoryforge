@@ -22,8 +22,8 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from encoding.grid_torch import GridManager  # noqa: E402
-from encoding.innervation_torch import InnervationModule  # noqa: E402
+from sensoryforge.core.grid import GridManager  # noqa: E402
+from sensoryforge.core.innervation import InnervationModule  # noqa: E402
 
 
 CONFIG_SCHEMA_VERSION = "1.0.0"

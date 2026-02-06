@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from PyQt5 import QtCore, QtWidgets
 
-from GUIs.protocol_backend import ProtocolSpec
-from utils.project_registry import ProjectRegistry, ProtocolRunRecord
+from sensoryforge.gui.protocol_backend import ProtocolSpec
+from sensoryforge.utils.project_registry import ProjectRegistry, ProtocolRunRecord
 
 
 @dataclass
