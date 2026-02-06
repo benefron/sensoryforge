@@ -16,28 +16,28 @@ PyTorch modules:
 """
 
 # PyTorch-based modules
-from .grid_torch import GridManager, create_grid_torch
-from .stimulus_torch import (
+from .grid import GridManager, create_grid_torch
+from sensoryforge.stimuli.stimulus import (
     StimulusGenerator,
     gaussian_pressure_torch,
     point_pressure_torch,
 )
-from .mechanoreceptors_torch import (
+from .mechanoreceptors import (
     MechanoreceptorModule,
     compute_mechanoreceptor_responses_torch,
 )
-from .innervation_torch import (
+from .innervation import (
     InnervationModule,
     create_sa_innervation,
     create_ra_innervation,
 )
-from .filters_torch import SAFilterTorch, RAFilterTorch, CombinedSARAFilter
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch, CombinedSARAFilter
 from .tactile_network import (
     TactileNeuronAdapter,
     TactileSpikingNetwork,
     create_complete_tactile_network,
 )
-from .pipeline_torch import (
+from .pipeline import (
     TactileEncodingPipelineTorch,
     create_standard_pipeline,
     create_small_pipeline,

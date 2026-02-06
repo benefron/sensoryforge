@@ -187,7 +187,7 @@ def create_complete_tactile_network(
 ) -> TactileSpikingNetwork:
     """Instantiate the full tactile network with default parameters."""
     # Import pipeline creation function
-    from .pipeline_torch import create_standard_pipeline
+    from .pipeline import create_standard_pipeline
 
     # Create pipeline
     pipeline = create_standard_pipeline(grid_size=grid_size, device=device, seed=seed)
@@ -205,7 +205,7 @@ def create_small_tactile_network(
     neuron_config: Optional[Dict[str, Any]] = None,
 ) -> TactileSpikingNetwork:
     """Create a lighter-weight tactile network for tests and demos."""
-    from .pipeline_torch import create_small_pipeline
+    from .pipeline import create_small_pipeline
 
     pipeline = create_small_pipeline(grid_size=grid_size, device=device, seed=seed)
 

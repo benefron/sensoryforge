@@ -8,12 +8,12 @@ and parameters.
 import torch
 import torch.nn as nn
 import yaml
-from .grid_torch import GridManager
-from .stimulus_torch import gaussian_pressure_torch, StimulusGenerator
-from .innervation_torch import create_sa_innervation, create_ra_innervation
-from .filters_torch import SAFilterTorch, RAFilterTorch
+from .grid import GridManager
+from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
+from .innervation import create_sa_innervation, create_ra_innervation
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
-from .noise_torch import MembraneNoiseTorch
+from sensoryforge.filters.noise import MembraneNoiseTorch
 
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
