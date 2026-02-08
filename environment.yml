@@ -1,0 +1,28 @@
+name: sensoryforge
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - scikit-learn
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - pyqt>=5.15
+  - pyqtgraph
+  - pytest
+  - pytest-cov
+  - black
+  - flake8
+  - mypy
+  - mkdocs
+  - mkdocs-material
+  - jupyter
+  - jupyterlab
+  - ipython
+  - pyyaml
+  - tqdm
+  - matplotlib
