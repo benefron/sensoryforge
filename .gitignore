@@ -1,3 +1,7 @@
+# Copilot / agent instructions (personal development files)
+.github/copilot-instructions.md
+.github/agents/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

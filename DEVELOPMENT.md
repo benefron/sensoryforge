@@ -108,12 +108,19 @@ setup(
         "scipy>=1.7.0",
         "scikit-learn>=1.0.0",
         "PyQt5>=5.15.0",
-        "brian2>=2.4.2",
+        "pyqtgraph>=0.13.0",
         "PyYAML>=6.0",
         "tqdm>=4.60",
         "matplotlib>=3.5",
     ],
     extras_require={
+        "solvers": [
+            "torchdiffeq>=0.2.3",
+            "torchode>=0.2.0",
+        ],
+        "dsl": [
+            "sympy>=1.11",
+        ],
         "dev": [
             "pytest>=7.0",
             "pytest-cov>=3.0",
@@ -156,12 +163,22 @@ If you have a different CUDA version or want CPU-only PyTorch, modify the enviro
 - pytorch::pytorch-cuda=12.1
 ```
 
-### Brian2 C++ Compilation
+### Adaptive ODE Solvers
 
-Brian2 requires a C++ compiler. On macOS, ensure Xcode Command Line Tools are installed:
+For adaptive ODE solvers (recommended for stiff neuron models like AdEx):
 
 ```bash
-xcode-select --install
+pip install torchdiffeq torchode
+```
+
+These are optional — forward Euler is the default solver and works fine for most models.
+
+### Equation DSL
+
+For the equation-based neuron model DSL:
+
+```bash
+pip install sympy
 ```
 
 ## IDE Setup
