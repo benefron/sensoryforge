@@ -324,44 +324,29 @@ class CompositeGrid:
         Returns:
             Tensor of approximately density * area points with minimum separation.
         """
-        # Calculate minimum separation based on density
-        # For Poisson disk: r ≈ 1 / sqrt(2 * density)
-        min_distance = 1.0 / (2.0 * density) ** 0.5
-        
-        # Use Bridson's algorithm approximation via rejection sampling
-        # Start with random uniform distribution
-        area = self._compute_area()
-        target_count = int(density * area)
-        # Oversample then thin to achieve desired spacing
-        n_candidates = int(density * area * 2)
-        
-        x = torch.rand(n_candidates, device=self.device)
-        x = self.xlim[0] + x * (self.xlim[1] - self.xlim[0])
-        
-        y = torch.rand(n_candidates, device=self.device)
-        y = self.ylim[0] + y * (self.ylim[1] - self.ylim[0])
-        
-        candidates = torch.stack([x, y], dim=1)
-        
-        # Greedy selection with minimum distance constraint
-        # Preallocate tensor to avoid repeated stacking overhead
-        selected_indices = []
-        selected_indices.append(0)
-        
-        for i in range(1, n_candidates):
-            # Compute distances to already selected points
-            # Use vectorized operations to avoid Python loops where possible
-            if len(selected_indices) > 0:
-                selected_points = candidates[selected_indices]
-                distances = torch.norm(
-                    selected_points - candidates[i].unsqueeze(0), dim=1
-                )
-                if distances.min() >= min_distance:
-                    selected_indices.append(i)
-                    if len(selected_indices) >= target_count:
-                        break
-        
-        return candidates[selected_indices]
+        # Approximate Poisson disk sampling via jittered grid at target density.
+        # This avoids O(n^2) rejection loops and scales to large grids.
+        width = self.xlim[1] - self.xlim[0]
+        height = self.ylim[1] - self.ylim[0]
+        spacing = 1.0 / max(density, 1e-8) ** 0.5
+
+        n_x = max(1, int(width / spacing) + 1)
+        n_y = max(1, int(height / spacing) + 1)
+
+        x = torch.linspace(self.xlim[0], self.xlim[1], n_x, device=self.device)
+        y = torch.linspace(self.ylim[0], self.ylim[1], n_y, device=self.device)
+
+        xx, yy = torch.meshgrid(x, y, indexing="ij")
+        coordinates = torch.stack([xx.flatten(), yy.flatten()], dim=1)
+
+        jitter_scale = 0.5 * spacing
+        jitter = (torch.rand_like(coordinates) - 0.5) * jitter_scale
+        coordinates = coordinates + jitter
+
+        coordinates[:, 0] = torch.clamp(coordinates[:, 0], self.xlim[0], self.xlim[1])
+        coordinates[:, 1] = torch.clamp(coordinates[:, 1], self.ylim[0], self.ylim[1])
+
+        return coordinates
     
     def _generate_hex(self, density: float) -> torch.Tensor:
         """Generate hexagonal lattice arrangement.
@@ -385,36 +370,29 @@ class CompositeGrid:
         # Determine grid dimensions
         width = self.xlim[1] - self.xlim[0]
         height = self.ylim[1] - self.ylim[0]
-        
-        n_x = int(width / spacing) + 1
-        # Row spacing is spacing * sqrt(3) / 2 for hexagonal packing
-        n_y = int(height / (spacing * 3.0 ** 0.5 / 2.0)) + 1
-        
-        # Preallocate list with estimated size to reduce reallocation overhead
-        estimated_size = n_x * n_y
-        x_coords = []
-        y_coords = []
-        
-        for j in range(n_y):
-            # Offset every other row by half spacing for hexagonal packing
-            x_offset = (spacing / 2.0) if j % 2 == 1 else 0.0
-            y_pos = self.ylim[0] + j * spacing * 3.0 ** 0.5 / 2.0
-            
-            for i in range(n_x):
-                x_pos = self.xlim[0] + i * spacing + x_offset
-                
-                # Only include points within bounds
-                if (self.xlim[0] <= x_pos <= self.xlim[1] and
-                    self.ylim[0] <= y_pos <= self.ylim[1]):
-                    x_coords.append(x_pos)
-                    y_coords.append(y_pos)
-        
-        # Convert to tensor efficiently using stack
-        return torch.tensor(
-            [[x, y] for x, y in zip(x_coords, y_coords)],
-            dtype=torch.float32,
-            device=self.device
+
+        n_x = max(1, int(width / spacing) + 1)
+        row_spacing = spacing * 3.0 ** 0.5 / 2.0
+        n_y = max(1, int(height / row_spacing) + 1)
+
+        x = torch.linspace(self.xlim[0], self.xlim[1], n_x, device=self.device)
+        y = torch.linspace(self.ylim[0], self.ylim[1], n_y, device=self.device)
+
+        xx, yy = torch.meshgrid(x, y, indexing="ij")
+
+        row_offsets = (torch.arange(n_y, device=self.device) % 2) * (spacing / 2.0)
+        xx = xx + row_offsets.unsqueeze(0)
+
+        coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
+
+        mask = (
+            (coords[:, 0] >= self.xlim[0])
+            & (coords[:, 0] <= self.xlim[1])
+            & (coords[:, 1] >= self.ylim[0])
+            & (coords[:, 1] <= self.ylim[1])
         )
+
+        return coords[mask]
     
     def _generate_jittered_grid(self, expected_count: int) -> torch.Tensor:
         """Generate regular grid with random spatial jitter.

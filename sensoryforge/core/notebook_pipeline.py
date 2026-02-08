@@ -4,13 +4,13 @@ This version exactly matches the notebook pytorch_tactile_analysis.ipynb
 """
 import torch
 import torch.nn as nn
-import yaml
 from .grid import GridManager
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch
 from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.filters.noise import MembraneNoiseTorch
+from sensoryforge.config.yaml_utils import load_yaml
 
 
 class NotebookTactileEncodingPipeline(nn.Module):
@@ -23,8 +23,8 @@ class NotebookTactileEncodingPipeline(nn.Module):
         Args:
             config_path: path to YAML configuration file
         """
-        with open(config_path, "r") as file:
-            self.config = yaml.safe_load(file)
+        with open(config_path, "r", encoding="utf-8") as file:
+            self.config = load_yaml(file)
 
         super().__init__()
         self.device = self.config["pipeline"]["device"]

@@ -51,6 +51,31 @@ _SYMPY_ERROR_MSG = (
     "Or install SymPy directly: pip install sympy>=1.11"
 )
 
+_TORCH_LAMBDIFY_MODULES = {
+    "sin": torch.sin,
+    "cos": torch.cos,
+    "tan": torch.tan,
+    "asin": torch.asin,
+    "acos": torch.acos,
+    "atan": torch.atan,
+    "atan2": torch.atan2,
+    "sinh": torch.sinh,
+    "cosh": torch.cosh,
+    "tanh": torch.tanh,
+    "exp": torch.exp,
+    "log": torch.log,
+    "sqrt": torch.sqrt,
+    "Abs": torch.abs,
+    "sign": torch.sign,
+    "Max": torch.maximum,
+    "Min": torch.minimum,
+    "floor": torch.floor,
+    "ceiling": torch.ceil,
+    "pow": torch.pow,
+    "pi": math.pi,
+    "E": math.e,
+}
+
 
 class NeuronModel:
     """Parse neuron model equations and compile to PyTorch nn.Module.
@@ -438,59 +463,39 @@ class _CompiledNeuronModule(nn.Module):
         Converts sympy expressions to Python functions that can efficiently
         evaluate using PyTorch tensors.
         """
-        import numpy as np  # Import once at function level
-        
         # Get all state variables and parameters
         state_syms = [Symbol(name, real=True) for name in self.model.state_var_list]
         param_syms = [Symbol(name, real=True) for name in self.model.parameters.keys()]
         # Input current symbol (already correctly parsed as 'I', not imaginary unit)
         I_sym = Symbol('I', real=True)
-        
+
         # Create ordered list of all symbols for lambdify
         all_syms = state_syms + param_syms + [I_sym]
-        
-        # Lambdify derivatives for each state variable
-        # Use numpy for better numerical stability, then convert to torch
+
+        # Lambdify derivatives for each state variable using torch ops
         self.derivative_funcs = {}
         for var_name, expr in self.model.derivatives.items():
-            # Lambdify with numpy
-            func_numpy = sympy.lambdify(all_syms, expr, modules='numpy')
-            # Wrap to handle torch tensors
-            def make_torch_func(np_func):
-                def torch_func(*args):
-                    # Convert torch tensors to numpy, evaluate, convert back
-                    np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
-                    result = np_func(*np_args)
-                    # Handle scalar vs array results
-                    if np.isscalar(result):
-                        return result
-                    return torch.from_numpy(np.array(result, dtype=np.float32))
-                return torch_func
-            self.derivative_funcs[var_name] = make_torch_func(func_numpy)
-        
+            self.derivative_funcs[var_name] = sympy.lambdify(
+                all_syms,
+                expr,
+                modules=[_TORCH_LAMBDIFY_MODULES],
+            )
+
         # Lambdify threshold expression
-        threshold_numpy = sympy.lambdify(all_syms, self.model.threshold_expr, modules='numpy')
-        def threshold_torch(*args):
-            np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
-            result = threshold_numpy(*np_args)
-            if np.isscalar(result):
-                return result
-            return torch.from_numpy(np.array(result, dtype=np.float32))
-        self.threshold_func = threshold_torch
-        
+        self.threshold_func = sympy.lambdify(
+            all_syms,
+            self.model.threshold_expr,
+            modules=[_TORCH_LAMBDIFY_MODULES],
+        )
+
         # Lambdify reset rules
         self.reset_funcs = {}
         for var_name, expr in self.model.reset_rules.items():
-            reset_numpy = sympy.lambdify(all_syms, expr, modules='numpy')
-            def make_reset_torch(np_func):
-                def reset_torch(*args):
-                    np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
-                    result = np_func(*np_args)
-                    if np.isscalar(result):
-                        return result
-                    return torch.from_numpy(np.array(result, dtype=np.float32))
-                return reset_torch
-            self.reset_funcs[var_name] = make_reset_torch(reset_numpy)
+            self.reset_funcs[var_name] = sympy.lambdify(
+                all_syms,
+                expr,
+                modules=[_TORCH_LAMBDIFY_MODULES],
+            )
     
     def forward(
         self,

@@ -22,12 +22,12 @@ from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
-import yaml
 
 from torch import Tensor
 
 from .grid import GridManager
 from sensoryforge.stimuli.stimulus import StimulusGenerator
+from sensoryforge.config.yaml_utils import load_yaml
 from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import CombinedSARAFilter
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
@@ -101,7 +101,7 @@ class TactileEncodingPipelineTorch(nn.Module):
         """
         if config is None:
             with open(config_path, "r", encoding="utf-8") as file:
-                config = yaml.safe_load(file)
+                config = load_yaml(file)
         else:
             config = copy.deepcopy(config)
 

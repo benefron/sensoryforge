@@ -18,12 +18,6 @@ try:
 except ImportError:
     HAS_TORCHDIFFEQ = False
 
-try:
-    import torchode
-    HAS_TORCHODE = False  # Setting to False initially as torchode API may differ
-except ImportError:
-    HAS_TORCHODE = False
-
 
 class AdaptiveSolver(BaseSolver):
     """Adaptive ODE solver using torchdiffeq or torchode.
@@ -87,17 +81,14 @@ class AdaptiveSolver(BaseSolver):
         super().__init__(dt=dt)
         
         # Check if required dependencies are available
-        if not HAS_TORCHDIFFEQ and not HAS_TORCHODE:
+        if not HAS_TORCHDIFFEQ:
             raise ImportError(
                 "AdaptiveSolver requires optional dependencies that are not installed.\n"
                 "\n"
-                "To use adaptive solvers, install one of the following:\n"
+                "To use adaptive solvers, install torchdiffeq:\n"
                 "\n"
                 "Option 1 - Install torchdiffeq (recommended):\n"
                 "    pip install torchdiffeq>=0.2.3\n"
-                "\n"
-                "Option 2 - Install torchode:\n"
-                "    pip install torchode>=0.2.0\n"
                 "\n"
                 "Or install with the 'solvers' extra:\n"
                 "    pip install sensoryforge[solvers]\n"

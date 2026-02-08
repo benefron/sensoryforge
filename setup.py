@@ -24,7 +24,6 @@ setup(
     extras_require={
         "solvers": [
             "torchdiffeq>=0.2.3",
-            "torchode>=0.2.0",
         ],
         "dsl": [
             "sympy>=1.11",

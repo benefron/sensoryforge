@@ -7,8 +7,8 @@ and parameters.
 """
 import torch
 import torch.nn as nn
-import yaml
 from .grid import GridManager
+from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
 from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
@@ -182,8 +182,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Load from file if provided
         if config_path:
             try:
-                with open(config_path, "r") as file:
-                    file_config = yaml.safe_load(file)
+                with open(config_path, "r", encoding="utf-8") as file:
+                    file_config = load_yaml(file)
                 if file_config:
                     config = self._deep_merge_dict(config, file_config)
             except FileNotFoundError:

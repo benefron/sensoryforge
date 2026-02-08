@@ -207,8 +207,8 @@ class TestAdaptiveSolver:
             # Check that the error message contains installation instructions
             assert "pip install" in error_msg, \
                 "Error should contain pip install instructions"
-            assert "torchdiffeq" in error_msg or "torchode" in error_msg, \
-                "Error should mention required packages"
+            assert "torchdiffeq" in error_msg, \
+                "Error should mention required package"
             assert "sensoryforge[solvers]" in error_msg, \
                 "Error should mention extras install option"
     

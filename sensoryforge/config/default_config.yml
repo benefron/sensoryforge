@@ -194,16 +194,6 @@ outputs:
   root_dir: analysis_results
   overwrite: false
 
-bayesian_estimator:
-  dynamics:
-    model: "random_walk" # or "ar1", "constant_velocity"
-    rho: 0.95
-  noise:
-    process_cov_scale: 1e-4
-    measurement_cov_scale: 0.1
-  initialization:
-    P0_scale: 1.0
-
 # -----------------------------------------------------------------------------
 # Bayesian Estimator Configuration
 # -----------------------------------------------------------------------------
