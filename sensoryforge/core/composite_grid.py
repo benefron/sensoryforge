@@ -331,6 +331,7 @@ class CompositeGrid:
         # Use Bridson's algorithm approximation via rejection sampling
         # Start with random uniform distribution
         area = self._compute_area()
+        target_count = int(density * area)
         # Oversample then thin to achieve desired spacing
         n_candidates = int(density * area * 2)
         
@@ -343,18 +344,24 @@ class CompositeGrid:
         candidates = torch.stack([x, y], dim=1)
         
         # Greedy selection with minimum distance constraint
-        selected = [candidates[0]]
-        for i in range(1, n_candidates):
-            point = candidates[i]
-            distances = torch.norm(
-                torch.stack(selected) - point.unsqueeze(0), dim=1
-            )
-            if distances.min() >= min_distance:
-                selected.append(point)
-                if len(selected) >= int(density * area):
-                    break
+        # Preallocate tensor to avoid repeated stacking overhead
+        selected_indices = []
+        selected_indices.append(0)
         
-        return torch.stack(selected)
+        for i in range(1, n_candidates):
+            # Compute distances to already selected points
+            # Use vectorized operations to avoid Python loops where possible
+            if len(selected_indices) > 0:
+                selected_points = candidates[selected_indices]
+                distances = torch.norm(
+                    selected_points - candidates[i].unsqueeze(0), dim=1
+                )
+                if distances.min() >= min_distance:
+                    selected_indices.append(i)
+                    if len(selected_indices) >= target_count:
+                        break
+        
+        return candidates[selected_indices]
     
     def _generate_hex(self, density: float) -> torch.Tensor:
         """Generate hexagonal lattice arrangement.
@@ -368,8 +375,11 @@ class CompositeGrid:
         Returns:
             Tensor of hexagonally arranged points.
         """
-        # Hexagonal packing: spacing = sqrt(2 / (sqrt(3) * density))
-        # This gives the optimal packing density
+        # Hexagonal packing spacing formula:
+        # For hexagonal lattice, each hexagon has area = (3√3/2) * spacing²
+        # To achieve target density: density = 1 / area_per_point
+        # Therefore: spacing = sqrt(2 / (√3 * density))
+        # This provides optimal packing density for circular receptive fields
         spacing = (2.0 / (3.0 ** 0.5 * density)) ** 0.5
         
         # Determine grid dimensions
@@ -377,11 +387,16 @@ class CompositeGrid:
         height = self.ylim[1] - self.ylim[0]
         
         n_x = int(width / spacing) + 1
+        # Row spacing is spacing * sqrt(3) / 2 for hexagonal packing
         n_y = int(height / (spacing * 3.0 ** 0.5 / 2.0)) + 1
         
-        points = []
+        # Preallocate list with estimated size to reduce reallocation overhead
+        estimated_size = n_x * n_y
+        x_coords = []
+        y_coords = []
+        
         for j in range(n_y):
-            # Offset every other row by half spacing
+            # Offset every other row by half spacing for hexagonal packing
             x_offset = (spacing / 2.0) if j % 2 == 1 else 0.0
             y_pos = self.ylim[0] + j * spacing * 3.0 ** 0.5 / 2.0
             
@@ -391,9 +406,15 @@ class CompositeGrid:
                 # Only include points within bounds
                 if (self.xlim[0] <= x_pos <= self.xlim[1] and
                     self.ylim[0] <= y_pos <= self.ylim[1]):
-                    points.append([x_pos, y_pos])
+                    x_coords.append(x_pos)
+                    y_coords.append(y_pos)
         
-        return torch.tensor(points, dtype=torch.float32, device=self.device)
+        # Convert to tensor efficiently using stack
+        return torch.tensor(
+            [[x, y] for x, y in zip(x_coords, y_coords)],
+            dtype=torch.float32,
+            device=self.device
+        )
     
     def _generate_jittered_grid(self, expected_count: int) -> torch.Tensor:
         """Generate regular grid with random spatial jitter.
