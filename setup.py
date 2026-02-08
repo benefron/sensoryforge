@@ -41,4 +41,9 @@ setup(
             "mkdocs-include-markdown-plugin>=3.0.0",
         ],
     },
+    entry_points={
+        "console_scripts": [
+            "sensoryforge=sensoryforge.cli:main",
+        ],
+    },
 )
