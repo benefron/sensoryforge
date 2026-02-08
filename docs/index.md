@@ -8,7 +8,7 @@ SensoryForge is a modular, extensible framework for simulating sensory encoding 
 
 - [Installation](getting_started/installation.md) *(coming soon)*
 - [Quick Start](getting_started/quickstart.md) *(coming soon)*
-- [User Guide](user_guide/overview.md) *(coming soon)*
+- [User Guide](user_guide/overview.md)
 - [API Reference](api_reference/) *(coming soon)*
 
 ## Overview
@@ -38,13 +38,9 @@ results = pipeline.encode(stimulus)
 
 ## Documentation Structure
 
-**Phase 4 will add:**
-- Getting started guides
-- User guide with scientific concepts
-- Tutorials for extending the framework
-- Complete API reference
-- Developer documentation
+## Phase 2 User Guides
 
----
-
-*This is a placeholder. Complete documentation will be generated in Phase 4 of the development plan.*
+- [Composite Grid](user_guide/composite_grid.md)
+- [Equation DSL](user_guide/equation_dsl.md)
+- [Solvers](user_guide/solvers.md)
+- [Extended Stimuli](user_guide/extended_stimuli.md)
