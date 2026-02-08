@@ -1,0 +1,46 @@
+# Small Test Configuration
+# Minimal configuration for fast unit tests
+
+grid:
+  type: grid
+  size: [20, 20]
+  spacing_mm: 0.15
+  center: [0.0, 0.0]
+
+innervation:
+  sa:
+    num_neurons: 10
+    sigma_mm: 0.5
+  ra:
+    num_neurons: 10
+    sigma_mm: 0.3
+
+filter:
+  sa:
+    tau_r: 5.0
+    tau_d: 30.0
+    k1: 0.05
+    k2: 3.0
+    dt: 0.1
+  ra:
+    tau_a: 3.0
+    tau_d: 12.0
+    k1: 0.20
+    k2: 0.40
+    dt: 0.1
+
+neuron:
+  type: izhikevich
+  a: 0.02
+  b: 0.2
+  c: -65.0
+  d: 8.0
+  dt_ms: 0.1
+
+stimulus:
+  type: gaussian
+  center: [0.0, 0.0]
+  amplitude: 1.0
+  sigma_mm: 0.2
+
+device: cpu

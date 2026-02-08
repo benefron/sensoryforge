@@ -1,0 +1,51 @@
+# Test Configuration Fixtures
+# Shared configuration files for testing SensoryForge components
+
+grid:
+  type: grid
+  size: [40, 40]
+  spacing_mm: 0.15
+  center: [0.0, 0.0]
+
+innervation:
+  sa:
+    num_neurons: 50
+    sigma_mm: 0.5
+    neurons_per_row: null  # Auto-calculate from num_neurons
+  ra:
+    num_neurons: 50
+    sigma_mm: 0.3
+    neurons_per_row: null
+
+filter:
+  sa:
+    tau_r: 5.0
+    tau_d: 30.0
+    k1: 0.05
+    k2: 3.0
+    dt: 0.1
+  ra:
+    tau_a: 3.0
+    tau_d: 12.0
+    k1: 0.20
+    k2: 0.40
+    dt: 0.1
+
+neuron:
+  type: izhikevich
+  a: 0.02
+  b: 0.2
+  c: -65.0
+  d: 8.0
+  dt_ms: 0.1
+  v_rest_mV: -70.0
+  v_threshold_mV: 30.0
+
+stimulus:
+  type: gaussian
+  center: [0.0, 0.0]
+  amplitude: 1.0
+  sigma_mm: 0.2
+  duration_ms: 100.0
+
+device: cpu

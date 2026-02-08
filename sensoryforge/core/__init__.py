@@ -1,18 +1,20 @@
-"""
-Encoding module for bio-inspired tactile encoding pipeline.
+"""Core module for bio-inspired sensory encoding.
 
-This module provides a complete PyTorch-based implementation of the
-Parvizi-Fard tactile encoding architecture with dense tensor operations,
-batch processing, GPU support, and enhanced filter processing.
+This module provides a complete PyTorch-based implementation of sensory encoding
+architectures with dense tensor operations, batch processing, GPU support, and
+modular components.
 
-PyTorch modules:
-- grid_torch: Grid management and coordinate systems
-- stimulus_torch: Stimulus generation with batch processing
-- mechanoreceptors_torch: Gaussian convolution using conv2d
-- innervation_torch: Dense 3D tensor innervation maps
-- filters_torch: SA/RA differential equation filters with enhanced processing
-- tactile_network: Integration with existing Izhikevich neurons
-- pipeline_torch: Complete pipeline orchestration
+Modules:
+    grid: Grid management and coordinate systems
+    innervation: Receptive field generation and neural connectivity
+    mechanoreceptors: Gaussian convolution mechanoreceptor simulation
+    pipeline: Complete encoding pipeline orchestration
+    tactile_network: Spiking neural network integration
+    compression: Compression operators for dimensionality reduction
+    visualization: Visualization utilities
+
+The core module integrates with filters (SA/RA temporal dynamics) and neurons
+(spiking models) to provide end-to-end sensory encoding capabilities.
 """
 
 # PyTorch-based modules

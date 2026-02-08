@@ -1,20 +1,22 @@
-"""
-Neurons Module
+"""Spiking neuron models for sensory encoding.
 
-This module contains all spiking neuron model implementations for the
-bio-inspired sensory encoding system.
+This module contains PyTorch-based spiking neuron model implementations
+that convert filtered sensory signals into sparse spike trains.
 
 Available Models:
-- IzhikevichNeuron: Simple, efficient model with rich dynamics
-- AdExNeuron: Adaptive exponential integrate-and-fire model
-- MQIFNeuron: Modified quadratic integrate-and-fire model
+    IzhikevichNeuronTorch: Simple, efficient model with rich dynamics
+    AdExNeuronTorch: Adaptive exponential integrate-and-fire model
+    MQIFNeuronTorch: Modified quadratic integrate-and-fire model
+    FANeuronTorch: Fast adapting neuron model
+    SANeuronTorch: Slowly adapting neuron model
 
-Unified Interface:
-- SpikeEncoder: Model-agnostic encoding interface
-- MultiModelEncoder: Parallel multi-model comparison
+All models inherit from torch.nn.Module and support batched processing,
+GPU acceleration, and configurable parameters.
 
-Legacy Models (for reference):
-- adex_legacy, izhikevich_legacy, mqif_legacy
+Example:
+    >>> from sensoryforge.neurons import IzhikevichNeuronTorch
+    >>> neuron = IzhikevichNeuronTorch(num_neurons=100)
+    >>> spikes, state = neuron(input_current)
 """
 
 # Import PyTorch neuron models
@@ -24,19 +26,7 @@ from .mqif import MQIFNeuronTorch
 from .fa import FANeuronTorch
 from .sa import SANeuronTorch
 
-# Import unified encoder - temporarily disabled for testing
-# from .spike_encoder import (
-#     SpikeEncoder,
-#     MultiModelEncoder,
-#     create_tactile_encoder,
-#     create_comparison_encoder
-# )
-
-__version__ = "0.1.0"
-__author__ = "Bio-Inspired Sensory Encoding Project"
-
 __all__ = [
-    # PyTorch neuron models
     "IzhikevichNeuronTorch",
     "AdExNeuronTorch",
     "MQIFNeuronTorch",
