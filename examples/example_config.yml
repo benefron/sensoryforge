@@ -1,0 +1,122 @@
+# Example SensoryForge Configuration
+# This configuration demonstrates basic usage of the YAML-based pipeline
+
+metadata:
+  name: "Example Tactile Simulation"
+  version: "1.0"
+  description: "Basic configuration demonstrating YAML pipeline usage"
+
+# Core pipeline settings
+pipeline:
+  device: cpu           # 'cpu', 'cuda', or 'mps'
+  seed: 42             # Random seed for reproducibility
+  grid_size: 80        # Creates an 80x80 receptor grid
+  spacing: 0.15        # Receptor spacing in mm
+  center: [0.0, 0.0]  # Grid center coordinates
+
+# Neuron populations
+neurons:
+  sa_neurons: 100      # Slowly Adapting neurons
+  ra_neurons: 196      # Rapidly Adapting neurons
+  sa2_neurons: 25      # SA2 neurons
+  dt: 0.5             # Time step in ms
+
+# Stimulus definition
+stimuli:
+  - type: gaussian
+    config:
+      sigma: 0.5       # Standard deviation in mm
+      amplitude: 30.0  # Peak pressure amplitude
+      center_x: 0.0    # X-coordinate of center
+      center_y: 0.0    # Y-coordinate of center
+
+# Temporal filter parameters
+filters:
+  sa_tau_r: 5.0       # SA rise time constant (ms)
+  sa_tau_d: 30.0      # SA decay time constant (ms)
+  sa_k1: 0.05         # SA gain parameter 1
+  sa_k2: 3.0          # SA gain parameter 2
+  ra_tau_ra: 15.0     # RA time constant (ms)
+  ra_k3: 2.0          # RA gain parameter
+  sa2_scale: 0.005    # SA2 scaling factor
+
+# Neuron model parameters (Izhikevich)
+neuron_params:
+  # SA neurons
+  sa_a: 0.02
+  sa_b: 0.2
+  sa_c: -65.0
+  sa_d: 8.0
+  sa_v_init: -65.0
+  sa_threshold: 30.0
+  sa_a_std: 0.005        # Variability in 'a' parameter
+  sa_threshold_std: 3.0  # Variability in threshold
+  
+  # RA neurons
+  ra_a: 0.02
+  ra_b: 0.2
+  ra_c: -65.0
+  ra_d: 8.0
+  ra_v_init: -65.0
+  ra_threshold: 30.0
+  
+  # SA2 neurons
+  sa2_a: 0.02
+  sa2_b: 0.2
+  sa2_c: -65.0
+  sa2_d: 8.0
+
+# Temporal profile (trapezoidal stimulus)
+temporal:
+  t_pre: 25          # Pre-stimulus period (ms)
+  t_ramp: 10         # Ramp-up duration (ms)
+  t_plateau: 500     # Plateau duration (ms)
+  t_post: 100        # Post-stimulus period (ms)
+  dt: 0.5           # Time step (ms)
+
+# Noise settings
+noise:
+  sa_membrane_std: 3.0    # SA membrane noise std dev
+  sa_membrane_mean: 0.0   # SA membrane noise mean
+  ra_membrane_std: 3.0    # RA membrane noise std dev
+  ra_membrane_mean: 0.0   # RA membrane noise mean
+  sa2_membrane_std: 3.0   # SA2 membrane noise std dev
+
+# Solver configuration
+solver:
+  type: euler         # 'euler' (default) or 'adaptive'
+  config:
+    dt: 0.001        # Integration time step in seconds
+
+# GUI defaults (when loaded in GUI)
+gui:
+  auto_load_config: true
+  default_stimulus_type: gaussian
+  enable_visualization: true
+  visualization_type: heatmap
+
+# =============================================================================
+# Usage Examples:
+# =============================================================================
+#
+# 1. Validate this configuration:
+#    $ sensoryforge validate example_config.yml
+#
+# 2. Run a simulation:
+#    $ sensoryforge run example_config.yml --duration 1000
+#
+# 3. Run and save results:
+#    $ sensoryforge run example_config.yml --output results.pt
+#
+# 4. Override device:
+#    $ sensoryforge run example_config.yml --device cuda
+#
+# 5. Visualize pipeline structure:
+#    $ sensoryforge visualize example_config.yml
+#
+# 6. Use in Python:
+#    from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+#    pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+#    results = pipeline.forward(stimulus_type='gaussian')
+#
+# =============================================================================
