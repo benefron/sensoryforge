@@ -1,9 +1,3 @@
-# SensoryForge README Template
-
-**For the new SensoryForge repository**
-
----
-
 # SensoryForge
 
 [![Tests](https://github.com/benefron/sensoryforge/workflows/Tests/badge.svg)](https://github.com/benefron/sensoryforge/actions)
@@ -24,7 +18,7 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory e
 - 🚀 **GPU Accelerated:** Built on PyTorch for efficient tensor operations
 - 🔧 **Highly Extensible:** Plugin system for custom filters, neurons, and stimuli
 - 🌐 **Modality Agnostic:** Same framework for touch, vision, audition, and more
-- 🔬 **Brian2 Integration:** Optional bridge to Brian2's neuroscience ecosystem
+- 🔬 **Adaptive ODE Solvers:** Optional torchdiffeq/torchode integration for stiff systems
 - 📚 **Comprehensive Documentation:** Tutorials, examples, and API reference
 - 📦 **Production Ready:** pip-installable with proper testing and CI/CD
 
@@ -198,31 +192,29 @@ See the [Extension Guide](https://benefron.github.io/sensoryforge/extending/filt
 
 ---
 
-## 🔬 Brian2 Integration
+## 🔬 Adaptive ODE Solvers
 
-Optional integration with Brian2 for enhanced neuroscience capabilities:
+SensoryForge uses forward Euler by default, with optional adaptive solvers for stiff neuron models:
 
 ```python
-from sensoryforge.brian_bridge import BrianIzhikevich
-from brian2 import ms
+from sensoryforge.solvers.adaptive import AdaptiveODESolver
+from sensoryforge.neurons import IzhikevichNeuron
 
-# Create Brian2-based neurons
-neurons = BrianIzhikevich(
-    num_neurons=100,
-    params={'a': 0.02, 'b': 0.2, 'c': -65, 'd': 8}
-)
+# Use Dormand-Prince (RK45) for accuracy-critical simulations
+solver = AdaptiveODESolver(method='dopri5', rtol=1e-5, atol=1e-7)
+neuron = IzhikevichNeuron(config, solver=solver)
 
-# Set currents from PyTorch
-neurons.set_current(current_tensor)
-
-# Run simulation
-network.run(100 * ms)
-
-# Get spikes back as PyTorch tensor
-spikes = neurons.get_spikes()
+# Or use the default forward Euler (no extra dependencies)
+neuron = IzhikevichNeuron(config)  # solver='euler' by default
 ```
 
-See the [Brian2 Tutorial](https://benefron.github.io/sensoryforge/tutorials/brian2_integration/) for more details.
+Install adaptive solver backends:
+```bash
+pip install torchdiffeq  # Dormand-Prince, adjoint method
+pip install torchode     # GPU-parallel batched solving
+```
+
+See the [Solvers Guide](https://benefron.github.io/sensoryforge/user_guide/solvers/) for details.
 
 ---
 
@@ -320,7 +312,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 This project builds on foundational work in:
 - Computational neuroscience (SA/RA encoding, dual-pathway processing)
 - PyTorch ecosystem
-- Brian2 simulator
+- torchdiffeq and torchode (adaptive ODE solvers)
 - Open-source scientific software community
 
 ---

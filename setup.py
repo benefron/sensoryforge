@@ -22,6 +22,13 @@ setup(
         "matplotlib>=3.5",
     ],
     extras_require={
+        "solvers": [
+            "torchdiffeq>=0.2.3",
+            "torchode>=0.2.0",
+        ],
+        "dsl": [
+            "sympy>=1.11",
+        ],
         "dev": [
             "pytest>=7.0",
             "pytest-cov>=3.0",
@@ -33,9 +40,6 @@ setup(
             "mkdocs>=1.3.0",
             "mkdocs-material>=8.0.0",
             "mkdocs-include-markdown-plugin>=3.0.0",
-        ],
-        "brian": [
-            "brian2>=2.4.2",
         ],
     },
 )

@@ -2,6 +2,9 @@
 .github/copilot-instructions.md
 .github/agents/
 
+# Private development planning docs
+docs_root/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
