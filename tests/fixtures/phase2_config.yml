@@ -1,0 +1,133 @@
+# Phase 2 Integration Test Configuration
+# Example configuration demonstrating all Phase 2 features
+
+metadata:
+  name: "Phase 2 Integration Test"
+  version: "0.2"
+  description: "Test config for CompositeGrid, DSL neurons, extended stimuli, adaptive solvers"
+
+# Grid configuration (standard mode for now, composite coming soon)
+grid:
+  type: standard  # 'composite' support coming in future
+  # For composite grids:
+  # type: composite
+  # shape: [64, 64]
+  # populations:
+  #   sa1:
+  #     density: 100.0  # receptors per mm²
+  #     arrangement: grid
+  #     filter: SA
+  #   ra1:
+  #     density: 70.0
+  #     arrangement: hex
+  #     filter: RA
+
+# Pipeline settings
+pipeline:
+  device: cpu
+  seed: 42
+  grid_size: 40
+  spacing: 0.15
+  center: [0.0, 0.0]
+
+# Neuron populations
+neurons:
+  sa_neurons: 10
+  ra_neurons: 14
+  sa2_neurons: 5
+  dt: 0.5
+
+# Stimuli definitions (extended stimuli)
+stimuli:
+  - type: gaussian
+    config:
+      sigma: 0.5
+      amplitude: 30.0
+      center_x: 0.0
+      center_y: 0.0
+  # Future: texture stimuli
+  # - type: texture
+  #   subtype: gabor
+  #   config:
+  #     wavelength: 0.5
+  #     orientation: 0.0
+  #     sigma: 0.3
+  # Future: moving stimuli  
+  # - type: moving
+  #   motion_type: linear
+  #   config:
+  #     start: [0.0, 0.0]
+  #     end: [2.0, 0.0]
+  #     num_steps: 100
+
+# Filters (existing SA/RA filters)
+filters:
+  sa_tau_r: 5.0
+  sa_tau_d: 30.0
+  sa_k1: 0.05
+  sa_k2: 3.0
+  ra_tau_ra: 15.0
+  ra_k3: 2.0
+  sa2_scale: 0.005
+
+# Neuron model (hand-written Izhikevich)
+neuron_params:
+  sa_a: 0.02
+  sa_b: 0.2
+  sa_c: -65.0
+  sa_d: 8.0
+  sa_v_init: -65.0
+  sa_threshold: 30.0
+  ra_a: 0.02
+  ra_b: 0.2
+  ra_c: -65.0
+  ra_d: 8.0
+
+# Future: DSL neuron model
+# dsl_neurons:
+#   type: dsl
+#   equations: |
+#     dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
+#     du/dt = (a * (b*v - u)) / ms
+#   threshold: "v >= 30 * mV"
+#   reset: |
+#     v = c
+#     u = u + d
+#   parameters:
+#     a: 0.02
+#     b: 0.2
+#     c: -65.0
+#     d: 8.0
+
+# Solver configuration
+solver:
+  type: euler  # 'adaptive' requires torchdiffeq/torchode
+  config:
+    dt: 0.001
+  # For adaptive solvers:
+  # type: adaptive
+  # config:
+  #   method: dopri5
+  #   rtol: 1.0e-5
+  #   atol: 1.0e-7
+
+# Temporal profile
+temporal:
+  t_pre: 10
+  t_ramp: 10
+  t_plateau: 100
+  t_post: 20
+  dt: 0.5
+
+# Noise
+noise:
+  sa_membrane_std: 3.0
+  ra_membrane_std: 3.0
+  sa2_membrane_std: 3.0
+
+# GUI defaults
+gui:
+  auto_load_config: true
+  default_stimulus_type: gaussian
+  enable_visualization: true
+  visualization_type: heatmap

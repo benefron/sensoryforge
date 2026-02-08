@@ -208,3 +208,104 @@ bayesian_estimator:
     P0_scale: 1.0
   priors:
     spatial_sigma: 0.0
+
+# -----------------------------------------------------------------------------
+# Phase 2: Composite Grid Configuration (Multi-Population)
+# -----------------------------------------------------------------------------
+# Example composite grid with multiple receptor populations
+# composite_grid:
+#   type: composite  # 'standard' for single population
+#   shape: [64, 64]
+#   xlim: [-5.0, 5.0]
+#   ylim: [-5.0, 5.0]
+#   populations:
+#     sa1:
+#       density: 100.0      # receptors per mm²
+#       arrangement: grid   # grid, poisson, hex, jittered_grid
+#       filter: SA          # Optional filter association
+#     ra1:
+#       density: 70.0
+#       arrangement: hex
+#       filter: RA
+#     sa2:
+#       density: 30.0
+#       arrangement: poisson
+#       filter: SA
+
+# -----------------------------------------------------------------------------
+# Phase 2: DSL Neuron Model Configuration
+# -----------------------------------------------------------------------------
+# Example equation-based neuron model definition
+# dsl_neurons:
+#   type: dsl
+#   equations: |
+#     dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
+#     du/dt = (a * (b*v - u)) / ms
+#   threshold: "v >= 30 * mV"
+#   reset: |
+#     v = c
+#     u = u + d
+#   parameters:
+#     a: 0.02
+#     b: 0.2
+#     c: -65.0
+#     d: 8.0
+#   state_vars:
+#     v: -65.0
+#     u: -13.0
+
+# -----------------------------------------------------------------------------
+# Phase 2: Extended Stimuli Configuration
+# -----------------------------------------------------------------------------
+# Texture and moving stimuli examples
+# extended_stimuli:
+#   - type: texture
+#     subtype: gabor
+#     config:
+#       wavelength: 0.5
+#       orientation: 0.0   # radians
+#       sigma: 0.3
+#       amplitude: 1.0
+#   - type: texture
+#     subtype: edge_grating
+#     config:
+#       orientation: 0.0
+#       spacing: 0.6
+#       count: 5
+#       edge_width: 0.05
+#   - type: moving
+#     motion_type: linear
+#     config:
+#       start: [0.0, 0.0]
+#       end: [2.0, 0.0]
+#       num_steps: 100
+#       stimulus_type: gaussian  # Base stimulus to move
+#       stimulus_params:
+#         sigma: 0.3
+#         amplitude: 1.0
+
+# -----------------------------------------------------------------------------
+# Phase 2: Solver Configuration
+# -----------------------------------------------------------------------------
+# ODE solver settings for neuron dynamics
+solver_config:
+  type: euler  # 'euler' (default) or 'adaptive'
+  dt: 0.001    # Time step in seconds (for Euler)
+  # Adaptive solver options (requires torchdiffeq or torchode)
+  # adaptive:
+  #   method: dopri5        # RK45, dopri5, etc.
+  #   rtol: 1.0e-5         # Relative tolerance
+  #   atol: 1.0e-7         # Absolute tolerance
+  #   adjoint: false       # Use adjoint method for backprop
+
+# -----------------------------------------------------------------------------
+# Phase 2: GUI Defaults
+# -----------------------------------------------------------------------------
+gui_config:
+  auto_load_config: true
+  default_stimulus_type: gaussian
+  enable_visualization: true
+  visualization_type: heatmap  # 'heatmap' or 'raster'
+  default_grid_type: standard  # 'standard' or 'composite'
+  default_neuron_type: izhikevich  # 'izhikevich', 'adex', 'mqif', 'dsl'
+  default_solver: euler  # 'euler' or 'adaptive'

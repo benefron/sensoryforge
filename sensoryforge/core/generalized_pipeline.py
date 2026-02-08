@@ -733,6 +733,37 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         return results_list
 
+    @classmethod
+    def from_config(cls, config: dict) -> 'GeneralizedTactileEncodingPipeline':
+        """Create pipeline from configuration dictionary.
+        
+        This is the recommended way to instantiate pipelines from YAML configs,
+        supporting all Phase 2 features: CompositeGrid, DSL neurons, extended
+        stimuli, and adaptive solvers.
+        
+        Args:
+            config: Configuration dictionary with keys like 'metadata', 'grid',
+                'stimuli', 'filters', 'neurons', 'solver', 'gui'.
+        
+        Returns:
+            Initialized GeneralizedTactileEncodingPipeline instance.
+        
+        Note:
+            Currently uses the existing pipeline implementation. Full Phase 2
+            support (CompositeGrid, DSL neurons, adaptive solvers) will be
+            integrated in future updates while maintaining backward compatibility.
+        
+        Example:
+            >>> config = {
+            ...     'pipeline': {'device': 'cpu', 'grid_size': 64},
+            ...     'neurons': {'sa_neurons': 20, 'ra_neurons': 30}
+            ... }
+            >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+        """
+        # For now, delegate to __init__ with config_dict
+        # Future enhancement: handle CompositeGrid, DSL neurons, adaptive solvers
+        return cls(config_dict=config)
+
     def get_pipeline_info(self):
         """Get comprehensive information about the pipeline configuration"""
         return {
@@ -750,7 +781,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 "sa2_neurons": self.sa2_innervation.num_neurons,
             },
             "filter_info": {
-                "sa2_uses_filter": self.use_sa2_filter,
+                "sa2_uses_filter": getattr(self, "use_sa2_filter", False),
                 "sa2_scale": getattr(self, "sa2_scale", None),
             },
         }
