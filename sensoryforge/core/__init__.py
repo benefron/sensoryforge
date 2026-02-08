@@ -6,6 +6,7 @@ modular components.
 
 Modules:
     grid: Grid management and coordinate systems
+    composite_grid: Multi-population spatial substrates
     innervation: Receptive field generation and neural connectivity
     mechanoreceptors: Gaussian convolution mechanoreceptor simulation
     pipeline: Complete encoding pipeline orchestration
@@ -19,6 +20,7 @@ The core module integrates with filters (SA/RA temporal dynamics) and neurons
 
 # PyTorch-based modules
 from .grid import GridManager, create_grid_torch
+from .composite_grid import CompositeGrid
 from sensoryforge.stimuli.stimulus import (
     StimulusGenerator,
     gaussian_pressure_torch,
@@ -50,6 +52,7 @@ __all__ = [
     # Grid management
     "GridManager",
     "create_grid_torch",
+    "CompositeGrid",
     # Stimulus generation
     "StimulusGenerator",
     "gaussian_pressure_torch",
