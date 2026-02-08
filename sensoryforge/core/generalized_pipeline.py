@@ -265,6 +265,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         )
 
         # SA2 is just a scaling factor (not a filter)
+        self.use_sa2_filter = False  # SA2 uses simple scaling, not a filter
         self.sa2_scale = filter_cfg["sa2_scale"]
 
     def _create_neurons(self):
@@ -781,8 +782,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 "sa2_neurons": self.sa2_innervation.num_neurons,
             },
             "filter_info": {
-                "sa2_uses_filter": getattr(self, "use_sa2_filter", False),
-                "sa2_scale": getattr(self, "sa2_scale", None),
+                "sa2_uses_filter": self.use_sa2_filter,
+                "sa2_scale": self.sa2_scale,
             },
         }
 

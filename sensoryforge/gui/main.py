@@ -3,7 +3,6 @@
 import os
 import sys
 from pathlib import Path
-import json
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
