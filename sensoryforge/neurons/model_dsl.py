@@ -438,6 +438,8 @@ class _CompiledNeuronModule(nn.Module):
         Converts sympy expressions to Python functions that can efficiently
         evaluate using PyTorch tensors.
         """
+        import numpy as np  # Import once at function level
+        
         # Get all state variables and parameters
         state_syms = [Symbol(name, real=True) for name in self.model.state_var_list]
         param_syms = [Symbol(name, real=True) for name in self.model.parameters.keys()]
@@ -457,7 +459,6 @@ class _CompiledNeuronModule(nn.Module):
             def make_torch_func(np_func):
                 def torch_func(*args):
                     # Convert torch tensors to numpy, evaluate, convert back
-                    import numpy as np
                     np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
                     result = np_func(*np_args)
                     # Handle scalar vs array results
@@ -470,7 +471,6 @@ class _CompiledNeuronModule(nn.Module):
         # Lambdify threshold expression
         threshold_numpy = sympy.lambdify(all_syms, self.model.threshold_expr, modules='numpy')
         def threshold_torch(*args):
-            import numpy as np
             np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
             result = threshold_numpy(*np_args)
             if np.isscalar(result):
@@ -484,7 +484,6 @@ class _CompiledNeuronModule(nn.Module):
             reset_numpy = sympy.lambdify(all_syms, expr, modules='numpy')
             def make_reset_torch(np_func):
                 def reset_torch(*args):
-                    import numpy as np
                     np_args = [a.cpu().numpy() if torch.is_tensor(a) else np.array(a) for a in args]
                     result = np_func(*np_args)
                     if np.isscalar(result):
@@ -570,15 +569,19 @@ class _CompiledNeuronModule(nn.Module):
                 return val.real.to(dtype=dtype, device=device)
             return val.to(dtype=dtype, device=device)
         
+        # Helper to prepare evaluation arguments
+        def prepare_eval_args(current_timestep):
+            """Prepare arguments for lambdified function evaluation."""
+            return (
+                [state[name] for name in self.model.state_var_list] +
+                [params[name] for name in self.model.parameters.keys()] +
+                [input_current[:, current_timestep, :]]
+            )
+        
         # Time integration loop (Forward Euler)
         for t in range(steps):
             # Prepare arguments for lambdified functions
-            # Order: state vars, parameters, input current
-            args = (
-                [state[name] for name in self.model.state_var_list] +
-                [params[name] for name in self.model.parameters.keys()] +
-                [input_current[:, t, :]]
-            )
+            args = prepare_eval_args(t)
             
             # Check threshold condition
             threshold_val = ensure_real(self.threshold_func(*args))
@@ -601,7 +604,11 @@ class _CompiledNeuronModule(nn.Module):
             # Record spike and visualization voltage
             spikes[:, t, :] = fired
             v_vis = state[v_var_name].clone()
-            v_vis[fired] = threshold_val[fired] if threshold_val.numel() > 1 else threshold_val
+            # Handle scalar or tensor threshold values correctly
+            if threshold_val.numel() == 1:
+                v_vis[fired] = threshold_val.item()
+            else:
+                v_vis[fired] = threshold_val[fired]
             v_trace[:, t, :] = v_vis
             
             # Create state copies for updates
@@ -646,11 +653,8 @@ class _CompiledNeuronModule(nn.Module):
             v_trace[:, t + 1, :] = state[v_var_name]
             
             # Check for spikes at the end of step (like existing neurons)
-            threshold_val_final = ensure_real(self.threshold_func(*[
-                state[name] for name in self.model.state_var_list
-            ] + [params[name] for name in self.model.parameters.keys()] + [
-                input_current[:, t, :]
-            ]))
+            args_final = prepare_eval_args(t)
+            threshold_val_final = ensure_real(self.threshold_func(*args_final))
             if self.model.threshold_op == '>=':
                 spikes[:, t + 1, :] = state[self.model.threshold_var] >= threshold_val_final
             elif self.model.threshold_op == '>':
