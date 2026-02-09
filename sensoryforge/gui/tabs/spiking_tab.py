@@ -2104,5 +2104,147 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         """Return the selected compute device for simulations."""
         return self._current_device()
 
+    # ------------------------------------------------------------------ #
+    #  Phase B — YAML ↔ GUI bidirectional config API                      #
+    # ------------------------------------------------------------------ #
+
+    def get_config(self) -> dict:
+        """Export spiking tab state as a plain dict for YAML.
+
+        Returns:
+            Dictionary with ``device``, ``solver``, ``population_configs``,
+            and ``dsl`` sections.  Supports round-trip fidelity.
+        """
+        # Solver
+        is_adaptive = self.cmb_solver.currentIndex() == 1
+        solver: dict = {"type": "adaptive" if is_adaptive else "euler"}
+        if is_adaptive:
+            solver["method"] = self.cmb_adaptive_method.currentText()
+            solver["rtol"] = self.dbl_rtol.value()
+            solver["atol"] = self.dbl_atol.value()
+
+        # Populations — save the *stored* configs (not just the currently visible one)
+        pop_configs: dict = {}
+        # First, capture current widget state into the active population config
+        self._store_current_population()
+        for name, cfg in self.population_configs.items():
+            pop_configs[name] = cfg.to_dict()
+
+        # DSL editor state (the global editor, not per-population)
+        dsl: dict = {
+            "equations": self.dsl_equations_edit.toPlainText(),
+            "threshold": self.dsl_threshold_edit.text(),
+            "reset": self.dsl_reset_edit.text(),
+            "parameters": self._get_dsl_parameters(),
+        }
+
+        return {
+            "device": self.cmb_device.currentText(),
+            "solver": solver,
+            "population_configs": pop_configs,
+            "dsl": dsl,
+        }
+
+    def set_config(self, config: dict) -> None:
+        """Restore spiking tab state from a config dict.
+
+        Args:
+            config: Dictionary matching the structure returned by
+                ``get_config()``. Missing keys fall back to current defaults.
+
+        Note:
+            This must be called **after** ``MechanoreceptorTab.set_config()``
+            so that population names are available.
+        """
+        # --- Device ---
+        device = config.get("device", "cpu")
+        idx = self.cmb_device.findText(str(device))
+        if idx >= 0:
+            self.cmb_device.setCurrentIndex(idx)
+
+        # --- Solver ---
+        solver_cfg = config.get("solver", {})
+        solver_type = solver_cfg.get("type", "euler")
+        if solver_type == "adaptive":
+            self.cmb_solver.setCurrentIndex(1)
+            method = solver_cfg.get("method", "dopri5")
+            midx = self.cmb_adaptive_method.findText(method)
+            if midx >= 0:
+                self.cmb_adaptive_method.setCurrentIndex(midx)
+            self.dbl_rtol.blockSignals(True)
+            self.dbl_rtol.setValue(solver_cfg.get("rtol", 1e-5))
+            self.dbl_rtol.blockSignals(False)
+            self.dbl_atol.blockSignals(True)
+            self.dbl_atol.setValue(solver_cfg.get("atol", 1e-7))
+            self.dbl_atol.blockSignals(False)
+        else:
+            self.cmb_solver.setCurrentIndex(0)
+
+        # --- Population configs ---
+        pop_cfgs = config.get("population_configs", {})
+        if isinstance(pop_cfgs, dict):
+            for name, entry in pop_cfgs.items():
+                if isinstance(entry, dict):
+                    cfg = PopulationConfig.from_dict(entry)
+                    self.population_configs[cfg.name] = cfg
+
+        # --- DSL editor ---
+        dsl_cfg = config.get("dsl", {})
+        if isinstance(dsl_cfg, dict) and dsl_cfg.get("equations"):
+            self.dsl_equations_edit.setPlainText(dsl_cfg.get("equations", ""))
+            self.dsl_threshold_edit.setText(dsl_cfg.get("threshold", ""))
+            self.dsl_reset_edit.setText(dsl_cfg.get("reset", ""))
+            params = dsl_cfg.get("parameters", {})
+            if isinstance(params, dict) and params:
+                self._populate_dsl_params(params)
+
+        # Refresh the population combo and select the first entry
+        if self.population_configs:
+            first_name = next(iter(self.population_configs))
+            idx = self.cmb_population.findText(first_name)
+            if idx >= 0:
+                self.cmb_population.setCurrentIndex(idx)
+                self._on_population_selected(first_name)
+
+    def _store_current_population(self) -> None:
+        """Capture current widget values into the active PopulationConfig."""
+        name = self.cmb_population.currentText()
+        if not name or name not in self.population_configs:
+            return
+        cfg = self.population_configs[name]
+        cfg.model = self.cmb_model.currentText()
+        cfg.filter_method = self.cmb_filter.currentText()
+        cfg.enabled = self.chk_population_enabled.isChecked()
+        cfg.input_gain = self.dbl_input_gain.value()
+        cfg.noise_std = self.dbl_noise_std.value()
+        cfg.selected_neuron = self.spin_neuron_index.value()
+
+        # Capture dynamic model params
+        model_params = {}
+        for key, widget in self.model_param_fields.items():
+            kind = self.model_param_kinds.get(key, "float")
+            if kind == "bool" and isinstance(widget, QtWidgets.QCheckBox):
+                model_params[key] = widget.isChecked()
+            elif isinstance(widget, (QtWidgets.QDoubleSpinBox, QtWidgets.QSpinBox)):
+                model_params[key] = widget.value()
+        cfg.model_params = model_params
+
+        # Capture dynamic filter params
+        filter_params = {}
+        for key, widget in self.filter_param_fields.items():
+            kind = self.filter_param_kinds.get(key, "float")
+            if kind == "bool" and isinstance(widget, QtWidgets.QCheckBox):
+                filter_params[key] = widget.isChecked()
+            elif isinstance(widget, (QtWidgets.QDoubleSpinBox, QtWidgets.QSpinBox)):
+                filter_params[key] = widget.value()
+        cfg.filter_params = filter_params
+
+        # DSL fields
+        if cfg.model == "DSL (Custom)":
+            cfg.dsl_equations = self.dsl_equations_edit.toPlainText()
+            cfg.dsl_threshold = self.dsl_threshold_edit.text()
+            cfg.dsl_reset = self.dsl_reset_edit.text()
+            cfg.dsl_parameters = self._get_dsl_parameters()
+
 
 __all__ = ["SpikingNeuronTab", "PopulationConfig", "SimulationResult"]

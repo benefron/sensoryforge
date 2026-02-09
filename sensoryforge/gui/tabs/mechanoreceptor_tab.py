@@ -1550,5 +1550,158 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         for population in self.populations:
             self._apply_population_visibility(population)
 
+    # ------------------------------------------------------------------ #
+    #  Phase B — YAML ↔ GUI bidirectional config API                      #
+    # ------------------------------------------------------------------ #
+
+    def get_config(self) -> dict:
+        """Export current tab state as a plain dict suitable for YAML.
+
+        Returns:
+            Dictionary with ``grid`` and ``populations`` sections. The
+            structure supports round-trip fidelity:
+            ``save → load → save`` produces identical output.
+        """
+        # --- Grid section ---
+        grid: dict = {"type": self._grid_type}
+        if self._grid_type == "standard":
+            grid["rows"] = self.spin_grid_rows.value()
+            grid["cols"] = self.spin_grid_cols.value()
+            grid["spacing_mm"] = self.dbl_spacing.value()
+            grid["center"] = [self.dbl_center_x.value(), self.dbl_center_y.value()]
+        else:
+            grid["xlim"] = [self.dbl_xlim_min.value(), self.dbl_xlim_max.value()]
+            grid["ylim"] = [self.dbl_ylim_min.value(), self.dbl_ylim_max.value()]
+            comp_pops = []
+            for row in range(self.composite_pop_table.rowCount()):
+                name_item = self.composite_pop_table.item(row, 0)
+                density_item = self.composite_pop_table.item(row, 1)
+                arr_combo = self.composite_pop_table.cellWidget(row, 2)
+                filt_combo = self.composite_pop_table.cellWidget(row, 3)
+                if name_item and density_item:
+                    comp_pops.append({
+                        "name": name_item.text(),
+                        "density": float(density_item.text()),
+                        "arrangement": arr_combo.currentText() if arr_combo else "grid",
+                        "filter": filt_combo.currentText() if filt_combo else "SA",
+                    })
+            grid["composite_populations"] = comp_pops
+
+        # --- Populations section ---
+        populations = []
+        for pop in self.populations:
+            c = pop.color
+            populations.append({
+                "name": pop.name,
+                "neuron_type": pop.neuron_type,
+                "neurons_per_row": pop.neurons_per_row,
+                "connections_per_neuron": pop.connections_per_neuron,
+                "sigma_d_mm": pop.sigma_d_mm,
+                "weight_range": [pop.weight_min, pop.weight_max],
+                "edge_offset": pop.edge_offset if pop.edge_offset else 0.0,
+                "seed": pop.seed if pop.seed is not None else 42,
+                "color": [c.red(), c.green(), c.blue(), c.alpha()],
+                "visible": pop.visible,
+            })
+
+        return {"grid": grid, "populations": populations}
+
+    def set_config(self, config: dict) -> None:
+        """Restore tab state from a config dict (inverse of ``get_config``).
+
+        Args:
+            config: Dictionary with ``grid`` and ``populations`` keys.
+                Missing keys fall back to current widget defaults.
+        """
+        grid_cfg = config.get("grid", {})
+        grid_type = grid_cfg.get("type", "standard")
+
+        # --- Grid ---
+        if grid_type == "composite":
+            self.cmb_grid_type.blockSignals(True)
+            self.cmb_grid_type.setCurrentIndex(1)
+            self.cmb_grid_type.blockSignals(False)
+            self._grid_type = "composite"
+            self.standard_grid_widget.setVisible(False)
+            self.composite_grid_widget.setVisible(True)
+
+            xlim = grid_cfg.get("xlim", [-5.0, 5.0])
+            ylim = grid_cfg.get("ylim", [-5.0, 5.0])
+            for widget, val in [
+                (self.dbl_xlim_min, xlim[0]),
+                (self.dbl_xlim_max, xlim[1]),
+                (self.dbl_ylim_min, ylim[0]),
+                (self.dbl_ylim_max, ylim[1]),
+            ]:
+                widget.blockSignals(True)
+                widget.setValue(float(val))
+                widget.blockSignals(False)
+
+            self.composite_pop_table.setRowCount(0)
+            for pop in grid_cfg.get("composite_populations", []):
+                self._add_composite_population_row(
+                    name=pop.get("name", "pop"),
+                    density=pop.get("density", 100.0),
+                    arrangement=pop.get("arrangement", "grid"),
+                    filter_type=pop.get("filter", "SA"),
+                )
+            self._generate_composite_grid()
+        else:
+            self.cmb_grid_type.blockSignals(True)
+            self.cmb_grid_type.setCurrentIndex(0)
+            self.cmb_grid_type.blockSignals(False)
+            self._grid_type = "standard"
+            self.standard_grid_widget.setVisible(True)
+            self.composite_grid_widget.setVisible(False)
+
+            rows = int(grid_cfg.get("rows", self.spin_grid_rows.value()))
+            cols = int(grid_cfg.get("cols", self.spin_grid_cols.value()))
+            spacing = float(grid_cfg.get("spacing_mm", self.dbl_spacing.value()))
+            center = grid_cfg.get("center", [self.dbl_center_x.value(), self.dbl_center_y.value()])
+
+            for spin, val in [(self.spin_grid_rows, rows), (self.spin_grid_cols, cols)]:
+                spin.blockSignals(True)
+                spin.setValue(val)
+                spin.blockSignals(False)
+            for dbl, val in [
+                (self.dbl_spacing, spacing),
+                (self.dbl_center_x, float(center[0])),
+                (self.dbl_center_y, float(center[1])),
+            ]:
+                dbl.blockSignals(True)
+                dbl.setValue(val)
+                dbl.blockSignals(False)
+            self._generate_standard_grid()
+
+        # --- Populations ---
+        self._clear_populations()
+        for pop_cfg in config.get("populations", []):
+            c = pop_cfg.get("color", [66, 135, 245, 255])
+            wrange = pop_cfg.get("weight_range", [0.1, 1.0])
+            pop = NeuronPopulation(
+                name=pop_cfg.get("name", "Population"),
+                neuron_type=pop_cfg.get("neuron_type", "SA"),
+                color=QtGui.QColor(c[0], c[1], c[2], c[3] if len(c) > 3 else 255),
+                neurons_per_row=int(pop_cfg.get("neurons_per_row", 10)),
+                connections_per_neuron=float(pop_cfg.get("connections_per_neuron", 28.0)),
+                sigma_d_mm=float(pop_cfg.get("sigma_d_mm", 0.3)),
+                weight_min=float(wrange[0]),
+                weight_max=float(wrange[1]),
+                seed=pop_cfg.get("seed", 42),
+                edge_offset=pop_cfg.get("edge_offset", 0.0),
+                visible=pop_cfg.get("visible", True),
+            )
+            if self.grid_manager is not None:
+                try:
+                    pop.instantiate(self.grid_manager)
+                except Exception:
+                    pass
+            self.populations.append(pop)
+            item = QtWidgets.QListWidgetItem(pop.name)
+            item.setForeground(QtGui.QBrush(pop.color))
+            self.population_list.addItem(item)
+
+        self.populations_changed.emit(list(self.populations))
+
 
 __all__ = ["MechanoreceptorTab", "NeuronPopulation"]

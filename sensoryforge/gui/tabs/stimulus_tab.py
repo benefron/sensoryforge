@@ -1888,5 +1888,194 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             raise RuntimeError("Unable to generate stimulus frames from payload")
         return frames, time_axis, amplitude
 
+    # ------------------------------------------------------------------ #
+    #  Phase B — YAML ↔ GUI bidirectional config API                      #
+    # ------------------------------------------------------------------ #
+
+    def get_config(self) -> dict:
+        """Export current stimulus tab state as a plain dict for YAML.
+
+        Returns:
+            Dictionary capturing all stimulus parameters including texture
+            and moving sub-type parameters, regardless of which type is
+            currently selected. Supports round-trip fidelity.
+        """
+        cfg: dict = {
+            "name": self.txt_stimulus_name.text().strip() or "Stimulus",
+            "type": self._selected_type,
+            "motion": "moving" if self.radio_moving.isChecked() else "static",
+            "start": [self.spin_start_x.value(), self.spin_start_y.value()],
+            "end": [self.spin_end_x.value(), self.spin_end_y.value()],
+            "spread": self.dbl_spread.value(),
+            "orientation_deg": self.dbl_orientation.value(),
+            "amplitude": self.dbl_amplitude.value(),
+            "speed_mm_s": self.spin_speed.value(),
+            "ramp_up_ms": self.spin_ramp_up.value(),
+            "plateau_ms": self.spin_plateau.value(),
+            "ramp_down_ms": self.spin_ramp_down.value(),
+            "total_ms": self.spin_total_time.value(),
+            "dt_ms": self.spin_dt.value(),
+            "texture": {
+                "subtype": self._texture_subtype,
+                "wavelength": self.spin_wavelength.value(),
+                "orientation_deg": self.spin_texture_orientation.value(),
+                "sigma": self.spin_texture_sigma.value(),
+                "phase": self.spin_phase.value(),
+                "edge_orientation_deg": self.spin_edge_orientation.value(),
+                "spacing": self.spin_spacing.value(),
+                "edge_count": self.spin_edge_count.value(),
+                "edge_width": self.spin_edge_width.value(),
+                "noise_scale": self.spin_noise_scale.value(),
+                "noise_kernel_size": self.spin_noise_kernel.value(),
+            },
+            "moving": {
+                "subtype": self._moving_subtype,
+                "linear": {
+                    "start": [self.spin_linear_start_x.value(), self.spin_linear_start_y.value()],
+                    "end": [self.spin_linear_end_x.value(), self.spin_linear_end_y.value()],
+                    "num_steps": self.spin_num_steps.value(),
+                    "sigma": self.spin_moving_sigma.value(),
+                },
+                "circular": {
+                    "center": [self.spin_circular_center_x.value(), self.spin_circular_center_y.value()],
+                    "radius": self.spin_radius.value(),
+                    "num_steps": self.spin_circular_num_steps.value(),
+                    "start_angle": self.spin_start_angle.value(),
+                    "end_angle": self.spin_end_angle.value(),
+                    "sigma": self.spin_circular_sigma.value(),
+                },
+                "slide": {
+                    "start": [self.spin_slide_start_x.value(), self.spin_slide_start_y.value()],
+                    "end": [self.spin_slide_end_x.value(), self.spin_slide_end_y.value()],
+                    "num_steps": self.spin_slide_num_steps.value(),
+                    "sigma": self.spin_slide_sigma.value(),
+                },
+            },
+        }
+        return cfg
+
+    def set_config(self, config: dict) -> None:
+        """Restore stimulus tab state from a config dict.
+
+        Args:
+            config: Dictionary matching the structure returned by
+                ``get_config()``. Missing keys fall back to current widget
+                defaults.
+        """
+        # --- Metadata ---
+        name = config.get("name", "Stimulus")
+        self.txt_stimulus_name.setText(name)
+
+        # --- Stimulus type ---
+        stim_type = config.get("type", "gaussian")
+        if stim_type in self.type_buttons:
+            self.type_buttons[stim_type].setChecked(True)
+        self._selected_type = stim_type
+
+        # Visibility of type-specific groups
+        self.texture_group.setVisible(stim_type == "texture")
+        self.moving_group.setVisible(stim_type == "moving")
+
+        # --- Motion ---
+        motion = config.get("motion", "static")
+        if motion == "moving":
+            self.radio_moving.setChecked(True)
+        else:
+            self.radio_static.setChecked(True)
+
+        # --- Spatial parameters ---
+        start = config.get("start", [0.0, 0.0])
+        end = config.get("end", [0.0, 0.0])
+        _sb = self._set_spin  # helper shortcut
+        _sb(self.spin_start_x, start[0])
+        _sb(self.spin_start_y, start[1])
+        _sb(self.spin_end_x, end[0])
+        _sb(self.spin_end_y, end[1])
+        _sb(self.dbl_spread, config.get("spread", 0.3))
+        _sb(self.dbl_orientation, config.get("orientation_deg", 0.0))
+        _sb(self.dbl_amplitude, config.get("amplitude", 1.0))
+        _sb(self.spin_speed, config.get("speed_mm_s", 0.0))
+
+        # --- Temporal parameters ---
+        _sb(self.spin_ramp_up, config.get("ramp_up_ms", 50.0))
+        _sb(self.spin_plateau, config.get("plateau_ms", 200.0))
+        _sb(self.spin_ramp_down, config.get("ramp_down_ms", 50.0))
+        _sb(self.spin_total_time, config.get("total_ms", 300.0))
+        _sb(self.spin_dt, config.get("dt_ms", 1.0))
+
+        # --- Texture parameters ---
+        tex = config.get("texture", {})
+        tex_sub = tex.get("subtype", "gabor")
+        sub_map = {"gabor": 0, "edge_grating": 1, "noise": 2}
+        idx = sub_map.get(tex_sub, 0)
+        self.texture_subtype_combo.blockSignals(True)
+        self.texture_subtype_combo.setCurrentIndex(idx)
+        self.texture_subtype_combo.blockSignals(False)
+        self._texture_subtype = tex_sub
+        self.gabor_params_widget.setVisible(idx == 0)
+        self.edge_grating_params_widget.setVisible(idx == 1)
+        self.noise_params_widget.setVisible(idx == 2)
+
+        _sb(self.spin_wavelength, tex.get("wavelength", 0.5))
+        _sb(self.spin_texture_orientation, tex.get("orientation_deg", 0.0))
+        _sb(self.spin_texture_sigma, tex.get("sigma", 0.3))
+        _sb(self.spin_phase, tex.get("phase", 0.0))
+        _sb(self.spin_edge_orientation, tex.get("edge_orientation_deg", 0.0))
+        _sb(self.spin_spacing, tex.get("spacing", 0.6))
+        _sb(self.spin_edge_count, tex.get("edge_count", 5))
+        _sb(self.spin_edge_width, tex.get("edge_width", 0.05))
+        _sb(self.spin_noise_scale, tex.get("noise_scale", 1.0))
+        _sb(self.spin_noise_kernel, tex.get("noise_kernel_size", 5))
+
+        # --- Moving parameters ---
+        mov = config.get("moving", {})
+        mov_sub = mov.get("subtype", "linear")
+        mov_map = {"linear": 0, "circular": 1, "slide": 2}
+        midx = mov_map.get(mov_sub, 0)
+        self.moving_subtype_combo.blockSignals(True)
+        self.moving_subtype_combo.setCurrentIndex(midx)
+        self.moving_subtype_combo.blockSignals(False)
+        self._moving_subtype = mov_sub
+        self.linear_params_widget.setVisible(midx == 0)
+        self.circular_params_widget.setVisible(midx == 1)
+        self.slide_params_widget.setVisible(midx == 2)
+
+        lin = mov.get("linear", {})
+        lin_s = lin.get("start", [0.0, 0.0])
+        lin_e = lin.get("end", [2.0, 0.0])
+        _sb(self.spin_linear_start_x, lin_s[0])
+        _sb(self.spin_linear_start_y, lin_s[1])
+        _sb(self.spin_linear_end_x, lin_e[0])
+        _sb(self.spin_linear_end_y, lin_e[1])
+        _sb(self.spin_num_steps, lin.get("num_steps", 100))
+        _sb(self.spin_moving_sigma, lin.get("sigma", 0.3))
+
+        circ = mov.get("circular", {})
+        circ_c = circ.get("center", [0.0, 0.0])
+        _sb(self.spin_circular_center_x, circ_c[0])
+        _sb(self.spin_circular_center_y, circ_c[1])
+        _sb(self.spin_radius, circ.get("radius", 1.0))
+        _sb(self.spin_circular_num_steps, circ.get("num_steps", 100))
+        _sb(self.spin_start_angle, circ.get("start_angle", 0.0))
+        _sb(self.spin_end_angle, circ.get("end_angle", 6.28))
+        _sb(self.spin_circular_sigma, circ.get("sigma", 0.3))
+
+        sl = mov.get("slide", {})
+        sl_s = sl.get("start", [0.0, 0.0])
+        sl_e = sl.get("end", [2.0, 0.0])
+        _sb(self.spin_slide_start_x, sl_s[0])
+        _sb(self.spin_slide_start_y, sl_s[1])
+        _sb(self.spin_slide_end_x, sl_e[0])
+        _sb(self.spin_slide_end_y, sl_e[1])
+        _sb(self.spin_slide_num_steps, sl.get("num_steps", 100))
+        _sb(self.spin_slide_sigma, sl.get("sigma", 0.3))
+
+    @staticmethod
+    def _set_spin(widget, value) -> None:
+        """Set a spinbox value with signals blocked."""
+        widget.blockSignals(True)
+        widget.setValue(float(value))
+        widget.blockSignals(False)
+
 
 __all__ = ["StimulusDesignerTab"]
