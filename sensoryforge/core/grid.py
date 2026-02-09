@@ -45,9 +45,21 @@ def get_grid_spacing(
     xx: torch.Tensor,
     yy: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Calculate grid spacing from coordinate meshgrids."""
-    dx = xx[0, 1] - xx[0, 0]
-    dy = yy[1, 0] - yy[0, 0]
+    """Calculate grid spacing from coordinate meshgrids (ij indexing).
+
+    With ``indexing='ij'``, ``xx`` varies along dim-0 and ``yy`` varies
+    along dim-1.  The previous implementation sampled the wrong axes,
+    returning ``(0, 0)`` (resolves ReviewFinding#H3).
+
+    Args:
+        xx: X-coordinate meshgrid ``[n_x, n_y]``.
+        yy: Y-coordinate meshgrid ``[n_x, n_y]``.
+
+    Returns:
+        Tuple ``(dx, dy)`` with physical spacing along each axis.
+    """
+    dx = xx[1, 0] - xx[0, 0]  # x varies along dim-0 (ij indexing)
+    dy = yy[0, 1] - yy[0, 0]  # y varies along dim-1 (ij indexing)
     return dx, dy
 
 
