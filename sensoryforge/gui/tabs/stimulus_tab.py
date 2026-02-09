@@ -42,6 +42,23 @@ class StimulusConfig:
     total_ms: float
     dt_ms: float
     speed_mm_s: float
+    
+    # Texture parameters
+    texture_subtype: str = "gabor"
+    wavelength: float = 0.5
+    phase: float = 0.0
+    edge_count: int = 5
+    edge_width: float = 0.05
+    noise_scale: float = 1.0
+    noise_kernel_size: int = 5
+    
+    # Moving stimulus parameters
+    moving_subtype: str = "linear"
+    num_steps: int = 100
+    radius: float = 1.0
+    start_angle: float = 0.0
+    end_angle: float = 6.28318  # 2*pi
+    moving_sigma: float = 0.3
 
     def as_dict(self) -> Dict[str, object]:
         return {
@@ -59,6 +76,19 @@ class StimulusConfig:
             "total_ms": float(self.total_ms),
             "dt_ms": float(self.dt_ms),
             "speed_mm_s": float(self.speed_mm_s),
+            "texture_subtype": self.texture_subtype,
+            "wavelength": float(self.wavelength),
+            "phase": float(self.phase),
+            "edge_count": int(self.edge_count),
+            "edge_width": float(self.edge_width),
+            "noise_scale": float(self.noise_scale),
+            "noise_kernel_size": int(self.noise_kernel_size),
+            "moving_subtype": self.moving_subtype,
+            "num_steps": int(self.num_steps),
+            "radius": float(self.radius),
+            "start_angle": float(self.start_angle),
+            "end_angle": float(self.end_angle),
+            "moving_sigma": float(self.moving_sigma),
         }
 
 
@@ -97,6 +127,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._preview_times = np.zeros(0, dtype=float)
         self._preview_dt_ms = 1.0
         self._playback_active = False
+        self._texture_subtype = "gabor"
+        self._moving_subtype = "linear"
 
         self._setup_ui()
         self._connect_signals()
@@ -138,6 +170,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
         self._build_metadata_section()
         self._build_type_section()
+        self._build_texture_subtype_section()
+        self._build_moving_subtype_section()
         self._build_motion_section()
         self._build_spatial_section()
         self._build_temporal_section()
@@ -235,6 +269,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             ("gaussian", "🎯 Gaussian"),
             ("point", "🔵 Point"),
             ("edge", "📐 Edge"),
+            ("texture", "🎨 Texture"),
+            ("moving", "➡️ Moving"),
         ):
             button = QtWidgets.QToolButton()
             button.setText(label)
@@ -251,6 +287,268 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._selected_type = "gaussian"
 
         self.control_layout.addWidget(group)
+    
+    def _build_texture_subtype_section(self) -> None:
+        """Build texture sub-type selector and parameter controls."""
+        self.texture_group = QtWidgets.QGroupBox("Texture Parameters")
+        layout = QtWidgets.QVBoxLayout(self.texture_group)
+        
+        # Sub-type selector
+        subtype_row = QtWidgets.QHBoxLayout()
+        subtype_row.addWidget(QtWidgets.QLabel("Texture Type:"))
+        self.texture_subtype_combo = QtWidgets.QComboBox()
+        self.texture_subtype_combo.addItems(["Gabor", "Edge Grating", "Noise"])
+        subtype_row.addWidget(self.texture_subtype_combo)
+        subtype_row.addStretch(1)
+        layout.addLayout(subtype_row)
+        
+        # Gabor parameters
+        self.gabor_params_widget = QtWidgets.QWidget()
+        gabor_form = QtWidgets.QFormLayout(self.gabor_params_widget)
+        gabor_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_wavelength = QtWidgets.QDoubleSpinBox()
+        self.spin_wavelength.setDecimals(3)
+        self.spin_wavelength.setRange(0.1, 10.0)
+        self.spin_wavelength.setSingleStep(0.1)
+        self.spin_wavelength.setValue(0.5)
+        
+        self.spin_texture_orientation = QtWidgets.QDoubleSpinBox()
+        self.spin_texture_orientation.setDecimals(1)
+        self.spin_texture_orientation.setRange(0.0, 180.0)
+        self.spin_texture_orientation.setSingleStep(5.0)
+        self.spin_texture_orientation.setValue(0.0)
+        
+        self.spin_texture_sigma = QtWidgets.QDoubleSpinBox()
+        self.spin_texture_sigma.setDecimals(3)
+        self.spin_texture_sigma.setRange(0.05, 5.0)
+        self.spin_texture_sigma.setSingleStep(0.05)
+        self.spin_texture_sigma.setValue(0.3)
+        
+        self.spin_phase = QtWidgets.QDoubleSpinBox()
+        self.spin_phase.setDecimals(2)
+        self.spin_phase.setRange(0.0, 6.28)
+        self.spin_phase.setSingleStep(0.1)
+        self.spin_phase.setValue(0.0)
+        
+        gabor_form.addRow("Wavelength (mm):", self.spin_wavelength)
+        gabor_form.addRow("Orientation (°):", self.spin_texture_orientation)
+        gabor_form.addRow("Sigma (mm):", self.spin_texture_sigma)
+        gabor_form.addRow("Phase (rad):", self.spin_phase)
+        layout.addWidget(self.gabor_params_widget)
+        
+        # Edge Grating parameters
+        self.edge_grating_params_widget = QtWidgets.QWidget()
+        edge_form = QtWidgets.QFormLayout(self.edge_grating_params_widget)
+        edge_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_edge_orientation = QtWidgets.QDoubleSpinBox()
+        self.spin_edge_orientation.setDecimals(1)
+        self.spin_edge_orientation.setRange(0.0, 180.0)
+        self.spin_edge_orientation.setSingleStep(5.0)
+        self.spin_edge_orientation.setValue(0.0)
+        
+        self.spin_spacing = QtWidgets.QDoubleSpinBox()
+        self.spin_spacing.setDecimals(2)
+        self.spin_spacing.setRange(0.1, 5.0)
+        self.spin_spacing.setSingleStep(0.1)
+        self.spin_spacing.setValue(0.6)
+        
+        self.spin_edge_count = QtWidgets.QSpinBox()
+        self.spin_edge_count.setRange(1, 20)
+        self.spin_edge_count.setSingleStep(1)
+        self.spin_edge_count.setValue(5)
+        
+        self.spin_edge_width = QtWidgets.QDoubleSpinBox()
+        self.spin_edge_width.setDecimals(3)
+        self.spin_edge_width.setRange(0.01, 1.0)
+        self.spin_edge_width.setSingleStep(0.01)
+        self.spin_edge_width.setValue(0.05)
+        
+        edge_form.addRow("Orientation (°):", self.spin_edge_orientation)
+        edge_form.addRow("Spacing (mm):", self.spin_spacing)
+        edge_form.addRow("Count:", self.spin_edge_count)
+        edge_form.addRow("Edge Width (mm):", self.spin_edge_width)
+        layout.addWidget(self.edge_grating_params_widget)
+        self.edge_grating_params_widget.setVisible(False)
+        
+        # Noise parameters
+        self.noise_params_widget = QtWidgets.QWidget()
+        noise_form = QtWidgets.QFormLayout(self.noise_params_widget)
+        noise_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_noise_scale = QtWidgets.QDoubleSpinBox()
+        self.spin_noise_scale.setDecimals(2)
+        self.spin_noise_scale.setRange(0.1, 10.0)
+        self.spin_noise_scale.setSingleStep(0.1)
+        self.spin_noise_scale.setValue(1.0)
+        
+        self.spin_noise_kernel = QtWidgets.QSpinBox()
+        self.spin_noise_kernel.setRange(3, 21)
+        self.spin_noise_kernel.setSingleStep(2)
+        self.spin_noise_kernel.setValue(5)
+        
+        noise_form.addRow("Scale:", self.spin_noise_scale)
+        noise_form.addRow("Kernel Size:", self.spin_noise_kernel)
+        layout.addWidget(self.noise_params_widget)
+        self.noise_params_widget.setVisible(False)
+        
+        self.texture_group.setVisible(False)
+        self.control_layout.addWidget(self.texture_group)
+    
+    def _build_moving_subtype_section(self) -> None:
+        """Build moving stimulus sub-type selector and parameter controls."""
+        self.moving_group = QtWidgets.QGroupBox("Moving Stimulus Parameters")
+        layout = QtWidgets.QVBoxLayout(self.moving_group)
+        
+        # Sub-type selector
+        subtype_row = QtWidgets.QHBoxLayout()
+        subtype_row.addWidget(QtWidgets.QLabel("Motion Type:"))
+        self.moving_subtype_combo = QtWidgets.QComboBox()
+        self.moving_subtype_combo.addItems(["Linear", "Circular", "Slide"])
+        subtype_row.addWidget(self.moving_subtype_combo)
+        subtype_row.addStretch(1)
+        layout.addLayout(subtype_row)
+        
+        # Linear motion parameters
+        self.linear_params_widget = QtWidgets.QWidget()
+        linear_form = QtWidgets.QFormLayout(self.linear_params_widget)
+        linear_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_linear_start_x = QtWidgets.QDoubleSpinBox()
+        self.spin_linear_start_x.setDecimals(2)
+        self.spin_linear_start_x.setRange(-50.0, 50.0)
+        self.spin_linear_start_x.setValue(0.0)
+        
+        self.spin_linear_start_y = QtWidgets.QDoubleSpinBox()
+        self.spin_linear_start_y.setDecimals(2)
+        self.spin_linear_start_y.setRange(-50.0, 50.0)
+        self.spin_linear_start_y.setValue(0.0)
+        
+        self.spin_linear_end_x = QtWidgets.QDoubleSpinBox()
+        self.spin_linear_end_x.setDecimals(2)
+        self.spin_linear_end_x.setRange(-50.0, 50.0)
+        self.spin_linear_end_x.setValue(2.0)
+        
+        self.spin_linear_end_y = QtWidgets.QDoubleSpinBox()
+        self.spin_linear_end_y.setDecimals(2)
+        self.spin_linear_end_y.setRange(-50.0, 50.0)
+        self.spin_linear_end_y.setValue(0.0)
+        
+        self.spin_num_steps = QtWidgets.QSpinBox()
+        self.spin_num_steps.setRange(10, 1000)
+        self.spin_num_steps.setValue(100)
+        
+        self.spin_moving_sigma = QtWidgets.QDoubleSpinBox()
+        self.spin_moving_sigma.setDecimals(3)
+        self.spin_moving_sigma.setRange(0.05, 2.0)
+        self.spin_moving_sigma.setSingleStep(0.05)
+        self.spin_moving_sigma.setValue(0.3)
+        
+        linear_form.addRow("Start X (mm):", self.spin_linear_start_x)
+        linear_form.addRow("Start Y (mm):", self.spin_linear_start_y)
+        linear_form.addRow("End X (mm):", self.spin_linear_end_x)
+        linear_form.addRow("End Y (mm):", self.spin_linear_end_y)
+        linear_form.addRow("Num Steps:", self.spin_num_steps)
+        linear_form.addRow("Sigma (mm):", self.spin_moving_sigma)
+        layout.addWidget(self.linear_params_widget)
+        
+        # Circular motion parameters
+        self.circular_params_widget = QtWidgets.QWidget()
+        circular_form = QtWidgets.QFormLayout(self.circular_params_widget)
+        circular_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_circular_center_x = QtWidgets.QDoubleSpinBox()
+        self.spin_circular_center_x.setDecimals(2)
+        self.spin_circular_center_x.setRange(-50.0, 50.0)
+        self.spin_circular_center_x.setValue(0.0)
+        
+        self.spin_circular_center_y = QtWidgets.QDoubleSpinBox()
+        self.spin_circular_center_y.setDecimals(2)
+        self.spin_circular_center_y.setRange(-50.0, 50.0)
+        self.spin_circular_center_y.setValue(0.0)
+        
+        self.spin_radius = QtWidgets.QDoubleSpinBox()
+        self.spin_radius.setDecimals(2)
+        self.spin_radius.setRange(0.1, 20.0)
+        self.spin_radius.setValue(1.0)
+        
+        self.spin_circular_num_steps = QtWidgets.QSpinBox()
+        self.spin_circular_num_steps.setRange(10, 1000)
+        self.spin_circular_num_steps.setValue(100)
+        
+        self.spin_start_angle = QtWidgets.QDoubleSpinBox()
+        self.spin_start_angle.setDecimals(2)
+        self.spin_start_angle.setRange(0.0, 6.28)
+        self.spin_start_angle.setValue(0.0)
+        
+        self.spin_end_angle = QtWidgets.QDoubleSpinBox()
+        self.spin_end_angle.setDecimals(2)
+        self.spin_end_angle.setRange(0.0, 6.28)
+        self.spin_end_angle.setValue(6.28)
+        
+        self.spin_circular_sigma = QtWidgets.QDoubleSpinBox()
+        self.spin_circular_sigma.setDecimals(3)
+        self.spin_circular_sigma.setRange(0.05, 2.0)
+        self.spin_circular_sigma.setSingleStep(0.05)
+        self.spin_circular_sigma.setValue(0.3)
+        
+        circular_form.addRow("Center X (mm):", self.spin_circular_center_x)
+        circular_form.addRow("Center Y (mm):", self.spin_circular_center_y)
+        circular_form.addRow("Radius (mm):", self.spin_radius)
+        circular_form.addRow("Num Steps:", self.spin_circular_num_steps)
+        circular_form.addRow("Start Angle (rad):", self.spin_start_angle)
+        circular_form.addRow("End Angle (rad):", self.spin_end_angle)
+        circular_form.addRow("Sigma (mm):", self.spin_circular_sigma)
+        layout.addWidget(self.circular_params_widget)
+        self.circular_params_widget.setVisible(False)
+        
+        # Slide parameters (reuses linear parameters)
+        self.slide_params_widget = QtWidgets.QWidget()
+        slide_form = QtWidgets.QFormLayout(self.slide_params_widget)
+        slide_form.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        self.spin_slide_start_x = QtWidgets.QDoubleSpinBox()
+        self.spin_slide_start_x.setDecimals(2)
+        self.spin_slide_start_x.setRange(-50.0, 50.0)
+        self.spin_slide_start_x.setValue(0.0)
+        
+        self.spin_slide_start_y = QtWidgets.QDoubleSpinBox()
+        self.spin_slide_start_y.setDecimals(2)
+        self.spin_slide_start_y.setRange(-50.0, 50.0)
+        self.spin_slide_start_y.setValue(0.0)
+        
+        self.spin_slide_end_x = QtWidgets.QDoubleSpinBox()
+        self.spin_slide_end_x.setDecimals(2)
+        self.spin_slide_end_x.setRange(-50.0, 50.0)
+        self.spin_slide_end_x.setValue(2.0)
+        
+        self.spin_slide_end_y = QtWidgets.QDoubleSpinBox()
+        self.spin_slide_end_y.setDecimals(2)
+        self.spin_slide_end_y.setRange(-50.0, 50.0)
+        self.spin_slide_end_y.setValue(0.0)
+        
+        self.spin_slide_num_steps = QtWidgets.QSpinBox()
+        self.spin_slide_num_steps.setRange(10, 1000)
+        self.spin_slide_num_steps.setValue(100)
+        
+        self.spin_slide_sigma = QtWidgets.QDoubleSpinBox()
+        self.spin_slide_sigma.setDecimals(3)
+        self.spin_slide_sigma.setRange(0.05, 2.0)
+        self.spin_slide_sigma.setSingleStep(0.05)
+        self.spin_slide_sigma.setValue(0.3)
+        
+        slide_form.addRow("Start X (mm):", self.spin_slide_start_x)
+        slide_form.addRow("Start Y (mm):", self.spin_slide_start_y)
+        slide_form.addRow("End X (mm):", self.spin_slide_end_x)
+        slide_form.addRow("End Y (mm):", self.spin_slide_end_y)
+        slide_form.addRow("Num Steps:", self.spin_slide_num_steps)
+        slide_form.addRow("Sigma (mm):", self.spin_slide_sigma)
+        layout.addWidget(self.slide_params_widget)
+        self.slide_params_widget.setVisible(False)
+        
+        self.moving_group.setVisible(False)
+        self.control_layout.addWidget(self.moving_group)
 
     def _build_motion_section(self) -> None:
         group = QtWidgets.QGroupBox("Motion Mode")
@@ -447,6 +745,34 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.btn_play.toggled.connect(self._toggle_animation)
         self.frame_slider.valueChanged.connect(self._on_frame_changed)
         self.btn_confirm_preview.clicked.connect(self._on_confirm_preview)
+        
+        # Texture sub-type and parameter connections
+        self.texture_subtype_combo.currentIndexChanged.connect(self._on_texture_subtype_changed)
+        self.spin_wavelength.valueChanged.connect(self._handle_preview_request)
+        self.spin_texture_orientation.valueChanged.connect(self._handle_preview_request)
+        self.spin_texture_sigma.valueChanged.connect(self._handle_preview_request)
+        self.spin_phase.valueChanged.connect(self._handle_preview_request)
+        self.spin_edge_orientation.valueChanged.connect(self._handle_preview_request)
+        self.spin_spacing.valueChanged.connect(self._handle_preview_request)
+        self.spin_edge_count.valueChanged.connect(self._handle_preview_request)
+        self.spin_edge_width.valueChanged.connect(self._handle_preview_request)
+        self.spin_noise_scale.valueChanged.connect(self._handle_preview_request)
+        self.spin_noise_kernel.valueChanged.connect(self._handle_preview_request)
+        
+        # Moving sub-type and parameter connections
+        self.moving_subtype_combo.currentIndexChanged.connect(self._on_moving_subtype_changed)
+        for spin in (
+            self.spin_linear_start_x, self.spin_linear_start_y,
+            self.spin_linear_end_x, self.spin_linear_end_y,
+            self.spin_num_steps, self.spin_moving_sigma,
+            self.spin_circular_center_x, self.spin_circular_center_y,
+            self.spin_radius, self.spin_circular_num_steps,
+            self.spin_start_angle, self.spin_end_angle, self.spin_circular_sigma,
+            self.spin_slide_start_x, self.spin_slide_start_y,
+            self.spin_slide_end_x, self.spin_slide_end_y,
+            self.spin_slide_num_steps, self.spin_slide_sigma,
+        ):
+            spin.valueChanged.connect(self._handle_preview_request)
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -457,10 +783,45 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             return
         self._selected_type = str(stimulus_type)
         self._update_spread_label()
+        
+        # Show/hide texture group
+        is_texture = self._selected_type == "texture"
+        self.texture_group.setVisible(is_texture)
+        
+        # Show/hide moving group
+        is_moving = self._selected_type == "moving"
+        self.moving_group.setVisible(is_moving)
+        
+        # Show/hide edge orientation for edge stimulus
         is_edge = self._selected_type == "edge"
         self.dbl_orientation.setVisible(is_edge)
         if self.lbl_orientation_label is not None:
             self.lbl_orientation_label.setVisible(is_edge)
+        
+        self._request_preview()
+    
+    def _on_texture_subtype_changed(self, index: int) -> None:
+        """Handle texture sub-type selection change."""
+        subtype_map = {0: "gabor", 1: "edge_grating", 2: "noise"}
+        self._texture_subtype = subtype_map.get(index, "gabor")
+        
+        # Show/hide parameter widgets based on selection
+        self.gabor_params_widget.setVisible(index == 0)
+        self.edge_grating_params_widget.setVisible(index == 1)
+        self.noise_params_widget.setVisible(index == 2)
+        
+        self._request_preview()
+    
+    def _on_moving_subtype_changed(self, index: int) -> None:
+        """Handle moving stimulus sub-type selection change."""
+        subtype_map = {0: "linear", 1: "circular", 2: "slide"}
+        self._moving_subtype = subtype_map.get(index, "linear")
+        
+        # Show/hide parameter widgets based on selection
+        self.linear_params_widget.setVisible(index == 0)
+        self.circular_params_widget.setVisible(index == 1)
+        self.slide_params_widget.setVisible(index == 2)
+        
         self._request_preview()
 
     def _on_motion_toggled(self, _: bool) -> None:
@@ -764,6 +1125,51 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 (self.spin_dt, "dt_ms"),
             ):
                 widget.setValue(float(payload.get(key, widget.value())))
+            
+            # Load texture parameters
+            texture_subtype = payload.get("texture_subtype", "gabor")
+            self._texture_subtype = texture_subtype
+            texture_index_map = {"gabor": 0, "edge_grating": 1, "noise": 2}
+            self.texture_subtype_combo.setCurrentIndex(texture_index_map.get(texture_subtype, 0))
+            
+            self.spin_wavelength.setValue(float(payload.get("wavelength", 0.5)))
+            self.spin_texture_orientation.setValue(float(payload.get("texture_orientation", 0.0)))
+            self.spin_texture_sigma.setValue(float(payload.get("texture_sigma", 0.3)))
+            self.spin_phase.setValue(float(payload.get("phase", 0.0)))
+            self.spin_edge_orientation.setValue(float(payload.get("edge_orientation", 0.0)))
+            self.spin_spacing.setValue(float(payload.get("spacing", 0.6)))
+            self.spin_edge_count.setValue(int(payload.get("edge_count", 5)))
+            self.spin_edge_width.setValue(float(payload.get("edge_width", 0.05)))
+            self.spin_noise_scale.setValue(float(payload.get("noise_scale", 1.0)))
+            self.spin_noise_kernel.setValue(int(payload.get("noise_kernel_size", 5)))
+            
+            # Load moving parameters
+            moving_subtype = payload.get("moving_subtype", "linear")
+            self._moving_subtype = moving_subtype
+            moving_index_map = {"linear": 0, "circular": 1, "slide": 2}
+            self.moving_subtype_combo.setCurrentIndex(moving_index_map.get(moving_subtype, 0))
+            
+            self.spin_linear_start_x.setValue(float(payload.get("linear_start_x", 0.0)))
+            self.spin_linear_start_y.setValue(float(payload.get("linear_start_y", 0.0)))
+            self.spin_linear_end_x.setValue(float(payload.get("linear_end_x", 2.0)))
+            self.spin_linear_end_y.setValue(float(payload.get("linear_end_y", 0.0)))
+            self.spin_num_steps.setValue(int(payload.get("num_steps", 100)))
+            self.spin_moving_sigma.setValue(float(payload.get("moving_sigma", 0.3)))
+            
+            self.spin_circular_center_x.setValue(float(payload.get("circular_center_x", 0.0)))
+            self.spin_circular_center_y.setValue(float(payload.get("circular_center_y", 0.0)))
+            self.spin_radius.setValue(float(payload.get("radius", 1.0)))
+            self.spin_circular_num_steps.setValue(int(payload.get("circular_num_steps", 100)))
+            self.spin_start_angle.setValue(float(payload.get("start_angle", 0.0)))
+            self.spin_end_angle.setValue(float(payload.get("end_angle", 6.28)))
+            self.spin_circular_sigma.setValue(float(payload.get("circular_sigma", 0.3)))
+            
+            self.spin_slide_start_x.setValue(float(payload.get("slide_start_x", 0.0)))
+            self.spin_slide_start_y.setValue(float(payload.get("slide_start_y", 0.0)))
+            self.spin_slide_end_x.setValue(float(payload.get("slide_end_x", 2.0)))
+            self.spin_slide_end_y.setValue(float(payload.get("slide_end_y", 0.0)))
+            self.spin_slide_num_steps.setValue(int(payload.get("slide_num_steps", 100)))
+            self.spin_slide_sigma.setValue(float(payload.get("slide_sigma", 0.3)))
 
             self._current_stimulus_path = path
         finally:
@@ -1025,6 +1431,19 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             total_ms=self.spin_total_time.value(),
             dt_ms=self.spin_dt.value(),
             speed_mm_s=self.spin_speed.value(),
+            texture_subtype=self._texture_subtype,
+            wavelength=self.spin_wavelength.value(),
+            phase=self.spin_phase.value(),
+            edge_count=self.spin_edge_count.value(),
+            edge_width=self.spin_edge_width.value(),
+            noise_scale=self.spin_noise_scale.value(),
+            noise_kernel_size=self.spin_noise_kernel.value(),
+            moving_subtype=self._moving_subtype,
+            num_steps=self.spin_num_steps.value() if self._moving_subtype == "linear" else self.spin_circular_num_steps.value() if self._moving_subtype == "circular" else self.spin_slide_num_steps.value(),
+            radius=self.spin_radius.value(),
+            start_angle=self.spin_start_angle.value(),
+            end_angle=self.spin_end_angle.value(),
+            moving_sigma=self.spin_moving_sigma.value() if self._moving_subtype == "linear" else self.spin_circular_sigma.value() if self._moving_subtype == "circular" else self.spin_slide_sigma.value(),
         )
         return config
 
@@ -1091,7 +1510,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                     amplitude=1.0,
                     diameter_mm=max(config.spread, 1e-6),
                 )
-            else:
+            elif config.stimulus_type == "edge":
                 theta = torch.tensor(
                     math.radians(config.orientation_deg),
                     device=device,
@@ -1104,9 +1523,171 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                     w=max(config.spread, 1e-6),
                     amplitude=1.0,
                 )
+            elif config.stimulus_type == "texture":
+                frame = self._generate_texture_frame(xx, yy, cx, cy, config)
+            elif config.stimulus_type == "moving":
+                # Moving stimuli are generated differently - break out early
+                return self._generate_moving_frames(config)
+            else:
+                # Unknown type, return zeros
+                frame = torch.zeros_like(xx)
 
             frames[idx] = frame * amplitude_profile[idx]
 
+        return frames, time_axis, amplitude_profile
+    
+    def _generate_texture_frame(
+        self,
+        xx: torch.Tensor,
+        yy: torch.Tensor,
+        cx: float,
+        cy: float,
+        config: StimulusConfig,
+    ) -> torch.Tensor:
+        """Generate a single texture stimulus frame."""
+        from sensoryforge.stimuli.texture import gabor_texture, edge_grating, noise_texture
+        
+        if config.texture_subtype == "gabor":
+            return gabor_texture(
+                xx,
+                yy,
+                center_x=cx,
+                center_y=cy,
+                amplitude=1.0,
+                sigma=max(config.spread if self._texture_subtype == "gabor" else self.spin_texture_sigma.value(), 1e-6),
+                wavelength=max(config.wavelength, 0.1),
+                orientation=math.radians(self.spin_texture_orientation.value()),
+                phase=config.phase,
+                device=xx.device,
+            )
+        elif config.texture_subtype == "edge_grating":
+            return edge_grating(
+                xx,
+                yy,
+                orientation=math.radians(self.spin_edge_orientation.value()),
+                spacing=max(config.spread if self._texture_subtype == "edge_grating" else self.spin_spacing.value(), 0.1),
+                count=config.edge_count,
+                edge_width=max(config.edge_width, 0.01),
+                amplitude=1.0,
+                device=xx.device,
+            )
+        elif config.texture_subtype == "noise":
+            return noise_texture(
+                height=xx.shape[0],
+                width=xx.shape[1],
+                scale=config.noise_scale,
+                kernel_size=config.noise_kernel_size,
+                device=xx.device,
+            )
+        else:
+            return torch.zeros_like(xx)
+    
+    def _generate_moving_frames(
+        self,
+        config: StimulusConfig,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Generate moving stimulus frames using Phase 2 moving stimulus API."""
+        from sensoryforge.stimuli.moving import (
+            linear_motion,
+            circular_motion,
+            slide_trajectory,
+            MovingStimulus,
+        )
+        from sensoryforge.stimuli.gaussian import gaussian_stimulus
+        
+        if self.generator is None or self.grid_manager is None:
+            return None, None, None
+        
+        device = self.generator.xx.device
+        xx = self.generator.xx
+        yy = self.generator.yy
+        
+        # Create spatial stimulus generator (Gaussian blob)
+        def spatial_generator(xx_grid, yy_grid, cx, cy):
+            return gaussian_stimulus(
+                xx_grid,
+                yy_grid,
+                center_x=cx,
+                center_y=cy,
+                amplitude=1.0,
+                sigma=max(config.moving_sigma, 0.05),
+                device=device,
+            )
+        
+        # Generate trajectory based on moving subtype
+        if config.moving_subtype == "linear":
+            trajectory = linear_motion(
+                start=(
+                    self.spin_linear_start_x.value(),
+                    self.spin_linear_start_y.value(),
+                ),
+                end=(
+                    self.spin_linear_end_x.value(),
+                    self.spin_linear_end_y.value(),
+                ),
+                num_steps=config.num_steps,
+                device=device,
+            )
+        elif config.moving_subtype == "circular":
+            trajectory = circular_motion(
+                center=(
+                    self.spin_circular_center_x.value(),
+                    self.spin_circular_center_y.value(),
+                ),
+                radius=max(config.radius, 0.1),
+                num_steps=config.num_steps,
+                start_angle=config.start_angle,
+                end_angle=config.end_angle,
+                device=device,
+            )
+        elif config.moving_subtype == "slide":
+            trajectory = slide_trajectory(
+                start=(
+                    self.spin_slide_start_x.value(),
+                    self.spin_slide_start_y.value(),
+                ),
+                end=(
+                    self.spin_slide_end_x.value(),
+                    self.spin_slide_end_y.value(),
+                ),
+                num_steps=config.num_steps,
+                velocity_type="constant",
+                device=device,
+            )
+        else:
+            # Fallback to linear
+            trajectory = linear_motion(
+                start=config.start,
+                end=config.end,
+                num_steps=config.num_steps,
+                device=device,
+            )
+        
+        # Create MovingStimulus
+        moving_stim = MovingStimulus(
+            trajectory=trajectory,
+            stimulus_generator=spatial_generator,
+        )
+        
+        # Generate frames
+        frames = moving_stim(xx, yy)
+        
+        # Create time axis based on num_steps
+        dt = max(config.dt_ms, MIN_TIME_STEP_MS)
+        time_axis = torch.arange(0.0, config.num_steps * dt, dt, device=device)[:config.num_steps]
+        
+        # Generate amplitude profile
+        amplitude_profile = self._amplitude_profile(time_axis, config)
+        
+        # Apply amplitude modulation and scaling
+        peak = config.amplitude
+        if peak <= 0.0:
+            frames = torch.zeros_like(frames)
+        else:
+            for idx in range(frames.shape[0]):
+                if idx < len(amplitude_profile):
+                    frames[idx] = frames[idx] * amplitude_profile[idx] * peak
+        
         return frames, time_axis, amplitude_profile
 
     def _amplitude_profile(
