@@ -256,6 +256,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         standard_grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
         standard_grid_layout.addRow("Center X (mm):", self.dbl_center_x)
         standard_grid_layout.addRow("Center Y (mm):", self.dbl_center_y)
+        
+        # Phase 2: Add arrangement selector for standard grid
+        self.cmb_standard_arrangement = QtWidgets.QComboBox()
+        self.cmb_standard_arrangement.addItems(["grid", "poisson", "hex", "jittered_grid"])
+        self.cmb_standard_arrangement.setCurrentText("grid")
+        standard_grid_layout.addRow("Arrangement:", self.cmb_standard_arrangement)
+        
         grid_layout.addRow(self.standard_grid_widget)
         
         # Composite grid controls
@@ -287,11 +294,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         composite_grid_layout.addLayout(bounds_layout)
         
         self.composite_pop_table = QtWidgets.QTableWidget()
-        self.composite_pop_table.setColumnCount(4)
-        self.composite_pop_table.setHorizontalHeaderLabels(["Name", "Density", "Arrangement", "Filter"])
+        self.composite_pop_table.setColumnCount(3)
+        self.composite_pop_table.setHorizontalHeaderLabels(["Name", "Density", "Arrangement"])
         self.composite_pop_table.horizontalHeader().setStretchLastSection(True)
         self.composite_pop_table.setMaximumHeight(150)
-        composite_grid_layout.addWidget(QtWidgets.QLabel("Populations:"))
+        composite_grid_layout.addWidget(QtWidgets.QLabel("Layer Populations (Note: Filters are configured per neuron population below):"))
         composite_grid_layout.addWidget(self.composite_pop_table)
         
         comp_pop_buttons = QtWidgets.QHBoxLayout()
@@ -469,12 +476,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 name=name,
                 density=config.get("density", 100.0),
                 arrangement=config.get("arrangement", "grid"),
-                filter_type=config.get("filter", "SA")
+                # Note: filter parameter removed in Phase 1.2 - filters configured per neuron population
             )
 
     def _add_composite_population_row(self, name: str = "", density: float = 100.0, 
-                                      arrangement: str = "grid", filter_type: str = "SA") -> None:
-        """Add a row to the composite population table."""
+                                      arrangement: str = "grid") -> None:
+        """Add a row to the composite population table (Phase 2: filter removed)."""
         row = self.composite_pop_table.rowCount()
         self.composite_pop_table.insertRow(row)
         
@@ -488,11 +495,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         arrangement_combo.addItems(["grid", "poisson", "hex", "jittered_grid"])
         arrangement_combo.setCurrentText(arrangement)
         self.composite_pop_table.setCellWidget(row, 2, arrangement_combo)
-        
-        filter_combo = QtWidgets.QComboBox()
-        filter_combo.addItems(["SA", "RA", "None"])
-        filter_combo.setCurrentText(filter_type)
-        self.composite_pop_table.setCellWidget(row, 3, filter_combo)
 
     def _on_add_composite_population(self) -> None:
         """Add a new population row to the composite grid table."""
@@ -500,8 +502,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._add_composite_population_row(
             name=f"pop{row_num}",
             density=100.0,
-            arrangement="grid",
-            filter_type="SA"
+            arrangement="grid"
         )
 
     def _on_remove_composite_population(self) -> None:
@@ -517,17 +518,19 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self._generate_composite_grid()
 
     def _generate_standard_grid(self) -> None:
-        """Generate standard GridManager grid."""
+        """Generate standard GridManager grid (Phase 2: now supports arrangement)."""
         rows = self.spin_grid_rows.value()
         cols = self.spin_grid_cols.value()
         spacing = self.dbl_spacing.value()
         center = (self.dbl_center_x.value(), self.dbl_center_y.value())
         grid_size = (rows, cols)
+        arrangement = self.cmb_standard_arrangement.currentText()  # Phase 2 addition
 
         self.grid_manager = GridManager(
             grid_size=grid_size,
             spacing=spacing,
             center=center,
+            arrangement=arrangement,  # Phase 1.1 parameter
             device="cpu",
         )
         self._composite_grid = None
@@ -537,33 +540,31 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.grid_changed.emit(self.grid_manager)
 
     def _generate_composite_grid(self) -> None:
-        """Generate CompositeGrid from table configuration."""
-        from sensoryforge.core.composite_grid import CompositeGrid
+        """Generate CompositeGrid from table configuration (Phase 2: uses add_layer, no filter)."""
+        from sensoryforge.core.composite_grid import CompositeReceptorGrid
         
         xlim = (self.dbl_xlim_min.value(), self.dbl_xlim_max.value())
         ylim = (self.dbl_ylim_min.value(), self.dbl_ylim_max.value())
         
-        cg = CompositeGrid(xlim=xlim, ylim=ylim, device="cpu")
+        cg = CompositeReceptorGrid(xlim=xlim, ylim=ylim, device="cpu")
         
         self._composite_populations = []
         for row in range(self.composite_pop_table.rowCount()):
             name_item = self.composite_pop_table.item(row, 0)
             density_item = self.composite_pop_table.item(row, 1)
             arrangement_combo = self.composite_pop_table.cellWidget(row, 2)
-            filter_combo = self.composite_pop_table.cellWidget(row, 3)
             
             if name_item and density_item:
                 name = name_item.text()
                 density = float(density_item.text())
                 arrangement = arrangement_combo.currentText() if arrangement_combo else "grid"
-                filter_type = filter_combo.currentText() if filter_combo else "SA"
                 
-                cg.add_population(name=name, density=density, arrangement=arrangement)
+                # Use add_layer (Phase 1.2 refactoring)
+                cg.add_layer(name=name, density=density, arrangement=arrangement)
                 self._composite_populations.append({
                     "name": name,
                     "density": density,
                     "arrangement": arrangement,
-                    "filter": filter_type
                 })
         
         self._composite_grid = cg
@@ -1383,7 +1384,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                         name=pop.get("name", "pop"),
                         density=pop.get("density", 100.0),
                         arrangement=pop.get("arrangement", "grid"),
-                        filter_type=pop.get("filter", "SA")
+                        # Note: filter parameter removed in Phase 1.2
                     )
                 
                 self._generate_composite_grid()
@@ -1643,7 +1644,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     name=pop.get("name", "pop"),
                     density=pop.get("density", 100.0),
                     arrangement=pop.get("arrangement", "grid"),
-                    filter_type=pop.get("filter", "SA"),
+                    # Note: filter parameter removed in Phase 1.2
                 )
             self._generate_composite_grid()
         else:
