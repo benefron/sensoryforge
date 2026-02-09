@@ -136,6 +136,7 @@ class InnervationModule(nn.Module):
         weight_range: Optional[Tuple[float, float]] = (0.1, 1.0),
         seed: Optional[int] = None,
         edge_offset: Optional[float] = None,
+        neuron_centers: Optional[torch.Tensor] = None,
     ) -> None:
         """Initialise innervation tensors for a tactile neuron population.
 
@@ -148,6 +149,8 @@ class InnervationModule(nn.Module):
             weight_range: Optional weight range ``(min, max)``.
             seed: Random seed for deterministic sampling.
             edge_offset: Optional edge margin to avoid boundary artefacts.
+            neuron_centers: Optional pre-calculated neuron centers. If provided,
+                overrides ``neurons_per_row``.
         """
         super().__init__()
 
@@ -157,10 +160,6 @@ class InnervationModule(nn.Module):
         self.weight_range = weight_range
         self.seed = seed
 
-        if neurons_per_row is None:
-            neurons_per_row = 10 if neuron_type == "SA" else 14
-        self.neurons_per_row = neurons_per_row
-        self.num_neurons = neurons_per_row**2
         self.sigma_d_mm = sigma_d_mm or (0.3 if neuron_type == "SA" else 0.39)
 
         # Get grid properties
@@ -168,15 +167,25 @@ class InnervationModule(nn.Module):
         self.device = grid_props["device"]
         self.grid_spacing_mm = grid_props["spacing"]
 
-        # Create neuron centers
-        self.neuron_centers = create_neuron_centers(
-            neurons_per_row,
-            grid_props["xlim"],
-            grid_props["ylim"],
-            self.device,
-            edge_offset=edge_offset,
-            sigma=self.sigma_d_mm,
-        )
+        if neuron_centers is not None:
+            self.neuron_centers = neuron_centers.to(self.device)
+            self.num_neurons = len(neuron_centers)
+            self.neurons_per_row = None
+        else:
+            if neurons_per_row is None:
+                neurons_per_row = 10 if neuron_type == "SA" else 14
+            self.neurons_per_row = neurons_per_row
+            self.num_neurons = neurons_per_row**2
+
+            # Create neuron centers
+            self.neuron_centers = create_neuron_centers(
+                neurons_per_row,
+                grid_props["xlim"],
+                grid_props["ylim"],
+                self.device,
+                edge_offset=edge_offset,
+                sigma=self.sigma_d_mm,
+            )
 
         # Create coordinate tensor for grid points
         xx, yy = grid_manager.get_coordinates()

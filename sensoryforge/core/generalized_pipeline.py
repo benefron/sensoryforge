@@ -7,13 +7,18 @@ and parameters.
 """
 import torch
 import torch.nn as nn
+from typing import Optional, Dict, Any, Union, List
+
 from .grid import GridManager
+from .composite_grid import CompositeGrid
+from .innervation import create_sa_innervation, create_ra_innervation, InnervationModule
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
-from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.model_dsl import NeuronModel
 from sensoryforge.filters.noise import MembraneNoiseTorch
+from sensoryforge.solvers.adaptive import AdaptiveSolver
 
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
@@ -148,19 +153,39 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         self.config = self._load_config(config_path, config_dict)
 
         # Setup basic properties
-        self.device = self.config["pipeline"]["device"]
+        self.device = torch.device(self.config["pipeline"]["device"])
         self.seed = self.config["pipeline"]["seed"]
 
         if self.seed is not None:
             torch.manual_seed(self.seed)
 
-        # Create grid manager
+        # Create grid manager (Standard dense grid for stimulus)
         self.grid_manager = GridManager(
             grid_size=self.config["pipeline"]["grid_size"],
             spacing=self.config["pipeline"]["spacing"],
             center=tuple(self.config["pipeline"]["center"]),
             device=self.device,
         )
+
+        # Handle CompositeGrid if configured
+        self.composite_grid = None
+        grid_cfg = self.config.get("grid", {})
+        if grid_cfg.get("type") == "composite":
+            self.composite_grid = CompositeGrid(
+                xlim=self.grid_manager.xlim, 
+                ylim=self.grid_manager.ylim, 
+                device=self.device
+            )
+            
+            # Add populations
+            populations = grid_cfg.get("populations", {})
+            for name, pop_cfg in populations.items():
+                self.composite_grid.add_population(
+                    name=name,
+                    density=pop_cfg.get("density", 10.0), # Default density
+                    arrangement=pop_cfg.get("arrangement", "poisson"),
+                    filter=pop_cfg.get("filter", None)
+                )
 
         # Create stimulus generator
         self.stimulus_generator = StimulusGenerator(self.grid_manager)
@@ -220,31 +245,52 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         innervation_cfg = self.config["innervation"]
         neuron_cfg = self.config["neurons"]
 
-        self.sa_innervation = create_sa_innervation(
-            self.grid_manager,
+        # Handle CompositeGrid inputs
+        sa_centers, ra_centers, sa2_centers = None, None, None
+        
+        if self.composite_grid:
+            pop_map = {k.lower(): k for k in self.composite_grid.populations.keys()}
+            
+            # Map canonical names to user population names
+            if 'sa1' in pop_map: sa_centers = self.composite_grid.get_population_coordinates(pop_map['sa1'])
+            elif 'sa' in pop_map: sa_centers = self.composite_grid.get_population_coordinates(pop_map['sa'])
+            
+            if 'ra1' in pop_map: ra_centers = self.composite_grid.get_population_coordinates(pop_map['ra1'])
+            elif 'ra' in pop_map: ra_centers = self.composite_grid.get_population_coordinates(pop_map['ra'])
+            
+            if 'sa2' in pop_map: sa2_centers = self.composite_grid.get_population_coordinates(pop_map['sa2'])
+
+        self.sa_innervation = InnervationModule(
+            neuron_type="SA",
+            grid_manager=self.grid_manager,
             neurons_per_row=neuron_cfg["sa_neurons"],
             connections_per_neuron=innervation_cfg["receptors_per_neuron"],
             sigma_d_mm=innervation_cfg["sa_spread"],
             weight_range=tuple(innervation_cfg["connection_strength"]),
             seed=innervation_cfg["sa_seed"],
+            neuron_centers=sa_centers,
         )
 
-        self.ra_innervation = create_ra_innervation(
-            self.grid_manager,
+        self.ra_innervation = InnervationModule(
+            neuron_type="RA",
+            grid_manager=self.grid_manager,
             neurons_per_row=neuron_cfg["ra_neurons"],
             connections_per_neuron=innervation_cfg["receptors_per_neuron"],
             sigma_d_mm=innervation_cfg["ra_spread"],
             weight_range=tuple(innervation_cfg["connection_strength"]),
             seed=innervation_cfg["ra_seed"],
+            neuron_centers=ra_centers,
         )
 
-        self.sa2_innervation = create_sa_innervation(
-            self.grid_manager,
+        self.sa2_innervation = InnervationModule(
+            neuron_type="SA2" if sa2_centers is not None else "SA",
+            grid_manager=self.grid_manager,
             neurons_per_row=neuron_cfg["sa2_neurons"],
             connections_per_neuron=innervation_cfg["sa2_connections"],
             sigma_d_mm=innervation_cfg["sa2_spread"],
             weight_range=tuple(innervation_cfg["sa2_weights"]),
             seed=innervation_cfg["sa2_seed"],
+            neuron_centers=sa2_centers,
         )
 
     def _create_filters(self):
@@ -271,7 +317,45 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
     def _create_neurons(self):
         """Create neuron models with configuration"""
         neuron_cfg = self.config["neuron_params"]
-        dt = self.config["neurons"]["dt"]
+        neuron_top_cfg = self.config.get("neurons", {})
+        dt = neuron_top_cfg.get("dt", 0.5)
+
+        # Handle Equation DSL
+        if neuron_top_cfg.get("type") == "dsl":
+            solver_cfg = self.config.get("solver", {})
+            solver_type = solver_cfg.get("type", "euler")
+            solver_args = solver_cfg.get("config", {})
+
+            # Instantiate adaptive solver if requested
+            solver = solver_type
+            if solver_type == "adaptive":
+                solver = AdaptiveSolver(
+                    method=solver_args.get("method", "dopri5"),
+                    rtol=solver_args.get("rtol", 1e-5),
+                    atol=solver_args.get("atol", 1e-7),
+                    dt=dt  # Initial hint
+                )
+
+            model = NeuronModel(
+                equations=neuron_top_cfg["equations"],
+                threshold=neuron_top_cfg["threshold"],
+                reset=neuron_top_cfg["reset"],
+                parameters=neuron_top_cfg.get("parameters", {}),
+                state_vars=neuron_top_cfg.get("state_vars", {"v": -65.0, "u": 0.0})
+            )
+            
+            # Compile separate instances for each population
+            self.sa_neuron = model.compile(solver=solver, dt=dt, device=self.device)
+            self.ra_neuron = model.compile(solver=solver, dt=dt, device=self.device)
+            self.sa2_neuron = model.compile(solver=solver, dt=dt, device=self.device)
+            
+            # Initialize legacy params to None/safe values to avoid attribute errors if accessed
+            self.a_params = None
+            self.b_params = None
+            self.c_params = None
+            self.d_params = None
+            self.threshold_val = (30.0, 0.0)
+            return
 
         # SA neurons with individual parameters
         self.sa_neuron = IzhikevichNeuronTorch(
@@ -298,6 +382,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             v_init=neuron_cfg["ra_v_init"],
             threshold=neuron_cfg["ra_threshold"],
             a_std=neuron_cfg["ra_a_std"],
+
             b_std=neuron_cfg["ra_b_std"],
             c_std=neuron_cfg["ra_c_std"],
             d_std=neuron_cfg["ra_d_std"],
@@ -396,8 +481,103 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             return self._generate_ramp_stimulus(**stimulus_params)
         elif stimulus_type == "custom":
             return self._generate_custom_stimulus(**stimulus_params)
+        elif stimulus_type == "texture":
+            return self._generate_texture_stimulus(**stimulus_params)
+        elif stimulus_type == "moving":
+            return self._generate_moving_stimulus(**stimulus_params)
         else:
             raise ValueError(f"Unknown stimulus type: {stimulus_type}")
+
+    def _generate_texture_stimulus(self, **params):
+        """Generate static texture stimulus (Gabor or Gratings)"""
+        texture_type = params.get("pattern", "gabor")
+        duration = params.get("duration", 200.0)
+        dt = params.get("dt", self.config["neurons"]["dt"])
+        
+        # Default spatial params
+        center_x = params.get("center_x", 0.0)
+        center_y = params.get("center_y", 0.0)
+        amplitude = params.get("amplitude", 30.0)
+        
+        xx, yy = self.grid_manager.get_coordinates()
+        
+        if texture_type == "gabor":
+            spatial_stimulus = gabor_texture(
+                xx, yy, 
+                center_x=center_x, center_y=center_y,
+                amplitude=amplitude,
+                wavelength=params.get("wavelength", 2.0),
+                orientation=params.get("orientation", 0.0), # rad
+                phase=params.get("phase", 0.0),
+                sigma=params.get("sigma", 2.0),
+                device=self.device
+            )
+        elif texture_type == "grating":
+             # Use edge_grating if available, else fallback
+             from sensoryforge.stimuli.texture import edge_grating
+             spatial_stimulus = edge_grating(
+                 xx, yy, 
+                 orientation=params.get("orientation", 0.0),
+                 spacing=params.get("spacing", 2.0),
+                 count=params.get("count", 5),
+                 edge_width=params.get("edge_width", 0.05),
+                 amplitude=amplitude
+             )
+        else:
+             spatial_stimulus = gaussian_pressure_torch(xx, yy, center_x, center_y, amplitude, 1.0)
+
+        # Create time arrays
+        n_timesteps = int(duration / dt)
+        time_array = torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        
+        # Add temporal envelope
+        temporal_profile = torch.ones(n_timesteps, device=self.device)
+        
+        # Combine
+        n_x, n_y = self.grid_manager.grid_size
+        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
+        for t_idx in range(n_timesteps):
+            stimulus_sequence[0, t_idx] = spatial_stimulus * temporal_profile[t_idx]
+
+        return stimulus_sequence, time_array, temporal_profile
+
+    def _generate_moving_stimulus(self, **params):
+        """Generate moving stimulus (blob following trajectory)"""
+        from sensoryforge.stimuli.moving import linear_motion, circular_motion
+        
+        motion_type = params.get("motion_type", "linear")
+        duration = params.get("duration", 200.0)
+        dt = params.get("dt", self.config["neurons"]["dt"])
+        n_timesteps = int(duration / dt)
+        
+        # Probe parameters
+        amplitude = params.get("amplitude", 30.0)
+        sigma = params.get("sigma", 1.0)
+        
+        # Generate trajectory
+        if motion_type == "linear":
+            start = params.get("start", (-2.0, 0.0))
+            end = params.get("end", (2.0, 0.0))
+            trajectory = linear_motion(start, end, n_timesteps, device=self.device)
+        elif motion_type == "circular":
+            center = params.get("center", (0.0, 0.0))
+            radius = params.get("radius", 2.0)
+            trajectory = circular_motion(center, radius, n_timesteps, device=self.device)
+        else:
+             trajectory = torch.zeros((n_timesteps, 2), device=self.device)
+             
+        # Generate stimulus sequence
+        xx, yy = self.grid_manager.get_coordinates()
+        n_x, n_y = self.grid_manager.grid_size
+        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
+        time_array = torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        temporal_profile = torch.ones(n_timesteps, device=self.device)
+        
+        for t in range(n_timesteps):
+            cx, cy = trajectory[t, 0], trajectory[t, 1]
+            stimulus_sequence[0, t] = gaussian_pressure_torch(xx, yy, cx, cy, amplitude, sigma)
+            
+        return stimulus_sequence, time_array, temporal_profile
 
     def _generate_trapezoidal_stimulus(self, **params):
         """Generate trapezoidal stimulus using config defaults"""
