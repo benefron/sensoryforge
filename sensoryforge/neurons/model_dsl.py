@@ -318,7 +318,7 @@ class NeuronModel:
     
     def compile(
         self,
-        solver: str = 'euler',
+        solver: "str | BaseSolver" = 'euler',
         dt: float = 0.05,
         device: str = 'cpu',
         noise_std: float = 0.0,
@@ -326,7 +326,11 @@ class NeuronModel:
         """Compile the model to a PyTorch nn.Module.
         
         Args:
-            solver: Integration method. Currently only 'euler' is supported.
+            solver: Integration method. Accepts the string ``'euler'`` or a
+                :class:`~sensoryforge.solvers.base.BaseSolver` instance.
+                Only Euler integration is currently implemented; passing a
+                ``BaseSolver`` is accepted for forward-compatibility but the
+                instance is not used yet (resolves ReviewFinding#H8).
             dt: Time step for integration in milliseconds.
             device: Device to place the module on ('cpu', 'cuda', or 'mps').
             noise_std: Standard deviation of additive Langevin noise (mV/sqrt(ms)).
@@ -340,16 +344,18 @@ class NeuronModel:
             - spikes: [batch, steps+1, features] (bool)
         
         Raises:
-            ValueError: If solver is not supported.
+            ValueError: If solver string is not supported.
         
         Example:
             >>> model = NeuronModel(equations=..., threshold=..., reset=...)
             >>> neuron = model.compile(dt=0.1, device='cuda')
             >>> v_trace, spikes = neuron(input_current)
         """
-        if solver != 'euler':
+        # Accept BaseSolver instances for forward-compatibility (resolves ReviewFinding#H8)
+        solver_name = solver if isinstance(solver, str) else 'euler'
+        if solver_name != 'euler':
             raise ValueError(
-                f"Unsupported solver: '{solver}'. Only 'euler' is currently supported."
+                f"Unsupported solver: '{solver_name}'. Only 'euler' is currently supported."
             )
         
         return _CompiledNeuronModule(
