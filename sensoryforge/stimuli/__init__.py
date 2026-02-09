@@ -32,6 +32,9 @@ Example:
     >>> stim = gaussian_stimulus(xx, yy, 0.0, 0.0, amplitude=2.0, sigma=0.5)
 """
 
+# Base class
+from sensoryforge.stimuli.base import BaseStimulus
+
 # Legacy stimulus functions (backward compatibility)
 from sensoryforge.stimuli.stimulus import (
     point_pressure_torch,
@@ -70,6 +73,8 @@ from sensoryforge.stimuli.moving import (
 )
 
 __all__ = [
+    # Base class
+    "BaseStimulus",
     # Legacy API (backward compatibility)
     "point_pressure_torch",
     "gaussian_pressure_torch",

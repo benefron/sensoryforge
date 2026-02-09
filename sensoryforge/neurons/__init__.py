@@ -19,7 +19,8 @@ Example:
     >>> spikes, state = neuron(input_current)
 """
 
-# Import PyTorch neuron models
+# Import base class and PyTorch neuron models
+from .base import BaseNeuron
 from .izhikevich import IzhikevichNeuronTorch
 from .adex import AdExNeuronTorch
 from .mqif import MQIFNeuronTorch
@@ -27,6 +28,7 @@ from .fa import FANeuronTorch
 from .sa import SANeuronTorch
 
 __all__ = [
+    "BaseNeuron",
     "IzhikevichNeuronTorch",
     "AdExNeuronTorch",
     "MQIFNeuronTorch",

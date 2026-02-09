@@ -14,6 +14,7 @@ Example:
     >>> sa_currents, ra_currents = filter(input_current)
 """
 
+from sensoryforge.filters.base import BaseFilter
 from sensoryforge.filters.sa_ra import (
     SAFilterTorch,
     RAFilterTorch,
@@ -21,6 +22,7 @@ from sensoryforge.filters.sa_ra import (
 )
 
 __all__ = [
+    "BaseFilter",
     "SAFilterTorch",
     "RAFilterTorch",
     "CombinedSARAFilter",
