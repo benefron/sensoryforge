@@ -328,9 +328,10 @@ class TactileEncodingPipelineTorch(nn.Module):
         sequences to avoid temporal carryover, mirroring the behaviour used in
         notebooks and documentation demos.
         """
-        self.filters.sa_filter.x = None
-        self.filters.sa_filter.I_SA = None
-        self.filters.ra_filter.I_RA = None
+        # Use public clear_state() instead of touching private attrs
+        # (resolves ReviewFinding#M6)
+        self.filters.sa_filter.clear_state()
+        self.filters.ra_filter.clear_state()
 
     def get_neuron_counts(self) -> Dict[str, int]:
         """Return the number of SA and RA neurons encoded in the pipeline."""

@@ -70,6 +70,15 @@ class SAFilterTorch(nn.Module):
         self.x = None  # auxiliary variable
         self.I_SA = None  # output current
 
+    def clear_state(self) -> None:
+        """Clear internal state so next forward() reinitialises.
+
+        Use this between independent sequences to avoid temporal carryover
+        (resolves ReviewFinding#M6).
+        """
+        self.x = None
+        self.I_SA = None
+
     def reset_states(
         self,
         batch_size: int,
@@ -236,6 +245,14 @@ class RAFilterTorch(nn.Module):
 
         # State variable
         self.I_RA = None  # output current
+
+    def clear_state(self) -> None:
+        """Clear internal state so next forward() reinitialises.
+
+        Use this between independent sequences to avoid temporal carryover
+        (resolves ReviewFinding#M6).
+        """
+        self.I_RA = None
 
     def reset_states(
         self,
