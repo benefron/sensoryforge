@@ -149,9 +149,11 @@ class TactileSpikingNetwork(nn.Module):
         sa_spikes = self.sa_neurons(pipeline_results["sa_outputs"])
         ra_spikes = self.ra_neurons(pipeline_results["ra_outputs"])
 
+        # Prefix adapter results to avoid overwriting pipeline keys
+        # (resolves ReviewFinding#M8)
         results = {
-            "sa_spikes": sa_spikes,
-            "ra_spikes": ra_spikes,
+            "adapter_sa_spikes": sa_spikes,
+            "adapter_ra_spikes": ra_spikes,
             "sa_outputs": pipeline_results["sa_outputs"],
             "ra_outputs": pipeline_results["ra_outputs"],
         }
