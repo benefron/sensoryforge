@@ -72,9 +72,18 @@ class FANeuronTorch(nn.Module):
         )
         self._ema_mean = torch.zeros((batch, features), dtype=dtype, device=device)
 
+    def reset_state(self) -> None:
+        """Reset internal refractory and EMA states.
+
+        Call between independent sequences to avoid temporal carryover
+        (resolves ReviewFinding#H6).
+        """
+        self._ref_count = None
+        self._ema_mean = None
+
     def forward(
         self,
-        x: torch.Tensor,
+        input_current: torch.Tensor,
         *,
         vb=None,
         A=None,
@@ -87,7 +96,7 @@ class FANeuronTorch(nn.Module):
     ):
         """
         Args:
-            x: Input signal [batch, steps, features].
+            input_current: Input signal [batch, steps, features].
             vb, A, theta, tau_ref, input_gain: Optional overrides (float or
                 (mean, std)) sampled per-feature.
             baseline_mode: 'sequence' | 'ema'. If None, uses constructor value.
@@ -96,9 +105,10 @@ class FANeuronTorch(nn.Module):
         Returns:
             va_trace, spikes: both [batch, steps+1, features]
         """
-        assert x.dim() == 3, "x must be [batch, steps, features]"
-        B, T, F = x.shape
-        device, dtype = x.device, x.dtype
+        # Renamed x → input_current for API consistency (resolves ReviewFinding#H6)
+        assert input_current.dim() == 3, "input_current must be [batch, steps, features]"
+        B, T, F = input_current.shape
+        device, dtype = input_current.device, input_current.dtype
 
         # Resolve per-feature parameters
         vb_t = self._param_tensor(self.vb if vb is None else vb, (F,), device, dtype)
@@ -137,7 +147,7 @@ class FANeuronTorch(nn.Module):
 
         # Precompute sequence mean if needed
         if bmode == "sequence":
-            mean_seq = (x * gain_t.view(1, 1, -1)).mean(dim=1, keepdim=True)
+            mean_seq = (input_current * gain_t.view(1, 1, -1)).mean(dim=1, keepdim=True)
 
         # EMA coefficient
         if bmode == "ema":
@@ -153,7 +163,7 @@ class FANeuronTorch(nn.Module):
         ref_steps_b = ref_steps_f.view(1, -1)
 
         for t in range(T):
-            xt = x[:, t, :] * gain_b
+            xt = input_current[:, t, :] * gain_b
 
             # Baseline <x>
             if bmode == "sequence":

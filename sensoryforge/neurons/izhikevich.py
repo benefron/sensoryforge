@@ -65,6 +65,15 @@ class IzhikevichNeuronTorch(nn.Module):
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
 
+    def reset_state(self) -> None:
+        """Reset internal state (no-op for stateless Izhikevich).
+
+        The Izhikevich model re-initialises v and u each forward pass so
+        there is no persistent state to clear, but the method exists to
+        satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
+        """
+        pass
+
     def forward(
         self,
         input_current,

@@ -83,6 +83,15 @@ class SANeuronTorch(nn.Module):
         self.current_scale = float(current_scale)
         self.noise_std = float(noise_std)
 
+    def reset_state(self) -> None:
+        """Reset internal state (no-op for stateless SA neuron).
+
+        The SA model re-initialises z, I_ahp, I_ref each forward pass so
+        there is no persistent state to clear, but the method exists to
+        satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
+        """
+        pass
+
     @staticmethod
     def _param_tensor(val, shape, device, dtype):
         """Float or (mean, std) -> tensor of given shape on device/dtype."""

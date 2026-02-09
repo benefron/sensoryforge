@@ -57,6 +57,15 @@ class MQIFNeuronTorch(nn.Module):
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
 
+    def reset_state(self) -> None:
+        """Reset internal state (no-op for stateless MQIF).
+
+        The MQIF model re-initialises v and u each forward pass so
+        there is no persistent state to clear, but the method exists to
+        satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
+        """
+        pass
+
     def forward(self, input_current):
         batch, steps, features = input_current.shape
         device, dtype = input_current.device, input_current.dtype

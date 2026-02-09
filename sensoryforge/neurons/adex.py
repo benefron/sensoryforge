@@ -61,6 +61,15 @@ class AdExNeuronTorch(nn.Module):
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
 
+    def reset_state(self) -> None:
+        """Reset internal state (no-op for stateless AdEx).
+
+        The AdEx model re-initialises v and w each forward pass so
+        there is no persistent state to clear, but the method exists to
+        satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
+        """
+        pass
+
     def forward(self, input_current):
         batch, steps, features = input_current.shape
         device, dtype = input_current.device, input_current.dtype
