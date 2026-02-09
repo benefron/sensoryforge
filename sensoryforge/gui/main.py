@@ -1,8 +1,13 @@
-"""PyQt5 entry point assembling the tactile simulation GUI tabs."""
+"""PyQt5 entry point assembling the SensoryForge GUI.
+
+The GUI is the primary experimentation tool — an interactive workbench for
+designing sensory encoding experiments, tuning parameters, and observing
+population responses in real time.  Once a configuration is validated here,
+it can be exported to YAML and scaled via the CLI for batch runs.
+"""
 
 import os
 import sys
-from pathlib import Path
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
@@ -13,24 +18,31 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from sensoryforge.gui.protocol_execution_controller import (  # noqa: E402
-    ProtocolExecutionController,
-)
 from sensoryforge.gui.tabs import (  # noqa: E402
     MechanoreceptorTab,
     StimulusDesignerTab,
     SpikingNeuronTab,
-    ProtocolSuiteTab,
 )
-from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 
 
-class TactileSimulationWindow(QtWidgets.QMainWindow):
-    """Main application window hosting modular tactile simulation tabs."""
+class SensoryForgeWindow(QtWidgets.QMainWindow):
+    """Main application window for interactive sensory encoding experiments.
+
+    The GUI provides three core tabs:
+
+    1. **Mechanoreceptors & Innervation** — spatial grid, receptor populations,
+       receptive field visualization.
+    2. **Stimulus Designer** — interactive stimulus creation and preview.
+    3. **Spiking Neurons** — neuron model configuration, simulation, and
+       spike-train visualization.
+
+    Configurations designed in the GUI can be exported to YAML for batch
+    execution via the CLI (``sensoryforge run config.yml``).
+    """
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("SensoryForge – Sensory Encoding")
+        self.setWindowTitle("SensoryForge – Sensory Encoding Workbench")
         self.setMinimumSize(1024, 680)
         self.resize(1200, 780)
 
@@ -39,9 +51,6 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
 
         tabs = QtWidgets.QTabWidget()
         self.setCentralWidget(tabs)
-
-        registry_root = Path.cwd() / "project_registry"
-        self.project_registry = ProjectRegistry(registry_root)
 
         self.mechanoreceptor_tab = MechanoreceptorTab()
         tabs.addTab(
@@ -57,32 +66,6 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
             self.stimulus_tab,
         )
         tabs.addTab(self.spiking_tab, "Spiking Neurons")
-
-        self.protocol_tab = ProtocolSuiteTab(
-            self.mechanoreceptor_tab,
-            self.stimulus_tab,
-            self.spiking_tab,
-            project_registry=self.project_registry,
-        )
-        tabs.addTab(self.protocol_tab, "Protocol Suite")
-
-        # NOTE: AnalyticalInversion tab excluded from v0.1.0 (requires decoding).
-        # Will be added in v0.2.0+ after Papers 2-3 publication.
-
-        self.execution_controller = ProtocolExecutionController(
-            self.mechanoreceptor_tab,
-            self.spiking_tab,
-            self.protocol_tab,
-            self.project_registry,
-            parent=self,
-        )
-        self.protocol_tab.run_requested.connect(self.execution_controller.start_batch)
-        # self.protocol_tab.load_run_requested.connect(
-        #     self.execution_controller.load_run_into_analysis
-        # )
-        self.execution_controller.batch_finished.connect(
-            lambda: self.protocol_tab.set_running(False)
-        )
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with config load/save options."""
@@ -123,11 +106,11 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
         
-        # Phase 2 info action
-        phase2_action = QtWidgets.QAction('Phase &2 Features (CLI)', self)
-        phase2_action.setStatusTip('Information about Phase 2 features (use CLI for full access)')
-        phase2_action.triggered.connect(self._show_phase2_info)
-        help_menu.addAction(phase2_action)
+        # Advanced features action
+        advanced_action = QtWidgets.QAction('&Advanced Features', self)
+        advanced_action.setStatusTip('Information about advanced features')
+        advanced_action.triggered.connect(self._show_phase2_info)
+        help_menu.addAction(advanced_action)
         
         # CLI Guide action
         cli_guide_action = QtWidgets.QAction('&CLI Guide', self)
@@ -295,47 +278,47 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
             self,
             'About SensoryForge',
             '<h2>SensoryForge v0.2.0</h2>'
-            '<p>Modular, extensible framework for simulating sensory '
-            'encoding across modalities.</p>'
-            '<p><b>Features:</b></p>'
+            '<p>An extensible playground for generating population activity '
+            'in response to multiple stimuli and modalities.</p>'
+            '<p><b>Core Features:</b></p>'
             '<ul>'
+            '<li>Multiple spiking neuron models (Izhikevich, AdEx, MQIF, FA, SA)</li>'
+            '<li>SA/RA dual-pathway temporal filtering</li>'
             '<li>Multi-population grids (CompositeGrid)</li>'
             '<li>Equation DSL for custom neuron models</li>'
-            '<li>Extended stimuli (texture, moving)</li>'
-            '<li>Adaptive ODE solvers</li>'
-            '<li>YAML configuration</li>'
-            '<li>Command-line interface</li>'
+            '<li>Extended stimuli (Gaussian, texture, moving)</li>'
+            '<li>Adaptive ODE solvers (Euler, Dormand-Prince)</li>'
+            '<li>YAML configuration &amp; CLI for scalable batch runs</li>'
             '</ul>'
-            '<p><b>Usage:</b></p>'
+            '<p><b>Workflow:</b></p>'
             '<ul>'
-            '<li>GUI: Interactive simulation design</li>'
-            '<li>CLI: <tt>sensoryforge run config.yml</tt></li>'
-            '<li>Python API: <tt>from sensoryforge.core import ...</tt></li>'
+            '<li><b>GUI:</b> Design &amp; test experiments interactively</li>'
+            '<li><b>CLI:</b> <tt>sensoryforge run config.yml</tt> for batch runs</li>'
+            '<li><b>Python API:</b> <tt>from sensoryforge.core import ...</tt></li>'
             '</ul>'
         )
 
     def _show_phase2_info(self) -> None:
-        """Show Phase 2 features information."""
+        """Show advanced features information."""
         QMessageBox.information(
             self,
-            'Phase 2 Features',
-            '<h3>Phase 2 Integration Features</h3>'
+            'Advanced Features',
+            '<h3>Advanced Features</h3>'
             '<p><b>CompositeGrid:</b> Multi-population receptor mosaics<br>'
-            'Example: SA1, RA1, SA2 with different densities and arrangements</p>'
+            'SA1, RA1, SA2 populations with different densities and arrangements</p>'
             '<p><b>Equation DSL:</b> Define neuron models via equations<br>'
-            'Example: Custom Izhikevich variants without coding</p>'
+            'Custom Izhikevich variants, AdEx, or your own dynamics</p>'
             '<p><b>Extended Stimuli:</b> Texture and moving stimuli<br>'
-            'Example: Gabor patches, edge gratings, linear/circular motion</p>'
+            'Gabor patches, edge gratings, linear/circular motion</p>'
             '<p><b>Adaptive Solvers:</b> High-precision ODE integration<br>'
-            'Example: Dormand-Prince (RK45) for stiff systems</p>'
+            'Dormand-Prince (RK45) for stiff systems</p>'
             '<p><b>YAML Configuration:</b> Declarative pipeline setup<br>'
-            'Use: <tt>sensoryforge validate config.yml</tt></p>'
-            '<p><b>CLI:</b> Command-line simulation execution<br>'
+            '<tt>sensoryforge validate config.yml</tt></p>'
+            '<p><b>CLI:</b> Scalable batch simulation execution<br>'
             'Commands: run, validate, visualize, list-components</p>'
             '<hr>'
-            '<p><i>GUI integration for Phase 2 features coming soon!</i><br>'
-            'Currently use YAML configs with CLI for full access.</p>'
-            '<p>Select Help → CLI Guide for examples.</p>'
+            '<p>Design experiments in the GUI, then export to YAML '
+            'for large-scale batch runs via the CLI.</p>'
         )
 
     def _show_cli_guide(self) -> None:
@@ -377,9 +360,9 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
 
 
 def main() -> None:
-    """Launch the tactile simulation application."""
+    """Launch the SensoryForge GUI application."""
     app = QtWidgets.QApplication(sys.argv)
-    window = TactileSimulationWindow()
+    window = SensoryForgeWindow()
     window.show()
     sys.exit(app.exec_())
 

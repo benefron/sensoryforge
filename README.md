@@ -6,9 +6,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-**Modular, extensible framework for simulating sensory encoding across modalities**
+**An extensible playground for simulating sensory encoding and generating population activity across modalities**
 
-SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory encoding schemes inspired by neuroscience. Originally developed for tactile simulation with SA/RA dual-pathway processing, the architecture is fully **modality-agnostic** and supports vision, audition, and multi-modal fusion.
+SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory encoding schemes. Originally developed for tactile simulation with SA/RA dual-pathway processing, the architecture is fully **modality-agnostic** and supports vision, audition, custom modalities, and multi-modal fusion.
+
+Designed for **neuroscientists**, **neuromorphic engineers**, and **ML researchers**, SensoryForge lets you:
+- **Design experiments interactively** in the GUI — like a neuroscientist tuning an experiment at the bench
+- **Scale simulations** via YAML configuration and the CLI for batch runs and parameter sweeps
+- **Generate artificial datasets** for training and evaluating downstream systems
+- **Test neuromorphic concepts** that can later be implemented in hardware
 
 ---
 
@@ -16,10 +22,11 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory e
 
 - 🧠 **Biologically Inspired:** Grounded in neuroscience principles (receptive fields, dual pathways, spiking dynamics)
 - 🚀 **GPU Accelerated:** Built on PyTorch for efficient tensor operations
-- 🔧 **Highly Extensible:** Plugin system for custom filters, neurons, and stimuli
-- 🌐 **Modality Agnostic:** Same framework for touch, vision, audition, and more
+- 🔧 **Highly Extensible:** Add custom filters, neurons, stimuli, and entire modalities
+- 🖥️ **Interactive GUI:** Design and test experiments visually before scaling
+- 🌐 **Modality Agnostic:** Same framework for touch, vision, audition, and fabricated modalities
 - 🔬 **Adaptive ODE Solvers:** Optional torchdiffeq/torchode integration for stiff systems
-- 📚 **Comprehensive Documentation:** Tutorials, examples, and API reference
+- 📐 **Equation DSL:** Define custom neuron models via equations — no coding required
 - 📦 **Production Ready:** pip-installable with proper testing and CI/CD
 
 ---
@@ -103,22 +110,28 @@ ra_spikes, _ = ra_neurons(ra_current)
 
 ## 🎯 Use Cases
 
-### Touch Sensing
-- Robotic tactile sensors
-- Prosthetic feedback systems
-- Texture classification
-- Contact detection and tracking
+### Neuroscience Research
+- Simulate peripheral sensory encoding (touch, vision, audition)
+- Test hypotheses about receptive field organization
+- Explore dual-pathway processing (sustained vs. transient)
+- Generate synthetic neural data matching biological statistics
 
-### Vision
-- Event-based cameras (DVS)
-- ON/OFF pathway encoding
-- Motion detection
-- Edge enhancement
+### Neuromorphic Engineering
+- Prototype spiking encoding schemes for hardware implementation
+- Test event-based sensor designs (DVS, tactile arrays)
+- Optimize encoding parameters for downstream processing
+- Validate encoding-decoding pipelines
 
-### Multi-Modal
-- Audio-tactile fusion
-- Cross-modal learning
-- Sensor fusion for robotics
+### Machine Learning & Data Generation
+- Generate large-scale artificial spike-train datasets
+- Create training data for spike-based classifiers
+- Benchmark decoding algorithms
+- Parameter sweeps via CLI for systematic exploration
+
+### Multi-Modal Fusion
+- Cross-modal encoding experiments
+- Audio-tactile, visuo-tactile sensor fusion
+- Custom/fabricated modality design
 
 ---
 
@@ -222,17 +235,12 @@ See the [Solvers Guide](https://benefron.github.io/sensoryforge/user_guide/solve
 
 ### Jupyter Notebooks
 
-- [Basic Pipeline](examples/notebooks/01_basic_pipeline.ipynb) - Complete encoding workflow
-- [Custom Components](examples/notebooks/02_custom_components.ipynb) - Creating extensions
-- [Touch Encoding](examples/notebooks/03_touch_encoding.ipynb) - SA/RA dual pathways
-- [Vision Encoding](examples/notebooks/04_vision_encoding.ipynb) - Event cameras
-- [Multi-Modal](examples/notebooks/05_multimodal.ipynb) - Combining modalities
+- [Quick Start](examples/notebooks/01_quickstart.ipynb) — Complete encoding workflow
 
 ### Python Scripts
 
-- [Simple Touch](examples/scripts/simple_touch.py) - Minimal working example
-- [Texture Classification](examples/scripts/texture_classification.py) - Practical application
-- [Parameter Sweep](examples/scripts/parameter_sweep.py) - Batch experiments
+- [Example Pipeline](examples/scripts/example_pipeline.py) — Basic touch encoding
+- [Generalized Pipeline Demo](examples/scripts/generalized_pipeline_demo.py) — YAML-driven pipeline
 
 ---
 

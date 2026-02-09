@@ -66,13 +66,14 @@ sensoryforge run example_config.yml --duration 1000 --output results.pt
 
 The `notebooks/` directory contains Jupyter notebooks with interactive examples:
 
-- **Notebook examples coming soon**
+- [`01_quickstart.ipynb`](notebooks/01_quickstart.ipynb) — Complete encoding workflow from grid to spikes
 
 ## Scripts
 
 The `scripts/` directory contains Python scripts for common tasks:
 
-- **Script examples coming soon**
+- [`example_pipeline.py`](scripts/example_pipeline.py) — Basic touch encoding pipeline
+- [`generalized_pipeline_demo.py`](scripts/generalized_pipeline_demo.py) — YAML-driven generalized pipeline
 
 ## Phase 2 Features
 
@@ -143,7 +144,7 @@ solver:
     atol: 1.0e-7
 ```
 
-**Note:** Phase 2 feature integration is coming soon. See documentation for details.
+All advanced features (CompositeGrid, Equation DSL, extended stimuli, adaptive solvers) are fully functional via CLI and Python API.
 
 ## Documentation
 
@@ -180,5 +181,5 @@ Have a useful configuration or example? Please contribute!
 
 ---
 
-**SensoryForge** – Modular sensory encoding framework  
+**SensoryForge** – Extensible sensory encoding playground  
 Version 0.2.0 | [GitHub](https://github.com/benefron/sensoryforge)

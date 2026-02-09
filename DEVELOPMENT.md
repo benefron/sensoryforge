@@ -28,22 +28,30 @@ Install the package in editable/development mode so changes to the code are imme
 pip install -e .
 ```
 
-Note: You'll need a `setup.py` or `pyproject.toml` file in the project root. If these don't exist, you can create one (see below).
-
 ### 4. Verify Installation
 
 Test that everything is working:
 
 ```bash
-python -c "import sensoryforge; print('SensoryForge imported successfully!')"
+python -c "import sensoryforge; print(f'SensoryForge v{sensoryforge.__version__} imported successfully!')"
 ```
 
-### 5. Run the GUI
+### 5. Launch the GUI
 
-With the environment activated, run:
+The GUI is the primary experimentation tool:
 
 ```bash
 python sensoryforge/gui/main.py
+```
+
+### 6. Use the CLI
+
+For batch execution and scalability:
+
+```bash
+sensoryforge run examples/example_config.yml --duration 1000
+sensoryforge validate examples/example_config.yml
+sensoryforge list-components
 ```
 
 ## Alternative: Pip-Only Installation
@@ -84,57 +92,6 @@ Or serve documentation locally:
 
 ```bash
 mkdocs serve
-```
-
-## Creating a setup.py
-
-If you need to create a `setup.py` for development installation, here's a template:
-
-```python
-from setuptools import setup, find_packages
-
-setup(
-    name="sensoryforge",
-    version="0.2.0",
-    description="Modular, extensible framework for simulating sensory encoding across modalities",
-    author="Your Name",
-    packages=find_packages(),
-    python_requires=">=3.8",
-    install_requires=[
-        "torch>=1.12.0",
-        "torchvision>=0.13.0",
-        "torchaudio>=0.12.0",
-        "numpy>=1.21.0",
-        "scipy>=1.7.0",
-        "scikit-learn>=1.0.0",
-        "PyQt5>=5.15.0",
-        "pyqtgraph>=0.13.0",
-        "PyYAML>=6.0",
-        "tqdm>=4.60",
-        "matplotlib>=3.5",
-    ],
-    extras_require={
-        "solvers": [
-            "torchdiffeq>=0.2.3",
-            "torchode>=0.2.0",
-        ],
-        "dsl": [
-            "sympy>=1.11",
-        ],
-        "dev": [
-            "pytest>=7.0",
-            "pytest-cov>=3.0",
-            "black>=22.0",
-            "flake8>=4.0",
-            "mypy>=0.950",
-        ],
-        "docs": [
-            "mkdocs>=1.3.0",
-            "mkdocs-material>=8.0.0",
-            "mkdocs-include-markdown-plugin>=3.0.0",
-        ],
-    },
-)
 ```
 
 ## Troubleshooting

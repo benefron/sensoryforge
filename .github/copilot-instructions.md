@@ -7,11 +7,23 @@
 
 ## Core Philosophy
 
-SensoryForge is a **modular, extensible framework** for simulating sensory encoding across multiple modalities. The framework is:
+SensoryForge is an **extensible playground** for generating population activity in response to multiple stimuli and modalities (biology-based, non-biology-based, fabricated). The framework is:
 - **Modality-agnostic:** Touch is the first implementation, but the architecture generalizes to vision, audition, and multi-modal fusion
 - **Scientifically grounded:** All implementations must align with biological principles and published neuroscience literature
 - **User-friendly:** Clear documentation, intuitive APIs, and comprehensive tutorials are mandatory
 - **Production-ready:** Professional code quality suitable for academic publication and open-source adoption
+
+### Primary Goals
+1. **Interactive experimentation** — The GUI is the primary design tool, like a neuroscientist at the bench tuning an experiment
+2. **Scalable execution** — CLI + YAML for batch runs, parameter sweeps, and large-scale data generation
+3. **Extensibility** — Custom neuron populations, stimuli, filters, neuron models, and neuroscience-inspired layers (ON/OFF cells, lateral inhibition, etc.)
+4. **Artificial data generation** — Create datasets for training and refining ML systems and neuromorphic hardware
+5. **Neuromorphic prototyping** — Test encoding concepts that can later be implemented in hardware
+
+### Workflow
+- **GUI** → Design and test experiments interactively (tune parameters, observe population responses)
+- **CLI/YAML** → Export configurations for batch execution and scalability
+- **Python API/Notebooks** → Programmatic access for custom analysis and integration
 
 ## Core References
 
@@ -45,40 +57,47 @@ SensoryForge is a **modular, extensible framework** for simulating sensory encod
 sensoryforge/
 ├── core/                 # Fundamental components
 │   ├── pipeline.py       # Orchestration and coordination
+│   ├── generalized_pipeline.py  # YAML-configurable pipeline
 │   ├── grid.py           # Spatial substrate (2D grids, Poisson arrangements, etc.)
 │   ├── innervation.py    # Receptive field generation
 │   ├── composite_grid.py # Multi-population composable grids
-│   └── utils/            # Shared utilities
+│   ├── mechanoreceptors.py  # Gaussian convolution mechanoreceptor sim
+│   ├── tactile_network.py   # Spiking neural network integration
+│   ├── compression.py    # Compression operators
+│   └── visualization.py  # Visualization utilities
 ├── filters/              # Temporal filtering
-│   ├── base.py           # Abstract base class (BaseFilter)
 │   ├── sa_ra.py          # SA/RA dual-pathway filters
-│   ├── center_surround.py # ON/OFF for vision
-│   └── custom/           # User extensions (auto-discovered)
+│   └── noise.py          # Noise generation
 ├── neurons/              # Spiking neuron models
-│   ├── base.py           # Abstract base class (BaseNeuron)
 │   ├── izhikevich.py     # Izhikevich model
 │   ├── adex.py           # Adaptive exponential model
 │   ├── mqif.py           # Multi-quadratic integrate-and-fire
-│   ├── model_dsl.py      # Equation DSL → nn.Module compiler (future)
-│   └── custom/           # User extensions
-├── solvers/              # ODE/SDE integration backends
+│   ├── fa.py             # Fast adapting neuron
+│   ├── sa.py             # Slowly adapting neuron
+│   └── model_dsl.py      # Equation DSL → nn.Module compiler
+├── solvers/              # ODE integration backends
 │   ├── base.py           # Abstract solver interface
 │   ├── euler.py          # Forward Euler (current default)
-│   ├── adaptive.py       # Wrapper for torchdiffeq/torchode (Dormand-Prince, etc.)
-│   └── sde.py            # Stochastic differential equation solvers
+│   └── adaptive.py       # Wrapper for torchdiffeq (Dormand-Prince, etc.)
 ├── stimuli/              # Stimulus generation
-│   ├── base.py           # Abstract base class (BaseStimulus)
-│   ├── gaussian.py       # Gaussian blobs
-│   ├── texture.py        # Texture patterns
-│   ├── moving.py         # Moving/sliding stimuli
-│   └── custom/           # User extensions
-├── gui/                  # Optional PyQt5 interface
-│   └── (visualization and interactive configuration)
+│   ├── stimulus.py       # Legacy stimulus functions + StimulusGenerator
+│   ├── gaussian.py       # Gaussian blobs (new modular API)
+│   ├── texture.py        # Texture patterns (Gabor, gratings, noise)
+│   └── moving.py         # Moving/sliding stimuli (taps, slides)
+├── gui/                  # PyQt5 interactive workbench
+│   ├── main.py           # Main window assembly
+│   ├── tabs/             # GUI tab modules
+│   │   ├── mechanoreceptor_tab.py  # Grid & population config
+│   │   ├── stimulus_tab.py         # Stimulus designer
+│   │   └── spiking_tab.py          # Neuron simulation & visualization
+│   ├── neuron_explorer.py  # Standalone neuron model explorer
+│   └── filter_utils.py     # Filter normalization helpers
 ├── config/               # Configuration management
-│   ├── schemas/          # JSON schemas for validation
+│   ├── yaml_utils.py     # YAML loading utilities
 │   └── default_config.yml # Default configuration
-└── plugins/              # Plugin system infrastructure
-    └── registry.py       # Auto-discovery and registration
+├── utils/                # Shared utilities
+│   └── project_registry.py  # Data persistence layer
+└── cli.py                # Command-line interface
 ```
 
 ### Data Flow
@@ -105,7 +124,7 @@ Spike Trains (sparse, event-based)
 [Optional] Training / ML (differentiable end-to-end via adjoint method)
 ```
 
-### Composable Grids (Future)
+### Composable Grids
 
 SensoryForge supports multi-population spatial substrates for modeling
 receptor mosaics (e.g., SA1/RA1/SA2 in touch, L/M/S cones in vision):
@@ -465,7 +484,7 @@ solver = AdaptiveODESolver(method='dopri5', rtol=1e-5, atol=1e-7)
 neuron = IzhikevichNeuronTorch(config, solver=solver)
 ```
 
-### Equation DSL (Future)
+### Equation DSL
 
 A Brian2-inspired declarative interface for neuroscientists who prefer to define
 models via equations rather than writing `nn.Module` subclasses:
@@ -491,6 +510,9 @@ The DSL parses equations with sympy, extracts the ODE system, and compiles it
 into a PyTorch-native `nn.Module` that is fully compatible with the rest of the
 pipeline. This is a **plug-in addition** — existing hand-written models continue
 working unchanged.
+
+**Note:** The current DSL implementation uses numpy lambdify and does not fully
+support GPU or autograd — this is known technical debt to be addressed.
 
 ### Two Paths to Neuron Models
 

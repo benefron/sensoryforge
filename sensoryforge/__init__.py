@@ -1,15 +1,23 @@
-"""SensoryForge: Modular, extensible framework for simulating sensory encoding across modalities.
+"""SensoryForge: An extensible playground for sensory encoding and population activity generation.
 
-SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory encoding
-schemes inspired by neuroscience. The architecture is fully modality-agnostic and supports
-touch, vision, audition, and multi-modal fusion.
+SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory
+encoding schemes across modalities (touch, vision, audition, fabricated). It enables
+interactive experiment design (GUI), scalable batch execution (CLI/YAML), and
+artificial dataset generation for ML and neuromorphic applications.
 
 Key Components:
-    - core: Spatial grids, receptive fields, pipeline orchestration
-    - filters: Temporal filtering (SA/RA, ON/OFF, custom)
-    - neurons: Spiking neuron models (Izhikevich, AdEx, MQIF, custom)
-    - stimuli: Stimulus generation and pattern synthesis
-    - gui: Optional PyQt5 interactive interface
+    - core: Spatial grids, receptive fields, pipeline orchestration, composite grids
+    - filters: Temporal filtering (SA/RA dual-pathway)
+    - neurons: Spiking neuron models (Izhikevich, AdEx, MQIF, FA, SA, Equation DSL)
+    - stimuli: Stimulus generation (Gaussian, texture, moving)
+    - solvers: ODE integration (Euler, adaptive via torchdiffeq)
+    - gui: PyQt5 interactive workbench
+    - cli: Command-line interface for batch execution
+
+Workflow:
+    GUI → Design and test experiments interactively
+    CLI/YAML → Export for batch execution and scalability
+    Python API → Programmatic access for custom analysis
 
 Example:
     >>> from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
