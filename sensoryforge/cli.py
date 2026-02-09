@@ -141,10 +141,20 @@ def cmd_run(args: argparse.Namespace) -> int:
             stimulus_cfg = config['stimuli'][0]
             stimulus_type = stimulus_cfg.get('type', 'trapezoidal')
         
+        # Build stimulus parameters from CLI args and config
+        # (resolves ReviewFinding#M10)
+        stimulus_params = {}
+        if 'stimuli' in config and isinstance(config['stimuli'], list) and config['stimuli']:
+            stimulus_cfg = config['stimuli'][0]
+            stimulus_params = {k: v for k, v in stimulus_cfg.items() if k != 'type'}
+        # For non-trapezoidal types, pass duration from CLI
+        if stimulus_type != 'trapezoidal' and args.duration:
+            stimulus_params['duration'] = args.duration
+        
         results = pipeline.forward(
             stimulus_type=stimulus_type,
-            duration=args.duration,
-            return_intermediates=True
+            return_intermediates=True,
+            **stimulus_params,
         )
         
         # Save output if requested
