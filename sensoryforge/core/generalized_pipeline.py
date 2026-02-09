@@ -533,11 +533,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Add temporal envelope
         temporal_profile = torch.ones(n_timesteps, device=self.device)
         
-        # Combine
-        n_x, n_y = self.grid_manager.grid_size
-        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        for t_idx in range(n_timesteps):
-            stimulus_sequence[0, t_idx] = spatial_stimulus * temporal_profile[t_idx]
+        # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
+        # (resolves ReviewFinding#H7)
+        stimulus_sequence = (
+            spatial_stimulus.unsqueeze(0).unsqueeze(0)
+            * temporal_profile.view(1, -1, 1, 1)
+        )
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -648,11 +649,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             xx, yy, center_x, center_y, amplitude, sigma
         )
 
-        # Combine spatial and temporal
-        n_x, n_y = self.grid_manager.grid_size
-        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        for t_idx in range(n_timesteps):
-            stimulus_sequence[0, t_idx] = spatial_stimulus * temporal_profile[t_idx]
+        # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
+        # (resolves ReviewFinding#H7)
+        stimulus_sequence = (
+            spatial_stimulus.unsqueeze(0).unsqueeze(0)
+            * temporal_profile.view(1, -1, 1, 1)
+        )
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -679,11 +681,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             xx, yy, center_x, center_y, amplitude, sigma
         )
 
-        # Combine
-        n_x, n_y = self.grid_manager.grid_size
-        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        for t_idx in range(n_timesteps):
-            stimulus_sequence[0, t_idx] = spatial_stimulus
+        # Vectorized: expand constant spatial to all timesteps [1, T, H, W]
+        # (resolves ReviewFinding#H7)
+        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(0).expand(
+            1, n_timesteps, -1, -1
+        ).clone()
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -715,11 +717,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             xx, yy, center_x, center_y, amplitude, sigma
         )
 
-        # Combine
-        n_x, n_y = self.grid_manager.grid_size
-        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        for t_idx in range(n_timesteps):
-            stimulus_sequence[0, t_idx] = spatial_stimulus * temporal_profile[t_idx]
+        # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
+        # (resolves ReviewFinding#H7)
+        stimulus_sequence = (
+            spatial_stimulus.unsqueeze(0).unsqueeze(0)
+            * temporal_profile.view(1, -1, 1, 1)
+        )
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -748,11 +751,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             xx, yy, center_x, center_y, amplitude, sigma
         )
 
-        # Combine
-        n_x, n_y = self.grid_manager.grid_size
-        stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        for t_idx in range(n_timesteps):
-            stimulus_sequence[0, t_idx] = spatial_stimulus * temporal_profile[t_idx]
+        # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
+        # (resolves ReviewFinding#H7)
+        stimulus_sequence = (
+            spatial_stimulus.unsqueeze(0).unsqueeze(0)
+            * temporal_profile.view(1, -1, 1, 1)
+        )
 
         return stimulus_sequence, time_array, temporal_profile
 
