@@ -313,16 +313,20 @@ class CompositeGrid:
         return coordinates
     
     def _generate_poisson(self, density: float) -> torch.Tensor:
-        """Generate Poisson disk sampling distribution.
+        """Generate approximate Poisson-distributed points via jittered grid.
         
-        Creates a random point distribution with minimum separation distance
-        based on density, avoiding clustering while maintaining randomness.
+        Creates a random point distribution by starting from a regular grid
+        at the target density and applying uniform jitter.  This is **not**
+        true Poisson-disk sampling (which enforces a hard minimum-distance
+        constraint); it is a computationally efficient approximation that
+        avoids O(n²) rejection loops while producing visually similar spatial
+        distributions (resolves ReviewFinding#M5).
         
         Args:
             density: Target receptor density in receptors per mm².
         
         Returns:
-            Tensor of approximately density * area points with minimum separation.
+            Tensor of approximately density × area points with shape [N, 2].
         """
         # Approximate Poisson disk sampling via jittered grid at target density.
         # This avoids O(n^2) rejection loops and scales to large grids.
