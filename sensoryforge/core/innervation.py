@@ -107,14 +107,27 @@ def create_innervation_map_tensor(
     # Clamp to at least 1 and at most total number of mechanoreceptors
     max_conn = flat_weights.shape[1]
     K_per_neuron = torch.clamp(K_per_neuron, min=1, max=max_conn)
+
+    # Vectorised innervation construction (resolves ReviewFinding#C1)
+    # Sample max_K indices per neuron in a single batched multinomial call,
+    # then mask out excess samples for neurons with K < max_K.
+    max_K = K_per_neuron.max().item()
     rand_weights = torch.zeros_like(flat_weights)
-    for n in range(num_neurons):
-        K = K_per_neuron[n].item()
-        if K > 0:
-            # Sample K indices without replacement from probability weights
-            idx = torch.multinomial(prob_weights[n], K, replacement=False)
-            rand_vals = torch.empty(K, device=device).uniform_(weight_min, weight_max)
-            rand_weights[n, idx] = rand_vals
+
+    if max_K > 0:
+        # Batched multinomial: [num_neurons, max_K]
+        all_idx = torch.multinomial(prob_weights, max_K, replacement=False)
+        all_vals = torch.empty(num_neurons, max_K, device=device).uniform_(
+            weight_min, weight_max
+        )
+
+        # Build mask: only keep first K[n] samples per neuron
+        arange = torch.arange(max_K, device=device).unsqueeze(0)  # [1, max_K]
+        mask = arange < K_per_neuron.unsqueeze(1)  # [num_neurons, max_K]
+        all_vals[~mask] = 0.0
+
+        # Scatter into the flat weight matrix
+        rand_weights.scatter_(1, all_idx, all_vals)
 
     # Reshape back to (num_neurons, grid_h, grid_w)
     innervation_map = rand_weights.view(num_neurons, grid_h, grid_w)
@@ -261,13 +274,14 @@ class InnervationModule(nn.Module):
         )
         return total_connections / total_possible
 
-    def get_weights_per_neuron(self):
-        """Get number of connections per neuron."""
-        connections_per_neuron = []
-        for i in range(self.num_neurons):
-            connections = (self.innervation_weights[i] > 0).sum().item()
-            connections_per_neuron.append(connections)
-        return torch.tensor(connections_per_neuron)
+    def get_weights_per_neuron(self) -> torch.Tensor:
+        """Count nonzero connections per neuron (vectorised).
+
+        Returns:
+            Tensor of shape ``(num_neurons,)`` with connection counts.
+        """
+        # Vectorised implementation (resolves ReviewFinding#H2)
+        return (self.innervation_weights > 0).view(self.num_neurons, -1).sum(dim=1)
 
     def visualize_neuron_connections(self, neuron_idx):
         """Get connection pattern for a specific neuron."""

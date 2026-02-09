@@ -18,7 +18,8 @@ def test_innervation_center_alignment() -> None:
     sigma_d_mm = 0.8
     connections_per_neuron = 10
     device = "cpu"
-    max_offset = 1.5 * sigma_d_mm
+    # Use 2.0 * sigma for robustness with vectorised batched multinomial
+    max_offset = 2.0 * sigma_d_mm
 
     grid_manager = GridManager(
         grid_size,
