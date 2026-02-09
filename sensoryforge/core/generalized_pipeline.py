@@ -14,6 +14,7 @@ from .composite_grid import CompositeGrid
 from .innervation import create_sa_innervation, create_ra_innervation, InnervationModule
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
+from sensoryforge.stimuli.texture import gabor_texture  # (resolves ReviewFinding#M3)
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.neurons.model_dsl import NeuronModel
