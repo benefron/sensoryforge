@@ -124,16 +124,22 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
         help_menu.addAction(about_action)
         
         # Phase 2 info action
-        phase2_action = QtWidgets.QAction('Phase &2 Features', self)
-        phase2_action.setStatusTip('Information about Phase 2 features')
+        phase2_action = QtWidgets.QAction('Phase &2 Features (CLI)', self)
+        phase2_action.setStatusTip('Information about Phase 2 features (use CLI for full access)')
         phase2_action.triggered.connect(self._show_phase2_info)
         help_menu.addAction(phase2_action)
+        
+        # CLI Guide action
+        cli_guide_action = QtWidgets.QAction('&CLI Guide', self)
+        cli_guide_action.setStatusTip('How to use the command-line interface')
+        cli_guide_action.triggered.connect(self._show_cli_guide)
+        help_menu.addAction(cli_guide_action)
 
     def _load_config(self) -> None:
-        """Load configuration from YAML file."""
+        """Load and visualize YAML configuration."""
         filename, _ = QFileDialog.getOpenFileName(
             self,
-            'Load Configuration',
+            'Load YAML Configuration',
             '',
             'YAML Files (*.yml *.yaml);;All Files (*)'
         )
@@ -141,17 +147,48 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
         if filename:
             try:
                 import yaml
+                from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+                
                 with open(filename, 'r') as f:
                     config = yaml.safe_load(f)
                 
-                QMessageBox.information(
-                    self,
-                    'Config Loaded',
-                    f'Configuration loaded from:\n{filename}\n\n'
-                    'Note: Full YAML config integration with GUI coming soon.\n'
-                    'Currently, configs can be used with CLI:\n'
-                    f'sensoryforge run {filename}'
-                )
+                # Try to instantiate pipeline to validate
+                try:
+                    pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+                    info = pipeline.get_pipeline_info()
+                    
+                    # Show config summary
+                    msg = f'<h3>Configuration Loaded</h3>'
+                    msg += f'<p><b>File:</b> {filename}</p>'
+                    msg += f'<p><b>Device:</b> {info["config"]["pipeline"]["device"]}</p>'
+                    msg += f'<p><b>Grid:</b> {info["grid_properties"]["size"]}</p>'
+                    msg += f'<p><b>Neurons:</b> SA={info["neuron_counts"]["sa_neurons"]}, '
+                    msg += f'RA={info["neuron_counts"]["ra_neurons"]}</p>'
+                    
+                    # Check for Phase 2 features
+                    if pipeline.composite_grid:
+                        msg += '<p><b>✓ CompositeGrid detected</b></p>'
+                    if config.get('neurons', {}).get('type') == 'dsl':
+                        msg += '<p><b>✓ DSL neuron model detected</b></p>'
+                    if config.get('solver', {}).get('type') == 'adaptive':
+                        msg += '<p><b>✓ Adaptive solver detected</b></p>'
+                    
+                    msg += '<hr><p><b>To run simulation:</b></p>'
+                    msg += f'<pre>sensoryforge run {filename} --duration 1000</pre>'
+                    
+                    QMessageBox.information(
+                        self,
+                        'Config Validated',
+                        msg
+                    )
+                except Exception as e:
+                    QMessageBox.warning(
+                        self,
+                        'Config Warning',
+                        f'Configuration loaded but validation failed:\n{str(e)}\n\n'
+                        f'You can still try running with CLI:\n'
+                        f'sensoryforge run {filename}'
+                    )
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -160,39 +197,90 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
                 )
 
     def _save_config(self) -> None:
-        """Save current configuration to YAML file."""
+        """Generate and save a YAML configuration template."""
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            'Save Configuration',
-            '',
+            'Save Configuration Template',
+            'sensoryforge_config.yml',
             'YAML Files (*.yml *.yaml);;All Files (*)'
         )
         
         if filename:
             try:
-                # Create a basic config from current GUI state
-                # This is a minimal implementation - full integration coming soon
+                # Generate a comprehensive config template with Phase 2 features
                 config = {
+                    'metadata': {
+                        'name': 'SensoryForge Configuration',
+                        'version': '0.2.0',
+                        'created': 'From GUI',
+                        'note': 'Edit this file and use with: sensoryforge run config.yml'
+                    },
                     'pipeline': {
                         'device': 'cpu',
-                        'seed': 42
+                        'seed': 42,
+                        'grid_size': 80,
+                        'spacing': 0.15,
+                        'center': [0.0, 0.0]
                     },
-                    'gui': {
-                        'note': 'Generated from GUI - full integration coming soon'
+                    '# Uncomment to use CompositeGrid': None,
+                    'grid_example_composite': {
+                        'type': 'composite',
+                        'populations': {
+                            'sa1': {'density': 10.0, 'arrangement': 'poisson'},
+                            'ra1': {'density': 5.0, 'arrangement': 'hex'},
+                            'sa2': {'density': 3.0, 'arrangement': 'poisson'}
+                        }
+                    },
+                    'neurons': {
+                        'sa_neurons': 10,
+                        'ra_neurons': 14,
+                        'sa2_neurons': 5,
+                        'dt': 0.5
+                    },
+                    '# Uncomment to use Equation DSL': None,
+                    'neurons_example_dsl': {
+                        'type': 'dsl',
+                        'equations': 'dv/dt = 0.04*v**2 + 5*v + 140 - u + I\\ndu/dt = a*(b*v - u)',
+                        'threshold': 'v >= 30',
+                        'reset': 'v = c; u = u + d',
+                        'parameters': {'a': 0.02, 'b': 0.2, 'c': -65.0, 'd': 8.0}
+                    },
+                    'stimuli': [
+                        {'type': 'gaussian', 'config': {'amplitude': 30.0, 'sigma': 1.0}},
+                        '# Uncomment for texture stimulus',
+                        {'type_example': 'texture', 'config': {'pattern': 'gabor', 'wavelength': 2.0}},
+                        '# Uncomment for moving stimulus',
+                        {'type_example': 'moving', 'config': {'motion_type': 'linear', 'start': [-2, 0], 'end': [2, 0]}}
+                    ],
+                    'solver': {
+                        'type': 'euler',
+                        '# Use adaptive for higher accuracy': None,
+                        'adaptive_example': {'type': 'adaptive', 'config': {'method': 'dopri5', 'rtol': 1e-5}}
                     }
                 }
                 
                 import yaml
                 with open(filename, 'w') as f:
-                    yaml.dump(config, f, default_flow_style=False)
+                    yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
                 
                 QMessageBox.information(
                     self,
-                    'Config Saved',
-                    f'Basic configuration template saved to:\n{filename}\n\n'
-                    'Note: Full YAML config export from GUI coming soon.\n'
-                    'Edit the YAML file and use with CLI:\n'
-                    f'sensoryforge run {filename}'
+                    'Template Saved',
+                    f'<h3>Configuration Template Saved</h3>'
+                    f'<p><b>File:</b> {filename}</p>'
+                    f'<p>This template includes examples for all Phase 2 features:</p>'
+                    f'<ul>'
+                    f'<li>CompositeGrid (multi-population)</li>'
+                    f'<li>Equation DSL (custom neurons)</li>'
+                    f'<li>Extended stimuli (texture, moving)</li>'
+                    f'<li>Adaptive solvers</li>'
+                    f'</ul>'
+                    f'<p><b>Next steps:</b></p>'
+                    f'<ol>'
+                    f'<li>Edit {filename} to configure your simulation</li>'
+                    f'<li>Validate: <tt>sensoryforge validate {filename}</tt></li>'
+                    f'<li>Run: <tt>sensoryforge run {filename}</tt></li>'
+                    f'</ol>'
                 )
             except Exception as e:
                 QMessageBox.critical(
@@ -247,6 +335,44 @@ class TactileSimulationWindow(QtWidgets.QMainWindow):
             '<hr>'
             '<p><i>GUI integration for Phase 2 features coming soon!</i><br>'
             'Currently use YAML configs with CLI for full access.</p>'
+            '<p>Select Help → CLI Guide for examples.</p>'
+        )
+
+    def _show_cli_guide(self) -> None:
+        """Show CLI usage guide."""
+        QMessageBox.information(
+            self,
+            'SensoryForge CLI Guide',
+            '<h3>Command-Line Interface</h3>'
+            '<p><b>Run a simulation:</b></p>'
+            '<pre>sensoryforge run config.yml --duration 1000 --output results.pt</pre>'
+            '<p><b>Validate configuration:</b></p>'
+            '<pre>sensoryforge validate config.yml</pre>'
+            '<p><b>List available components:</b></p>'
+            '<pre>sensoryforge list-components</pre>'
+            '<p><b>Visualize pipeline:</b></p>'
+            '<pre>sensoryforge visualize config.yml</pre>'
+            '<hr>'
+            '<h4>Example YAML Configuration:</h4>'
+            '<pre>'
+            'grid:\n'
+            '  type: composite\n'
+            '  populations:\n'
+            '    sa1: {density: 10.0, arrangement: poisson}\n'
+            '    ra1: {density: 5.0, arrangement: hex}\n\n'
+            'neurons:\n'
+            '  type: dsl\n'
+            '  equations: "dv/dt = 0.04*v**2 + 5*v + 140 - u + I"\n'
+            '  threshold: "v >= 30"\n'
+            '  reset: "v = -65"\n\n'
+            'stimuli:\n'
+            '  - type: texture\n'
+            '    config: {pattern: gabor, wavelength: 2.0}\n\n'
+            'solver:\n'
+            '  type: adaptive\n'
+            '  config: {method: dopri5}\n'
+            '</pre>'
+            '<p>See docs/user_guide/cli.md for complete documentation.</p>'
         )
 
 
