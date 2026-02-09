@@ -62,6 +62,10 @@ class PopulationConfig:
     model_params: Dict[str, object] = field(default_factory=dict)
     filter_params: Dict[str, object] = field(default_factory=dict)
     selected_neuron: int = 0
+    dsl_equations: str = ""
+    dsl_threshold: str = ""
+    dsl_reset: str = ""
+    dsl_parameters: Dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -75,6 +79,10 @@ class PopulationConfig:
             "model_params": self.model_params,
             "filter_params": self.filter_params,
             "selected_neuron": int(self.selected_neuron),
+            "dsl_equations": self.dsl_equations,
+            "dsl_threshold": self.dsl_threshold,
+            "dsl_reset": self.dsl_reset,
+            "dsl_parameters": self.dsl_parameters,
         }
 
     @staticmethod
@@ -95,6 +103,10 @@ class PopulationConfig:
             model_params=dict(payload.get("model_params", {})),
             filter_params=dict(payload.get("filter_params", {})),
             selected_neuron=int(payload.get("selected_neuron", 0)),
+            dsl_equations=str(payload.get("dsl_equations", "")),
+            dsl_threshold=str(payload.get("dsl_threshold", "")),
+            dsl_reset=str(payload.get("dsl_reset", "")),
+            dsl_parameters=dict(payload.get("dsl_parameters", {})),
         )
 
 
@@ -236,6 +248,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.filter_param_fields: Dict[str, QtWidgets.QWidget] = {}
         self.filter_param_kinds: Dict[str, str] = {}
         self._active_neuron_centers: Optional[np.ndarray] = None
+        self._compiled_dsl_model: Optional[Any] = None
 
         self._setup_ui()
         self._connect_signals()
@@ -333,7 +346,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         form.addRow("Status:", self.chk_population_enabled)
 
         self.cmb_model = QtWidgets.QComboBox()
-        self.cmb_model.addItems(["Izhikevich", "AdEx", "MQIF", "FA", "SA"])
+        self.cmb_model.addItems(["Izhikevich", "AdEx", "MQIF", "FA", "SA", "DSL (Custom)"])
         form.addRow("Model:", self.cmb_model)
 
         self.cmb_filter = QtWidgets.QComboBox()
@@ -365,6 +378,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
 
         self.control_layout.addWidget(group)
         self._build_model_parameter_section()
+        self._build_dsl_editor_section()
         self._build_filter_parameter_section()
         self._build_neuron_selector()
 
@@ -378,6 +392,156 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.model_params_section.setContentLayout(self.model_param_layout)
         self.model_params_section.setVisible(False)
         self.control_layout.addWidget(self.model_params_section)
+
+    def _build_dsl_editor_section(self) -> None:
+        """Create DSL equation editor panel for custom neuron models."""
+        self.dsl_section = CollapsibleSection(
+            "DSL Custom Neuron Editor",
+            collapsed=False,
+        )
+        layout = QtWidgets.QVBoxLayout()
+        layout.setSpacing(8)
+
+        # Load DSL defaults from config
+        dsl_defaults = self.default_params.get("phase2", {}).get("dsl_neuron", {}).get("template", {})
+        
+        # Equations editor
+        layout.addWidget(QtWidgets.QLabel("Equations:"))
+        self.dsl_equations_edit = QtWidgets.QPlainTextEdit()
+        self.dsl_equations_edit.setMaximumHeight(120)
+        font = QtGui.QFont("Courier New", 10)
+        self.dsl_equations_edit.setFont(font)
+        default_equations = dsl_defaults.get("equations", "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms")
+        self.dsl_equations_edit.setPlaceholderText(default_equations)
+        self.dsl_equations_edit.setPlainText(default_equations)
+        layout.addWidget(self.dsl_equations_edit)
+
+        # Threshold editor
+        layout.addWidget(QtWidgets.QLabel("Threshold:"))
+        self.dsl_threshold_edit = QtWidgets.QLineEdit()
+        default_threshold = dsl_defaults.get("threshold", "v >= 30 * mV")
+        self.dsl_threshold_edit.setPlaceholderText(default_threshold)
+        self.dsl_threshold_edit.setText(default_threshold)
+        layout.addWidget(self.dsl_threshold_edit)
+
+        # Reset editor
+        layout.addWidget(QtWidgets.QLabel("Reset:"))
+        self.dsl_reset_edit = QtWidgets.QLineEdit()
+        default_reset = dsl_defaults.get("reset", "v = c\nu = u + d")
+        self.dsl_reset_edit.setPlaceholderText(default_reset)
+        self.dsl_reset_edit.setText(default_reset)
+        layout.addWidget(self.dsl_reset_edit)
+
+        # Parameters table
+        layout.addWidget(QtWidgets.QLabel("Parameters:"))
+        self.dsl_param_table = QtWidgets.QTableWidget()
+        self.dsl_param_table.setColumnCount(2)
+        self.dsl_param_table.setHorizontalHeaderLabels(["Name", "Value"])
+        self.dsl_param_table.horizontalHeader().setStretchLastSection(True)
+        self.dsl_param_table.setMaximumHeight(150)
+        
+        # Pre-populate with Izhikevich defaults
+        default_params = dsl_defaults.get("parameters", {"a": 0.02, "b": 0.2, "c": -65.0, "d": 8.0})
+        self._populate_dsl_params(default_params)
+        
+        layout.addWidget(self.dsl_param_table)
+
+        # Parameter add/remove buttons
+        param_btn_layout = QtWidgets.QHBoxLayout()
+        self.btn_add_dsl_param = QtWidgets.QPushButton("Add Parameter")
+        self.btn_remove_dsl_param = QtWidgets.QPushButton("Remove Parameter")
+        param_btn_layout.addWidget(self.btn_add_dsl_param)
+        param_btn_layout.addWidget(self.btn_remove_dsl_param)
+        layout.addLayout(param_btn_layout)
+
+        # Compile button and status
+        self.btn_compile_dsl = QtWidgets.QPushButton("Compile Model")
+        layout.addWidget(self.btn_compile_dsl)
+        
+        self.dsl_status_label = QtWidgets.QLabel("Ready to compile")
+        self.dsl_status_label.setWordWrap(True)
+        layout.addWidget(self.dsl_status_label)
+
+        self.dsl_section.setContentLayout(layout)
+        self.dsl_section.setVisible(False)
+        self.control_layout.addWidget(self.dsl_section)
+
+    def _populate_dsl_params(self, params: Dict[str, float]) -> None:
+        """Populate DSL parameter table with given parameters."""
+        self.dsl_param_table.setRowCount(len(params))
+        for row, (name, value) in enumerate(params.items()):
+            name_item = QtWidgets.QTableWidgetItem(str(name))
+            value_item = QtWidgets.QTableWidgetItem(str(value))
+            self.dsl_param_table.setItem(row, 0, name_item)
+            self.dsl_param_table.setItem(row, 1, value_item)
+
+    def _get_dsl_parameters(self) -> Dict[str, float]:
+        """Extract parameters from DSL parameter table."""
+        params = {}
+        for row in range(self.dsl_param_table.rowCount()):
+            name_item = self.dsl_param_table.item(row, 0)
+            value_item = self.dsl_param_table.item(row, 1)
+            if name_item and value_item:
+                name = name_item.text().strip()
+                if name:
+                    try:
+                        value = float(value_item.text())
+                        params[name] = value
+                    except ValueError:
+                        pass
+        return params
+
+    def _add_dsl_parameter(self) -> None:
+        """Add a new row to the DSL parameter table."""
+        row = self.dsl_param_table.rowCount()
+        self.dsl_param_table.insertRow(row)
+        self.dsl_param_table.setItem(row, 0, QtWidgets.QTableWidgetItem("param"))
+        self.dsl_param_table.setItem(row, 1, QtWidgets.QTableWidgetItem("0.0"))
+
+    def _remove_dsl_parameter(self) -> None:
+        """Remove selected row from DSL parameter table."""
+        current_row = self.dsl_param_table.currentRow()
+        if current_row >= 0:
+            self.dsl_param_table.removeRow(current_row)
+
+    def _compile_dsl_model(self) -> None:
+        """Compile the DSL model from editor contents."""
+        try:
+            from sensoryforge.neurons.model_dsl import NeuronModel
+            
+            equations = self.dsl_equations_edit.toPlainText()
+            threshold = self.dsl_threshold_edit.text()
+            reset = self.dsl_reset_edit.text()
+            parameters = self._get_dsl_parameters()
+            
+            if not equations.strip():
+                raise ValueError("Equations cannot be empty")
+            if not threshold.strip():
+                raise ValueError("Threshold cannot be empty")
+            if not reset.strip():
+                raise ValueError("Reset cannot be empty")
+            
+            model = NeuronModel(
+                equations=equations,
+                threshold=threshold,
+                reset=reset,
+                parameters=parameters,
+            )
+            
+            self._compiled_dsl_model = model
+            self.dsl_status_label.setText("✓ Compiled successfully")
+            self.dsl_status_label.setStyleSheet("color: green;")
+        except ImportError as e:
+            self._compiled_dsl_model = None
+            if "sympy" in str(e).lower():
+                self.dsl_status_label.setText("✗ Error: SymPy not installed. Run: pip install sympy")
+            else:
+                self.dsl_status_label.setText(f"✗ Import error: {str(e)}")
+            self.dsl_status_label.setStyleSheet("color: red;")
+        except Exception as e:
+            self._compiled_dsl_model = None
+            self.dsl_status_label.setText(f"✗ Error: {str(e)}")
+            self.dsl_status_label.setStyleSheet("color: red;")
 
     def _build_filter_parameter_section(self) -> None:
         self.filter_params_section = CollapsibleSection(
@@ -769,7 +933,15 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if config.model != model_name:
             config.model_params = {}
         config.model = model_name
-        self._populate_model_parameter_fields(config)
+        
+        # Show/hide DSL editor vs standard params based on model selection
+        if model_name == "DSL (Custom)":
+            self.model_params_section.setVisible(False)
+            self.dsl_section.setVisible(True)
+        else:
+            self.dsl_section.setVisible(False)
+            self._populate_model_parameter_fields(config)
+        
         self._apply_population_controls()
 
     def _on_filter_changed(self, index: int) -> None:
@@ -797,6 +969,56 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         group = QtWidgets.QGroupBox("Simulation & Persistence")
         layout = QtWidgets.QVBoxLayout(group)
         layout.setSpacing(6)
+
+        # Solver selection
+        solver_row = QtWidgets.QHBoxLayout()
+        solver_row.addWidget(QtWidgets.QLabel("Solver:"))
+        self.cmb_solver = QtWidgets.QComboBox()
+        self.cmb_solver.addItems(["Euler (default)", "Adaptive (RK45)"])
+        default_solver = self.default_params.get("gui", {}).get("default_solver", "euler")
+        if default_solver == "euler":
+            self.cmb_solver.setCurrentIndex(0)
+        else:
+            self.cmb_solver.setCurrentIndex(1)
+        self.cmb_solver.setToolTip("Solver selection applies to DSL models. Built-in models use their native integration method.")
+        solver_row.addWidget(self.cmb_solver, stretch=1)
+        layout.addLayout(solver_row)
+
+        # Adaptive solver config panel
+        self.adaptive_solver_section = CollapsibleSection(
+            "Adaptive Solver Config",
+            collapsed=True,
+        )
+        adaptive_layout = QtWidgets.QFormLayout()
+        adaptive_layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        
+        adaptive_defaults = self.default_params.get("phase2", {}).get("solvers", {}).get("adaptive", {})
+        
+        self.cmb_adaptive_method = QtWidgets.QComboBox()
+        self.cmb_adaptive_method.addItems(["dopri5", "bosh3", "adaptive_heun"])
+        default_method = adaptive_defaults.get("method", "dopri5")
+        idx = self.cmb_adaptive_method.findText(default_method)
+        if idx >= 0:
+            self.cmb_adaptive_method.setCurrentIndex(idx)
+        adaptive_layout.addRow("Method:", self.cmb_adaptive_method)
+        
+        self.dbl_rtol = QtWidgets.QDoubleSpinBox()
+        self.dbl_rtol.setDecimals(10)
+        self.dbl_rtol.setRange(1e-10, 1e-1)
+        self.dbl_rtol.setValue(adaptive_defaults.get("rtol", 1e-5))
+        self.dbl_rtol.setSingleStep(1e-6)
+        adaptive_layout.addRow("rtol:", self.dbl_rtol)
+        
+        self.dbl_atol = QtWidgets.QDoubleSpinBox()
+        self.dbl_atol.setDecimals(12)
+        self.dbl_atol.setRange(1e-12, 1e-1)
+        self.dbl_atol.setValue(adaptive_defaults.get("atol", 1e-7))
+        self.dbl_atol.setSingleStep(1e-8)
+        adaptive_layout.addRow("atol:", self.dbl_atol)
+        
+        self.adaptive_solver_section.setContentLayout(adaptive_layout)
+        self.adaptive_solver_section.setVisible(False)
+        layout.addWidget(self.adaptive_solver_section)
 
         device_row = QtWidgets.QHBoxLayout()
         device_row.addWidget(QtWidgets.QLabel("Device:"))
@@ -924,12 +1146,27 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
         self.btn_apply_population.clicked.connect(self._apply_population_controls)
 
+        # DSL editor signals
+        self.btn_compile_dsl.clicked.connect(self._compile_dsl_model)
+        self.btn_add_dsl_param.clicked.connect(self._add_dsl_parameter)
+        self.btn_remove_dsl_param.clicked.connect(self._remove_dsl_parameter)
+
+        # Solver signals
+        self.cmb_solver.currentIndexChanged.connect(self._on_solver_changed)
+
         self.spin_neuron_index.valueChanged.connect(self._on_neuron_index_changed)
 
         self.btn_run_simulation.clicked.connect(self._run_simulation)
         self.btn_save_module.clicked.connect(self._save_module_update)
         self.btn_save_as_module.clicked.connect(self._save_module_as)
         self.btn_load_module.clicked.connect(self._load_module)
+
+    def _on_solver_changed(self, index: int) -> None:
+        """Show/hide adaptive solver configuration panel."""
+        if index == 1:  # Adaptive solver selected
+            self.adaptive_solver_section.setVisible(True)
+        else:
+            self.adaptive_solver_section.setVisible(False)
 
     # ------------------------------------------------------------------
     # Device helpers
@@ -1546,6 +1783,12 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             return result.unsqueeze(1)
         return inputs
 
+    def _get_selected_solver(self) -> str:
+        """Return solver name string for neuron model creation."""
+        if self.cmb_solver.currentText().startswith("Euler"):
+            return "euler"
+        return "adaptive"
+
     def _create_neuron_model(
         self,
         config: PopulationConfig,
@@ -1554,6 +1797,27 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     ):
         dt_value = max(dt_ms, 0.05)
         model_name = (config.model or "Izhikevich").lower()
+        
+        # Handle DSL model
+        if model_name == "dsl (custom)":
+            if self._compiled_dsl_model is None:
+                raise ValueError("DSL model not compiled yet. Click 'Compile Model' first.")
+            
+            # Compile DSL model with current solver selection
+            solver = self._get_selected_solver()
+            try:
+                return self._compiled_dsl_model.compile(
+                    solver=solver,
+                    dt=dt_value,
+                    device=str(device),
+                    noise_std=config.noise_std,
+                )
+            except Exception as e:
+                if "torchdiffeq" in str(e) and solver == "adaptive":
+                    raise ValueError("Install torchdiffeq: pip install torchdiffeq") from e
+                raise
+        
+        # Handle standard neuron models
         params = self._gather_model_parameters(config)
 
         def instantiate(model_cls):
@@ -1691,6 +1955,28 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             except ValueError:
                 stimulus_rel = str(self._current_stimulus_path)
         population_entries = [cfg.to_dict() for cfg in self.population_configs.values()]
+        
+        # Collect DSL configuration if present
+        dsl_config = None
+        if self._compiled_dsl_model is not None:
+            dsl_config = {
+                "equations": self.dsl_equations_edit.toPlainText(),
+                "threshold": self.dsl_threshold_edit.text(),
+                "reset": self.dsl_reset_edit.text(),
+                "parameters": self._get_dsl_parameters(),
+            }
+        
+        # Collect solver configuration
+        solver_config = {
+            "solver_type": "adaptive" if self.cmb_solver.currentIndex() == 1 else "euler",
+        }
+        if solver_config["solver_type"] == "adaptive":
+            solver_config.update({
+                "method": self.cmb_adaptive_method.currentText(),
+                "rtol": self.dbl_rtol.value(),
+                "atol": self.dbl_atol.value(),
+            })
+        
         return {
             "schema_version": MODULE_SCHEMA_VERSION,
             "kind": "neuron_module",
@@ -1698,6 +1984,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             "stimulus": stimulus_rel,
             "device": self.cmb_device.currentText(),
             "population_configs": population_entries,
+            "dsl_config": dsl_config,
+            "solver_config": solver_config,
         }
 
     def _load_module(self) -> None:
@@ -1748,6 +2036,34 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                     continue
                 config = PopulationConfig.from_dict(entry)
                 self.population_configs[config.name] = config
+        
+        # Restore DSL configuration if present
+        dsl_config = bundle.get("dsl_config")
+        if isinstance(dsl_config, dict):
+            self.dsl_equations_edit.setPlainText(dsl_config.get("equations", ""))
+            self.dsl_threshold_edit.setText(dsl_config.get("threshold", ""))
+            self.dsl_reset_edit.setText(dsl_config.get("reset", ""))
+            params = dsl_config.get("parameters", {})
+            if isinstance(params, dict):
+                self._populate_dsl_params(params)
+            # Auto-compile the DSL model
+            self._compile_dsl_model()
+        
+        # Restore solver configuration
+        solver_config = bundle.get("solver_config")
+        if isinstance(solver_config, dict):
+            solver_type = solver_config.get("solver_type", "euler")
+            if solver_type == "adaptive":
+                self.cmb_solver.setCurrentIndex(1)
+                method = solver_config.get("method", "dopri5")
+                idx = self.cmb_adaptive_method.findText(method)
+                if idx >= 0:
+                    self.cmb_adaptive_method.setCurrentIndex(idx)
+                self.dbl_rtol.setValue(solver_config.get("rtol", 1e-5))
+                self.dbl_atol.setValue(solver_config.get("atol", 1e-7))
+            else:
+                self.cmb_solver.setCurrentIndex(0)
+        
         stimulus_entry = bundle.get("stimulus")
         if stimulus_entry and self._stimulus_dir is not None:
             stimulus_path = Path(stimulus_entry)
