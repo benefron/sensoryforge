@@ -22,19 +22,25 @@ from sensoryforge.gui.tabs import (  # noqa: E402
     MechanoreceptorTab,
     StimulusDesignerTab,
     SpikingNeuronTab,
+    ProtocolSuiteTab,
 )
+from sensoryforge.gui.protocol_execution_controller import (  # noqa: E402
+    ProtocolExecutionController,
+)
+from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 
 
 class SensoryForgeWindow(QtWidgets.QMainWindow):
     """Main application window for interactive sensory encoding experiments.
 
-    The GUI provides three core tabs:
+    The GUI provides four core tabs:
 
     1. **Mechanoreceptors & Innervation** — spatial grid, receptor populations,
        receptive field visualization.
     2. **Stimulus Designer** — interactive stimulus creation and preview.
     3. **Spiking Neurons** — neuron model configuration, simulation, and
        spike-train visualization.
+    4. **Protocol Suite** — protocol library and batch execution queue.
 
     Configurations designed in the GUI can be exported to YAML for batch
     execution via the CLI (``sensoryforge run config.yml``).
@@ -66,6 +72,36 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             self.stimulus_tab,
         )
         tabs.addTab(self.spiking_tab, "Spiking Neurons")
+
+        self.protocol_tab = ProtocolSuiteTab(
+            self.mechanoreceptor_tab,
+            self.stimulus_tab,
+            self.spiking_tab,
+        )
+        tabs.addTab(self.protocol_tab, "Protocol Suite")
+
+        # Create project registry and protocol execution controller
+        self._registry = ProjectRegistry()
+        self._protocol_controller = ProtocolExecutionController(
+            mechanoreceptor_tab=self.mechanoreceptor_tab,
+            spiking_tab=self.spiking_tab,
+            protocol_tab=self.protocol_tab,
+            registry=self._registry,
+        )
+
+        # Connect protocol execution signals
+        self.protocol_tab.run_requested.connect(
+            self._protocol_controller.start_batch
+        )
+        self._protocol_controller.run_completed.connect(
+            self.protocol_tab.on_run_completed
+        )
+        self._protocol_controller.run_failed.connect(
+            self.protocol_tab.on_run_failed
+        )
+        self._protocol_controller.batch_finished.connect(
+            self.protocol_tab.on_batch_finished
+        )
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with config load/save options."""

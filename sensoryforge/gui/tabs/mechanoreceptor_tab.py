@@ -98,15 +98,39 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         super().__init__(parent)
         pg.setConfigOptions(antialias=True, background="w", foreground="k")
         self.grid_manager: Optional[GridManager] = None
+        self._composite_grid = None
+        self._grid_type = "standard"
         self.grid_scatter: Optional[pg.ScatterPlotItem] = None
         self.populations: List[NeuronPopulation] = []
         self._population_counter = 1
         self._selected_population: Optional[NeuronPopulation] = None
         self._block_population_item_changed = False
         self._current_config_dir: Optional[Path] = None
+        self._composite_populations: List[dict] = []
+        self._load_default_params()
         self._setup_ui()
         self._configure_plot()
         self.populations_changed.emit(list(self.populations))
+
+    def _load_default_params(self) -> None:
+        """Load default parameters from default_params.json."""
+        try:
+            params_path = Path(__file__).parent.parent / "default_params.json"
+            with open(params_path, "r") as f:
+                self._default_params = json.load(f)
+        except Exception:
+            self._default_params = {
+                "gui": {"default_grid_type": "standard"},
+                "phase2": {
+                    "composite_grid": {
+                        "populations": {
+                            "sa1": {"density": 100.0, "arrangement": "grid", "filter": "SA"},
+                            "ra1": {"density": 70.0, "arrangement": "hex", "filter": "RA"},
+                            "sa2": {"density": 30.0, "arrangement": "poisson", "filter": "SA"},
+                        }
+                    }
+                }
+            }
 
     @staticmethod
     def _sanitize_name(name: str) -> str:
@@ -195,6 +219,19 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Grid controls
         grid_group = QtWidgets.QGroupBox("Mechanoreceptor Grid")
         grid_layout = QtWidgets.QFormLayout(grid_group)
+        
+        # Grid type selector
+        self.cmb_grid_type = QtWidgets.QComboBox()
+        self.cmb_grid_type.addItems(["Standard Grid", "Composite Grid"])
+        default_type = self._default_params.get("gui", {}).get("default_grid_type", "standard")
+        self.cmb_grid_type.setCurrentIndex(0 if default_type == "standard" else 1)
+        self.cmb_grid_type.currentIndexChanged.connect(self._on_grid_type_changed)
+        grid_layout.addRow("Grid Type:", self.cmb_grid_type)
+        
+        # Standard grid controls
+        self.standard_grid_widget = QtWidgets.QWidget()
+        standard_grid_layout = QtWidgets.QFormLayout(self.standard_grid_widget)
+        standard_grid_layout.setContentsMargins(0, 0, 0, 0)
         self.spin_grid_rows = QtWidgets.QSpinBox()
         self.spin_grid_rows.setRange(4, 256)
         self.spin_grid_rows.setValue(40)
@@ -214,11 +251,61 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_center_y.setRange(-50.0, 50.0)
         self.dbl_center_y.setDecimals(3)
         self.dbl_center_y.setValue(0.0)
-        grid_layout.addRow("Rows:", self.spin_grid_rows)
-        grid_layout.addRow("Cols:", self.spin_grid_cols)
-        grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
-        grid_layout.addRow("Center X (mm):", self.dbl_center_x)
-        grid_layout.addRow("Center Y (mm):", self.dbl_center_y)
+        standard_grid_layout.addRow("Rows:", self.spin_grid_rows)
+        standard_grid_layout.addRow("Cols:", self.spin_grid_cols)
+        standard_grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
+        standard_grid_layout.addRow("Center X (mm):", self.dbl_center_x)
+        standard_grid_layout.addRow("Center Y (mm):", self.dbl_center_y)
+        grid_layout.addRow(self.standard_grid_widget)
+        
+        # Composite grid controls
+        self.composite_grid_widget = QtWidgets.QWidget()
+        composite_grid_layout = QtWidgets.QVBoxLayout(self.composite_grid_widget)
+        composite_grid_layout.setContentsMargins(0, 0, 0, 0)
+        
+        bounds_layout = QtWidgets.QFormLayout()
+        self.dbl_xlim_min = QtWidgets.QDoubleSpinBox()
+        self.dbl_xlim_min.setRange(-100.0, 100.0)
+        self.dbl_xlim_min.setDecimals(2)
+        self.dbl_xlim_min.setValue(-5.0)
+        self.dbl_xlim_max = QtWidgets.QDoubleSpinBox()
+        self.dbl_xlim_max.setRange(-100.0, 100.0)
+        self.dbl_xlim_max.setDecimals(2)
+        self.dbl_xlim_max.setValue(5.0)
+        self.dbl_ylim_min = QtWidgets.QDoubleSpinBox()
+        self.dbl_ylim_min.setRange(-100.0, 100.0)
+        self.dbl_ylim_min.setDecimals(2)
+        self.dbl_ylim_min.setValue(-5.0)
+        self.dbl_ylim_max = QtWidgets.QDoubleSpinBox()
+        self.dbl_ylim_max.setRange(-100.0, 100.0)
+        self.dbl_ylim_max.setDecimals(2)
+        self.dbl_ylim_max.setValue(5.0)
+        bounds_layout.addRow("X min (mm):", self.dbl_xlim_min)
+        bounds_layout.addRow("X max (mm):", self.dbl_xlim_max)
+        bounds_layout.addRow("Y min (mm):", self.dbl_ylim_min)
+        bounds_layout.addRow("Y max (mm):", self.dbl_ylim_max)
+        composite_grid_layout.addLayout(bounds_layout)
+        
+        self.composite_pop_table = QtWidgets.QTableWidget()
+        self.composite_pop_table.setColumnCount(4)
+        self.composite_pop_table.setHorizontalHeaderLabels(["Name", "Density", "Arrangement", "Filter"])
+        self.composite_pop_table.horizontalHeader().setStretchLastSection(True)
+        self.composite_pop_table.setMaximumHeight(150)
+        composite_grid_layout.addWidget(QtWidgets.QLabel("Populations:"))
+        composite_grid_layout.addWidget(self.composite_pop_table)
+        
+        comp_pop_buttons = QtWidgets.QHBoxLayout()
+        self.btn_add_comp_pop = QtWidgets.QPushButton("Add Population")
+        self.btn_remove_comp_pop = QtWidgets.QPushButton("Remove Selected")
+        self.btn_add_comp_pop.clicked.connect(self._on_add_composite_population)
+        self.btn_remove_comp_pop.clicked.connect(self._on_remove_composite_population)
+        comp_pop_buttons.addWidget(self.btn_add_comp_pop)
+        comp_pop_buttons.addWidget(self.btn_remove_comp_pop)
+        composite_grid_layout.addLayout(comp_pop_buttons)
+        
+        grid_layout.addRow(self.composite_grid_widget)
+        self.composite_grid_widget.setVisible(False)
+        
         self.btn_generate_grid = QtWidgets.QPushButton("Generate Grid")
         self.btn_generate_grid.clicked.connect(self._on_generate_grid)
         grid_layout.addRow(self.btn_generate_grid)
@@ -359,7 +446,78 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.plot.setLabel("bottom", "X (mm)")
         self.plot.setLabel("left", "Y (mm)")
 
+    def _on_grid_type_changed(self, index: int) -> None:
+        """Handle grid type selection change."""
+        if index == 0:  # Standard Grid
+            self._grid_type = "standard"
+            self.standard_grid_widget.setVisible(True)
+            self.composite_grid_widget.setVisible(False)
+        else:  # Composite Grid
+            self._grid_type = "composite"
+            self.standard_grid_widget.setVisible(False)
+            self.composite_grid_widget.setVisible(True)
+            self._load_default_composite_populations()
+
+    def _load_default_composite_populations(self) -> None:
+        """Load default composite grid populations from config."""
+        if self.composite_pop_table.rowCount() > 0:
+            return
+        
+        default_pops = self._default_params.get("phase2", {}).get("composite_grid", {}).get("populations", {})
+        for name, config in default_pops.items():
+            self._add_composite_population_row(
+                name=name,
+                density=config.get("density", 100.0),
+                arrangement=config.get("arrangement", "grid"),
+                filter_type=config.get("filter", "SA")
+            )
+
+    def _add_composite_population_row(self, name: str = "", density: float = 100.0, 
+                                      arrangement: str = "grid", filter_type: str = "SA") -> None:
+        """Add a row to the composite population table."""
+        row = self.composite_pop_table.rowCount()
+        self.composite_pop_table.insertRow(row)
+        
+        name_item = QtWidgets.QTableWidgetItem(name)
+        self.composite_pop_table.setItem(row, 0, name_item)
+        
+        density_item = QtWidgets.QTableWidgetItem(str(density))
+        self.composite_pop_table.setItem(row, 1, density_item)
+        
+        arrangement_combo = QtWidgets.QComboBox()
+        arrangement_combo.addItems(["grid", "poisson", "hex", "jittered_grid"])
+        arrangement_combo.setCurrentText(arrangement)
+        self.composite_pop_table.setCellWidget(row, 2, arrangement_combo)
+        
+        filter_combo = QtWidgets.QComboBox()
+        filter_combo.addItems(["SA", "RA", "None"])
+        filter_combo.setCurrentText(filter_type)
+        self.composite_pop_table.setCellWidget(row, 3, filter_combo)
+
+    def _on_add_composite_population(self) -> None:
+        """Add a new population row to the composite grid table."""
+        row_num = self.composite_pop_table.rowCount() + 1
+        self._add_composite_population_row(
+            name=f"pop{row_num}",
+            density=100.0,
+            arrangement="grid",
+            filter_type="SA"
+        )
+
+    def _on_remove_composite_population(self) -> None:
+        """Remove selected population row from the composite grid table."""
+        current_row = self.composite_pop_table.currentRow()
+        if current_row >= 0:
+            self.composite_pop_table.removeRow(current_row)
+
     def _on_generate_grid(self) -> None:
+        if self._grid_type == "standard":
+            self._generate_standard_grid()
+        else:
+            self._generate_composite_grid()
+
+    def _generate_standard_grid(self) -> None:
+        """Generate standard GridManager grid."""
         rows = self.spin_grid_rows.value()
         cols = self.spin_grid_cols.value()
         spacing = self.dbl_spacing.value()
@@ -372,10 +530,47 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             center=center,
             device="cpu",
         )
+        self._composite_grid = None
 
         self._update_mechanoreceptor_points()
         self._rebuild_populations()
         self.grid_changed.emit(self.grid_manager)
+
+    def _generate_composite_grid(self) -> None:
+        """Generate CompositeGrid from table configuration."""
+        from sensoryforge.core.composite_grid import CompositeGrid
+        
+        xlim = (self.dbl_xlim_min.value(), self.dbl_xlim_max.value())
+        ylim = (self.dbl_ylim_min.value(), self.dbl_ylim_max.value())
+        
+        cg = CompositeGrid(xlim=xlim, ylim=ylim, device="cpu")
+        
+        self._composite_populations = []
+        for row in range(self.composite_pop_table.rowCount()):
+            name_item = self.composite_pop_table.item(row, 0)
+            density_item = self.composite_pop_table.item(row, 1)
+            arrangement_combo = self.composite_pop_table.cellWidget(row, 2)
+            filter_combo = self.composite_pop_table.cellWidget(row, 3)
+            
+            if name_item and density_item:
+                name = name_item.text()
+                density = float(density_item.text())
+                arrangement = arrangement_combo.currentText() if arrangement_combo else "grid"
+                filter_type = filter_combo.currentText() if filter_combo else "SA"
+                
+                cg.add_population(name=name, density=density, arrangement=arrangement)
+                self._composite_populations.append({
+                    "name": name,
+                    "density": density,
+                    "arrangement": arrangement,
+                    "filter": filter_type
+                })
+        
+        self._composite_grid = cg
+        self.grid_manager = None
+        
+        self._update_composite_visualization()
+        self.grid_changed.emit({"type": "composite", "grid": cg, "populations": self._composite_populations})
 
     def _update_mechanoreceptor_points(self) -> None:
         if self.grid_manager is None:
@@ -413,6 +608,51 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         padding = max(x.ptp(), y.ptp()) * 0.05 + 1e-6
         self.plot.setXRange(x.min() - padding, x.max() + padding, padding=0)
         self.plot.setYRange(y.min() - padding, y.max() + padding, padding=0)
+
+    def _update_composite_visualization(self) -> None:
+        """Update visualization for composite grid with color-coded populations."""
+        if self._composite_grid is None:
+            return
+        
+        if self.grid_scatter is not None:
+            self.plot.removeItem(self.grid_scatter)
+            self.grid_scatter = None
+        
+        pop_names = self._composite_grid.list_populations()
+        colors = [
+            (66, 135, 245),   # Blue
+            (245, 135, 66),   # Orange
+            (66, 245, 135),   # Green
+            (245, 66, 135),   # Pink
+            (135, 66, 245),   # Purple
+            (245, 245, 66),   # Yellow
+        ]
+        
+        all_x = []
+        all_y = []
+        
+        for idx, name in enumerate(pop_names):
+            coords = self._composite_grid.get_population_coordinates(name)
+            if coords is None or coords.shape[0] == 0:
+                continue
+            
+            x = coords[:, 0].detach().cpu().numpy()
+            y = coords[:, 1].detach().cpu().numpy()
+            all_x.extend(x)
+            all_y.extend(y)
+            
+            color = colors[idx % len(colors)]
+            brush = pg.mkBrush(*color, 150)
+            scatter = pg.ScatterPlotItem(
+                x, y, size=6, pen=None, brush=brush, name=name
+            )
+            scatter.setZValue(-2)
+            self.plot.addItem(scatter)
+        
+        if all_x and all_y:
+            self._auto_range_plot(np.array(all_x), np.array(all_y))
+        
+        self._update_layer_visibility()
 
     def _on_population_type_changed(self, text: str) -> None:
         if text == "SA":
@@ -946,20 +1186,33 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             )
             return False
 
-        if self.grid_manager is None:
+        if self.grid_manager is None and self._composite_grid is None:
             return False
-        grid_props = self.grid_manager.get_grid_properties()
-        rows, cols = self.grid_manager.grid_size
-        grid_entry = {
-            "rows": int(rows),
-            "cols": int(cols),
-            "spacing_mm": float(grid_props.get("spacing", 0.0)),
-            "center_mm": [
-                float(grid_props.get("center", (0.0, 0.0))[0]),
-                float(grid_props.get("center", (0.0, 0.0))[1]),
-            ],
-            "device": str(grid_props.get("device", "cpu")),
-        }
+        
+        grid_entry = {}
+        if self._grid_type == "composite" and self._composite_grid is not None:
+            grid_entry = {
+                "type": "composite",
+                "xlim": [float(self.dbl_xlim_min.value()), float(self.dbl_xlim_max.value())],
+                "ylim": [float(self.dbl_ylim_min.value()), float(self.dbl_ylim_max.value())],
+                "populations": self._composite_populations,
+            }
+        elif self.grid_manager is not None:
+            grid_props = self.grid_manager.get_grid_properties()
+            rows, cols = self.grid_manager.grid_size
+            grid_entry = {
+                "type": "standard",
+                "rows": int(rows),
+                "cols": int(cols),
+                "spacing_mm": float(grid_props.get("spacing", 0.0)),
+                "center_mm": [
+                    float(grid_props.get("center", (0.0, 0.0))[0]),
+                    float(grid_props.get("center", (0.0, 0.0))[1]),
+                ],
+                "device": str(grid_props.get("device", "cpu")),
+            }
+        else:
+            return False
 
         manifest = {
             "schema_version": CONFIG_SCHEMA_VERSION,
@@ -1108,45 +1361,78 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             )
             return
 
-        try:
-            rows = int(grid_entry.get("rows"))
-            cols = int(grid_entry.get("cols"))
-            spacing = float(grid_entry.get("spacing_mm", 0.0))
-            center_vals = grid_entry.get("center_mm", [0.0, 0.0])
-            center = (float(center_vals[0]), float(center_vals[1]))
-        except (TypeError, ValueError, IndexError) as exc:
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Load failed",
-                f"Invalid grid parameters in configuration:\n{exc}",
-            )
-            return
-
+        grid_type = grid_entry.get("type", "standard")
+        
         self._clear_populations()
+        
+        if grid_type == "composite":
+            try:
+                xlim = grid_entry.get("xlim", [-5.0, 5.0])
+                ylim = grid_entry.get("ylim", [-5.0, 5.0])
+                comp_pops = grid_entry.get("populations", [])
+                
+                self.cmb_grid_type.setCurrentIndex(1)
+                self.dbl_xlim_min.setValue(float(xlim[0]))
+                self.dbl_xlim_max.setValue(float(xlim[1]))
+                self.dbl_ylim_min.setValue(float(ylim[0]))
+                self.dbl_ylim_max.setValue(float(ylim[1]))
+                
+                self.composite_pop_table.setRowCount(0)
+                for pop in comp_pops:
+                    self._add_composite_population_row(
+                        name=pop.get("name", "pop"),
+                        density=pop.get("density", 100.0),
+                        arrangement=pop.get("arrangement", "grid"),
+                        filter_type=pop.get("filter", "SA")
+                    )
+                
+                self._generate_composite_grid()
+            except (TypeError, ValueError, IndexError) as exc:
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    "Load failed",
+                    f"Invalid composite grid parameters in configuration:\n{exc}",
+                )
+                return
+        else:
+            try:
+                rows = int(grid_entry.get("rows"))
+                cols = int(grid_entry.get("cols"))
+                spacing = float(grid_entry.get("spacing_mm", 0.0))
+                center_vals = grid_entry.get("center_mm", [0.0, 0.0])
+                center = (float(center_vals[0]), float(center_vals[1]))
+            except (TypeError, ValueError, IndexError) as exc:
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    "Load failed",
+                    f"Invalid grid parameters in configuration:\n{exc}",
+                )
+                return
 
-        for spin, value in (
-            (self.spin_grid_rows, rows),
-            (self.spin_grid_cols, cols),
-        ):
-            spin.blockSignals(True)
-            spin.setValue(value)
-            spin.blockSignals(False)
-        for dbl, value in (
-            (self.dbl_spacing, spacing),
-            (self.dbl_center_x, center[0]),
-            (self.dbl_center_y, center[1]),
-        ):
-            dbl.blockSignals(True)
-            dbl.setValue(value)
-            dbl.blockSignals(False)
+            self.cmb_grid_type.setCurrentIndex(0)
+            for spin, value in (
+                (self.spin_grid_rows, rows),
+                (self.spin_grid_cols, cols),
+            ):
+                spin.blockSignals(True)
+                spin.setValue(value)
+                spin.blockSignals(False)
+            for dbl, value in (
+                (self.dbl_spacing, spacing),
+                (self.dbl_center_x, center[0]),
+                (self.dbl_center_y, center[1]),
+            ):
+                dbl.blockSignals(True)
+                dbl.setValue(value)
+                dbl.blockSignals(False)
 
-        self.grid_manager = GridManager(
-            grid_size=(rows, cols),
-            spacing=spacing,
-            center=center,
-            device="cpu",
-        )
-        self._update_mechanoreceptor_points()
+            self.grid_manager = GridManager(
+                grid_size=(rows, cols),
+                spacing=spacing,
+                center=center,
+                device="cpu",
+            )
+            self._update_mechanoreceptor_points()
 
         populations_data = manifest.get("populations", [])
         self.population_list.blockSignals(True)

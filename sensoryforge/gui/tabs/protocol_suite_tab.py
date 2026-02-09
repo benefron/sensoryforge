@@ -461,3 +461,16 @@ class ProtocolSuiteTab(QtWidgets.QWidget):
         return [
             self._protocol_specs[queued.summary.key] for queued in self._queued_runs
         ]
+
+    def on_run_completed(self, run_id: str) -> None:
+        """Handle successful completion of a protocol run."""
+        self.append_log(f"[{datetime.now():%H:%M:%S}] Run completed: {run_id}")
+
+    def on_run_failed(self, message: str) -> None:
+        """Handle failed protocol run."""
+        self.append_log(f"[{datetime.now():%H:%M:%S}] Run failed: {message}")
+
+    def on_batch_finished(self) -> None:
+        """Handle completion of entire batch."""
+        self.append_log(f"[{datetime.now():%H:%M:%S}] Batch execution finished")
+        self.clear_queue_after_run()
