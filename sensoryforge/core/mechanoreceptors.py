@@ -189,8 +189,9 @@ class MechanoreceptorModule(nn.Module):
             normalize=self.normalize_kernel,
         )
 
-        # Update the registered buffer
-        self.kernel.data = new_kernel.squeeze(0).squeeze(0)
+        # Update the registered buffer — keep 4D shape for F.conv2d
+        # (resolves ReviewFinding#M7)
+        self.kernel.data = new_kernel
         self.gaussian_kernel = new_kernel
 
     def to_device(self, device):
