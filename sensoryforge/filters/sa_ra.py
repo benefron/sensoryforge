@@ -155,11 +155,12 @@ class SAFilterTorch(nn.Module):
         dI_in_dt = torch.zeros_like(I_in)
         dI_in_dt[:, 1:, :] = (I_in[:, 1:, :] - I_in[:, :-1, :]) / self.dt
 
-        # Process each time step
+        # Process each time step — skip redundant reset on t==0 since
+        # we already called reset_states above (resolves ReviewFinding#L3)
         outputs = torch.zeros_like(I_in)
         for t in range(time_steps):
             outputs[:, t, :] = self._forward_single_step(
-                I_in[:, t, :], dI_in_dt[:, t, :], reset_states=(t == 0)
+                I_in[:, t, :], dI_in_dt[:, t, :], reset_states=False
             )
 
         return outputs

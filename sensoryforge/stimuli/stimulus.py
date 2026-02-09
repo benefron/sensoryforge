@@ -176,7 +176,38 @@ class StimulusGenerator:
         stimulus_configs: Sequence[Dict[str, object]],
         time_steps: int | None = None,
     ) -> torch.Tensor:
-        """Generate a batch of static or temporal stimuli."""
+        """Generate a batch of static or temporal stimuli.
+
+        Args:
+            stimulus_configs: Sequence of stimulus configuration dicts.
+                Each dict should contain ``'type'`` and relevant spatial
+                parameters (``center_x``, ``center_y``, ``amplitude``,
+                ``sigma``).  For temporal stimuli, include
+                ``'time_steps'``.
+            time_steps: Number of time steps for temporal stimuli.  If
+                ``None``, static stimuli of shape ``[B, H, W]`` are
+                returned. Individual configs may override with their own
+                ``'time_steps'`` entry.
+
+        Returns:
+            Static: ``[batch, grid_h, grid_w]`` or
+            Temporal: ``[batch, time_steps, grid_h, grid_w]``.
+
+        Raises:
+            ValueError: If temporal stimuli are requested but
+                ``time_steps`` is not provided globally or per config,
+                or if configs specify inconsistent time step counts.
+
+        Example:
+            >>> gen = StimulusGenerator(grid_manager)
+            >>> configs = [
+            ...     {'type': 'gaussian', 'amplitude': 20},
+            ...     {'type': 'gaussian', 'amplitude': 40},
+            ... ]
+            >>> batch = gen.generate_batch_stimuli(configs)
+            >>> batch.shape
+            torch.Size([2, 80, 80])
+        """  # (resolves ReviewFinding#L2)
         batch_size = len(stimulus_configs)
         grid_h, grid_w = self.grid_manager.grid_size
 

@@ -87,8 +87,11 @@ class GridManager:
             grid_size, spacing, center, device
         )
 
-        # Calculate grid properties
-        self.dx, self.dy = get_grid_spacing(self.xx, self.yy)
+        # Calculate grid properties — store as float for type consistency
+        # with self.spacing (resolves ReviewFinding#L1)
+        dx_t, dy_t = get_grid_spacing(self.xx, self.yy)
+        self.dx: float = dx_t.item()
+        self.dy: float = dy_t.item()
         self.xlim = (self.x[0].item(), self.x[-1].item())
         self.ylim = (self.y[0].item(), self.y[-1].item())
 

@@ -37,5 +37,7 @@ class TestGetGridSpacing:
     def test_grid_manager_cached_spacing_matches(self):
         """GridManager.dx/dy must agree with spacing constructor arg."""
         gm = GridManager(grid_size=40, spacing=0.15)
-        assert abs(gm.dx.item() - 0.15) < 1e-5
-        assert abs(gm.dy.item() - 0.15) < 1e-5
+        assert isinstance(gm.dx, float), "dx should be plain float (ReviewFinding#L1)"
+        assert isinstance(gm.dy, float), "dy should be plain float (ReviewFinding#L1)"
+        assert abs(gm.dx - 0.15) < 1e-5
+        assert abs(gm.dy - 0.15) < 1e-5

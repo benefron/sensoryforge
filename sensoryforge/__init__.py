@@ -29,8 +29,17 @@ __version__ = "0.2.0"
 __author__ = "Sensory Forge Contributors"
 __license__ = "MIT"
 
-# Import key classes for top-level access
+# Import key classes for top-level access (resolves ReviewFinding#L4)
 from sensoryforge.core.grid import GridManager, create_grid_torch
+from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+from sensoryforge.neurons.adex import AdExNeuronTorch
+from sensoryforge.neurons.mqif import MQIFNeuronTorch
+from sensoryforge.neurons.fa import FANeuronTorch
+from sensoryforge.neurons.sa import SANeuronTorch
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
+from sensoryforge.stimuli.stimulus import StimulusGenerator
 
 __all__ = [
     "__version__",
@@ -38,4 +47,14 @@ __all__ = [
     "__license__",
     "GridManager",
     "create_grid_torch",
+    "TactileEncodingPipelineTorch",
+    "GeneralizedTactileEncodingPipeline",
+    "IzhikevichNeuronTorch",
+    "AdExNeuronTorch",
+    "MQIFNeuronTorch",
+    "FANeuronTorch",
+    "SANeuronTorch",
+    "SAFilterTorch",
+    "RAFilterTorch",
+    "StimulusGenerator",
 ]
