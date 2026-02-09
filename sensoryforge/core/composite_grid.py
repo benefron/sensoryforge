@@ -1,8 +1,11 @@
-"""Composite grid for multi-population spatial substrates.
+"""Composite receptor grid for multi-layer spatial substrates.
 
 This module provides infrastructure for managing multiple named receptor
-populations on a shared coordinate system. Each population can have its own
-density, spatial arrangement, and optional metadata or filtering attributes.
+layers on a shared coordinate system. Each layer can have its own
+density, spatial arrangement, and optional metadata.
+
+Note: This manages RECEPTOR positions only. Filter types (SA/RA) are assigned
+at the sensory neuron level, NOT at the receptor grid level.
 """
 
 from __future__ import annotations
@@ -15,12 +18,16 @@ import torch
 ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid"]
 
 
-class CompositeGrid:
-    """Multi-population spatial substrate with shared coordinate system.
+class CompositeReceptorGrid:
+    """Multi-layer receptor grid with shared coordinate system.
     
-    The CompositeGrid manages multiple named receptor populations, each with
-    configurable density and spatial arrangement patterns. All populations
+    The CompositeReceptorGrid manages multiple named receptor layers, each with
+    configurable density and spatial arrangement patterns. All layers
     share a common coordinate system defined by spatial bounds and device.
+    
+    **Important:** This class manages receptor spatial positions ONLY. It does NOT
+    handle sensory neuron filter types (SA/RA). Filter assignment happens at the
+    sensory neuron layer via innervation, not at the receptor level.
     
     Arrangement types:
         - grid: Regular rectangular lattice with uniform spacing
@@ -32,23 +39,23 @@ class CompositeGrid:
         xlim: Spatial bounds along x-axis (min, max) in mm.
         ylim: Spatial bounds along y-axis (min, max) in mm.
         device: PyTorch device for tensor operations.
-        populations: Dictionary mapping population names to their configurations
+        layers: Dictionary mapping layer names to their configurations
             and generated coordinates.
     
     Example:
-        >>> grid = CompositeGrid(xlim=(-5.0, 5.0), ylim=(-5.0, 5.0))
-        >>> grid.add_population(
-        ...     name="SA1",
+        >>> grid = CompositeReceptorGrid(xlim=(-5.0, 5.0), ylim=(-5.0, 5.0))
+        >>> grid.add_layer(
+        ...     name="fine_receptors",
         ...     density=100.0,  # receptors per mm²
         ...     arrangement="grid"
         ... )
-        >>> grid.add_population(
-        ...     name="RA",
+        >>> grid.add_layer(
+        ...     name="coarse_receptors",
         ...     density=50.0,
         ...     arrangement="hex"
         ... )
-        >>> sa1_coords = grid.get_population_coordinates("SA1")
-        >>> print(sa1_coords.shape)  # (num_receptors, 2)
+        >>> fine_coords = grid.get_layer_coordinates("fine_receptors")
+        >>> print(fine_coords.shape)  # (num_receptors, 2)
     """
     
     def __init__(
@@ -81,49 +88,50 @@ class CompositeGrid:
         self.ylim = ylim
         self.device = torch.device(device) if isinstance(device, str) else device
         
-        # Storage for population data
+        # Storage for layer data
         # Each entry: {config: {...}, coordinates: Tensor[N, 2]}
-        self.populations: Dict[str, Dict[str, Any]] = {}
+        self.layers: Dict[str, Dict[str, Any]] = {}
     
-    def add_population(
+    def add_layer(
         self,
         name: str,
         density: float,
         arrangement: ArrangementType = "grid",
-        filter: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        """Add a named receptor population with specified arrangement.
+        """Add a named receptor layer with specified arrangement.
         
         Generates receptor coordinates based on density and arrangement type,
-        storing them for later retrieval. Populations are independent and can
+        storing them for later retrieval. Layers are independent and can
         have different densities and arrangements on the same coordinate system.
         
+        **Note:** This method does NOT accept a 'filter' parameter. Receptor layers
+        are purely spatial. Filter types (SA/RA) are assigned at the sensory
+        neuron level during innervation, not here.
+        
         Args:
-            name: Unique identifier for this population.
+            name: Unique identifier for this layer.
             density: Target receptor density in receptors per mm².
             arrangement: Spatial arrangement pattern ("grid", "poisson", "hex",
                 or "jittered_grid").
-            filter: Optional filter specification or metadata tag.
-            **metadata: Additional key-value pairs for population-specific
+            **metadata: Additional key-value pairs for layer-specific
                 configuration (e.g., sigma, connection_params, etc.).
         
         Raises:
-            ValueError: If population name already exists or density is invalid.
+            ValueError: If layer name already exists or density is invalid.
         
         Example:
-            >>> grid = CompositeGrid(xlim=(0, 10), ylim=(0, 10))
-            >>> grid.add_population(
-            ...     name="mechanoreceptors",
+            >>> grid = CompositeReceptorGrid(xlim=(0, 10), ylim=(0, 10))
+            >>> grid.add_layer(
+            ...     name="fine_mechanoreceptors",
             ...     density=100.0,
             ...     arrangement="grid",
-            ...     filter="gaussian",
             ...     sigma=0.5
             ... )
         """
         # Validate inputs
-        if name in self.populations:
-            raise ValueError(f"Population '{name}' already exists")
+        if name in self.layers:
+            raise ValueError(f"Layer '{name}' already exists")
         if density <= 0:
             raise ValueError(f"Density must be positive, got {density}")
         
@@ -138,82 +146,81 @@ class CompositeGrid:
             density=density,
         )
         
-        # Store population configuration and coordinates
-        self.populations[name] = {
+        # Store layer configuration and coordinates
+        self.layers[name] = {
             "config": {
                 "density": density,
                 "arrangement": arrangement,
-                "filter": filter,
                 "metadata": metadata,
             },
             "coordinates": coordinates,
             "count": coordinates.shape[0],
         }
     
-    def get_population_coordinates(self, name: str) -> torch.Tensor:
-        """Retrieve receptor coordinates for a named population.
+    def get_layer_coordinates(self, name: str) -> torch.Tensor:
+        """Retrieve receptor coordinates for a named layer.
         
         Args:
-            name: Population identifier.
+            name: Layer identifier.
         
         Returns:
             Tensor of shape (num_receptors, 2) containing (x, y) coordinates
             in mm.
         
         Raises:
-            KeyError: If population name does not exist.
+            KeyError: If layer name does not exist.
         
         Example:
-            >>> coords = grid.get_population_coordinates("SA1")
+            >>> coords = grid.get_layer_coordinates("fine_receptors")
             >>> print(coords.shape)
             torch.Size([1000, 2])
         """
-        if name not in self.populations:
-            raise KeyError(f"Population '{name}' not found")
-        return self.populations[name]["coordinates"]
+        if name not in self.layers:
+            raise KeyError(f"Layer '{name}' not found")
+        return self.layers[name]["coordinates"]
     
-    def get_population_config(self, name: str) -> Dict[str, Any]:
-        """Retrieve configuration for a named population.
+    def get_layer_config(self, name: str) -> Dict[str, Any]:
+        """Retrieve configuration for a named layer.
         
         Args:
-            name: Population identifier.
+            name: Layer identifier.
         
         Returns:
-            Dictionary containing density, arrangement, filter, and metadata.
+            Dictionary containing density, arrangement, and metadata.
         
         Raises:
-            KeyError: If population name does not exist.
+            KeyError: If layer name does not exist.
         """
-        if name not in self.populations:
-            raise KeyError(f"Population '{name}' not found")
-        return self.populations[name]["config"]
+        if name not in self.layers:
+            raise KeyError(f"Layer '{name}' not found")
+        return self.layers[name]["config"]
     
-    def get_population_count(self, name: str) -> int:
-        """Get the number of receptors in a population.
+    def get_layer_count(self, name: str) -> int:
+        """Get the number of receptors in a layer.
         
         Args:
-            name: Population identifier.
+            name: Layer identifier.
         
         Returns:
-            Number of receptors generated for this population.
+            Number of receptors generated for this layer.
         
         Raises:
-            KeyError: If population name does not exist.
+            KeyError: If layer name does not exist.
         """
-        if name not in self.populations:
-            raise KeyError(f"Population '{name}' not found")
-        return self.populations[name]["count"]
+        if name not in self.layers:
+            raise KeyError(f"Layer '{name}' not found")
+        return self.layers[name]["count"]
     
-    def list_populations(self) -> list[str]:
-        """Get names of all populations in this grid.
+    def list_layers(self) -> list[str]:
+        """Get names of all layers in this grid.
         
         Returns:
-            List of population name strings.
+            List of layer name strings.
         """
-        return list(self.populations.keys())
+        return list(self.layers.keys())
     
-    def to_device(self, device: torch.device | str) -> CompositeGrid:
-        """Move all population coordinates to specified device.
+    def to_device(self, device: torch.device | str) -> "CompositeReceptorGrid":
+        """Move all layer coordinates to specified device.
         
         Args:
             device: Target PyTorch device (e.g., "cuda", "cpu").
@@ -223,13 +230,13 @@ class CompositeGrid:
         
         Example:
             >>> grid.to_device("cuda")
-            >>> coords = grid.get_population_coordinates("SA1")
+            >>> coords = grid.get_layer_coordinates("fine_receptors")
             >>> print(coords.device)
             cuda:0
         """
         self.device = torch.device(device) if isinstance(device, str) else device
-        for pop_data in self.populations.values():
-            pop_data["coordinates"] = pop_data["coordinates"].to(self.device)
+        for layer_data in self.layers.values():
+            layer_data["coordinates"] = layer_data["coordinates"].to(self.device)
         return self
     
     def _compute_area(self) -> float:
@@ -437,3 +444,63 @@ class CompositeGrid:
         )
         
         return jittered
+    
+    # ========================================================================
+    # Backward Compatibility Methods
+    # ========================================================================
+    
+    def add_population(
+        self,
+        name: str,
+        density: float,
+        arrangement: ArrangementType = "grid",
+        filter: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        """Legacy method for adding a layer (backward compatibility).
+        
+        **Deprecated:** Use `add_layer()` instead. The `filter` parameter
+        is ignored as it conflates receptor grids with neuron filters.
+        
+        Args:
+            name: Unique identifier for this layer.
+            density: Target receptor density in receptors per mm².
+            arrangement: Spatial arrangement pattern.
+            filter: IGNORED - kept for backward compatibility only.
+            **metadata: Additional layer-specific configuration.
+        """
+        if filter is not None:
+            import warnings
+            warnings.warn(
+                "The 'filter' parameter is deprecated and ignored. "
+                "Receptor grids do not have filter types. "
+                "Use add_layer() instead of add_population().",
+                DeprecationWarning,
+                stacklevel=2
+            )
+        self.add_layer(name, density, arrangement, **metadata)
+    
+    def get_population_coordinates(self, name: str) -> torch.Tensor:
+        """Legacy method (backward compatibility). Use get_layer_coordinates()."""
+        return self.get_layer_coordinates(name)
+    
+    def get_population_config(self, name: str) -> Dict[str, Any]:
+        """Legacy method (backward compatibility). Use get_layer_config()."""
+        return self.get_layer_config(name)
+    
+    def get_population_count(self, name: str) -> int:
+        """Legacy method (backward compatibility). Use get_layer_count()."""
+        return self.get_layer_count(name)
+    
+    def list_populations(self) -> list[str]:
+        """Legacy method (backward compatibility). Use list_layers()."""
+        return self.list_layers()
+    
+    @property
+    def populations(self) -> Dict[str, Dict[str, Any]]:
+        """Legacy property (backward compatibility). Use .layers instead."""
+        return self.layers
+
+
+# Backward compatibility alias
+CompositeGrid = CompositeReceptorGrid

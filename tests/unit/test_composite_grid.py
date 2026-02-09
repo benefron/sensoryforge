@@ -101,13 +101,14 @@ class TestPopulationCreation:
             name="SA1",
             density=100.0,
             arrangement="grid",
-            filter="gaussian",
+            filter="gaussian",  # Deprecated but accepted for backward compat
             sigma=0.5,
             custom_param="value",
         )
         
         config = grid.get_population_config("SA1")
-        assert config["filter"] == "gaussian"
+        # Filter parameter is deprecated and no longer stored
+        assert "filter" not in config
         assert config["metadata"]["sigma"] == 0.5
         assert config["metadata"]["custom_param"] == "value"
 
@@ -546,9 +547,9 @@ class TestIntegrationScenarios:
         
         assert sa1_count > ra_count > pc_count
         
-        # Verify metadata preserved
+        # Verify metadata preserved (filter is deprecated)
         sa1_config = grid.get_population_config("SA1")
-        assert sa1_config["filter"] == "lowpass"
+        # Note: filter parameter is now deprecated and not stored
         assert sa1_config["metadata"]["sigma"] == 0.5
     
     def test_retinal_mosaic_simulation(self):
