@@ -41,9 +41,9 @@ def test_dsl_template_from_default_params():
     
     # Verify model was created
     assert model is not None
-    assert model.equations == template["equations"]
-    assert model.threshold == template["threshold"]
-    assert model.reset == template["reset"]
+    assert model.equations_str == template["equations"]
+    assert model.threshold_str == template["threshold"]
+    assert model.reset_str == template["reset"]
     assert model.parameters == template["parameters"]
 
 
@@ -72,13 +72,13 @@ def test_dsl_compiled_module_output_shape():
     module = model.compile(
         solver="euler",
         dt=dt,
-        num_neurons=num_neurons,
         device="cpu",
     )
     
-    # Test forward pass
+    # Test forward pass - DSL module expects [batch, steps, features]
     batch_size = 1
-    current = torch.randn(batch_size, num_neurons)
+    steps = 5
+    current = torch.randn(batch_size, steps, num_neurons)
     
     try:
         spikes, state = module(current)
