@@ -245,7 +245,7 @@ class NeuronExplorer(QtWidgets.QMainWindow):
         # Model selection
         controls_layout.addWidget(QtWidgets.QLabel("Model:"), row, 0)
         self.cmb_model = QtWidgets.QComboBox()
-        self.cmb_model.addItems(["Izhikevich", "AdEx", "MQIF", "FA", "SA"])
+        self.cmb_model.addItems(["Izhikevich", "AdEx", "MQIF", "FA", "SA", "DSL (Custom Equations)"])
         controls_layout.addWidget(self.cmb_model, row, 1)
 
         # Neuron count
@@ -273,6 +273,99 @@ class NeuronExplorer(QtWidgets.QMainWindow):
         # Expose FA and SA names in the UI; internally map FA->RAFilterTorch
         self.cmb_filter.addItems(["None", "SA", "FA"])
         controls_layout.addWidget(self.cmb_filter, row, 1)
+
+        # Solver selection
+        row += 1
+        controls_layout.addWidget(QtWidgets.QLabel("Solver:"), row, 0)
+        self.cmb_solver = QtWidgets.QComboBox()
+        self.cmb_solver.addItems(["Euler", "Adaptive (RK45)"])
+        self.cmb_solver.setToolTip("Built-in models use native integration.")
+        controls_layout.addWidget(self.cmb_solver, row, 1)
+
+        # Adaptive solver controls (initially hidden)
+        row += 1
+        self.adaptive_solver_box = QtWidgets.QGroupBox("Adaptive Solver Config")
+        adaptive_layout = QtWidgets.QGridLayout(self.adaptive_solver_box)
+        arow = 0
+        adaptive_layout.addWidget(QtWidgets.QLabel("Method:"), arow, 0)
+        self.cmb_solver_method = QtWidgets.QComboBox()
+        self.cmb_solver_method.addItems(["dopri5", "bosh3", "adaptive_heun"])
+        adaptive_layout.addWidget(self.cmb_solver_method, arow, 1)
+        arow += 1
+        adaptive_layout.addWidget(QtWidgets.QLabel("rtol:"), arow, 0)
+        self.dbl_rtol = QtWidgets.QDoubleSpinBox()
+        self.dbl_rtol.setRange(1e-10, 1e-1)
+        self.dbl_rtol.setDecimals(10)
+        self.dbl_rtol.setValue(1e-5)
+        self.dbl_rtol.setSingleStep(1e-6)
+        adaptive_layout.addWidget(self.dbl_rtol, arow, 1)
+        arow += 1
+        adaptive_layout.addWidget(QtWidgets.QLabel("atol:"), arow, 0)
+        self.dbl_atol = QtWidgets.QDoubleSpinBox()
+        self.dbl_atol.setRange(1e-10, 1e-1)
+        self.dbl_atol.setDecimals(10)
+        self.dbl_atol.setValue(1e-7)
+        self.dbl_atol.setSingleStep(1e-8)
+        adaptive_layout.addWidget(self.dbl_atol, arow, 1)
+        controls_layout.addWidget(self.adaptive_solver_box, row, 0, 1, 2)
+        self.adaptive_solver_box.setVisible(False)
+
+        # DSL editor panel (initially hidden)
+        row += 1
+        self.dsl_editor_box = QtWidgets.QGroupBox("DSL Model Editor")
+        dsl_layout = QtWidgets.QGridLayout(self.dsl_editor_box)
+        drow = 0
+        
+        # Load Template button
+        dsl_layout.addWidget(QtWidgets.QLabel("Template:"), drow, 0)
+        self.btn_load_template = QtWidgets.QPushButton("Load Template")
+        dsl_layout.addWidget(self.btn_load_template, drow, 1)
+        
+        drow += 1
+        dsl_layout.addWidget(QtWidgets.QLabel("Equations:"), drow, 0, 1, 2)
+        drow += 1
+        self.dsl_equations = QtWidgets.QPlainTextEdit()
+        self.dsl_equations.setFont(QtWidgets.QFont("Courier", 9))
+        self.dsl_equations.setMaximumHeight(100)
+        dsl_layout.addWidget(self.dsl_equations, drow, 0, 1, 2)
+        
+        drow += 1
+        dsl_layout.addWidget(QtWidgets.QLabel("Threshold:"), drow, 0)
+        self.dsl_threshold = QtWidgets.QLineEdit()
+        dsl_layout.addWidget(self.dsl_threshold, drow, 1)
+        
+        drow += 1
+        dsl_layout.addWidget(QtWidgets.QLabel("Reset:"), drow, 0)
+        self.dsl_reset = QtWidgets.QLineEdit()
+        dsl_layout.addWidget(self.dsl_reset, drow, 1)
+        
+        drow += 1
+        dsl_layout.addWidget(QtWidgets.QLabel("Parameters:"), drow, 0, 1, 2)
+        drow += 1
+        self.dsl_params_table = QtWidgets.QTableWidget()
+        self.dsl_params_table.setColumnCount(2)
+        self.dsl_params_table.setHorizontalHeaderLabels(["Name", "Value"])
+        self.dsl_params_table.setMaximumHeight(120)
+        dsl_layout.addWidget(self.dsl_params_table, drow, 0, 1, 2)
+        
+        drow += 1
+        dsl_btn_layout = QtWidgets.QHBoxLayout()
+        self.btn_add_param = QtWidgets.QPushButton("Add Parameter")
+        self.btn_remove_param = QtWidgets.QPushButton("Remove Parameter")
+        dsl_btn_layout.addWidget(self.btn_add_param)
+        dsl_btn_layout.addWidget(self.btn_remove_param)
+        dsl_layout.addLayout(dsl_btn_layout, drow, 0, 1, 2)
+        
+        drow += 1
+        self.btn_compile_dsl = QtWidgets.QPushButton("Compile")
+        self.dsl_status = QtWidgets.QLabel("Not compiled")
+        self.dsl_status.setStyleSheet("color: gray;")
+        dsl_layout.addWidget(self.btn_compile_dsl, drow, 0)
+        dsl_layout.addWidget(self.dsl_status, drow, 1)
+        
+        controls_layout.addWidget(self.dsl_editor_box, row, 0, 1, 2)
+        self.dsl_editor_box.setVisible(False)
+        self._dsl_model = None
 
         # Stimulus controls
         stim_box = QtWidgets.QGroupBox("Stimulus")
@@ -442,6 +535,12 @@ class NeuronExplorer(QtWidgets.QMainWindow):
         self.dbl_psth_bin.valueChanged.connect(self._plot_psth)
         self.dbl_sdf_sigma.valueChanged.connect(self.on_update_membrane_plot)
         self.dbl_noise_std.valueChanged.connect(self.on_update_membrane_plot)
+        # DSL and solver controls
+        self.cmb_solver.currentTextChanged.connect(self._on_solver_change)
+        self.btn_compile_dsl.clicked.connect(self._compile_dsl)
+        self.btn_add_param.clicked.connect(self._add_dsl_param)
+        self.btn_remove_param.clicked.connect(self._remove_dsl_param)
+        self.btn_load_template.clicked.connect(self._load_dsl_template)
 
         # Internal buffers for plots
         self._last_time = None
@@ -459,6 +558,24 @@ class NeuronExplorer(QtWidgets.QMainWindow):
         self._last_psth = None
         self._last_psth_edges = None
 
+        # Initialize DSL with default template
+        self._load_default_dsl_template()
+
+    def _load_default_dsl_template(self):
+        """Load default DSL template from params."""
+        try:
+            template = self.params.get("phase2", {}).get("dsl_neuron", {}).get("template", {})
+            self.dsl_equations.setPlainText(template.get("equations", ""))
+            self.dsl_threshold.setText(template.get("threshold", ""))
+            self.dsl_reset.setText(template.get("reset", ""))
+            params = template.get("parameters", {})
+            self.dsl_params_table.setRowCount(len(params))
+            for i, (name, value) in enumerate(params.items()):
+                self.dsl_params_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(name)))
+                self.dsl_params_table.setItem(i, 1, QtWidgets.QTableWidgetItem(str(value)))
+        except Exception:
+            pass
+
     def _load_params(self) -> Dict[str, Any]:
         try:
             with open(DEFAULT_PARAMS_PATH, "r", encoding="utf-8") as f:
@@ -470,6 +587,114 @@ class NeuronExplorer(QtWidgets.QMainWindow):
         dlg = JsonEditorDialog(DEFAULT_PARAMS_PATH, self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             self.params = self._load_params()
+
+    # ---------- DSL and Solver Controls ----------
+    def _on_solver_change(self):
+        """Show/hide adaptive solver controls based on solver selection."""
+        is_adaptive = self.cmb_solver.currentText().startswith("Adaptive")
+        self.adaptive_solver_box.setVisible(is_adaptive)
+
+    def _get_solver(self) -> str:
+        """Get solver type string."""
+        if self.cmb_solver.currentText().startswith("Euler"):
+            return "euler"
+        return "adaptive"
+
+    def _get_dsl_params(self) -> Dict[str, float]:
+        """Extract parameters from DSL table."""
+        params = {}
+        for row in range(self.dsl_params_table.rowCount()):
+            name_item = self.dsl_params_table.item(row, 0)
+            value_item = self.dsl_params_table.item(row, 1)
+            if name_item and value_item:
+                try:
+                    params[name_item.text()] = float(value_item.text())
+                except ValueError:
+                    pass
+        return params
+
+    def _compile_dsl(self):
+        """Compile DSL model from editor fields."""
+        try:
+            from sensoryforge.neurons.model_dsl import NeuronModel
+            equations = self.dsl_equations.toPlainText()
+            threshold = self.dsl_threshold.text()
+            reset = self.dsl_reset.text()
+            params = self._get_dsl_params()
+            self._dsl_model = NeuronModel(
+                equations=equations,
+                threshold=threshold,
+                reset=reset,
+                parameters=params,
+            )
+            self.dsl_status.setText("✓ Ready")
+            self.dsl_status.setStyleSheet("color: green;")
+        except Exception as e:
+            self._dsl_model = None
+            self.dsl_status.setText(f"✗ {str(e)[:30]}")
+            self.dsl_status.setStyleSheet("color: red;")
+
+    def _add_dsl_param(self):
+        """Add a new parameter row to DSL table."""
+        row = self.dsl_params_table.rowCount()
+        self.dsl_params_table.insertRow(row)
+        self.dsl_params_table.setItem(row, 0, QtWidgets.QTableWidgetItem("param"))
+        self.dsl_params_table.setItem(row, 1, QtWidgets.QTableWidgetItem("0.0"))
+
+    def _remove_dsl_param(self):
+        """Remove selected parameter row from DSL table."""
+        current_row = self.dsl_params_table.currentRow()
+        if current_row >= 0:
+            self.dsl_params_table.removeRow(current_row)
+
+    def _load_dsl_template(self):
+        """Show template selection dialog and load chosen template."""
+        templates = {
+            "Izhikevich (Regular Spiking)": {
+                "equations": "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms",
+                "threshold": "v >= 30 * mV",
+                "reset": "v = c\nu = u + d",
+                "parameters": {"a": 0.02, "b": 0.2, "c": -65.0, "d": 8.0}
+            },
+            "Izhikevich (Chattering)": {
+                "equations": "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms",
+                "threshold": "v >= 30 * mV",
+                "reset": "v = c\nu = u + d",
+                "parameters": {"a": 0.02, "b": 0.2, "c": -50.0, "d": 2.0}
+            },
+            "Izhikevich (Fast Spiking)": {
+                "equations": "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms",
+                "threshold": "v >= 30 * mV",
+                "reset": "v = c\nu = u + d",
+                "parameters": {"a": 0.1, "b": 0.2, "c": -65.0, "d": 2.0}
+            },
+            "Simple LIF": {
+                "equations": "dv/dt = (-(v - EL) + R*I) / tau_m",
+                "threshold": "v >= VT",
+                "reset": "v = v_reset",
+                "parameters": {"EL": -70.0, "VT": -50.0, "v_reset": -70.0, "tau_m": 10.0, "R": 1.0}
+            }
+        }
+        
+        template_name, ok = QtWidgets.QInputDialog.getItem(
+            self, "Load Template", "Select template:", 
+            list(templates.keys()), 0, False
+        )
+        
+        if ok and template_name:
+            template = templates[template_name]
+            self.dsl_equations.setPlainText(template["equations"])
+            self.dsl_threshold.setText(template["threshold"])
+            self.dsl_reset.setText(template["reset"])
+            params = template["parameters"]
+            self.dsl_params_table.setRowCount(len(params))
+            for i, (name, value) in enumerate(params.items()):
+                self.dsl_params_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(name)))
+                self.dsl_params_table.setItem(i, 1, QtWidgets.QTableWidgetItem(str(value)))
+            # Clear compilation status
+            self.dsl_status.setText("Not compiled")
+            self.dsl_status.setStyleSheet("color: gray;")
+            self._dsl_model = None
 
     # ---------- Stimulus Generation ----------
     def _generate_time(self, total_ms: int, dt_ms: float) -> np.ndarray:
@@ -704,6 +929,52 @@ class NeuronExplorer(QtWidgets.QMainWindow):
             v_trace, spikes = neuron(I_bt)
             return v_trace, spikes
 
+        if model_name == "DSL (Custom Equations)":
+            if self._dsl_model is None:
+                raise ValueError("Please compile the DSL model first")
+            try:
+                solver = self._get_solver()
+                num_neurons = I_bt.shape[-1]
+                module = self._dsl_model.compile(
+                    solver=solver,
+                    dt=dt,
+                    num_neurons=num_neurons,
+                    device=device,
+                )
+                # DSL module.forward returns (spikes, state_dict)
+                # Reshape input: I_bt is [B, T, F] -> we need to run per timestep
+                B, T, F = I_bt.shape
+                v_trace_list = []
+                spikes_list = []
+                
+                # Initialize state
+                module.reset_state()
+                
+                for t in range(T):
+                    current_step = I_bt[:, t, :]  # [B, F]
+                    spike_out, state = module(current_step)
+                    spikes_list.append(spike_out)
+                    # Extract voltage from state if available
+                    if 'v' in state:
+                        v_trace_list.append(state['v'])
+                    else:
+                        v_trace_list.append(torch.zeros_like(spike_out))
+                
+                # Stack outputs: [B, T, F]
+                spikes = torch.stack(spikes_list, dim=1)
+                v_trace = torch.stack(v_trace_list, dim=1)
+                
+                # Add initial state to match other models [B, T+1, F]
+                v_init = torch.zeros_like(v_trace[:, 0:1, :])
+                v_trace = torch.cat([v_init, v_trace], dim=1)
+                spikes = torch.cat([torch.zeros_like(spikes[:, 0:1, :]), spikes], dim=1)
+                
+                return v_trace, spikes
+            except ImportError:
+                raise ValueError("torchdiffeq not installed. Install with: pip install torchdiffeq")
+            except Exception as e:
+                raise ValueError(f"DSL model error: {e}")
+
         raise ValueError(f"Unknown model: {model_name}")
 
     def on_run(self):
@@ -755,14 +1026,21 @@ class NeuronExplorer(QtWidgets.QMainWindow):
 
     def _on_model_change(self):
         # Update noise std control to reflect model-specific default
-        try:
-            model_key = self.cmb_model.currentText()
-            default_val = float(self.params["models"][model_key].get("noise_std", 0.0))
-            self.dbl_noise_std.blockSignals(True)
-            self.dbl_noise_std.setValue(default_val)
-            self.dbl_noise_std.blockSignals(False)
-        except Exception:
-            pass
+        model_key = self.cmb_model.currentText()
+        is_dsl = model_key == "DSL (Custom Equations)"
+        
+        # Toggle DSL editor visibility
+        self.dsl_editor_box.setVisible(is_dsl)
+        
+        # For standard models, update noise std default
+        if not is_dsl:
+            try:
+                default_val = float(self.params["models"][model_key].get("noise_std", 0.0))
+                self.dbl_noise_std.blockSignals(True)
+                self.dbl_noise_std.setValue(default_val)
+                self.dbl_noise_std.blockSignals(False)
+            except Exception:
+                pass
 
     def _plot_input(self):
         ax = self.canvas.ax_input
