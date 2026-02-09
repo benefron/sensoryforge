@@ -9,6 +9,7 @@ it can be exported to YAML and scaled via the CLI for batch runs.
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import yaml
 from PyQt5 import QtWidgets
@@ -83,7 +84,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         tabs.addTab(self.protocol_tab, "Protocol Suite")
 
         # Create project registry and protocol execution controller
-        self._registry = ProjectRegistry()
+        # Default to "project_registry" in current working directory
+        registry_root = Path.cwd() / "project_registry"
+        self._registry = ProjectRegistry(registry_root)
         self._protocol_controller = ProtocolExecutionController(
             mechanoreceptor_tab=self.mechanoreceptor_tab,
             spiking_tab=self.spiking_tab,
