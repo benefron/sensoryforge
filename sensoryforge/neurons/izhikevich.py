@@ -150,10 +150,12 @@ class IzhikevichNeuronTorch(nn.Module):
         threshold_tensor = get_param(threshold_val, (features,))
 
         v = torch.full((batch, features), self.v_init, dtype=dtype, device=device)
-        u_init_val = (
-            self.u_init if not isinstance(self.b, tuple) else b_tensor * self.v_init
-        )
-        u = torch.full((batch, features), u_init_val, dtype=dtype, device=device)
+        # Fix tuple-b u_init: torch.full requires scalar, use expand for tensor
+        # (resolves ReviewFinding#M1)
+        if isinstance(self.b, tuple):
+            u = (b_tensor * self.v_init).unsqueeze(0).expand(batch, features).clone()
+        else:
+            u = torch.full((batch, features), self.u_init, dtype=dtype, device=device)
         v_trace = torch.zeros((batch, steps + 1, features), dtype=dtype, device=device)
         spikes = torch.zeros(
             (batch, steps + 1, features), dtype=torch.bool, device=device
