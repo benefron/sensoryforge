@@ -10,8 +10,6 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "torch>=1.12.0",
-        "torchvision>=0.13.0",
-        "torchaudio>=0.12.0",
         "numpy>=1.21.0",
         "scipy>=1.7.0",
         "scikit-learn>=1.0.0",
@@ -20,6 +18,7 @@ setup(
         "PyYAML>=6.0",
         "tqdm>=4.60",
         "matplotlib>=3.5",
+        "plotly>=5.0",
     ],
     extras_require={
         "solvers": [
