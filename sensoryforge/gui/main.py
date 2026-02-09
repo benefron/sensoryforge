@@ -8,7 +8,9 @@ it can be exported to YAML and scaled via the CLI for batch runs.
 
 import os
 import sys
+from datetime import datetime
 
+import yaml
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
@@ -155,158 +157,130 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         help_menu.addAction(cli_guide_action)
 
     def _load_config(self) -> None:
-        """Load and visualize YAML configuration."""
+        """Load YAML configuration and populate all GUI tabs.
+
+        Calls each tab's ``set_config()`` in dependency order:
+        mechanoreceptor → stimulus → spiking.  The config structure
+        mirrors what ``_save_config()`` produces, enabling full
+        round-trip fidelity.
+        """
         filename, _ = QFileDialog.getOpenFileName(
             self,
             'Load YAML Configuration',
             '',
             'YAML Files (*.yml *.yaml);;All Files (*)'
         )
-        
-        if filename:
-            try:
-                import yaml
-                from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
-                
-                with open(filename, 'r') as f:
-                    config = yaml.safe_load(f)
-                
-                # Try to instantiate pipeline to validate
-                try:
-                    pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-                    info = pipeline.get_pipeline_info()
-                    
-                    # Show config summary
-                    msg = f'<h3>Configuration Loaded</h3>'
-                    msg += f'<p><b>File:</b> {filename}</p>'
-                    msg += f'<p><b>Device:</b> {info["config"]["pipeline"]["device"]}</p>'
-                    msg += f'<p><b>Grid:</b> {info["grid_properties"]["size"]}</p>'
-                    msg += f'<p><b>Neurons:</b> SA={info["neuron_counts"]["sa_neurons"]}, '
-                    msg += f'RA={info["neuron_counts"]["ra_neurons"]}</p>'
-                    
-                    # Check for Phase 2 features
-                    if pipeline.composite_grid:
-                        msg += '<p><b>✓ CompositeGrid detected</b></p>'
-                    if config.get('neurons', {}).get('type') == 'dsl':
-                        msg += '<p><b>✓ DSL neuron model detected</b></p>'
-                    if config.get('solver', {}).get('type') == 'adaptive':
-                        msg += '<p><b>✓ Adaptive solver detected</b></p>'
-                    
-                    msg += '<hr><p><b>To run simulation:</b></p>'
-                    msg += f'<pre>sensoryforge run {filename} --duration 1000</pre>'
-                    
-                    QMessageBox.information(
-                        self,
-                        'Config Validated',
-                        msg
-                    )
-                except Exception as e:
-                    QMessageBox.warning(
-                        self,
-                        'Config Warning',
-                        f'Configuration loaded but validation failed:\n{str(e)}\n\n'
-                        f'You can still try running with CLI:\n'
-                        f'sensoryforge run {filename}'
-                    )
-            except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    'Load Error',
-                    f'Failed to load configuration:\n{str(e)}'
-                )
+        if not filename:
+            return
+
+        try:
+            with open(filename, 'r') as f:
+                config = yaml.safe_load(f)
+            if not isinstance(config, dict):
+                raise ValueError("YAML did not produce a dict")
+        except Exception as e:
+            QMessageBox.critical(
+                self, 'Load Error',
+                f'Failed to parse YAML:\n{e}'
+            )
+            return
+
+        errors: list = []
+
+        # 1) Mechanoreceptor tab (grid + populations)
+        mechano_cfg = {}
+        if "grid" in config or "populations" in config:
+            mechano_cfg["grid"] = config.get("grid", {})
+            mechano_cfg["populations"] = config.get("populations", [])
+        try:
+            if mechano_cfg:
+                self.mechanoreceptor_tab.set_config(mechano_cfg)
+        except Exception as e:
+            errors.append(f"Grid/Populations: {e}")
+
+        # 2) Stimulus tab
+        try:
+            stim_cfg = config.get("stimulus", {})
+            if stim_cfg:
+                self.stimulus_tab.set_config(stim_cfg)
+        except Exception as e:
+            errors.append(f"Stimulus: {e}")
+
+        # 3) Spiking tab (must come after mechano so population names exist)
+        try:
+            sim_cfg = config.get("simulation", {})
+            if sim_cfg:
+                self.spiking_tab.set_config(sim_cfg)
+        except Exception as e:
+            errors.append(f"Simulation: {e}")
+
+        # Report result
+        if errors:
+            QMessageBox.warning(
+                self, 'Load Warnings',
+                f'Configuration loaded with warnings:\n\n'
+                + '\n'.join(errors)
+            )
+        else:
+            QMessageBox.information(
+                self, 'Config Loaded',
+                f'Configuration loaded successfully from:\n{filename}'
+            )
 
     def _save_config(self) -> None:
-        """Generate and save a YAML configuration template."""
+        """Save current GUI state to a YAML configuration file.
+
+        Collects config from each tab via ``get_config()`` and writes a
+        single YAML that can be loaded back with ``_load_config()``,
+        ensuring full round-trip fidelity.
+        """
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            'Save Configuration Template',
+            'Save Configuration',
             'sensoryforge_config.yml',
             'YAML Files (*.yml *.yaml);;All Files (*)'
         )
-        
-        if filename:
-            try:
-                # Generate a comprehensive config template with Phase 2 features
-                config = {
-                    'metadata': {
-                        'name': 'SensoryForge Configuration',
-                        'version': '0.2.0',
-                        'created': 'From GUI',
-                        'note': 'Edit this file and use with: sensoryforge run config.yml'
-                    },
-                    'pipeline': {
-                        'device': 'cpu',
-                        'seed': 42,
-                        'grid_size': 80,
-                        'spacing': 0.15,
-                        'center': [0.0, 0.0]
-                    },
-                    '# Uncomment to use CompositeGrid': None,
-                    'grid_example_composite': {
-                        'type': 'composite',
-                        'populations': {
-                            'sa1': {'density': 10.0, 'arrangement': 'poisson'},
-                            'ra1': {'density': 5.0, 'arrangement': 'hex'},
-                            'sa2': {'density': 3.0, 'arrangement': 'poisson'}
-                        }
-                    },
-                    'neurons': {
-                        'sa_neurons': 10,
-                        'ra_neurons': 14,
-                        'sa2_neurons': 5,
-                        'dt': 0.5
-                    },
-                    '# Uncomment to use Equation DSL': None,
-                    'neurons_example_dsl': {
-                        'type': 'dsl',
-                        'equations': 'dv/dt = 0.04*v**2 + 5*v + 140 - u + I\\ndu/dt = a*(b*v - u)',
-                        'threshold': 'v >= 30',
-                        'reset': 'v = c; u = u + d',
-                        'parameters': {'a': 0.02, 'b': 0.2, 'c': -65.0, 'd': 8.0}
-                    },
-                    'stimuli': [
-                        {'type': 'gaussian', 'config': {'amplitude': 30.0, 'sigma': 1.0}},
-                        '# Uncomment for texture stimulus',
-                        {'type_example': 'texture', 'config': {'pattern': 'gabor', 'wavelength': 2.0}},
-                        '# Uncomment for moving stimulus',
-                        {'type_example': 'moving', 'config': {'motion_type': 'linear', 'start': [-2, 0], 'end': [2, 0]}}
-                    ],
-                    'solver': {
-                        'type': 'euler',
-                        '# Use adaptive for higher accuracy': None,
-                        'adaptive_example': {'type': 'adaptive', 'config': {'method': 'dopri5', 'rtol': 1e-5}}
-                    }
-                }
-                
-                import yaml
-                with open(filename, 'w') as f:
-                    yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-                
-                QMessageBox.information(
-                    self,
-                    'Template Saved',
-                    f'<h3>Configuration Template Saved</h3>'
-                    f'<p><b>File:</b> {filename}</p>'
-                    f'<p>This template includes examples for all Phase 2 features:</p>'
-                    f'<ul>'
-                    f'<li>CompositeGrid (multi-population)</li>'
-                    f'<li>Equation DSL (custom neurons)</li>'
-                    f'<li>Extended stimuli (texture, moving)</li>'
-                    f'<li>Adaptive solvers</li>'
-                    f'</ul>'
-                    f'<p><b>Next steps:</b></p>'
-                    f'<ol>'
-                    f'<li>Edit {filename} to configure your simulation</li>'
-                    f'<li>Validate: <tt>sensoryforge validate {filename}</tt></li>'
-                    f'<li>Run: <tt>sensoryforge run {filename}</tt></li>'
-                    f'</ol>'
+        if not filename:
+            return
+
+        try:
+            mechano = self.mechanoreceptor_tab.get_config()
+            stimulus = self.stimulus_tab.get_config()
+            simulation = self.spiking_tab.get_config()
+
+            config: dict = {
+                'metadata': {
+                    'version': '0.3.0',
+                    'created': datetime.utcnow().isoformat() + 'Z',
+                    'source': 'SensoryForge GUI',
+                },
+                'grid': mechano.get('grid', {}),
+                'populations': mechano.get('populations', []),
+                'stimulus': stimulus,
+                'simulation': simulation,
+            }
+
+            with open(filename, 'w') as f:
+                yaml.dump(
+                    config,
+                    f,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
                 )
-            except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    'Save Error',
-                    f'Failed to save configuration:\n{str(e)}'
-                )
+
+            QMessageBox.information(
+                self,
+                'Config Saved',
+                f'Configuration saved to:\n{filename}\n\n'
+                f'Load back with File → Load Config, or run via CLI:\n'
+                f'sensoryforge run {filename}'
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self, 'Save Error',
+                f'Failed to save configuration:\n{e}'
+            )
 
     def _show_about(self) -> None:
         """Show about dialog."""
