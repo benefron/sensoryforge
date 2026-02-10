@@ -10,11 +10,18 @@ import torch.nn as nn
 from typing import Optional, Dict, Any, Union, List
 
 from .grid import GridManager
-from .composite_grid import CompositeGrid
-from .innervation import create_sa_innervation, create_ra_innervation, InnervationModule
+from .composite_grid import CompositeGrid, CompositeReceptorGrid
+from .innervation import (
+    create_sa_innervation,
+    create_ra_innervation,
+    InnervationModule,
+    FlatInnervationModule,
+)
+from .processing import ProcessingPipeline
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
 from sensoryforge.stimuli.texture import gabor_texture  # (resolves ReviewFinding#M3)
+from sensoryforge.stimuli.builder import TimelineStimulus, RepeatedPatternStimulus
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.neurons.model_dsl import NeuronModel
@@ -38,6 +45,13 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             "spacing": 0.15,
             "center": [0.0, 0.0],
         },
+        # Phase 3: Composite grid with per-population offset/color
+        "grid": {
+            "type": "standard",  # "standard" or "composite"
+            "populations": {},   # name → {density, arrangement, offset, color, ...}
+        },
+        # Phase 3: Processing layers between receptor grid and innervation
+        "processing_layers": [],  # list of {type: "identity", ...} dicts
         "neurons": {"sa_neurons": 10, "ra_neurons": 14, "sa2_neurons": 5, "dt": 0.5},
         "innervation": {
             "receptors_per_neuron": 28,
@@ -172,26 +186,28 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         self.composite_grid = None
         grid_cfg = self.config.get("grid", {})
         if grid_cfg.get("type") == "composite":
-            self.composite_grid = CompositeGrid(
+            self.composite_grid = CompositeReceptorGrid(
                 xlim=self.grid_manager.xlim, 
                 ylim=self.grid_manager.ylim, 
                 device=self.device
             )
             
-            # Add populations
+            # Add populations using Phase 3 add_layer() with offset/color
             populations = grid_cfg.get("populations", {})
             for name, pop_cfg in populations.items():
-                self.composite_grid.add_population(
+                self.composite_grid.add_layer(
                     name=name,
-                    density=pop_cfg.get("density", 10.0), # Default density
+                    density=pop_cfg.get("density", 10.0),
                     arrangement=pop_cfg.get("arrangement", "poisson"),
-                    filter=pop_cfg.get("filter", None)
+                    offset=tuple(pop_cfg.get("offset", [0.0, 0.0])),
+                    color=tuple(pop_cfg["color"]) if pop_cfg.get("color") else None,
                 )
 
         # Create stimulus generator
         self.stimulus_generator = StimulusGenerator(self.grid_manager)
 
         # Create pipeline components
+        self._create_processing_layers()
         self._create_innervation()
         self._create_filters()
         self._create_neurons()
@@ -241,58 +257,138 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 result[key] = value
         return result
 
+    def _create_processing_layers(self):
+        """Create processing layer pipeline from configuration.
+
+        Reads the ``processing_layers`` list from config (each entry is a
+        dict with at least a ``type`` key).  If empty or absent, a single
+        :class:`IdentityLayer` is used (zero-overhead pass-through).
+        """
+        layer_configs = self.config.get("processing_layers", [])
+        self.processing_pipeline = ProcessingPipeline.from_config(layer_configs)
+
     def _create_innervation(self):
-        """Create innervation modules with configuration"""
+        """Create innervation modules with configuration.
+
+        When a composite grid is configured **and** the ``innervation.method``
+        key is ``"flat"``, :class:`FlatInnervationModule` is used instead of the
+        default :class:`InnervationModule`.  This enables irregular (poisson /
+        hex) receptor arrangements from :class:`CompositeReceptorGrid`.
+
+        The grid-based :class:`InnervationModule` remains the default for
+        backward compatibility.
+        """
         innervation_cfg = self.config["innervation"]
         neuron_cfg = self.config["neurons"]
+        use_flat = (
+            self.composite_grid is not None
+            and innervation_cfg.get("method") == "flat"
+        )
 
         # Handle CompositeGrid inputs
         sa_centers, ra_centers, sa2_centers = None, None, None
         
         if self.composite_grid:
-            pop_map = {k.lower(): k for k in self.composite_grid.populations.keys()}
+            pop_map = {k.lower(): k for k in self.composite_grid.layers.keys()}
             
             # Map canonical names to user population names
-            if 'sa1' in pop_map: sa_centers = self.composite_grid.get_population_coordinates(pop_map['sa1'])
-            elif 'sa' in pop_map: sa_centers = self.composite_grid.get_population_coordinates(pop_map['sa'])
+            if 'sa1' in pop_map:
+                sa_centers = self.composite_grid.get_layer_coordinates(pop_map['sa1'])
+            elif 'sa' in pop_map:
+                sa_centers = self.composite_grid.get_layer_coordinates(pop_map['sa'])
             
-            if 'ra1' in pop_map: ra_centers = self.composite_grid.get_population_coordinates(pop_map['ra1'])
-            elif 'ra' in pop_map: ra_centers = self.composite_grid.get_population_coordinates(pop_map['ra'])
+            if 'ra1' in pop_map:
+                ra_centers = self.composite_grid.get_layer_coordinates(pop_map['ra1'])
+            elif 'ra' in pop_map:
+                ra_centers = self.composite_grid.get_layer_coordinates(pop_map['ra'])
             
-            if 'sa2' in pop_map: sa2_centers = self.composite_grid.get_population_coordinates(pop_map['sa2'])
+            if 'sa2' in pop_map:
+                sa2_centers = self.composite_grid.get_layer_coordinates(pop_map['sa2'])
 
-        self.sa_innervation = InnervationModule(
-            neuron_type="SA",
-            grid_manager=self.grid_manager,
-            neurons_per_row=neuron_cfg["sa_neurons"],
-            connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-            sigma_d_mm=innervation_cfg["sa_spread"],
-            weight_range=tuple(innervation_cfg["connection_strength"]),
-            seed=innervation_cfg["sa_seed"],
-            neuron_centers=sa_centers,
-        )
+        if use_flat:
+            # Phase 3: Flat innervation using composite grid coordinates
+            all_coords = self.composite_grid.get_all_coordinates()
+            xlim = self.composite_grid.xlim
+            ylim = self.composite_grid.ylim
 
-        self.ra_innervation = InnervationModule(
-            neuron_type="RA",
-            grid_manager=self.grid_manager,
-            neurons_per_row=neuron_cfg["ra_neurons"],
-            connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-            sigma_d_mm=innervation_cfg["ra_spread"],
-            weight_range=tuple(innervation_cfg["connection_strength"]),
-            seed=innervation_cfg["ra_seed"],
-            neuron_centers=ra_centers,
-        )
+            self.sa_innervation = FlatInnervationModule(
+                neuron_type="SA",
+                receptor_coords=all_coords,
+                neuron_centers=sa_centers,
+                neurons_per_row=neuron_cfg["sa_neurons"],
+                xlim=xlim,
+                ylim=ylim,
+                innervation_method=innervation_cfg.get("sa_method", "gaussian"),
+                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
+                sigma_d_mm=innervation_cfg["sa_spread"],
+                weight_range=tuple(innervation_cfg["connection_strength"]),
+                seed=innervation_cfg["sa_seed"],
+                device=self.device,
+            )
 
-        self.sa2_innervation = InnervationModule(
-            neuron_type="SA2" if sa2_centers is not None else "SA",
-            grid_manager=self.grid_manager,
-            neurons_per_row=neuron_cfg["sa2_neurons"],
-            connections_per_neuron=innervation_cfg["sa2_connections"],
-            sigma_d_mm=innervation_cfg["sa2_spread"],
-            weight_range=tuple(innervation_cfg["sa2_weights"]),
-            seed=innervation_cfg["sa2_seed"],
-            neuron_centers=sa2_centers,
-        )
+            self.ra_innervation = FlatInnervationModule(
+                neuron_type="RA",
+                receptor_coords=all_coords,
+                neuron_centers=ra_centers,
+                neurons_per_row=neuron_cfg["ra_neurons"],
+                xlim=xlim,
+                ylim=ylim,
+                innervation_method=innervation_cfg.get("ra_method", "gaussian"),
+                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
+                sigma_d_mm=innervation_cfg["ra_spread"],
+                weight_range=tuple(innervation_cfg["connection_strength"]),
+                seed=innervation_cfg["ra_seed"],
+                device=self.device,
+            )
+
+            self.sa2_innervation = FlatInnervationModule(
+                neuron_type="SA2",
+                receptor_coords=all_coords,
+                neuron_centers=sa2_centers,
+                neurons_per_row=neuron_cfg["sa2_neurons"],
+                xlim=xlim,
+                ylim=ylim,
+                innervation_method=innervation_cfg.get("sa2_method", "gaussian"),
+                connections_per_neuron=innervation_cfg.get("sa2_connections", 500),
+                sigma_d_mm=innervation_cfg["sa2_spread"],
+                weight_range=tuple(innervation_cfg["sa2_weights"]),
+                seed=innervation_cfg["sa2_seed"],
+                device=self.device,
+            )
+        else:
+            # Default: Grid-based innervation (backward compatible)
+            self.sa_innervation = InnervationModule(
+                neuron_type="SA",
+                grid_manager=self.grid_manager,
+                neurons_per_row=neuron_cfg["sa_neurons"],
+                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
+                sigma_d_mm=innervation_cfg["sa_spread"],
+                weight_range=tuple(innervation_cfg["connection_strength"]),
+                seed=innervation_cfg["sa_seed"],
+                neuron_centers=sa_centers,
+            )
+
+            self.ra_innervation = InnervationModule(
+                neuron_type="RA",
+                grid_manager=self.grid_manager,
+                neurons_per_row=neuron_cfg["ra_neurons"],
+                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
+                sigma_d_mm=innervation_cfg["ra_spread"],
+                weight_range=tuple(innervation_cfg["connection_strength"]),
+                seed=innervation_cfg["ra_seed"],
+                neuron_centers=ra_centers,
+            )
+
+            self.sa2_innervation = InnervationModule(
+                neuron_type="SA2" if sa2_centers is not None else "SA",
+                grid_manager=self.grid_manager,
+                neurons_per_row=neuron_cfg["sa2_neurons"],
+                connections_per_neuron=innervation_cfg.get("sa2_connections", 500),
+                sigma_d_mm=innervation_cfg["sa2_spread"],
+                weight_range=tuple(innervation_cfg["sa2_weights"]),
+                seed=innervation_cfg["sa2_seed"],
+                neuron_centers=sa2_centers,
+            )
 
     def _create_filters(self):
         """Create filters with configuration"""
@@ -486,6 +582,10 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             return self._generate_texture_stimulus(**stimulus_params)
         elif stimulus_type == "moving":
             return self._generate_moving_stimulus(**stimulus_params)
+        elif stimulus_type == "timeline":
+            return self._generate_timeline_stimulus(**stimulus_params)
+        elif stimulus_type == "repeated_pattern":
+            return self._generate_repeated_pattern_stimulus(**stimulus_params)
         else:
             raise ValueError(f"Unknown stimulus type: {stimulus_type}")
 
@@ -579,6 +679,126 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             cx, cy = trajectory[t, 0], trajectory[t, 1]
             stimulus_sequence[0, t] = gaussian_pressure_torch(xx, yy, cx, cy, amplitude, sigma)
             
+        return stimulus_sequence, time_array, temporal_profile
+
+    def _generate_timeline_stimulus(self, **params):
+        """Generate a timeline stimulus composed of sub-stimuli at different onsets.
+
+        Delegates to :class:`TimelineStimulus`.  The caller provides either a
+        pre-built :class:`TimelineStimulus` object or a list of sub-stimulus
+        specification dicts.
+
+        Args:
+            timeline_stimulus: Pre-built :class:`TimelineStimulus` instance.
+                If provided, ``sub_stimuli`` is ignored.
+            sub_stimuli: List of dicts, each with ``'stimulus'`` (a
+                :class:`BaseStimulus`), ``'onset_ms'``, ``'duration_ms'``,
+                and optionally ``'envelope'``.
+            duration: Total timeline duration in ms (default 500).
+            dt: Time step in ms (default from config).
+
+        Returns:
+            Tuple of ``(stimulus_sequence, time_array, temporal_profile)``.
+        """
+        duration = params.get("duration", 500.0)
+        dt = params.get("dt", self.config["neurons"]["dt"])
+        n_timesteps = int(duration / dt)
+
+        timeline = params.get("timeline_stimulus")
+        if timeline is None:
+            sub_stimuli = params.get("sub_stimuli", [])
+            timeline = TimelineStimulus(
+                sub_stimuli=sub_stimuli,
+                total_time_ms=duration,
+                dt_ms=dt,
+                device=self.device,
+            )
+
+        xx, yy = self.grid_manager.get_coordinates()
+        grid_h, grid_w = xx.shape
+
+        # Step through the timeline building each frame
+        timeline.reset_state()
+        frames = []
+        for _ in range(n_timesteps):
+            frame = timeline(xx, yy)  # [H, W]
+            frames.append(frame)
+            timeline.step()
+
+        # Stack into [1, T, H, W]
+        stimulus_sequence = torch.stack(frames, dim=0).unsqueeze(0)
+        time_array = torch.arange(
+            n_timesteps, dtype=torch.float32, device=self.device
+        ) * dt
+        temporal_profile = stimulus_sequence[0].amax(dim=(-2, -1))
+        if temporal_profile.max() > 0:
+            temporal_profile = temporal_profile / temporal_profile.max()
+
+        return stimulus_sequence, time_array, temporal_profile
+
+    def _generate_repeated_pattern_stimulus(self, **params):
+        """Generate a repeated-pattern (N×M tiled) stimulus.
+
+        Delegates to :class:`RepeatedPatternStimulus`.
+
+        Args:
+            repeated_stimulus: Pre-built :class:`RepeatedPatternStimulus`.
+                If provided, other pattern params are ignored.
+            base_stimulus: A :class:`BaseStimulus` instance for the base
+                pattern.  If absent, a default Gaussian blob is created.
+            copies_x: Number of horizontal copies (default 3).
+            copies_y: Number of vertical copies (default 2).
+            spacing_x: Horizontal spacing in mm (default 0.5).
+            spacing_y: Vertical spacing in mm (default 0.5).
+            duration: Duration in ms (default 200).
+            dt: Time step in ms (default from config).
+
+        Returns:
+            Tuple of ``(stimulus_sequence, time_array, temporal_profile)``.
+        """
+        from sensoryforge.stimuli.builder import StaticStimulus
+
+        duration = params.get("duration", 200.0)
+        dt = params.get("dt", self.config["neurons"]["dt"])
+        n_timesteps = int(duration / dt)
+
+        repeated = params.get("repeated_stimulus")
+        if repeated is None:
+            base_stim = params.get("base_stimulus")
+            if base_stim is None:
+                base_stim = StaticStimulus(
+                    stim_type='gaussian',
+                    params={
+                        'amplitude': params.get("amplitude", 30.0),
+                        'sigma': params.get("sigma", 0.5),
+                        'center_x': 0.0,
+                        'center_y': 0.0,
+                    },
+                    device=self.device,
+                )
+
+            repeated = RepeatedPatternStimulus(
+                base_stimulus=base_stim,
+                copies_x=params.get("copies_x", 3),
+                copies_y=params.get("copies_y", 2),
+                spacing_x=params.get("spacing_x", 0.5),
+                spacing_y=params.get("spacing_y", 0.5),
+                device=self.device,
+            )
+
+        xx, yy = self.grid_manager.get_coordinates()
+        spatial = repeated(xx, yy)  # [H, W]
+
+        # Expand to time dimension
+        time_array = torch.arange(
+            n_timesteps, dtype=torch.float32, device=self.device
+        ) * dt
+        temporal_profile = torch.ones(n_timesteps, device=self.device)
+        stimulus_sequence = (
+            spatial.unsqueeze(0).unsqueeze(0)
+            * temporal_profile.view(1, -1, 1, 1)
+        )
+
         return stimulus_sequence, time_array, temporal_profile
 
     def _generate_trapezoidal_stimulus(self, **params):
@@ -826,6 +1046,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Step 4: Mechanoreceptor responses (identical to stimulus)
         mechanoreceptor_responses = stimulus_sequence.clone()
 
+        # Step 4.5: Apply processing layers (Phase 3)
+        mechanoreceptor_responses = self.processing_pipeline(
+            mechanoreceptor_responses
+        )
+
         # Step 5: Compute neural inputs through innervation
         with torch.no_grad():
             sa_inputs = self.sa_innervation(mechanoreceptor_responses)
@@ -952,7 +1177,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
     def get_pipeline_info(self):
         """Get comprehensive information about the pipeline configuration"""
-        return {
+        info = {
             "config": self.config,
             "grid_properties": {
                 "size": self.grid_manager.grid_size,
@@ -971,6 +1196,21 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 "sa2_scale": self.sa2_scale,
             },
         }
+        # Phase 3 additions
+        if self.composite_grid is not None:
+            info["composite_grid"] = {
+                "layers": self.composite_grid.list_layers(),
+                "total_receptors": sum(
+                    self.composite_grid.get_layer_count(n)
+                    for n in self.composite_grid.list_layers()
+                ),
+            }
+        info["processing_layers"] = self.processing_pipeline.to_dict()
+        info["innervation_type"] = (
+            "flat" if isinstance(self.sa_innervation, FlatInnervationModule)
+            else "grid"
+        )
+        return info
 
 
 def create_generalized_pipeline(config_path=None, **config_overrides):

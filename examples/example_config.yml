@@ -96,6 +96,58 @@ gui:
   visualization_type: heatmap
 
 # =============================================================================
+# Phase 3: Composite Grid with Offset & Color
+# =============================================================================
+# Uncomment to use a multi-population composite grid instead of a single grid.
+#
+# grid:
+#   type: composite
+#   populations:
+#     sa1:
+#       density: 100.0            # receptors per mm²
+#       arrangement: grid         # grid, poisson, hex, jittered_grid
+#       offset: [0.0, 0.0]       # spatial offset in mm
+#       color: [66, 135, 245, 255]   # RGBA for GUI visualization
+#     ra1:
+#       density: 70.0
+#       arrangement: hex
+#       offset: [0.05, 0.0]
+#       color: [245, 166, 66, 255]
+#     sa2:
+#       density: 30.0
+#       arrangement: poisson
+#       offset: [0.0, 0.05]
+#       color: [66, 245, 135, 255]
+
+# =============================================================================
+# Phase 3: Processing Layers
+# =============================================================================
+# Composable transformations between the receptor grid and innervation.
+# An empty list (or omitted key) applies a zero-overhead identity pass-through.
+#
+# processing_layers:
+#   - type: identity
+#   # Future: ON/OFF centre-surround, lateral inhibition, cross-grid fusion
+
+# =============================================================================
+# Phase 3: Timeline & Repeated-Pattern Stimuli
+# =============================================================================
+# These stimulus types are used programmatically via generate_stimulus():
+#
+#   pipeline.generate_stimulus("timeline",
+#       sub_stimuli=[
+#           {"stimulus": my_stim_1, "onset_ms": 0.0, "duration_ms": 100.0},
+#           {"stimulus": my_stim_2, "onset_ms": 50.0, "duration_ms": 100.0},
+#       ],
+#       duration=200.0,
+#   )
+#
+#   pipeline.generate_stimulus("repeated_pattern",
+#       copies_x=3, copies_y=2, spacing_x=0.5, spacing_y=0.5,
+#       amplitude=30.0, sigma=0.5, duration=200.0,
+#   )
+
+# =============================================================================
 # Usage Examples:
 # =============================================================================
 #
