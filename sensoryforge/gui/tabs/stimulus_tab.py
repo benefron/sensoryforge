@@ -232,7 +232,9 @@ class TimelineScrubberWidget(QtWidgets.QWidget):
 
         # Time-axis ticks and labels
         painter.setPen(QtGui.QColor(180, 180, 180))
-        painter.setFont(QtGui.QFont("monospace", 8))
+        tick_font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
+        tick_font.setPointSize(8)
+        painter.setFont(tick_font)
         num_ticks = max(2, min(10, int(usable / 60)))
         for i in range(num_ticks + 1):
             frac = i / num_ticks
