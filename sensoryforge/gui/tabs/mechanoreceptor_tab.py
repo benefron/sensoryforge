@@ -23,7 +23,13 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from sensoryforge.core.grid import GridManager  # noqa: E402
-from sensoryforge.core.innervation import InnervationModule  # noqa: E402
+from sensoryforge.core.innervation import (  # noqa: E402
+    InnervationModule,
+    FlatInnervationModule,
+    create_innervation,
+    create_neuron_centers,
+)
+from sensoryforge.core.composite_grid import CompositeReceptorGrid  # noqa: E402
 
 
 CONFIG_SCHEMA_VERSION = "1.0.0"
@@ -46,9 +52,15 @@ class NeuronPopulation:
     sigma_d_mm: float
     weight_min: float
     weight_max: float
+    innervation_method: str = "gaussian"
+    max_distance_mm: float = 1.0
+    decay_function: str = "exponential"
+    decay_rate: float = 2.0
     seed: Optional[int] = None
     edge_offset: Optional[float] = None
+    target_grid: Optional[str] = None  # Name of target grid layer
     module: Optional[InnervationModule] = None
+    flat_module: Optional[FlatInnervationModule] = None
     scatter_item: Optional[pg.ScatterPlotItem] = None
     connection_items: List[Tuple[pg.PlotDataItem, QtGui.QColor]] = field(
         default_factory=list
@@ -58,7 +70,7 @@ class NeuronPopulation:
     visible: bool = True
 
     def instantiate(self, grid_manager: GridManager) -> None:
-        """Build the PyTorch innervation module for this configuration."""
+        """Build the PyTorch innervation module for this configuration (grid-based)."""
         weight_range: Tuple[float, float] = (self.weight_min, self.weight_max)
         kwargs = {
             "neuron_type": self.neuron_type,
@@ -71,6 +83,73 @@ class NeuronPopulation:
             "edge_offset": self.edge_offset,
         }
         self.module = InnervationModule(**kwargs)
+        self.flat_module = None
+        if self.innervation_method != "gaussian":
+            xx, yy = grid_manager.get_coordinates()
+            receptor_coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
+            neuron_centers = self.module.neuron_centers
+
+            weights = create_innervation(
+                receptor_coords=receptor_coords,
+                neuron_centers=neuron_centers,
+                method=self.innervation_method,
+                max_distance_mm=self.max_distance_mm,
+                decay_function=self.decay_function,
+                decay_rate=self.decay_rate,
+            )
+            grid_h, grid_w = grid_manager.grid_size
+            reshaped = weights.view(neuron_centers.shape[0], grid_h, grid_w)
+            self.module.innervation_map = reshaped
+            self.module.innervation_weights.data.copy_(reshaped)
+
+    def instantiate_flat(self, receptor_coords: torch.Tensor,
+                         xlim: Tuple[float, float],
+                         ylim: Tuple[float, float]) -> None:
+        """Build innervation from flat receptor coordinates (composite grid)."""
+        self.flat_module = FlatInnervationModule(
+            neuron_type=self.neuron_type,
+            receptor_coords=receptor_coords,
+            neurons_per_row=self.neurons_per_row,
+            xlim=xlim,
+            ylim=ylim,
+            innervation_method=self.innervation_method,
+            connections_per_neuron=self.connections_per_neuron,
+            sigma_d_mm=self.sigma_d_mm,
+            max_sigma_distance=3.0,
+            weight_range=(self.weight_min, self.weight_max),
+            max_distance_mm=self.max_distance_mm,
+            decay_function=self.decay_function,
+            decay_rate=self.decay_rate,
+            seed=self.seed,
+            edge_offset=self.edge_offset,
+        )
+        self.module = None
+
+    @property
+    def neuron_centers(self) -> Optional[torch.Tensor]:
+        """Get neuron centers from whichever module is active."""
+        if self.module is not None:
+            return self.module.neuron_centers
+        if self.flat_module is not None:
+            return self.flat_module.neuron_centers
+        return None
+
+    @property
+    def innervation_weights(self) -> Optional[torch.Tensor]:
+        """Get innervation weights from whichever module is active."""
+        if self.module is not None:
+            return self.module.innervation_weights
+        if self.flat_module is not None:
+            return self.flat_module.innervation_weights
+        return None
+
+    @property
+    def num_neurons(self) -> int:
+        if self.module is not None:
+            return self.module.num_neurons
+        if self.flat_module is not None:
+            return self.flat_module.num_neurons
+        return 0
 
     def delete_graphics(self, plot: pg.PlotItem) -> None:
         if self.scatter_item is not None:
@@ -124,9 +203,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 "phase2": {
                     "composite_grid": {
                         "populations": {
-                            "sa1": {"density": 100.0, "arrangement": "grid", "filter": "SA"},
-                            "ra1": {"density": 70.0, "arrangement": "hex", "filter": "RA"},
-                            "sa2": {"density": 30.0, "arrangement": "poisson", "filter": "SA"},
+                            "layer1": {"density": 100.0, "arrangement": "grid"},
+                            "layer2": {"density": 70.0, "arrangement": "hex"},
+                            "layer3": {"density": 30.0, "arrangement": "poisson"},
                         }
                     }
                 }
@@ -298,11 +377,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.composite_pop_table.setHorizontalHeaderLabels(["Name", "Density", "Arrangement"])
         self.composite_pop_table.horizontalHeader().setStretchLastSection(True)
         self.composite_pop_table.setMaximumHeight(150)
-        composite_grid_layout.addWidget(QtWidgets.QLabel("Layer Populations (Note: Filters are configured per neuron population below):"))
+        composite_grid_layout.addWidget(QtWidgets.QLabel("Receptor Layers (filters are configured per neuron population below):"))
         composite_grid_layout.addWidget(self.composite_pop_table)
         
         comp_pop_buttons = QtWidgets.QHBoxLayout()
-        self.btn_add_comp_pop = QtWidgets.QPushButton("Add Population")
+        self.btn_add_comp_pop = QtWidgets.QPushButton("Add Layer")
         self.btn_remove_comp_pop = QtWidgets.QPushButton("Remove Selected")
         self.btn_add_comp_pop.clicked.connect(self._on_add_composite_population)
         self.btn_remove_comp_pop.clicked.connect(self._on_remove_composite_population)
@@ -321,6 +400,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Population controls
         pop_group = QtWidgets.QGroupBox("Neuron Populations")
         pop_layout = QtWidgets.QFormLayout(pop_group)
+        self._pop_layout = pop_layout
         self.txt_population_name = QtWidgets.QLineEdit()
         self.cmb_population_type = QtWidgets.QComboBox()
         self.cmb_population_type.addItems(["SA", "RA", "Custom"])
@@ -335,6 +415,24 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_sigma.setDecimals(4)
         self.dbl_sigma.setRange(0.01, 5.0)
         self.dbl_sigma.setValue(0.3)
+        self.cmb_innervation_method = QtWidgets.QComboBox()
+        self.cmb_innervation_method.addItems(
+            ["gaussian", "one_to_one", "distance_weighted"]
+        )
+        self.cmb_innervation_method.setCurrentText("gaussian")
+        self.dbl_max_distance = QtWidgets.QDoubleSpinBox()
+        self.dbl_max_distance.setDecimals(3)
+        self.dbl_max_distance.setRange(0.01, 10.0)
+        self.dbl_max_distance.setValue(1.0)
+        self.cmb_decay_function = QtWidgets.QComboBox()
+        self.cmb_decay_function.addItems(
+            ["exponential", "linear", "inverse_square"]
+        )
+        self.cmb_decay_function.setCurrentText("exponential")
+        self.dbl_decay_rate = QtWidgets.QDoubleSpinBox()
+        self.dbl_decay_rate.setDecimals(3)
+        self.dbl_decay_rate.setRange(0.01, 10.0)
+        self.dbl_decay_rate.setValue(2.0)
         self.dbl_weight_min = QtWidgets.QDoubleSpinBox()
         self.dbl_weight_min.setDecimals(4)
         self.dbl_weight_min.setRange(0.0, 10.0)
@@ -358,16 +456,34 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.cmb_population_type.currentTextChanged.connect(
             self._on_population_type_changed
         )
+        self.cmb_innervation_method.currentTextChanged.connect(
+            self._on_innervation_method_changed
+        )
+        self.cmb_target_grid = QtWidgets.QComboBox()
+        self.cmb_target_grid.addItem("(all receptors)")
+        self.cmb_target_grid.setToolTip(
+            "Select which grid layer this population targets.\n"
+            "Only available with composite grids."
+        )
+        self.cmb_target_grid.setEnabled(False)
         pop_layout.addRow("Name:", self.txt_population_name)
         pop_layout.addRow("Type:", self.cmb_population_type)
+        pop_layout.addRow("Target Grid:", self.cmb_target_grid)
         pop_layout.addRow("Neurons/row:", self.spin_neurons_per_row)
         pop_layout.addRow("Connections:", self.dbl_connections)
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
+        pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
+        pop_layout.addRow("Max Distance (mm):", self.dbl_max_distance)
+        pop_layout.addRow("Decay Function:", self.cmb_decay_function)
+        pop_layout.addRow("Decay Rate:", self.dbl_decay_rate)
         pop_layout.addRow("Weight min:", self.dbl_weight_min)
         pop_layout.addRow("Weight max:", self.dbl_weight_max)
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
         pop_layout.addRow("Seed (-1 for random):", self.spin_seed)
         pop_layout.addRow("Color:", self.btn_pick_color)
+        self._on_innervation_method_changed(
+            self.cmb_innervation_method.currentText()
+        )
         self.btn_add_population = QtWidgets.QPushButton("Add Population")
         self.btn_add_population.clicked.connect(self._on_add_population)
         pop_layout.addRow(self.btn_add_population)
@@ -500,7 +616,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         """Add a new population row to the composite grid table."""
         row_num = self.composite_pop_table.rowCount() + 1
         self._add_composite_population_row(
-            name=f"pop{row_num}",
+            name=f"layer{row_num}",
             density=100.0,
             arrangement="grid"
         )
@@ -534,6 +650,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             device="cpu",
         )
         self._composite_grid = None
+
+        # Disable target grid dropdown for standard grid mode
+        self.cmb_target_grid.blockSignals(True)
+        self.cmb_target_grid.clear()
+        self.cmb_target_grid.addItem("(all receptors)")
+        self.cmb_target_grid.setEnabled(False)
+        self.cmb_target_grid.blockSignals(False)
 
         self._update_mechanoreceptor_points()
         self._rebuild_populations()
@@ -569,9 +692,24 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         
         self._composite_grid = cg
         self.grid_manager = None
-        
+
+        # Populate target grid dropdown for populations
+        self.cmb_target_grid.blockSignals(True)
+        self.cmb_target_grid.clear()
+        self.cmb_target_grid.addItem("(all receptors)")
+        for pop in self._composite_populations:
+            self.cmb_target_grid.addItem(pop["name"])
+        self.cmb_target_grid.setEnabled(True)
+        self.cmb_target_grid.blockSignals(False)
+
         self._update_composite_visualization()
-        self.grid_changed.emit({"type": "composite", "grid": cg, "populations": self._composite_populations})
+        self.grid_changed.emit({
+            "type": "composite",
+            "grid": cg,
+            "xlim": list(xlim),
+            "ylim": list(ylim),
+            "layers": list(self._composite_populations),
+        })
 
     def _update_mechanoreceptor_points(self) -> None:
         if self.grid_manager is None:
@@ -670,6 +808,16 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             # Custom retains current values
             pass
 
+    def _on_innervation_method_changed(self, method: str) -> None:
+        is_distance = method == "distance_weighted"
+        for widget in (self.dbl_max_distance, self.cmb_decay_function, self.dbl_decay_rate):
+            widget.setVisible(is_distance)
+            widget.setEnabled(is_distance)
+            if hasattr(self, "_pop_layout"):
+                label = self._pop_layout.labelForField(widget)
+                if label is not None:
+                    label.setVisible(is_distance)
+
     def _set_weight_defaults(self, weights: Tuple[float, float]) -> None:
         min_w, max_w = weights
         self.dbl_weight_min.setValue(min_w)
@@ -693,7 +841,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_pick_color.setAutoFillBackground(True)
 
     def _on_add_population(self) -> None:
-        if self.grid_manager is None:
+        if self.grid_manager is None and self._composite_grid is None:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Grid required",
@@ -711,6 +859,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             )
         seed_value = self.spin_seed.value()
         seed = None if seed_value < 0 else seed_value
+
+        # Determine target grid for composite mode
+        target_grid = None
+        if self._composite_grid is not None and self.cmb_target_grid.isEnabled():
+            target_text = self.cmb_target_grid.currentText()
+            if target_text != "(all receptors)":
+                target_grid = target_text
+
         population = NeuronPopulation(
             name=name,
             neuron_type=neuron_type,
@@ -720,10 +876,35 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             sigma_d_mm=self.dbl_sigma.value(),
             weight_min=self.dbl_weight_min.value(),
             weight_max=self.dbl_weight_max.value(),
+            innervation_method=self.cmb_innervation_method.currentText(),
+            max_distance_mm=self.dbl_max_distance.value(),
+            decay_function=self.cmb_decay_function.currentText(),
+            decay_rate=self.dbl_decay_rate.value(),
             seed=seed,
             edge_offset=self.dbl_edge_offset.value() or None,
+            target_grid=target_grid,
         )
-        population.instantiate(self.grid_manager)
+
+        if self.grid_manager is not None:
+            population.instantiate(self.grid_manager)
+        elif self._composite_grid is not None:
+            # Use FlatInnervationModule with composite grid coordinates
+            if target_grid is not None:
+                coords = self._composite_grid.get_population_coordinates(target_grid)
+            else:
+                coords = self._composite_grid.get_all_coordinates()
+            if coords is None or coords.shape[0] == 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "No receptors",
+                    f"Grid layer '{target_grid or 'all'}' has no receptor coordinates.",
+                )
+                return
+            bounds = self._composite_grid.computed_bounds
+            xlim = bounds[0]
+            ylim = bounds[1]
+            population.instantiate_flat(coords, xlim, ylim)
+
         self.populations.append(population)
         self._population_counter += 1
         self._add_population_to_list(population)
@@ -885,12 +1066,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         return pop if isinstance(pop, NeuronPopulation) else None
 
     def _create_population_graphics(self, population: NeuronPopulation) -> None:
-        if population.module is None or self.grid_manager is None:
+        centers = population.neuron_centers
+        if centers is None:
             return
-        centers = population.module.neuron_centers.detach().cpu().numpy()
+        centers_np = centers.detach().cpu().numpy()
         scatter = pg.ScatterPlotItem(
-            centers[:, 0],
-            centers[:, 1],
+            centers_np[:, 0],
+            centers_np[:, 1],
             size=5,
             brush=pg.mkBrush(population.color),
             pen=pg.mkPen(population.color.darker(150)),
@@ -899,7 +1081,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         scatter.setZValue(6)
         self.plot.addItem(scatter)
         population.scatter_item = scatter
-        self._update_innervation_graphics(population)
+
+        if population.module is not None and self.grid_manager is not None:
+            self._update_innervation_graphics(population)
+        elif population.flat_module is not None:
+            self._update_innervation_graphics_flat(population)
+
         self._highlight_population(self._selected_population or population)
 
     def _weight_to_color(
@@ -1087,8 +1274,128 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         self._apply_population_visibility(population)
 
+    def _update_innervation_graphics_flat(
+        self,
+        population: NeuronPopulation,
+    ) -> None:
+        """Update innervation graphics for flat-coordinate (composite grid) populations."""
+        if population.flat_module is None:
+            return
+
+        for item, _ in population.connection_items:
+            self.plot.removeItem(item)
+        if population.heatmap_item is not None:
+            self.plot.removeItem(population.heatmap_item)
+            population.heatmap_item = None
+        if population.receptor_item is not None:
+            self.plot.removeItem(population.receptor_item)
+            population.receptor_item = None
+        population.connection_items.clear()
+
+        weights = population.flat_module.innervation_weights.detach().cpu().numpy()
+        centers = population.flat_module.neuron_centers.detach().cpu().numpy()
+        receptor_coords = population.flat_module.receptor_coords.detach().cpu().numpy()
+        x_flat = receptor_coords[:, 0]
+        y_flat = receptor_coords[:, 1]
+
+        receptor_x_list: List[np.ndarray] = []
+        receptor_y_list: List[np.ndarray] = []
+        neuron_x_list: List[np.ndarray] = []
+        neuron_y_list: List[np.ndarray] = []
+        weight_list: List[np.ndarray] = []
+
+        num_neurons = centers.shape[0]
+        for idx in range(num_neurons):
+            weights_flat = weights[idx].reshape(-1)
+            nz = np.nonzero(weights_flat > 0.0)[0]
+            if nz.size == 0:
+                continue
+            weight_list.append(weights_flat[nz])
+            receptor_x_list.append(x_flat[nz])
+            receptor_y_list.append(y_flat[nz])
+            neuron_x_list.append(np.full(nz.size, centers[idx, 0]))
+            neuron_y_list.append(np.full(nz.size, centers[idx, 1]))
+
+        if not weight_list:
+            return
+
+        weights_all = np.concatenate(weight_list)
+        receptor_x_all = np.concatenate(receptor_x_list)
+        receptor_y_all = np.concatenate(receptor_y_list)
+        neuron_x_all = np.concatenate(neuron_x_list)
+        neuron_y_all = np.concatenate(neuron_y_list)
+
+        # Scatter of innervated mechanoreceptors with neutral appearance
+        neutral_brush = pg.mkBrush(80, 80, 80, 110)
+        receptor_size = 4.0
+        receptor_item = pg.ScatterPlotItem(
+            x=receptor_x_all,
+            y=receptor_y_all,
+            size=receptor_size,
+            brush=neutral_brush,
+            pen=None,
+        )
+        receptor_item.setOpacity(1.0)
+        receptor_item.setPxMode(True)
+        receptor_item.setZValue(2)
+        self.plot.addItem(receptor_item)
+        population.receptor_item = receptor_item
+
+        w_min = float(weights_all.min())
+        w_max = float(weights_all.max())
+        if np.isclose(w_max, w_min):
+            norm_weights = np.full_like(weights_all, 0.5)
+        else:
+            norm_weights = (weights_all - w_min) / (w_max - w_min)
+
+        num_bins = 8
+        bins = np.linspace(0.0, 1.0, num_bins + 1)
+        for bin_idx in range(num_bins):
+            lower = bins[bin_idx]
+            upper = bins[bin_idx + 1]
+            if bin_idx == num_bins - 1:
+                mask = (norm_weights >= lower) & (norm_weights <= upper)
+            else:
+                mask = (norm_weights >= lower) & (norm_weights < upper)
+            if not np.any(mask):
+                continue
+
+            x0 = neuron_x_all[mask]
+            x1 = receptor_x_all[mask]
+            y0 = neuron_y_all[mask]
+            y1 = receptor_y_all[mask]
+            line_x = np.empty(mask.sum() * 3)
+            line_y = np.empty(mask.sum() * 3)
+            line_x[0::3] = x0
+            line_x[1::3] = x1
+            line_x[2::3] = np.nan
+            line_y[0::3] = y0
+            line_y[1::3] = y1
+            line_y[2::3] = np.nan
+
+            width = 0.05
+            line_color = QtGui.QColor(population.color)
+            line_color.setAlpha(int(50))
+            connection_item = pg.PlotDataItem(
+                line_x,
+                line_y,
+                pen=pg.mkPen(
+                    line_color,
+                    width=width,
+                    cap=QtCore.Qt.RoundCap,
+                    join=QtCore.Qt.RoundJoin,
+                    cosmetic=True,
+                ),
+                connect="finite",
+            )
+            connection_item.setZValue(3)
+            self.plot.addItem(connection_item)
+            population.connection_items.append((connection_item, line_color))
+
+        self._apply_population_visibility(population)
+
     def _rebuild_populations(self) -> None:
-        if self.grid_manager is None:
+        if self.grid_manager is None and self._composite_grid is None:
             return
         for population in self.populations:
             population.delete_graphics(self.plot)
@@ -1097,10 +1404,27 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.grid_scatter = None
         self.plot.clear()
         self._configure_plot()
-        self._update_mechanoreceptor_points()
-        for population in self.populations:
-            population.instantiate(self.grid_manager)
-            self._create_population_graphics(population)
+
+        if self.grid_manager is not None:
+            self._update_mechanoreceptor_points()
+            for population in self.populations:
+                population.instantiate(self.grid_manager)
+                self._create_population_graphics(population)
+        elif self._composite_grid is not None:
+            self._update_composite_visualization()
+            bounds = self._composite_grid.computed_bounds
+            xlim = bounds[0]
+            ylim = bounds[1]
+            for population in self.populations:
+                target = population.target_grid
+                if target is not None:
+                    coords = self._composite_grid.get_population_coordinates(target)
+                else:
+                    coords = self._composite_grid.get_all_coordinates()
+                if coords is not None and coords.shape[0] > 0:
+                    population.instantiate_flat(coords, xlim, ylim)
+                    self._create_population_graphics(population)
+
         self._highlight_population(self._selected_population)
         self._update_layer_visibility()
         self.populations_changed.emit(list(self.populations))
@@ -1121,7 +1445,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.populations_changed.emit(list(self.populations))
 
     def _ensure_grid_ready(self) -> bool:
-        if self.grid_manager is not None:
+        if self.grid_manager is not None or self._composite_grid is not None:
             return True
         QtWidgets.QMessageBox.warning(
             self,
@@ -1224,19 +1548,33 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         }
 
         for idx, population in enumerate(self.populations, start=1):
-            if population.module is None and self.grid_manager is not None:
-                population.instantiate(self.grid_manager)
-            module = population.module
-            if module is None:
+            if population.module is None and population.flat_module is None:
+                if self.grid_manager is not None:
+                    population.instantiate(self.grid_manager)
+                elif self._composite_grid is not None:
+                    target = population.target_grid
+                    if target is not None:
+                        coords = self._composite_grid.get_population_coordinates(target)
+                    else:
+                        coords = self._composite_grid.get_all_coordinates()
+                    if coords is not None and coords.shape[0] > 0:
+                        bounds = self._composite_grid.computed_bounds
+                        population.instantiate_flat(coords, bounds[0], bounds[1])
+
+            # Collect weights/centers from whichever module is active
+            weights = population.innervation_weights
+            centers = population.neuron_centers
+            if weights is None or centers is None:
                 continue
+
             base_name = population.name or f"population_{idx:02d}"
             pop_slug = self._sanitize_name(base_name)
             tensor_filename = f"population_{idx:02d}_{pop_slug}.pt"
             tensor_path = config_dir / tensor_filename
             try:
                 payload = {
-                    "innervation_weights": module.innervation_weights.detach().cpu(),
-                    "neuron_centers": module.neuron_centers.detach().cpu(),
+                    "innervation_weights": weights.detach().cpu(),
+                    "neuron_centers": centers.detach().cpu(),
                 }
                 torch.save(payload, tensor_path)
             except OSError as exc:
@@ -1247,26 +1585,31 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 )
                 return False
 
-            manifest["populations"].append(
-                {
-                    "name": population.name,
-                    "neuron_type": population.neuron_type,
-                    "color": self._color_to_rgba(population.color),
-                    "parameters": {
-                        "neurons_per_row": int(population.neurons_per_row),
-                        "connections_per_neuron": float(
-                            population.connections_per_neuron
-                        ),
-                        "sigma_d_mm": float(population.sigma_d_mm),
-                        "weight_min": float(population.weight_min),
-                        "weight_max": float(population.weight_max),
-                        "seed": population.seed,
-                        "edge_offset": population.edge_offset,
-                    },
-                    "tensors": tensor_filename,
-                    "visible": bool(population.visible),
-                }
-            )
+            pop_entry = {
+                "name": population.name,
+                "neuron_type": population.neuron_type,
+                "color": self._color_to_rgba(population.color),
+                "parameters": {
+                    "neurons_per_row": int(population.neurons_per_row),
+                    "connections_per_neuron": float(
+                        population.connections_per_neuron
+                    ),
+                    "sigma_d_mm": float(population.sigma_d_mm),
+                    "innervation_method": population.innervation_method,
+                    "max_distance_mm": float(population.max_distance_mm),
+                    "decay_function": population.decay_function,
+                    "decay_rate": float(population.decay_rate),
+                    "weight_min": float(population.weight_min),
+                    "weight_max": float(population.weight_max),
+                    "seed": population.seed,
+                    "edge_offset": population.edge_offset,
+                },
+                "tensors": tensor_filename,
+                "visible": bool(population.visible),
+            }
+            if population.target_grid is not None:
+                pop_entry["target_grid"] = population.target_grid
+            manifest["populations"].append(pop_entry)
 
         manifest_path = config_dir / CONFIG_JSON_NAME
         try:
@@ -1440,6 +1783,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         for idx, entry in enumerate(populations_data, start=1):
             params = entry.get("parameters", {})
             color = self._rgba_to_color(entry.get("color", [66, 135, 245, 255]))
+            target_grid = entry.get("target_grid", None)
             population = NeuronPopulation(
                 name=entry.get("name", _default_population_name("SA", idx)),
                 neuron_type=entry.get("neuron_type", "SA"),
@@ -1449,30 +1793,56 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     params.get("connections_per_neuron", 28.0)
                 ),
                 sigma_d_mm=float(params.get("sigma_d_mm", 0.3)),
+                innervation_method=params.get("innervation_method", "gaussian"),
+                max_distance_mm=float(params.get("max_distance_mm", 1.0)),
+                decay_function=params.get("decay_function", "exponential"),
+                decay_rate=float(params.get("decay_rate", 2.0)),
                 weight_min=float(params.get("weight_min", 0.1)),
                 weight_max=float(params.get("weight_max", 1.0)),
                 seed=params.get("seed"),
                 edge_offset=params.get("edge_offset"),
+                target_grid=target_grid,
             )
-            population.instantiate(self.grid_manager)
+
+            # Instantiate with appropriate grid type
+            if self.grid_manager is not None:
+                population.instantiate(self.grid_manager)
+            elif self._composite_grid is not None:
+                if target_grid is not None:
+                    coords = self._composite_grid.get_population_coordinates(target_grid)
+                else:
+                    coords = self._composite_grid.get_all_coordinates()
+                if coords is not None and coords.shape[0] > 0:
+                    bounds = self._composite_grid.computed_bounds
+                    population.instantiate_flat(coords, bounds[0], bounds[1])
 
             tensor_file = entry.get("tensors")
             if tensor_file:
                 tensor_path = (manifest_path.parent / tensor_file).resolve()
                 try:
                     payload = torch.load(tensor_path, map_location="cpu")
-                    weights = payload.get("innervation_weights")
-                    if weights is not None:
-                        device = population.module.innervation_weights.device
-                        population.module.innervation_map = weights.to(device)
-                        population.module.innervation_weights.data.copy_(
-                            population.module.innervation_map
-                        )
+                    weights_tensor = payload.get("innervation_weights")
                     centers_tensor = payload.get("neuron_centers")
-                    if centers_tensor is not None:
-                        population.module.neuron_centers = centers_tensor.to(
-                            population.module.neuron_centers.device
-                        )
+                    if population.module is not None:
+                        if weights_tensor is not None:
+                            device = population.module.innervation_weights.device
+                            population.module.innervation_map = weights_tensor.to(device)
+                            population.module.innervation_weights.data.copy_(
+                                population.module.innervation_map
+                            )
+                        if centers_tensor is not None:
+                            population.module.neuron_centers = centers_tensor.to(
+                                population.module.neuron_centers.device
+                            )
+                    elif population.flat_module is not None:
+                        if weights_tensor is not None:
+                            population.flat_module.innervation_weights.data.copy_(
+                                weights_tensor.to(population.flat_module.innervation_weights.device)
+                            )
+                        if centers_tensor is not None:
+                            population.flat_module.neuron_centers = centers_tensor.to(
+                                population.flat_module.neuron_centers.device
+                            )
                 except (OSError, RuntimeError) as exc:
                     QtWidgets.QMessageBox.critical(
                         self,
@@ -1570,6 +1940,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             grid["cols"] = self.spin_grid_cols.value()
             grid["spacing_mm"] = self.dbl_spacing.value()
             grid["center"] = [self.dbl_center_x.value(), self.dbl_center_y.value()]
+            grid["arrangement"] = self.cmb_standard_arrangement.currentText()
         else:
             grid["xlim"] = [self.dbl_xlim_min.value(), self.dbl_xlim_max.value()]
             grid["ylim"] = [self.dbl_ylim_min.value(), self.dbl_ylim_max.value()]
@@ -1578,13 +1949,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 name_item = self.composite_pop_table.item(row, 0)
                 density_item = self.composite_pop_table.item(row, 1)
                 arr_combo = self.composite_pop_table.cellWidget(row, 2)
-                filt_combo = self.composite_pop_table.cellWidget(row, 3)
                 if name_item and density_item:
                     comp_pops.append({
                         "name": name_item.text(),
                         "density": float(density_item.text()),
                         "arrangement": arr_combo.currentText() if arr_combo else "grid",
-                        "filter": filt_combo.currentText() if filt_combo else "SA",
                     })
             grid["composite_populations"] = comp_pops
 
@@ -1592,18 +1961,25 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         populations = []
         for pop in self.populations:
             c = pop.color
-            populations.append({
+            pop_dict = {
                 "name": pop.name,
                 "neuron_type": pop.neuron_type,
                 "neurons_per_row": pop.neurons_per_row,
                 "connections_per_neuron": pop.connections_per_neuron,
                 "sigma_d_mm": pop.sigma_d_mm,
+                "innervation_method": pop.innervation_method,
+                "max_distance_mm": pop.max_distance_mm,
+                "decay_function": pop.decay_function,
+                "decay_rate": pop.decay_rate,
                 "weight_range": [pop.weight_min, pop.weight_max],
                 "edge_offset": pop.edge_offset if pop.edge_offset else 0.0,
                 "seed": pop.seed if pop.seed is not None else 42,
                 "color": [c.red(), c.green(), c.blue(), c.alpha()],
                 "visible": pop.visible,
-            })
+            }
+            if pop.target_grid is not None:
+                pop_dict["target_grid"] = pop.target_grid
+            populations.append(pop_dict)
 
         return {"grid": grid, "populations": populations}
 
@@ -1659,11 +2035,16 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             cols = int(grid_cfg.get("cols", self.spin_grid_cols.value()))
             spacing = float(grid_cfg.get("spacing_mm", self.dbl_spacing.value()))
             center = grid_cfg.get("center", [self.dbl_center_x.value(), self.dbl_center_y.value()])
+            arrangement = grid_cfg.get("arrangement", self.cmb_standard_arrangement.currentText())
 
             for spin, val in [(self.spin_grid_rows, rows), (self.spin_grid_cols, cols)]:
                 spin.blockSignals(True)
                 spin.setValue(val)
                 spin.blockSignals(False)
+
+            self.cmb_standard_arrangement.blockSignals(True)
+            self.cmb_standard_arrangement.setCurrentText(str(arrangement))
+            self.cmb_standard_arrangement.blockSignals(False)
             for dbl, val in [
                 (self.dbl_spacing, spacing),
                 (self.dbl_center_x, float(center[0])),
@@ -1679,6 +2060,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         for pop_cfg in config.get("populations", []):
             c = pop_cfg.get("color", [66, 135, 245, 255])
             wrange = pop_cfg.get("weight_range", [0.1, 1.0])
+            target_grid = pop_cfg.get("target_grid", None)
             pop = NeuronPopulation(
                 name=pop_cfg.get("name", "Population"),
                 neuron_type=pop_cfg.get("neuron_type", "SA"),
@@ -1686,10 +2068,15 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 neurons_per_row=int(pop_cfg.get("neurons_per_row", 10)),
                 connections_per_neuron=float(pop_cfg.get("connections_per_neuron", 28.0)),
                 sigma_d_mm=float(pop_cfg.get("sigma_d_mm", 0.3)),
+                innervation_method=pop_cfg.get("innervation_method", "gaussian"),
+                max_distance_mm=float(pop_cfg.get("max_distance_mm", 1.0)),
+                decay_function=pop_cfg.get("decay_function", "exponential"),
+                decay_rate=float(pop_cfg.get("decay_rate", 2.0)),
                 weight_min=float(wrange[0]),
                 weight_max=float(wrange[1]),
                 seed=pop_cfg.get("seed", 42),
                 edge_offset=pop_cfg.get("edge_offset", 0.0),
+                target_grid=target_grid,
                 visible=pop_cfg.get("visible", True),
             )
             if self.grid_manager is not None:
@@ -1697,10 +2084,23 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     pop.instantiate(self.grid_manager)
                 except Exception:
                     pass
+            elif self._composite_grid is not None:
+                try:
+                    if target_grid is not None:
+                        coords = self._composite_grid.get_population_coordinates(target_grid)
+                    else:
+                        coords = self._composite_grid.get_all_coordinates()
+                    if coords is not None and coords.shape[0] > 0:
+                        bounds = self._composite_grid.computed_bounds
+                        pop.instantiate_flat(coords, bounds[0], bounds[1])
+                except Exception:
+                    pass
             self.populations.append(pop)
-            item = QtWidgets.QListWidgetItem(pop.name)
-            item.setForeground(QtGui.QBrush(pop.color))
-            self.population_list.addItem(item)
+            self._add_population_to_list(pop)
+            if pop.module is not None or pop.flat_module is not None:
+                self._create_population_graphics(pop)
+            if not pop.visible:
+                self._set_population_visibility(pop, False)
 
         self.populations_changed.emit(list(self.populations))
 

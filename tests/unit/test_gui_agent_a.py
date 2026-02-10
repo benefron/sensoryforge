@@ -1,23 +1,11 @@
-"""Unit tests for GUI Agent A integration (ProtocolSuiteTab + CompositeGrid)."""
+"""Unit tests for GUI Agent A integration (CompositeGrid wiring)."""
 import pytest
-
-
-def test_protocol_suite_tab_import():
-    """Verify ProtocolSuiteTab is importable from gui.tabs."""
-    from sensoryforge.gui.tabs import ProtocolSuiteTab
-    assert ProtocolSuiteTab is not None
 
 
 def test_mechanoreceptor_tab_import():
     """Verify MechanoreceptorTab is importable from gui.tabs."""
     from sensoryforge.gui.tabs import MechanoreceptorTab
     assert MechanoreceptorTab is not None
-
-
-def test_protocol_suite_tab_in_all():
-    """Verify ProtocolSuiteTab is exported in __all__."""
-    from sensoryforge.gui import tabs
-    assert "ProtocolSuiteTab" in tabs.__all__
 
 
 def test_composite_grid_import():

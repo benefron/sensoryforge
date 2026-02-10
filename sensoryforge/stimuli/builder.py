@@ -470,6 +470,327 @@ class CompositeStimulus(BaseStimulus):
         }
 
 
+# ============================================================================
+# Timeline and Pattern Stimuli (Phase 3)
+# ============================================================================
+
+
+class TimelineStimulus(BaseStimulus):
+    """Composite stimulus with per-sub-stimulus onset, duration, and envelope.
+
+    Each sub-stimulus is active only during its own ``[onset, onset + duration]``
+    window within a global timeline defined by ``total_time_ms`` and ``dt_ms``.
+    When evaluated at a specific time step the inactive stimuli contribute zero.
+
+    Attributes:
+        sub_stimuli: List of (stimulus, onset_ms, duration_ms, envelope) tuples.
+        total_time_ms: Total timeline duration in ms.
+        dt_ms: Time step in ms.
+        composition_mode: How active stimuli are combined.
+        current_step: Current discrete time index.
+    """
+
+    def __init__(
+        self,
+        sub_stimuli: List[Dict[str, Any]],
+        total_time_ms: float = 500.0,
+        dt_ms: float = 0.5,
+        composition_mode: CompositionMode = 'add',
+        device: torch.device | str = 'cpu',
+    ):
+        """Initialize timeline stimulus.
+
+        Args:
+            sub_stimuli: List of dicts, each with keys:
+                - ``'stimulus'``: a :class:`BaseStimulus` instance.
+                - ``'onset_ms'``: start time within the timeline (ms).
+                - ``'duration_ms'``: how long it is active (ms).
+                - ``'envelope'`` (optional): dict with ``ramp_up_ms``,
+                  ``plateau_ms``, ``ramp_down_ms`` for a trapezoidal
+                  amplitude envelope.
+            total_time_ms: Global timeline duration in ms.
+            dt_ms: Discrete time step in ms.
+            composition_mode: Combination mode for overlapping stimuli.
+            device: Target device.
+        """
+        super().__init__()
+        if not sub_stimuli:
+            raise ValueError("TimelineStimulus requires at least one sub-stimulus")
+
+        self.total_time_ms = total_time_ms
+        self.dt_ms = dt_ms
+        self.composition_mode = composition_mode
+        self.device = torch.device(device) if isinstance(device, str) else device
+        self.current_step = 0
+        self.num_steps = max(1, int(total_time_ms / dt_ms))
+
+        # Store sub-stimuli with timing metadata
+        self._entries: List[Dict[str, Any]] = []
+        stim_modules = []
+        for entry in sub_stimuli:
+            stim = entry['stimulus']
+            onset = entry.get('onset_ms', 0.0)
+            duration = entry.get('duration_ms', total_time_ms)
+            envelope = entry.get('envelope', None)
+            self._entries.append({
+                'onset_ms': onset,
+                'duration_ms': duration,
+                'envelope': envelope,
+            })
+            stim_modules.append(stim)
+        self.stimuli = nn.ModuleList(stim_modules)
+
+    def _envelope_gain(self, entry: Dict[str, Any], local_time_ms: float) -> float:
+        """Compute amplitude gain from trapezoidal envelope.
+
+        Args:
+            entry: Sub-stimulus timing metadata.
+            local_time_ms: Time elapsed since this stimulus's onset.
+
+        Returns:
+            Gain in [0, 1].
+        """
+        env = entry.get('envelope')
+        if env is None:
+            return 1.0
+        ramp_up = env.get('ramp_up_ms', 0.0)
+        ramp_down = env.get('ramp_down_ms', 0.0)
+        duration = entry['duration_ms']
+        if local_time_ms < ramp_up:
+            return local_time_ms / max(ramp_up, 1e-9)
+        elif local_time_ms > duration - ramp_down:
+            remaining = duration - local_time_ms
+            return max(remaining / max(ramp_down, 1e-9), 0.0)
+        return 1.0
+
+    def forward(self, xx: torch.Tensor, yy: torch.Tensor) -> torch.Tensor:
+        """Generate stimulus at the current time step.
+
+        Only sub-stimuli whose ``[onset, onset + duration]`` window
+        includes the current time are evaluated; others contribute zero.
+
+        Args:
+            xx: X-coordinates [H, W]. Units: mm.
+            yy: Y-coordinates [H, W]. Units: mm.
+
+        Returns:
+            Stimulus tensor [H, W].
+        """
+        current_time_ms = self.current_step * self.dt_ms
+        outputs = []
+
+        for stim, entry in zip(self.stimuli, self._entries):
+            onset = entry['onset_ms']
+            duration = entry['duration_ms']
+            if onset <= current_time_ms < onset + duration:
+                local_t = current_time_ms - onset
+                gain = self._envelope_gain(entry, local_t)
+
+                # Advance moving stimuli if needed
+                frame = stim(xx, yy)
+                outputs.append(frame * gain)
+
+        if not outputs:
+            return torch.zeros_like(xx)
+
+        stacked = torch.stack(outputs, dim=0)
+        if self.composition_mode == 'add':
+            return stacked.sum(dim=0)
+        elif self.composition_mode == 'max':
+            return stacked.max(dim=0).values
+        elif self.composition_mode == 'mean':
+            return stacked.mean(dim=0)
+        elif self.composition_mode == 'multiply':
+            return stacked.prod(dim=0)
+        return stacked.sum(dim=0)
+
+    def step(self):
+        """Advance timeline by one dt step."""
+        self.current_step += 1
+        # Also step any moving sub-stimuli
+        for stim in self.stimuli:
+            if hasattr(stim, 'step'):
+                stim.step()
+
+    def reset_state(self):
+        """Reset timeline to t=0."""
+        self.current_step = 0
+        for stim in self.stimuli:
+            stim.reset_state()
+
+    def generate_all_frames(
+        self, xx: torch.Tensor, yy: torch.Tensor,
+    ) -> torch.Tensor:
+        """Generate the entire timeline as a 3D tensor.
+
+        Args:
+            xx: X-coordinates [H, W].
+            yy: Y-coordinates [H, W].
+
+        Returns:
+            ``[num_steps, H, W]`` stimulus movie.
+        """
+        self.reset_state()
+        frames = []
+        for _ in range(self.num_steps):
+            frames.append(self.forward(xx, yy))
+            self.step()
+        self.reset_state()
+        return torch.stack(frames, dim=0)
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'TimelineStimulus':
+        """Create from configuration dict."""
+        sub_entries = []
+        for sc in config.get('sub_stimuli', []):
+            stim_cfg = sc['stimulus']
+            stim_class = stim_cfg.get('class', 'StaticStimulus')
+            if stim_class == 'StaticStimulus':
+                stim = StaticStimulus.from_config(stim_cfg)
+            elif stim_class == 'MovingStimulus':
+                stim = MovingStimulus.from_config(stim_cfg)
+            else:
+                raise ValueError(f"Unknown stimulus class: {stim_class}")
+            sub_entries.append({
+                'stimulus': stim,
+                'onset_ms': sc.get('onset_ms', 0.0),
+                'duration_ms': sc.get('duration_ms', config.get('total_time_ms', 500.0)),
+                'envelope': sc.get('envelope'),
+            })
+        return cls(
+            sub_stimuli=sub_entries,
+            total_time_ms=config.get('total_time_ms', 500.0),
+            dt_ms=config.get('dt_ms', 0.5),
+            composition_mode=config.get('composition_mode', 'add'),
+            device=config.get('device', 'cpu'),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to configuration dictionary."""
+        sub_list = []
+        for stim, entry in zip(self.stimuli, self._entries):
+            sub_list.append({
+                'stimulus': stim.to_dict(),
+                'onset_ms': entry['onset_ms'],
+                'duration_ms': entry['duration_ms'],
+                'envelope': entry.get('envelope'),
+            })
+        return {
+            'class': 'TimelineStimulus',
+            'total_time_ms': self.total_time_ms,
+            'dt_ms': self.dt_ms,
+            'composition_mode': self.composition_mode,
+            'sub_stimuli': sub_list,
+            'device': str(self.device),
+        }
+
+
+class RepeatedPatternStimulus(BaseStimulus):
+    """Tile a base stimulus on an N×M grid with configurable spacing.
+
+    This creates textures (dot arrays, braille patterns, etc.) by copying
+    a single stimulus shape at regular spatial offsets.
+
+    Attributes:
+        base_stimulus: The prototype shape to replicate.
+        copies_x: Number of copies along x.
+        copies_y: Number of copies along y.
+        spacing_x: Distance between copies along x (mm).
+        spacing_y: Distance between copies along y (mm).
+        center: Center of the pattern grid (mm).
+    """
+
+    def __init__(
+        self,
+        base_stimulus: BaseStimulus,
+        copies_x: int = 3,
+        copies_y: int = 2,
+        spacing_x: float = 0.5,
+        spacing_y: float = 0.5,
+        center: Tuple[float, float] = (0.0, 0.0),
+        device: torch.device | str = 'cpu',
+    ):
+        """Initialize repeated pattern.
+
+        Args:
+            base_stimulus: Prototype stimulus to copy.
+            copies_x: Number of repetitions along x-axis.
+            copies_y: Number of repetitions along y-axis.
+            spacing_x: Spacing between copies in x (mm).
+            spacing_y: Spacing between copies in y (mm).
+            center: Center of the overall pattern (mm).
+            device: Target device.
+        """
+        super().__init__()
+        self.base_stimulus = base_stimulus
+        self.copies_x = copies_x
+        self.copies_y = copies_y
+        self.spacing_x = spacing_x
+        self.spacing_y = spacing_y
+        self.center = center
+        self.device = torch.device(device) if isinstance(device, str) else device
+
+        # Pre-compute offsets relative to pattern center
+        offsets = []
+        for ix in range(copies_x):
+            for iy in range(copies_y):
+                ox = (ix - (copies_x - 1) / 2.0) * spacing_x + center[0]
+                oy = (iy - (copies_y - 1) / 2.0) * spacing_y + center[1]
+                offsets.append((ox, oy))
+        self._offsets = offsets
+
+    def forward(self, xx: torch.Tensor, yy: torch.Tensor) -> torch.Tensor:
+        """Generate repeated pattern by summing shifted copies.
+
+        Args:
+            xx: X-coordinates [H, W]. Units: mm.
+            yy: Y-coordinates [H, W]. Units: mm.
+
+        Returns:
+            Combined stimulus [H, W].
+        """
+        result = torch.zeros_like(xx)
+        for ox, oy in self._offsets:
+            result = result + self.base_stimulus(xx - ox, yy - oy)
+        return result
+
+    def reset_state(self):
+        """Reset base stimulus state."""
+        self.base_stimulus.reset_state()
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'RepeatedPatternStimulus':
+        """Create from configuration dict."""
+        base_cfg = config['base_stimulus']
+        stim_class = base_cfg.get('class', 'StaticStimulus')
+        if stim_class == 'StaticStimulus':
+            base = StaticStimulus.from_config(base_cfg)
+        else:
+            raise ValueError(f"Unsupported base class for pattern: {stim_class}")
+        return cls(
+            base_stimulus=base,
+            copies_x=config.get('copies_x', 3),
+            copies_y=config.get('copies_y', 2),
+            spacing_x=config.get('spacing_x', 0.5),
+            spacing_y=config.get('spacing_y', 0.5),
+            center=tuple(config.get('center', (0.0, 0.0))),
+            device=config.get('device', 'cpu'),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to configuration dictionary."""
+        return {
+            'class': 'RepeatedPatternStimulus',
+            'base_stimulus': self.base_stimulus.to_dict(),
+            'copies_x': self.copies_x,
+            'copies_y': self.copies_y,
+            'spacing_x': self.spacing_x,
+            'spacing_y': self.spacing_y,
+            'center': list(self.center),
+            'device': str(self.device),
+        }
+
+
 class Stimulus:
     """Fluent builder interface for creating stimuli.
     
@@ -703,6 +1024,78 @@ class Stimulus:
             >>> combined = Stimulus.compose([s1, s2], mode='add')
         """
         return CompositeStimulus(stimuli=stimuli, mode=mode, device=device)
+
+    @staticmethod
+    def repeat_pattern(
+        base_stimulus: BaseStimulus,
+        copies_x: int = 3,
+        copies_y: int = 2,
+        spacing_x: float = 0.5,
+        spacing_y: float = 0.5,
+        center: Tuple[float, float] = (0.0, 0.0),
+        device: torch.device | str = 'cpu',
+    ) -> RepeatedPatternStimulus:
+        """Tile a stimulus on an N×M grid.
+
+        Creates textures (dot arrays, braille patterns, etc.) by copying
+        a base stimulus at regular spatial offsets.
+
+        Args:
+            base_stimulus: Prototype stimulus shape.
+            copies_x: Copies along x-axis.
+            copies_y: Copies along y-axis.
+            spacing_x: Spacing between copies in x (mm).
+            spacing_y: Spacing between copies in y (mm).
+            center: Center of the pattern grid (mm).
+            device: Target device.
+
+        Returns:
+            RepeatedPatternStimulus tiling the base shape.
+
+        Example:
+            >>> dot = Stimulus.gaussian(amplitude=1.0, sigma=0.1)
+            >>> braille = Stimulus.repeat_pattern(dot, 3, 2, 0.5, 0.5)
+        """
+        return RepeatedPatternStimulus(
+            base_stimulus=base_stimulus,
+            copies_x=copies_x, copies_y=copies_y,
+            spacing_x=spacing_x, spacing_y=spacing_y,
+            center=center, device=device,
+        )
+
+    @staticmethod
+    def timeline(
+        sub_stimuli: List[Dict[str, Any]],
+        total_time_ms: float = 500.0,
+        dt_ms: float = 0.5,
+        composition_mode: CompositionMode = 'add',
+        device: torch.device | str = 'cpu',
+    ) -> TimelineStimulus:
+        """Create a timeline with per-sub-stimulus onset and duration.
+
+        Args:
+            sub_stimuli: List of dicts with ``'stimulus'``,
+                ``'onset_ms'``, ``'duration_ms'``, and optional
+                ``'envelope'`` keys.
+            total_time_ms: Global timeline length in ms.
+            dt_ms: Discrete time step in ms.
+            composition_mode: How overlapping regions are combined.
+            device: Target device.
+
+        Returns:
+            TimelineStimulus managing the temporal arrangement.
+
+        Example:
+            >>> g = Stimulus.gaussian(amplitude=1.0, sigma=0.3)
+            >>> tl = Stimulus.timeline([
+            ...     {'stimulus': g, 'onset_ms': 0, 'duration_ms': 200},
+            ... ], total_time_ms=500)
+        """
+        return TimelineStimulus(
+            sub_stimuli=sub_stimuli,
+            total_time_ms=total_time_ms, dt_ms=dt_ms,
+            composition_mode=composition_mode, device=device,
+        )
 
 
 def with_motion(

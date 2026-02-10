@@ -1197,6 +1197,15 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     # Mechanoreceptor integration
     # ------------------------------------------------------------------
     def _on_grid_changed(self, grid_manager) -> None:
+        if isinstance(grid_manager, dict):
+            self.grid_manager = None
+            self.generator = None
+            self._clear_stimulus_preview()
+            self.lbl_stimulus_status.setText(
+                "Composite grids are not yet supported for spiking previews."
+            )
+            return
+
         self.grid_manager = grid_manager
         if grid_manager is None:
             self.generator = None
@@ -1805,6 +1814,14 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             
             # Compile DSL model with current solver selection
             solver = self._get_selected_solver()
+            if solver == "adaptive":
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "DSL solver limited",
+                    "Adaptive solver is not supported for DSL models yet. "
+                    "Falling back to Euler.",
+                )
+                solver = "euler"
             try:
                 return self._compiled_dsl_model.compile(
                     solver=solver,

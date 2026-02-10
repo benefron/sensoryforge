@@ -32,6 +32,7 @@ from .mechanoreceptors import (
 )
 from .innervation import (
     InnervationModule,
+    FlatInnervationModule,
     create_sa_innervation,
     create_ra_innervation,
     # New Phase 1.3 innervation classes and factory
@@ -53,6 +54,11 @@ from .pipeline import (
     create_small_pipeline,
 )
 from .compression import CompressionOperator, build_compression_operator
+from .processing import (
+    BaseProcessingLayer,
+    IdentityLayer,
+    ProcessingPipeline,
+)
 
 __all__ = [
     # Grid management
@@ -70,6 +76,7 @@ __all__ = [
     "compute_mechanoreceptor_responses_torch",
     # Neural innervation
     "InnervationModule",
+    "FlatInnervationModule",
     "create_sa_innervation",
     "create_ra_innervation",
     # Phase 1.3: New innervation methods
@@ -93,4 +100,8 @@ __all__ = [
     # Compression operators
     "CompressionOperator",
     "build_compression_operator",
+    # Processing layers
+    "BaseProcessingLayer",
+    "IdentityLayer",
+    "ProcessingPipeline",
 ]

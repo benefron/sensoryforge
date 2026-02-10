@@ -10,7 +10,7 @@ at the sensory neuron level, NOT at the receptor grid level.
 
 from __future__ import annotations
 
-from typing import Dict, Literal, Optional, Tuple, Any
+from typing import Dict, List, Literal, Optional, Tuple, Any
 import torch
 
 
@@ -97,6 +97,8 @@ class CompositeReceptorGrid:
         name: str,
         density: float,
         arrangement: ArrangementType = "grid",
+        offset: Tuple[float, float] = (0.0, 0.0),
+        color: Optional[Tuple[int, int, int, int]] = None,
         **metadata: Any,
     ) -> None:
         """Add a named receptor layer with specified arrangement.
@@ -114,6 +116,10 @@ class CompositeReceptorGrid:
             density: Target receptor density in receptors per mm².
             arrangement: Spatial arrangement pattern ("grid", "poisson", "hex",
                 or "jittered_grid").
+            offset: Spatial offset (dx, dy) applied to generated coordinates
+                in mm. Useful for shifting layers to avoid exact overlap.
+            color: RGBA color tuple (r, g, b, a) with values 0-255 for
+                GUI visualization. Purely metadata; not used in computation.
             **metadata: Additional key-value pairs for layer-specific
                 configuration (e.g., sigma, connection_params, etc.).
         
@@ -126,6 +132,8 @@ class CompositeReceptorGrid:
             ...     name="fine_mechanoreceptors",
             ...     density=100.0,
             ...     arrangement="grid",
+            ...     offset=(0.05, 0.0),
+            ...     color=(66, 135, 245, 255),
             ...     sigma=0.5
             ... )
         """
@@ -146,11 +154,19 @@ class CompositeReceptorGrid:
             density=density,
         )
         
+        # Apply spatial offset
+        if offset != (0.0, 0.0):
+            coordinates = coordinates.clone()
+            coordinates[:, 0] = coordinates[:, 0] + offset[0]
+            coordinates[:, 1] = coordinates[:, 1] + offset[1]
+        
         # Store layer configuration and coordinates
         self.layers[name] = {
             "config": {
                 "density": density,
                 "arrangement": arrangement,
+                "offset": offset,
+                "color": color,
                 "metadata": metadata,
             },
             "coordinates": coordinates,
@@ -218,6 +234,80 @@ class CompositeReceptorGrid:
             List of layer name strings.
         """
         return list(self.layers.keys())
+    
+    def get_layer_color(self, name: str) -> Optional[Tuple[int, int, int, int]]:
+        """Get the visualization color for a layer.
+        
+        Args:
+            name: Layer identifier.
+        
+        Returns:
+            RGBA color tuple (r, g, b, a) or None if not set.
+        
+        Raises:
+            KeyError: If layer name does not exist.
+        """
+        if name not in self.layers:
+            raise KeyError(f"Layer '{name}' not found")
+        return self.layers[name]["config"].get("color")
+    
+    def get_layer_offset(self, name: str) -> Tuple[float, float]:
+        """Get the spatial offset for a layer.
+        
+        Args:
+            name: Layer identifier.
+        
+        Returns:
+            (dx, dy) offset tuple in mm.
+        
+        Raises:
+            KeyError: If layer name does not exist.
+        """
+        if name not in self.layers:
+            raise KeyError(f"Layer '{name}' not found")
+        return self.layers[name]["config"].get("offset", (0.0, 0.0))
+    
+    @property
+    def computed_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        """Compute the union bounding box of all layer coordinates.
+        
+        Returns:
+            ((x_min, x_max), (y_min, y_max)) tuple covering all receptors
+            across all layers.
+        
+        Raises:
+            RuntimeError: If no layers have been added.
+        """
+        if not self.layers:
+            raise RuntimeError("No layers added — cannot compute bounds")
+        
+        all_coords: List[torch.Tensor] = [
+            layer_data["coordinates"] for layer_data in self.layers.values()
+        ]
+        combined = torch.cat(all_coords, dim=0)
+        
+        x_min = combined[:, 0].min().item()
+        x_max = combined[:, 0].max().item()
+        y_min = combined[:, 1].min().item()
+        y_max = combined[:, 1].max().item()
+        
+        return ((x_min, x_max), (y_min, y_max))
+
+    def get_all_coordinates(self) -> torch.Tensor:
+        """Get concatenated coordinates from all layers.
+
+        Returns:
+            Tensor of shape [N_total, 2] with all receptor coordinates.
+
+        Raises:
+            RuntimeError: If no layers have been added.
+        """
+        if not self.layers:
+            raise RuntimeError("No layers added — cannot get coordinates")
+        all_coords: List[torch.Tensor] = [
+            layer_data["coordinates"] for layer_data in self.layers.values()
+        ]
+        return torch.cat(all_coords, dim=0)
     
     def to_device(self, device: torch.device | str) -> "CompositeReceptorGrid":
         """Move all layer coordinates to specified device.
@@ -455,6 +545,8 @@ class CompositeReceptorGrid:
         density: float,
         arrangement: ArrangementType = "grid",
         filter: Optional[str] = None,
+        offset: Tuple[float, float] = (0.0, 0.0),
+        color: Optional[Tuple[int, int, int, int]] = None,
         **metadata: Any,
     ) -> None:
         """Legacy method for adding a layer (backward compatibility).
@@ -467,6 +559,8 @@ class CompositeReceptorGrid:
             density: Target receptor density in receptors per mm².
             arrangement: Spatial arrangement pattern.
             filter: IGNORED - kept for backward compatibility only.
+            offset: Spatial offset (dx, dy) in mm.
+            color: RGBA color tuple for visualization.
             **metadata: Additional layer-specific configuration.
         """
         if filter is not None:
@@ -478,7 +572,7 @@ class CompositeReceptorGrid:
                 DeprecationWarning,
                 stacklevel=2
             )
-        self.add_layer(name, density, arrangement, **metadata)
+        self.add_layer(name, density, arrangement, offset=offset, color=color, **metadata)
     
     def get_population_coordinates(self, name: str) -> torch.Tensor:
         """Legacy method (backward compatibility). Use get_layer_coordinates()."""

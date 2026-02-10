@@ -67,6 +67,8 @@ from sensoryforge.stimuli.builder import (
     StaticStimulus,
     MovingStimulus,
     CompositeStimulus,
+    TimelineStimulus,
+    RepeatedPatternStimulus,
     with_motion,
 )
 
@@ -114,6 +116,8 @@ __all__ = [
     "StaticStimulus",
     "MovingStimulus",
     "CompositeStimulus",
+    "TimelineStimulus",
+    "RepeatedPatternStimulus",
     "with_motion",
     # Legacy API (backward compatibility)
     "point_pressure_torch",
