@@ -112,6 +112,187 @@ class StimulusConfig:
         }
 
 
+# ======================================================================
+# Timeline Scrubber Widget (Phase 3 — C.5)
+# ======================================================================
+
+# Predefined palette for sub-stimulus bars
+_TIMELINE_COLORS = [
+    QtGui.QColor(66, 135, 245, 180),   # Blue
+    QtGui.QColor(245, 166, 35, 180),   # Orange
+    QtGui.QColor(80, 200, 120, 180),   # Green
+    QtGui.QColor(220, 80, 80, 180),    # Red
+    QtGui.QColor(160, 80, 220, 180),   # Purple
+    QtGui.QColor(0, 188, 212, 180),    # Cyan
+    QtGui.QColor(255, 235, 59, 180),   # Yellow
+    QtGui.QColor(121, 85, 72, 180),    # Brown
+]
+
+
+class TimelineScrubberWidget(QtWidgets.QWidget):
+    """Horizontal timeline showing sub-stimulus bars and a playback cursor.
+
+    Each sub-stimulus is rendered as a colored horizontal bar at its
+    ``[onset, onset+duration]`` position.  A vertical cursor tracks the
+    current playback time and can be dragged to seek.
+
+    Signals:
+        time_seeked(float): Emitted when the user clicks/drags the cursor.
+            Value is the time in ms at the new cursor position.
+    """
+
+    time_seeked = QtCore.pyqtSignal(float)
+
+    _BAR_HEIGHT = 14
+    _BAR_GAP = 2
+    _HEADER_HEIGHT = 16
+    _MIN_HEIGHT = 60
+    _CURSOR_WIDTH = 2
+
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent)
+        self._total_ms: float = 300.0
+        self._cursor_ms: float = 0.0
+        self._entries: List[Dict[str, Any]] = []  # [{name, onset, duration, color}]
+        self._dragging = False
+        self.setMinimumHeight(self._MIN_HEIGHT)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        self.setToolTip("Click or drag to seek through the timeline")
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def set_total_time(self, total_ms: float) -> None:
+        """Set the total timeline duration."""
+        self._total_ms = max(total_ms, 0.1)
+        self.update()
+
+    def set_cursor(self, time_ms: float) -> None:
+        """Move the cursor to *time_ms* without emitting a signal."""
+        self._cursor_ms = max(0.0, min(time_ms, self._total_ms))
+        self.update()
+
+    def set_entries(self, configs: List["StimulusConfig"]) -> None:
+        """Update the displayed sub-stimulus bars from a config list."""
+        self._entries.clear()
+        for idx, cfg in enumerate(configs):
+            eff_dur = cfg.duration_ms if cfg.duration_ms > 0 else cfg.total_ms
+            color = _TIMELINE_COLORS[idx % len(_TIMELINE_COLORS)]
+            self._entries.append({
+                "name": cfg.name or f"Sub {idx+1}",
+                "onset": cfg.onset_ms,
+                "duration": eff_dur,
+                "color": color,
+            })
+        # Recalculate minimum height
+        needed = self._HEADER_HEIGHT + len(self._entries) * (self._BAR_HEIGHT + self._BAR_GAP) + 8
+        self.setMinimumHeight(max(self._MIN_HEIGHT, needed))
+        self.update()
+
+    # ------------------------------------------------------------------
+    # Coordinate helpers
+    # ------------------------------------------------------------------
+
+    def _ms_to_x(self, ms: float) -> float:
+        """Convert a time in ms to an x pixel coordinate."""
+        margin = 40
+        usable = self.width() - 2 * margin
+        if self._total_ms <= 0:
+            return float(margin)
+        return margin + (ms / self._total_ms) * usable
+
+    def _x_to_ms(self, x: float) -> float:
+        """Convert an x pixel coordinate to time in ms."""
+        margin = 40
+        usable = self.width() - 2 * margin
+        frac = (x - margin) / max(usable, 1)
+        return max(0.0, min(frac * self._total_ms, self._total_ms))
+
+    # ------------------------------------------------------------------
+    # Painting
+    # ------------------------------------------------------------------
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+
+        # Background
+        painter.fillRect(0, 0, w, h, QtGui.QColor(30, 30, 30))
+
+        margin = 40
+        usable = w - 2 * margin
+        if usable < 10 or self._total_ms <= 0:
+            painter.end()
+            return
+
+        # Time-axis ticks and labels
+        painter.setPen(QtGui.QColor(180, 180, 180))
+        painter.setFont(QtGui.QFont("monospace", 8))
+        num_ticks = max(2, min(10, int(usable / 60)))
+        for i in range(num_ticks + 1):
+            frac = i / num_ticks
+            x = margin + frac * usable
+            t_ms = frac * self._total_ms
+            painter.drawLine(int(x), 0, int(x), 4)
+            label = f"{t_ms:.0f}"
+            painter.drawText(int(x) - 15, self._HEADER_HEIGHT - 2, label)
+
+        # Sub-stimulus bars
+        y_offset = self._HEADER_HEIGHT + 2
+        for entry in self._entries:
+            x0 = self._ms_to_x(entry["onset"])
+            x1 = self._ms_to_x(entry["onset"] + entry["duration"])
+            bar_w = max(x1 - x0, 2)
+            rect = QtCore.QRectF(x0, y_offset, bar_w, self._BAR_HEIGHT)
+            painter.fillRect(rect, entry["color"])
+            # Draw label inside bar if space allows
+            painter.setPen(QtGui.QColor(255, 255, 255))
+            painter.setFont(QtGui.QFont("sans-serif", 7))
+            if bar_w > 30:
+                text_rect = QtCore.QRectF(x0 + 2, y_offset, bar_w - 4, self._BAR_HEIGHT)
+                painter.drawText(
+                    text_rect,
+                    QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
+                    entry["name"][:20],
+                )
+            y_offset += self._BAR_HEIGHT + self._BAR_GAP
+
+        # Cursor line
+        cx = self._ms_to_x(self._cursor_ms)
+        painter.setPen(QtGui.QPen(QtGui.QColor(255, 50, 50), self._CURSOR_WIDTH))
+        painter.drawLine(int(cx), 0, int(cx), h)
+
+        painter.end()
+
+    # ------------------------------------------------------------------
+    # Mouse interaction
+    # ------------------------------------------------------------------
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == QtCore.Qt.LeftButton:
+            self._dragging = True
+            ms = self._x_to_ms(event.x())
+            self._cursor_ms = ms
+            self.time_seeked.emit(ms)
+            self.update()
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._dragging:
+            ms = self._x_to_ms(event.x())
+            self._cursor_ms = ms
+            self.time_seeked.emit(ms)
+            self.update()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == QtCore.Qt.LeftButton:
+            self._dragging = False
+
+
 class StimulusDesignerTab(QtWidgets.QWidget):
     """Interactive designer for spatial-temporal tactile stimuli."""
 
@@ -248,6 +429,10 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.lbl_frame_info = QtWidgets.QLabel("Frame 0 / 0 (0.0 ms)")
         frame_controls.addWidget(self.lbl_frame_info)
         preview_layout.addLayout(frame_controls)
+
+        # Phase 3 C.5: Timeline scrubber
+        self.timeline_scrubber = TimelineScrubberWidget()
+        preview_layout.addWidget(self.timeline_scrubber)
 
         self.time_plot = pg.PlotWidget()
         self.time_plot.setLabel("bottom", "Time (ms)")
@@ -894,6 +1079,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
         self.btn_play.toggled.connect(self._toggle_animation)
         self.frame_slider.valueChanged.connect(self._on_frame_changed)
+        self.timeline_scrubber.time_seeked.connect(self._on_scrubber_seeked)
         self.btn_confirm_preview.clicked.connect(self._on_confirm_preview)
         
         # Texture sub-type and parameter connections
@@ -1707,6 +1893,12 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             f"Preview generated ({frame_count} frames, dt={ref_config.dt_ms:.2f} ms)"
         )
 
+        # Update timeline scrubber with sub-stimulus bars
+        configs_for_scrubber = self._collect_preview_configs()
+        self.timeline_scrubber.set_total_time(float(times[-1]) if len(times) > 0 else 300.0)
+        self.timeline_scrubber.set_entries(configs_for_scrubber)
+        self.timeline_scrubber.set_cursor(0.0)
+
     def _collect_preview_configs(self) -> List[StimulusConfig]:
         if self._stimulus_stack:
             return list(self._stimulus_stack)
@@ -1846,8 +2038,20 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             self.frame_slider.blockSignals(False)
         self.image_view.setCurrentIndex(index)
         self._update_frame_label(index)
+        # Sync scrubber cursor
+        if self._preview_frame_count > 0 and index < len(self._preview_times):
+            self.timeline_scrubber.set_cursor(float(self._preview_times[index]))
         if self._playback_active and self._preview_frame_count > 1:
             self._schedule_next_frame(index)
+
+    def _on_scrubber_seeked(self, time_ms: float) -> None:
+        """Handle timeline scrubber click/drag — jump to nearest frame."""
+        if self._preview_frame_count == 0 or len(self._preview_times) == 0:
+            return
+        # Find nearest frame index
+        diffs = np.abs(self._preview_times - time_ms)
+        index = int(np.argmin(diffs))
+        self.frame_slider.setValue(index)
 
     def _toggle_animation(self, playing: bool) -> None:
         if self._preview_frame_count <= 1:
