@@ -267,6 +267,52 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         layer_configs = self.config.get("processing_layers", [])
         self.processing_pipeline = ProcessingPipeline.from_config(layer_configs)
 
+    def _sample_stimulus_at_receptors(
+        self, stimulus: torch.Tensor
+    ) -> torch.Tensor:
+        """Sample grid-based stimulus at composite receptor coordinates.
+
+        Uses bilinear interpolation via ``torch.nn.functional.grid_sample``
+        to evaluate the ``[B, T, H, W]`` stimulus field at each receptor
+        position from the composite grid.
+
+        Args:
+            stimulus: ``[B, T, H, W]`` stimulus on the regular grid.
+
+        Returns:
+            ``[B, T, N_receptors]`` sampled values.
+        """
+        import torch.nn.functional as F
+
+        B, T, H, W = stimulus.shape
+        coords = self.composite_grid.get_all_coordinates()  # [N, 2]
+
+        # Map physical coordinates → normalized [-1, 1] for grid_sample
+        xlim = self.grid_manager.xlim
+        ylim = self.grid_manager.ylim
+        norm_x = 2.0 * (coords[:, 0] - xlim[0]) / (xlim[1] - xlim[0]) - 1.0
+        norm_y = 2.0 * (coords[:, 1] - ylim[0]) / (ylim[1] - ylim[0]) - 1.0
+
+        # grid_sample expects grid [B, T, N, 2] with (x_norm, y_norm)
+        N = coords.shape[0]
+        sample_grid = torch.stack([norm_x, norm_y], dim=-1)  # [N, 2]
+        sample_grid = sample_grid.unsqueeze(0).unsqueeze(0)  # [1, 1, N, 2]
+        sample_grid = sample_grid.expand(B, T, N, 2)
+
+        # grid_sample needs input as [B, C, H, W] — treat T as batch dimension
+        stim_flat = stimulus.reshape(B * T, 1, H, W)
+        grid_flat = sample_grid.reshape(B * T, 1, N, 2)
+
+        sampled = F.grid_sample(
+            stim_flat,
+            grid_flat,
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=True,
+        )  # [B*T, 1, 1, N]
+
+        return sampled.reshape(B, T, N)
+
     def _create_innervation(self):
         """Create innervation modules with configuration.
 
@@ -1052,10 +1098,24 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         )
 
         # Step 5: Compute neural inputs through innervation
+        # FlatInnervationModule expects [B, T, N_receptors] not [B, T, H, W].
+        # When using flat innervation + composite grid, sample the grid-based
+        # stimulus at each composite receptor coordinate via bilinear interpolation.
+        innervation_input = mechanoreceptor_responses
+        if isinstance(self.sa_innervation, FlatInnervationModule):
+            if innervation_input.ndim == 4 and self.composite_grid is not None:
+                innervation_input = self._sample_stimulus_at_receptors(
+                    innervation_input
+                )
+            elif innervation_input.ndim == 4:
+                # Fallback: simple flatten if no composite grid
+                B, T, H, W = innervation_input.shape
+                innervation_input = innervation_input.reshape(B, T, H * W)
+
         with torch.no_grad():
-            sa_inputs = self.sa_innervation(mechanoreceptor_responses)
-            ra_inputs = self.ra_innervation(mechanoreceptor_responses)
-            sa2_inputs = self.sa2_innervation(mechanoreceptor_responses)
+            sa_inputs = self.sa_innervation(innervation_input)
+            ra_inputs = self.ra_innervation(innervation_input)
+            sa2_inputs = self.sa2_innervation(innervation_input)
 
         # Step 6: Apply temporal filters
         with torch.no_grad():
