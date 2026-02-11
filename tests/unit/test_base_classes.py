@@ -55,15 +55,23 @@ class TestBaseFilter:
         """from_config class method works on concrete subclass."""
 
         class ConfigFilter(BaseFilter):
-            def __init__(self, config=None):
-                super().__init__(dt=0.001)
-                self.gain = (config or {}).get("gain", 1.0)
+            def __init__(self, dt=0.001, gain=1.0):
+                super().__init__(dt=dt)
+                self.gain = gain
 
             def forward(self, x, dt=None):
                 return x * self.gain
 
             def reset_state(self):
                 pass
+            
+            @classmethod
+            def from_config(cls, config):
+                # Override to handle custom parameters
+                return cls(
+                    dt=config.get('dt', 0.001),
+                    gain=config.get('gain', 1.0)
+                )
 
         f = ConfigFilter.from_config({"gain": 3.0})
         assert f.gain == 3.0
@@ -81,6 +89,39 @@ class TestBaseFilter:
         f = SimpleFilter(dt=0.005)
         d = f.to_dict()
         assert d["dt"] == 0.005
+
+    def test_from_config_with_dt_only(self):
+        """Regression test for ReviewFinding#M1.
+        
+        Verifies that BaseFilter.from_config with {'dt': value} works
+        correctly for subclasses that use the default implementation.
+        
+        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#M1
+        """
+        
+        class MinimalFilter(BaseFilter):
+            def forward(self, x, dt=None):
+                return x
+            
+            def reset_state(self):
+                pass
+        
+        # Should not raise TypeError
+        f = MinimalFilter.from_config({'dt': 0.002})
+        assert f.dt == 0.002
+    
+    def test_from_config_with_missing_dt_uses_default(self):
+        """Test that from_config works with empty config (uses default dt)."""
+        
+        class MinimalFilter(BaseFilter):
+            def forward(self, x, dt=None):
+                return x
+            
+            def reset_state(self):
+                pass
+        
+        f = MinimalFilter.from_config({})
+        assert f.dt == 0.001  # Default value
 
 
 class TestBaseNeuron:
