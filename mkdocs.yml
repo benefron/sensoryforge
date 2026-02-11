@@ -1,0 +1,105 @@
+site_name: SensoryForge Documentation
+site_description: An extensible playground for simulating sensory encoding and generating population activity
+site_author: SensoryForge Team  
+site_url: https://benefron.github.io/sensoryforge
+
+repo_name: benefron/sensoryforge
+repo_url: https://github.com/benefron/sensoryforge
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - tables
+  - footnotes
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quick Start: getting_started/quickstart.md
+    - Core Concepts: getting_started/concepts.md
+    - First Simulation: getting_started/first_simulation.md
+    
+  - Tutorials:
+    - Interactive Quickstart: tutorials/quickstart_tutorial.md
+    - Batch Processing: tutorials/batch_processing_tutorial.md
+    - Custom Neuron Models: tutorials/custom_neurons.md
+    
+  - User Guide:
+    - Overview: user_guide/overview.md
+    - CLI Reference: user_guide/cli.md
+    - YAML Configuration: user_guide/yaml_configuration.md
+    - GUI Workflow: user_guide/gui_phase2_access.md
+    - Composite Grid: user_guide/composite_grid.md
+    - Equation DSL: user_guide/equation_dsl.md
+    - Extended Stimuli: user_guide/extended_stimuli.md
+    - Solvers: user_guide/solvers.md
+    - Batch Processing: user_guide/batch_processing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/benefron/sensoryforge
+  version:
+    provider: mike
