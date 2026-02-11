@@ -16,6 +16,10 @@ sensoryforge run example_config.yml --duration 1000
 # Save results
 sensoryforge run example_config.yml --output results.pt
 
+# Run batch execution
+sensoryforge batch batch_config.yml --dry-run
+sensoryforge batch batch_config.yml --device cuda
+
 # List available components
 sensoryforge list-components
 
@@ -61,6 +65,42 @@ Basic configuration demonstrating standard pipeline usage with:
 ```bash
 sensoryforge run example_config.yml --duration 1000 --output results.pt
 ```
+
+### `batch_config.yml`
+
+Batch execution configuration for large-scale dataset generation with:
+- Parameter sweeps (Cartesian product expansion)
+- Gaussian amplitude × sigma sweep (75 total stimuli)
+- Multiple repetitions for noise variability
+- PyTorch and HDF5 output format examples
+- Checkpoint/resume capability
+
+**Usage:**
+```bash
+# Validate (dry run)
+sensoryforge batch batch_config.yml --dry-run
+
+# Execute batch
+sensoryforge batch batch_config.yml
+
+# Execute on GPU
+sensoryforge batch batch_config.yml --device cuda
+
+# Resume interrupted batch
+sensoryforge batch batch_config.yml --resume batch_results/*/checkpoint.json
+```
+
+**Output:**
+```
+batch_results/
+└── tactile_encoding_v1/
+    ├── batch_metadata.json
+    ├── stimulus_index.json
+    ├── checkpoint.json
+    └── tactile_encoding_v1_YYYYMMDD_HHMMSS.pt
+```
+
+See [`batch_config.yml`](batch_config.yml) for detailed inline documentation.
 
 ## Notebooks
 
