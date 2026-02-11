@@ -1234,6 +1234,27 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # For now, delegate to __init__ with config_dict
         # Future enhancement: handle CompositeGrid, DSL neurons, adaptive solvers
         return cls(config_dict=config)
+    
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> 'GeneralizedTactileEncodingPipeline':
+        """Create pipeline from YAML configuration file.
+        
+        Convenience method that loads YAML and delegates to __init__.
+        
+        Args:
+            yaml_path: Path to YAML configuration file.
+        
+        Returns:
+            Initialized GeneralizedTactileEncodingPipeline instance.
+        
+        Example:
+            >>> pipeline = GeneralizedTactileEncodingPipeline.from_yaml('config.yml')
+            >>> results = pipeline.run(duration_ms=1000)
+        
+        Resolves ReviewFinding#M2.
+        """
+        # Pass the path directly to __init__'s config_path parameter
+        return cls(config_path=yaml_path)
 
     def get_pipeline_info(self):
         """Get comprehensive information about the pipeline configuration"""

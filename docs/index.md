@@ -47,7 +47,7 @@ from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPip
 
 # Load from YAML config
 pipeline = GeneralizedTactileEncodingPipeline.from_yaml('config.yml')
-results = pipeline.run(duration_ms=1000)
+results = pipeline.forward(duration_ms=1000)
 ```
 
 Or launch the GUI:
