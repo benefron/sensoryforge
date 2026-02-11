@@ -19,3 +19,6 @@ PyYAML>=6.0
 tqdm>=4.60
 matplotlib>=3.5
 plotly>=5.0
+
+# Optional: For HDF5 batch output format
+h5py>=3.0
