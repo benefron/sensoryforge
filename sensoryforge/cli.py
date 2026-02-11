@@ -19,6 +19,7 @@ import yaml
 import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_yaml
 
 
@@ -183,6 +184,99 @@ def cmd_run(args: argparse.Namespace) -> int:
         
     except Exception as e:
         print(f"Error running simulation: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+def cmd_batch(args: argparse.Namespace) -> int:
+    """Run batch execution from YAML config.
+    
+    Args:
+        args: Command-line arguments with config, output, device, dry_run, resume.
+    
+    Returns:
+        Exit code (0 for success, 1 for error).
+    """
+    try:
+        # Load configuration
+        config = load_config_file(args.config)
+        
+        # Override output directory if specified
+        if args.output:
+            if 'batch' not in config:
+                config['batch'] = {}
+            config['batch']['output_dir'] = args.output
+        
+        # Override device if specified
+        if args.device:
+            if 'base_config' not in config:
+                config['base_config'] = {}
+            if 'pipeline' not in config['base_config']:
+                config['base_config']['pipeline'] = {}
+            config['base_config']['pipeline']['device'] = args.device
+        
+        # Dry run - just validate and show plan
+        if args.dry_run:
+            print(f"Validating batch configuration: {args.config}")
+            executor = BatchExecutor(config)
+            
+            print(f"\nBatch Execution Plan:")
+            print(f"=" * 60)
+            print(f"Batch ID: {executor.batch_id}")
+            print(f"Total stimuli: {len(executor.stimulus_configs)}")
+            print(f"Output directory: {executor.output_dir}")
+            
+            # Show first few stimulus configs as examples
+            print(f"\nFirst 5 stimulus configurations:")
+            for i, stim_config in enumerate(executor.stimulus_configs[:5]):
+                print(f"  {i+1}. {stim_config['stimulus_id']}")
+                params = {k: v for k, v in stim_config.items() 
+                         if k not in ['stimulus_id', 'combo_idx', 'rep_idx', 'seed', 'type']}
+                print(f"      Type: {stim_config['type']}, Params: {params}")
+            
+            if len(executor.stimulus_configs) > 5:
+                print(f"  ... and {len(executor.stimulus_configs) - 5} more")
+            
+            print(f"\n✓ Batch configuration is valid (dry run complete)")
+            return 0
+        
+        # Create batch executor
+        print(f"Loading batch configuration from {args.config}...")
+        executor = BatchExecutor(config)
+        
+        # Determine save format
+        save_format = config.get('batch', {}).get('save_format', 'pytorch')
+        save_intermediates = config.get('batch', {}).get('save_intermediates', False)
+        
+        # Execute batch
+        results = executor.execute(
+            save_format=save_format,
+            save_intermediates=save_intermediates,
+            resume_from=args.resume if args.resume else None,
+        )
+        
+        # Print summary
+        print(f"\n" + "=" * 60)
+        print(f"BATCH EXECUTION SUMMARY")
+        print(f"=" * 60)
+        print(f"Batch ID: {results['batch_id']}")
+        print(f"Stimuli executed: {results['num_stimuli']}")
+        print(f"Duration: {results['duration_seconds']:.2f} seconds")
+        print(f"Output file: {results['output_path']}")
+        
+        if results['failed_stimuli']:
+            print(f"\n⚠ Warning: {len(results['failed_stimuli'])} stimuli failed")
+            print(f"Failed indices: {results['failed_stimuli'][:10]}")
+            if len(results['failed_stimuli']) > 10:
+                print(f"... and {len(results['failed_stimuli']) - 10} more")
+        else:
+            print(f"\n✓ All stimuli completed successfully")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error running batch: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         return 1
@@ -373,6 +467,34 @@ def create_parser() -> argparse.ArgumentParser:
         help='Override device from config'
     )
     
+    # Batch command
+    batch_parser = subparsers.add_parser(
+        'batch',
+        help='Run batch execution from YAML config'
+    )
+    batch_parser.add_argument(
+        'config',
+        help='Path to batch YAML configuration file'
+    )
+    batch_parser.add_argument(
+        '--output',
+        help='Override output directory from config'
+    )
+    batch_parser.add_argument(
+        '--device',
+        choices=['cpu', 'cuda', 'mps'],
+        help='Override device from config'
+    )
+    batch_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Validate configuration and show execution plan without running'
+    )
+    batch_parser.add_argument(
+        '--resume',
+        help='Resume from checkpoint file (path to checkpoint.json)'
+    )
+    
     # Validate command
     validate_parser = subparsers.add_parser(
         'validate',
@@ -422,6 +544,7 @@ def main() -> int:
     # Route to command handlers
     commands = {
         'run': cmd_run,
+        'batch': cmd_batch,
         'validate': cmd_validate,
         'list-components': cmd_list_components,
         'visualize': cmd_visualize,
