@@ -103,6 +103,7 @@ class ProtocolWorker(QtCore.QObject):
         base_dt_ms: float,
         device: torch.device,
         debug: bool = False,
+        perform_fit: bool = False,
     ) -> None:
         super().__init__()
         self._grid_manager = grid_manager
@@ -113,6 +114,7 @@ class ProtocolWorker(QtCore.QObject):
         self._device = device
         self._stop_requested = False
         self._last_packets: List[StimulusPacket] = []
+        self._perform_fit = bool(perform_fit)  # Resolves ReviewFinding#C1
         env_flag = os.getenv("PROTOCOL_WORKER_DEBUG", "")
         env_debug = str(env_flag).strip().lower() in {"1", "true", "yes", "on"}
         self._debug_enabled = bool(debug) or env_debug
