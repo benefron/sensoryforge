@@ -18,11 +18,22 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @dataclass
 class CompressionOperator:
-    """Dense linear operator describing SA/RA spatial compression."""
+    """Dense linear operator describing SA/RA spatial compression.
+    
+    Supports both grid-shaped innervation weights [num_neurons, H, W] and
+    flat innervation weights [num_neurons, num_receptors].
+    
+    Attributes:
+        sa_weights: SA innervation weights
+        ra_weights: RA innervation weights  
+        grid_shape: Grid dimensions (H, W) or None for flat innervation
+        num_receptors: Total receptor count (explicit for flat innervation)
+    """
 
     sa_weights: torch.Tensor
     ra_weights: torch.Tensor
-    grid_shape: Tuple[int, int]
+    grid_shape: Tuple[int, int] | None
+    _num_receptors: int | None = None  # Explicit count for flat innervation
 
     def __post_init__(self) -> None:
         self.sa_weights = self.sa_weights.detach().clone()
@@ -43,6 +54,15 @@ class CompressionOperator:
 
     @property
     def num_receptors(self) -> int:
+        """Return total receptor count.
+        
+        For grid-shaped innervation, computes from grid_shape.
+        For flat innervation, uses explicit _num_receptors.
+        """
+        if self._num_receptors is not None:
+            return self._num_receptors
+        if self.grid_shape is None:
+            raise ValueError("Cannot determine num_receptors: both grid_shape and _num_receptors are None")
         return int(self.grid_shape[0] * self.grid_shape[1])
 
     def compression_ratio(self, population: str = "combined") -> float:
@@ -102,6 +122,7 @@ class CompressionOperator:
             sa_weights=self.sa_weights.to(device),
             ra_weights=self.ra_weights.to(device),
             grid_shape=self.grid_shape,
+            _num_receptors=self._num_receptors,
         )
 
     def as_dict(self) -> Dict[str, torch.Tensor]:
@@ -113,13 +134,30 @@ class CompressionOperator:
 def build_compression_operator(
     pipeline: "TactileEncodingPipelineTorch",
 ) -> CompressionOperator:
-    """Construct a :class:`CompressionOperator` from a tactile pipeline."""
-
+    """Construct a :class:`CompressionOperator` from a tactile pipeline.
+    
+    Automatically detects flat innervation [num_neurons, num_receptors] vs.
+    grid-shaped innervation [num_neurons, grid_h, grid_w].
+    """
     sa_weights = pipeline.sa_innervation.innervation_weights
     ra_weights = pipeline.ra_innervation.innervation_weights
-    grid_shape = tuple(sa_weights.shape[1:])
-    return CompressionOperator(
-        sa_weights=sa_weights,
-        ra_weights=ra_weights,
-        grid_shape=grid_shape,
-    )
+    
+    # Detect flat innervation (resolves ReviewFinding#H1)
+    if sa_weights.ndim == 2:
+        # Flat innervation: [num_neurons, num_receptors]
+        num_receptors = int(sa_weights.shape[1])
+        return CompressionOperator(
+            sa_weights=sa_weights,
+            ra_weights=ra_weights,
+            grid_shape=None,
+            _num_receptors=num_receptors,
+        )
+    else:
+        # Grid-shaped innervation: [num_neurons, grid_h, grid_w]
+        grid_shape = tuple(sa_weights.shape[1:])
+        return CompressionOperator(
+            sa_weights=sa_weights,
+            ra_weights=ra_weights,
+            grid_shape=grid_shape,
+            _num_receptors=None,
+        )
