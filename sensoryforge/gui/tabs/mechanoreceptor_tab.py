@@ -748,6 +748,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
     def _refresh_target_grid_dropdown(self) -> None:
         """Repopulate the target grid dropdown from the current grid entries."""
+        # Guard against being called during initialization before widget exists
+        if not hasattr(self, 'cmb_target_grid'):
+            return
         current_text = self.cmb_target_grid.currentText()
         self.cmb_target_grid.blockSignals(True)
         self.cmb_target_grid.clear()
