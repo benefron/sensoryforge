@@ -475,7 +475,8 @@ class TestBatchExecutorEdgeCases:
         
         executor = BatchExecutor(minimal_batch_config)
         
-        # Mock h5py import failure
-        with patch('sensoryforge.core.batch_executor.h5py', None):
+        # Mock h5py import to raise ImportError
+        import sys
+        with patch.dict(sys.modules, {'h5py': None}):
             with pytest.raises(ImportError, match="h5py is required"):
                 executor._save_results_hdf5([], temp_output_dir / 'test.h5')
