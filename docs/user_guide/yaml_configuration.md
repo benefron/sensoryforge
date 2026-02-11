@@ -105,7 +105,7 @@ pipeline:
   spacing: 0.15
 ```
 
-### Composite Grid (Multi-Population) - Phase 2
+### Composite Grid (Multi-Population)
 
 Multiple receptor populations with different densities and arrangements:
 
@@ -119,15 +119,12 @@ grid:
     sa1:
       density: 100.0        # Receptors per mm²
       arrangement: grid     # 'grid', 'poisson', 'hex', 'jittered_grid'
-      filter: SA           # (Optional) Associated filter
     ra1:
       density: 70.0
       arrangement: hex
-      filter: RA
     sa2:
       density: 30.0
       arrangement: poisson
-      filter: SA
 ```
 
 **Arrangement types:**
@@ -136,7 +133,9 @@ grid:
 - `hex`: Hexagonal lattice (optimal packing)
 - `jittered_grid`: Grid with random jitter
 
-**Note:** CompositeGrid support is coming in a future update. Configuration is accepted for validation.
+**Note:** CompositeGrid is fully supported via `CompositeReceptorGrid.add_layer()`.
+The deprecated `filter` field is ignored; filter associations are configured
+separately in the pipeline configuration.
 
 ## Stimuli
 
