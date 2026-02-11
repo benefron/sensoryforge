@@ -1,0 +1,216 @@
+# SensoryForge Batch Configuration Example
+# This configuration demonstrates batch execution for generating training datasets
+
+metadata:
+  batch_name: "tactile_encoding_sweep_v1"
+  version: "1.0"
+  description: "Multi-parameter Gaussian stimulus sweep for SA/RA characterization"
+  author: "SensoryForge Team"
+  date: "2026-02-11"
+
+# Base configuration applied to all stimulus executions
+base_config:
+  # Core pipeline settings
+  pipeline:
+    device: cpu           # 'cpu', 'cuda', or 'mps'
+    seed: 42             # Base random seed for reproducibility
+    grid_size: 80        # Creates an 80x80 receptor grid
+    spacing: 0.15        # Receptor spacing in mm
+    center: [0.0, 0.0]  # Grid center coordinates
+
+  # Neuron populations
+  neurons:
+    sa_neurons: 100      # Slowly Adapting neurons
+    ra_neurons: 196      # Rapidly Adapting neurons
+    sa2_neurons: 25      # SA2 neurons
+    dt: 0.5             # Time step in ms
+
+  # Innervation parameters
+  innervation:
+    receptors_per_neuron: 28
+    sa_spread: 0.3
+    ra_spread: 0.39
+    connection_strength: [0.05, 1.0]
+    sa2_connections: 500
+    sa2_spread: 2.0
+    sa2_weights: [0.4, 0.75]
+
+  # Temporal filter parameters
+  filters:
+    sa_tau_r: 5.0       # SA rise time constant (ms)
+    sa_tau_d: 30.0      # SA decay time constant (ms)
+    sa_k1: 0.05         # SA gain parameter 1
+    sa_k2: 3.0          # SA gain parameter 2
+    ra_tau_ra: 15.0     # RA time constant (ms)
+    ra_k3: 2.0          # RA gain parameter
+    sa2_scale: 0.005    # SA2 scaling factor
+
+  # Neuron model parameters (Izhikevich)
+  neuron_params:
+    # SA neurons
+    sa_a: 0.02
+    sa_b: 0.2
+    sa_c: -65.0
+    sa_d: 8.0
+    sa_v_init: -65.0
+    sa_threshold: 30.0
+    sa_a_std: 0.005        # Variability in 'a' parameter
+    sa_threshold_std: 3.0  # Variability in threshold
+    
+    # RA neurons
+    ra_a: 0.02
+    ra_b: 0.2
+    ra_c: -65.0
+    ra_d: 8.0
+    ra_v_init: -65.0
+    ra_threshold: 30.0
+    
+    # SA2 neurons
+    sa2_a: 0.02
+    sa2_b: 0.2
+    sa2_c: -65.0
+    sa2_d: 8.0
+
+  # Temporal profile (trapezoidal stimulus)
+  temporal:
+    t_pre: 25          # Pre-stimulus period (ms)
+    t_ramp: 10         # Ramp-up duration (ms)
+    t_plateau: 500     # Plateau duration (ms)
+    t_post: 100        # Post-stimulus period (ms)
+    dt: 0.5           # Time step (ms)
+
+  # Noise settings
+  noise:
+    sa_membrane_std: 3.0    # SA membrane noise std dev
+    sa_membrane_mean: 0.0   # SA membrane noise mean
+    ra_membrane_std: 3.0    # RA membrane noise std dev
+    ra_membrane_mean: 0.0   # RA membrane noise mean
+    sa2_membrane_std: 3.0   # SA2 membrane noise std dev
+
+  # Solver configuration
+  solver:
+    type: euler         # 'euler' (default) or 'adaptive'
+    config:
+      dt: 0.001        # Integration time step in seconds
+
+# Batch execution specification
+batch:
+  output_dir: "./batch_results/tactile_encoding_v1"
+  save_format: "pytorch"  # 'pytorch' (default) or 'hdf5'
+  save_intermediates: false  # Set to true to save filtered currents, voltages, etc.
+  
+  # Stimulus battery - list of sweep configurations
+  stimuli:
+    # Gaussian parameter sweep: amplitude × spatial scale
+    # This creates a 5×5 = 25 parameter combinations
+    # With 3 repetitions each = 75 total stimulus executions
+    - type: gaussian_sweep
+      base_seed: 42
+      parameters:
+        amplitude: [10.0, 20.0, 30.0, 40.0, 50.0]  # Peak pressure (arbitrary units)
+        sigma: [0.3, 0.5, 0.8, 1.0, 1.5]           # Spatial spread (mm)
+        center_x: [0.0]                             # X-coordinate of center (mm)
+        center_y: [0.0]                             # Y-coordinate of center (mm)
+      repetitions: 3  # Each combination repeated 3 times with different noise
+
+# =============================================================================
+# Additional Examples (commented out - uncomment to use)
+# =============================================================================
+
+# Example 2: Texture sweep (Gabor patterns)
+# This would create 3×4×2 = 24 combinations × 2 reps = 48 executions
+#   - type: gabor_sweep
+#     base_seed: 100
+#     parameters:
+#       frequency: [0.5, 1.0, 2.0]      # cycles/mm
+#       orientation: [0, 45, 90, 135]    # degrees
+#       amplitude: [20.0, 30.0]          # arbitrary units
+#       phase: [0.0]                     # phase offset
+#     repetitions: 2
+
+# Example 3: Moving stimulus sweep
+# This would create 1×1×3×4 = 12 combinations × 3 reps = 36 executions
+#   - type: moving_gaussian_sweep
+#     base_seed: 200
+#     parameters:
+#       sigma: [0.5]                     # mm
+#       amplitude: [30.0]                # arbitrary units
+#       velocity: [5.0, 10.0, 20.0]      # mm/s
+#       direction: [0, 90, 180, 270]     # degrees (0=right, 90=up)
+#       duration: [500.0]                # ms
+#     repetitions: 3
+
+# Example 4: Simple batch of individual stimuli (no sweep)
+# This creates 3 individual stimulus configurations
+#   - type: gaussian
+#     base_seed: 300
+#     parameters:
+#       amplitude: [25.0]
+#       sigma: [0.7]
+#       center_x: [0.0]
+#       center_y: [0.0]
+#     repetitions: 10  # Same stimulus, 10 different noise realizations
+
+# =============================================================================
+# Usage Instructions
+# =============================================================================
+
+# 1. Validate configuration (dry run):
+#    sensoryforge batch batch_config.yml --dry-run
+
+# 2. Execute batch on CPU:
+#    sensoryforge batch batch_config.yml
+
+# 3. Execute batch on GPU:
+#    sensoryforge batch batch_config.yml --device cuda
+
+# 4. Override output directory:
+#    sensoryforge batch batch_config.yml --output ./my_custom_results
+
+# 5. Resume interrupted batch:
+#    sensoryforge batch batch_config.yml --resume ./batch_results/tactile_encoding_v1/checkpoint.json
+
+# =============================================================================
+# Output Structure
+# =============================================================================
+
+# The batch execution creates the following output structure:
+#
+# batch_results/tactile_encoding_v1/
+# ├── batch_metadata.json          # Full configuration + runtime info
+# ├── stimulus_index.json          # Index mapping stimulus_id → parameters
+# ├── checkpoint.json              # Progress checkpoint (for resume)
+# └── tactile_encoding_v1_YYYYMMDD_HHMMSS.pt  # Results (PyTorch format)
+#
+# If save_format is 'hdf5':
+# └── tactile_encoding_v1_YYYYMMDD_HHMMSS.h5   # Results (HDF5 format)
+#     ├── metadata/                 # Batch metadata
+#     ├── grid/                     # Grid and neuron coordinates
+#     ├── stimuli/                  # Stimulus configurations
+#     │   ├── stim_0000/
+#     │   ├── stim_0001/
+#     │   └── ...
+#     └── responses/                # Neural responses
+#         ├── stim_0000/
+#         │   ├── sa_spikes [T, N_sa]
+#         │   ├── ra_spikes [T, N_ra]
+#         │   └── sa2_spikes [T, N_sa2]
+#         └── ...
+
+# =============================================================================
+# Loading Results for Analysis
+# =============================================================================
+
+# PyTorch format:
+#   import torch
+#   data = torch.load('batch_results/.../results.pt')
+#   results = data['results']
+#   for result in results:
+#       sa_spikes = result['sa_spikes']  # [T, N_sa]
+#       stimulus_config = result['stimulus_config']
+
+# HDF5 format:
+#   import h5py
+#   with h5py.File('batch_results/.../results.h5', 'r') as f:
+#       sa_spikes = f['responses/stim_0000/sa_spikes'][:]
+#       metadata = dict(f['metadata'].attrs)
