@@ -1,0 +1,70 @@
+---
+description: Consistent git commit and staging conventions for SensoryForge
+globs: .cursor/rules/*.mdc,.github/**/*,*.md,*.py,*.yml,*.yaml
+alwaysApply: false
+---
+
+# Commit and Stage Conventions
+
+Follow these rules when committing and staging changes in SensoryForge.
+
+## Conventional Commits
+
+Use semantic prefixes for all commit messages:
+
+| Prefix | Use For |
+|--------|---------|
+| `feat:` | New feature or capability |
+| `fix:` | Bug fix |
+| `docs:` | Documentation only |
+| `refactor:` | Code restructuring, no behavior change |
+| `test:` | Adding or modifying tests |
+| `build:` | Build system, dependencies |
+| `ci:` | CI/CD configuration |
+| `perf:` | Performance improvement |
+| `style:` | Code style, formatting only |
+
+## Message Format
+
+```
+<type>(<scope>): <subject>
+
+<body>
+```
+
+**Subject:** Imperative mood, lowercase after colon, no period. Max ~72 chars.
+
+**Scope (optional):** Component affected — `filters`, `gui`, `cli`, `docs`, `core`, etc.
+
+**Body (optional):** Explain what and why. Wrap at 72 chars.
+
+## Examples
+
+```
+feat(batch): Add HDF5 output format for batch executor
+fix(gui): Guard against dropdown refresh during initialization
+docs: Expand Equation DSL user guide with usage examples
+test: Add edge case tests for composite grid
+refactor: Simplify pipeline config validation
+```
+
+## Staging Rules
+
+1. **Stage related changes together** — One logical change per commit
+2. **Don't mix types** — Separate `docs:` from `fix:` from `test:` commits
+3. **Review before commit** — `git diff --staged` to verify scope
+4. **Include scope in path** — `git add docs/user_guide/` not `git add .` when only docs changed
+
+## Checklist Before Commit
+
+- [ ] Message follows `<type>(<scope>): <subject>` format
+- [ ] No unrelated changes in staged files
+- [ ] No debug prints, commented code, or temporary files
+- [ ] Tests pass (if code changed)
+
+## Do NOT Commit
+
+- Broken code (unless explicitly `WIP:`)
+- Failing tests
+- Multiple unrelated changes in one commit
+- Large uncommented changes

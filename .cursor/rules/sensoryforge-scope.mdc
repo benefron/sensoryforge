@@ -1,0 +1,38 @@
+---
+description: SensoryForge product scope — encoding playground only, no decoding or reconstruction
+alwaysApply: true
+---
+
+# SensoryForge Scope
+
+**SensoryForge is an encoding-only playground.** It generates and explores sensory population responses to stimuli. Decoding and reconstruction are **not** in scope for this repository.
+
+## In Scope (This Repo)
+
+- **Grids** — Spatial substrates (standard, composite, Poisson, hexagonal)
+- **Innervation** — Receptive field patterns (Gaussian, distance-weighted, sparse)
+- **Filters** — Temporal dynamics (SA/RA, noise, custom)
+- **Spiking models** — Izhikevich, AdEx, MQIF, FA, SA, Equation DSL
+- **Stimuli** — Gaussian, textures, moving patterns, batch stimulus generation
+- **Future extensions** — Spatial filters, composite grid integrations, intermediate layers
+
+**Pipeline:** Stimulus → Grid → Innervation → Filters → Neurons → **Spikes / Population Activity**
+
+## NOT In Scope (This Repo)
+
+SensoryForge does **not** implement:
+
+- **Decoding** — Mapping spikes back to stimulus
+- **Reconstruction** — Recovering stimulus from neural activity
+- **Bayesian estimators** — Kalman filters, particle filters, SSM
+- **State-space models (SSM)** — For decoding/estimation
+- **Analytical inverse** — Pseudoinverse, ridge decoders
+- **STA (Spike-Triggered Average)** — Analysis/decoding methods
+
+These belong to the **parent project** or downstream tooling, not SensoryForge.
+
+## Documentation Context
+
+`docs_root/STRATEGIC_ROADMAP.md` and `docs_root/SCIENTIFIC_HYPOTHESIS.md` describe the broader parent project. They may reference decoding, Kalman filters, and reconstruction — those are **parent-repo scope**, not SensoryForge.
+
+When writing reports, docs, or rules for SensoryForge: describe it as an **encoding playground** that produces population activity (spikes, currents) from stimuli. Do not attribute decoding, reconstruction, or Bayesian estimation to this repo.

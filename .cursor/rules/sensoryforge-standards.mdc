@@ -1,0 +1,176 @@
+---
+description: SensoryForge coding standards, PyTorch conventions, and scientific rigor requirements
+alwaysApply: true
+---
+
+# SensoryForge Coding Standards
+
+Apply these standards to all SensoryForge code changes.
+
+## PyTorch Conventions
+
+**Never hand-roll loops** over neurons or spatial dimensions:
+
+```python
+# ❌ BAD - Manual loop
+for i in range(num_neurons):
+    output[i] = self.process(input[i])
+
+# ✅ GOOD - Vectorized
+output = self.process(input)  # Broadcasts automatically
+```
+
+**Always specify device explicitly**:
+
+```python
+# ❌ BAD
+tensor = torch.zeros(10, 10)
+
+# ✅ GOOD
+tensor = torch.zeros(10, 10, device=device)
+```
+
+**Document tensor shapes in docstrings**:
+
+```python
+def forward(self, x: torch.Tensor) -> torch.Tensor:
+    """Apply filter to stimulus.
+    
+    Args:
+        x: Input stimulus [batch, time, grid_h, grid_w] or [batch, grid_h, grid_w]
+    
+    Returns:
+        Filtered currents [batch, time, num_neurons] in mA
+    """
+```
+
+## Physical Units
+
+Always document units in docstrings:
+
+- **Time:** milliseconds (ms) for APIs, seconds (s) for internal
+- **Currents:** milliamperes (mA)
+- **Voltages:** millivolts (mV)
+- **Distances:** millimeters (mm)
+- **Angles:** radians
+
+```python
+def set_current(self, current: torch.Tensor):
+    """Set input current.
+    
+    Args:
+        current: Input currents [num_neurons] in mA
+    """
+```
+
+## Google Style Docstrings
+
+Required for all public APIs:
+
+```python
+def function_name(param1: Type1, param2: Type2) -> ReturnType:
+    """One-line summary.
+    
+    Extended description with context and scientific references.
+    
+    Args:
+        param1: Description with tensor shape [batch, ...]. Units: specify.
+        param2: Description.
+    
+    Returns:
+        Description with tensor shape and units.
+    
+    Raises:
+        ValueError: When and why.
+    
+    Example:
+        >>> result = function_name(torch.randn(10, 5), 0.5)
+        >>> result.shape
+        torch.Size([10, 20])
+    
+    References:
+        Author et al. (Year). "Paper Title". Journal. DOI.
+    """
+```
+
+## Scientific Rigor
+
+**Equations must match published papers**:
+
+```python
+class SAFilter(BaseFilter):
+    """Slowly-adapting mechanoreceptor filter.
+    
+    Implements the SA pathway differential equation from:
+    Parvizi-Fard et al. (2024). "Biologically-inspired..." bioRxiv.
+    
+    Equation:
+        dI/dt = (G * x - I) / tau
+    
+    where:
+        I: receptor current (mA)
+        G: gain (dimensionless)
+        x: stimulus intensity (N/mm²)
+        tau: time constant (ms)
+    """
+```
+
+**Cite sources in docstrings** for biological models.
+
+## Error Handling
+
+Fail fast with informative messages:
+
+```python
+# ❌ BAD
+if shape[0] <= 0:
+    raise ValueError("Invalid")
+
+# ✅ GOOD
+if shape[0] <= 0:
+    raise ValueError(f"Grid width must be positive, got {shape[0]}")
+```
+
+Include context: what went wrong, what was expected, what was received.
+
+## Configuration Management
+
+All components must support YAML instantiation:
+
+```python
+class MyFilter(BaseFilter):
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'MyFilter':
+        """Factory method for YAML instantiation."""
+        return cls(config)
+```
+
+## Commit Messages
+
+Use Conventional Commits:
+
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation only
+- `refactor:` Code restructuring
+- `test:` Adding tests
+- `perf:` Performance improvement
+
+```
+feat(filters): Add adaptive threshold to SA filter
+
+Implements dynamic threshold adjustment based on recent activity.
+Uses exponential moving average with configurable time constant.
+
+Closes #42
+```
+
+## Type Hints
+
+Mandatory for all function signatures:
+
+```python
+# ✅ GOOD
+def process(self, data: torch.Tensor, dt: float = 0.001) -> Tuple[torch.Tensor, Dict]:
+    pass
+```
