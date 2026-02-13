@@ -6,6 +6,16 @@ fidelity for CompositeGrid, Extended Stimuli, DSL models, and Adaptive Solvers.
 NOTE: Full GUI widget tests may fail in headless environments. These tests focus
 on the config API rather than full GUI initialization.
 """
+
+
+def test_gui_imports():
+    """Verify GUI modules can be imported (smoke test)."""
+    from sensoryforge.gui.main import SensoryForgeWindow
+    from sensoryforge.gui.tabs import MechanoreceptorTab, StimulusDesignerTab, SpikingNeuronTab
+    assert SensoryForgeWindow is not None
+    assert MechanoreceptorTab is not None
+    assert StimulusDesignerTab is not None
+    assert SpikingNeuronTab is not None
 import tempfile
 from pathlib import Path
 
