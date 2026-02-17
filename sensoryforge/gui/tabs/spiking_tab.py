@@ -826,10 +826,17 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self.spin_neuron_index.setValue(0)
             self.spin_neuron_index.blockSignals(False)
             return
-        if population.module is None and hasattr(population, "instantiate"):
+        # Use module or flat_module (Poisson/composite use flat_module)
+        module = getattr(population, "module", None) or getattr(
+            population, "flat_module", None
+        )
+        if module is None and hasattr(population, "instantiate"):
             if self.grid_manager is not None:
                 population.instantiate(self.grid_manager)
-        if population.module is None:
+            module = getattr(population, "module", None) or getattr(
+                population, "flat_module", None
+            )
+        if module is None:
             self._active_neuron_centers = None
             self.neuron_scatter.setData([], [])
             self.lbl_neuron_info.setText("Innervation module unavailable.")
@@ -838,7 +845,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self.spin_neuron_index.setValue(0)
             self.spin_neuron_index.blockSignals(False)
             return
-        centers = population.module.neuron_centers.detach().cpu().numpy()
+        centers = module.neuron_centers.detach().cpu().numpy()
         self._active_neuron_centers = centers
         count = centers.shape[0] if centers.ndim == 2 else 0
         if count == 0:
@@ -1699,12 +1706,16 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         dt_ms: float,
         device: torch.device,
     ) -> SimulationResult:
-        module = getattr(population, "module", None)
+        # Use module or flat_module (Poisson/composite use flat_module)
+        module = getattr(population, "module", None) or getattr(
+            population, "flat_module", None
+        )
         if module is None:
-            if hasattr(population, "instantiate"):
-                # type: ignore[arg-type]
+            if hasattr(population, "instantiate") and self.grid_manager is not None:
                 population.instantiate(self.grid_manager)
-                module = population.module
+                module = getattr(population, "module", None) or getattr(
+                    population, "flat_module", None
+                )
         if module is None:
             raise RuntimeError("Innervation module unavailable.")
         module = module.to(device)

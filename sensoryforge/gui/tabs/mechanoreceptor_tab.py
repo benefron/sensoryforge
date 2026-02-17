@@ -817,7 +817,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.plot.showGrid(x=True, y=True, alpha=0.2)
         self.plot.setLabel("bottom", "X (mm)")
         self.plot.setLabel("left", "Y (mm)")
+        # Use both: scene sigMouseClicked (when no item consumes) and event filter
+        # on viewport (to catch clicks that ViewBox/items consume for pan/zoom)
         self.plot.scene().sigMouseClicked.connect(self._on_plot_clicked)
+        self.plot_widget.viewport().installEventFilter(self)
 
     # ------------------------------------------------------------------ #
     #  Unified Grid Workspace Methods (Phase 3 B.1-B.4)                   #
@@ -1232,17 +1235,31 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         else:
             pass
 
+    def eventFilter(self, obj: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        """Capture mouse presses on plot to enable neuron selection even when
+        ViewBox/items consume the event (pan/zoom)."""
+        if obj is self.plot_widget.viewport() and event.type() == QtCore.QEvent.MouseButtonPress:
+            ev = event  # type: QtGui.QMouseEvent
+            if ev.button() == QtCore.Qt.LeftButton:
+                # GraphicsLayoutWidget extends QGraphicsView; map viewport pos to scene
+                scene_pos = self.plot_widget.mapToScene(ev.pos())
+                vb = self.plot.getViewBox()
+                data_pos = vb.mapSceneToView(scene_pos)
+                self._on_plot_clicked_at(data_pos.x(), data_pos.y())
+        return False  # Don't consume the event
+
     def _on_plot_clicked(self, event) -> None:
-        """Handle plot click: select nearest neuron and highlight it with its connections.
-        Click same neuron again to unselect."""
-        if self._selected_population is None or self._selected_population.neuron_centers is None:
-            return
+        """Handle plot click from scene sigMouseClicked."""
         if event.button() != QtCore.Qt.LeftButton:
             return
-        pos = event.scenePos()
         vb = self.plot.getViewBox()
-        data_pos = vb.mapSceneToView(pos)
-        x_click, y_click = data_pos.x(), data_pos.y()
+        data_pos = vb.mapSceneToView(event.scenePos())
+        self._on_plot_clicked_at(data_pos.x(), data_pos.y())
+
+    def _on_plot_clicked_at(self, x_click: float, y_click: float) -> None:
+        """Handle plot click at data coordinates: select nearest neuron and highlight."""
+        if self._selected_population is None or self._selected_population.neuron_centers is None:
+            return
         centers = self._selected_population.neuron_centers.detach().cpu().numpy()
         dists = (centers[:, 0] - x_click) ** 2 + (centers[:, 1] - y_click) ** 2
         nearest = int(np.argmin(dists))
@@ -1274,7 +1291,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 p.highlight_receptor_shadow_item = None
         if pop is None or idx is None or pop.neuron_centers is None:
             self._update_heatmap_for_selection()
-            self._dim_non_selected_elements(None)
+            self._update_background_visibility()
             for p in self.populations:
                 self._apply_population_visibility(p)
             return
@@ -1282,18 +1299,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         weights = pop.innervation_weights
         if weights is None:
             return
-        if self.grid_manager is not None:
+        # Use actual receptor positions: flat_module (Poisson, composite) or grid (regular)
+        if pop.flat_module is not None:
+            rc = pop.flat_module.receptor_coords.detach().cpu().numpy()
+            x_flat = rc[:, 0]
+            y_flat = rc[:, 1]
+        elif self.grid_manager is not None:
             if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
                 xx, yy = self.grid_manager.get_coordinates()
                 x_flat = xx.detach().cpu().numpy().ravel()
                 y_flat = yy.detach().cpu().numpy().ravel()
             else:
-                coords = self.grid_manager.get_receptor_coordinates()
-                x_flat = coords[:, 0].detach().cpu().numpy()
-                y_flat = coords[:, 1].detach().cpu().numpy()
-        elif pop.flat_module is not None:
-            rc = pop.flat_module.receptor_coords.detach().cpu().numpy()
-            x_flat, y_flat = rc[:, 0], rc[:, 1]
+                # Fallback: regular grid from bounds (module uses grid for innervation math)
+                props = self.grid_manager.get_grid_properties()
+                n_x, n_y = self.grid_manager.grid_size
+                xlim, ylim = props["xlim"], props["ylim"]
+                x = np.linspace(xlim[0], xlim[1], int(n_x))
+                y = np.linspace(ylim[0], ylim[1], int(n_y))
+                xx, yy = np.meshgrid(x, y, indexing="ij")
+                x_flat = xx.ravel()
+                y_flat = yy.ravel()
         else:
             return
         w = weights[idx].detach().cpu().numpy().ravel()
@@ -1336,65 +1361,27 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.plot.addItem(conn_item)
             pop.highlight_connection_items.append(conn_item)
 
-        # Shadow layer behind neuron (larger, darker - makes it pop)
-        shadow_item = pg.ScatterPlotItem(
-            [cx], [cy],
-            size=26,
-            brush=pg.mkBrush(30, 30, 30, 140),
-            pen=pg.mkPen(None),
-        )
-        shadow_item.setPxMode(True)
-        shadow_item.setZValue(9)
-        self.plot.addItem(shadow_item)
-        pop.highlight_shadow_item = shadow_item
-
-        # Highlighted neuron (larger, bold outline)
+        # Selected neuron marker: subtle, slightly larger than normal (center stage without hiding others)
         neuron_item = pg.ScatterPlotItem(
             [cx], [cy],
-            size=18,
+            size=11,
             brush=pg.mkBrush(pop.color),
-            pen=pg.mkPen(QtGui.QColor(0, 0, 0), width=4),
+            pen=pg.mkPen(QtGui.QColor(60, 60, 60), width=2),
         )
         neuron_item.setPxMode(True)
         neuron_item.setZValue(11)
         self.plot.addItem(neuron_item)
         pop.highlight_neuron_item = neuron_item
 
-        # Receptor shadows (behind receptors - makes them pop)
-        receptor_shadow = pg.ScatterPlotItem(
-            x=rx, y=ry,
-            size=14,
-            brush=pg.mkBrush(40, 40, 40, 130),
-            pen=pg.mkPen(None),
-        )
-        receptor_shadow.setPxMode(True)
-        receptor_shadow.setZValue(11)
-        self.plot.addItem(receptor_shadow)
-        pop.highlight_receptor_shadow_item = receptor_shadow
-
-        # Highlighted receptors with weight-based color (stronger = darker/saturated)
-        receptor_colors = [
-            pg.mkBrush(self._weight_to_color(pop.color, float(norm_w[i])))
-            for i in range(len(rx))
-        ]
-        receptor_item = pg.ScatterPlotItem(
-            x=rx, y=ry,
-            size=11,
-            brush=receptor_colors,
-            pen=pg.mkPen(QtGui.QColor(80, 80, 80), width=2),
-        )
-        receptor_item.setPxMode(True)
-        receptor_item.setZValue(12)
-        self.plot.addItem(receptor_item)
-        pop.highlight_receptor_item = receptor_item
-
         self._apply_population_visibility(pop)
-        self._dim_non_selected_elements(pop)
+        self._update_background_visibility()
 
-    def _dim_non_selected_elements(self, selected_pop: NeuronPopulation) -> None:
-        """Reduce opacity of non-selected populations and grid when neuron highlighted."""
-        if self._selected_neuron_idx is None:
-            # Restore full opacity when no selection
+    def _update_background_visibility(self) -> None:
+        """Dim grid and non-selected innervations when a neuron is highlighted; restore when not."""
+        selected_pop = self._selected_population
+        idx = self._selected_neuron_idx
+        if idx is None:
+            # No selection: full visibility
             for pop in self.populations:
                 if pop.scatter_item is not None:
                     pop.scatter_item.setOpacity(1.0)
@@ -1407,21 +1394,19 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             for scatter_item in self._grid_scatter_items:
                 scatter_item.setOpacity(1.0)
         else:
-            # Dim non-selected populations and grid
+            # Neuron selected: dim background so highlight stands out
+            dim_opacity = 0.35
             for pop in self.populations:
-                is_selected = (pop is selected_pop)
-                opacity = 1.0 if is_selected else 0.25
                 if pop.scatter_item is not None:
-                    pop.scatter_item.setOpacity(opacity)
+                    pop.scatter_item.setOpacity(dim_opacity)
                 for conn_item, _, _ in pop.connection_items:
-                    conn_item.setOpacity(opacity)
+                    conn_item.setOpacity(dim_opacity)
                 if pop.heatmap_item is not None:
-                    # Heatmap already handled by _update_heatmap_for_selection
-                    pass
+                    pop.heatmap_item.setOpacity(dim_opacity * 0.8)
                 if pop.receptor_item is not None:
-                    pop.receptor_item.setOpacity(opacity)
+                    pop.receptor_item.setOpacity(dim_opacity)
             for scatter_item in self._grid_scatter_items:
-                scatter_item.setOpacity(0.3)
+                scatter_item.setOpacity(dim_opacity)
 
     def _on_innervation_method_changed(self, method: str) -> None:
         is_distance = method == "distance_weighted"
@@ -1669,18 +1654,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     def _apply_population_visibility(self, population: NeuronPopulation) -> None:
         show_centers = population.visible and self.chk_show_neuron_centers.isChecked()
         show_innervation = population.visible and self.chk_show_innervation.isChecked()
-        is_highlighted = (
-            population is self._selected_population
-            and self._selected_neuron_idx is not None
-        )
         if population.scatter_item is not None:
             population.scatter_item.setVisible(show_centers)
         for conn_item, _, _ in population.connection_items:
-            conn_item.setVisible(show_innervation and not is_highlighted)
+            conn_item.setVisible(show_innervation)
         if population.heatmap_item is not None:
             population.heatmap_item.setVisible(show_innervation)
         if population.receptor_item is not None:
-            population.receptor_item.setVisible(show_innervation and not is_highlighted)
+            population.receptor_item.setVisible(show_innervation)
 
     def _set_population_visibility(
         self,

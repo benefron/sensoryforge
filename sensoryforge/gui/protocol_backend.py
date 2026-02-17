@@ -270,14 +270,19 @@ class ProtocolWorker(QtCore.QObject):
             if self._stop_requested:
                 break
             pop_name = str(getattr(population, "name", "Population"))
-            module = getattr(population, "module", None)
+            # Use module or flat_module (Poisson/composite use flat_module)
+            module = getattr(population, "module", None) or getattr(
+                population, "flat_module", None
+            )
             if module is None and hasattr(population, "instantiate"):
                 if self._grid_manager is None:
                     raise RuntimeError(
                         "Grid manager unavailable for population instantiation."
                     )
                 population.instantiate(self._grid_manager)
-                module = getattr(population, "module", None)
+                module = getattr(population, "module", None) or getattr(
+                    population, "flat_module", None
+                )
             if module is None:
                 raise RuntimeError(
                     "Innervation module unavailable for population " f"'{pop_name}'."
