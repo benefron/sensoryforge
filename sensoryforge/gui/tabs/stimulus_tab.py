@@ -1483,7 +1483,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         min_x, max_x = float(np.min(x_vals)), float(np.max(x_vals))
         min_y, max_y = float(np.min(y_vals)), float(np.max(y_vals))
 
-        grid_props = grid_manager.get_grid_properties()
+        grid_props = self.grid_manager.get_grid_properties()
         spacing = float(grid_props.get("spacing", 1.0))
         x_extent = max_x - min_x
         y_extent = max_y - min_y

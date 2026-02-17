@@ -584,7 +584,7 @@ def create_neuron_centers(
         mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
         return mesh
 
-    if arrangement in ("poisson", "hex"):
+    if arrangement in ("poisson", "hex", "blue_noise"):
         # Jittered grid: regular lattice + small random offset for space-filling
         # with slight variance (like receptor jittered_grid).
         if seed is not None:
@@ -595,9 +595,32 @@ def create_neuron_centers(
         mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
         spacing_x = (x_max_eff - x_min_eff) / max(n_cols - 1, 1)
         spacing_y = (y_max_eff - y_min_eff) / max(n_rows - 1, 1)
-        jitter_mag = 0.25 * min(spacing_x, spacing_y)
-        jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
-        jittered = mesh + jitter
+        
+        if arrangement == "blue_noise":
+            # Blue noise: better space-filling via iterative relaxation
+            # Start with jittered grid, then apply Lloyd-like relaxation
+            jitter_mag = 0.4 * min(spacing_x, spacing_y)
+            jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
+            points = mesh + jitter
+            # Simple relaxation: 3 iterations of moving toward Voronoi centroid
+            for _ in range(3):
+                # Compute pairwise distances
+                dists = torch.cdist(points, points)
+                # For each point, find k nearest neighbors
+                k = min(6, points.shape[0] - 1)
+                _, nearest_idx = torch.topk(dists, k + 1, largest=False, dim=1)
+                # Move slightly toward centroid of neighbors (excluding self)
+                for i in range(points.shape[0]):
+                    neighbors = points[nearest_idx[i, 1:]]
+                    centroid = neighbors.mean(dim=0)
+                    points[i] = 0.7 * points[i] + 0.3 * centroid
+            jittered = points
+        else:
+            # Standard jitter for poisson/hex
+            jitter_mag = 0.25 * min(spacing_x, spacing_y)
+            jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
+            jittered = mesh + jitter
+        
         jittered[:, 0] = torch.clamp(jittered[:, 0], x_min_eff, x_max_eff)
         jittered[:, 1] = torch.clamp(jittered[:, 1], y_min_eff, y_max_eff)
         return jittered

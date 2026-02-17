@@ -165,6 +165,17 @@ Uses exponential moving average with configurable time constant.
 Closes #42
 ```
 
+## Extensibility
+
+Design components so users can add custom implementations without modifying core code:
+
+- **Innervation:** Subclass `BaseInnervation`, implement `compute_weights()`, register in `create_innervation` factory.
+- **Grid arrangements:** Add to `ArrangementType` and `ReceptorGrid` arrangement dispatch.
+- **Spatial distributions:** Follow the same pattern as existing arrangements (grid, poisson, hex).
+- **Filters / neurons:** Subclass base classes, use `from_config` for YAML instantiation.
+
+Prefer registration patterns (e.g. method strings, type aliases) over hardcoded conditionals when adding new variants.
+
 ## Type Hints
 
 Mandatory for all function signatures:

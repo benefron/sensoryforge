@@ -102,12 +102,11 @@ class ReceptorGrid:
             center: (x0, y0) coordinates of the grid midpoint in mm.
             arrangement: Spatial arrangement type: 'grid' (default), 'poisson',
                 'hex', or 'jittered_grid'.
-            density: Receptor density in receptors/mm² (required for 'poisson'
-                and 'hex' arrangements; ignored for grid-based arrangements).
+            density: Receptor density in receptors/mm². For 'poisson' and 'hex',
+                derived from grid_size and spacing when None. Ignored for grid-based
+                arrangements.
             device: PyTorch device identifier for tensors.
         
-        Raises:
-            ValueError: If arrangement requires density but it's not provided.
         """
         if isinstance(grid_size, tuple):
             self.grid_size = grid_size
@@ -150,20 +149,20 @@ class ReceptorGrid:
                 self.coordinates = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
                 
         elif arrangement in ["poisson", "hex"]:
-            if density is None:
-                raise ValueError(
-                    f"Arrangement '{arrangement}' requires 'density' parameter"
-                )
-            
-            # Compute bounds based on grid_size and spacing
+            # Compute bounds from grid_size and spacing (same as regular grid)
             n_x, n_y = self.grid_size
             total_x = (n_x - 1) * spacing
             total_y = (n_y - 1) * spacing
             x0, y0 = center
-            
+
             self.xlim = (x0 - total_x / 2, x0 + total_x / 2)
             self.ylim = (y0 - total_y / 2, y0 + total_y / 2)
-            
+
+            # Derive density from rows×cols and extent (receptors/mm²)
+            area = total_x * total_y
+            expected_count = n_x * n_y
+            density = (expected_count / area) if area > 0 else 100.0
+
             # Generate coordinates using arrangement-specific methods
             if arrangement == "poisson":
                 self.coordinates = self._generate_poisson(density)

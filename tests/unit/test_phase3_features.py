@@ -364,7 +364,7 @@ class TestFlatInnervationModule:
         from sensoryforge.core.innervation import FlatInnervationModule
 
         coords = torch.rand(50, 2) * 10 - 5
-        for method in ("gaussian", "one_to_one", "distance_weighted"):
+        for method in ("gaussian", "one_to_one", "uniform", "distance_weighted"):
             mod = FlatInnervationModule(
                 neuron_type="SA",
                 receptor_coords=coords,

@@ -649,7 +649,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.spin_neuron_cols.setValue(10)
         self.spin_neuron_cols.setToolTip("Number of neuron columns (horizontal).")
         self.cmb_neuron_arrangement = QtWidgets.QComboBox()
-        self.cmb_neuron_arrangement.addItems(["grid", "poisson", "hex", "jittered_grid"])
+        self.cmb_neuron_arrangement.addItems(["grid", "poisson", "hex", "blue_noise", "jittered_grid"])
         self.cmb_neuron_arrangement.setToolTip("Spatial distribution of neuron centers.")
         adv_group.addRow("Neuron rows:", self.spin_neuron_rows)
         adv_group.addRow("Neuron cols:", self.spin_neuron_cols)
@@ -1183,6 +1183,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 p.highlight_receptor_shadow_item = None
         if pop is None or idx is None or pop.neuron_centers is None:
             self._update_heatmap_for_selection()
+            self._dim_non_selected_elements(None)
             for p in self.populations:
                 self._apply_population_visibility(p)
             return
@@ -1292,6 +1293,39 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop.highlight_receptor_item = receptor_item
 
         self._apply_population_visibility(pop)
+        self._dim_non_selected_elements(pop)
+
+    def _dim_non_selected_elements(self, selected_pop: NeuronPopulation) -> None:
+        """Reduce opacity of non-selected populations and grid when neuron highlighted."""
+        if self._selected_neuron_idx is None:
+            # Restore full opacity when no selection
+            for pop in self.populations:
+                if pop.scatter_item is not None:
+                    pop.scatter_item.setOpacity(1.0)
+                for conn_item, _, _ in pop.connection_items:
+                    conn_item.setOpacity(1.0)
+                if pop.heatmap_item is not None:
+                    pop.heatmap_item.setOpacity(0.55)
+                if pop.receptor_item is not None:
+                    pop.receptor_item.setOpacity(1.0)
+            for scatter_item in self._grid_scatter_items:
+                scatter_item.setOpacity(1.0)
+        else:
+            # Dim non-selected populations and grid
+            for pop in self.populations:
+                is_selected = (pop is selected_pop)
+                opacity = 1.0 if is_selected else 0.25
+                if pop.scatter_item is not None:
+                    pop.scatter_item.setOpacity(opacity)
+                for conn_item, _, _ in pop.connection_items:
+                    conn_item.setOpacity(opacity)
+                if pop.heatmap_item is not None:
+                    # Heatmap already handled by _update_heatmap_for_selection
+                    pass
+                if pop.receptor_item is not None:
+                    pop.receptor_item.setOpacity(opacity)
+            for scatter_item in self._grid_scatter_items:
+                scatter_item.setOpacity(0.3)
 
     def _on_innervation_method_changed(self, method: str) -> None:
         is_distance = method == "distance_weighted"

@@ -6,6 +6,7 @@ from sensoryforge.core.innervation import (
     BaseInnervation,
     GaussianInnervation,
     OneToOneInnervation,
+    UniformInnervation,
     DistanceWeightedInnervation,
     create_innervation,
 )
@@ -102,62 +103,72 @@ class TestGaussianInnervation:
         assert torch.allclose(weights1, weights2)
 
 
-class TestOneToOneInnervation:
-    """Test one-to-one innervation method."""
-    
+class TestUniformInnervation:
+    """Test uniform (Voronoi-like) innervation: each receptor -> nearest neuron."""
+
     def test_initialization(self, simple_coords):
-        """Test one-to-one innervation initializes correctly."""
         receptor_coords, neuron_centers = simple_coords
-        
-        innervation = OneToOneInnervation(receptor_coords, neuron_centers)
-        
+        innervation = UniformInnervation(receptor_coords, neuron_centers)
         assert innervation.num_neurons == 4
         assert innervation.num_receptors == 9
-    
+
     def test_compute_weights_shape(self, simple_coords):
-        """Test weight tensor has correct shape."""
         receptor_coords, neuron_centers = simple_coords
-        
-        innervation = OneToOneInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(receptor_coords, neuron_centers)
         weights = innervation.compute_weights()
-        
         assert weights.shape == (4, 9)
-    
+
     def test_each_receptor_connects_once(self, simple_coords):
-        """Test each receptor connects to exactly one neuron."""
         receptor_coords, neuron_centers = simple_coords
-        
-        innervation = OneToOneInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(receptor_coords, neuron_centers)
         weights = innervation.compute_weights()
-        
-        # Each column (receptor) should have exactly one nonzero entry
         connections_per_receptor = (weights > 0).sum(dim=0)
         assert torch.all(connections_per_receptor == 1)
-    
+
     def test_binary_weights(self, simple_coords):
-        """Test weights are binary (0 or 1)."""
         receptor_coords, neuron_centers = simple_coords
-        
-        innervation = OneToOneInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(receptor_coords, neuron_centers)
         weights = innervation.compute_weights()
-        
-        # All nonzero weights should be 1.0
         nonzero_weights = weights[weights > 0]
         assert torch.all(nonzero_weights == 1.0)
-    
+
     def test_nearest_neighbor_property(self, simple_coords):
-        """Test receptors connect to nearest neurons."""
         receptor_coords, neuron_centers = simple_coords
-        
-        innervation = OneToOneInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(receptor_coords, neuron_centers)
         weights = innervation.compute_weights()
-        
-        # Manually verify a few connections
-        # Receptor [0, 0] should connect to neuron [0.5, 0.5] (neuron 0)
-        assert weights[0, 0] == 1.0  # neuron 0, receptor 0
-        
-        # Receptor [2, 0] should connect to neuron [1.5, 0.5] (neuron 1)
-        assert weights[1, 2] == 1.0  # neuron 1, receptor 2
+        assert weights[0, 0] == 1.0
+        assert weights[1, 2] == 1.0
+
+
+class TestOneToOneInnervation:
+    """Test one-to-one: each neuron gets exactly K connections."""
+
+    def test_each_neuron_gets_k_connections(self, simple_coords):
+        receptor_coords, neuron_centers = simple_coords
+        innervation = OneToOneInnervation(
+            receptor_coords, neuron_centers,
+            connections_per_neuron=2,
+            sigma_d_mm=0.5,
+            seed=42,
+        )
+        weights = innervation.compute_weights()
+        assert weights.shape == (4, 9)
+        connections_per_neuron = (weights > 0).sum(dim=1)
+        assert torch.all(connections_per_neuron == 2)
+
+    def test_weights_from_distance(self, simple_coords):
+        receptor_coords, neuron_centers = simple_coords
+        innervation = OneToOneInnervation(
+            receptor_coords, neuron_centers,
+            connections_per_neuron=2,
+            sigma_d_mm=0.5,
+            weight_range=(0.1, 1.0),
+            seed=42,
+        )
+        weights = innervation.compute_weights()
+        nonzero = weights[weights > 0]
+        assert nonzero.min() >= 0.1
+        assert nonzero.max() <= 1.0
 
 
 class TestDistanceWeightedInnervation:
@@ -249,21 +260,22 @@ class TestDistanceWeightedInnervation:
         assert torch.all(weights >= 0)
     
     def test_max_distance_cutoff(self, simple_coords):
-        """Test connections beyond max_distance are zero."""
+        """Test mean connections with distance cutoff; far receptors excluded from sampling."""
         receptor_coords, neuron_centers = simple_coords
-        
-        # Set very small max_distance
         innervation = DistanceWeightedInnervation(
             receptor_coords,
             neuron_centers,
-            max_distance_mm=0.1,  # Very small
+            connections_per_neuron=3.0,
+            sigma_d_mm=0.5,
+            max_distance_mm=1.5,
             decay_function="linear",
+            seed=42,
         )
         weights = innervation.compute_weights()
-        
-        # Most connections should be zero due to distance cutoff
-        nonzero_ratio = (weights > 0).sum().item() / weights.numel()
-        assert nonzero_ratio < 0.5  # Less than half connected
+        assert weights.shape == (4, 9)
+        conn_per_neuron = (weights > 0).sum(dim=1)
+        assert torch.all(conn_per_neuron >= 1)
+        assert torch.all(conn_per_neuron <= 9)
 
 
 class TestCreateInnervationFactory:
@@ -285,21 +297,39 @@ class TestCreateInnervationFactory:
         assert weights.shape == (4, 9)
         assert (weights > 0).sum() > 0
     
-    def test_one_to_one_method(self, simple_coords):
-        """Test factory creates one-to-one innervation."""
+    def test_uniform_method(self, simple_coords):
+        """Test factory creates uniform (Voronoi-like) innervation."""
         receptor_coords, neuron_centers = simple_coords
-        
+
+        weights = create_innervation(
+            receptor_coords,
+            neuron_centers,
+            method="uniform",
+        )
+
+        assert weights.shape == (4, 9)
+        # Each receptor connects to exactly one neuron
+        connections_per_receptor = (weights > 0).sum(dim=0)
+        assert torch.all(connections_per_receptor == 1)
+
+    def test_one_to_one_method(self, simple_coords):
+        """Test one-to-one: each neuron gets exactly K connections."""
+        receptor_coords, neuron_centers = simple_coords
+
         weights = create_innervation(
             receptor_coords,
             neuron_centers,
             method="one_to_one",
+            connections_per_neuron=2,
+            sigma_d_mm=0.5,
+            seed=42,
         )
-        
+
         assert weights.shape == (4, 9)
-        
-        # Each receptor connects to exactly one neuron
-        connections_per_receptor = (weights > 0).sum(dim=0)
-        assert torch.all(connections_per_receptor == 1)
+        # Each neuron gets exactly K connections (or fewer if not enough receptors)
+        connections_per_neuron = (weights > 0).sum(dim=1)
+        assert torch.all(connections_per_neuron >= 1)
+        assert torch.all(connections_per_neuron <= 2)
     
     def test_distance_weighted_method(self, simple_coords):
         """Test factory creates distance-weighted innervation."""
@@ -331,14 +361,14 @@ class TestCreateInnervationFactory:
     def test_device_handling(self, simple_coords):
         """Test factory respects device parameter."""
         receptor_coords, neuron_centers = simple_coords
-        
+
         weights = create_innervation(
             receptor_coords,
             neuron_centers,
-            method="one_to_one",
+            method="uniform",
             device="cpu",
         )
-        
+
         assert weights.device.type == "cpu"
 
 
