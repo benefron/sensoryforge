@@ -92,7 +92,7 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
                 border: 1px solid #a0a0a0;
                 border-top: none;
                 border-radius: 0 0 3px 3px;
-                background: palette(base);
+                background: palette(window);
                 padding: 2px;
             }
         """)
