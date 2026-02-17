@@ -62,37 +62,37 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         main_layout.setContentsMargins(0, 0, 0, 8)
         main_layout.setSpacing(0)
 
-        # Toggle button with clear visual style
+        # Toggle button with clear visual style matching Qt theme
         self._toggle_btn = QtWidgets.QPushButton()
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setStyleSheet("""
             QPushButton {
                 text-align: left;
                 padding: 6px 10px;
-                border: 1px solid #606060;
-                border-radius: 4px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a4a4a, stop:1 #3a3a3a);
+                border: 1px solid #a0a0a0;
+                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8e8e8, stop:1 #d0d0d0);
                 font-weight: bold;
-                color: #e0e0e0;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #555555, stop:1 #454545);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f0f0, stop:1 #d8d8d8);
+                border: 1px solid #8a8a8a;
             }
             QPushButton:pressed {
-                background: #353535;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c8c8c8, stop:1 #b8b8b8);
             }
         """)
         self._toggle_btn.clicked.connect(self._on_toggle)
         main_layout.addWidget(self._toggle_btn)
 
-        # Content widget with border
+        # Content widget with subtle border
         self._content = QtWidgets.QWidget()
         self._content.setStyleSheet("""
             QWidget {
-                border: 1px solid #606060;
+                border: 1px solid #a0a0a0;
                 border-top: none;
-                border-radius: 0 0 4px 4px;
-                background: #2d2d2d;
+                border-radius: 0 0 3px 3px;
+                background: palette(base);
                 padding: 2px;
             }
         """)
