@@ -174,6 +174,7 @@ class NeuronPopulation:
     highlight_shadow_item: Optional[pg.ScatterPlotItem] = None
     highlight_connection_items: List = field(default_factory=list)
     highlight_receptor_item: Optional[pg.ScatterPlotItem] = None
+    highlight_receptor_shadow_item: Optional[pg.ScatterPlotItem] = None
     visible: bool = True
 
     def instantiate(self, grid_manager: GridManager) -> None:
@@ -305,6 +306,8 @@ class NeuronPopulation:
             plot.removeItem(item)
         if self.highlight_receptor_item is not None:
             plot.removeItem(self.highlight_receptor_item)
+        if self.highlight_receptor_shadow_item is not None:
+            plot.removeItem(self.highlight_receptor_shadow_item)
         self.scatter_item = None
         self.connection_items.clear()
         self.heatmap_item = None
@@ -313,6 +316,7 @@ class NeuronPopulation:
         self.highlight_shadow_item = None
         self.highlight_connection_items.clear()
         self.highlight_receptor_item = None
+        self.highlight_receptor_shadow_item = None
 
 
 class MechanoreceptorTab(QtWidgets.QWidget):
@@ -1133,7 +1137,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             pass
 
     def _on_plot_clicked(self, event) -> None:
-        """Handle plot click: select nearest neuron and highlight it with its connections."""
+        """Handle plot click: select nearest neuron and highlight it with its connections.
+        Click same neuron again to unselect."""
         if self._selected_population is None or self._selected_population.neuron_centers is None:
             return
         if event.button() != QtCore.Qt.LeftButton:
@@ -1145,7 +1150,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         centers = self._selected_population.neuron_centers.detach().cpu().numpy()
         dists = (centers[:, 0] - x_click) ** 2 + (centers[:, 1] - y_click) ** 2
         nearest = int(np.argmin(dists))
-        self._selected_neuron_idx = nearest
+        if self._selected_neuron_idx == nearest:
+            self._selected_neuron_idx = None
+        else:
+            self._selected_neuron_idx = nearest
         self._update_neuron_highlight()
 
     def _update_neuron_highlight(self) -> None:
@@ -1165,7 +1173,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             if p.highlight_receptor_item is not None:
                 self.plot.removeItem(p.highlight_receptor_item)
                 p.highlight_receptor_item = None
+            if p.highlight_receptor_shadow_item is not None:
+                self.plot.removeItem(p.highlight_receptor_shadow_item)
+                p.highlight_receptor_shadow_item = None
         if pop is None or idx is None or pop.neuron_centers is None:
+            self._update_heatmap_for_selection()
+            for p in self.populations:
+                self._apply_population_visibility(p)
             return
         centers = pop.neuron_centers.detach().cpu().numpy()
         weights = pop.innervation_weights
@@ -1193,9 +1207,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         else:
             norm_w = (w_vals - w_min) / (w_max - w_min)
 
+        self._update_heatmap_for_selection()
+
         # Connection lines with weight-proportional thickness (thicker = stronger)
         num_bins = 6
-        width_min, width_max = 1.5, 4.0
+        width_min, width_max = 2.0, 5.0
         bins = np.linspace(0.0, 1.0, num_bins + 1)
         for bin_idx in range(num_bins):
             lower, upper = bins[bin_idx], bins[bin_idx + 1]
@@ -1221,8 +1237,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Shadow layer behind neuron (larger, darker - makes it pop)
         shadow_item = pg.ScatterPlotItem(
             [cx], [cy],
-            size=18,
-            brush=pg.mkBrush(40, 40, 40, 120),
+            size=26,
+            brush=pg.mkBrush(30, 30, 30, 140),
             pen=pg.mkPen(QtCore.Qt.NoPen),
         )
         shadow_item.setPxMode(True)
@@ -1233,14 +1249,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Highlighted neuron (larger, bold outline)
         neuron_item = pg.ScatterPlotItem(
             [cx], [cy],
-            size=14,
+            size=18,
             brush=pg.mkBrush(pop.color),
-            pen=pg.mkPen(QtCore.Qt.black, width=3),
+            pen=pg.mkPen(QtCore.Qt.black, width=4),
         )
         neuron_item.setPxMode(True)
         neuron_item.setZValue(11)
         self.plot.addItem(neuron_item)
         pop.highlight_neuron_item = neuron_item
+
+        # Receptor shadows (behind receptors - makes them pop)
+        receptor_shadow = pg.ScatterPlotItem(
+            x=rx, y=ry,
+            size=14,
+            brush=pg.mkBrush(40, 40, 40, 130),
+            pen=pg.mkPen(QtCore.Qt.NoPen),
+        )
+        receptor_shadow.setPxMode(True)
+        receptor_shadow.setZValue(11)
+        self.plot.addItem(receptor_shadow)
+        pop.highlight_receptor_shadow_item = receptor_shadow
 
         # Highlighted receptors with weight-based color (stronger = darker/saturated)
         receptor_colors = [
@@ -1249,14 +1277,16 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         ]
         receptor_item = pg.ScatterPlotItem(
             x=rx, y=ry,
-            size=8,
+            size=11,
             brush=receptor_colors,
-            pen=pg.mkPen(QtCore.Qt.darkGray, width=1.5),
+            pen=pg.mkPen(QtCore.Qt.darkGray, width=2),
         )
         receptor_item.setPxMode(True)
         receptor_item.setZValue(12)
         self.plot.addItem(receptor_item)
         pop.highlight_receptor_item = receptor_item
+
+        self._apply_population_visibility(pop)
 
     def _on_innervation_method_changed(self, method: str) -> None:
         is_distance = method == "distance_weighted"
@@ -1496,20 +1526,24 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.population_legend_label.setToolTip(
             "Weight shading: lighter = weaker, darker = stronger. "
             "Connection line thickness also encodes strength (thicker = stronger). "
-            "Click on the plot to highlight a neuron and its connections."
+            "Click a neuron to highlight it and its connections; click again to unselect."
         )
 
     def _apply_population_visibility(self, population: NeuronPopulation) -> None:
         show_centers = population.visible and self.chk_show_neuron_centers.isChecked()
         show_innervation = population.visible and self.chk_show_innervation.isChecked()
+        is_highlighted = (
+            population is self._selected_population
+            and self._selected_neuron_idx is not None
+        )
         if population.scatter_item is not None:
             population.scatter_item.setVisible(show_centers)
         for conn_item, _, _ in population.connection_items:
-            conn_item.setVisible(show_innervation)
+            conn_item.setVisible(show_innervation and not is_highlighted)
         if population.heatmap_item is not None:
             population.heatmap_item.setVisible(show_innervation)
         if population.receptor_item is not None:
-            population.receptor_item.setVisible(show_innervation)
+            population.receptor_item.setVisible(show_innervation and not is_highlighted)
 
     def _set_population_visibility(
         self,
@@ -1581,6 +1615,36 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         alpha = int(160.0 + fraction * 90.0)
         graded.setAlpha(max(150, min(255, alpha)))
         return graded
+
+    def _update_heatmap_for_selection(self) -> None:
+        """Update heatmap to show single-neuron innervation when selected, else cumulative."""
+        pop = self._selected_population
+        idx = self._selected_neuron_idx
+        if pop is None or pop.heatmap_item is None or pop.module is None:
+            return
+        weights = pop.module.innervation_weights.detach().cpu().numpy()
+        if idx is not None:
+            weight_map = weights[idx].astype(np.float32)
+        else:
+            weight_map = weights.sum(axis=0).astype(np.float32)
+        nonzero_mask = weight_map > 0.0
+        if not np.any(nonzero_mask):
+            pop.heatmap_item.setImage(np.zeros_like(weight_map))
+            return
+        max_weight = float(weight_map[nonzero_mask].max())
+        normalized = np.zeros_like(weight_map, dtype=np.float32)
+        normalized[nonzero_mask] = weight_map[nonzero_mask] / max_weight
+        pop.heatmap_item.setImage(normalized)
+        nonzero_values = normalized[nonzero_mask]
+        lower = float(np.quantile(nonzero_values, 0.05))
+        upper = float(np.quantile(nonzero_values, 0.95))
+        if np.isclose(upper, lower):
+            lower = max(0.0, lower - 0.05)
+            upper = min(1.0, upper + 0.15)
+        pop.heatmap_item.setLevels(
+            (max(0.0, lower * 0.8), min(1.0, upper * 1.05))
+        )
+        pop.heatmap_item.setOpacity(0.75 if idx is not None else 0.55)
 
     def _population_heatmap_lookup(
         self, base_color: QtGui.QColor, steps: int = 256
