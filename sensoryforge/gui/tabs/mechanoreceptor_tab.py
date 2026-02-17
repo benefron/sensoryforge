@@ -51,36 +51,50 @@ def _default_population_name(neuron_type: str, index: int) -> str:
 
 
 class CollapsibleGroupBox(QtWidgets.QWidget):
-    """Collapsible section with highlighted toggle button, normal content styling."""
+    """Collapsible section with toggle button, normal content styling."""
 
-    def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None, start_expanded: bool = False):
+    def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None, start_expanded: bool = False, nested: bool = False):
         super().__init__(parent)
         self._title = title
         self._is_expanded = start_expanded
+        self._nested = nested
 
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 4)
         main_layout.setSpacing(2)
 
-        # Highlighted toggle button with arrow
+        # Toggle button - subtle for main sections, minimal for nested
         self._toggle_btn = QtWidgets.QPushButton()
-        self._toggle_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 5px 8px;
-                border: 1px solid #a0a0a0;
-                border-radius: 3px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8e8e8, stop:1 #d0d0d0);
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f0f0, stop:1 #d8d8d8);
-                border: 1px solid #8a8a8a;
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c8c8c8, stop:1 #b8b8b8);
-            }
-        """)
+        if nested:
+            # Nested: minimal style, just slightly highlighted
+            self._toggle_btn.setStyleSheet("""
+                QPushButton {
+                    text-align: left;
+                    padding: 3px 6px;
+                    border: 1px solid #b0b0b0;
+                    border-radius: 2px;
+                    background: #e0e0e0;
+                }
+                QPushButton:hover {
+                    background: #d8d8d8;
+                    border: 1px solid #909090;
+                }
+            """)
+        else:
+            # Main sections: subtle gradient
+            self._toggle_btn.setStyleSheet("""
+                QPushButton {
+                    text-align: left;
+                    padding: 5px 8px;
+                    border: 1px solid #a0a0a0;
+                    border-radius: 3px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e0e0e0, stop:1 #d4d4d4);
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8e8e8, stop:1 #dcdcdc);
+                    border: 1px solid #909090;
+                }
+            """)
         self._toggle_btn.clicked.connect(self._on_toggle)
         main_layout.addWidget(self._toggle_btn)
 
@@ -236,8 +250,11 @@ class NeuronPopulation:
         self.module = InnervationModule(**kwargs)
         self.flat_module = None
         if self.innervation_method != "gaussian":
-            xx, yy = grid_manager.get_coordinates()
-            receptor_coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
+            if hasattr(grid_manager, "xx") and grid_manager.xx is not None:
+                xx, yy = grid_manager.get_coordinates()
+                receptor_coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
+            else:
+                receptor_coords = grid_manager.get_receptor_coordinates()
             neuron_centers = self.module.neuron_centers
 
             if self.innervation_method == "one_to_one":
@@ -485,7 +502,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         seed_row.addWidget(self.spin_global_seed)
         control_layout.addLayout(seed_row)
 
-        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)", start_expanded=False)
+        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)", start_expanded=False, nested=True)
         adv_seeds_layout = adv_seeds_group.layout()
         self.spin_grid_seed = QtWidgets.QSpinBox()
         self.spin_grid_seed.setRange(-1, 1000000)
@@ -521,7 +538,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.addWidget(grid_list_group)
 
         # Grid Settings — collapsible
-        grid_settings_group = CollapsibleGroupBox("Grid Settings", start_expanded=False)
+        grid_settings_group = CollapsibleGroupBox("Grid Settings", start_expanded=True)
         grid_layout = grid_settings_group.layout()
 
         # Per-grid editor panel
@@ -554,7 +571,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_spacing.valueChanged.connect(self._on_grid_editor_changed)
         grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
 
-        pos_group = CollapsibleGroupBox("Position (center, offset)", start_expanded=False)
+        pos_group = CollapsibleGroupBox("Position (center, offset)", start_expanded=False, nested=True)
         pos_layout = pos_group.layout()
         self.dbl_center_x = QtWidgets.QDoubleSpinBox()
         self.dbl_center_x.setRange(-50.0, 50.0)
@@ -687,20 +704,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
 
-        weights_group = CollapsibleGroupBox("Weights", start_expanded=False)
+        weights_group = CollapsibleGroupBox("Weights", start_expanded=False, nested=True)
         weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
         weights_group.layout().addRow("Weight max:", self.dbl_weight_max)
         pop_layout.addRow(weights_group)
 
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
         pop_layout.addRow("Color:", self.btn_pick_color)
-        self._dist_params_group = CollapsibleGroupBox("Distance-weighted params", start_expanded=False)
+        self._dist_params_group = CollapsibleGroupBox("Distance-weighted params", start_expanded=False, nested=True)
         self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
         self._dist_params_group.addRow("Decay Function:", self.cmb_decay_function)
         self._dist_params_group.addRow("Decay Rate:", self.dbl_decay_rate)
         pop_layout.addRow(self._dist_params_group)
         self._dist_params_group.setVisible(False)
-        adv_group = CollapsibleGroupBox("Advanced", start_expanded=False)
+        adv_group = CollapsibleGroupBox("Advanced", start_expanded=False, nested=True)
         self.dbl_far_connection_fraction = QtWidgets.QDoubleSpinBox()
         self.dbl_far_connection_fraction.setDecimals(3)
         self.dbl_far_connection_fraction.setRange(0.0, 1.0)
@@ -745,7 +762,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.addWidget(pop_settings_group)
 
         # Layers visibility — collapsible
-        layers_group = CollapsibleGroupBox("Layers", start_expanded=True)
+        layers_group = CollapsibleGroupBox("Layers", start_expanded=False)
         self.chk_show_mechanoreceptors = QtWidgets.QCheckBox("Show mechanoreceptors")
         self.chk_show_mechanoreceptors.setChecked(True)
         self.chk_show_mechanoreceptors.stateChanged.connect(
@@ -883,10 +900,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     def _on_grid_selected(self, row: int) -> None:
         """Load the selected grid entry into the editor panel and highlight in plot."""
         if row < 0 or row >= len(self._grid_entries):
-            self._grid_editor.setVisible(False)
             self._highlight_grid_in_plot(None)
             return
-        self._grid_editor.setVisible(True)
         entry = self._grid_entries[row]
         self._block_grid_editor = True
         self.txt_grid_name.setText(entry.name)
