@@ -438,9 +438,19 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.setAlignment(QtCore.Qt.AlignTop)
         scroll_area.setWidget(control_panel)
 
-        # Grid Workspace — unified grid list (Phase 3 B.1-B.2)
-        grid_group = QtWidgets.QGroupBox("Grid Workspace")
-        grid_layout = QtWidgets.QVBoxLayout(grid_group)
+        # Global seed (top-level, used for both grid and neuron populations)
+        seed_row = QtWidgets.QHBoxLayout()
+        seed_row.addWidget(QtWidgets.QLabel("Seed (-1 = random):"))
+        self.spin_global_seed = QtWidgets.QSpinBox()
+        self.spin_global_seed.setRange(-1, 1000000)
+        self.spin_global_seed.setValue(42)
+        self.spin_global_seed.setToolTip("Global random seed for grid and neuron arrangements.")
+        seed_row.addWidget(self.spin_global_seed)
+        control_layout.addLayout(seed_row)
+
+        # Grid Workspace — collapsible (Phase 3 B.1-B.2)
+        grid_group = CollapsibleGroupBox("Grid Workspace")
+        grid_layout = QtWidgets.QVBoxLayout()
         grid_layout.setContentsMargins(8, 8, 8, 12)
 
         # Grid list (with checkboxes for visibility, linked to visualization)
@@ -493,33 +503,33 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_spacing.valueChanged.connect(self._on_grid_editor_changed)
         ge_layout.addRow("Spacing (mm):", self.dbl_spacing)
 
+        pos_group = CollapsibleGroupBox("Position (center, offset)")
+        pos_layout = pos_group.layout()
         self.dbl_center_x = QtWidgets.QDoubleSpinBox()
         self.dbl_center_x.setRange(-50.0, 50.0)
         self.dbl_center_x.setDecimals(3)
         self.dbl_center_x.setValue(0.0)
         self.dbl_center_x.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Center X (mm):", self.dbl_center_x)
-
+        pos_layout.addRow("Center X (mm):", self.dbl_center_x)
         self.dbl_center_y = QtWidgets.QDoubleSpinBox()
         self.dbl_center_y.setRange(-50.0, 50.0)
         self.dbl_center_y.setDecimals(3)
         self.dbl_center_y.setValue(0.0)
         self.dbl_center_y.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Center Y (mm):", self.dbl_center_y)
-
+        pos_layout.addRow("Center Y (mm):", self.dbl_center_y)
         self.dbl_offset_x = QtWidgets.QDoubleSpinBox()
         self.dbl_offset_x.setRange(-10.0, 10.0)
         self.dbl_offset_x.setDecimals(3)
         self.dbl_offset_x.setValue(0.0)
         self.dbl_offset_x.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Offset X (mm):", self.dbl_offset_x)
-
+        pos_layout.addRow("Offset X (mm):", self.dbl_offset_x)
         self.dbl_offset_y = QtWidgets.QDoubleSpinBox()
         self.dbl_offset_y.setRange(-10.0, 10.0)
         self.dbl_offset_y.setDecimals(3)
         self.dbl_offset_y.setValue(0.0)
         self.dbl_offset_y.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Offset Y (mm):", self.dbl_offset_y)
+        pos_layout.addRow("Offset Y (mm):", self.dbl_offset_y)
+        ge_layout.addRow(pos_group)
 
         self.btn_grid_color = QtWidgets.QPushButton("Pick Color")
         self.btn_grid_color.clicked.connect(self._on_pick_grid_color)
@@ -532,15 +542,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_generate_grid = QtWidgets.QPushButton("Generate Grid(s)")
         self.btn_generate_grid.clicked.connect(self._on_generate_grid)
         grid_layout.addWidget(self.btn_generate_grid)
+        grid_group.addRow(grid_layout)
         control_layout.addWidget(grid_group)
 
-        # Population controls
-        pop_group = QtWidgets.QGroupBox("Neuron Populations")
-        pop_layout = QtWidgets.QFormLayout(pop_group)
+        # Population controls (collapsible)
+        pop_group = CollapsibleGroupBox("Neuron Populations")
+        pop_layout = pop_group.layout()
         self._pop_layout = pop_layout
         self.txt_population_name = QtWidgets.QLineEdit()
-        self.cmb_population_type = QtWidgets.QComboBox()
-        self.cmb_population_type.addItems(["SA", "RA", "Custom"])
         self.spin_neurons_per_row = QtWidgets.QSpinBox()
         self.spin_neurons_per_row.setRange(1, 128)
         self.spin_neurons_per_row.setValue(10)
@@ -585,17 +594,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_edge_offset.setRange(0.0, 20.0)
         self.dbl_edge_offset.setValue(0.15)
         self.dbl_edge_offset.setSingleStep(0.01)
-        self.spin_seed = QtWidgets.QSpinBox()
-        self.spin_seed.setRange(-1, 1000000)
-        self.spin_seed.setValue(42)
         self.btn_pick_color = QtWidgets.QPushButton()
         self.btn_pick_color.clicked.connect(self._on_pick_color)
         self.btn_pick_color.setText("Pick Color")
         self._population_color = QtGui.QColor(66, 135, 245)
         self._update_color_button()
-        self.cmb_population_type.currentTextChanged.connect(
-            self._on_population_type_changed
-        )
         self.cmb_innervation_method.currentTextChanged.connect(
             self._on_innervation_method_changed
         )
@@ -606,16 +609,18 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         )
         self.cmb_target_grid.setEnabled(True)
         pop_layout.addRow("Name:", self.txt_population_name)
-        pop_layout.addRow("Type:", self.cmb_population_type)
         pop_layout.addRow("Target Grid:", self.cmb_target_grid)
         pop_layout.addRow("Neurons/row:", self.spin_neurons_per_row)
         pop_layout.addRow("Connections:", self.dbl_connections)
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
-        pop_layout.addRow("Weight min:", self.dbl_weight_min)
-        pop_layout.addRow("Weight max:", self.dbl_weight_max)
+
+        weights_group = CollapsibleGroupBox("Weights")
+        weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
+        weights_group.layout().addRow("Weight max:", self.dbl_weight_max)
+        pop_layout.addRow(weights_group)
+
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
-        pop_layout.addRow("Seed (-1 for random):", self.spin_seed)
         pop_layout.addRow("Color:", self.btn_pick_color)
         self._dist_params_group = CollapsibleGroupBox("Distance-weighted params")
         self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
@@ -945,6 +950,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
     def _generate_single_grid(self, entry: GridEntry) -> None:
         """Generate a single GridManager from one grid entry."""
+        seed_val = self.spin_global_seed.value()
+        if seed_val >= 0:
+            torch.manual_seed(seed_val)
         arrangement = entry.arrangement
         center = (entry.center_x + entry.offset_x,
                   entry.center_y + entry.offset_y)
@@ -978,6 +986,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
     def _generate_multi_grid(self, entries: List[GridEntry]) -> None:
         """Generate a CompositeReceptorGrid from multiple entries."""
+        seed_val = self.spin_global_seed.value()
+        if seed_val >= 0:
+            torch.manual_seed(seed_val)
         # Compute bounds from all grids
         all_xmin, all_xmax = float("inf"), float("-inf")
         all_ymin, all_ymax = float("inf"), float("-inf")
@@ -1388,15 +1399,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             )
             return
         name = self.txt_population_name.text().strip()
-        neuron_type = self.cmb_population_type.currentText()
-        if neuron_type == "Custom":
-            neuron_type = "SA"
+        neuron_type = "SA"  # Filter determines type; SA/RA used for defaults
         if not name:
             name = _default_population_name(
                 neuron_type,
                 self._population_counter,
             )
-        seed_value = self.spin_seed.value()
+        seed_value = self.spin_global_seed.value()
         seed = None if seed_value < 0 else seed_value
 
         # Determine target grid for composite mode
@@ -2162,6 +2171,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             "schema_version": CONFIG_SCHEMA_VERSION,
             "kind": "mechanoreceptor_bundle",
             "created_at": datetime.utcnow().isoformat() + "Z",
+            "seed": self.spin_global_seed.value(),
             "grid": grid_entry,
             "populations": [],
         }
@@ -2336,6 +2346,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             return
 
         grid_type = grid_entry.get("type", "standard")
+
+        if "seed" in manifest:
+            self.spin_global_seed.setValue(int(manifest["seed"]))
 
         self._clear_populations()
 
