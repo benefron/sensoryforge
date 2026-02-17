@@ -51,8 +51,7 @@ def _default_population_name(neuron_type: str, index: int) -> str:
 
 
 class CollapsibleGroupBox(QtWidgets.QWidget):
-    """Collapsible section with QToolButton arrow toggle (clean when collapsed)
-    and bordered highlighted content when expanded."""
+    """Collapsible section with highlighted toggle button, normal content styling."""
 
     def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None, start_expanded: bool = False):
         super().__init__(parent)
@@ -60,57 +59,57 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         self._is_expanded = start_expanded
 
         main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 8)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 4)
+        main_layout.setSpacing(2)
 
-        # QToolButton with arrow - clean look when collapsed (like spiking tab)
-        self._toggle_btn = QtWidgets.QToolButton()
-        self._toggle_btn.setStyleSheet("QToolButton { border: none; text-align: left; }")
-        self._toggle_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-        self._toggle_btn.setArrowType(
-            QtCore.Qt.RightArrow if not self._is_expanded else QtCore.Qt.DownArrow
-        )
-        self._toggle_btn.setText(self._title)
-        self._toggle_btn.setCheckable(True)
-        self._toggle_btn.setChecked(self._is_expanded)
-        self._toggle_btn.toggled.connect(self._on_toggled)
-        main_layout.addWidget(self._toggle_btn)
-
-        # Content widget - bordered and highlighted when expanded
-        self._content = QtWidgets.QWidget()
-        self._content.setStyleSheet("""
-            QWidget {
+        # Highlighted toggle button with arrow
+        self._toggle_btn = QtWidgets.QPushButton()
+        self._toggle_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 5px 8px;
                 border: 1px solid #a0a0a0;
                 border-radius: 3px;
-                background: palette(window);
-                padding: 2px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8e8e8, stop:1 #d0d0d0);
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f0f0, stop:1 #d8d8d8);
+                border: 1px solid #8a8a8a;
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c8c8c8, stop:1 #b8b8b8);
             }
         """)
+        self._toggle_btn.clicked.connect(self._on_toggle)
+        main_layout.addWidget(self._toggle_btn)
+
+        # Content widget - NO special styling, inherits normal UI look
+        self._content = QtWidgets.QWidget()
         self._content_layout = QtWidgets.QFormLayout(self._content)
-        self._content_layout.setContentsMargins(12, 10, 12, 12)
-        self._content_layout.setSpacing(8)
+        self._content_layout.setContentsMargins(8, 6, 8, 6)
+        self._content_layout.setSpacing(6)
         main_layout.addWidget(self._content)
 
+        self._update_button_text()
         self._content.setVisible(self._is_expanded)
 
-    def _on_toggled(self, checked: bool) -> None:
+    def _update_button_text(self):
+        """Update button text with collapse indicator."""
+        arrow = "▼" if self._is_expanded else "▶"
+        self._toggle_btn.setText(f"{arrow}  {self._title}")
+
+    def _on_toggle(self):
         """Toggle collapsed state."""
-        self._is_expanded = checked
-        self._content.setVisible(checked)
-        self._toggle_btn.setArrowType(
-            QtCore.Qt.DownArrow if checked else QtCore.Qt.RightArrow
-        )
+        self._is_expanded = not self._is_expanded
+        self._content.setVisible(self._is_expanded)
+        self._update_button_text()
 
     def setChecked(self, checked: bool) -> None:
         """Compatibility method for existing code."""
-        self._toggle_btn.blockSignals(True)
         self._is_expanded = checked
-        self._toggle_btn.setChecked(checked)
-        self._toggle_btn.setArrowType(
-            QtCore.Qt.DownArrow if checked else QtCore.Qt.RightArrow
-        )
-        self._content.setVisible(checked)
-        self._toggle_btn.blockSignals(False)
+        self._content.setVisible(self._is_expanded)
+        self._update_button_text()
 
     def layout(self) -> QtWidgets.QFormLayout:
         """Return the form layout for adding widgets."""
