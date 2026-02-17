@@ -7,7 +7,7 @@ from typing import Tuple, Literal, Optional
 import torch
 
 # Type alias for arrangement types
-ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid"]
+ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
 
 
 def create_grid_torch(
@@ -118,7 +118,7 @@ class ReceptorGrid:
         self.device = torch.device(device) if isinstance(device, str) else device
 
         # For non-grid arrangements, we need density or defer to explicit sizing
-        if arrangement in ["grid", "jittered_grid"]:
+        if arrangement in ["grid", "jittered_grid", "blue_noise"]:
             # Create coordinate grids using traditional method
             self.xx, self.yy, self.x, self.y = create_grid_torch(
                 grid_size, spacing, center, self.device
@@ -144,6 +144,28 @@ class ReceptorGrid:
                 jittered[:, 1] = torch.clamp(jittered[:, 1], self.ylim[0], self.ylim[1])
                 
                 self.coordinates = jittered
+            elif arrangement == "blue_noise":
+                # Blue noise: jittered grid + Lloyd-like relaxation
+                base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
+                jitter_magnitude = 0.4 * self.spacing
+                jitter = (torch.rand_like(base_coords) - 0.5) * 2 * jitter_magnitude
+                points = base_coords + jitter
+                
+                # Lloyd-like relaxation: 3 iterations
+                for _ in range(3):
+                    dists = torch.cdist(points, points)
+                    k = min(6, points.shape[0] - 1)
+                    _, nearest_idx = torch.topk(dists, k + 1, largest=False, dim=1)
+                    for i in range(points.shape[0]):
+                        neighbors = points[nearest_idx[i, 1:]]
+                        centroid = neighbors.mean(dim=0)
+                        points[i] = 0.7 * points[i] + 0.3 * centroid
+                
+                # Clamp to bounds
+                points[:, 0] = torch.clamp(points[:, 0], self.xlim[0], self.xlim[1])
+                points[:, 1] = torch.clamp(points[:, 1], self.ylim[0], self.ylim[1])
+                
+                self.coordinates = points
             else:
                 # Regular grid - store flattened coordinates for consistency
                 self.coordinates = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)

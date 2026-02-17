@@ -469,7 +469,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         ge_layout.addRow("Name:", self.txt_grid_name)
 
         self.cmb_grid_arrangement = QtWidgets.QComboBox()
-        self.cmb_grid_arrangement.addItems(["grid", "poisson", "hex", "jittered_grid"])
+        self.cmb_grid_arrangement.addItems(["grid", "poisson", "hex", "jittered_grid", "blue_noise"])
         self.cmb_grid_arrangement.currentTextChanged.connect(self._on_grid_arrangement_changed)
         ge_layout.addRow("Arrangement:", self.cmb_grid_arrangement)
 

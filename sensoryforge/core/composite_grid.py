@@ -15,7 +15,7 @@ import torch
 
 
 # Type alias for arrangement types
-ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid"]
+ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
 
 
 class CompositeReceptorGrid:
@@ -366,6 +366,8 @@ class CompositeReceptorGrid:
             return self._generate_hex(density)
         elif arrangement == "jittered_grid":
             return self._generate_jittered_grid(expected_count)
+        elif arrangement == "blue_noise":
+            return self._generate_blue_noise(expected_count)
         else:
             raise ValueError(f"Unknown arrangement type: {arrangement}")
     
@@ -534,6 +536,53 @@ class CompositeReceptorGrid:
         )
         
         return jittered
+    
+    def _generate_blue_noise(self, expected_count: int) -> torch.Tensor:
+        """Generate blue noise distribution via jittered grid + Lloyd relaxation.
+        
+        Creates optimal space-filling distribution by starting with jittered grid
+        and applying iterative Lloyd-like relaxation to improve uniformity.
+        
+        Args:
+            expected_count: Approximate target number of points.
+        
+        Returns:
+            Tensor of blue noise distributed coordinates.
+        """
+        # Start with regular grid
+        base_grid = self._generate_grid(expected_count)
+        
+        n_points = base_grid.shape[0]
+        if n_points <= 1:
+            return base_grid
+        
+        # Calculate spacing for initial jitter
+        area = self._compute_area()
+        approximate_spacing = (area / n_points) ** 0.5
+        
+        # Apply larger initial jitter (40% vs 25%)
+        jitter_magnitude = 0.4 * approximate_spacing
+        jitter = (torch.rand_like(base_grid) - 0.5) * 2 * jitter_magnitude
+        points = base_grid + jitter
+        
+        # Lloyd-like relaxation: 3 iterations
+        for _ in range(3):
+            # Compute pairwise distances
+            dists = torch.cdist(points, points)
+            # For each point, find k nearest neighbors
+            k = min(6, points.shape[0] - 1)
+            _, nearest_idx = torch.topk(dists, k + 1, largest=False, dim=1)
+            # Move toward centroid of neighbors
+            for i in range(points.shape[0]):
+                neighbors = points[nearest_idx[i, 1:]]
+                centroid = neighbors.mean(dim=0)
+                points[i] = 0.7 * points[i] + 0.3 * centroid
+        
+        # Clamp to bounds
+        points[:, 0] = torch.clamp(points[:, 0], self.xlim[0], self.xlim[1])
+        points[:, 1] = torch.clamp(points[:, 1], self.ylim[0], self.ylim[1])
+        
+        return points
     
     # ========================================================================
     # Backward Compatibility Methods
