@@ -448,6 +448,22 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         seed_row.addWidget(self.spin_global_seed)
         control_layout.addLayout(seed_row)
 
+        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)")
+        adv_seeds_layout = adv_seeds_group.layout()
+        self.spin_grid_seed = QtWidgets.QSpinBox()
+        self.spin_grid_seed.setRange(-1, 1000000)
+        self.spin_grid_seed.setValue(42)
+        self.spin_grid_seed.setSpecialValueText("use global")
+        self.spin_grid_seed.setToolTip("Override global seed for grid. -1 = use global.")
+        adv_seeds_layout.addRow("Grid seed:", self.spin_grid_seed)
+        self.spin_population_seed = QtWidgets.QSpinBox()
+        self.spin_population_seed.setRange(-1, 1000000)
+        self.spin_population_seed.setValue(42)
+        self.spin_population_seed.setSpecialValueText("use global")
+        self.spin_population_seed.setToolTip("Override global seed for neuron arrangements. -1 = use global.")
+        adv_seeds_layout.addRow("Population seed:", self.spin_population_seed)
+        control_layout.addWidget(adv_seeds_group)
+
         # Grid Workspace — collapsible (Phase 3 B.1-B.2)
         grid_group = CollapsibleGroupBox("Grid Workspace")
         grid_layout = QtWidgets.QVBoxLayout()
@@ -948,10 +964,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         else:
             self._generate_multi_grid(entries)
 
+    def _get_grid_seed(self) -> Optional[int]:
+        """Seed for grid generation; -1 means use global."""
+        val = self.spin_grid_seed.value()
+        if val >= 0:
+            return val
+        g = self.spin_global_seed.value()
+        return None if g < 0 else g
+
+    def _get_population_seed(self) -> Optional[int]:
+        """Seed for neuron arrangement; -1 means use global."""
+        val = self.spin_population_seed.value()
+        if val >= 0:
+            return val
+        g = self.spin_global_seed.value()
+        return None if g < 0 else g
+
     def _generate_single_grid(self, entry: GridEntry) -> None:
         """Generate a single GridManager from one grid entry."""
-        seed_val = self.spin_global_seed.value()
-        if seed_val >= 0:
+        seed_val = self._get_grid_seed()
+        if seed_val is not None:
             torch.manual_seed(seed_val)
         arrangement = entry.arrangement
         center = (entry.center_x + entry.offset_x,
@@ -986,8 +1018,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
     def _generate_multi_grid(self, entries: List[GridEntry]) -> None:
         """Generate a CompositeReceptorGrid from multiple entries."""
-        seed_val = self.spin_global_seed.value()
-        if seed_val >= 0:
+        seed_val = self._get_grid_seed()
+        if seed_val is not None:
             torch.manual_seed(seed_val)
         # Compute bounds from all grids
         all_xmin, all_xmax = float("inf"), float("-inf")
@@ -1405,8 +1437,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 neuron_type,
                 self._population_counter,
             )
-        seed_value = self.spin_global_seed.value()
-        seed = None if seed_value < 0 else seed_value
+        seed = self._get_population_seed()
 
         # Determine target grid for composite mode
         target_grid = None
