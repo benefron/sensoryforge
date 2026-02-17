@@ -584,47 +584,8 @@ def create_neuron_centers(
         mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
         return mesh
 
-    if arrangement in ("poisson", "hex", "blue_noise"):
-        # Jittered grid: regular lattice + small random offset for space-filling
-        # with slight variance (like receptor jittered_grid).
-        if seed is not None:
-            torch.manual_seed(seed)
-        x_centers = torch.linspace(x_min_eff, x_max_eff, n_cols, device=device)
-        y_centers = torch.linspace(y_min_eff, y_max_eff, n_rows, device=device)
-        yy_grid, xx_grid = torch.meshgrid(y_centers, x_centers, indexing="ij")
-        mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
-        spacing_x = (x_max_eff - x_min_eff) / max(n_cols - 1, 1)
-        spacing_y = (y_max_eff - y_min_eff) / max(n_rows - 1, 1)
-        
-        if arrangement == "blue_noise":
-            # Blue noise: better space-filling via iterative relaxation
-            # Start with jittered grid, then apply Lloyd-like relaxation
-            jitter_mag = 0.4 * min(spacing_x, spacing_y)
-            jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
-            points = mesh + jitter
-            # Simple relaxation: 3 iterations of moving toward Voronoi centroid
-            for _ in range(3):
-                # Compute pairwise distances
-                dists = torch.cdist(points, points)
-                # For each point, find k nearest neighbors
-                k = min(6, points.shape[0] - 1)
-                _, nearest_idx = torch.topk(dists, k + 1, largest=False, dim=1)
-                # Move slightly toward centroid of neighbors (excluding self)
-                for i in range(points.shape[0]):
-                    neighbors = points[nearest_idx[i, 1:]]
-                    centroid = neighbors.mean(dim=0)
-                    points[i] = 0.7 * points[i] + 0.3 * centroid
-            jittered = points
-        else:
-            # Standard jitter for poisson/hex
-            jitter_mag = 0.25 * min(spacing_x, spacing_y)
-            jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
-            jittered = mesh + jitter
-        
-        jittered[:, 0] = torch.clamp(jittered[:, 0], x_min_eff, x_max_eff)
-        jittered[:, 1] = torch.clamp(jittered[:, 1], y_min_eff, y_max_eff)
-        return jittered
-
+    # Use ReceptorGrid for poisson, hex, jittered_grid, blue_noise so neuron
+    # arrangements match receptor grid logic exactly
     from .grid import ReceptorGrid
     width = x_max_eff - x_min_eff
     height = y_max_eff - y_min_eff
@@ -839,8 +800,18 @@ class InnervationModule(nn.Module):
             )
 
         # Create coordinate tensor for grid points
-        xx, yy = grid_manager.get_coordinates()
-        grid_coords = torch.stack([xx, yy], dim=-1)  # (grid_h, grid_w, 2)
+        if hasattr(grid_manager, "xx") and grid_manager.xx is not None:
+            xx, yy = grid_manager.get_coordinates()
+            grid_coords = torch.stack([xx, yy], dim=-1)  # (grid_h, grid_w, 2)
+        else:
+            # Non-meshgrid arrangements: create regular grid from bounds for innervation
+            grid_props = grid_manager.get_grid_properties()
+            n_x, n_y = grid_manager.grid_size
+            xlim, ylim = grid_props["xlim"], grid_props["ylim"]
+            x = torch.linspace(xlim[0], xlim[1], n_x, device=self.device)
+            y = torch.linspace(ylim[0], ylim[1], n_y, device=self.device)
+            xx, yy = torch.meshgrid(x, y, indexing="ij")
+            grid_coords = torch.stack([xx, yy], dim=-1)  # (grid_h, grid_w, 2)
 
         # Create innervation map
         self.innervation_map = create_innervation_map_tensor(

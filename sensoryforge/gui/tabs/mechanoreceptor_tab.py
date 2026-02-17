@@ -51,35 +51,82 @@ def _default_population_name(neuron_type: str, index: int) -> str:
 
 
 class CollapsibleGroupBox(QtWidgets.QWidget):
-    """Group box that collapses/expands its content when the header is toggled."""
+    """Collapsible section with clear toggle button and bordered content area."""
 
-    def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None):
+    def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None, start_expanded: bool = False):
         super().__init__(parent)
-        self._base_title = title
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self._header = QtWidgets.QPushButton("▶ " + title)
-        self._header.setCheckable(True)
-        self._header.setChecked(False)
-        self._header.setStyleSheet(
-            "QPushButton { text-align: left; font-weight: bold; border: none; padding: 4px; }"
-            "QPushButton:hover { background-color: palette(midlight); }"
-        )
-        self._header.toggled.connect(self._on_toggled)
-        layout.addWidget(self._header)
-        self._content = QtWidgets.QWidget()
-        self._content_layout = QtWidgets.QFormLayout(self._content)
-        layout.addWidget(self._content)
-        self._content.setVisible(False)
+        self._title = title
+        self._is_expanded = start_expanded
 
-    def _on_toggled(self, checked: bool) -> None:
-        self._content.setVisible(checked)
-        self._header.setText(("▼ " if checked else "▶ ") + self._base_title)
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 8)
+        main_layout.setSpacing(0)
+
+        # Toggle button with clear visual style
+        self._toggle_btn = QtWidgets.QPushButton()
+        self._toggle_btn.setFlat(True)
+        self._toggle_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 6px 10px;
+                border: 1px solid #606060;
+                border-radius: 4px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a4a4a, stop:1 #3a3a3a);
+                font-weight: bold;
+                color: #e0e0e0;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #555555, stop:1 #454545);
+            }
+            QPushButton:pressed {
+                background: #353535;
+            }
+        """)
+        self._toggle_btn.clicked.connect(self._on_toggle)
+        main_layout.addWidget(self._toggle_btn)
+
+        # Content widget with border
+        self._content = QtWidgets.QWidget()
+        self._content.setStyleSheet("""
+            QWidget {
+                border: 1px solid #606060;
+                border-top: none;
+                border-radius: 0 0 4px 4px;
+                background: #2d2d2d;
+                padding: 2px;
+            }
+        """)
+        self._content_layout = QtWidgets.QFormLayout(self._content)
+        self._content_layout.setContentsMargins(12, 10, 12, 12)
+        self._content_layout.setSpacing(8)
+        main_layout.addWidget(self._content)
+
+        self._update_button_text()
+        self._content.setVisible(self._is_expanded)
+
+    def _update_button_text(self):
+        """Update button text with collapse indicator."""
+        arrow = "▼" if self._is_expanded else "▶"
+        self._toggle_btn.setText(f"{arrow}  {self._title}")
+
+    def _on_toggle(self):
+        """Toggle collapsed state."""
+        self._is_expanded = not self._is_expanded
+        self._content.setVisible(self._is_expanded)
+        self._update_button_text()
+
+    def setChecked(self, checked: bool) -> None:
+        """Compatibility method for existing code."""
+        self._is_expanded = checked
+        self._content.setVisible(self._is_expanded)
+        self._update_button_text()
 
     def layout(self) -> QtWidgets.QFormLayout:
+        """Return the form layout for adding widgets."""
         return self._content_layout
 
     def addRow(self, *args) -> None:
+        """Convenience method to add rows directly."""
         self._content_layout.addRow(*args)
 
 
@@ -448,7 +495,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         seed_row.addWidget(self.spin_global_seed)
         control_layout.addLayout(seed_row)
 
-        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)")
+        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)", start_expanded=False)
         adv_seeds_layout = adv_seeds_group.layout()
         self.spin_grid_seed = QtWidgets.QSpinBox()
         self.spin_grid_seed.setRange(-1, 1000000)
@@ -464,17 +511,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         adv_seeds_layout.addRow("Population seed:", self.spin_population_seed)
         control_layout.addWidget(adv_seeds_group)
 
-        # Grid Workspace — collapsible (Phase 3 B.1-B.2)
-        grid_group = CollapsibleGroupBox("Grid Workspace")
-        grid_layout = QtWidgets.QVBoxLayout()
-        grid_layout.setContentsMargins(8, 8, 8, 12)
-
-        # Grid list (with checkboxes for visibility, linked to visualization)
+        # Grid List — always visible at top
+        grid_list_group = QtWidgets.QGroupBox("Receptor Grids")
+        grid_list_layout = QtWidgets.QVBoxLayout(grid_list_group)
         self.grid_list = QtWidgets.QListWidget()
-        self.grid_list.setMaximumHeight(140)
+        self.grid_list.setMaximumHeight(120)
         self.grid_list.currentRowChanged.connect(self._on_grid_selected)
         self.grid_list.itemChanged.connect(self._on_grid_item_changed)
-        grid_layout.addWidget(self.grid_list)
+        grid_list_layout.addWidget(self.grid_list)
 
         grid_btn_layout = QtWidgets.QHBoxLayout()
         self.btn_add_grid = QtWidgets.QPushButton("Add Grid")
@@ -483,33 +527,34 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_remove_grid.clicked.connect(self._on_remove_grid)
         grid_btn_layout.addWidget(self.btn_add_grid)
         grid_btn_layout.addWidget(self.btn_remove_grid)
-        grid_layout.addLayout(grid_btn_layout)
+        grid_list_layout.addLayout(grid_btn_layout)
+        control_layout.addWidget(grid_list_group)
+
+        # Grid Settings — collapsible
+        grid_settings_group = CollapsibleGroupBox("Grid Settings", start_expanded=False)
+        grid_layout = grid_settings_group.layout()
 
         # Per-grid editor panel
-        self._grid_editor = QtWidgets.QWidget()
-        ge_layout = QtWidgets.QFormLayout(self._grid_editor)
-        ge_layout.setContentsMargins(0, 4, 0, 0)
-
         self.txt_grid_name = QtWidgets.QLineEdit()
         self.txt_grid_name.editingFinished.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Name:", self.txt_grid_name)
+        grid_layout.addRow("Name:", self.txt_grid_name)
 
         self.cmb_grid_arrangement = QtWidgets.QComboBox()
         self.cmb_grid_arrangement.addItems(["grid", "poisson", "hex", "jittered_grid", "blue_noise"])
         self.cmb_grid_arrangement.currentTextChanged.connect(self._on_grid_arrangement_changed)
-        ge_layout.addRow("Arrangement:", self.cmb_grid_arrangement)
+        grid_layout.addRow("Arrangement:", self.cmb_grid_arrangement)
 
         self.spin_grid_rows = QtWidgets.QSpinBox()
         self.spin_grid_rows.setRange(4, 256)
         self.spin_grid_rows.setValue(40)
         self.spin_grid_rows.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Rows:", self.spin_grid_rows)
+        grid_layout.addRow("Rows:", self.spin_grid_rows)
 
         self.spin_grid_cols = QtWidgets.QSpinBox()
         self.spin_grid_cols.setRange(4, 256)
         self.spin_grid_cols.setValue(40)
         self.spin_grid_cols.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Cols:", self.spin_grid_cols)
+        grid_layout.addRow("Cols:", self.spin_grid_cols)
 
         self.dbl_spacing = QtWidgets.QDoubleSpinBox()
         self.dbl_spacing.setDecimals(4)
@@ -517,9 +562,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_spacing.setSingleStep(0.01)
         self.dbl_spacing.setValue(0.15)
         self.dbl_spacing.valueChanged.connect(self._on_grid_editor_changed)
-        ge_layout.addRow("Spacing (mm):", self.dbl_spacing)
+        grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
 
-        pos_group = CollapsibleGroupBox("Position (center, offset)")
+        pos_group = CollapsibleGroupBox("Position (center, offset)", start_expanded=False)
         pos_layout = pos_group.layout()
         self.dbl_center_x = QtWidgets.QDoubleSpinBox()
         self.dbl_center_x.setRange(-50.0, 50.0)
@@ -545,25 +590,46 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_offset_y.setValue(0.0)
         self.dbl_offset_y.valueChanged.connect(self._on_grid_editor_changed)
         pos_layout.addRow("Offset Y (mm):", self.dbl_offset_y)
-        ge_layout.addRow(pos_group)
+        grid_layout.addRow(pos_group)
 
         self.btn_grid_color = QtWidgets.QPushButton("Pick Color")
         self.btn_grid_color.clicked.connect(self._on_pick_grid_color)
-        ge_layout.addRow("Color:", self.btn_grid_color)
-        ge_layout.setContentsMargins(0, 4, 0, 16)
-
-        self._grid_editor.setVisible(False)
-        grid_layout.addWidget(self._grid_editor)
+        grid_layout.addRow("Color:", self.btn_grid_color)
 
         self.btn_generate_grid = QtWidgets.QPushButton("Generate Grid(s)")
         self.btn_generate_grid.clicked.connect(self._on_generate_grid)
-        grid_layout.addWidget(self.btn_generate_grid)
-        grid_group.addRow(grid_layout)
-        control_layout.addWidget(grid_group)
+        grid_layout.addRow(self.btn_generate_grid)
+        control_layout.addWidget(grid_settings_group)
 
-        # Population controls (collapsible)
-        pop_group = CollapsibleGroupBox("Neuron Populations")
-        pop_layout = pop_group.layout()
+        # Population List — always visible
+        pop_list_group = QtWidgets.QGroupBox("Neuron Populations")
+        pop_list_layout = QtWidgets.QVBoxLayout(pop_list_group)
+        self.population_list = QtWidgets.QListWidget()
+        self.population_list.setMaximumHeight(120)
+        self.population_list.currentRowChanged.connect(self._on_population_selected)
+        self.population_list.itemChanged.connect(self._on_population_item_changed)
+        pop_list_layout.addWidget(self.population_list)
+
+        pop_list_controls = QtWidgets.QHBoxLayout()
+        self.btn_show_selected = QtWidgets.QPushButton("Show")
+        self.btn_hide_selected = QtWidgets.QPushButton("Hide")
+        self.btn_show_selected.clicked.connect(
+            lambda: self._set_selected_visibility(True)
+        )
+        self.btn_hide_selected.clicked.connect(
+            lambda: self._set_selected_visibility(False)
+        )
+        pop_list_controls.addWidget(self.btn_show_selected)
+        pop_list_controls.addWidget(self.btn_hide_selected)
+        btn_remove = QtWidgets.QPushButton("Remove")
+        btn_remove.clicked.connect(self._on_remove_population)
+        pop_list_controls.addWidget(btn_remove)
+        pop_list_layout.addLayout(pop_list_controls)
+        control_layout.addWidget(pop_list_group)
+
+        # Population Settings — collapsible
+        pop_settings_group = CollapsibleGroupBox("Population Settings", start_expanded=False)
+        pop_layout = pop_settings_group.layout()
         self._pop_layout = pop_layout
         self.txt_population_name = QtWidgets.QLineEdit()
         self.spin_neurons_per_row = QtWidgets.QSpinBox()
@@ -631,20 +697,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
 
-        weights_group = CollapsibleGroupBox("Weights")
+        weights_group = CollapsibleGroupBox("Weights", start_expanded=False)
         weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
         weights_group.layout().addRow("Weight max:", self.dbl_weight_max)
         pop_layout.addRow(weights_group)
 
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
         pop_layout.addRow("Color:", self.btn_pick_color)
-        self._dist_params_group = CollapsibleGroupBox("Distance-weighted params")
+        self._dist_params_group = CollapsibleGroupBox("Distance-weighted params", start_expanded=False)
         self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
         self._dist_params_group.addRow("Decay Function:", self.cmb_decay_function)
         self._dist_params_group.addRow("Decay Rate:", self.dbl_decay_rate)
         pop_layout.addRow(self._dist_params_group)
         self._dist_params_group.setVisible(False)
-        adv_group = CollapsibleGroupBox("Advanced")
+        adv_group = CollapsibleGroupBox("Advanced", start_expanded=False)
         self.dbl_far_connection_fraction = QtWidgets.QDoubleSpinBox()
         self.dbl_far_connection_fraction.setDecimals(3)
         self.dbl_far_connection_fraction.setRange(0.0, 1.0)
@@ -686,33 +752,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_add_population = QtWidgets.QPushButton("Add Population")
         self.btn_add_population.clicked.connect(self._on_add_population)
         pop_layout.addRow(self.btn_add_population)
-        control_layout.addWidget(pop_group)
+        control_layout.addWidget(pop_settings_group)
 
-        # Population list and visibility toggles
-        list_group = QtWidgets.QGroupBox("Active Populations")
-        list_layout = QtWidgets.QVBoxLayout(list_group)
-        self.population_list = QtWidgets.QListWidget()
-        self.population_list.currentRowChanged.connect(self._on_population_selected)
-        self.population_list.itemChanged.connect(self._on_population_item_changed)
-        list_layout.addWidget(self.population_list)
-
-        list_controls = QtWidgets.QHBoxLayout()
-        self.btn_show_selected = QtWidgets.QPushButton("Show")
-        self.btn_hide_selected = QtWidgets.QPushButton("Hide")
-        self.btn_show_selected.clicked.connect(
-            lambda: self._set_selected_visibility(True)
-        )
-        self.btn_hide_selected.clicked.connect(
-            lambda: self._set_selected_visibility(False)
-        )
-        list_controls.addWidget(self.btn_show_selected)
-        list_controls.addWidget(self.btn_hide_selected)
-        btn_remove = QtWidgets.QPushButton("Remove")
-        btn_remove.clicked.connect(self._on_remove_population)
-        list_controls.addWidget(btn_remove)
-        list_layout.addLayout(list_controls)
-        visibility_group = QtWidgets.QGroupBox("Layers")
-        visibility_layout = QtWidgets.QVBoxLayout(visibility_group)
+        # Layers visibility — collapsible
+        layers_group = CollapsibleGroupBox("Layers", start_expanded=True)
         self.chk_show_mechanoreceptors = QtWidgets.QCheckBox("Show mechanoreceptors")
         self.chk_show_mechanoreceptors.setChecked(True)
         self.chk_show_mechanoreceptors.stateChanged.connect(
@@ -724,11 +767,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.chk_show_innervation = QtWidgets.QCheckBox("Show innervation")
         self.chk_show_innervation.setChecked(True)
         self.chk_show_innervation.stateChanged.connect(self._update_layer_visibility)
-        visibility_layout.addWidget(self.chk_show_mechanoreceptors)
-        visibility_layout.addWidget(self.chk_show_neuron_centers)
-        visibility_layout.addWidget(self.chk_show_innervation)
-        list_layout.addWidget(visibility_group)
+        layers_group.layout().addRow(self.chk_show_mechanoreceptors)
+        layers_group.layout().addRow(self.chk_show_neuron_centers)
+        layers_group.layout().addRow(self.chk_show_innervation)
+        control_layout.addWidget(layers_group)
 
+        # Weight legend
         legend_group = QtWidgets.QGroupBox("Innervation Weight Legend")
         legend_layout = QtWidgets.QVBoxLayout(legend_group)
         self.population_legend_label = QtWidgets.QLabel(
@@ -737,8 +781,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.population_legend_label.setAlignment(QtCore.Qt.AlignCenter)
         self.population_legend_label.setMinimumHeight(36)
         legend_layout.addWidget(self.population_legend_label)
-        list_layout.addWidget(legend_group)
-        control_layout.addWidget(list_group)
+        control_layout.addWidget(legend_group)
 
         # Snapshot controls
         export_group = QtWidgets.QGroupBox("Snapshot")

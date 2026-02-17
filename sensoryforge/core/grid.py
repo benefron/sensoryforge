@@ -138,20 +138,19 @@ class ReceptorGrid:
                 jitter_magnitude = 0.25 * approximate_spacing
                 jitter = torch.randn_like(base_coords) * jitter_magnitude
                 jittered = base_coords + jitter
-                
-                # Clamp to bounds
                 jittered[:, 0] = torch.clamp(jittered[:, 0], self.xlim[0], self.xlim[1])
                 jittered[:, 1] = torch.clamp(jittered[:, 1], self.ylim[0], self.ylim[1])
-                
                 self.coordinates = jittered
+                self.xx = None
+                self.yy = None
+                self.x = None
+                self.y = None
             elif arrangement == "blue_noise":
                 # Blue noise: jittered grid + Lloyd-like relaxation
                 base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
                 jitter_magnitude = 0.4 * self.spacing
                 jitter = (torch.rand_like(base_coords) - 0.5) * 2 * jitter_magnitude
                 points = base_coords + jitter
-                
-                # Lloyd-like relaxation: 3 iterations
                 for _ in range(3):
                     dists = torch.cdist(points, points)
                     k = min(6, points.shape[0] - 1)
@@ -160,12 +159,13 @@ class ReceptorGrid:
                         neighbors = points[nearest_idx[i, 1:]]
                         centroid = neighbors.mean(dim=0)
                         points[i] = 0.7 * points[i] + 0.3 * centroid
-                
-                # Clamp to bounds
                 points[:, 0] = torch.clamp(points[:, 0], self.xlim[0], self.xlim[1])
                 points[:, 1] = torch.clamp(points[:, 1], self.ylim[0], self.ylim[1])
-                
                 self.coordinates = points
+                self.xx = None
+                self.yy = None
+                self.x = None
+                self.y = None
             else:
                 # Regular grid - store flattened coordinates for consistency
                 self.coordinates = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
