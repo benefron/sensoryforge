@@ -168,8 +168,17 @@ class StimulusGenerator:
     def __init__(self, grid_manager: "GridManager") -> None:
         """Cache grid references for future stimulus creation."""
         self.grid_manager = grid_manager
-        self.xx, self.yy = grid_manager.get_coordinates()
         self.device = grid_manager.device
+        if hasattr(grid_manager, "xx") and grid_manager.xx is not None:
+            self.xx, self.yy = grid_manager.get_coordinates()
+        else:
+            # Poisson/hex/blue_noise: create regular grid from bounds
+            props = grid_manager.get_grid_properties()
+            n_x, n_y = grid_manager.grid_size
+            xlim, ylim = props["xlim"], props["ylim"]
+            x = torch.linspace(xlim[0], xlim[1], n_x, device=self.device)
+            y = torch.linspace(ylim[0], ylim[1], n_y, device=self.device)
+            self.xx, self.yy = torch.meshgrid(x, y, indexing="ij")
 
     def generate_batch_stimuli(
         self,

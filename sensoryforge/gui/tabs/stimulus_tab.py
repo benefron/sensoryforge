@@ -1477,11 +1477,16 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
         self.generator = StimulusGenerator(self.grid_manager)
         self.btn_confirm_preview.setEnabled(True)
-        xx, yy = self.grid_manager.get_coordinates()
-        x_vals = xx.detach().cpu().numpy()
-        y_vals = yy.detach().cpu().numpy()
-        min_x, max_x = float(np.min(x_vals)), float(np.max(x_vals))
-        min_y, max_y = float(np.min(y_vals)), float(np.max(y_vals))
+        if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+            xx, yy = self.grid_manager.get_coordinates()
+            x_vals = xx.detach().cpu().numpy()
+            y_vals = yy.detach().cpu().numpy()
+            min_x, max_x = float(np.min(x_vals)), float(np.max(x_vals))
+            min_y, max_y = float(np.min(y_vals)), float(np.max(y_vals))
+        else:
+            props = self.grid_manager.get_grid_properties()
+            min_x, max_x = props["xlim"]
+            min_y, max_y = props["ylim"]
 
         grid_props = self.grid_manager.get_grid_properties()
         spacing = float(grid_props.get("spacing", 1.0))

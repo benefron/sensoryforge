@@ -1192,9 +1192,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if weights is None:
             return
         if self.grid_manager is not None:
-            xx, yy = self.grid_manager.get_coordinates()
-            x_flat = xx.detach().cpu().numpy().ravel()
-            y_flat = yy.detach().cpu().numpy().ravel()
+            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                xx, yy = self.grid_manager.get_coordinates()
+                x_flat = xx.detach().cpu().numpy().ravel()
+                y_flat = yy.detach().cpu().numpy().ravel()
+            else:
+                coords = self.grid_manager.get_receptor_coordinates()
+                x_flat = coords[:, 0].detach().cpu().numpy()
+                y_flat = coords[:, 1].detach().cpu().numpy()
         elif pop.flat_module is not None:
             rc = pop.flat_module.receptor_coords.detach().cpu().numpy()
             x_flat, y_flat = rc[:, 0], rc[:, 1]
