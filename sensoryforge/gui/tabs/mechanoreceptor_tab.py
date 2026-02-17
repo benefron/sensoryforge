@@ -1057,9 +1057,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if self.grid_manager is not None and len(self._grid_entries) == 1:
             # Single grid mode — use grid entry color
             entry = self._grid_entries[0]
-            xx, yy = self.grid_manager.get_coordinates()
-            x = xx.detach().cpu().numpy().ravel()
-            y = yy.detach().cpu().numpy().ravel()
+            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                xx, yy = self.grid_manager.get_coordinates()
+                x = xx.detach().cpu().numpy().ravel()
+                y = yy.detach().cpu().numpy().ravel()
+            else:
+                coords = self.grid_manager.get_receptor_coordinates()
+                x = coords[:, 0].detach().cpu().numpy()
+                y = coords[:, 1].detach().cpu().numpy()
             color = entry.color if self._grid_entries else QtGui.QColor(80, 80, 80)
             brush = pg.mkBrush(color.red(), color.green(), color.blue(), 150)
             scatter = pg.ScatterPlotItem(x, y, size=5, pen=None, brush=brush)
@@ -1239,7 +1244,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             [cx], [cy],
             size=26,
             brush=pg.mkBrush(30, 30, 30, 140),
-            pen=pg.mkPen(QtCore.Qt.NoPen),
+            pen=pg.mkPen(None),
         )
         shadow_item.setPxMode(True)
         shadow_item.setZValue(9)
@@ -1251,7 +1256,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             [cx], [cy],
             size=18,
             brush=pg.mkBrush(pop.color),
-            pen=pg.mkPen(QtCore.Qt.black, width=4),
+            pen=pg.mkPen(QtGui.QColor(0, 0, 0), width=4),
         )
         neuron_item.setPxMode(True)
         neuron_item.setZValue(11)
@@ -1263,7 +1268,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             x=rx, y=ry,
             size=14,
             brush=pg.mkBrush(40, 40, 40, 130),
-            pen=pg.mkPen(QtCore.Qt.NoPen),
+            pen=pg.mkPen(None),
         )
         receptor_shadow.setPxMode(True)
         receptor_shadow.setZValue(11)
@@ -1279,7 +1284,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             x=rx, y=ry,
             size=11,
             brush=receptor_colors,
-            pen=pg.mkPen(QtCore.Qt.darkGray, width=2),
+            pen=pg.mkPen(QtGui.QColor(80, 80, 80), width=2),
         )
         receptor_item.setPxMode(True)
         receptor_item.setZValue(12)
@@ -1393,7 +1398,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         )
 
         if self.grid_manager is not None:
-            population.instantiate(self.grid_manager)
+            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                population.instantiate(self.grid_manager)
+            else:
+                coords = self.grid_manager.get_receptor_coordinates()
+                props = self.grid_manager.get_grid_properties()
+                population.instantiate_flat(coords, props["xlim"], props["ylim"])
         elif self._composite_grid is not None:
             # Use FlatInnervationModule with composite grid coordinates
             if target_grid is not None:
@@ -1973,7 +1983,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Rebuild all population innervation
         if self.grid_manager is not None:
             for population in self.populations:
-                population.instantiate(self.grid_manager)
+                if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                    population.instantiate(self.grid_manager)
+                else:
+                    coords = self.grid_manager.get_receptor_coordinates()
+                    props = self.grid_manager.get_grid_properties()
+                    population.instantiate_flat(coords, props["xlim"], props["ylim"])
                 self._create_population_graphics(population)
         elif self._composite_grid is not None:
             bounds = self._composite_grid.computed_bounds
@@ -2115,7 +2130,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         for idx, population in enumerate(self.populations, start=1):
             if population.module is None and population.flat_module is None:
                 if self.grid_manager is not None:
-                    population.instantiate(self.grid_manager)
+                    if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                        population.instantiate(self.grid_manager)
+                    else:
+                        coords = self.grid_manager.get_receptor_coordinates()
+                        props = self.grid_manager.get_grid_properties()
+                        population.instantiate_flat(coords, props["xlim"], props["ylim"])
                 elif self._composite_grid is not None:
                     target = population.target_grid
                     if target is not None:
@@ -2367,7 +2387,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
             # Instantiate with appropriate grid type
             if self.grid_manager is not None:
-                population.instantiate(self.grid_manager)
+                if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                    population.instantiate(self.grid_manager)
+                else:
+                    coords = self.grid_manager.get_receptor_coordinates()
+                    props = self.grid_manager.get_grid_properties()
+                    population.instantiate_flat(coords, props["xlim"], props["ylim"])
             elif self._composite_grid is not None:
                 if target_grid is not None:
                     coords = self._composite_grid.get_population_coordinates(target_grid)
@@ -2631,7 +2656,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             )
             if self.grid_manager is not None:
                 try:
-                    pop.instantiate(self.grid_manager)
+                    if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                        pop.instantiate(self.grid_manager)
+                    else:
+                        coords = self.grid_manager.get_receptor_coordinates()
+                        props = self.grid_manager.get_grid_properties()
+                        pop.instantiate_flat(coords, props["xlim"], props["ylim"])
                 except Exception:
                     pass
             elif self._composite_grid is not None:

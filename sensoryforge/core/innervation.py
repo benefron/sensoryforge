@@ -585,14 +585,22 @@ def create_neuron_centers(
         return mesh
 
     if arrangement in ("poisson", "hex"):
-        # Uniform random placement fills space evenly; density-based Poisson/hex
-        # tends to bunch points when truncated to exact neuron count.
+        # Jittered grid: regular lattice + small random offset for space-filling
+        # with slight variance (like receptor jittered_grid).
         if seed is not None:
             torch.manual_seed(seed)
-        expected = n_rows * n_cols
-        x = torch.rand(expected, device=device) * (x_max_eff - x_min_eff) + x_min_eff
-        y = torch.rand(expected, device=device) * (y_max_eff - y_min_eff) + y_min_eff
-        return torch.stack([x, y], dim=1)
+        x_centers = torch.linspace(x_min_eff, x_max_eff, n_cols, device=device)
+        y_centers = torch.linspace(y_min_eff, y_max_eff, n_rows, device=device)
+        yy_grid, xx_grid = torch.meshgrid(y_centers, x_centers, indexing="ij")
+        mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
+        spacing_x = (x_max_eff - x_min_eff) / max(n_cols - 1, 1)
+        spacing_y = (y_max_eff - y_min_eff) / max(n_rows - 1, 1)
+        jitter_mag = 0.25 * min(spacing_x, spacing_y)
+        jitter = (torch.rand_like(mesh) - 0.5) * 2 * jitter_mag
+        jittered = mesh + jitter
+        jittered[:, 0] = torch.clamp(jittered[:, 0], x_min_eff, x_max_eff)
+        jittered[:, 1] = torch.clamp(jittered[:, 1], y_min_eff, y_max_eff)
+        return jittered
 
     from .grid import ReceptorGrid
     width = x_max_eff - x_min_eff
