@@ -212,6 +212,7 @@ class NeuronPopulation:
     decay_rate: float = 2.0
     seed: Optional[int] = None
     edge_offset: Optional[float] = None
+    neuron_jitter_factor: float = 1.0
     target_grid: Optional[str] = None  # Name of target grid layer
     module: Optional[InnervationModule] = None
     flat_module: Optional[FlatInnervationModule] = None
@@ -221,6 +222,7 @@ class NeuronPopulation:
     )
     heatmap_item: Optional[pg.ImageItem] = None
     receptor_item: Optional[pg.ScatterPlotItem] = None
+    receptor_items: List[pg.ScatterPlotItem] = field(default_factory=list)
     highlight_neuron_item: Optional[pg.ScatterPlotItem] = None
     highlight_shadow_item: Optional[pg.ScatterPlotItem] = None
     highlight_connection_items: List = field(default_factory=list)
@@ -246,6 +248,7 @@ class NeuronPopulation:
             "far_sigma_factor": self.far_sigma_factor,
             "seed": self.seed,
             "edge_offset": self.edge_offset,
+            "neuron_jitter_factor": self.neuron_jitter_factor,
         }
         self.module = InnervationModule(**kwargs)
         self.flat_module = None
@@ -314,6 +317,7 @@ class NeuronPopulation:
             decay_rate=self.decay_rate,
             seed=self.seed,
             edge_offset=self.edge_offset,
+            neuron_jitter_factor=self.neuron_jitter_factor,
         )
         self.module = None
 
@@ -352,6 +356,8 @@ class NeuronPopulation:
             plot.removeItem(self.heatmap_item)
         if self.receptor_item is not None:
             plot.removeItem(self.receptor_item)
+        for item in self.receptor_items:
+            plot.removeItem(item)
         if self.highlight_neuron_item is not None:
             plot.removeItem(self.highlight_neuron_item)
         if self.highlight_shadow_item is not None:
@@ -366,6 +372,7 @@ class NeuronPopulation:
         self.connection_items.clear()
         self.heatmap_item = None
         self.receptor_item = None
+        self.receptor_items.clear()
         self.highlight_neuron_item = None
         self.highlight_shadow_item = None
         self.highlight_connection_items.clear()
@@ -743,11 +750,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.spin_neuron_cols.setValue(10)
         self.spin_neuron_cols.setToolTip("Number of neuron columns (horizontal).")
         self.cmb_neuron_arrangement = QtWidgets.QComboBox()
-        self.cmb_neuron_arrangement.addItems(["grid", "poisson", "hex", "blue_noise", "jittered_grid"])
-        self.cmb_neuron_arrangement.setToolTip("Spatial distribution of neuron centers.")
+        self.cmb_neuron_arrangement.addItems(
+            ["grid", "poisson", "hex", "blue_noise", "jittered_grid"]
+        )
+        self.cmb_neuron_arrangement.setToolTip(
+            "Spatial distribution of neuron centers. All respect a grid base; "
+            "poisson/jittered/blue_noise add controlled jitter."
+        )
+        self.dbl_neuron_jitter = QtWidgets.QDoubleSpinBox()
+        self.dbl_neuron_jitter.setDecimals(2)
+        self.dbl_neuron_jitter.setRange(0.5, 2.5)
+        self.dbl_neuron_jitter.setValue(1.0)
+        self.dbl_neuron_jitter.setSingleStep(0.1)
+        self.dbl_neuron_jitter.setToolTip(
+            "Jitter multiplier for poisson/jittered_grid/blue_noise. 1.0 = default; "
+            ">1 adds more irregularity."
+        )
         adv_group.addRow("Neuron rows:", self.spin_neuron_rows)
         adv_group.addRow("Neuron cols:", self.spin_neuron_cols)
         adv_group.addRow("Neuron arrangement:", self.cmb_neuron_arrangement)
+        adv_group.addRow("Jitter multiplier:", self.dbl_neuron_jitter)
         pop_layout.addRow(adv_group)
         self.spin_neurons_per_row.valueChanged.connect(self._sync_neuron_rows_cols_from_simple)
         self.spin_neuron_rows.valueChanged.connect(self._sync_simple_from_rows_cols)
@@ -1257,15 +1279,19 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._on_plot_clicked_at(data_pos.x(), data_pos.y())
 
     def _on_plot_clicked_at(self, x_click: float, y_click: float) -> None:
-        """Handle plot click at data coordinates: select nearest neuron and highlight."""
+        """Handle plot click: one click to highlight, one click to unhighlight."""
         if self._selected_population is None or self._selected_population.neuron_centers is None:
             return
         centers = self._selected_population.neuron_centers.detach().cpu().numpy()
         dists = (centers[:, 0] - x_click) ** 2 + (centers[:, 1] - y_click) ** 2
         nearest = int(np.argmin(dists))
-        if self._selected_neuron_idx == nearest:
+        dist_to_nearest = float(np.sqrt(dists[nearest]))
+
+        # One click to highlight, one click to unhighlight (toggle)
+        select_threshold = 1.2  # mm; within this = on a neuron
+        if self._selected_neuron_idx is not None:
             self._selected_neuron_idx = None
-        else:
+        elif dist_to_nearest <= select_threshold:
             self._selected_neuron_idx = nearest
         self._update_neuron_highlight()
 
@@ -1328,11 +1354,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         cx, cy = centers[idx, 0], centers[idx, 1]
         rx, ry = x_flat[nz], y_flat[nz]
         w_vals = w[nz]
-        w_min, w_max = float(w_vals.min()), float(w_vals.max())
-        if np.isclose(w_max, w_min):
+        lower = float(np.percentile(w_vals, 5))
+        upper = float(np.percentile(w_vals, 95))
+        if np.isclose(upper, lower):
             norm_w = np.full_like(w_vals, 0.5)
         else:
-            norm_w = (w_vals - w_min) / (w_max - w_min)
+            norm_w = np.clip((w_vals - lower) / (upper - lower), 0.0, 1.0)
 
         self._update_heatmap_for_selection()
 
@@ -1361,7 +1388,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.plot.addItem(conn_item)
             pop.highlight_connection_items.append(conn_item)
 
-        # Selected neuron marker: subtle, slightly larger than normal (center stage without hiding others)
+        # Selected neuron marker
         neuron_item = pg.ScatterPlotItem(
             [cx], [cy],
             size=11,
@@ -1372,6 +1399,25 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         neuron_item.setZValue(11)
         self.plot.addItem(neuron_item)
         pop.highlight_neuron_item = neuron_item
+
+        # Highlight receptors for this neuron: color by specific innervation, with border
+        lookup = self._population_heatmap_lookup(pop.color)
+        rec_colors = np.array(
+            [lookup[int(np.clip(n * 511, 0, 511))] for n in norm_w],
+            dtype=np.ubyte,
+        )
+        highlight_receptor_item = pg.ScatterPlotItem(
+            x=rx,
+            y=ry,
+            size=15.0,
+            brush=rec_colors,
+            pen=pg.mkPen(QtGui.QColor(255, 255, 255), width=3.0),
+        )
+        highlight_receptor_item.setOpacity(1.0)
+        highlight_receptor_item.setPxMode(True)
+        highlight_receptor_item.setZValue(9)
+        self.plot.addItem(highlight_receptor_item)
+        pop.highlight_receptor_item = highlight_receptor_item
 
         self._apply_population_visibility(pop)
         self._update_background_visibility()
@@ -1391,6 +1437,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     pop.heatmap_item.setOpacity(0.55)
                 if pop.receptor_item is not None:
                     pop.receptor_item.setOpacity(1.0)
+                for ri in pop.receptor_items:
+                    ri.setOpacity(1.0)
             for scatter_item in self._grid_scatter_items:
                 scatter_item.setOpacity(1.0)
         else:
@@ -1405,6 +1453,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     pop.heatmap_item.setOpacity(dim_opacity * 0.8)
                 if pop.receptor_item is not None:
                     pop.receptor_item.setOpacity(dim_opacity)
+                for ri in pop.receptor_items:
+                    ri.setOpacity(dim_opacity)
             for scatter_item in self._grid_scatter_items:
                 scatter_item.setOpacity(dim_opacity)
 
@@ -1506,6 +1556,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             decay_rate=self.dbl_decay_rate.value(),
             seed=seed,
             edge_offset=self.dbl_edge_offset.value() or None,
+            neuron_jitter_factor=self.dbl_neuron_jitter.value()
+            if hasattr(self, "dbl_neuron_jitter") else 1.0,
             target_grid=target_grid,
         )
 
@@ -1586,8 +1638,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             is_selected = pop is population
             scatter = pop.scatter_item
             if scatter is not None:
-                size = 8 if is_selected else 5
-                width = 1.2 if is_selected else 0.7
+                size = 10 if is_selected else 8
+                width = 2.5 if is_selected else 2.0
                 pen_color = (
                     pop.color.darker(130) if is_selected else pop.color.darker(150)
                 )
@@ -1606,6 +1658,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             if pop.receptor_item is not None:
                 pop.receptor_item.setOpacity(1.0)
                 pop.receptor_item.setZValue(2)
+            for ri in pop.receptor_items:
+                ri.setOpacity(1.0)
+                ri.setZValue(2)
         self._update_population_legend(population)
 
     def _update_population_legend(self, population: Optional[NeuronPopulation]) -> None:
@@ -1646,9 +1701,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.population_legend_label.setText("")
         self.population_legend_label.setPixmap(pixmap)
         self.population_legend_label.setToolTip(
-            "Weight shading: lighter = weaker, darker = stronger. "
-            "Connection line thickness also encodes strength (thicker = stronger). "
-            "Click a neuron to highlight it and its connections; click again to unselect."
+            "Receptor dots: border thickness and fill shade encode innervation strength "
+            "(thicker/darker = stronger). Connection lines: thickness encodes strength. "
+            "Click a neuron to highlight; click same neuron or empty space to unhighlight."
         )
 
     def _apply_population_visibility(self, population: NeuronPopulation) -> None:
@@ -1662,6 +1717,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             population.heatmap_item.setVisible(show_innervation)
         if population.receptor_item is not None:
             population.receptor_item.setVisible(show_innervation)
+        for ri in population.receptor_items:
+            ri.setVisible(show_innervation)
 
     def _set_population_visibility(
         self,
@@ -1706,9 +1763,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         scatter = pg.ScatterPlotItem(
             centers_np[:, 0],
             centers_np[:, 1],
-            size=5,
+            size=8,
             brush=pg.mkBrush(population.color),
-            pen=pg.mkPen(population.color.darker(150)),
+            pen=pg.mkPen(population.color.darker(150), width=2.0),
         )
         scatter.setPxMode(True)
         scatter.setZValue(6)
@@ -1725,13 +1782,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     def _weight_to_color(
         self, base_color: QtGui.QColor, fraction: float
     ) -> QtGui.QColor:
+        """Map normalized weight to color: darker (min) to much darker (max)."""
         fraction = float(np.clip(fraction, 0.0, 1.0))
         graded = QtGui.QColor(base_color)
-        lighten_factor = 130.0 + (1.0 - fraction) * 45.0
-        lighten_factor = max(110.0, min(200.0, lighten_factor))
-        graded = graded.lighter(int(lighten_factor))
-        alpha = int(160.0 + fraction * 90.0)
-        graded.setAlpha(max(150, min(255, alpha)))
+        factor = int(115.0 + fraction * 100.0)
+        graded = graded.darker(max(100, factor))
+        alpha = int(200.0 + fraction * 55.0)
+        graded.setAlpha(max(200, min(255, alpha)))
         return graded
 
     def _update_heatmap_for_selection(self) -> None:
@@ -1764,9 +1821,48 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         )
         pop.heatmap_item.setOpacity(0.75 if idx is not None else 0.55)
 
+    def _add_receptor_scatter_by_weight(
+        self,
+        rx: np.ndarray,
+        ry: np.ndarray,
+        weights: np.ndarray,
+        population: NeuronPopulation,
+    ) -> None:
+        """Add receptor scatter: big shaded dots by summed innervation strength.
+
+        Same look as highlighted view: large dots, fill shade encodes weight.
+        Unhighlighted uses summed (aggregate) innervation; highlighted uses specific.
+        Gradient uses percentile range so middle of distribution maps to middle color.
+        """
+        lower = float(np.percentile(weights, 5))
+        upper = float(np.percentile(weights, 95))
+        if np.isclose(upper, lower):
+            norm = np.full_like(weights, 0.5)
+        else:
+            norm = np.clip((weights - lower) / (upper - lower), 0.0, 1.0)
+        lookup = self._population_heatmap_lookup(population.color)
+        colors = np.array(
+            [lookup[int(np.clip(n * 511, 0, 511))] for n in norm],
+            dtype=np.ubyte,
+        )
+        receptor_size = 14.0
+        item = pg.ScatterPlotItem(
+            x=rx,
+            y=ry,
+            size=receptor_size,
+            brush=colors,
+            pen=None,
+        )
+        item.setOpacity(1.0)
+        item.setPxMode(True)
+        item.setZValue(2)
+        self.plot.addItem(item)
+        population.receptor_items.append(item)
+
     def _population_heatmap_lookup(
-        self, base_color: QtGui.QColor, steps: int = 256
+        self, base_color: QtGui.QColor, steps: int = 512
     ) -> np.ndarray:
+        """Build gradient lookup: more steps for defined range, darker max."""
         fractions = np.linspace(0.0, 1.0, steps)
         lookup = np.zeros((steps, 4), dtype=np.ubyte)
         for idx, frac in enumerate(fractions):
@@ -1792,6 +1888,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if population.receptor_item is not None:
             self.plot.removeItem(population.receptor_item)
             population.receptor_item = None
+        for ri in population.receptor_items:
+            self.plot.removeItem(ri)
+        population.receptor_items.clear()
         population.connection_items.clear()
 
         weights = population.module.innervation_weights.detach().cpu().numpy()
@@ -1799,11 +1898,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         xx, yy = self.grid_manager.get_coordinates()
         x_flat = xx.detach().cpu().numpy().reshape(-1)
         y_flat = yy.detach().cpu().numpy().reshape(-1)
-        x_grid = xx.detach().cpu().numpy()
-        y_grid = yy.detach().cpu().numpy()
-        grid_props = self.grid_manager.get_grid_properties()
-        dx = float(grid_props.get("dx", 0.0) or grid_props.get("spacing", 0.0))
-        dy = float(grid_props.get("dy", 0.0) or grid_props.get("spacing", 0.0))
 
         receptor_x_list: List[np.ndarray] = []
         receptor_y_list: List[np.ndarray] = []
@@ -1832,42 +1926,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         neuron_x_all = np.concatenate(neuron_x_list)
         neuron_y_all = np.concatenate(neuron_y_list)
 
-        # Generate heatmap overlay from total innervation density
+        # Receptor dots: thick border + fill shade by innervation (works for any arrangement)
         weight_map = weights.sum(axis=0).astype(np.float32)
-        nonzero_mask = weight_map > 0.0
-        if np.any(nonzero_mask):
-            max_weight = float(weight_map[nonzero_mask].max())
-            normalized = np.zeros_like(weight_map, dtype=np.float32)
-            normalized[nonzero_mask] = weight_map[nonzero_mask] / max_weight
-            image_item = pg.ImageItem(normalized)
-            lookup = self._population_heatmap_lookup(population.color)
-            image_item.setLookupTable(lookup)
-            nonzero_values = normalized[nonzero_mask]
-            lower = float(np.quantile(nonzero_values, 0.05))
-            upper = float(np.quantile(nonzero_values, 0.95))
-            if np.isclose(upper, lower):
-                lower = max(0.0, lower - 0.05)
-                upper = min(1.0, upper + 0.15)
-            image_item.setLevels(
-                (
-                    max(0.0, lower * 0.8),
-                    min(1.0, upper * 1.05),
-                )
-            )
-            image_item.setOpacity(1.0)
-            x_min = float(x_grid.min())
-            x_max = float(x_grid.max())
-            y_min = float(y_grid.min())
-            y_max = float(y_grid.max())
-            rect_width = (x_max - x_min) + (dx if dx != 0.0 else 0.0)
-            rect_height = (y_max - y_min) + (dy if dy != 0.0 else 0.0)
-            rect_x = x_min - (dx / 2.0 if dx != 0.0 else 0.0)
-            rect_y = y_min - (dy / 2.0 if dy != 0.0 else 0.0)
-            image_item.setRect(QtCore.QRectF(rect_x, rect_y, rect_width, rect_height))
-            image_item.setZValue(1)
-            image_item.setOpacity(0.55)
-            self.plot.addItem(image_item)
-            population.heatmap_item = image_item
+        receptor_xy = np.column_stack([receptor_x_all, receptor_y_all])
+        unique_xy, inv = np.unique(receptor_xy, axis=0, return_inverse=True)
+        agg_weight = np.zeros(unique_xy.shape[0])
+        for i in range(len(weights_all)):
+            agg_weight[inv[i]] += weights_all[i]
+        nz_mask = agg_weight > 0
+        rx_uniq = unique_xy[nz_mask, 0]
+        ry_uniq = unique_xy[nz_mask, 1]
+        w_uniq = agg_weight[nz_mask]
+        self._add_receptor_scatter_by_weight(
+            rx_uniq, ry_uniq, w_uniq, population
+        )
 
         w_min = float(weights_all.min())
         w_max = float(weights_all.max())
@@ -1875,22 +1947,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             norm_weights = np.full_like(weights_all, 0.5)
         else:
             norm_weights = (weights_all - w_min) / (w_max - w_min)
-
-        # Scatter of innervated mechanoreceptors (visible overlay)
-        neutral_brush = pg.mkBrush(80, 80, 80, 180)
-        receptor_size = 5.0
-        receptor_item = pg.ScatterPlotItem(
-            x=receptor_x_all,
-            y=receptor_y_all,
-            size=receptor_size,
-            brush=neutral_brush,
-            pen=pg.mkPen(60, 60, 60, 100),
-        )
-        receptor_item.setOpacity(1.0)
-        receptor_item.setPxMode(True)
-        receptor_item.setZValue(2)
-        self.plot.addItem(receptor_item)
-        population.receptor_item = receptor_item
 
         # Connection lines: thickness encodes innervation strength (thicker = stronger)
         # Contrast: darker lines with higher alpha vs. semi-transparent heatmap
@@ -1960,6 +2016,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if population.receptor_item is not None:
             self.plot.removeItem(population.receptor_item)
             population.receptor_item = None
+        for ri in population.receptor_items:
+            self.plot.removeItem(ri)
+        population.receptor_items.clear()
         population.connection_items.clear()
 
         weights = population.flat_module.innervation_weights.detach().cpu().numpy()
@@ -1995,21 +2054,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         neuron_x_all = np.concatenate(neuron_x_list)
         neuron_y_all = np.concatenate(neuron_y_list)
 
-        # Scatter of innervated mechanoreceptors (visible overlay)
-        neutral_brush = pg.mkBrush(80, 80, 80, 180)
-        receptor_size = 5.0
-        receptor_item = pg.ScatterPlotItem(
-            x=receptor_x_all,
-            y=receptor_y_all,
-            size=receptor_size,
-            brush=neutral_brush,
-            pen=pg.mkPen(60, 60, 60, 100),
-        )
-        receptor_item.setOpacity(1.0)
-        receptor_item.setPxMode(True)
-        receptor_item.setZValue(2)
-        self.plot.addItem(receptor_item)
-        population.receptor_item = receptor_item
+        # Receptor dots: thick border + fill shade by innervation (works for any arrangement)
+        weight_per_receptor = weights.sum(axis=0)
+        nz = weight_per_receptor > 0
+        rx_uniq = x_flat[nz]
+        ry_uniq = y_flat[nz]
+        w_uniq = weight_per_receptor[nz]
+        self._add_receptor_scatter_by_weight(rx_uniq, ry_uniq, w_uniq, population)
 
         w_min = float(weights_all.min())
         w_max = float(weights_all.max())
@@ -2303,6 +2354,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     "weight_max": float(population.weight_max),
                     "seed": population.seed,
                     "edge_offset": population.edge_offset,
+                    "neuron_jitter_factor": population.neuron_jitter_factor,
                 },
                 "tensors": tensor_filename,
                 "visible": bool(population.visible),
@@ -2494,6 +2546,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 weight_max=float(params.get("weight_max", 1.0)),
                 seed=params.get("seed"),
                 edge_offset=params.get("edge_offset"),
+                neuron_jitter_factor=float(params.get("neuron_jitter_factor", 1.0)),
                 target_grid=target_grid,
             )
 
@@ -2661,6 +2714,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 "decay_rate": pop.decay_rate,
                 "weight_range": [pop.weight_min, pop.weight_max],
                 "edge_offset": pop.edge_offset if pop.edge_offset else 0.0,
+                "neuron_jitter_factor": pop.neuron_jitter_factor,
                 "seed": pop.seed if pop.seed is not None else 42,
                 "color": [c.red(), c.green(), c.blue(), c.alpha()],
                 "visible": pop.visible,
@@ -2763,6 +2817,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 weight_max=float(wrange[1]),
                 seed=pop_cfg.get("seed", 42),
                 edge_offset=pop_cfg.get("edge_offset", 0.0),
+                neuron_jitter_factor=float(pop_cfg.get("neuron_jitter_factor", 1.0)),
                 target_grid=target_grid,
                 visible=pop_cfg.get("visible", True),
             )

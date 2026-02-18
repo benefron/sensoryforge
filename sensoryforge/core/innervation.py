@@ -546,11 +546,16 @@ def create_neuron_centers(
     cols: Optional[int] = None,
     arrangement: str = "grid",
     seed: Optional[int] = None,
+    jitter_factor: float = 1.0,
 ) -> torch.Tensor:
     """Compute neuron centre coordinates.
 
-    Supports grid (regular lattice), poisson, hex, and jittered_grid
-    arrangements. For non-grid arrangements, uses ReceptorGrid internally.
+    All arrangements respect a regular grid base (like receptor grid).
+    - grid: Regular lattice.
+    - jittered_grid: Grid + small jitter (0.25 * spacing).
+    - blue_noise: Grid + jitter (0.4 * spacing) + Lloyd relaxation.
+    - poisson: Grid + moderate jitter (0.5 * spacing); grid-respecting, no clustering.
+    - hex: Hexagonal lattice (grid-like).
 
     Args:
         neurons_per_row: Default for square layout (rows=cols).
@@ -561,8 +566,10 @@ def create_neuron_centers(
         sigma: Optional spatial spread (mm) used by some heuristics.
         rows: Override rows (vertical). Default: neurons_per_row.
         cols: Override cols (horizontal). Default: neurons_per_row.
-        arrangement: 'grid', 'poisson', 'hex', or 'jittered_grid'.
-        seed: Random seed for poisson/jittered arrangements.
+        arrangement: 'grid', 'poisson', 'hex', 'jittered_grid', 'blue_noise'.
+        seed: Random seed for jittered arrangements.
+        jitter_factor: Scale for jitter magnitude (1.0 = default). Use >1 for more
+            irregularity in advanced options.
 
     Returns:
         Tensor shaped ``(N, 2)`` containing ``(x, y)`` coordinate pairs.
@@ -577,41 +584,68 @@ def create_neuron_centers(
     y_min_eff = y_min + offset
     y_max_eff = y_max - offset
 
-    if arrangement == "grid":
-        x_centers = torch.linspace(x_min_eff, x_max_eff, n_cols, device=device)
-        y_centers = torch.linspace(y_min_eff, y_max_eff, n_rows, device=device)
-        yy_grid, xx_grid = torch.meshgrid(y_centers, x_centers, indexing="ij")
-        mesh = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
-        return mesh
+    # Base regular grid (used by all arrangements)
+    x_centers = torch.linspace(x_min_eff, x_max_eff, n_cols, device=device)
+    y_centers = torch.linspace(y_min_eff, y_max_eff, n_rows, device=device)
+    yy_grid, xx_grid = torch.meshgrid(y_centers, x_centers, indexing="ij")
+    base_coords = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
 
-    # Use ReceptorGrid for poisson, hex, jittered_grid, blue_noise so neuron
-    # arrangements match receptor grid logic exactly
-    from .grid import ReceptorGrid
+    if arrangement == "grid":
+        return base_coords
+
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    # Grid-based jitter arrangements (match receptor grid logic)
     width = x_max_eff - x_min_eff
     height = y_max_eff - y_min_eff
-    center = ((x_min_eff + x_max_eff) / 2, (y_min_eff + y_max_eff) / 2)
     spacing_x = width / max(n_cols - 1, 1)
     spacing_y = height / max(n_rows - 1, 1)
     spacing = min(spacing_x, spacing_y)
-    if seed is not None:
-        torch.manual_seed(seed)
-    expected = n_rows * n_cols
-    grid = ReceptorGrid(
-        grid_size=(n_cols, n_rows),
-        spacing=spacing,
-        center=center,
-        arrangement=arrangement,
-        density=None,
-        device=device,
-    )
-    coords = grid.get_receptor_coordinates()
-    if coords.shape[0] > expected:
-        coords = coords[:expected]
-    elif coords.shape[0] < expected:
-        x_centers = torch.linspace(x_min_eff, x_max_eff, n_cols, device=device)
-        y_centers = torch.linspace(y_min_eff, y_max_eff, n_rows, device=device)
-        yy_grid, xx_grid = torch.meshgrid(y_centers, x_centers, indexing="ij")
-        coords = torch.stack([xx_grid.flatten(), yy_grid.flatten()], dim=1)
+
+    if arrangement == "jittered_grid":
+        jitter_mag = 0.25 * spacing * jitter_factor
+        jitter = torch.randn_like(base_coords, device=device) * jitter_mag
+        coords = base_coords + jitter
+    elif arrangement == "blue_noise":
+        jitter_mag = 0.4 * spacing * jitter_factor
+        jitter = (torch.rand_like(base_coords, device=device) - 0.5) * 2 * jitter_mag
+        points = base_coords + jitter
+        for _ in range(3):
+            dists = torch.cdist(points, points)
+            k = min(6, points.shape[0] - 1)
+            _, nearest_idx = torch.topk(dists, k + 1, largest=False, dim=1)
+            for i in range(points.shape[0]):
+                neighbors = points[nearest_idx[i, 1:]]
+                centroid = neighbors.mean(dim=0)
+                points[i] = 0.7 * points[i] + 0.3 * centroid
+        coords = points
+    elif arrangement == "poisson":
+        # Grid-respecting: moderate jitter, no pure random clustering
+        jitter_mag = 0.5 * spacing * jitter_factor
+        jitter = torch.randn_like(base_coords, device=device) * jitter_mag
+        coords = base_coords + jitter
+    elif arrangement == "hex":
+        from .grid import ReceptorGrid
+        center = ((x_min_eff + x_max_eff) / 2, (y_min_eff + y_max_eff) / 2)
+        grid = ReceptorGrid(
+            grid_size=(n_cols, n_rows),
+            spacing=spacing,
+            center=center,
+            arrangement="hex",
+            density=None,
+            device=device,
+        )
+        hex_coords = grid.get_receptor_coordinates()
+        expected = n_rows * n_cols
+        if hex_coords.shape[0] >= expected:
+            return hex_coords[:expected]
+        return base_coords
+    else:
+        return base_coords
+
+    coords[:, 0] = torch.clamp(coords[:, 0], x_min_eff, x_max_eff)
+    coords[:, 1] = torch.clamp(coords[:, 1], y_min_eff, y_max_eff)
     return coords
 
 
@@ -744,6 +778,7 @@ class InnervationModule(nn.Module):
         seed: Optional[int] = None,
         edge_offset: Optional[float] = None,
         neuron_centers: Optional[torch.Tensor] = None,
+        neuron_jitter_factor: float = 1.0,
     ) -> None:
         """Initialise innervation tensors for a tactile neuron population.
 
@@ -797,6 +832,7 @@ class InnervationModule(nn.Module):
                 cols=n_cols,
                 arrangement=neuron_arrangement,
                 seed=seed,
+                jitter_factor=neuron_jitter_factor,
             )
 
         # Create coordinate tensor for grid points
@@ -956,6 +992,7 @@ class FlatInnervationModule(nn.Module):
         seed: Optional[int] = None,
         edge_offset: Optional[float] = None,
         device: torch.device | str = "cpu",
+        neuron_jitter_factor: float = 1.0,
     ) -> None:
         """Build innervation weights from flat receptor coordinates.
 
@@ -1023,6 +1060,7 @@ class FlatInnervationModule(nn.Module):
                 edge_offset=edge_offset, sigma=self.sigma_d_mm,
                 rows=n_rows, cols=n_cols, arrangement=neuron_arrangement,
                 seed=seed,
+                jitter_factor=neuron_jitter_factor,
             )
 
         # Compute weight matrix via BaseInnervation subclass -------------
