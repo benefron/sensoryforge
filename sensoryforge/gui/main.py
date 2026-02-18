@@ -25,6 +25,7 @@ from sensoryforge.gui.tabs import (  # noqa: E402
     MechanoreceptorTab,
     StimulusDesignerTab,
     SpikingNeuronTab,
+    VisualizationTab,
 )
 from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 
@@ -69,6 +70,18 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             self.stimulus_tab,
         )
         tabs.addTab(self.spiking_tab, "Spiking Neurons")
+
+        self.visualization_tab = VisualizationTab()
+        tabs.addTab(self.visualization_tab, "Visualization")
+
+        # Wire simulation results → visualization tab
+        self.spiking_tab.simulation_finished.connect(
+            self.visualization_tab.set_simulation_results
+        )
+        # Wire population changes → visualization tab (for spatial positions)
+        self.mechanoreceptor_tab.populations_changed.connect(
+            self.visualization_tab.set_populations
+        )
 
         # Create project registry (used for config save/load and exports)
         registry_root = Path.cwd() / "project_registry"

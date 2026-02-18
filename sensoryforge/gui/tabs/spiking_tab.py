@@ -200,6 +200,11 @@ class CollapsibleSection(QtWidgets.QWidget):
 class SpikingNeuronTab(QtWidgets.QWidget):
     """Configure and simulate spiking neurons driven by saved stimuli."""
 
+    # Emitted after a successful simulation so the VisualizationTab can update.
+    # Payload: (sim_results dict, stimulus_frames ndarray or None, time_ms ndarray,
+    #           dt_ms float, xlim tuple, ylim tuple)
+    simulation_finished = QtCore.pyqtSignal(object, object, object, float, tuple, tuple)
+
     def __init__(
         self,
         mechanoreceptor_tab,
@@ -1691,12 +1696,44 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 )
             else:
                 self.lbl_module_status.setText("Simulation completed successfully.")
+            # Emit for VisualizationTab
+            self._emit_simulation_finished(results, dt_ms)
         if errors:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Simulation issues",
                 "\n".join(errors),
             )
+
+    def _emit_simulation_finished(
+        self, results: Dict[str, "SimulationResult"], dt_ms: float
+    ) -> None:
+        """Emit simulation_finished signal for the VisualizationTab."""
+        try:
+            frames_np = (
+                self._stimulus_frames.detach().cpu().numpy()
+                if self._stimulus_frames is not None
+                else None
+            )
+            # time axis from first result
+            first = next(iter(results.values()))
+            time_ms = first.time_ms
+
+            # Spatial extent from grid manager if available
+            xlim: tuple = (-5.0, 5.0)
+            ylim: tuple = (-5.0, 5.0)
+            gm = getattr(self, "grid_manager", None)
+            if gm is not None:
+                try:
+                    props = gm.get_grid_properties()
+                    xlim = tuple(props.get("xlim", xlim))
+                    ylim = tuple(props.get("ylim", ylim))
+                except Exception:
+                    pass
+
+            self.simulation_finished.emit(results, frames_np, time_ms, dt_ms, xlim, ylim)
+        except Exception:
+            pass  # Never block simulation result display for viz signal errors
 
     def _simulate_population(
         self,
