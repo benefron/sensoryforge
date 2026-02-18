@@ -244,12 +244,14 @@ class _Canvas(QtWidgets.QWidget):
         return panels
 
     def _clear(self) -> None:
+        # Clear the Python list BEFORE destroying C++ objects.
+        # Slots are children of the splitter and get deleted when it is.
+        # Calling setParent(None) on them afterwards crashes (C++ object deleted).
+        self._slots = []
         if self._splitter_rows is not None:
             self._layout.removeWidget(self._splitter_rows)
             self._splitter_rows.setParent(None)
             self._splitter_rows = None
-        for slot in self._slots:
-            slot.setParent(None)
 
     def all_panels(self) -> List[VisualizationPanel]:
         return [s.panel for s in self._slots if s.panel is not None]
@@ -627,8 +629,11 @@ class VisualizationTab(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _on_seek(self, t_idx: int) -> None:
-        for panel in self._panels:
-            panel.seek(t_idx)
+        for panel in list(self._panels):  # snapshot; list may change during preset switch
+            try:
+                panel.seek(t_idx)
+            except RuntimeError:
+                pass  # C++ object destroyed during layout switch; skip
 
     def _on_preset_selected(self, name: str) -> None:
         if name in _PRESETS:
@@ -662,6 +667,9 @@ class VisualizationTab(QtWidgets.QWidget):
 
     def _apply_preset(self, preset_name: str) -> None:
         self._playback.stop()
+        # Clear _panels BEFORE canvas teardown so any pending seek/timer calls
+        # on the old (about-to-be-destroyed) panels are no-ops.
+        self._panels = []
         preset = _PRESETS.get(preset_name, _PRESETS[_DEFAULT_PRESET])
         self._panels = self._canvas.apply_preset(preset, self._data)
         for panel in self._panels:
