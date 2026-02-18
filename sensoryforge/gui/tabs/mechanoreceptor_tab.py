@@ -45,6 +45,16 @@ _GRID_COLORS = [
     QtGui.QColor(245, 245, 66, 200),   # Yellow
 ]
 
+# Default color palette for new population layers (matches grid palette)
+_POPULATION_COLORS = [
+    QtGui.QColor(66, 135, 245),   # Blue
+    QtGui.QColor(245, 135, 66),   # Orange
+    QtGui.QColor(66, 245, 135),   # Green
+    QtGui.QColor(245, 66, 135),   # Pink
+    QtGui.QColor(135, 66, 245),   # Purple
+    QtGui.QColor(245, 245, 66),   # Yellow
+]
+
 
 def _default_population_name(neuron_type: str, index: int) -> str:
     return f"{neuron_type} #{index}" if neuron_type else f"Population #{index}"
@@ -625,19 +635,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_list_layout.addWidget(self.population_list)
 
         pop_list_controls = QtWidgets.QHBoxLayout()
-        self.btn_show_selected = QtWidgets.QPushButton("Show")
-        self.btn_hide_selected = QtWidgets.QPushButton("Hide")
-        self.btn_show_selected.clicked.connect(
-            lambda: self._set_selected_visibility(True)
-        )
-        self.btn_hide_selected.clicked.connect(
-            lambda: self._set_selected_visibility(False)
-        )
-        pop_list_controls.addWidget(self.btn_show_selected)
-        pop_list_controls.addWidget(self.btn_hide_selected)
-        btn_remove = QtWidgets.QPushButton("Remove")
-        btn_remove.clicked.connect(self._on_remove_population)
-        pop_list_controls.addWidget(btn_remove)
+        self.btn_add_population = QtWidgets.QPushButton("Add Population")
+        self.btn_add_population.clicked.connect(self._on_add_population)
+        self.btn_remove_population = QtWidgets.QPushButton("Remove Population")
+        self.btn_remove_population.clicked.connect(self._on_remove_population)
+        pop_list_controls.addWidget(self.btn_add_population)
+        pop_list_controls.addWidget(self.btn_remove_population)
         pop_list_layout.addLayout(pop_list_controls)
         control_layout.addWidget(pop_list_group)
 
@@ -645,51 +648,64 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_settings_group = CollapsibleGroupBox("Population Settings", start_expanded=False)
         pop_layout = pop_settings_group.layout()
         self._pop_layout = pop_layout
+        self._block_population_editor = False
         self.txt_population_name = QtWidgets.QLineEdit()
+        self.txt_population_name.setPlaceholderText("e.g. Pop #1 (auto if empty)")
+        self.txt_population_name.editingFinished.connect(self._on_population_editor_changed)
         self.spin_neurons_per_row = QtWidgets.QSpinBox()
         self.spin_neurons_per_row.setRange(1, 128)
         self.spin_neurons_per_row.setValue(10)
+        self.spin_neurons_per_row.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_connections = QtWidgets.QDoubleSpinBox()
         self.dbl_connections.setDecimals(1)
         self.dbl_connections.setRange(1.0, 500.0)
         self.dbl_connections.setValue(28.0)
+        self.dbl_connections.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_sigma = QtWidgets.QDoubleSpinBox()
         self.dbl_sigma.setDecimals(4)
         self.dbl_sigma.setRange(0.01, 3.0)
         self.dbl_sigma.setValue(0.3)
+        self.dbl_sigma.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_innervation_method = QtWidgets.QComboBox()
         self.cmb_innervation_method.addItems(
             ["gaussian", "one_to_one", "uniform", "distance_weighted"]
         )
         self.cmb_innervation_method.setCurrentText("gaussian")
+        self.cmb_innervation_method.currentTextChanged.connect(self._on_population_editor_changed)
         self.dbl_max_distance = QtWidgets.QDoubleSpinBox()
         self.dbl_max_distance.setDecimals(3)
         self.dbl_max_distance.setRange(0.01, 10.0)
         self.dbl_max_distance.setValue(1.0)
+        self.dbl_max_distance.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_decay_function = QtWidgets.QComboBox()
         self.cmb_decay_function.addItems(
             ["exponential", "linear", "inverse_square"]
         )
         self.cmb_decay_function.setCurrentText("exponential")
+        self.cmb_decay_function.currentTextChanged.connect(self._on_population_editor_changed)
         self.dbl_decay_rate = QtWidgets.QDoubleSpinBox()
         self.dbl_decay_rate.setDecimals(3)
         self.dbl_decay_rate.setRange(0.01, 10.0)
         self.dbl_decay_rate.setValue(2.0)
+        self.dbl_decay_rate.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_weight_min = QtWidgets.QDoubleSpinBox()
         self.dbl_weight_min.setDecimals(2)
         self.dbl_weight_min.setRange(0.0, 10.0)
         self.dbl_weight_min.setValue(0.1)
         self.dbl_weight_min.setSingleStep(0.05)
+        self.dbl_weight_min.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_weight_max = QtWidgets.QDoubleSpinBox()
         self.dbl_weight_max.setDecimals(2)
         self.dbl_weight_max.setRange(0.0, 10.0)
         self.dbl_weight_max.setValue(1.0)
         self.dbl_weight_max.setSingleStep(0.05)
+        self.dbl_weight_max.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_edge_offset = QtWidgets.QDoubleSpinBox()
         self.dbl_edge_offset.setDecimals(4)
         self.dbl_edge_offset.setRange(0.0, 20.0)
         self.dbl_edge_offset.setValue(0.15)
         self.dbl_edge_offset.setSingleStep(0.01)
+        self.dbl_edge_offset.valueChanged.connect(self._on_population_editor_changed)
         self.btn_pick_color = QtWidgets.QPushButton()
         self.btn_pick_color.clicked.connect(self._on_pick_color)
         self.btn_pick_color.setText("Pick Color")
@@ -704,6 +720,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             "Select which grid layer this population targets."
         )
         self.cmb_target_grid.setEnabled(True)
+        self.cmb_target_grid.currentTextChanged.connect(self._on_population_editor_changed)
         pop_layout.addRow("Name:", self.txt_population_name)
         pop_layout.addRow("Target Grid:", self.cmb_target_grid)
         pop_layout.addRow("Neurons/row:", self.spin_neurons_per_row)
@@ -730,6 +747,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_far_connection_fraction.setRange(0.0, 1.0)
         self.dbl_far_connection_fraction.setSingleStep(0.05)
         self.dbl_far_connection_fraction.setValue(0.0)
+        self.dbl_far_connection_fraction.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_far_connection_fraction.setToolTip(
             "Fraction of connections from far receptors (beyond 5*sigma) to break coherence."
         )
@@ -738,6 +756,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_far_sigma_factor.setRange(2.0, 20.0)
         self.dbl_far_sigma_factor.setSingleStep(0.5)
         self.dbl_far_sigma_factor.setValue(5.0)
+        self.dbl_far_sigma_factor.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_far_sigma_factor.setToolTip("Receptors beyond this × sigma are 'far'.")
         adv_group.addRow("Far connection %:", self.dbl_far_connection_fraction)
         adv_group.addRow("Far sigma factor:", self.dbl_far_sigma_factor)
@@ -745,10 +764,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.spin_neuron_rows.setRange(1, 128)
         self.spin_neuron_rows.setValue(10)
         self.spin_neuron_rows.setToolTip("Number of neuron rows (vertical).")
+        self.spin_neuron_rows.valueChanged.connect(self._on_population_editor_changed)
         self.spin_neuron_cols = QtWidgets.QSpinBox()
         self.spin_neuron_cols.setRange(1, 128)
         self.spin_neuron_cols.setValue(10)
         self.spin_neuron_cols.setToolTip("Number of neuron columns (horizontal).")
+        self.spin_neuron_cols.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_neuron_arrangement = QtWidgets.QComboBox()
         self.cmb_neuron_arrangement.addItems(
             ["grid", "poisson", "hex", "blue_noise", "jittered_grid"]
@@ -757,6 +778,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             "Spatial distribution of neuron centers. All respect a grid base; "
             "poisson/jittered/blue_noise add controlled jitter."
         )
+        self.cmb_neuron_arrangement.currentTextChanged.connect(self._on_population_editor_changed)
         self.dbl_neuron_jitter = QtWidgets.QDoubleSpinBox()
         self.dbl_neuron_jitter.setDecimals(2)
         self.dbl_neuron_jitter.setRange(0.5, 2.5)
@@ -766,6 +788,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             "Jitter multiplier for poisson/jittered_grid/blue_noise. 1.0 = default; "
             ">1 adds more irregularity."
         )
+        self.dbl_neuron_jitter.valueChanged.connect(self._on_population_editor_changed)
         adv_group.addRow("Neuron rows:", self.spin_neuron_rows)
         adv_group.addRow("Neuron cols:", self.spin_neuron_cols)
         adv_group.addRow("Neuron arrangement:", self.cmb_neuron_arrangement)
@@ -778,9 +801,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._on_innervation_method_changed(
             self.cmb_innervation_method.currentText()
         )
-        self.btn_add_population = QtWidgets.QPushButton("Add Population")
-        self.btn_add_population.clicked.connect(self._on_add_population)
-        pop_layout.addRow(self.btn_add_population)
+        self.btn_generate_population = QtWidgets.QPushButton("Generate Population(s)")
+        self.btn_generate_population.clicked.connect(self._on_generate_population)
+        self.btn_generate_population.setEnabled(False)
+        pop_layout.addRow(self.btn_generate_population)
         control_layout.addWidget(pop_settings_group)
 
         # Layers visibility — collapsible
@@ -839,9 +863,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.plot.showGrid(x=True, y=True, alpha=0.2)
         self.plot.setLabel("bottom", "X (mm)")
         self.plot.setLabel("left", "Y (mm)")
-        # Use both: scene sigMouseClicked (when no item consumes) and event filter
-        # on viewport (to catch clicks that ViewBox/items consume for pan/zoom)
-        self.plot.scene().sigMouseClicked.connect(self._on_plot_clicked)
+        # Use ONLY eventFilter on viewport: sigMouseClicked can also fire and cause
+        # double-handling (highlight then unhighlight in one click). EventFilter catches
+        # all left-clicks before propagation.
         self.plot_widget.viewport().installEventFilter(self)
 
     # ------------------------------------------------------------------ #
@@ -1020,6 +1044,42 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.cmb_target_grid.setCurrentIndex(max(0, idx))
         self.cmb_target_grid.blockSignals(False)
 
+    def _on_population_editor_changed(self, *_args: object) -> None:
+        """Sync editor widgets back to the selected NeuronPopulation (mirrors grid)."""
+        if self._block_population_editor:
+            return
+        pop = self._selected_population
+        if pop is None:
+            return
+        pop.name = self.txt_population_name.text().strip() or pop.name
+        pop.color = QtGui.QColor(self._population_color)
+        pop.neurons_per_row = self.spin_neurons_per_row.value()
+        pop.neuron_rows = self.spin_neuron_rows.value()
+        pop.neuron_cols = self.spin_neuron_cols.value()
+        pop.connections_per_neuron = self.dbl_connections.value()
+        pop.sigma_d_mm = self.dbl_sigma.value()
+        pop.innervation_method = self.cmb_innervation_method.currentText()
+        pop.use_distance_weights = pop.innervation_method == "distance_weighted"
+        pop.weight_min = self.dbl_weight_min.value()
+        pop.weight_max = self.dbl_weight_max.value()
+        pop.edge_offset = self.dbl_edge_offset.value() or None
+        pop.far_connection_fraction = self.dbl_far_connection_fraction.value()
+        pop.far_sigma_factor = self.dbl_far_sigma_factor.value()
+        pop.max_distance_mm = self.dbl_max_distance.value()
+        pop.decay_function = self.cmb_decay_function.currentText()
+        pop.decay_rate = self.dbl_decay_rate.value()
+        pop.neuron_arrangement = self.cmb_neuron_arrangement.currentText()
+        pop.neuron_jitter_factor = self.dbl_neuron_jitter.value()
+        target_text = self.cmb_target_grid.currentText()
+        pop.target_grid = target_text if target_text != "(all receptors)" else None
+        # Refresh list item
+        for idx in range(self.population_list.count()):
+            item = self.population_list.item(idx)
+            if item.data(QtCore.Qt.UserRole) is pop:
+                item.setText(pop.name)
+                item.setForeground(QtGui.QBrush(pop.color))
+                break
+
     def _on_generate_grid(self) -> None:
         """Generate grid(s) from all grid entries."""
         if not self._grid_entries:
@@ -1080,7 +1140,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._refresh_target_grid_dropdown()
         self._sync_edge_offset_from_grid(entry.spacing)
         self._update_grid_visualization()
-        self._rebuild_populations()
+        self._clear_population_graphics_on_grid_change()
+        self._update_generate_population_button()
         self.grid_changed.emit(self.grid_manager)
 
     def _sync_edge_offset_from_grid(self, spacing: float) -> None:
@@ -1147,7 +1208,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         first_spacing = entries[0].spacing if entries else 0.15
         self._sync_edge_offset_from_grid(first_spacing)
         self._update_grid_visualization()
-        self._rebuild_populations()
+        self._clear_population_graphics_on_grid_change()
+        self._update_generate_population_button()
         self.grid_changed.emit({
             "type": "composite",
             "grid": cg,
@@ -1270,28 +1332,34 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 self._on_plot_clicked_at(data_pos.x(), data_pos.y())
         return False  # Don't consume the event
 
-    def _on_plot_clicked(self, event) -> None:
-        """Handle plot click from scene sigMouseClicked."""
-        if event.button() != QtCore.Qt.LeftButton:
-            return
-        vb = self.plot.getViewBox()
-        data_pos = vb.mapSceneToView(event.scenePos())
-        self._on_plot_clicked_at(data_pos.x(), data_pos.y())
-
     def _on_plot_clicked_at(self, x_click: float, y_click: float) -> None:
-        """Handle plot click: one click to highlight, one click to unhighlight."""
-        if self._selected_population is None or self._selected_population.neuron_centers is None:
+        """Handle plot click: one click on neuron = highlight, next click = unhighlight.
+
+        IMPORTANT: Do not add sigMouseClicked or other click handlers. Use ONLY the
+        eventFilter on viewport() to avoid double-firing (which toggles highlight twice).
+        """
+        # Resolve which population to use: selected one, or first with neuron_centers
+        pop = self._selected_population
+        if pop is None or pop.neuron_centers is None:
+            for p in self.populations:
+                if p.neuron_centers is not None:
+                    pop = p
+                    break
+        if pop is None or pop.neuron_centers is None:
             return
-        centers = self._selected_population.neuron_centers.detach().cpu().numpy()
+
+        centers = pop.neuron_centers.detach().cpu().numpy()
         dists = (centers[:, 0] - x_click) ** 2 + (centers[:, 1] - y_click) ** 2
         nearest = int(np.argmin(dists))
         dist_to_nearest = float(np.sqrt(dists[nearest]))
 
-        # One click to highlight, one click to unhighlight (toggle)
-        select_threshold = 1.2  # mm; within this = on a neuron
+        SELECT_THRESHOLD_MM = 1.2  # within this distance = "on" a neuron
         if self._selected_neuron_idx is not None:
+            # Any click when highlighted -> unhighlight
             self._selected_neuron_idx = None
-        elif dist_to_nearest <= select_threshold:
+        elif dist_to_nearest <= SELECT_THRESHOLD_MM:
+            # Click near a neuron when not highlighted -> highlight it
+            self._selected_population = pop  # sync selection if we used fallback
             self._selected_neuron_idx = nearest
         self._update_neuron_highlight()
 
@@ -1497,6 +1565,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if color.isValid():
             self._population_color = color
             self._update_color_button()
+            self._on_population_editor_changed()
 
     def _update_color_button(self) -> None:
         palette = self.btn_pick_color.palette()
@@ -1506,98 +1575,102 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_pick_color.setAutoFillBackground(True)
 
     def _on_add_population(self) -> None:
-        if self.grid_manager is None and self._composite_grid is None:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Grid required",
-                "Create the mechanoreceptor grid before adding populations.",
-            )
-            return
-        name = self.txt_population_name.text().strip()
-        neuron_type = "SA"  # Filter determines type; SA/RA used for defaults
-        if not name:
-            name = _default_population_name(
-                neuron_type,
-                self._population_counter,
-            )
+        """Add a new population config to the list (no instantiation until Generate)."""
+        name = f"Pop #{self._population_counter}"
+        color = _POPULATION_COLORS[len(self.populations) % len(_POPULATION_COLORS)]
         seed = self._get_population_seed()
-
-        # Determine target grid for composite mode
         target_grid = None
         if self._composite_grid is not None and self.cmb_target_grid.isEnabled():
             target_text = self.cmb_target_grid.currentText()
             if target_text != "(all receptors)":
                 target_grid = target_text
 
-        use_dw = self.cmb_innervation_method.currentText() == "distance_weighted"
-        far_frac = self.dbl_far_connection_fraction.value() if hasattr(self, "dbl_far_connection_fraction") else 0.0
-        far_sigma = self.dbl_far_sigma_factor.value() if hasattr(self, "dbl_far_sigma_factor") else 5.0
-        nr = self.spin_neuron_rows.value() if hasattr(self, "spin_neuron_rows") else self.spin_neurons_per_row.value()
-        nc = self.spin_neuron_cols.value() if hasattr(self, "spin_neuron_cols") else self.spin_neurons_per_row.value()
-        arr = self.cmb_neuron_arrangement.currentText() if hasattr(self, "cmb_neuron_arrangement") else "grid"
         population = NeuronPopulation(
             name=name,
-            neuron_type=neuron_type,
-            color=self._population_color,
-            neurons_per_row=self.spin_neurons_per_row.value(),
-            connections_per_neuron=self.dbl_connections.value(),
-            neuron_rows=nr,
-            neuron_cols=nc,
-            neuron_arrangement=arr,
-            sigma_d_mm=self.dbl_sigma.value(),
-            weight_min=self.dbl_weight_min.value(),
-            weight_max=self.dbl_weight_max.value(),
-            innervation_method=self.cmb_innervation_method.currentText(),
-            use_distance_weights=use_dw,
-            far_connection_fraction=far_frac,
-            far_sigma_factor=far_sigma,
-            max_distance_mm=self.dbl_max_distance.value(),
-            decay_function=self.cmb_decay_function.currentText(),
-            decay_rate=self.dbl_decay_rate.value(),
+            neuron_type="SA",
+            color=QtGui.QColor(color),
+            neurons_per_row=10,
+            connections_per_neuron=28.0,
+            neuron_rows=10,
+            neuron_cols=10,
+            neuron_arrangement="grid",
+            sigma_d_mm=0.3,
+            weight_min=0.1,
+            weight_max=1.0,
+            innervation_method="gaussian",
+            use_distance_weights=False,
+            far_connection_fraction=0.0,
+            far_sigma_factor=5.0,
+            max_distance_mm=1.0,
+            decay_function="exponential",
+            decay_rate=2.0,
             seed=seed,
-            edge_offset=self.dbl_edge_offset.value() or None,
-            neuron_jitter_factor=self.dbl_neuron_jitter.value()
-            if hasattr(self, "dbl_neuron_jitter") else 1.0,
+            edge_offset=0.15,
+            neuron_jitter_factor=1.0,
             target_grid=target_grid,
         )
-
-        if self.grid_manager is not None:
-            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
-                population.instantiate(self.grid_manager)
-            else:
-                coords = self.grid_manager.get_receptor_coordinates()
-                props = self.grid_manager.get_grid_properties()
-                population.instantiate_flat(coords, props["xlim"], props["ylim"])
-        elif self._composite_grid is not None:
-            # Use FlatInnervationModule with composite grid coordinates
-            if target_grid is not None:
-                coords = self._composite_grid.get_population_coordinates(target_grid)
-            else:
-                coords = self._composite_grid.get_all_coordinates()
-            if coords is None or coords.shape[0] == 0:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "No receptors",
-                    f"Grid layer '{target_grid or 'all'}' has no receptor coordinates.",
-                )
-                return
-            bounds = self._composite_grid.computed_bounds
-            xlim = bounds[0]
-            ylim = bounds[1]
-            population.instantiate_flat(coords, xlim, ylim)
-
         self.populations.append(population)
         self._population_counter += 1
         self._add_population_to_list(population)
-        self._create_population_graphics(population)
+        self._selected_population = population
+        self._load_population_into_form(population)
+        self.populations_changed.emit(list(self.populations))
+
+    def _on_generate_population(self) -> None:
+        """Instantiate all populations from current configs (requires grid)."""
+        if self.grid_manager is None and self._composite_grid is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Grid required",
+                "Generate the mechanoreceptor grid before generating populations.",
+            )
+            return
+        # Sync form to selected population before generating
+        if self._selected_population is not None:
+            self._on_population_editor_changed()
+        self._generate_populations()
+
+    def _generate_populations(self) -> None:
+        """Instantiate all populations and create graphics (mirrors _generate_grids)."""
+        if self.grid_manager is None and self._composite_grid is None:
+            return
+        for population in self.populations:
+            population.delete_graphics(self.plot)
+        seed_val = self._get_population_seed()
+        if seed_val is not None:
+            torch.manual_seed(seed_val)
+        if self.grid_manager is not None:
+            for population in self.populations:
+                population.module = None
+                population.flat_module = None
+                if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                    population.instantiate(self.grid_manager)
+                else:
+                    coords = self.grid_manager.get_receptor_coordinates()
+                    props = self.grid_manager.get_grid_properties()
+                    population.instantiate_flat(coords, props["xlim"], props["ylim"])
+                self._create_population_graphics(population)
+        elif self._composite_grid is not None:
+            bounds = self._composite_grid.computed_bounds
+            xlim, ylim = bounds[0], bounds[1]
+            for population in self.populations:
+                population.module = None
+                population.flat_module = None
+                target = population.target_grid
+                coords = (
+                    self._composite_grid.get_population_coordinates(target)
+                    if target
+                    else self._composite_grid.get_all_coordinates()
+                )
+                if coords is not None and coords.shape[0] > 0:
+                    population.instantiate_flat(coords, xlim, ylim)
+                    self._create_population_graphics(population)
+        self._highlight_population(self._selected_population)
         self._update_layer_visibility()
         self.populations_changed.emit(list(self.populations))
-        self.txt_population_name.clear()
 
     def _add_population_to_list(self, population: NeuronPopulation) -> None:
-        list_item = QtWidgets.QListWidgetItem(
-            f"{population.name} ({population.neuron_type})"
-        )
+        list_item = QtWidgets.QListWidgetItem(population.name)
         list_item.setData(QtCore.Qt.UserRole, population)
         color = population.color
         list_item.setForeground(QtGui.QBrush(color))
@@ -1619,6 +1692,55 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._selected_neuron_idx = None
         self._update_neuron_highlight()
         self._highlight_population(population)
+        self._load_population_into_form(population)
+
+    def _load_population_into_form(
+        self, population: Optional[NeuronPopulation]
+    ) -> None:
+        """Load population settings into the editor form (mirrors _on_grid_selected)."""
+        if population is None:
+            return
+        self._block_population_editor = True
+        self._block_neuron_sync = True
+        self.txt_population_name.setText(population.name)
+        self.spin_neurons_per_row.setValue(population.neurons_per_row)
+        n_rows = population.neuron_rows or population.neurons_per_row
+        n_cols = population.neuron_cols or population.neurons_per_row
+        if hasattr(self, "spin_neuron_rows"):
+            self.spin_neuron_rows.setValue(n_rows)
+        if hasattr(self, "spin_neuron_cols"):
+            self.spin_neuron_cols.setValue(n_cols)
+        self.dbl_connections.setValue(population.connections_per_neuron)
+        self.dbl_sigma.setValue(population.sigma_d_mm)
+        self.cmb_innervation_method.setCurrentText(population.innervation_method)
+        self.dbl_weight_min.setValue(population.weight_min)
+        self.dbl_weight_max.setValue(population.weight_max)
+        self.dbl_edge_offset.setValue(population.edge_offset or 0.0)
+        if hasattr(self, "dbl_far_connection_fraction"):
+            self.dbl_far_connection_fraction.setValue(population.far_connection_fraction)
+        if hasattr(self, "dbl_far_sigma_factor"):
+            self.dbl_far_sigma_factor.setValue(population.far_sigma_factor)
+        self.dbl_max_distance.setValue(population.max_distance_mm)
+        self.cmb_decay_function.setCurrentText(population.decay_function)
+        self.dbl_decay_rate.setValue(population.decay_rate)
+        if hasattr(self, "cmb_neuron_arrangement"):
+            self.cmb_neuron_arrangement.setCurrentText(population.neuron_arrangement)
+        if hasattr(self, "dbl_neuron_jitter"):
+            self.dbl_neuron_jitter.setValue(population.neuron_jitter_factor)
+        # Target grid
+        if hasattr(self, "cmb_target_grid") and population.target_grid is not None:
+            idx = self.cmb_target_grid.findText(population.target_grid)
+            if idx >= 0:
+                self.cmb_target_grid.setCurrentIndex(idx)
+            else:
+                self.cmb_target_grid.setCurrentIndex(0)
+        elif hasattr(self, "cmb_target_grid"):
+            self.cmb_target_grid.setCurrentIndex(0)
+        # Color
+        self._population_color = QtGui.QColor(population.color)
+        self._update_color_button()
+        self._block_neuron_sync = False
+        self._block_population_editor = False
 
     def _on_population_item_changed(self, item: QtWidgets.QListWidgetItem) -> None:
         if self._block_population_item_changed:
@@ -1735,11 +1857,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         item.setCheckState(QtCore.Qt.Checked if visible else QtCore.Qt.Unchecked)
         self._block_population_item_changed = False
 
-    def _set_selected_visibility(self, visible: bool) -> None:
-        population = self._population_from_row(self.population_list.currentRow())
-        if population is None:
-            return
-        self._set_population_visibility(population, visible)
 
     def _row_for_population(self, population: NeuronPopulation) -> Optional[int]:
         for idx in range(self.population_list.count()):
@@ -1754,6 +1871,39 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         item = self.population_list.item(row)
         pop = item.data(QtCore.Qt.UserRole)
         return pop if isinstance(pop, NeuronPopulation) else None
+
+    def _remove_population_graphics(self, population: NeuronPopulation) -> None:
+        """Remove all plot items belonging to a population."""
+        if population.scatter_item is not None:
+            self.plot.removeItem(population.scatter_item)
+            population.scatter_item = None
+        for item, _, _ in population.connection_items:
+            self.plot.removeItem(item)
+        population.connection_items = []
+        if population.heatmap_item is not None:
+            self.plot.removeItem(population.heatmap_item)
+            population.heatmap_item = None
+        if population.receptor_item is not None:
+            self.plot.removeItem(population.receptor_item)
+            population.receptor_item = None
+        for item in population.receptor_items:
+            self.plot.removeItem(item)
+        population.receptor_items = []
+        if population.highlight_neuron_item is not None:
+            self.plot.removeItem(population.highlight_neuron_item)
+            population.highlight_neuron_item = None
+        if population.highlight_shadow_item is not None:
+            self.plot.removeItem(population.highlight_shadow_item)
+            population.highlight_shadow_item = None
+        for item in population.highlight_connection_items:
+            self.plot.removeItem(item)
+        population.highlight_connection_items = []
+        if population.highlight_receptor_item is not None:
+            self.plot.removeItem(population.highlight_receptor_item)
+            population.highlight_receptor_item = None
+        if population.highlight_receptor_shadow_item is not None:
+            self.plot.removeItem(population.highlight_receptor_shadow_item)
+            population.highlight_receptor_shadow_item = None
 
     def _create_population_graphics(self, population: NeuronPopulation) -> None:
         centers = population.neuron_centers
@@ -2121,7 +2271,21 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         self._apply_population_visibility(population)
 
+    def _clear_population_graphics_on_grid_change(self) -> None:
+        """Clear population graphics and invalidate modules when grid changes."""
+        for population in self.populations:
+            population.delete_graphics(self.plot)
+            population.module = None
+            population.flat_module = None
+
+    def _update_generate_population_button(self) -> None:
+        """Enable Generate Population only when a grid exists."""
+        has_grid = self.grid_manager is not None or self._composite_grid is not None
+        if hasattr(self, "btn_generate_population"):
+            self.btn_generate_population.setEnabled(has_grid)
+
     def _rebuild_populations(self) -> None:
+        """Legacy: instantiate all populations and create graphics (used by config load)."""
         if self.grid_manager is None and self._composite_grid is None:
             return
         for population in self.populations:
