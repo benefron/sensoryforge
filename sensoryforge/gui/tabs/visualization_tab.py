@@ -687,8 +687,13 @@ class VisualizationTab(QtWidgets.QWidget):
             self._data.population_colors = self._pending_population_colors
             del self._pending_population_colors
 
+        import traceback
         for panel in self._panels:
-            panel.set_data(self._data)
+            try:
+                panel.set_data(self._data)
+            except Exception:
+                print(f"[VisualizationTab] Error in {panel.PANEL_DISPLAY_NAME}.set_data:")
+                traceback.print_exc()
 
         if self._data.n_steps > 0:
             self._empty_label.hide()

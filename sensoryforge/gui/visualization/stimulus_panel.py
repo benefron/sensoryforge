@@ -45,12 +45,15 @@ class StimulusPanel(VisualizationPanel):
         # Colormap
         self._set_colormap(self._cmap_name)
 
-        # Colorbar
-        self._colorbar = pg.ColorBarItem(
-            interactive=False,
-            colorMap=pg.colormap.get(self._cmap_name, source="matplotlib"),
-        )
-        self._colorbar.setImageItem(self._img, insert_in=self._pw.getPlotItem())
+        # Colorbar (optional — API varies by pyqtgraph version)
+        try:
+            self._colorbar = pg.ColorBarItem(
+                interactive=False,
+                colorMap=pg.colormap.get(self._cmap_name, source="matplotlib"),
+            )
+            self._colorbar.setImageItem(self._img, insert_in=self._pw.getPlotItem())
+        except Exception:
+            self._colorbar = None
 
         layout.addWidget(self._pw)
         self._show_placeholder()

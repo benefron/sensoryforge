@@ -201,9 +201,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     """Configure and simulate spiking neurons driven by saved stimuli."""
 
     # Emitted after a successful simulation so the VisualizationTab can update.
-    # Payload: (sim_results dict, stimulus_frames ndarray or None, time_ms ndarray,
+    # Payload: (sim_results dict, stimulus_frames ndarray|None, time_ms ndarray,
     #           dt_ms float, xlim tuple, ylim tuple)
-    simulation_finished = QtCore.pyqtSignal(object, object, object, float, tuple, tuple)
+    simulation_finished = QtCore.pyqtSignal(object, object, object, object, object, object)
 
     def __init__(
         self,
@@ -1709,31 +1709,38 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self, results: Dict[str, "SimulationResult"], dt_ms: float
     ) -> None:
         """Emit simulation_finished signal for the VisualizationTab."""
-        try:
-            frames_np = (
-                self._stimulus_frames.detach().cpu().numpy()
-                if self._stimulus_frames is not None
-                else None
-            )
-            # time axis from first result
-            first = next(iter(results.values()))
-            time_ms = first.time_ms
+        # Stimulus frames: [T, H, W] float32 numpy array
+        frames_np = None
+        if self._stimulus_frames is not None:
+            raw = self._stimulus_frames.detach().cpu().float().numpy()
+            # Ensure exactly 3-D: [T, H, W]
+            if raw.ndim == 2:
+                raw = raw[:, np.newaxis, :]   # [T, 1, W]
+            elif raw.ndim == 4:
+                raw = raw[:, 0]               # drop batch dim [B, T, H, W] → [T, H, W]
+            frames_np = raw
 
-            # Spatial extent from grid manager if available
-            xlim: tuple = (-5.0, 5.0)
-            ylim: tuple = (-5.0, 5.0)
-            gm = getattr(self, "grid_manager", None)
-            if gm is not None:
-                try:
-                    props = gm.get_grid_properties()
-                    xlim = tuple(props.get("xlim", xlim))
-                    ylim = tuple(props.get("ylim", ylim))
-                except Exception:
-                    pass
+        # Time axis from first result
+        first = next(iter(results.values()))
+        time_ms = first.time_ms
 
-            self.simulation_finished.emit(results, frames_np, time_ms, dt_ms, xlim, ylim)
-        except Exception:
-            pass  # Never block simulation result display for viz signal errors
+        # Spatial extent from generator (more reliable than grid_manager)
+        xlim: tuple = (-5.0, 5.0)
+        ylim: tuple = (-5.0, 5.0)
+        gen = getattr(self, "generator", None)
+        gm = getattr(self, "grid_manager", None)
+        for src in (gm, gen):
+            if src is None:
+                continue
+            try:
+                props = src.get_grid_properties()
+                xlim = tuple(props.get("xlim", xlim))
+                ylim = tuple(props.get("ylim", ylim))
+                break
+            except Exception:
+                pass
+
+        self.simulation_finished.emit(results, frames_np, time_ms, dt_ms, xlim, ylim)
 
     def _simulate_population(
         self,
