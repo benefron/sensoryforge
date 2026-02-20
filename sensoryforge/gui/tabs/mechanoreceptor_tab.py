@@ -672,6 +672,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_sigma = QtWidgets.QDoubleSpinBox()
         self.dbl_sigma.setDecimals(4)
         self.dbl_sigma.setRange(0.01, 3.0)
+        self.dbl_sigma.setSingleStep(0.01)
         self.dbl_sigma.setValue(0.3)
         self.dbl_sigma.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_innervation_method = QtWidgets.QComboBox()
@@ -1971,11 +1972,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             norm = np.full_like(weights, 0.5)
         else:
             norm = np.clip((weights - lower) / (upper - lower), 0.0, 1.0)
-        lookup = self._population_heatmap_lookup(population.color)
-        colors = np.array(
-            [lookup[int(np.clip(n * 511, 0, 511))] for n in norm],
-            dtype=np.ubyte,
-        )
+        num_levels = 12
+        lookup = self._population_heatmap_lookup(population.color, steps=num_levels)
+        bin_idx = np.minimum((norm * num_levels).astype(np.int32), num_levels - 1)
+        colors = lookup[bin_idx]
         receptor_size = 14.0
         item = pg.ScatterPlotItem(
             x=rx,
@@ -1991,9 +1991,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         population.receptor_items.append(item)
 
     def _population_heatmap_lookup(
-        self, base_color: QtGui.QColor, steps: int = 512
+        self, base_color: QtGui.QColor, steps: int = 12
     ) -> np.ndarray:
-        """Build gradient lookup: more steps for defined range, darker max."""
+        """Build discrete color lookup for innervation strength (steps = distinct levels)."""
         fractions = np.linspace(0.0, 1.0, steps)
         lookup = np.zeros((steps, 4), dtype=np.ubyte)
         for idx, frac in enumerate(fractions):
@@ -2081,7 +2081,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         # Connection lines: thickness encodes innervation strength (thicker = stronger)
         # Contrast: darker lines with higher alpha vs. semi-transparent heatmap
-        num_bins = 8
+        num_bins = 12
         width_min, width_max = 0.4, 2.8
         bins = np.linspace(0.0, 1.0, num_bins + 1)
         for bin_idx in range(num_bins):
@@ -2202,7 +2202,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         # Connection lines: thickness encodes innervation strength (thicker = stronger)
         # Contrast: darker lines with higher alpha vs. background
-        num_bins = 8
+        num_bins = 12
         width_min, width_max = 0.4, 2.8
         bins = np.linspace(0.0, 1.0, num_bins + 1)
         for bin_idx in range(num_bins):
@@ -2778,76 +2778,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._update_layer_visibility()
 
     def _on_export_figure(self) -> None:
-        """Export the current plot to PNG or SVG for publication-quality figures."""
-        from pyqtgraph.exporters import ImageExporter, SVGExporter
+        """Open export dialog: PyQtGraph plot + standalone colorbar for compositing."""
+        from sensoryforge.gui.figure_builder import ExportDialog
 
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Export Figure")
-        layout = QtWidgets.QVBoxLayout(dialog)
-        form = QtWidgets.QFormLayout()
-        spin_width = QtWidgets.QSpinBox()
-        spin_width.setRange(400, 4000)
-        spin_width.setValue(1200)
-        spin_width.setSuffix(" px")
-        spin_width.setToolTip("Output width in pixels (PNG only)")
-        form.addRow("Width:", spin_width)
-        spin_height = QtWidgets.QSpinBox()
-        spin_height.setRange(300, 3000)
-        spin_height.setValue(900)
-        spin_height.setSuffix(" px")
-        spin_height.setToolTip("Output height in pixels (PNG only)")
-        form.addRow("Height:", spin_height)
-        chk_antialias = QtWidgets.QCheckBox()
-        chk_antialias.setChecked(True)
-        chk_antialias.setToolTip("Smoother edges and text")
-        form.addRow("Antialiasing:", chk_antialias)
-        cmb_format = QtWidgets.QComboBox()
-        cmb_format.addItems(["PNG (raster)", "SVG (vector)"])
-        cmb_format.setToolTip(
-            "PNG: pixel-based, good for slides. SVG: scalable, best for publication."
-        )
-        form.addRow("Format:", cmb_format)
-        layout.addLayout(form)
-        buttons = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        if dialog.exec_() != QtWidgets.QDialog.Accepted:
-            return
-        use_svg = cmb_format.currentIndex() == 1
-        path, selected_filter = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Save Figure",
-            "",
-            "SVG vector (*.svg);;PNG image (*.png);;All files (*)" if use_svg else "PNG image (*.png);;SVG vector (*.svg);;All files (*)",
-        )
-        if not path:
-            return
-        path = Path(path)
-        if not path.suffix:
-            path = path.with_suffix(".svg" if use_svg else ".png")
-        try:
-            if path.suffix.lower() == ".svg":
-                exporter = SVGExporter(self.plot_widget.scene())
-            else:
-                exporter = ImageExporter(self.plot_widget.scene())
-                exporter.parameters()["width"] = spin_width.value()
-                exporter.parameters()["height"] = spin_height.value()
-                exporter.parameters()["antialias"] = chk_antialias.isChecked()
-            exporter.export(str(path))
-            QtWidgets.QMessageBox.information(
-                self,
-                "Figure exported",
-                f"Saved to {path}",
-            )
-        except Exception as exc:
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Export failed",
-                f"Could not export figure:\n{exc}",
-            )
+        dialog = ExportDialog(self, parent=self.window())
+        dialog.exec_()
 
     def current_grid_manager(self) -> Optional[GridManager]:
         return self.grid_manager
