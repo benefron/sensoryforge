@@ -19,6 +19,7 @@ from .innervation import (
 )
 from .processing import ProcessingPipeline
 from sensoryforge.config.yaml_utils import load_yaml
+from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
 from sensoryforge.stimuli.texture import gabor_texture  # (resolves ReviewFinding#M3)
 from sensoryforge.stimuli.builder import TimelineStimulus, RepeatedPatternStimulus
@@ -27,6 +28,11 @@ from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.neurons.model_dsl import NeuronModel
 from sensoryforge.filters.noise import MembraneNoiseTorch
 from sensoryforge.solvers.adaptive import AdaptiveSolver
+from sensoryforge.register_components import register_all
+from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY
+
+# Ensure components are registered
+register_all()
 
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
@@ -217,7 +223,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         self.to(self.device)
 
     def _load_config(self, config_path, config_dict):
-        """Load configuration with defaults fallback"""
+        """Load configuration with defaults fallback.
+        
+        Supports both canonical schema (SensoryForgeConfig format) and
+        legacy format. If canonical format is detected, converts it to
+        legacy format for backward compatibility.
+        """
         # Start with defaults
         config = self._deep_copy_dict(self.DEFAULT_CONFIG)
 
@@ -227,15 +238,208 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 with open(config_path, "r", encoding="utf-8") as file:
                     file_config = load_yaml(file)
                 if file_config:
+                    # Check if it's canonical format
+                    if self._is_canonical_config(file_config):
+                        file_config = self._canonical_to_legacy_config(file_config)
                     config = self._deep_merge_dict(config, file_config)
             except FileNotFoundError:
                 print(f"Config file {config_path} not found, using defaults")
 
         # Override with dict if provided
         if config_dict:
+            # Check if it's canonical format
+            if self._is_canonical_config(config_dict):
+                config_dict = self._canonical_to_legacy_config(config_dict)
             config = self._deep_merge_dict(config, config_dict)
 
         return config
+    
+    def _is_canonical_config(self, config: dict) -> bool:
+        """Check if config is in canonical schema format.
+        
+        Canonical format has 'grids' (list) and 'populations' (list) at top level,
+        while legacy format has 'pipeline', 'grid', 'neurons', etc.
+        """
+        return (
+            isinstance(config.get("grids"), list) and
+            isinstance(config.get("populations"), list) and
+            "pipeline" not in config
+        )
+    
+    def _canonical_to_legacy_config(self, canonical: dict) -> dict:
+        """Convert canonical schema config to legacy pipeline format.
+        
+        This adapter allows the pipeline to work with canonical configs
+        while maintaining backward compatibility with legacy format.
+        """
+        legacy = self._deep_copy_dict(self.DEFAULT_CONFIG)
+        
+        # Extract simulation config
+        sim_cfg = canonical.get("simulation", {})
+        legacy["pipeline"]["device"] = sim_cfg.get("device", "cpu")
+        legacy["pipeline"]["seed"] = canonical.get("metadata", {}).get("seed", 42)
+        legacy["neurons"]["dt"] = sim_cfg.get("dt", 1.0)
+        
+        # Extract grids
+        grids = canonical.get("grids", [])
+        if grids:
+            # Use first grid for main grid_manager
+            first_grid = grids[0]
+            legacy["pipeline"]["grid_size"] = first_grid.get("rows", 40) * first_grid.get("cols", 40)
+            legacy["pipeline"]["spacing"] = first_grid.get("spacing", 0.15)
+            center = first_grid.get("center", [0.0, 0.0])
+            if isinstance(center, list):
+                legacy["pipeline"]["center"] = center
+            else:
+                legacy["pipeline"]["center"] = [
+                    first_grid.get("center_x", 0.0),
+                    first_grid.get("center_y", 0.0)
+                ]
+            
+            # If multiple grids, create composite grid config
+            if len(grids) > 1:
+                legacy["grid"]["type"] = "composite"
+                legacy["grid"]["populations"] = {}
+                for g in grids:
+                    name = g.get("name", f"layer{len(legacy['grid']['populations'])}")
+                    legacy["grid"]["populations"][name] = {
+                        "density": g.get("density", 10.0),
+                        "arrangement": g.get("arrangement", "grid"),
+                        "offset": g.get("offset", [0.0, 0.0]) if "offset" in g else [
+                            g.get("center_x", 0.0) - legacy["pipeline"]["center"][0],
+                            g.get("center_y", 0.0) - legacy["pipeline"]["center"][1]
+                        ],
+                        "color": g.get("color", [66, 135, 245, 200]),
+                    }
+        
+        # Extract populations - map to SA/RA/SA2 for legacy format
+        populations = canonical.get("populations", [])
+        sa_pop = None
+        ra_pop = None
+        sa2_pop = None
+        
+        for pop in populations:
+            neuron_type = pop.get("neuron_type", "SA").upper()
+            if neuron_type.startswith("SA2") or neuron_type == "SA2":
+                sa2_pop = pop
+            elif neuron_type.startswith("RA"):
+                ra_pop = pop
+            elif neuron_type.startswith("SA") or not sa_pop:
+                sa_pop = pop
+        
+        # Map population configs to legacy format
+        if sa_pop:
+            legacy["neurons"]["sa_neurons"] = (
+                sa_pop.get("neuron_rows", sa_pop.get("neurons_per_row", 10)) *
+                sa_pop.get("neuron_cols", sa_pop.get("neurons_per_row", 10))
+            )
+            legacy["innervation"]["sa_spread"] = sa_pop.get("sigma_d_mm", 0.3)
+            legacy["innervation"]["sa_method"] = sa_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["sa_seed"] = sa_pop.get("seed", 33)
+            legacy["innervation"]["receptors_per_neuron"] = sa_pop.get("connections_per_neuron", 28)
+            legacy["innervation"]["connection_strength"] = sa_pop.get("weight_range", [0.05, 1.0])
+            
+            # Map neuron model params
+            model = sa_pop.get("neuron_model", "Izhikevich")
+            if model == "DSL (Custom)" or (sa_pop.get("dsl_config") and sa_pop["dsl_config"].get("equations")):
+                legacy["neurons"]["type"] = "dsl"
+                dsl_cfg = sa_pop.get("dsl_config", {})
+                legacy["neurons"]["equations"] = dsl_cfg.get("equations", "")
+                legacy["neurons"]["threshold"] = dsl_cfg.get("threshold", "")
+                legacy["neurons"]["reset"] = dsl_cfg.get("reset", "")
+                legacy["neurons"]["parameters"] = dsl_cfg.get("parameters", {})
+            else:
+                model_params = sa_pop.get("model_params", {})
+                legacy["neuron_params"]["sa_a"] = model_params.get("a", 0.02)
+                legacy["neuron_params"]["sa_b"] = model_params.get("b", 0.2)
+                legacy["neuron_params"]["sa_c"] = model_params.get("c", -65.0)
+                legacy["neuron_params"]["sa_d"] = model_params.get("d", 8.0)
+                legacy["neuron_params"]["sa_v_init"] = model_params.get("v_init", -65.0)
+                legacy["neuron_params"]["sa_threshold"] = model_params.get("threshold", 30.0)
+            
+            # Map filter params
+            filter_method = sa_pop.get("filter_method", "none")
+            if filter_method.lower() in ("sa", "safilter"):
+                filter_params = sa_pop.get("filter_params", {})
+                legacy["filters"]["sa_tau_r"] = filter_params.get("tau_r", 5.0)
+                legacy["filters"]["sa_tau_d"] = filter_params.get("tau_d", 30.0)
+                legacy["filters"]["sa_k1"] = filter_params.get("k1", 0.05)
+                legacy["filters"]["sa_k2"] = filter_params.get("k2", 3.0)
+            
+            # Map noise params
+            legacy["noise"]["sa_membrane_std"] = sa_pop.get("noise_std", 3.0)
+            legacy["noise"]["sa_membrane_mean"] = sa_pop.get("noise_mean", 0.0)
+            legacy["noise"]["sa_membrane_seed"] = sa_pop.get("noise_seed", 42)
+        
+        if ra_pop:
+            legacy["neurons"]["ra_neurons"] = (
+                ra_pop.get("neuron_rows", ra_pop.get("neurons_per_row", 14)) *
+                ra_pop.get("neuron_cols", ra_pop.get("neurons_per_row", 14))
+            )
+            legacy["innervation"]["ra_spread"] = ra_pop.get("sigma_d_mm", 0.39)
+            legacy["innervation"]["ra_method"] = ra_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["ra_seed"] = ra_pop.get("seed", 33)
+            
+            model = ra_pop.get("neuron_model", "Izhikevich")
+            if model == "DSL (Custom)" or (ra_pop.get("dsl_config") and ra_pop["dsl_config"].get("equations")):
+                # Use DSL if RA also uses DSL
+                if legacy["neurons"].get("type") != "dsl":
+                    legacy["neurons"]["type"] = "dsl"
+            else:
+                model_params = ra_pop.get("model_params", {})
+                legacy["neuron_params"]["ra_a"] = model_params.get("a", 0.02)
+                legacy["neuron_params"]["ra_b"] = model_params.get("b", 0.2)
+                legacy["neuron_params"]["ra_c"] = model_params.get("c", -65.0)
+                legacy["neuron_params"]["ra_d"] = model_params.get("d", 8.0)
+                legacy["neuron_params"]["ra_v_init"] = model_params.get("v_init", -65.0)
+                legacy["neuron_params"]["ra_threshold"] = model_params.get("threshold", 30.0)
+            
+            filter_method = ra_pop.get("filter_method", "none")
+            if filter_method.lower() in ("ra", "rafilter"):
+                filter_params = ra_pop.get("filter_params", {})
+                legacy["filters"]["ra_tau_ra"] = filter_params.get("tau_ra", 30.0)
+                legacy["filters"]["ra_k3"] = filter_params.get("k3", 2.0)
+            
+            legacy["noise"]["ra_membrane_std"] = ra_pop.get("noise_std", 3.0)
+            legacy["noise"]["ra_membrane_mean"] = ra_pop.get("noise_mean", 0.0)
+            legacy["noise"]["ra_membrane_seed"] = ra_pop.get("noise_seed", 43)
+        
+        if sa2_pop:
+            legacy["neurons"]["sa2_neurons"] = (
+                sa2_pop.get("neuron_rows", sa2_pop.get("neurons_per_row", 5)) *
+                sa2_pop.get("neuron_cols", sa2_pop.get("neurons_per_row", 5))
+            )
+            legacy["innervation"]["sa2_spread"] = sa2_pop.get("sigma_d_mm", 2.0)
+            legacy["innervation"]["sa2_method"] = sa2_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["sa2_seed"] = sa2_pop.get("seed", 39)
+            legacy["innervation"]["sa2_connections"] = sa2_pop.get("connections_per_neuron", 500)
+            legacy["innervation"]["sa2_weights"] = sa2_pop.get("weight_range", [0.4, 0.75])
+            
+            model_params = sa2_pop.get("model_params", {})
+            legacy["neuron_params"]["sa2_a"] = model_params.get("a", 0.02)
+            legacy["neuron_params"]["sa2_b"] = model_params.get("b", 0.2)
+            legacy["neuron_params"]["sa2_c"] = model_params.get("c", -65.0)
+            legacy["neuron_params"]["sa2_d"] = model_params.get("d", 8.0)
+            legacy["neuron_params"]["sa2_v_init"] = model_params.get("v_init", -65.0)
+            legacy["neuron_params"]["sa2_threshold"] = model_params.get("threshold", 30.0)
+            
+            legacy["noise"]["sa2_membrane_std"] = sa2_pop.get("noise_std", 3.0)
+            legacy["noise"]["sa2_membrane_mean"] = sa2_pop.get("noise_mean", 0.0)
+            legacy["noise"]["sa2_membrane_seed"] = sa2_pop.get("noise_seed", 44)
+        
+        # Map solver config
+        solver_cfg = sim_cfg.get("solver", {})
+        if solver_cfg:
+            legacy["solver"] = {
+                "type": solver_cfg.get("type", "euler"),
+                "config": {
+                    "method": solver_cfg.get("method", "dopri5"),
+                    "rtol": solver_cfg.get("rtol", 1e-5),
+                    "atol": solver_cfg.get("atol", 1e-7),
+                }
+            }
+        
+        return legacy
 
     def _deep_copy_dict(self, d):
         """Deep copy a dictionary"""
@@ -441,17 +645,34 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         filter_cfg = self.config["filters"]
         dt = self.config["neurons"]["dt"]
 
-        self.sa_filter = SAFilterTorch(
-            tau_r=filter_cfg["sa_tau_r"],
-            tau_d=filter_cfg["sa_tau_d"],
-            k1=filter_cfg["sa_k1"],
-            k2=filter_cfg["sa_k2"],
-            dt=dt,
-        )
+        # Use registry to create filters (with fallback for backward compatibility)
+        try:
+            sa_filter_cls = FILTER_REGISTRY.get_class("sa")
+            self.sa_filter = sa_filter_cls(
+                tau_r=filter_cfg["sa_tau_r"],
+                tau_d=filter_cfg["sa_tau_d"],
+                k1=filter_cfg["sa_k1"],
+                k2=filter_cfg["sa_k2"],
+                dt=dt,
+            )
+        except KeyError:
+            self.sa_filter = SAFilterTorch(
+                tau_r=filter_cfg["sa_tau_r"],
+                tau_d=filter_cfg["sa_tau_d"],
+                k1=filter_cfg["sa_k1"],
+                k2=filter_cfg["sa_k2"],
+                dt=dt,
+            )
 
-        self.ra_filter = RAFilterTorch(
-            tau_RA=filter_cfg["ra_tau_ra"], k3=filter_cfg["ra_k3"], dt=dt
-        )
+        try:
+            ra_filter_cls = FILTER_REGISTRY.get_class("ra")
+            self.ra_filter = ra_filter_cls(
+                tau_RA=filter_cfg["ra_tau_ra"], k3=filter_cfg["ra_k3"], dt=dt
+            )
+        except KeyError:
+            self.ra_filter = RAFilterTorch(
+                tau_RA=filter_cfg["ra_tau_ra"], k3=filter_cfg["ra_k3"], dt=dt
+            )
 
         # SA2 is just a scaling factor (not a filter)
         self.use_sa2_filter = False  # SA2 uses simple scaling, not a filter
@@ -500,8 +721,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             self.threshold_val = (30.0, 0.0)
             return
 
+        # Use registry to create neurons (with fallback for backward compatibility)
+        try:
+            neuron_cls = NEURON_REGISTRY.get_class("izhikevich")
+        except KeyError:
+            neuron_cls = IzhikevichNeuronTorch
+
         # SA neurons with individual parameters
-        self.sa_neuron = IzhikevichNeuronTorch(
+        self.sa_neuron = neuron_cls(
             a=neuron_cfg["sa_a"],
             b=neuron_cfg["sa_b"],
             c=neuron_cfg["sa_c"],
@@ -517,7 +744,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         )
 
         # RA neurons with individual parameters
-        self.ra_neuron = IzhikevichNeuronTorch(
+        self.ra_neuron = neuron_cls(
             a=neuron_cfg["ra_a"],
             b=neuron_cfg["ra_b"],
             c=neuron_cfg["ra_c"],
@@ -534,7 +761,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         )
 
         # SA2 neurons with individual parameters
-        self.sa2_neuron = IzhikevichNeuronTorch(
+        self.sa2_neuron = neuron_cls(
             a=neuron_cfg["sa2_a"],
             b=neuron_cfg["sa2_b"],
             c=neuron_cfg["sa2_c"],

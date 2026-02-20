@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Tuple, Literal, Optional
+from typing import Tuple, Literal, Optional, Dict, Any
 
 import torch
+
+from .grid_base import BaseGrid
 
 # Type alias for arrangement types
 ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
@@ -66,7 +68,7 @@ def get_grid_spacing(
     return dx, dy
 
 
-class ReceptorGrid:
+class ReceptorGrid(BaseGrid):
     """Manage receptor grid creation with flexible spatial arrangements.
     
     This class creates spatial grids representing mechanoreceptor positions
@@ -128,8 +130,11 @@ class ReceptorGrid:
             dx_t, dy_t = get_grid_spacing(self.xx, self.yy)
             self.dx: float = dx_t.item()
             self.dy: float = dy_t.item()
-            self.xlim = (self.x[0].item(), self.x[-1].item())
-            self.ylim = (self.y[0].item(), self.y[-1].item())
+            xlim = (self.x[0].item(), self.x[-1].item())
+            ylim = (self.y[0].item(), self.y[-1].item())
+            
+            # Initialize base class with computed bounds
+            super().__init__(xlim, ylim, device)
             
             if arrangement == "jittered_grid":
                 # Apply jitter to the grid coordinates
@@ -177,8 +182,11 @@ class ReceptorGrid:
             total_y = (n_y - 1) * spacing
             x0, y0 = center
 
-            self.xlim = (x0 - total_x / 2, x0 + total_x / 2)
-            self.ylim = (y0 - total_y / 2, y0 + total_y / 2)
+            xlim = (x0 - total_x / 2, x0 + total_x / 2)
+            ylim = (y0 - total_y / 2, y0 + total_y / 2)
+            
+            # Initialize base class with computed bounds
+            super().__init__(xlim, ylim, device)
 
             # Derive density from rows×cols and extent (receptors/mm²)
             area = total_x * total_y
@@ -264,6 +272,42 @@ class ReceptorGrid:
             Tensor of shape (num_receptors, 2) with (x, y) coordinates in mm.
         """
         return self.coordinates
+    
+    def get_all_coordinates(self) -> torch.Tensor:
+        """Get all receptor coordinates (required by BaseGrid).
+        
+        Returns:
+            Tensor [N_receptors, 2] with (x, y) positions in mm.
+        """
+        return self.get_receptor_coordinates()
+    
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "ReceptorGrid":
+        """Create ReceptorGrid from config dict.
+        
+        Args:
+            config: Dictionary with grid_size, spacing, center, arrangement,
+                density, device.
+        
+        Returns:
+            ReceptorGrid instance.
+        """
+        return cls(**config)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize grid parameters to dict.
+        
+        Returns:
+            Dictionary with grid configuration.
+        """
+        result = super().to_dict()
+        result.update({
+            "grid_size": self.grid_size,
+            "spacing": self.spacing,
+            "center": list(self.center),
+            "arrangement": self.arrangement,
+        })
+        return result
 
     def get_grid_properties(self) -> dict:
         """Return grid metadata consumed by downstream modules.

@@ -43,6 +43,11 @@ from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch  # noqa: E402
 from sensoryforge.neurons.mqif import MQIFNeuronTorch  # noqa: E402
 from sensoryforge.neurons.sa import SANeuronTorch  # noqa: E402
 from sensoryforge.gui.filter_utils import normalize_filter_method  # noqa: E402
+from sensoryforge.register_components import register_all  # noqa: E402
+from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY  # noqa: E402
+
+# Ensure components are registered
+register_all()
 
 
 DEFAULT_DT_MS = 1.0
@@ -649,12 +654,20 @@ class ProtocolWorker(QtCore.QObject):
             return inputs
         params = self._sanitize_parameters(dict(config.get("filter_params", {})))
         params.setdefault("dt", dt_ms)
-        if method == "sa":
-            kwargs = self._filter_kwargs(SAFilterTorch, params)
-            filter_module = SAFilterTorch(**kwargs).to(self._device)
-        else:
-            kwargs = self._filter_kwargs(RAFilterTorch, params)
-            filter_module = RAFilterTorch(**kwargs).to(self._device)
+        
+        # Use registry to create filter
+        try:
+            filter_cls = FILTER_REGISTRY.get_class(method)
+            kwargs = self._filter_kwargs(filter_cls, params)
+            filter_module = filter_cls(**kwargs).to(self._device)
+        except KeyError:
+            # Fallback for unregistered filters
+            if method == "sa":
+                kwargs = self._filter_kwargs(SAFilterTorch, params)
+                filter_module = SAFilterTorch(**kwargs).to(self._device)
+            else:
+                kwargs = self._filter_kwargs(RAFilterTorch, params)
+                filter_module = RAFilterTorch(**kwargs).to(self._device)
         filter_module.eval()
         if inputs.ndim == 3:
             result = filter_module(inputs, reset_states=True)
@@ -700,15 +713,13 @@ class ProtocolWorker(QtCore.QObject):
                 kwargs.setdefault("noise_std", noise_std)
             return model_cls(**kwargs)
 
-        if model_name == "adex":
-            return instantiate(AdExNeuronTorch)
-        if model_name == "mqif":
-            return instantiate(MQIFNeuronTorch)
-        if model_name == "fa":
-            return instantiate(FANeuronTorch)
-        if model_name == "sa":
-            return instantiate(SANeuronTorch)
-        return instantiate(IzhikevichNeuronTorch)
+        # Use registry to create neuron model
+        try:
+            neuron_cls = NEURON_REGISTRY.get_class(model_name)
+            return instantiate(neuron_cls)
+        except KeyError:
+            # Fallback to default if not found
+            return instantiate(IzhikevichNeuronTorch)
 
     @staticmethod
     def _filter_kwargs(callable_obj, params: Dict[str, Any]) -> Dict[str, Any]:

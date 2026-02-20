@@ -21,6 +21,7 @@ import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_yaml
+from sensoryforge.config.schema import SensoryForgeConfig
 
 
 def load_config_file(config_path: str) -> Dict[str, Any]:
@@ -52,6 +53,9 @@ def load_config_file(config_path: str) -> Dict[str, Any]:
 def validate_config(config: Dict[str, Any]) -> bool:
     """Validate configuration structure and required fields.
     
+    Supports both canonical schema format (grids/populations lists) and
+    legacy format (pipeline/grid/neurons dicts).
+    
     Args:
         config: Configuration dictionary to validate.
     
@@ -63,37 +67,92 @@ def validate_config(config: Dict[str, Any]) -> bool:
     """
     errors = []
     
-    # Check for basic structure (lenient validation)
-    # Pipeline section is optional (has defaults)
+    # Check if it's canonical format
+    is_canonical = (
+        isinstance(config.get("grids"), list) and
+        isinstance(config.get("populations"), list) and
+        "pipeline" not in config
+    )
     
-    # Validate grid if specified
-    if 'grid' in config:
-        grid_cfg = config['grid']
-        if 'type' in grid_cfg:
-            if grid_cfg['type'] not in ['standard', 'composite']:
-                errors.append(f"Invalid grid type: {grid_cfg['type']}")
+    if is_canonical:
+        # Validate canonical schema format
+        try:
+            SensoryForgeConfig.from_dict(config)
+        except Exception as e:
+            errors.append(f"Canonical schema validation failed: {e}")
+        
+        # Validate population configs
+        populations = config.get("populations", [])
+        for i, pop in enumerate(populations):
+            if not isinstance(pop, dict):
+                errors.append(f"Population {i} must be a dict")
+                continue
             
-            if grid_cfg['type'] == 'composite':
-                if 'populations' not in grid_cfg:
-                    errors.append("Composite grid requires 'populations' field")
-    
-    # Validate neurons if specified
-    if 'neurons' in config:
-        neuron_cfg = config['neurons']
-        if isinstance(neuron_cfg, dict) and 'type' in neuron_cfg:
-            neuron_type = neuron_cfg['type']
-            if neuron_type == 'dsl':
-                required_dsl_fields = ['equations', 'threshold', 'reset', 'parameters']
-                for field in required_dsl_fields:
-                    if field not in neuron_cfg:
-                        errors.append(f"DSL neuron requires '{field}' field")
-    
-    # Validate solver if specified
-    if 'solver' in config:
-        solver_cfg = config['solver']
-        if 'type' in solver_cfg:
-            if solver_cfg['type'] not in ['euler', 'adaptive']:
-                errors.append(f"Invalid solver type: {solver_cfg['type']}")
+            # Validate innervation method
+            innervation_method = pop.get("innervation_method", "gaussian")
+            valid_methods = ["gaussian", "one_to_one", "uniform", "distance_weighted"]
+            if innervation_method not in valid_methods:
+                errors.append(
+                    f"Population '{pop.get('name', i)}': invalid innervation_method "
+                    f"'{innervation_method}'. Valid: {valid_methods}"
+                )
+            
+            # Validate neuron arrangement
+            arrangement = pop.get("neuron_arrangement", "grid")
+            valid_arrangements = ["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
+            if arrangement not in valid_arrangements:
+                errors.append(
+                    f"Population '{pop.get('name', i)}': invalid neuron_arrangement "
+                    f"'{arrangement}'. Valid: {valid_arrangements}"
+                )
+            
+            # Validate DSL config if neuron_model is DSL
+            if pop.get("neuron_model") == "DSL (Custom)":
+                dsl_cfg = pop.get("dsl_config")
+                if not dsl_cfg or not isinstance(dsl_cfg, dict):
+                    errors.append(
+                        f"Population '{pop.get('name', i)}': DSL neuron requires dsl_config dict"
+                    )
+                else:
+                    required = ["equations", "threshold", "reset"]
+                    for field in required:
+                        if not dsl_cfg.get(field):
+                            errors.append(
+                                f"Population '{pop.get('name', i)}': DSL config missing '{field}'"
+                            )
+    else:
+        # Validate legacy format
+        # Check for basic structure (lenient validation)
+        # Pipeline section is optional (has defaults)
+        
+        # Validate grid if specified
+        if 'grid' in config:
+            grid_cfg = config['grid']
+            if 'type' in grid_cfg:
+                if grid_cfg['type'] not in ['standard', 'composite']:
+                    errors.append(f"Invalid grid type: {grid_cfg['type']}")
+                
+                if grid_cfg['type'] == 'composite':
+                    if 'populations' not in grid_cfg:
+                        errors.append("Composite grid requires 'populations' field")
+        
+        # Validate neurons if specified
+        if 'neurons' in config:
+            neuron_cfg = config['neurons']
+            if isinstance(neuron_cfg, dict) and 'type' in neuron_cfg:
+                neuron_type = neuron_cfg['type']
+                if neuron_type == 'dsl':
+                    required_dsl_fields = ['equations', 'threshold', 'reset', 'parameters']
+                    for field in required_dsl_fields:
+                        if field not in neuron_cfg:
+                            errors.append(f"DSL neuron requires '{field}' field")
+        
+        # Validate solver if specified
+        if 'solver' in config:
+            solver_cfg = config['solver']
+            if 'type' in solver_cfg:
+                if solver_cfg['type'] not in ['euler', 'adaptive']:
+                    errors.append(f"Invalid solver type: {solver_cfg['type']}")
     
     # Print errors
     if errors:
@@ -364,6 +423,16 @@ def cmd_list_components(args: argparse.Namespace) -> int:
     print("\n🌐 Grid Types:")
     print("  - standard (Single population)")
     print("  - composite (Multi-population mosaic)")
+    print("  - poisson (Poisson disk sampling)")
+    print("  - hex (Hexagonal arrangement)")
+    print("  - jittered_grid (Jittered grid)")
+    print("  - blue_noise (Blue noise sampling)")
+    
+    print("\n🔗 Innervation Methods:")
+    print("  - gaussian (Gaussian-weighted random)")
+    print("  - one_to_one (Each neuron gets K nearest)")
+    print("  - uniform (Uniform nearest-neighbor)")
+    print("  - distance_weighted (Distance decay weighting)")
     
     print("\n💡 Use 'sensoryforge run --help' for usage examples")
     

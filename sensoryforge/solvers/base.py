@@ -128,3 +128,15 @@ class BaseSolver(ABC):
             >>> solver = BaseSolver.from_config(config)
         """
         pass
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize solver parameters to a dictionary.
+        
+        Returns:
+            Dictionary suitable for YAML/JSON serialization.
+            Includes 'type' key identifying the solver class.
+        """
+        return {
+            "type": self.__class__.__name__.lower().replace("solver", ""),
+            "dt": self.dt,
+        }

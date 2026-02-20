@@ -85,6 +85,43 @@ class BaseInnervation(ABC):
         total_connections = (weights > 0).sum().item()
         total_possible = weights.numel()
         return total_connections / total_possible
+    
+    @classmethod
+    def from_config(cls, config: dict) -> "BaseInnervation":
+        """Create innervation instance from config dict.
+        
+        Note: This is a base implementation. Subclasses should override
+        to handle their specific parameters. The config must include
+        receptor_coords and neuron_centers tensors.
+        
+        Args:
+            config: Dictionary with 'receptor_coords', 'neuron_centers',
+                'device', and method-specific parameters.
+        
+        Returns:
+            BaseInnervation instance.
+        """
+        receptor_coords = config.pop("receptor_coords")
+        neuron_centers = config.pop("neuron_centers")
+        device = config.pop("device", "cpu")
+        return cls(receptor_coords, neuron_centers, device=device, **config)
+    
+    def to_dict(self) -> dict:
+        """Serialize innervation parameters to dict.
+        
+        Note: This does NOT serialize receptor_coords or neuron_centers
+        tensors (they are too large). Only serializes configuration parameters.
+        Subclasses should override to include their specific parameters.
+        
+        Returns:
+            Dictionary with method name and parameters (excluding tensors).
+        """
+        return {
+            "method": self.__class__.__name__.lower().replace("innervation", ""),
+            "num_neurons": self.num_neurons,
+            "num_receptors": self.num_receptors,
+            "device": str(self.device),
+        }
 
 
 class GaussianInnervation(BaseInnervation):
@@ -629,7 +666,7 @@ def create_innervation(
     
     This is the primary user-facing API for creating receptor-to-neuron
     connections. It instantiates the appropriate innervation strategy and
-    returns the weight tensor.
+    returns the weight tensor. Uses registry pattern for extensibility.
     
     Args:
         receptor_coords: Receptor positions [N_receptors, 2] in mm.
@@ -657,7 +694,7 @@ def create_innervation(
         connection strength from receptor j to neuron i.
     
     Raises:
-        ValueError: If method is not recognized.
+        KeyError: If method is not registered in INNERVATION_REGISTRY.
     
     Examples:
         >>> # Gaussian innervation
@@ -683,26 +720,25 @@ def create_innervation(
         ...     decay_rate=2.0
         ... )
     """
-    if method == "gaussian":
-        innervation = GaussianInnervation(
-            receptor_coords, neuron_centers, device=device, **method_params
+    # Import registry (ensure components are registered)
+    from sensoryforge.register_components import register_all
+    register_all()
+    from sensoryforge.registry import INNERVATION_REGISTRY
+    
+    # Use registry to create innervation instance
+    try:
+        innervation = INNERVATION_REGISTRY.create(
+            method,
+            receptor_coords=receptor_coords,
+            neuron_centers=neuron_centers,
+            device=device,
+            **method_params,
         )
-    elif method == "one_to_one":
-        innervation = OneToOneInnervation(
-            receptor_coords, neuron_centers, device=device, **method_params
-        )
-    elif method == "uniform":
-        innervation = UniformInnervation(
-            receptor_coords, neuron_centers, device=device, **method_params
-        )
-    elif method == "distance_weighted":
-        innervation = DistanceWeightedInnervation(
-            receptor_coords, neuron_centers, device=device, **method_params
-        )
-    else:
+    except KeyError:
+        available = ", ".join(INNERVATION_REGISTRY.list_registered())
         raise ValueError(
             f"Unknown innervation method: '{method}'. "
-            f"Supported: 'gaussian', 'one_to_one', 'uniform', 'distance_weighted'"
+            f"Registered methods: {available}"
         )
 
     return innervation.compute_weights()

@@ -38,6 +38,11 @@ from sensoryforge.neurons.mqif import MQIFNeuronTorch  # noqa: E402
 from sensoryforge.neurons.fa import FANeuronTorch  # noqa: E402
 from sensoryforge.neurons.sa import SANeuronTorch  # noqa: E402
 from sensoryforge.gui.filter_utils import normalize_filter_method  # noqa: E402
+from sensoryforge.register_components import register_all  # noqa: E402
+from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY  # noqa: E402
+
+# Ensure components are registered
+register_all()
 
 
 MODULE_SCHEMA_VERSION = "1.0.0"
@@ -1825,11 +1830,14 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if method == "none":
             return inputs
         filter_params = self._gather_filter_parameters(config)
-        if method == "sa":
-            sa_kwargs = dict(filter_params)
-            sa_kwargs = self._filter_kwargs(SAFilterTorch, sa_kwargs)
-            sa_kwargs["dt"] = dt_ms
-            filter_module = SAFilterTorch(**sa_kwargs).to(device)
+        
+        # Use registry to create filter
+        try:
+            filter_cls = FILTER_REGISTRY.get_class(method)
+            filter_kwargs = dict(filter_params)
+            filter_kwargs = self._filter_kwargs(filter_cls, filter_kwargs)
+            filter_kwargs["dt"] = dt_ms
+            filter_module = filter_cls(**filter_kwargs).to(device)
             if inputs.ndim == 3:
                 return filter_module(inputs, reset_states=True)
             filtered = filter_module(
@@ -1837,18 +1845,32 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 reset_states=True,
             )
             return filtered.unsqueeze(1)
-        if method == "ra":
-            ra_kwargs = dict(filter_params)
-            ra_kwargs = self._filter_kwargs(RAFilterTorch, ra_kwargs)
-            ra_kwargs["dt"] = dt_ms
-            filter_module = RAFilterTorch(**ra_kwargs).to(device)
-            if inputs.ndim == 3:
-                return filter_module(inputs, reset_states=True)
-            result = filter_module(
-                inputs.squeeze(1),
-                reset_states=True,
-            )
-            return result.unsqueeze(1)
+        except KeyError:
+            # Fallback for unregistered filters
+            if method == "sa":
+                sa_kwargs = dict(filter_params)
+                sa_kwargs = self._filter_kwargs(SAFilterTorch, sa_kwargs)
+                sa_kwargs["dt"] = dt_ms
+                filter_module = SAFilterTorch(**sa_kwargs).to(device)
+                if inputs.ndim == 3:
+                    return filter_module(inputs, reset_states=True)
+                filtered = filter_module(
+                    inputs.squeeze(1),
+                    reset_states=True,
+                )
+                return filtered.unsqueeze(1)
+            elif method == "ra":
+                ra_kwargs = dict(filter_params)
+                ra_kwargs = self._filter_kwargs(RAFilterTorch, ra_kwargs)
+                ra_kwargs["dt"] = dt_ms
+                filter_module = RAFilterTorch(**ra_kwargs).to(device)
+                if inputs.ndim == 3:
+                    return filter_module(inputs, reset_states=True)
+                result = filter_module(
+                    inputs.squeeze(1),
+                    reset_states=True,
+                )
+                return result.unsqueeze(1)
         return inputs
 
     def _get_selected_solver(self) -> str:
@@ -1908,15 +1930,13 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 kwargs.setdefault("noise_std", config.noise_std)
             return model_cls(**kwargs).to(device)
 
-        if model_name == "adex":
-            return instantiate(AdExNeuronTorch)
-        if model_name == "mqif":
-            return instantiate(MQIFNeuronTorch)
-        if model_name == "fa":
-            return instantiate(FANeuronTorch)
-        if model_name == "sa":
-            return instantiate(SANeuronTorch)
-        return instantiate(IzhikevichNeuronTorch)
+        # Use registry to create neuron model (skip DSL which is handled above)
+        try:
+            neuron_cls = NEURON_REGISTRY.get_class(model_name)
+            return instantiate(neuron_cls)
+        except KeyError:
+            # Fallback to default if not found
+            return instantiate(IzhikevichNeuronTorch)
 
     def _find_population(self, name: str):
         populations = getattr(self.mechanoreceptor_tab, "populations", [])

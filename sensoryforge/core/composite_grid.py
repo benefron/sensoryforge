@@ -13,12 +13,14 @@ from __future__ import annotations
 from typing import Dict, List, Literal, Optional, Tuple, Any
 import torch
 
+from .grid_base import BaseGrid
+
 
 # Type alias for arrangement types
 ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
 
 
-class CompositeReceptorGrid:
+class CompositeReceptorGrid(BaseGrid):
     """Multi-layer receptor grid with shared coordinate system.
     
     The CompositeReceptorGrid manages multiple named receptor layers, each with
@@ -84,9 +86,8 @@ class CompositeReceptorGrid:
                 f"Invalid ylim: min ({ylim[0]}) must be < max ({ylim[1]})"
             )
         
-        self.xlim = xlim
-        self.ylim = ylim
-        self.device = torch.device(device) if isinstance(device, str) else device
+        # Initialize base class
+        super().__init__(xlim, ylim, device)
         
         # Storage for layer data
         # Each entry: {config: {...}, coordinates: Tensor[N, 2]}
@@ -643,6 +644,50 @@ class CompositeReceptorGrid:
     def populations(self) -> Dict[str, Dict[str, Any]]:
         """Legacy property (backward compatibility). Use .layers instead."""
         return self.layers
+    
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "CompositeReceptorGrid":
+        """Create CompositeReceptorGrid from config dict.
+        
+        Args:
+            config: Dictionary with xlim, ylim, device, and optionally
+                'layers' or 'populations' (legacy) dict with layer configs.
+        
+        Returns:
+            CompositeReceptorGrid instance with layers added.
+        """
+        xlim = tuple(config.get("xlim", (-5.0, 5.0)))
+        ylim = tuple(config.get("ylim", (-5.0, 5.0)))
+        device = config.get("device", "cpu")
+        
+        grid = cls(xlim=xlim, ylim=ylim, device=device)
+        
+        # Add layers from config
+        layers = config.get("layers", config.get("populations", {}))
+        for name, layer_cfg in layers.items():
+            grid.add_layer(
+                name=name,
+                density=layer_cfg.get("density", 10.0),
+                arrangement=layer_cfg.get("arrangement", "grid"),
+                offset=tuple(layer_cfg.get("offset", (0.0, 0.0))),
+                color=tuple(layer_cfg["color"]) if layer_cfg.get("color") else None,
+                **{k: v for k, v in layer_cfg.items() 
+                   if k not in ["density", "arrangement", "offset", "color"]}
+            )
+        
+        return grid
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize grid parameters to dict.
+        
+        Returns:
+            Dictionary with grid configuration including all layers.
+        """
+        result = super().to_dict()
+        result["layers"] = {}
+        for name, layer_data in self.layers.items():
+            result["layers"][name] = layer_data["config"].copy()
+        return result
 
 
 # Backward compatibility alias

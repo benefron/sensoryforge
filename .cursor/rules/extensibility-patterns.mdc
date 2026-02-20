@@ -1,0 +1,185 @@
+# SensoryForge Extensibility Patterns
+
+This rule defines the patterns and conventions for extending SensoryForge with new components.
+
+## Component Registry Pattern
+
+**All components must be registered** in `sensoryforge/register_components.py`:
+
+```python
+from sensoryforge.registry import NEURON_REGISTRY
+from sensoryforge.neurons.my_neuron import MyNeuron
+
+NEURON_REGISTRY.register("my_neuron", MyNeuron)
+```
+
+**Never use if/else chains** for component lookup. Always use registries:
+
+```python
+# ❌ BAD
+if model_name == "izhikevich":
+    return IzhikevichNeuronTorch(**kwargs)
+elif model_name == "adex":
+    return AdExNeuronTorch(**kwargs)
+
+# ✅ GOOD
+neuron_cls = NEURON_REGISTRY.get_class(model_name)
+return neuron_cls(**kwargs)
+```
+
+## Base Class Pattern
+
+**All extensible components inherit from base classes**:
+
+- `BaseNeuron` → Neuron models (Izhikevich, AdEx, MQIF, FA, SA, DSL)
+- `BaseFilter` → Filters (SA, RA, custom filters)
+- `BaseInnervation` → Innervation methods (Gaussian, Uniform, OneToOne, DistanceWeighted)
+- `BaseStimulus` → Stimulus generators (Gaussian, Texture, Moving, Point, Edge)
+- `BaseSolver` → ODE solvers (Euler, Adaptive)
+- `BaseGrid` → Grid arrangements (Grid, Poisson, Hex, Jittered, BlueNoise)
+- `BaseProcessingLayer` → Processing layers (Identity, custom)
+
+**Base classes must implement**:
+- `from_config(config: Dict) -> Self` (classmethod)
+- `to_dict() -> Dict` (instance method)
+
+## Adding a New Component
+
+### Step 1: Create the Component Class
+
+```python
+from sensoryforge.neurons.base import BaseNeuron
+
+class MyNeuron(BaseNeuron):
+    def __init__(self, param1: float, param2: float, dt: float = 1.0):
+        super().__init__(dt=dt)
+        self.param1 = param1
+        self.param2 = param2
+    
+    def forward(self, input_current: torch.Tensor) -> torch.Tensor:
+        # Implementation
+        pass
+    
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'MyNeuron':
+        return cls(
+            param1=config.get("param1", 1.0),
+            param2=config.get("param2", 2.0),
+            dt=config.get("dt", 1.0),
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "type": "my_neuron",
+            "param1": self.param1,
+            "param2": self.param2,
+            "dt": self.dt,
+        }
+```
+
+### Step 2: Register the Component
+
+In `sensoryforge/register_components.py`:
+
+```python
+from sensoryforge.neurons.my_neuron import MyNeuron
+
+def register_all():
+    # ... existing registrations ...
+    NEURON_REGISTRY.register("my_neuron", MyNeuron)
+```
+
+### Step 3: Add to Canonical Schema (if needed)
+
+If the component needs configurable parameters in YAML, add them to `sensoryforge/config/schema.py`:
+
+```python
+@dataclass
+class PopulationConfig:
+    # ... existing fields ...
+    my_neuron_param1: float = 1.0
+    my_neuron_param2: float = 2.0
+```
+
+### Step 4: Update GUI (if applicable)
+
+If the component should be selectable in the GUI, add it to the appropriate dropdown/combo box in the relevant tab.
+
+## Configuration Schema
+
+**Always use the canonical schema** (`SensoryForgeConfig`) for:
+- Saving configs from GUI
+- Loading configs in CLI/Batch
+- Round-trip fidelity (save → load → same results)
+
+**Legacy configs are supported** via adapter methods in `generalized_pipeline.py` and `main.py`, but new code should use canonical schema.
+
+## Testing New Components
+
+**All new components must have**:
+1. Unit tests in `tests/unit/test_<component_type>.py`
+2. Integration tests showing registry lookup works
+3. Config round-trip tests (save → load → verify)
+
+## Common Patterns
+
+### Factory Functions
+
+Some components (like innervation) use factory functions because they need special initialization:
+
+```python
+def create_my_innervation(**kwargs):
+    receptor_coords = kwargs.pop("receptor_coords")
+    neuron_centers = kwargs.pop("neuron_centers")
+    device = kwargs.pop("device", "cpu")
+    return MyInnervation(receptor_coords, neuron_centers, device=device, **kwargs)
+
+INNERVATION_REGISTRY.register("my_innervation", MyInnervation, create_my_innervation)
+```
+
+### Device Handling
+
+**Always specify device explicitly**:
+
+```python
+# ❌ BAD
+tensor = torch.zeros(10, 10)
+
+# ✅ GOOD
+tensor = torch.zeros(10, 10, device=self.device)
+```
+
+### Tensor Shape Documentation
+
+**Document tensor shapes in docstrings**:
+
+```python
+def forward(self, x: torch.Tensor) -> torch.Tensor:
+    """Process input.
+    
+    Args:
+        x: Input tensor [batch, time, num_neurons] in mA
+    
+    Returns:
+        Output tensor [batch, time, num_neurons] in mV
+    """
+```
+
+## Extensibility Points
+
+### Future Extensions (Not Yet Implemented)
+
+- **Composite stimuli** over multiple composite grids
+- **Innervation combining** composite grid layers
+- **Additional filtering layers** (on-off cells, center-surround, lateral inhibition)
+- **Inhibitory cells** and inter-population connections
+- **Custom spatial filters** before innervation
+- **Additional neuron layers** (interneurons, output layers)
+
+**When implementing these**, follow the same patterns:
+1. Create base class if needed
+2. Implement concrete classes
+3. Register in `register_components.py`
+4. Add to canonical schema
+5. Update GUI if user-facing
+6. Add tests
