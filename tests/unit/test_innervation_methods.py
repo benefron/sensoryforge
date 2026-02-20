@@ -127,14 +127,18 @@ class TestUniformInnervation:
 
     def test_binary_weights(self, simple_coords):
         receptor_coords, neuron_centers = simple_coords
-        innervation = UniformInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(
+            receptor_coords, neuron_centers, weight_range=(1.0, 1.0)
+        )
         weights = innervation.compute_weights()
         nonzero_weights = weights[weights > 0]
         assert torch.all(nonzero_weights == 1.0)
 
     def test_nearest_neighbor_property(self, simple_coords):
         receptor_coords, neuron_centers = simple_coords
-        innervation = UniformInnervation(receptor_coords, neuron_centers)
+        innervation = UniformInnervation(
+            receptor_coords, neuron_centers, weight_range=(1.0, 1.0)
+        )
         weights = innervation.compute_weights()
         assert weights[0, 0] == 1.0
         assert weights[1, 2] == 1.0
