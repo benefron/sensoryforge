@@ -60,7 +60,7 @@ class TestPopulationConfig:
             "neuron_model": "izhikevich",
             "filter_method": "sa",
             "innervation_method": "gaussian",
-            "num_neurons": 100,
+            "neurons_per_row": 10,
             "connections_per_neuron": 28,
             "sigma_d_mm": 0.3,
         }
@@ -80,7 +80,7 @@ class TestPopulationConfig:
             neuron_model="izhikevich",
             filter_method="sa",
             innervation_method="gaussian",
-            num_neurons=100,
+            neurons_per_row=10,
             connections_per_neuron=28,
             sigma_d_mm=0.3,
         )
@@ -114,7 +114,7 @@ class TestSensoryForgeConfig:
                     neuron_model="izhikevich",
                     filter_method="sa",
                     innervation_method="gaussian",
-                    num_neurons=100,
+                    neurons_per_row=10,
                     connections_per_neuron=28,
                     sigma_d_mm=0.3,
                 )
@@ -163,7 +163,7 @@ class TestSensoryForgeConfig:
                     neuron_model="izhikevich",
                     filter_method="sa",
                     innervation_method="gaussian",
-                    num_neurons=100,
+                    neurons_per_row=10,
                 )
             ],
             stimulus=StimulusConfig(
