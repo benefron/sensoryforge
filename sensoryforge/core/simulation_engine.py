@@ -35,7 +35,7 @@ from sensoryforge.registry import (
     GRID_REGISTRY,
 )
 from sensoryforge.core.grid import ReceptorGrid, GridManager
-from sensoryforge.core.composite_grid import CompositeReceptorGrid
+from sensoryforge.core.composite_grid import CompositeReceptorGrid, CompositeGrid
 from sensoryforge.core.innervation import (
     InnervationModule,
     FlatInnervationModule,
@@ -75,6 +75,8 @@ class SimulationEngine:
         
         # Build grids
         self.grids: List[Any] = []
+        self.grid_names: Dict[str, Any] = {}  # Map grid name to grid object
+        self.grid_managers: Dict[str, Any] = {}  # Map grid name to GridManager
         self._build_grids()
         
         # Build populations (innervation, filters, neurons)
@@ -86,6 +88,7 @@ class SimulationEngine:
         for grid_cfg in self.config.grids:
             # Create grid based on arrangement
             arrangement = grid_cfg.arrangement
+            grid_name = grid_cfg.name
             
             if arrangement == "composite":
                 # Composite grid with multiple layers
@@ -95,17 +98,31 @@ class SimulationEngine:
                 raise NotImplementedError("Composite grids not yet implemented in SimulationEngine")
             else:
                 # Single grid
+                # ReceptorGrid takes grid_size as tuple (rows, cols) or int
+                rows = grid_cfg.rows or 40
+                cols = grid_cfg.cols or 40
+                grid_size = (rows, cols)
+                
+                # Create ReceptorGrid for coordinate access
                 grid = ReceptorGrid(
-                    rows=grid_cfg.rows or 40,
-                    cols=grid_cfg.cols or 40,
+                    grid_size=grid_size,
                     spacing=grid_cfg.spacing,
                     arrangement=arrangement,
                     center=(grid_cfg.center_x, grid_cfg.center_y),
                     density=grid_cfg.density,
-                    seed=grid_cfg.seed,
                     device=self.device,
                 )
                 self.grids.append(grid)
+                self.grid_names[grid_name] = grid
+                
+                # Create GridManager for InnervationModule (needs grid_size, not ReceptorGrid)
+                grid_manager = GridManager(
+                    grid_size=grid_size,
+                    spacing=grid_cfg.spacing,
+                    center=(grid_cfg.center_x, grid_cfg.center_y),
+                    device=self.device,
+                )
+                self.grid_managers[grid_name] = grid_manager
     
     def _build_populations(self) -> None:
         """Build population execution contexts (innervation, filters, neurons)."""
@@ -118,7 +135,7 @@ class SimulationEngine:
             if target_grid_name is None:
                 raise ValueError(f"Population {pop_cfg.name} has no target grid")
             
-            grid = next((g for g in self.grids if getattr(g, 'name', None) == target_grid_name), None)
+            grid = self.grid_names.get(target_grid_name)
             if grid is None:
                 # Use first grid as fallback
                 grid = self.grids[0] if self.grids else None
@@ -134,8 +151,9 @@ class SimulationEngine:
                 use_flat = False
             
             # Build neuron arrangement first (needed for innervation)
-            neuron_rows = pop_cfg.neuron_rows or int(np.sqrt(pop_cfg.num_neurons)) if pop_cfg.num_neurons else 10
-            neuron_cols = pop_cfg.neuron_cols or int(np.sqrt(pop_cfg.num_neurons)) if pop_cfg.num_neurons else 10
+            # Use neuron_rows/neuron_cols if specified, otherwise use neurons_per_row for square layout
+            neuron_rows = pop_cfg.neuron_rows if pop_cfg.neuron_rows is not None else pop_cfg.neurons_per_row
+            neuron_cols = pop_cfg.neuron_cols if pop_cfg.neuron_cols is not None else pop_cfg.neurons_per_row
             neuron_arrangement = pop_cfg.neuron_arrangement or "grid"
             
             # Get grid bounds
@@ -202,7 +220,7 @@ class SimulationEngine:
                 )
             else:
                 # Grid-based innervation needs GridManager
-                grid_manager = GridManager(grid)
+                grid_manager = self.grid_managers.get(target_grid_name, self.grid_managers[list(self.grid_managers.keys())[0]])
                 innervation_module = InnervationModule(
                     neuron_type=pop_cfg.neuron_type,
                     grid_manager=grid_manager,
@@ -286,12 +304,23 @@ class SimulationEngine:
             innervation = pop["innervation"]
             filter_module = pop["filter"]
             neuron_model = pop["neuron"]
+            grid = pop["grid"]
             
-            # Apply stimulus to receptors (simplified - assumes stimulus matches grid)
-            # In full implementation, this would map stimulus to receptor locations
-            receptor_input = self._stimulus_to_receptors(stimulus, pop["grid"])
+            # Apply stimulus to receptors
+            receptor_input = self._stimulus_to_receptors(stimulus, grid)
             
             # Apply innervation
+            # InnervationModule expects [batch, time, grid_h, grid_w] for grid-based
+            # FlatInnervationModule expects [batch, time, num_receptors] or [batch, num_receptors]
+            if isinstance(innervation, FlatInnervationModule):
+                # For flat innervation, need to convert [batch, time, h, w] to [batch, time, num_receptors]
+                if receptor_input.ndim == 4:
+                    batch, time, h, w = receptor_input.shape
+                    receptor_input = receptor_input.view(batch, time, h * w)
+                elif receptor_input.ndim == 3:
+                    batch, h, w = receptor_input.shape
+                    receptor_input = receptor_input.view(batch, h * w)
+            
             drive = innervation(receptor_input)
             
             # Apply filter
@@ -300,8 +329,13 @@ class SimulationEngine:
             else:
                 filtered = drive
             
-            # Apply neuron model
-            spikes = neuron_model(filtered)
+            # Apply neuron model (returns tuple: (v_trace, spikes) or just spikes)
+            neuron_output = neuron_model(filtered)
+            if isinstance(neuron_output, tuple):
+                v_trace, spikes = neuron_output
+            else:
+                spikes = neuron_output
+                v_trace = None
             
             # Store results
             pop_results = {"spikes": spikes}
@@ -309,8 +343,9 @@ class SimulationEngine:
                 pop_results.update({
                     "drive": drive,
                     "filtered": filtered,
-                    "voltages": getattr(neuron_model, "v", None),
                 })
+                if v_trace is not None:
+                    pop_results["voltages"] = v_trace
             results[pop_name] = pop_results
         
         return results
@@ -324,14 +359,18 @@ class SimulationEngine:
         
         This is a simplified implementation. Full implementation would
         properly sample stimulus at receptor locations.
+        
+        InnervationModule expects:
+        - Grid-based: [batch, time, grid_h, grid_w] or [batch, grid_h, grid_w]
+        - Flat-based: [batch, time, num_receptors] or [batch, num_receptors]
         """
-        # Simplified: assume stimulus is already at receptor resolution
-        # In full implementation, would interpolate/sample stimulus at receptor coords
+        # Add batch dimension if missing
         if stimulus.ndim == 3:
-            # [time, height, width]
-            return stimulus.flatten(start_dim=1)  # [time, num_receptors]
-        elif stimulus.ndim == 4:
-            # [batch, time, height, width]
-            return stimulus.flatten(start_dim=2)  # [batch, time, num_receptors]
-        else:
-            raise ValueError(f"Unexpected stimulus shape: {stimulus.shape}")
+            # [time, height, width] -> [1, time, height, width]
+            stimulus = stimulus.unsqueeze(0)
+        elif stimulus.ndim == 2:
+            # [height, width] -> [1, 1, height, width]
+            stimulus = stimulus.unsqueeze(0).unsqueeze(0)
+        
+        # Now stimulus is [batch, time, height, width] or [batch, height, width]
+        return stimulus
