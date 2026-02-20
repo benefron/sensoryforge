@@ -34,6 +34,7 @@ from sensoryforge.gui.visualization.playback_bar import PlaybackController
 from sensoryforge.gui.visualization.stimulus_panel import StimulusPanel
 from sensoryforge.gui.visualization.receptor_panel import ReceptorPanel
 from sensoryforge.gui.visualization.neuron_panel import NeuronPanel
+from sensoryforge.gui.visualization.neuron_heatmap_panel import NeuronHeatmapPanel
 from sensoryforge.gui.visualization.raster_panel import RasterPanel
 from sensoryforge.gui.visualization.firing_rate_panel import FiringRatePanel
 from sensoryforge.gui.visualization.voltage_panel import VoltagePanel
@@ -45,12 +46,13 @@ from sensoryforge.gui.visualization.voltage_panel import VoltagePanel
 
 # Each preset is a list of (row, col, rowspan, colspan, PanelClass) tuples.
 _PANEL_CLASSES: Dict[str, Type[VisualizationPanel]] = {
-    "Stimulus":      StimulusPanel,
-    "Receptor Drive": ReceptorPanel,
-    "Neuron Activity": NeuronPanel,
-    "Spike Raster":  RasterPanel,
-    "Firing Rate":   FiringRatePanel,
-    "Voltage Trace": VoltagePanel,
+    "Stimulus":         StimulusPanel,
+    "Receptor Drive":   ReceptorPanel,
+    "Neuron Heatmap":   NeuronHeatmapPanel,
+    "Neuron Activity":  NeuronPanel,
+    "Spike Raster":     RasterPanel,
+    "Firing Rate":      FiringRatePanel,
+    "Voltage Trace":    VoltagePanel,
 }
 
 _PRESET_ICON = {
@@ -58,6 +60,8 @@ _PRESET_ICON = {
     "2 – Side by Side": "▣▣",
     "2 – Stacked":      "▣\n▣",
     "2×2 Grid":  "▣▣\n▣▣",
+    "Default":   "▣▣▣\n▣▣▣",
+    "2D Grid Focus": "▣▣▣",
     "3 Wide":    "▣▣▣",
     "Focus + Details": "▣▣\n▣▣",
 }
@@ -77,9 +81,20 @@ _PRESETS: Dict[str, List[Tuple[int, int, int, int, Type[VisualizationPanel]]]] =
     ],
     "2×2 Grid": [
         (0, 0, 1, 1, StimulusPanel),
-        (0, 1, 1, 1, RasterPanel),
+        (0, 1, 1, 1, NeuronHeatmapPanel),
         (1, 0, 1, 1, NeuronPanel),
-        (1, 1, 1, 1, FiringRatePanel),
+        (1, 1, 1, 1, RasterPanel),
+    ],
+    "Default": [
+        (0, 0, 1, 1, StimulusPanel),
+        (0, 1, 1, 1, NeuronHeatmapPanel),
+        (0, 2, 1, 1, NeuronHeatmapPanel),
+        (1, 0, 2, 3, RasterPanel),
+    ],
+    "2D Grid Focus": [
+        (0, 0, 1, 1, StimulusPanel),
+        (0, 1, 1, 1, NeuronHeatmapPanel),
+        (0, 2, 1, 1, NeuronPanel),
     ],
     "3 Wide": [
         (0, 0, 1, 1, StimulusPanel),
@@ -93,7 +108,7 @@ _PRESETS: Dict[str, List[Tuple[int, int, int, int, Type[VisualizationPanel]]]] =
     ],
 }
 
-_DEFAULT_PRESET = "2×2 Grid"
+_DEFAULT_PRESET = "Default"
 
 
 # ---------------------------------------------------------------------------
@@ -104,11 +119,14 @@ class _PanelSlot(QtWidgets.QWidget):
     """Container cell that holds one VisualizationPanel and an 'Add Panel' placeholder."""
 
     panel_settings_requested = QtCore.pyqtSignal(object)  # VisualizationPanel
+    replace_requested = QtCore.pyqtSignal(object, str)   # slot, panel_type_name
 
     def __init__(
         self,
         panel: Optional[VisualizationPanel] = None,
         parent: Optional[QtWidgets.QWidget] = None,
+        *,
+        panel_type_options: Optional[List[str]] = None,
     ) -> None:
         super().__init__(parent)
         self._panel: Optional[VisualizationPanel] = None
@@ -119,15 +137,24 @@ class _PanelSlot(QtWidgets.QWidget):
         self.setMinimumSize(160, 120)
 
         if panel is not None:
-            self.set_panel(panel)
+            self.set_panel(panel, panel_type_options=panel_type_options)
 
-    def set_panel(self, panel: VisualizationPanel) -> None:
+    def set_panel(
+        self,
+        panel: VisualizationPanel,
+        panel_type_options: Optional[List[str]] = None,
+    ) -> None:
         self._clear()
         self._panel = panel
         self._layout.addWidget(panel)
         panel.close_requested.connect(self._on_panel_close_requested)
         panel._settings_btn.clicked.connect(
             lambda: self.panel_settings_requested.emit(panel)
+        )
+        if panel_type_options is not None:
+            panel.set_panel_type_options(panel_type_options)
+        panel.replace_with_requested.connect(
+            lambda name: self.replace_requested.emit(self, name)
         )
 
     def _clear(self) -> None:
@@ -172,6 +199,7 @@ class _Canvas(QtWidgets.QWidget):
     """Hosts the panel grid using nested QSplitters for resizable cells."""
 
     panel_settings_requested = QtCore.pyqtSignal(object)
+    replace_requested = QtCore.pyqtSignal(object, str)  # slot, panel_type_name
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -207,12 +235,14 @@ class _Canvas(QtWidgets.QWidget):
 
         panels: List[VisualizationPanel] = []
 
+        panel_type_names = list(_PANEL_CLASSES.keys())
         for row, col, rowspan, colspan, PanelClass in preset:
             panel = PanelClass()
             if data is not None:
                 panel.set_data(data)
-            slot = _PanelSlot(panel)
+            slot = _PanelSlot(panel, panel_type_options=panel_type_names)
             slot.panel_settings_requested.connect(self.panel_settings_requested)
+            slot.replace_requested.connect(self.replace_requested.emit)
             self._slots.append(slot)
             panels.append(panel)
             for r in range(row, row + rowspan):
@@ -368,6 +398,7 @@ class _Toolbar(QtWidgets.QWidget):
         self._preset_cmb.addItems(list(_PRESETS.keys()))
         self._preset_cmb.setCurrentText(_DEFAULT_PRESET)
         self._preset_cmb.setFixedWidth(160)
+        self._preset_cmb.setToolTip("Choose layout, then Apply. Use ▾ on each panel to change its type.")
         self._preset_cmb.currentTextChanged.connect(self.preset_selected)
         layout.addWidget(self._preset_cmb)
 
@@ -466,19 +497,22 @@ class VisualizationTab(QtWidgets.QWidget):
 
         for name, result in sim_results.items():
             population_results[name] = {
-                "drive":   result.drive,
-                "v_trace": result.v_trace,
-                "spikes":  result.spikes,
+                "drive":      result.drive,
+                "raw_drive": result.raw_drive if hasattr(result, "raw_drive") and result.raw_drive is not None else result.drive,
+                "v_trace":   result.v_trace,
+                "spikes":    result.spikes,
             }
 
-        # Preserve neuron positions and receptor positions if already set
+        # Preserve spatial data if already set
         neuron_positions = (
             self._data.neuron_positions if self._data is not None else {}
         )
         receptor_positions = (
             self._data.receptor_positions if self._data is not None else None
         )
-        # Carry over colors if set
+        innervation_weights = (
+            self._data.innervation_weights if self._data is not None else {}
+        )
         if self._data is not None:
             population_colors = self._data.population_colors
 
@@ -492,6 +526,7 @@ class VisualizationTab(QtWidgets.QWidget):
             neuron_positions=neuron_positions,
             receptor_positions=receptor_positions,
             population_colors=population_colors,
+            innervation_weights=innervation_weights,
         )
 
         n_pops = len(population_results)
@@ -507,11 +542,12 @@ class VisualizationTab(QtWidgets.QWidget):
     def set_populations(self, populations: list) -> None:
         """Receive population list from MechanoreceptorTab.populations_changed.
 
-        Extracts neuron positions and receptor positions for spatial panels.
+        Extracts neuron positions, receptor positions, and innervation weights.
         """
         neuron_positions: Dict[str, np.ndarray] = {}
         receptor_positions: Optional[np.ndarray] = None
         population_colors: Dict[str, QtGui.QColor] = {}
+        innervation_weights: Dict[str, np.ndarray] = {}
 
         for pop in populations:
             centers = None
@@ -524,6 +560,13 @@ class VisualizationTab(QtWidgets.QWidget):
                 neuron_positions[pop.name] = centers
             if hasattr(pop, "color") and isinstance(pop.color, QtGui.QColor):
                 population_colors[pop.name] = pop.color
+            # Innervation weights for receptive field overlay
+            w = getattr(pop, "innervation_weights", None)
+            if w is not None:
+                try:
+                    innervation_weights[pop.name] = w.detach().cpu().numpy()
+                except Exception:
+                    pass
 
         # Receptor positions: use first population's module
         if receptor_positions is None:
@@ -551,12 +594,14 @@ class VisualizationTab(QtWidgets.QWidget):
             self._data.neuron_positions = neuron_positions
             self._data.receptor_positions = receptor_positions
             self._data.population_colors = population_colors
+            self._data.innervation_weights = innervation_weights
             self._push_data_to_panels()
         else:
             # Store for when simulation data arrives
             self._pending_neuron_positions = neuron_positions
             self._pending_receptor_positions = receptor_positions
             self._pending_population_colors = population_colors
+            self._pending_innervation_weights = innervation_weights
 
     def set_receptor_positions(self, positions: np.ndarray) -> None:
         """Directly set receptor (x, y) positions [M, 2] in mm."""
@@ -586,6 +631,7 @@ class VisualizationTab(QtWidgets.QWidget):
 
         self._canvas = _Canvas()
         self._canvas.panel_settings_requested.connect(self._on_panel_settings_requested)
+        self._canvas.replace_requested.connect(self._on_replace_requested)
         body.addWidget(self._canvas, stretch=1)
 
         self._sidebar = _SettingsSidebar()
@@ -661,6 +707,54 @@ class VisualizationTab(QtWidgets.QWidget):
     def _on_panel_settings_requested(self, panel: VisualizationPanel) -> None:
         self._sidebar.show_panel_settings(panel)
 
+    def _on_replace_requested(self, slot: "_PanelSlot", panel_type_name: str) -> None:
+        """Replace the panel in the given slot with a new panel of the requested type."""
+        PanelClass = _PANEL_CLASSES.get(panel_type_name)
+        if PanelClass is None:
+            return
+        old_panel = slot.panel
+        if old_panel is None:
+            return
+        new_panel = PanelClass()
+        if self._data is not None:
+            new_panel.set_data(self._data)
+        idx = self._panels.index(old_panel)
+        self._panels[idx] = new_panel
+        slot.set_panel(new_panel, panel_type_options=list(_PANEL_CLASSES.keys()))
+        new_panel._settings_btn.clicked.connect(
+            lambda _, p=new_panel: self._on_panel_settings_requested(p)
+        )
+        t_idx = self._playback.current_step
+        if self._data is not None and self._data.n_steps > 0:
+            new_panel.seek(t_idx)
+
+    def _on_replace_requested(
+        self,
+        slot: "_PanelSlot",
+        panel_type_name: str,
+    ) -> None:
+        """Replace the panel in the given slot with a new panel of the requested type."""
+        PanelClass = _PANEL_CLASSES.get(panel_type_name)
+        if PanelClass is None:
+            return
+        old_panel = slot.panel
+        if old_panel is None:
+            return
+        new_panel = PanelClass()
+        if self._data is not None:
+            new_panel.set_data(self._data)
+        # Update _panels: replace old with new
+        try:
+            idx = self._panels.index(old_panel)
+            self._panels[idx] = new_panel
+        except ValueError:
+            self._panels.append(new_panel)
+        slot.set_panel(new_panel, panel_type_options=list(_PANEL_CLASSES.keys()))
+        # Wire settings
+        new_panel._settings_btn.clicked.connect(
+            lambda _, p=new_panel: self._on_panel_settings_requested(p)
+        )
+
     # ------------------------------------------------------------------
     # Layout
     # ------------------------------------------------------------------
@@ -694,6 +788,9 @@ class VisualizationTab(QtWidgets.QWidget):
         if hasattr(self, "_pending_population_colors"):
             self._data.population_colors = self._pending_population_colors
             del self._pending_population_colors
+        if hasattr(self, "_pending_innervation_weights"):
+            self._data.innervation_weights = self._pending_innervation_weights
+            del self._pending_innervation_weights
 
         import traceback
         for panel in self._panels:

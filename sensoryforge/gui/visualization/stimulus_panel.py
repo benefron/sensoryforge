@@ -73,12 +73,12 @@ class StimulusPanel(VisualizationPanel):
         self._global_min = float(frames.min())
         self._global_max = float(frames.max()) or 1.0
         # Set spatial transform so image axes match mm
+        # stimulus_frames [T, H, W]: H = n_x (cols), W = n_y (rows); dim0=x, dim1=y
         xl, xr = self._data.stimulus_xlim
         yb, yt = self._data.stimulus_ylim
-        n_w = frames.shape[2]
-        n_h = frames.shape[1]
-        dx = (xr - xl) / max(n_w, 1)
-        dy = (yt - yb) / max(n_h, 1)
+        n_x, n_y = frames.shape[1], frames.shape[2]
+        dx = (xr - xl) / max(n_x, 1)
+        dy = (yt - yb) / max(n_y, 1)
         tr = pg.QtGui.QTransform()
         tr.translate(xl, yb)
         tr.scale(dx, dy)
@@ -88,16 +88,16 @@ class StimulusPanel(VisualizationPanel):
             yRange=[yb, yt],
             padding=0.05,
         )
-        self._colorbar.setLevels((self._global_min, self._global_max))
+        if self._colorbar is not None:
+            self._colorbar.setLevels((self._global_min, self._global_max))
         self._render_frame(0)
 
     def _render_frame(self, t_idx: int) -> None:
         if self._data is None or self._data.stimulus_frames is None:
             return
-        frame = self._data.stimulus_frames[t_idx]    # [H, W]
-        # pg.ImageItem expects [W, H] with default axes
+        frame = self._data.stimulus_frames[t_idx]    # [n_x, n_y] = (x, y)
         self._img.setImage(
-            frame.T,
+            frame,
             autoLevels=False,
             levels=(self._global_min, self._global_max),
         )

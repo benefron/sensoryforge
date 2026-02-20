@@ -119,7 +119,8 @@ class SimulationResult:
     time_ms: np.ndarray
     v_trace: np.ndarray
     spikes: np.ndarray
-    drive: np.ndarray
+    drive: np.ndarray  # filtered drive (after SA/RA temporal filter)
+    raw_drive: Optional[np.ndarray] = None  # drive before filter (None if filter disabled)
 
     @property
     def neuron_count(self) -> int:
@@ -1772,6 +1773,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         neuron_drive = module(stimuli)
         if neuron_drive.ndim == 2:
             neuron_drive = neuron_drive.unsqueeze(1)
+        raw_drive_np = neuron_drive.detach().cpu().numpy()[0]  # [T, N] before filter
         filtered = self._apply_filter(
             neuron_drive, population.neuron_type, config, dt_ms, device
         )
@@ -1797,6 +1799,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             v_np = v_np[:steps]
             drive_np = drive_np[:steps]
         time_ms = np.arange(steps, dtype=float) * dt_ms
+        raw_drive_np = raw_drive_np[:steps] if raw_drive_np.shape[0] > steps else raw_drive_np
         return SimulationResult(
             population_name=config.name,
             dt_ms=dt_ms,
@@ -1804,6 +1807,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             v_trace=v_np,
             spikes=spikes_np,
             drive=drive_np,
+            raw_drive=raw_drive_np,
         )
 
     def _apply_filter(

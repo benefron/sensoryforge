@@ -1,12 +1,12 @@
 """Spike raster panel.
 
-Displays spikes as a 2-D raster image [neuron × time] with a moving cursor
-showing the current time step.  Each population gets its own row block.
+Displays spikes progressively in time (animated build-up). PSTH at bottom
+with adjustable time bin, also appearing through time.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -14,18 +14,22 @@ import pyqtgraph as pg  # type: ignore
 
 from .base_panel import VisualizationPanel, VisData
 
+_PSTH_BIN_MS_DEFAULT = 20.0
+
 
 class RasterPanel(VisualizationPanel):
-    """Spike raster: rows = neurons, columns = time.  Vertical cursor tracks t."""
+    """Spike raster: rows = neurons. Spikes appear in time. PSTH below."""
 
     PANEL_DISPLAY_NAME = "Spike Raster"
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         self._selected_populations: List[str] = []
-        self._sort_by_rate = False
-        self._raster_image: Optional[np.ndarray] = None  # [N_total, T] float32
-        self._row_labels: List[str] = []                  # population per row block
-        self._pop_row_starts: dict = {}
+        self._sort_by_rate = True
+        self._raster_image: Optional[np.ndarray] = None
+        self._pop_row_starts: Dict[str, int] = {}
+        self._psth_bin_ms = _PSTH_BIN_MS_DEFAULT
+        self._sep_lines: List[pg.InfiniteLine] = []
+        self._pop_labels: List[pg.TextItem] = []
         super().__init__(title="Spike Raster", parent=parent)
 
     # ------------------------------------------------------------------
@@ -33,6 +37,7 @@ class RasterPanel(VisualizationPanel):
     # ------------------------------------------------------------------
 
     def _build_content(self, layout: QtWidgets.QVBoxLayout) -> None:
+        # Raster plot
         self._pw = pg.PlotWidget(background="k")
         self._pw.setMenuEnabled(False)
         self._pw.getAxis("bottom").setLabel("Time (ms)")
@@ -43,24 +48,24 @@ class RasterPanel(VisualizationPanel):
         self._img.setZValue(-10)
         self._pw.addItem(self._img)
 
-        # Black-and-color LUT: background black, spikes use population color
-        # Default single-population LUT (white spikes on black)
         lut = np.zeros((2, 4), dtype=np.uint8)
-        lut[0] = [20, 20, 20, 255]    # no spike — near-black
-        lut[1] = [255, 255, 255, 255] # spike — white
+        lut[0] = [20, 20, 20, 255]
+        lut[1] = [255, 220, 100, 255]
         self._img.setLookupTable(lut)
 
-        # Vertical time cursor
         self._cursor = pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen("y", width=1.5))
         self._pw.addItem(self._cursor)
 
-        # Population separator lines (added dynamically)
-        self._sep_lines: List[pg.InfiniteLine] = []
-
-        # Population label text items
-        self._pop_labels: List[pg.TextItem] = []
-
         layout.addWidget(self._pw)
+
+        # PSTH plot
+        self._psth_pw = pg.PlotWidget(background="k")
+        self._psth_pw.setMenuEnabled(False)
+        self._psth_pw.getAxis("bottom").setLabel("Time (ms)")
+        self._psth_pw.getAxis("left").setLabel("Rate (Hz)")
+        self._psth_pw.showGrid(x=True, y=True, alpha=0.2)
+        self._psth_curves: Dict[str, pg.PlotDataItem] = {}
+        layout.addWidget(self._psth_pw)
 
     # ------------------------------------------------------------------
     # VisualizationPanel interface
@@ -71,10 +76,9 @@ class RasterPanel(VisualizationPanel):
             return
         self._selected_populations = list(self._data.population_names)
         self._build_raster_image()
+        self._build_psth_curves()
 
     def _build_raster_image(self) -> None:
-        """Assemble combined raster image from selected populations."""
-        # Remove old separator lines and labels
         for ln in self._sep_lines:
             self._pw.removeItem(ln)
         self._sep_lines.clear()
@@ -104,7 +108,7 @@ class RasterPanel(VisualizationPanel):
                 rates = spk.sum(axis=0)
                 order = np.argsort(rates)[::-1]
                 spk = spk[:, order]
-            blocks.append(spk.T.astype(np.float32))  # [N, T]
+            blocks.append(spk.T.astype(np.float32))
             self._pop_row_starts[name] = row
             row += n_neurons
 
@@ -112,23 +116,12 @@ class RasterPanel(VisualizationPanel):
             self._img.clear()
             return
 
-        raster = np.concatenate(blocks, axis=0)   # [N_total, T]
+        raster = np.concatenate(blocks, axis=0)
         self._raster_image = raster
         n_total = raster.shape[0]
 
-        # Set image: pg.ImageItem with [W, H] convention → transpose to [T, N]
-        self._img.setImage(
-            raster.T,
-            autoLevels=False,
-            levels=(0.0, 1.0),
-        )
-
-        # Set spatial transform: x = time_ms, y = neuron index
         tr = pg.QtGui.QTransform()
-        if len(time_ms) > 1:
-            dt = time_ms[1] - time_ms[0]
-        else:
-            dt = self._data.dt_ms
+        dt = time_ms[1] - time_ms[0] if len(time_ms) > 1 else self._data.dt_ms
         tr.translate(float(time_ms[0] if len(time_ms) else 0), 0)
         tr.scale(float(dt), 1.0)
         self._img.setTransform(tr)
@@ -140,7 +133,6 @@ class RasterPanel(VisualizationPanel):
             padding=0.02,
         )
 
-        # Draw population separators and labels
         row = 0
         for name in self._selected_populations:
             if name not in self._pop_row_starts:
@@ -152,7 +144,6 @@ class RasterPanel(VisualizationPanel):
             n_neurons = spk.shape[1]
             color = self._data.population_colors.get(name, QtGui.QColor(200, 200, 200))
             qt_color = color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
-            # Separator line at top of block (except first)
             if row > 0:
                 sep = pg.InfiniteLine(
                     pos=row - 0.5,
@@ -161,7 +152,6 @@ class RasterPanel(VisualizationPanel):
                 )
                 self._pw.addItem(sep)
                 self._sep_lines.append(sep)
-            # Population label
             lbl = pg.TextItem(
                 text=name,
                 color=qt_color.name(),
@@ -176,23 +166,77 @@ class RasterPanel(VisualizationPanel):
             self._pop_labels.append(lbl)
             row += n_neurons
 
-        # Build multi-population LUT (color-coded by population)
-        self._build_lut()
-
         self._cursor.setPos(float(time_ms[0] if len(time_ms) else 0))
 
-    def _build_lut(self) -> None:
-        """Single-population: white spikes.  Multi-population: keep white for now."""
-        lut = np.zeros((2, 4), dtype=np.uint8)
-        lut[0] = [20, 20, 20, 255]
-        lut[1] = [255, 220, 100, 255]  # warm yellow spikes
-        self._img.setLookupTable(lut)
+    def _build_psth_curves(self) -> None:
+        """Create PSTH plot items per population."""
+        self._psth_pw.clear()
+        self._psth_curves.clear()
+        if self._data is None or not self._selected_populations:
+            return
+        for name in self._selected_populations:
+            color = self._data.population_colors.get(name, QtGui.QColor(200, 200, 200))
+            qt_color = color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
+            curve = self._psth_pw.plot(
+                [], [],
+                pen=pg.mkPen(qt_color, width=2),
+                name=name,
+            )
+            self._psth_curves[name] = curve
+        self._psth_pw.addLegend(offset=(10, 10))
+
+    def _compute_psth(self, name: str, t_max: int) -> tuple:
+        """Return (time_centers, rates) for PSTH up to t_max."""
+        if self._data is None:
+            return np.array([]), np.array([])
+        res = self._data.population_results.get(name, {})
+        spk = res.get("spikes")
+        if spk is None:
+            return np.array([]), np.array([])
+        spk = spk[: t_max + 1]
+        dt_ms = self._data.dt_ms
+        bin_steps = max(1, int(round(self._psth_bin_ms / dt_ms)))
+        T = spk.shape[0]
+        n_bins = (T + bin_steps - 1) // bin_steps
+        rates = np.zeros(n_bins, dtype=np.float32)
+        for b in range(n_bins):
+            start = b * bin_steps
+            end = min(start + bin_steps, T)
+            if end > start:
+                n_neurons = spk.shape[1]
+                count = spk[start:end].sum()
+                bin_dur_s = (end - start) * dt_ms * 1e-3
+                rates[b] = count / (n_neurons * bin_dur_s) if bin_dur_s > 0 else 0
+        t_centers = (np.arange(n_bins) + 0.5) * bin_steps * dt_ms
+        return t_centers, rates
 
     def _render_frame(self, t_idx: int) -> None:
-        if self._data is None:
+        if self._data is None or self._raster_image is None:
             return
-        if len(self._data.time_ms) > t_idx:
-            self._cursor.setPos(float(self._data.time_ms[t_idx]))
+        time_ms = self._data.time_ms
+        if len(time_ms) <= t_idx:
+            return
+
+        # Show only spikes up to current time (crop)
+        crop = self._raster_image[:, : t_idx + 1]
+        dt = time_ms[1] - time_ms[0] if len(time_ms) > 1 else self._data.dt_ms
+        self._img.setImage(
+            crop.T,
+            autoLevels=False,
+            levels=(0.0, 1.0),
+        )
+        tr = pg.QtGui.QTransform()
+        tr.translate(float(time_ms[0]), 0)
+        tr.scale(float(dt), 1.0)
+        self._img.setTransform(tr)
+
+        self._cursor.setPos(float(time_ms[t_idx]))
+
+        # PSTH up to current time
+        for name, curve in self._psth_curves.items():
+            t_centers, rates = self._compute_psth(name, t_idx)
+            if t_centers.size > 0:
+                curve.setData(t_centers, rates)
 
     # ------------------------------------------------------------------
     # Settings widget
@@ -214,6 +258,8 @@ class RasterPanel(VisualizationPanel):
                     elif not checked and n in self._selected_populations:
                         self._selected_populations.remove(n)
                     self._build_raster_image()
+                    self._build_psth_curves()
+                    self._render_frame(self._t_idx)
                 chk.stateChanged.connect(_toggle)
                 layout.addWidget(chk)
 
@@ -222,7 +268,26 @@ class RasterPanel(VisualizationPanel):
         def _sort_changed(s):
             self._sort_by_rate = bool(s)
             self._build_raster_image()
+            self._render_frame(self._t_idx)
         sort_chk.stateChanged.connect(_sort_changed)
         layout.addWidget(sort_chk)
+
+        bin_spin = QtWidgets.QDoubleSpinBox()
+        bin_spin.setRange(1.0, 200.0)
+        bin_spin.setSingleStep(5.0)
+        bin_spin.setValue(self._psth_bin_ms)
+        bin_spin.setSuffix(" ms")
+        bin_spin.setToolTip("PSTH time bin")
+
+        def _bin_changed(v):
+            self._psth_bin_ms = v
+            self._render_frame(self._t_idx)
+
+        bin_spin.valueChanged.connect(_bin_changed)
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(QtWidgets.QLabel("PSTH bin:"))
+        row.addWidget(bin_spin)
+        layout.addLayout(row)
+
         layout.addStretch()
         return w

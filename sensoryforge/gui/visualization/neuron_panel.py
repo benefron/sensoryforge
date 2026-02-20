@@ -14,7 +14,7 @@ import pyqtgraph as pg  # type: ignore
 
 from .base_panel import VisualizationPanel, VisData
 
-_OVERLAY_OPTIONS = ["Drive", "Voltage", "Firing Rate"]
+_OVERLAY_OPTIONS = ["Drive (filtered)", "Drive (no filter)", "Voltage", "Firing Rate"]
 _BIN_SIZE_MS_DEFAULT = 20.0
 
 
@@ -25,7 +25,7 @@ class NeuronPanel(VisualizationPanel):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         self._pop_name: Optional[str] = None
-        self._overlay = "Drive"       # "Drive" | "Voltage" | "Firing Rate"
+        self._overlay = "Drive (filtered)"  # Drive (filtered) | Drive (no filter) | Voltage | Firing Rate
         self._cmap_name = "viridis"
         self._bin_ms = _BIN_SIZE_MS_DEFAULT
         self._lut: Optional[np.ndarray] = None
@@ -94,8 +94,10 @@ class NeuronPanel(VisualizationPanel):
         if self._data is None or self._pop_name is None:
             return None
         res = self._data.population_results.get(self._pop_name, {})
-        if self._overlay == "Drive":
+        if self._overlay == "Drive (filtered)":
             return res.get("drive")
+        if self._overlay == "Drive (no filter)":
+            return res.get("raw_drive") or res.get("drive")
         if self._overlay == "Voltage":
             return res.get("v_trace")
         if self._overlay == "Firing Rate":

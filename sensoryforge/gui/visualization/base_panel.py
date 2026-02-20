@@ -33,12 +33,15 @@ class VisData:
         stimulus_ylim: (y_min, y_max) spatial extent in mm.
         population_results: Mapping from population name to per-population
             arrays. Each value is a dict with keys:
-            - ``drive``   : [T, N_neurons]  receptor-weighted drive (mA)
-            - ``v_trace`` : [T, N_neurons]  membrane voltage (mV)
-            - ``spikes``  : [T, N_neurons]  binary spike indicator
+            - ``drive``     : [T, N_neurons]  filtered drive (after SA/RA) (mA)
+            - ``raw_drive`` : [T, N_neurons]  drive before temporal filter (mA)
+            - ``v_trace``   : [T, N_neurons]  membrane voltage (mV)
+            - ``spikes``    : [T, N_neurons]  binary spike indicator
         neuron_positions: Mapping from population name to [N, 2] (x, y) mm.
         receptor_positions: [M, 2] receptor (x, y) positions in mm.
         population_colors: Mapping from population name to QColor.
+        innervation_weights: Mapping from population name to weight array.
+            Grid module: [N_neurons, grid_h, grid_w]. Flat: [N_neurons, N_receptors].
     """
 
     time_ms: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -52,6 +55,7 @@ class VisData:
     neuron_positions: Dict[str, np.ndarray] = field(default_factory=dict)
     receptor_positions: Optional[np.ndarray] = None     # [M, 2]
     population_colors: Dict[str, QtGui.QColor] = field(default_factory=dict)
+    innervation_weights: Dict[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def n_steps(self) -> int:
@@ -95,6 +99,7 @@ class VisualizationPanel(QtWidgets.QWidget):
 
     title_changed = QtCore.pyqtSignal(str)
     close_requested = QtCore.pyqtSignal(object)   # passes self
+    replace_with_requested = QtCore.pyqtSignal(str)  # panel type name
 
     PANEL_DISPLAY_NAME: str = "Panel"  # override in subclasses
 
@@ -129,6 +134,7 @@ class VisualizationPanel(QtWidgets.QWidget):
         self._data: Optional[VisData] = None
         self._t_idx: int = 0
         self._title: str = title or self.PANEL_DISPLAY_NAME
+        self._panel_type_options: List[str] = []  # set via set_panel_type_options
 
         # Outer layout: header + content
         outer = QtWidgets.QVBoxLayout(self)
@@ -179,6 +185,17 @@ class VisualizationPanel(QtWidgets.QWidget):
         self._settings_btn.clicked.connect(self._on_settings_clicked)
         h_layout.addWidget(self._settings_btn)
 
+        self._change_type_btn = QtWidgets.QToolButton()
+        self._change_type_btn.setText("▾")
+        self._change_type_btn.setToolTip("Change panel type — click to swap this panel for another view")
+        self._change_type_btn.setFixedSize(20, 20)
+        self._change_type_btn.setStyleSheet(
+            "QToolButton { border: none; font-size: 11px; color: #666; }"
+            "QToolButton:hover { color: #222; }"
+        )
+        self._change_type_btn.clicked.connect(self._on_change_type_clicked)
+        h_layout.addWidget(self._change_type_btn)
+
         close_btn = QtWidgets.QToolButton()
         close_btn.setText("✕")
         close_btn.setToolTip("Remove panel")
@@ -195,6 +212,10 @@ class VisualizationPanel(QtWidgets.QWidget):
         self._title = title
         self._title_label.setText(title)
         self.title_changed.emit(title)
+
+    def set_panel_type_options(self, names: List[str]) -> None:
+        """Set the list of panel type names for the 'Change type' menu."""
+        self._panel_type_options = list(names)
 
     # ------------------------------------------------------------------
     # Subclass interface
@@ -234,6 +255,29 @@ class VisualizationPanel(QtWidgets.QWidget):
         """Emit a signal so the tab can show the settings sidebar."""
         # The tab connects to this via the parent VisualizationTab
         pass
+
+    def _on_change_type_clicked(self) -> None:
+        """Show menu of panel types and emit replace_with_requested when chosen."""
+        if not self._panel_type_options:
+            return
+        menu = QtWidgets.QMenu(self)
+        menu.setStyleSheet(
+            "QMenu { border: 1px solid #aaa; background: #fff; }"
+            "QMenu::item { padding: 4px 16px; font-size: 11px; }"
+            "QMenu::item:selected { background: #4287f5; color: #fff; }"
+        )
+        current = self.PANEL_DISPLAY_NAME
+        for name in self._panel_type_options:
+            if name == current:
+                continue
+            action = menu.addAction(name)
+            action.triggered.connect(
+                lambda checked, n=name: self.replace_with_requested.emit(n)
+            )
+        if menu.actions():
+            menu.exec_(self._change_type_btn.mapToGlobal(
+                self._change_type_btn.rect().bottomLeft()
+            ))
 
     # ------------------------------------------------------------------
     # Helpers for subclasses
