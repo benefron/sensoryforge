@@ -57,13 +57,22 @@ class ComponentRegistry:
                 instead of cls(**kwargs). Useful for components that need
                 special instantiation logic.
         
-        Raises:
-            ValueError: If name is already registered.
+        Note:
+            Registration is idempotent - if the same class is already registered
+            with the same name, this is a no-op (even if factory_func differs).
+            Only warns if overwriting with a different class.
         """
         if name in self._registry:
+            existing_cls, existing_factory = self._registry[name]
+            # If same class, skip silently (idempotent)
+            # Note: We don't compare factory_func because it may be recreated
+            # on each call to register_all(), but the class is what matters
+            if existing_cls is cls:
+                return
+            # Otherwise warn about overwriting with different class
             warnings.warn(
-                f"{self._name}: Component '{name}' already registered, "
-                f"overwriting with {cls.__name__}",
+                f"{self._name}: Component '{name}' already registered with "
+                f"{existing_cls.__name__}, overwriting with {cls.__name__}",
                 UserWarning,
             )
         self._registry[name] = (cls, factory_func)
