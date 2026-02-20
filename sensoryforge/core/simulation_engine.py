@@ -36,7 +36,11 @@ from sensoryforge.registry import (
 )
 from sensoryforge.core.grid import ReceptorGrid, GridManager
 from sensoryforge.core.composite_grid import CompositeReceptorGrid
-from sensoryforge.core.innervation import InnervationModule, FlatInnervationModule
+from sensoryforge.core.innervation import (
+    InnervationModule,
+    FlatInnervationModule,
+    create_neuron_centers,
+)
 
 # Ensure components are registered
 register_all()
@@ -129,63 +133,49 @@ class SimulationEngine:
                 receptor_coords = grid.get_receptor_coordinates()
                 use_flat = False
             
-            # Build innervation
-            innervation_method = pop_cfg.innervation_method or "gaussian"
-            innervation_kwargs = {
-                "receptor_coords": receptor_coords,
-                "neuron_centers": None,  # Will be set based on neuron arrangement
-                "device": self.device,
-                "connections_per_neuron": pop_cfg.connections_per_neuron,
-                "sigma_d_mm": pop_cfg.sigma_d_mm,
-                "weight_range": tuple(pop_cfg.weight_range) if pop_cfg.weight_range else (0.1, 1.0),
-                "seed": pop_cfg.seed,
-                "use_distance_weights": pop_cfg.use_distance_weights,
-                "max_distance_mm": pop_cfg.max_distance_mm,
-                "decay_function": pop_cfg.decay_function,
-                "decay_rate": pop_cfg.decay_rate,
-                "far_connection_fraction": pop_cfg.far_connection_fraction,
-                "far_sigma_factor": pop_cfg.far_sigma_factor,
-                "distance_weight_randomness_pct": pop_cfg.distance_weight_randomness_pct,
-            }
-            
-            # Create innervation via registry
-            try:
-                innervation_cls = INNERVATION_REGISTRY.get_class(innervation_method)
-                # Innervation classes need special handling - use factory if available
-                if INNERVATION_REGISTRY._registry[innervation_method][1] is not None:
-                    # Factory function available
-                    innervation = INNERVATION_REGISTRY.create(innervation_method, **innervation_kwargs)
-                else:
-                    innervation = innervation_cls(**innervation_kwargs)
-            except KeyError:
-                raise ValueError(f"Unknown innervation method: {innervation_method}")
-            
-            # Build neuron arrangement
+            # Build neuron arrangement first (needed for innervation)
             neuron_rows = pop_cfg.neuron_rows or int(np.sqrt(pop_cfg.num_neurons)) if pop_cfg.num_neurons else 10
             neuron_cols = pop_cfg.neuron_cols or int(np.sqrt(pop_cfg.num_neurons)) if pop_cfg.num_neurons else 10
             neuron_arrangement = pop_cfg.neuron_arrangement or "grid"
             
-            # Generate neuron centers based on arrangement
-            # This is simplified - full implementation would use GridManager logic
-            if neuron_arrangement == "grid":
-                # Regular grid
-                xlim = (grid.xlim[0], grid.xlim[1]) if hasattr(grid, 'xlim') else (-5.0, 5.0)
-                ylim = (grid.ylim[0], grid.ylim[1]) if hasattr(grid, 'ylim') else (-5.0, 5.0)
-                x_spacing = (xlim[1] - xlim[0]) / (neuron_cols - 1) if neuron_cols > 1 else 0
-                y_spacing = (ylim[1] - ylim[0]) / (neuron_rows - 1) if neuron_rows > 1 else 0
-                neuron_centers = []
-                for i in range(neuron_rows):
-                    for j in range(neuron_cols):
-                        x = xlim[0] + j * x_spacing
-                        y = ylim[0] + i * y_spacing
-                        neuron_centers.append([x, y])
-                neuron_centers = torch.tensor(neuron_centers, device=self.device)
+            # Get grid bounds
+            if isinstance(grid, CompositeReceptorGrid):
+                xlim = grid.xlim
+                ylim = grid.ylim
+            elif hasattr(grid, 'xlim') and hasattr(grid, 'ylim'):
+                xlim = grid.xlim
+                ylim = grid.ylim
             else:
-                # Other arrangements need GridManager - simplified for now
-                raise NotImplementedError(f"Neuron arrangement {neuron_arrangement} not yet implemented")
+                # Fallback: compute from grid properties
+                if hasattr(grid, 'spacing') and hasattr(grid, 'grid_size'):
+                    spacing = grid.spacing
+                    if isinstance(grid.grid_size, tuple):
+                        n_x, n_y = grid.grid_size
+                    else:
+                        n_x = n_y = grid.grid_size
+                    total_x = (n_x - 1) * spacing
+                    total_y = (n_y - 1) * spacing
+                    center = grid.center if hasattr(grid, 'center') else (0.0, 0.0)
+                    xlim = (center[0] - total_x/2, center[0] + total_x/2)
+                    ylim = (center[1] - total_y/2, center[1] + total_y/2)
+                else:
+                    xlim = (-5.0, 5.0)
+                    ylim = (-5.0, 5.0)
             
-            # Update innervation with neuron centers
-            innervation_kwargs["neuron_centers"] = neuron_centers
+            # Generate neuron centers using the existing function
+            neuron_centers = create_neuron_centers(
+                neurons_per_row=neuron_rows,  # Used if rows/cols not specified
+                xlim=xlim,
+                ylim=ylim,
+                device=self.device,
+                edge_offset=pop_cfg.edge_offset,
+                sigma=pop_cfg.sigma_d_mm,
+                rows=neuron_rows,
+                cols=neuron_cols,
+                arrangement=neuron_arrangement,
+                seed=pop_cfg.seed,
+                jitter_factor=pop_cfg.neuron_jitter_factor if hasattr(pop_cfg, 'neuron_jitter_factor') else 1.0,
+            )
             
             # Create innervation module
             if use_flat:
@@ -194,10 +184,21 @@ class SimulationEngine:
                     receptor_coords=receptor_coords,
                     neuron_centers=neuron_centers,
                     neurons_per_row=neuron_rows,
-                    xlim=grid.xlim if hasattr(grid, 'xlim') else (-5.0, 5.0),
-                    ylim=grid.ylim if hasattr(grid, 'ylim') else (-5.0, 5.0),
+                    xlim=xlim,
+                    ylim=ylim,
                     innervation_method=innervation_method,
-                    **{k: v for k, v in innervation_kwargs.items() if k not in ["receptor_coords", "neuron_centers", "device"]}
+                    connections_per_neuron=pop_cfg.connections_per_neuron,
+                    sigma_d_mm=pop_cfg.sigma_d_mm,
+                    weight_range=tuple(pop_cfg.weight_range) if pop_cfg.weight_range else (0.1, 1.0),
+                    seed=pop_cfg.seed,
+                    use_distance_weights=pop_cfg.use_distance_weights,
+                    max_distance_mm=pop_cfg.max_distance_mm,
+                    decay_function=pop_cfg.decay_function,
+                    decay_rate=pop_cfg.decay_rate,
+                    far_connection_fraction=pop_cfg.far_connection_fraction,
+                    far_sigma_factor=pop_cfg.far_sigma_factor,
+                    distance_weight_randomness_pct=pop_cfg.distance_weight_randomness_pct,
+                    device=self.device,
                 )
             else:
                 # Grid-based innervation needs GridManager
@@ -206,11 +207,20 @@ class SimulationEngine:
                     neuron_type=pop_cfg.neuron_type,
                     grid_manager=grid_manager,
                     neurons_per_row=neuron_rows,
+                    neuron_rows=neuron_rows,
+                    neuron_cols=neuron_cols,
+                    neuron_arrangement=neuron_arrangement,
                     connections_per_neuron=pop_cfg.connections_per_neuron,
                     sigma_d_mm=pop_cfg.sigma_d_mm,
                     weight_range=tuple(pop_cfg.weight_range) if pop_cfg.weight_range else (0.1, 1.0),
                     seed=pop_cfg.seed,
                     neuron_centers=neuron_centers,
+                    use_distance_weights=pop_cfg.use_distance_weights,
+                    far_connection_fraction=pop_cfg.far_connection_fraction,
+                    far_sigma_factor=pop_cfg.far_sigma_factor,
+                    distance_weight_randomness_pct=pop_cfg.distance_weight_randomness_pct,
+                    edge_offset=pop_cfg.edge_offset,
+                    neuron_jitter_factor=pop_cfg.neuron_jitter_factor if hasattr(pop_cfg, 'neuron_jitter_factor') else 1.0,
                 )
             
             # Build filter
