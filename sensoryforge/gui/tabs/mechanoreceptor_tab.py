@@ -1484,11 +1484,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop.highlight_neuron_item = neuron_item
 
         # Highlight receptors for this neuron: color by specific innervation, with border
-        lookup = self._population_heatmap_lookup(pop.color)
-        rec_colors = np.array(
-            [lookup[int(np.clip(n * 511, 0, 511))] for n in norm_w],
-            dtype=np.ubyte,
-        )
+        num_levels = 20
+        lookup = self._population_heatmap_lookup(pop.color, steps=num_levels)
+        bin_idx = np.minimum((norm_w * num_levels).astype(np.int32), num_levels - 1)
+        rec_colors = lookup[bin_idx]
         highlight_receptor_item = pg.ScatterPlotItem(
             x=rx,
             y=ry,
@@ -1914,13 +1913,16 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     def _weight_to_color(
         self, base_color: QtGui.QColor, fraction: float
     ) -> QtGui.QColor:
-        """Map normalized weight to color: darker (min) to much darker (max)."""
+        """Map normalized weight to color: light (min) to very dark (max)."""
         fraction = float(np.clip(fraction, 0.0, 1.0))
         graded = QtGui.QColor(base_color)
-        factor = int(115.0 + fraction * 100.0)
-        graded = graded.darker(max(100, factor))
-        alpha = int(200.0 + fraction * 55.0)
-        graded.setAlpha(max(200, min(255, alpha)))
+        if fraction < 0.01:
+            graded = graded.lighter(120)  # Light at min
+        else:
+            factor = int(130.0 + fraction * 150.0)  # Wider range: 130 to 280
+            graded = graded.darker(max(100, factor))
+        alpha = int(180.0 + fraction * 75.0)
+        graded.setAlpha(max(180, min(255, alpha)))
         return graded
 
     def _update_heatmap_for_selection(self) -> None:
@@ -1972,7 +1974,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             norm = np.full_like(weights, 0.5)
         else:
             norm = np.clip((weights - lower) / (upper - lower), 0.0, 1.0)
-        num_levels = 12
+        num_levels = 20
         lookup = self._population_heatmap_lookup(population.color, steps=num_levels)
         bin_idx = np.minimum((norm * num_levels).astype(np.int32), num_levels - 1)
         colors = lookup[bin_idx]
@@ -1991,7 +1993,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         population.receptor_items.append(item)
 
     def _population_heatmap_lookup(
-        self, base_color: QtGui.QColor, steps: int = 12
+        self, base_color: QtGui.QColor, steps: int = 20
     ) -> np.ndarray:
         """Build discrete color lookup for innervation strength (steps = distinct levels)."""
         fractions = np.linspace(0.0, 1.0, steps)
@@ -2081,7 +2083,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         # Connection lines: thickness encodes innervation strength (thicker = stronger)
         # Contrast: darker lines with higher alpha vs. semi-transparent heatmap
-        num_bins = 12
+        num_bins = 20
         width_min, width_max = 0.4, 2.8
         bins = np.linspace(0.0, 1.0, num_bins + 1)
         for bin_idx in range(num_bins):
@@ -2202,7 +2204,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         # Connection lines: thickness encodes innervation strength (thicker = stronger)
         # Contrast: darker lines with higher alpha vs. background
-        num_bins = 12
+        num_bins = 20
         width_min, width_max = 0.4, 2.8
         bins = np.linspace(0.0, 1.0, num_bins + 1)
         for bin_idx in range(num_bins):

@@ -20,7 +20,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 # Discrete levels for innervation strength (matches receptor dot coloring)
-NUM_WEIGHT_LEVELS = 12
+NUM_WEIGHT_LEVELS = 20
 
 
 def _populations_with_weights(tab: Any):
@@ -52,7 +52,7 @@ def _export_colorbar(
     fractions = [i / (num_levels - 1) for i in range(num_levels)]
     colors = []
     for frac in fractions:
-        factor = 1.0 - frac * 0.6  # 1.0 at min (light), 0.4 at max (dark)
+        factor = 1.0 - frac * 0.65  # 1.0 at min (light), 0.35 at max (dark)
         colors.append((
             base_color[0] * factor,
             base_color[1] * factor,
