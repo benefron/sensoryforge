@@ -271,6 +271,16 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         
         This adapter allows the pipeline to work with canonical configs
         while maintaining backward compatibility with legacy format.
+        
+        Note: The pipeline currently supports up to 3 populations (SA, RA, SA2).
+        For full N-population dynamic support, use SimulationEngine instead.
+        This adapter maps the first 3 populations from canonical config to
+        SA/RA/SA2 slots based on neuron_type.
+        
+        Limitations:
+        - Only first 3 populations are used (mapped to SA/RA/SA2)
+        - Population selection based on neuron_type prefix matching
+        - For N-population support, use SimulationEngine
         """
         legacy = self._deep_copy_dict(self.DEFAULT_CONFIG)
         
