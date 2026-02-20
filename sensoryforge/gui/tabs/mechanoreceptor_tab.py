@@ -14,8 +14,6 @@ import torch
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
-from pyqtgraph.exporters import ImageExporter, SVGExporter  # type: ignore
-
 # Ensure repository root on sys.path
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
@@ -270,22 +268,32 @@ class NeuronPopulation:
                 receptor_coords = grid_manager.get_receptor_coordinates()
             neuron_centers = self.module.neuron_centers
 
+            common_far = {
+                "far_connection_fraction": self.far_connection_fraction,
+                "far_sigma_factor": self.far_sigma_factor,
+            }
             if self.innervation_method == "one_to_one":
                 method_params = {
                     "connections_per_neuron": self.connections_per_neuron,
                     "sigma_d_mm": self.sigma_d_mm,
                     "weight_range": (self.weight_min, self.weight_max),
-                    "seed": self.seed,
-                }
-            elif self.innervation_method == "distance_weighted":
-                method_params = {
-                    "connections_per_neuron": self.connections_per_neuron,
-                    "sigma_d_mm": self.sigma_d_mm,
+                    "use_distance_weights": self.use_distance_weights,
                     "max_distance_mm": self.max_distance_mm,
                     "decay_function": self.decay_function,
                     "decay_rate": self.decay_rate,
-                    "weight_range": (self.weight_min, self.weight_max),
                     "seed": self.seed,
+                    **common_far,
+                }
+            elif self.innervation_method == "uniform":
+                method_params = {
+                    "sigma_d_mm": self.sigma_d_mm,
+                    "weight_range": (self.weight_min, self.weight_max),
+                    "use_distance_weights": self.use_distance_weights,
+                    "max_distance_mm": self.max_distance_mm,
+                    "decay_function": self.decay_function,
+                    "decay_rate": self.decay_rate,
+                    "seed": self.seed,
+                    **common_far,
                 }
             else:
                 method_params = {}
@@ -668,7 +676,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_sigma.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_innervation_method = QtWidgets.QComboBox()
         self.cmb_innervation_method.addItems(
-            ["gaussian", "one_to_one", "uniform", "distance_weighted"]
+            ["gaussian", "one_to_one", "uniform"]
         )
         self.cmb_innervation_method.setCurrentText("gaussian")
         self.cmb_innervation_method.currentTextChanged.connect(self._on_population_editor_changed)
@@ -727,6 +735,21 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow("Connections:", self.dbl_connections)
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
+        self.chk_use_distance_weights = QtWidgets.QCheckBox("Use distance weights")
+        self.chk_use_distance_weights.setChecked(False)
+        self.chk_use_distance_weights.setToolTip(
+            "When enabled, connection weights follow distance decay instead of uniform."
+        )
+        self.chk_use_distance_weights.stateChanged.connect(self._on_population_editor_changed)
+        self.chk_use_distance_weights.stateChanged.connect(self._on_use_distance_weights_changed)
+        pop_layout.addRow(self.chk_use_distance_weights)
+
+        self._dist_params_group = CollapsibleGroupBox("Distance weighting params", start_expanded=False, nested=True)
+        self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
+        self._dist_params_group.addRow("Decay Function:", self.cmb_decay_function)
+        self._dist_params_group.addRow("Decay Rate:", self.dbl_decay_rate)
+        pop_layout.addRow(self._dist_params_group)
+        self._dist_params_group.setVisible(False)
 
         weights_group = CollapsibleGroupBox("Weights", start_expanded=False, nested=True)
         weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
@@ -735,12 +758,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
         pop_layout.addRow("Color:", self.btn_pick_color)
-        self._dist_params_group = CollapsibleGroupBox("Distance-weighted params", start_expanded=False, nested=True)
-        self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
-        self._dist_params_group.addRow("Decay Function:", self.cmb_decay_function)
-        self._dist_params_group.addRow("Decay Rate:", self.dbl_decay_rate)
-        pop_layout.addRow(self._dist_params_group)
-        self._dist_params_group.setVisible(False)
         adv_group = CollapsibleGroupBox("Advanced", start_expanded=False, nested=True)
         self.dbl_far_connection_fraction = QtWidgets.QDoubleSpinBox()
         self.dbl_far_connection_fraction.setDecimals(3)
@@ -758,7 +775,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_far_sigma_factor.setValue(5.0)
         self.dbl_far_sigma_factor.valueChanged.connect(self._on_population_editor_changed)
         self.dbl_far_sigma_factor.setToolTip("Receptors beyond this × sigma are 'far'.")
-        adv_group.addRow("Far connection %:", self.dbl_far_connection_fraction)
+        adv_group.addRow("Far connection fraction:", self.dbl_far_connection_fraction)
         adv_group.addRow("Far sigma factor:", self.dbl_far_sigma_factor)
         self.spin_neuron_rows = QtWidgets.QSpinBox()
         self.spin_neuron_rows.setRange(1, 128)
@@ -825,25 +842,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         layers_group.layout().addRow(self.chk_show_innervation)
         control_layout.addWidget(layers_group)
 
-        # Weight legend
-        legend_group = QtWidgets.QGroupBox("Innervation Weight Legend")
-        legend_layout = QtWidgets.QVBoxLayout(legend_group)
-        self.population_legend_label = QtWidgets.QLabel(
-            "Select a population to view weight shading."
-        )
-        self.population_legend_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.population_legend_label.setMinimumHeight(36)
-        legend_layout.addWidget(self.population_legend_label)
-        control_layout.addWidget(legend_group)
-
-        # Snapshot controls
-        export_group = QtWidgets.QGroupBox("Snapshot")
-        export_layout = QtWidgets.QVBoxLayout(export_group)
-        self.btn_export_snapshot = QtWidgets.QPushButton("Export Snapshot...")
-        self.btn_export_snapshot.clicked.connect(self._on_export_snapshot)
-        export_layout.addWidget(self.btn_export_snapshot)
-        control_layout.addWidget(export_group)
-
         persistence_group = QtWidgets.QGroupBox("Configuration")
         persistence_layout = QtWidgets.QVBoxLayout(persistence_group)
         self.btn_save_configuration = QtWidgets.QPushButton("Save (Update)")
@@ -856,6 +854,17 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         persistence_layout.addWidget(self.btn_save_as_configuration)
         persistence_layout.addWidget(self.btn_load_configuration)
         control_layout.addWidget(persistence_group)
+
+        figure_group = QtWidgets.QGroupBox("Figure Export")
+        figure_layout = QtWidgets.QVBoxLayout(figure_group)
+        self.btn_export_figure = QtWidgets.QPushButton("Export Figure...")
+        self.btn_export_figure.setToolTip(
+            "Export the current plot to PNG or SVG for publication-quality figures. "
+            "Includes all visible layers, grids, populations, and labels."
+        )
+        self.btn_export_figure.clicked.connect(self._on_export_figure)
+        figure_layout.addWidget(self.btn_export_figure)
+        control_layout.addWidget(figure_group)
         control_layout.addStretch(1)
 
     def _configure_plot(self) -> None:
@@ -867,6 +876,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # double-handling (highlight then unhighlight in one click). EventFilter catches
         # all left-clicks before propagation.
         self.plot_widget.viewport().installEventFilter(self)
+        self.plot_widget.installEventFilter(self)
 
     # ------------------------------------------------------------------ #
     #  Unified Grid Workspace Methods (Phase 3 B.1-B.4)                   #
@@ -1059,7 +1069,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop.connections_per_neuron = self.dbl_connections.value()
         pop.sigma_d_mm = self.dbl_sigma.value()
         pop.innervation_method = self.cmb_innervation_method.currentText()
-        pop.use_distance_weights = pop.innervation_method == "distance_weighted"
+        if pop.innervation_method == "distance_weighted":
+            pop.innervation_method = "gaussian"
+            pop.use_distance_weights = True
+        else:
+            pop.use_distance_weights = self.chk_use_distance_weights.isChecked()
         pop.weight_min = self.dbl_weight_min.value()
         pop.weight_max = self.dbl_weight_max.value()
         pop.edge_offset = self.dbl_edge_offset.value() or None
@@ -1527,9 +1541,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 scatter_item.setOpacity(dim_opacity)
 
     def _on_innervation_method_changed(self, method: str) -> None:
-        is_distance = method == "distance_weighted"
+        pass
+
+    def _on_use_distance_weights_changed(self, state: int) -> None:
         if hasattr(self, "_dist_params_group"):
-            self._dist_params_group.setVisible(is_distance)
+            self._dist_params_group.setVisible(bool(state))
 
     def _sync_neuron_rows_cols_from_simple(self, value: int) -> None:
         if getattr(self, "_block_neuron_sync", False):
@@ -1712,7 +1728,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.spin_neuron_cols.setValue(n_cols)
         self.dbl_connections.setValue(population.connections_per_neuron)
         self.dbl_sigma.setValue(population.sigma_d_mm)
-        self.cmb_innervation_method.setCurrentText(population.innervation_method)
+        method = population.innervation_method
+        if method == "distance_weighted":
+            method = "gaussian"
+        if self.cmb_innervation_method.findText(method) >= 0:
+            self.cmb_innervation_method.setCurrentText(method)
+        if hasattr(self, "chk_use_distance_weights"):
+            self.chk_use_distance_weights.setChecked(population.use_distance_weights)
         self.dbl_weight_min.setValue(population.weight_min)
         self.dbl_weight_max.setValue(population.weight_max)
         self.dbl_edge_offset.setValue(population.edge_offset or 0.0)
@@ -1720,9 +1742,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.dbl_far_connection_fraction.setValue(population.far_connection_fraction)
         if hasattr(self, "dbl_far_sigma_factor"):
             self.dbl_far_sigma_factor.setValue(population.far_sigma_factor)
-        self.dbl_max_distance.setValue(population.max_distance_mm)
-        self.cmb_decay_function.setCurrentText(population.decay_function)
-        self.dbl_decay_rate.setValue(population.decay_rate)
+        if hasattr(self, "dbl_max_distance"):
+            self.dbl_max_distance.setValue(population.max_distance_mm)
+        if hasattr(self, "cmb_decay_function"):
+            self.cmb_decay_function.setCurrentText(population.decay_function)
+        if hasattr(self, "dbl_decay_rate"):
+            self.dbl_decay_rate.setValue(population.decay_rate)
         if hasattr(self, "cmb_neuron_arrangement"):
             self.cmb_neuron_arrangement.setCurrentText(population.neuron_arrangement)
         if hasattr(self, "dbl_neuron_jitter"):
@@ -1783,50 +1808,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             for ri in pop.receptor_items:
                 ri.setOpacity(1.0)
                 ri.setZValue(2)
-        self._update_population_legend(population)
-
-    def _update_population_legend(self, population: Optional[NeuronPopulation]) -> None:
-        if not hasattr(self, "population_legend_label"):
-            return
-        if population is None or not population.connection_items:
-            self.population_legend_label.setText(
-                "Select a population to view weight shading."
-            )
-            self.population_legend_label.setPixmap(QtGui.QPixmap())
-            return
-        width = 220
-        height = 28
-        image = QtGui.QImage(
-            width,
-            height,
-            QtGui.QImage.Format_ARGB32,
-        )
-        image.fill(QtCore.Qt.transparent)
-        painter = QtGui.QPainter(image)
-        for x in range(width):
-            fraction = x / max(1, width - 1)
-            color = self._weight_to_color(population.color, fraction)
-            painter.setPen(QtGui.QPen(color))
-            painter.drawLine(x, 0, x, height - 1)
-        font = painter.font()
-        font.setPointSize(8)
-        painter.setFont(font)
-        painter.setPen(QtCore.Qt.black)
-        painter.drawText(4, height - 6, f"{population.weight_min:.2f}")
-        painter.drawText(
-            width - 40,
-            height - 6,
-            f"{population.weight_max:.2f}",
-        )
-        painter.end()
-        pixmap = QtGui.QPixmap.fromImage(image)
-        self.population_legend_label.setText("")
-        self.population_legend_label.setPixmap(pixmap)
-        self.population_legend_label.setToolTip(
-            "Receptor dots: border thickness and fill shade encode innervation strength "
-            "(thicker/darker = stronger). Connection lines: thickness encodes strength. "
-            "Click a neuron to highlight; click same neuron or empty space to unhighlight."
-        )
 
     def _apply_population_visibility(self, population: NeuronPopulation) -> None:
         show_centers = population.visible and self.chk_show_neuron_centers.isChecked()
@@ -2796,6 +2777,78 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         )
         self._update_layer_visibility()
 
+    def _on_export_figure(self) -> None:
+        """Export the current plot to PNG or SVG for publication-quality figures."""
+        from pyqtgraph.exporters import ImageExporter, SVGExporter
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Export Figure")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        form = QtWidgets.QFormLayout()
+        spin_width = QtWidgets.QSpinBox()
+        spin_width.setRange(400, 4000)
+        spin_width.setValue(1200)
+        spin_width.setSuffix(" px")
+        spin_width.setToolTip("Output width in pixels (PNG only)")
+        form.addRow("Width:", spin_width)
+        spin_height = QtWidgets.QSpinBox()
+        spin_height.setRange(300, 3000)
+        spin_height.setValue(900)
+        spin_height.setSuffix(" px")
+        spin_height.setToolTip("Output height in pixels (PNG only)")
+        form.addRow("Height:", spin_height)
+        chk_antialias = QtWidgets.QCheckBox()
+        chk_antialias.setChecked(True)
+        chk_antialias.setToolTip("Smoother edges and text")
+        form.addRow("Antialiasing:", chk_antialias)
+        cmb_format = QtWidgets.QComboBox()
+        cmb_format.addItems(["PNG (raster)", "SVG (vector)"])
+        cmb_format.setToolTip(
+            "PNG: pixel-based, good for slides. SVG: scalable, best for publication."
+        )
+        form.addRow("Format:", cmb_format)
+        layout.addLayout(form)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        use_svg = cmb_format.currentIndex() == 1
+        path, selected_filter = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Figure",
+            "",
+            "SVG vector (*.svg);;PNG image (*.png);;All files (*)" if use_svg else "PNG image (*.png);;SVG vector (*.svg);;All files (*)",
+        )
+        if not path:
+            return
+        path = Path(path)
+        if not path.suffix:
+            path = path.with_suffix(".svg" if use_svg else ".png")
+        try:
+            if path.suffix.lower() == ".svg":
+                exporter = SVGExporter(self.plot_widget.scene())
+            else:
+                exporter = ImageExporter(self.plot_widget.scene())
+                exporter.parameters()["width"] = spin_width.value()
+                exporter.parameters()["height"] = spin_height.value()
+                exporter.parameters()["antialias"] = chk_antialias.isChecked()
+            exporter.export(str(path))
+            QtWidgets.QMessageBox.information(
+                self,
+                "Figure exported",
+                f"Saved to {path}",
+            )
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Export failed",
+                f"Could not export figure:\n{exc}",
+            )
+
     def current_grid_manager(self) -> Optional[GridManager]:
         return self.grid_manager
 
@@ -2806,29 +2859,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         """Return a shallow copy of the configured neuron populations."""
 
         return list(self.populations)
-
-    def _on_export_snapshot(self) -> None:
-        if self.plot is None:
-            return
-        options = QtWidgets.QFileDialog.Options()
-        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Export Snapshot",
-            "tactile_snapshot",
-            "Images (*.png *.svg)",
-            options=options,
-        )
-        if not file_path:
-            return
-        exporter = None
-        plot_item = self.plot
-        if file_path.lower().endswith(".svg"):
-            exporter = SVGExporter(plot_item)
-        else:
-            if not file_path.lower().endswith(".png"):
-                file_path = f"{file_path}.png"
-            exporter = ImageExporter(plot_item)
-        exporter.export(file_path)
 
     def _update_layer_visibility(self) -> None:
         if not hasattr(self, "chk_show_mechanoreceptors"):

@@ -19,7 +19,7 @@ import torch.nn as nn
 if TYPE_CHECKING:
     from .grid import GridManager, ReceptorGrid
 
-# Type alias for innervation methods
+# Type alias for innervation methods (distance_weighted removed; use use_distance_weights option)
 InnervationMethod = Literal["gaussian", "one_to_one", "uniform", "distance_weighted"]
 
 
@@ -248,31 +248,125 @@ class GaussianInnervation(BaseInnervation):
         return weights
 
 
+def _decay_weights_from_distances(
+    distances: torch.Tensor,
+    max_distance_mm: float,
+    decay_function: str,
+    decay_rate: float,
+) -> torch.Tensor:
+    """Compute decay weights from distances (exponential, linear, inverse_square)."""
+    if decay_function == "exponential":
+        normalized_d = distances / (max_distance_mm + 1e-12)
+        return torch.exp(-decay_rate * normalized_d)
+    if decay_function == "linear":
+        return torch.clamp(1.0 - distances / max_distance_mm, min=0.0)
+    if decay_function == "inverse_square":
+        return 1.0 / (1.0 + (decay_rate * distances) ** 2)
+    raise ValueError(f"Unknown decay function: {decay_function}")
+
+
 class UniformInnervation(BaseInnervation):
     """Uniform nearest-neighbor innervation (Voronoi-like).
-    
+
     Each receptor connects to exactly one neuron (its nearest neighbor).
     This creates non-overlapping, Voronoi-like receptive fields. Multiple
-    receptors may connect to the same neuron. Connection weights are uniform (1.0).
+    receptors may connect to the same neuron. Connection weights are uniform (1.0)
+    or distance-weighted when use_distance_weights=True. Supports far_connection_fraction
+    to add a fraction of connections from distant receptors.
     """
+
+    def __init__(
+        self,
+        receptor_coords: torch.Tensor,
+        neuron_centers: torch.Tensor,
+        sigma_d_mm: float = 0.3,
+        weight_range: Tuple[float, float] = (0.1, 1.0),
+        use_distance_weights: bool = False,
+        far_connection_fraction: float = 0.0,
+        far_sigma_factor: float = 5.0,
+        max_distance_mm: float = 1.0,
+        decay_function: str = "exponential",
+        decay_rate: float = 2.0,
+        seed: Optional[int] = None,
+        device: torch.device | str = "cpu",
+    ) -> None:
+        super().__init__(receptor_coords, neuron_centers, device)
+        self.sigma_d_mm = sigma_d_mm
+        self.weight_range = weight_range
+        self.use_distance_weights = use_distance_weights
+        self.far_connection_fraction = max(0.0, min(1.0, far_connection_fraction))
+        self.far_sigma_factor = far_sigma_factor
+        self.max_distance_mm = max_distance_mm
+        self.decay_function = decay_function
+        self.decay_rate = decay_rate
+        self.seed = seed
 
     def compute_weights(self, **kwargs) -> torch.Tensor:
         """Compute uniform nearest-neighbor connections."""
+        if self.seed is not None:
+            torch.manual_seed(self.seed)
         receptor_exp = self.receptor_coords.unsqueeze(1)
         neuron_exp = self.neuron_centers.unsqueeze(0)
-        distances = torch.sqrt(((receptor_exp - neuron_exp) ** 2).sum(-1))
+        d2 = ((receptor_exp - neuron_exp) ** 2).sum(-1)
+        distances = torch.sqrt(d2)
         nearest_neuron = distances.argmin(dim=1)
         weights = torch.zeros(self.num_neurons, self.num_receptors, device=self.device)
         receptor_indices = torch.arange(self.num_receptors, device=self.device)
-        weights[nearest_neuron, receptor_indices] = 1.0
+        w_min, w_max = self.weight_range
+        if self.use_distance_weights:
+            decay = _decay_weights_from_distances(
+                distances[receptor_indices, nearest_neuron],
+                self.max_distance_mm,
+                self.decay_function,
+                self.decay_rate,
+            )
+            decay_max = decay.max().clamp(min=1e-12)
+            norm = decay / decay_max
+            vals = w_min + norm * (w_max - w_min)
+        else:
+            vals = torch.full(
+                (self.num_receptors,), (w_min + w_max) / 2, device=self.device
+            )
+        weights[nearest_neuron, receptor_indices] = vals
+
+        if self.far_connection_fraction > 0:
+            far_threshold = self.far_sigma_factor * self.sigma_d_mm
+            is_far = distances > far_threshold
+            if is_far.any():
+                far_weights = torch.zeros_like(weights)
+                far_weights.T[is_far] = 1.0
+                far_sum = far_weights.sum(dim=1, keepdim=True).clamp(min=1e-12)
+                far_prob = far_weights / far_sum
+                n_far_per_neuron = torch.poisson(
+                    torch.full(
+                        (self.num_neurons,),
+                        self.far_connection_fraction * self.num_receptors / max(1, self.num_neurons),
+                        device="cpu",
+                    )
+                ).long().to(self.device)
+                n_far_per_neuron = torch.clamp(n_far_per_neuron, min=0)
+                max_far = n_far_per_neuron.max().item()
+                if max_far > 0:
+                    all_idx = torch.multinomial(
+                        far_prob + 1e-12, max_far, replacement=False
+                    )
+                    far_vals = torch.empty(
+                        self.num_neurons, max_far, device=self.device
+                    ).uniform_(w_min, w_max)
+                    arange = torch.arange(max_far, device=self.device).unsqueeze(0)
+                    mask = arange < n_far_per_neuron.unsqueeze(1)
+                    far_vals[~mask] = 0.0
+                    weights.scatter_add_(1, all_idx, far_vals)
         return weights
 
 
 class OneToOneInnervation(BaseInnervation):
     """One-to-one: each neuron connects to exactly K nearest receptors.
-    
+
     Each neuron selects exactly ``connections_per_neuron`` nearest receptors.
-    Connection weights are distance-weighted (Gaussian falloff with sigma_d_mm).
+    Connection weights are distance-weighted when use_distance_weights=True,
+    else uniform in weight_range. Supports far_connection_fraction to mix in
+    connections from distant receptors (uses sampling when far_frac > 0).
     """
 
     def __init__(
@@ -282,6 +376,12 @@ class OneToOneInnervation(BaseInnervation):
         connections_per_neuron: float = 28.0,
         sigma_d_mm: float = 0.3,
         weight_range: Tuple[float, float] = (0.1, 1.0),
+        use_distance_weights: bool = True,
+        far_connection_fraction: float = 0.0,
+        far_sigma_factor: float = 5.0,
+        max_distance_mm: float = 1.0,
+        decay_function: str = "exponential",
+        decay_rate: float = 2.0,
         seed: Optional[int] = None,
         device: torch.device | str = "cpu",
     ) -> None:
@@ -289,10 +389,16 @@ class OneToOneInnervation(BaseInnervation):
         self.connections_per_neuron = int(max(1, connections_per_neuron))
         self.sigma_d_mm = sigma_d_mm
         self.weight_range = weight_range
+        self.use_distance_weights = use_distance_weights
+        self.far_connection_fraction = max(0.0, min(1.0, far_connection_fraction))
+        self.far_sigma_factor = far_sigma_factor
+        self.max_distance_mm = max_distance_mm
+        self.decay_function = decay_function
+        self.decay_rate = decay_rate
         self.seed = seed
 
     def compute_weights(self, **kwargs) -> torch.Tensor:
-        """Each neuron gets exactly K connections, weights from distance."""
+        """Each neuron gets exactly K connections, optionally distance-weighted."""
         if self.seed is not None:
             torch.manual_seed(self.seed)
         K = self.connections_per_neuron
@@ -300,22 +406,70 @@ class OneToOneInnervation(BaseInnervation):
         neuron_exp = self.neuron_centers.unsqueeze(1)
         d2 = ((receptor_exp - neuron_exp) ** 2).sum(-1)
         distances = torch.sqrt(d2)
-        gaussian_weights = torch.exp(-d2 / (2 * self.sigma_d_mm ** 2))
+        decay_weights = _decay_weights_from_distances(
+            distances, self.max_distance_mm, self.decay_function, self.decay_rate
+        )
+        w_min, w_max = self.weight_range
+
+        far_threshold = self.far_sigma_factor * self.sigma_d_mm
+        is_far = distances > far_threshold
         weights = torch.zeros(self.num_neurons, self.num_receptors, device=self.device)
         for i in range(self.num_neurons):
-            w = gaussian_weights[i]
-            k_actual = min(K, (w > 1e-12).sum().item())
-            if k_actual == 0:
-                nearest = distances[i].argmin()
-                weights[i, nearest] = 1.0
-                continue
-            topk_vals, topk_idx = torch.topk(w, k_actual)
-            if topk_vals[-1] <= 1e-12:
-                topk_vals = torch.ones_like(topk_vals, device=self.device)
-            w_min, w_max = self.weight_range
-            norm = (topk_vals - topk_vals.min()) / (topk_vals.max() - topk_vals.min() + 1e-12)
-            vals = w_min + norm * (w_max - w_min)
-            weights[i, topk_idx] = vals
+            local_mask = ~is_far[i]
+            far_mask = is_far[i]
+            n_local_avail = local_mask.sum().item()
+            n_far_avail = far_mask.sum().item()
+            n_local = min(
+                round((1.0 - self.far_connection_fraction) * K),
+                n_local_avail,
+            )
+            n_far = min(K - n_local, n_far_avail)
+            n_local = K - n_far  # Ensure we pick exactly K total
+
+            local_idx = torch.where(local_mask)[0]
+            far_idx = torch.where(far_mask)[0]
+            if n_local > 0 and len(local_idx) > 0:
+                local_probs = decay_weights[i, local_idx] + 1e-12
+                local_probs = local_probs / local_probs.sum()
+                k_local = min(n_local, len(local_idx))
+                chosen_local = torch.multinomial(
+                    local_probs.unsqueeze(0), k_local, replacement=False
+                )[0]
+                idx_local = local_idx[chosen_local]
+            else:
+                idx_local = torch.tensor([], dtype=torch.long, device=self.device)
+                k_local = 0
+            if n_far > 0 and len(far_idx) > 0:
+                far_probs = torch.ones(len(far_idx), device=self.device) / len(far_idx)
+                k_far = min(n_far, len(far_idx))
+                chosen_far = torch.multinomial(
+                    far_probs.unsqueeze(0), k_far, replacement=False
+                )[0]
+                idx_far = far_idx[chosen_far]
+            else:
+                idx_far = torch.tensor([], dtype=torch.long, device=self.device)
+                k_far = 0
+            all_idx = torch.cat([idx_local, idx_far])
+            if len(all_idx) < K and len(local_idx) > 0:
+                remaining = K - len(all_idx)
+                already = set(all_idx.tolist())
+                extra = [j for j in local_idx.tolist() if j not in already][:remaining]
+                if extra:
+                    all_idx = torch.cat([all_idx, torch.tensor(extra, device=self.device)])
+            k_actual = min(K, len(all_idx))
+            all_idx = all_idx[:k_actual]
+            if self.use_distance_weights:
+                d_at_sampled = distances[i, all_idx]
+                decay_at = _decay_weights_from_distances(
+                    d_at_sampled, self.max_distance_mm,
+                    self.decay_function, self.decay_rate,
+                )
+                row_max = decay_at.max().clamp(min=1e-12)
+                norm = decay_at / row_max
+                vals = w_min + norm * (w_max - w_min)
+            else:
+                vals = torch.empty(k_actual, device=self.device).uniform_(w_min, w_max)
+            weights[i, all_idx] = vals
         return weights
 
 
@@ -515,7 +669,7 @@ def create_innervation(
         )
     elif method == "uniform":
         innervation = UniformInnervation(
-            receptor_coords, neuron_centers, device=device
+            receptor_coords, neuron_centers, device=device, **method_params
         )
     elif method == "distance_weighted":
         innervation = DistanceWeightedInnervation(
