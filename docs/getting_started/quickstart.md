@@ -6,20 +6,76 @@ Get up and running with SensoryForge in minutes!
 
 ### 1. Import and Create a Pipeline
 
+**Using Canonical Configuration (Recommended):**
+
+```python
+from sensoryforge.config.schema import SensoryForgeConfig, GridConfig, PopulationConfig, StimulusConfig, SimulationConfig
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+
+# Create canonical config
+config = SensoryForgeConfig(
+    grids=[
+        GridConfig(
+            name="Main Grid",
+            arrangement="grid",
+            rows=80,
+            cols=80,
+            spacing=0.15,  # 0.15mm between receptors
+        )
+    ],
+    populations=[
+        PopulationConfig(
+            name="SA Population",
+            neuron_type="SA",
+            neuron_model="izhikevich",
+            filter_method="sa",
+            innervation_method="gaussian",
+            neurons_per_row=10,
+            connections_per_neuron=28,
+            sigma_d_mm=0.3,
+        ),
+        PopulationConfig(
+            name="RA Population",
+            neuron_type="RA",
+            neuron_model="izhikevich",
+            filter_method="ra",
+            innervation_method="gaussian",
+            neurons_per_row=14,
+            connections_per_neuron=28,
+            sigma_d_mm=0.39,
+        ),
+    ],
+    stimulus=StimulusConfig(
+        type="gaussian",
+        amplitude=30.0,
+        sigma=0.5,
+    ),
+    simulation=SimulationConfig(
+        device="cpu",  # or 'cuda' or 'mps'
+        dt=0.5,  # 0.5ms time step
+    ),
+)
+
+# Create pipeline from canonical config
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+```
+
+**Using Legacy Configuration (Backward Compatible):**
+
 ```python
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
-# Create a simple pipeline
+# Legacy format still works
 config = {
     'pipeline': {
-        'device': 'cpu',  # or 'cuda' or 'mps'
-        'grid_size': 80,  # 80×80 receptor grid
-        'spacing': 0.15,  # 0.15mm between receptors
+        'device': 'cpu',
+        'grid_size': 80,
+        'spacing': 0.15,
     },
     'neurons': {
-        'sa_neurons': 100,   # Slowly adapting population
-        'ra_neurons': 196,   # Rapidly adapting population
-        'dt': 0.5,          # 0.5ms time step
+        'sa_neurons': 100,
+        'ra_neurons': 196,
+        'dt': 0.5,
     }
 }
 
@@ -100,7 +156,60 @@ sensoryforge batch batch_config.yml --device cuda
 
 ## Configuration File Workflow
 
-Create `my_config.yml`:
+### Canonical Configuration Format (Recommended)
+
+Create `my_config.yml` using the canonical schema:
+
+```yaml
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+    connections_per_neuron: 28
+    sigma_d_mm: 0.39
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+```
+
+Then run:
+
+```python
+from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+
+config = SensoryForgeConfig.from_yaml('my_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+results = pipeline.forward(stimulus_type='gaussian')
+```
+
+### Legacy Configuration Format (Still Supported)
+
+Legacy format is backward compatible:
 
 ```yaml
 pipeline:
@@ -125,20 +234,22 @@ stimuli:
       amplitude: 30.0
 ```
 
-Then run:
-
 ```python
-pipeline = GeneralizedTactileEncodingPipeline.from_yaml('my_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_yaml('legacy_config.yml')
 results = pipeline.forward(stimulus_type='gaussian')
 ```
+
+**Note**: The GUI exports configurations in canonical format. For new projects, use canonical format for better extensibility and N-population support.
 
 ## Common Workflows
 
 ### Desktop Prototyping
 
 1. **GUI** → Design experiment interactively
-2. **Save Config** → Export YAML configuration
-3. **CLI** → Run at scale on compute cluster
+2. **Save Config** → Export canonical YAML configuration
+3. **CLI** → Run at scale on compute cluster (configs are compatible)
+
+The GUI exports configurations in canonical format (`SensoryForgeConfig`), ensuring seamless round-trip workflow: GUI → YAML → CLI → same results.
 
 ### Python Scripting
 

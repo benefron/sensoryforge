@@ -282,20 +282,36 @@ class SimulationEngine:
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
         
+        Processes stimulus through all configured populations (innervation → filter → neuron)
+        and returns spike trains and optionally intermediate activations.
+        
         Args:
-            stimulus: Stimulus tensor [time, height, width] or [batch, time, height, width]
-            return_intermediates: If True, return intermediate activations
+            stimulus: Stimulus tensor.
+                - Shape: `[time, height, width]` or `[batch, time, height, width]`
+                - Units: Pressure/activation values (dimensionless or N/mm²)
+                - Batch dimension is added automatically if missing
+            return_intermediates: If True, return intermediate activations (drive, filtered, voltages)
         
         Returns:
-            Dictionary with results for each population:
+            Dictionary with results for each population, keyed by population name:
             {
                 "population_name": {
-                    "spikes": torch.Tensor,
-                    "voltages": torch.Tensor,  # if return_intermediates
-                    "filtered": torch.Tensor,  # if return_intermediates
-                    "drive": torch.Tensor,  # if return_intermediates
+                    "spikes": torch.Tensor,  # Shape: [batch, time, num_neurons], binary (0 or 1)
+                    "drive": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
+                    "filtered": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
+                    "voltages": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mV (if return_intermediates)
                 }
             }
+        
+        Example:
+            >>> from sensoryforge.config.schema import SensoryForgeConfig
+            >>> from sensoryforge.core.simulation_engine import SimulationEngine
+            >>> config = SensoryForgeConfig.from_yaml('config.yml')
+            >>> engine = SimulationEngine(config)
+            >>> stimulus = torch.randn(100, 80, 80)  # [time, height, width]
+            >>> results = engine.run(stimulus)
+            >>> sa_spikes = results['SA Population']['spikes']  # [batch, time, num_neurons]
+            >>> print(f"Total spikes: {sa_spikes.sum().item()}")
         """
         results = {}
         

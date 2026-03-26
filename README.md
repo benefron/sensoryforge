@@ -41,58 +41,105 @@ pip install sensoryforge
 
 ### Basic Example
 
+**Using Canonical Configuration (Recommended):**
+
 ```python
-from sensoryforge import SensoryPipeline
-from sensoryforge.stimuli import GaussianStimulus
+from sensoryforge.config.schema import SensoryForgeConfig, GridConfig, PopulationConfig, StimulusConfig, SimulationConfig
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
-# Load pipeline from configuration
-pipeline = SensoryPipeline.from_config('config.yml')
-
-# Create a simple Gaussian stimulus
-stimulus = GaussianStimulus(
-    center=(50, 50),  # Center position (mm)
-    sigma=10,         # Spread (mm)
-    amplitude=1.0,    # Peak intensity
-    duration_ms=100   # Duration (ms)
+# Create canonical config
+config = SensoryForgeConfig(
+    grids=[
+        GridConfig(name="Main Grid", arrangement="grid", rows=80, cols=80, spacing=0.15)
+    ],
+    populations=[
+        PopulationConfig(
+            name="SA Population",
+            neuron_type="SA",
+            neuron_model="izhikevich",
+            filter_method="sa",
+            innervation_method="gaussian",
+            neurons_per_row=10,
+        ),
+        PopulationConfig(
+            name="RA Population",
+            neuron_type="RA",
+            neuron_model="izhikevich",
+            filter_method="ra",
+            innervation_method="gaussian",
+            neurons_per_row=14,
+        ),
+    ],
+    stimulus=StimulusConfig(type="gaussian", amplitude=30.0, sigma=0.5),
+    simulation=SimulationConfig(device="cpu", dt=0.5),
 )
 
-# Run encoding pipeline
-results = pipeline.encode(stimulus)
+# Create pipeline
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+
+# Run simulation
+results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0, sigma=0.5)
 
 # Extract spike trains
-spikes = results['spikes']  # [batch, time, num_neurons]
-print(f"Generated {spikes.sum()} spikes across {spikes.shape[-1]} neurons")
+sa_spikes = results['sa_spikes']  # [time_steps, num_sa_neurons]
+ra_spikes = results['ra_spikes']  # [time_steps, num_ra_neurons]
+print(f"SA: {sa_spikes.sum()} spikes, RA: {ra_spikes.sum()} spikes")
 ```
 
-### Touch Encoding Example
+**Using Legacy Configuration (Backward Compatible):**
 
 ```python
-from sensoryforge.core import SpatialGrid, create_sa_innervation, create_ra_innervation
-from sensoryforge.filters import SAFilter, RAFilter
-from sensoryforge.neurons import IzhikevichNeuron
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+
+# Legacy format still works
+pipeline = GeneralizedTactileEncodingPipeline.from_yaml('legacy_config.yml')
+results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
+```
+
+### Advanced Example: Custom Components via Registry
+
+```python
+from sensoryforge.core.grid import GridManager
+from sensoryforge.core.innervation import create_sa_innervation, create_ra_innervation
+from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
+from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+import torch
 
 # Create spatial grid
-grid = SpatialGrid(size_mm=(100, 100), resolution_mm=1.0)
+grid_manager = GridManager(grid_size=80, spacing=0.15, device='cpu')
 
-# Create SA and RA neuron populations
-sa_innervation = create_sa_innervation(grid, num_neurons=100, sigma_mm=5.0)
-ra_innervation = create_ra_innervation(grid, num_neurons=100, sigma_mm=3.0)
+# Create SA and RA innervation
+sa_innervation = create_sa_innervation(
+    grid_manager, 
+    neurons_per_row=10,
+    connections_per_neuron=28,
+    sigma_d_mm=0.3
+)
+ra_innervation = create_ra_innervation(
+    grid_manager,
+    neurons_per_row=14,
+    connections_per_neuron=28,
+    sigma_d_mm=0.39
+)
 
 # Temporal filtering
-sa_filter = SAFilter(tau_ms=10.0, gain=1.0)
-ra_filter = RAFilter(tau_ms=5.0, gain=1.5)
+sa_filter = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=1.0)
+ra_filter = RAFilterTorch(tau_RA=15.0, k3=2.0, dt=1.0)
 
 # Spiking neurons
-sa_neurons = IzhikevichNeuron(num_neurons=100, neuron_type='regular_spiking')
-ra_neurons = IzhikevichNeuron(num_neurons=100, neuron_type='fast_spiking')
+sa_neurons = IzhikevichNeuronTorch(dt=1.0, a=0.02, b=0.2, c=-65.0, d=8.0)
+ra_neurons = IzhikevichNeuronTorch(dt=1.0, a=0.02, b=0.2, c=-65.0, d=8.0)
 
-# Apply to stimulus
-stimulus = torch.randn(1, 100, 100, 100)  # [batch, time, height, width]
-sa_current = sa_filter(stimulus @ sa_innervation.T)
-ra_current = ra_filter(stimulus @ ra_innervation.T)
+# Apply to stimulus [batch, time, height, width]
+stimulus = torch.randn(1, 100, 80, 80)
 
-sa_spikes, _ = sa_neurons(sa_current)
-ra_spikes, _ = ra_neurons(ra_current)
+# Process through pipeline
+sa_input = sa_innervation(stimulus)
+ra_input = ra_innervation(stimulus)
+sa_filtered = sa_filter(sa_input)
+ra_filtered = ra_filter(ra_input)
+sa_spikes = sa_neurons(sa_filtered)[1]  # Returns (v_trace, spikes)
+ra_spikes = ra_neurons(ra_filtered)[1]
 ```
 
 ---
@@ -164,7 +211,7 @@ Raw Stimulus → Grid → Innervation → Filters → Neurons → Spikes
 
 ## 🔧 Extensibility
 
-SensoryForge is designed for easy extension through base classes and a plugin system.
+SensoryForge uses a **registry-based architecture** for easy extension. All components are registered and can be extended without modifying core code.
 
 ### Create a Custom Filter
 
@@ -175,33 +222,60 @@ import torch
 class MyCustomFilter(BaseFilter):
     """Custom temporal filter."""
     
-    def __init__(self, config):
-        super().__init__(config)
-        self.threshold = config.get('threshold', 0.5)
+    def __init__(self, threshold: float = 0.5, dt: float = 1.0):
+        super().__init__(dt=dt)
+        self.threshold = threshold
     
-    def forward(self, x, dt=None):
-        """Apply custom filtering."""
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply custom filtering.
+        
+        Args:
+            x: Input tensor [batch, time, num_neurons] in mA
+        
+        Returns:
+            Filtered output [batch, time, num_neurons] in mA
+        """
         return torch.relu(x - self.threshold)
     
-    def reset_state(self):
-        """Reset internal state."""
-        pass
+    @classmethod
+    def from_config(cls, config: dict) -> 'MyCustomFilter':
+        """Create from config dict."""
+        return cls(
+            threshold=config.get('threshold', 0.5),
+            dt=config.get('dt', 1.0),
+        )
+    
+    def to_dict(self) -> dict:
+        """Serialize to dict."""
+        return {
+            'type': 'my_custom_filter',
+            'threshold': self.threshold,
+            'dt': self.dt,
+        }
 ```
 
 ### Register and Use
 
 ```python
-from sensoryforge.plugins.registry import registry
+from sensoryforge.register_components import register_all
+from sensoryforge.registry import FILTER_REGISTRY
 
-# Auto-discover plugins
-registry.discover_plugins(Path('sensoryforge/plugins'))
+# Register your custom component
+FILTER_REGISTRY.register("my_custom_filter", MyCustomFilter)
 
-# Use custom filter
-FilterClass = registry.get_filter('MyCustomFilter')
-my_filter = FilterClass({'threshold': 0.3})
+# Ensure all components are registered
+register_all()
+
+# Use in config
+config = {
+    'populations': [{
+        'filter_method': 'my_custom_filter',  # Automatically found via registry
+        'filter_params': {'threshold': 0.3},
+    }]
+}
 ```
 
-See the [Extension Guide](https://benefron.github.io/sensoryforge/extending/filters/) for detailed tutorials.
+See the [Extensibility Guide](docs/developer_guide/extensibility.md) for detailed tutorials and the [Add Component Skill](.cursor/skills/add-new-component/SKILL.md) for step-by-step instructions.
 
 ---
 

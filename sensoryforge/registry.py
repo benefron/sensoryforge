@@ -80,15 +80,35 @@ class ComponentRegistry:
     def create(self, name: str, **kwargs) -> Any:
         """Create a component instance by name.
         
+        Uses factory function if provided, otherwise instantiates class directly.
+        Supports both direct instantiation and `from_config()` pattern.
+        
         Args:
-            name: Registered component name.
+            name: Registered component name (e.g., "izhikevich", "sa", "gaussian").
             **kwargs: Arguments passed to component constructor or factory_func.
+                If `config` key is present and component has `from_config()`, uses that.
         
         Returns:
-            Component instance.
+            Component instance (type depends on registered class).
         
         Raises:
-            KeyError: If name is not registered.
+            KeyError: If name is not registered. Error message includes available names.
+        
+        Example:
+            >>> # Direct instantiation
+            >>> neuron = NEURON_REGISTRY.create("izhikevich", dt=1.0, a=0.02, b=0.2)
+            >>> 
+            >>> # Using from_config pattern
+            >>> neuron = NEURON_REGISTRY.create("izhikevich", config={"dt": 1.0, "a": 0.02})
+            >>> 
+            >>> # Factory function (for innervation)
+            >>> innervation = INNERVATION_REGISTRY.create(
+            ...     "gaussian",
+            ...     receptor_coords=coords,
+            ...     neuron_centers=centers,
+            ...     connections_per_neuron=28.0,
+            ...     device="cpu"
+            ... )
         """
         if name not in self._registry:
             available = ", ".join(sorted(self._registry.keys()))

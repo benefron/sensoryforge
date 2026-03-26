@@ -1,10 +1,58 @@
 # YAML Configuration Guide
 
-SensoryForge uses YAML files for declarative pipeline configuration. This guide covers the complete configuration schema, including Phase 2 features.
+SensoryForge uses YAML files for declarative pipeline configuration. This guide covers both the **canonical configuration schema** (recommended) and the **legacy format** (backward compatible).
+
+## Configuration Formats
+
+SensoryForge supports two configuration formats:
+
+1. **Canonical Schema** (`SensoryForgeConfig`) - Recommended for new projects
+   - Unified format for GUI-CLI parity
+   - Supports N populations (not limited to SA/RA/SA2)
+   - Round-trip fidelity (save → load → same results)
+   - Exported by GUI
+
+2. **Legacy Format** - Backward compatible
+   - Hardcoded SA/RA/SA2 structure
+   - Still fully supported via adapter layer
+   - Use for existing projects or compatibility
 
 ## Quick Start
 
-Minimal configuration (uses defaults):
+### Canonical Format (Recommended)
+
+```yaml
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+```
+
+### Legacy Format (Backward Compatible)
 
 ```yaml
 pipeline:
@@ -16,12 +64,93 @@ neurons:
   ra_neurons: 196
 ```
 
-Run it:
+Run either format:
 ```bash
 sensoryforge run config.yml
 ```
 
-## Configuration Structure
+## Canonical Configuration Schema
+
+The canonical schema (`SensoryForgeConfig`) provides a unified, extensible configuration format.
+
+### Structure
+
+```yaml
+grids:          # List of grid layers
+populations:   # List of neuron populations (N populations supported)
+stimulus:      # Stimulus configuration
+simulation:    # Simulation settings
+```
+
+### Complete Example
+
+```yaml
+grids:
+  - name: "Receptor Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+    center_x: 0.0
+    center_y: 0.0
+
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    target_grid: "Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+    filter_params:
+      tau_r: 5.0
+      tau_d: 30.0
+      k1: 0.05
+      k2: 3.0
+    model_params:
+      a: 0.02
+      b: 0.2
+      c: -65.0
+      d: 8.0
+  
+  - name: "RA Population"
+    neuron_type: "RA"
+    target_grid: "Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+    connections_per_neuron: 28
+    sigma_d_mm: 0.39
+    filter_params:
+      tau_RA: 15.0
+      k3: 2.0
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+  center_x: 0.0
+  center_y: 0.0
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+  duration: 1000.0
+```
+
+### Key Advantages
+
+- **N-Population Support**: Add as many populations as needed
+- **Per-Population Configuration**: Each population has its own innervation, filter, neuron, and solver config
+- **GUI-CLI Parity**: GUI exports canonical format, CLI accepts it
+- **Extensibility**: Easy to add new population types, arrangements, etc.
+
+See [Configuration Schema Reference](configuration_schema.md) for complete field documentation.
+
+## Legacy Configuration Structure
 
 A complete configuration file has the following top-level sections:
 
@@ -74,9 +203,9 @@ pipeline:
 - `spacing`: `0.15`
 - `center`: `[0.0, 0.0]`
 
-### `neurons`
+### `neurons` (Legacy Format)
 
-Neuron population configuration:
+Neuron population configuration (legacy format, limited to SA/RA/SA2):
 
 ```yaml
 neurons:
@@ -91,6 +220,8 @@ neurons:
 - `ra_neurons`: `14`
 - `sa2_neurons`: `5`
 - `dt`: `0.5`
+
+**Note**: For N-population support, use canonical format with `populations` list.
 
 ## Grid Configuration
 
@@ -499,17 +630,115 @@ Common validation errors:
 - Missing required DSL fields (equations, threshold, reset, parameters)
 - Invalid arrangement type for composite grid
 
+## Migration Guide: Legacy → Canonical
+
+To migrate from legacy format to canonical format:
+
+### Step 1: Convert Grid
+
+**Legacy:**
+```yaml
+pipeline:
+  grid_size: 80
+  spacing: 0.15
+  center: [0.0, 0.0]
+```
+
+**Canonical:**
+```yaml
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+    center_x: 0.0
+    center_y: 0.0
+```
+
+### Step 2: Convert Populations
+
+**Legacy:**
+```yaml
+neurons:
+  sa_neurons: 100
+  ra_neurons: 196
+  sa2_neurons: 25
+```
+
+**Canonical:**
+```yaml
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10  # Calculated from sa_neurons
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14  # Calculated from ra_neurons
+  - name: "SA2 Population"
+    neuron_type: "SA2"
+    neuron_model: "izhikevich"
+    filter_method: "none"
+    innervation_method: "gaussian"
+    neurons_per_row: 5  # Calculated from sa2_neurons
+```
+
+### Step 3: Convert Stimulus
+
+**Legacy:**
+```yaml
+stimuli:
+  - type: gaussian
+    config:
+      amplitude: 30.0
+      sigma: 0.5
+```
+
+**Canonical:**
+```yaml
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+```
+
+### Step 4: Convert Simulation Settings
+
+**Legacy:**
+```yaml
+pipeline:
+  device: cpu
+```
+
+**Canonical:**
+```yaml
+simulation:
+  device: "cpu"
+  dt: 0.5
+```
+
+**Tip**: The GUI can automatically convert legacy configs when you load them. Use `File → Load Config (YAML)` in the GUI to preview the canonical format.
+
 ## Best Practices
 
-1. **Start with defaults**: Use minimal config and override only what you need
-2. **Version your configs**: Track configurations in version control
-3. **Use meaningful names**: Clear `metadata.name` helps organize experiments
-4. **Comment liberally**: YAML supports comments - use them!
-5. **Validate first**: Always run `validate` before `run`
-6. **Organize by experiment**: Keep related configs together
+1. **Use canonical format for new projects**: Better extensibility and N-population support
+2. **Start with defaults**: Use minimal config and override only what you need
+3. **Version your configs**: Track configurations in version control
+4. **Use meaningful names**: Clear population names help organize experiments
+5. **Comment liberally**: YAML supports comments - use them!
+6. **Validate first**: Always run `validate` before `run`
+7. **Organize by experiment**: Keep related configs together
+8. **GUI export**: Use GUI to export canonical configs for consistency
 
 ## See Also
 
+- [Configuration Schema Reference](configuration_schema.md) - Complete canonical schema documentation
 - [CLI Guide](cli.md) - Command-line usage
 - [Pipeline API](../api_reference/pipeline.md) - Python API
 - [CompositeGrid](composite_grid.md) - Multi-population grids

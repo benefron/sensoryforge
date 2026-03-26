@@ -17,22 +17,47 @@ graph TD
     A[Raw Sensory Input] --> B[Spatial Grid]
     B --> C[Receptive Fields]
     C --> D[Temporal Filtering]
-    D --> E1[SA Pathway]
-    D --> E2[RA Pathway]
-    E1 --> F1[SA Neurons]
-    E2 --> F2[RA Neurons]
+    D --> E1[Population 1]
+    D --> E2[Population 2]
+    D --> E3[Population N]
+    E1 --> F1[Neurons]
+    E2 --> F2[Neurons]
+    E3 --> F3[Neurons]
     F1 --> G[Spike Trains]
     F2 --> G
+    F3 --> G
+    
+    H[Component Registry] -.-> E1
+    H -.-> E2
+    H -.-> E3
+    H -.-> D
+    H -.-> C
+    
+    I[Canonical Config] --> B
+    I --> C
+    I --> D
+    I --> E1
+    I --> E2
+    I --> E3
 ```
+
+### Key Architectural Features
+
+- **Registry System**: All components (neurons, filters, innervation, stimuli) are registered and looked up dynamically
+- **N-Population Support**: Dynamic population configuration (not limited to hardcoded SA/RA/SA2)
+- **Canonical Configuration**: Single source of truth (`SensoryForgeConfig`) for GUI-CLI parity
+- **Extensibility**: Easy to add new components via registry without modifying core code
 
 ### Data Flow
 
 1. **Stimulus** → High-dimensional sensory input (e.g., pressure map, image)
-2. **Grid** → Spatial substrate of receptor positions
-3. **Innervation** → Receptive fields connecting receptors to neurons
-4. **Filtering** → Temporal dynamics (sustained vs. transient pathways)
-5. **Spiking** → ODE-based neuron models generate spike trains
-6. **Output** → Sparse, event-based neural representation
+2. **Grid** → Spatial substrate of receptor positions (supports multiple grid layers)
+3. **Innervation** → Receptive fields connecting receptors to neurons (per-population configuration)
+4. **Filtering** → Temporal dynamics applied per population (SA/RA/custom filters)
+5. **Spiking** → ODE-based neuron models generate spike trains (per-population neuron models)
+6. **Output** → Sparse, event-based neural representation (results keyed by population name)
+
+**Note**: The pipeline supports N populations, each with its own innervation, filter, neuron model, and solver configuration. Results are returned as a dictionary keyed by population name.
 
 ## Key Components
 
@@ -45,24 +70,44 @@ graph TD
 - **Composite Grid** — Multi-population mosaic (e.g., SA1/RA1/SA2 in touch, L/M/S cones in vision)
 - **Custom Arrangements** — Hexagonal, Poisson, jittered
 
-**Example:**
+**Example (Canonical Format):**
 ```python
+from sensoryforge.config.schema import SensoryForgeConfig, GridConfig
+
 # Standard grid
-config = {
-    'pipeline': {
-        'grid_size': 80,      # 80×80 grid
-        'spacing': 0.15,      # 0.15mm spacing
-    }
-}
+config = SensoryForgeConfig(
+    grids=[
+        GridConfig(
+            name="Main Grid",
+            arrangement="grid",
+            rows=80,
+            cols=80,
+            spacing=0.15,  # 0.15mm spacing
+        )
+    ],
+    # ... populations, stimulus, simulation
+)
 
 # Composite grid (multi-population)
+config = SensoryForgeConfig(
+    grids=[
+        GridConfig(
+            name="Composite Grid",
+            arrangement="composite",
+            # Composite grid configuration...
+        )
+    ],
+    # ... populations, stimulus, simulation
+)
+```
+
+**Example (Legacy Format - Still Supported):**
+```python
+# Legacy format still works via adapter
 config = {
-    'grid': {
-        'type': 'composite',
-        'populations': {
-            'SA1': {'density': 100, 'arrangement': 'hex'},
-            'RA1': {'density': 70, 'arrangement': 'poisson'},
-        }
+    'pipeline': {
+        'grid_size': 80,
+        'spacing': 0.15,
     }
 }
 ```
@@ -267,14 +312,38 @@ All components are PyTorch `nn.Module` instances, enabling:
 
 ## Extensibility Points
 
-You can customize:
+SensoryForge uses a **registry-based architecture** for extensibility. All components are registered and can be extended without modifying core code:
 
-1. **Grid Layouts** — Custom spatial arrangements
-2. **Innervation Patterns** — Custom receptive field generators
-3. **Filters** — Custom temporal dynamics
-4. **Neuron Models** — Via DSL or hand-written `nn.Module`
-5. **Stimuli** — Custom stimulus generators
-6. **Solvers** — Custom ODE integrators
+1. **Grid Layouts** — Custom spatial arrangements (register in `GRID_REGISTRY`)
+2. **Innervation Patterns** — Custom receptive field generators (register in `INNERVATION_REGISTRY`)
+3. **Filters** — Custom temporal dynamics (register in `FILTER_REGISTRY`)
+4. **Neuron Models** — Via DSL or hand-written `nn.Module` (register in `NEURON_REGISTRY`)
+5. **Stimuli** — Custom stimulus generators (register in `STIMULUS_REGISTRY`)
+6. **Solvers** — Custom ODE integrators (register in `SOLVER_REGISTRY`)
+
+### Registry Pattern
+
+```python
+from sensoryforge.registry import NEURON_REGISTRY
+from sensoryforge.neurons.base import BaseNeuron
+
+class MyCustomNeuron(BaseNeuron):
+    # Implementation...
+    pass
+
+# Register your custom component
+NEURON_REGISTRY.register("my_custom_neuron", MyCustomNeuron)
+
+# Use it in configs
+config = {
+    'populations': [{
+        'neuron_model': 'my_custom_neuron',  # Automatically found via registry
+        # ... other config
+    }]
+}
+```
+
+See [Extensibility Guide](../developer_guide/extensibility.md) for detailed instructions.
 
 ## Units Reference
 

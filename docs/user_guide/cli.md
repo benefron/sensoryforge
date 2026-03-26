@@ -197,12 +197,51 @@ PIPELINE STRUCTURE
 
 ## Configuration File Format
 
-SensoryForge uses YAML for configuration. See [YAML Configuration Guide](yaml_configuration.md) for details.
+SensoryForge uses YAML for configuration. The CLI accepts both **canonical format** (recommended) and **legacy format** (backward compatible). See [YAML Configuration Guide](yaml_configuration.md) for details.
 
-### Basic Example
+### Canonical Format (Recommended)
+
+The canonical format supports N populations and is exported by the GUI:
 
 ```yaml
-# Basic configuration
+# Canonical configuration format
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+```
+
+### Legacy Format (Backward Compatible)
+
+Legacy format is still fully supported:
+
+```yaml
+# Legacy configuration format
 pipeline:
   device: cpu
   seed: 42
@@ -226,61 +265,65 @@ solver:
     dt: 0.001
 ```
 
-### Advanced Example (Phase 2 Features)
+**Note**: The CLI automatically detects the format and uses the appropriate adapter. Canonical format is recommended for new projects as it supports N populations and ensures GUI-CLI parity.
+
+### Advanced Example (Canonical Format with N Populations)
 
 ```yaml
-# Phase 2 configuration with composite grid
-metadata:
-  name: "Multi-Population Simulation"
-  version: "0.2"
+# Canonical format with multiple populations and composite grid
+grids:
+  - name: "Composite Receptor Grid"
+    arrangement: "composite"
+    # Composite grid configuration...
 
-grid:
-  type: composite
-  shape: [64, 64]
-  populations:
-    sa1:
-      density: 100.0  # receptors per mm²
-      arrangement: grid
-      filter: SA
-    ra1:
-      density: 70.0
-      arrangement: hex
-      filter: RA
+populations:
+  - name: "SA1 Population"
+    neuron_type: "SA"
+    target_grid: "Composite Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA1 Population"
+    neuron_type: "RA"
+    target_grid: "Composite Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+  - name: "Custom Population"
+    neuron_type: "Custom"
+    neuron_model: "dsl"  # Equation DSL
+    dsl_config:
+      equations: |
+        dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
+        du/dt = (a * (b*v - u)) / ms
+      threshold: "v >= 30 * mV"
+      reset: |
+        v = c
+        u = u + d
+      parameters:
+        a: 0.02
+        b: 0.2
+        c: -65.0
+        d: 8.0
 
-neurons:
-  type: dsl  # Equation DSL
-  equations: |
-    dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
-    du/dt = (a * (b*v - u)) / ms
-  threshold: "v >= 30 * mV"
-  reset: |
-    v = c
-    u = u + d
-  parameters:
-    a: 0.02
-    b: 0.2
-    c: -65.0
-    d: 8.0
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
 
-stimuli:
-  - type: texture
-    subtype: gabor
-    config:
-      wavelength: 0.5
-      orientation: 0.0
-  - type: moving
-    motion_type: linear
-    config:
-      start: [0.0, 0.0]
-      end: [2.0, 0.0]
-
-solver:
-  type: adaptive
-  config:
-    method: dopri5
+simulation:
+  device: "cpu"
+  dt: 0.5
+  solver_config:
+    type: "adaptive"
+    method: "dopri5"
     rtol: 1.0e-5
     atol: 1.0e-7
 ```
+
+**Note**: Canonical format supports any number of populations, each with its own configuration. Legacy format is limited to SA/RA/SA2.
 
 ## Error Handling
 
@@ -359,21 +402,26 @@ sensoryforge run config.yml --output results_$(date +%Y%m%d).pt
 
 ## Integration with Python
 
-The CLI uses the same Python API available for scripting:
+The CLI uses the same Python API available for scripting. Both canonical and legacy configs are supported:
 
 ```python
+from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.cli import load_config_file
 
-# Load config from file
-config = load_config_file('my_config.yml')
+# Option 1: Load canonical config
+config = SensoryForgeConfig.from_yaml('canonical_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
 
-# Create pipeline
-pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+# Option 2: Load legacy config (auto-detected)
+legacy_config = load_config_file('legacy_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(legacy_config)
 
 # Run simulation
 results = pipeline.forward(stimulus_type='gaussian')
 ```
+
+**Note**: The `load_config_file()` function automatically detects the format and loads appropriately. For canonical configs, use `SensoryForgeConfig.from_yaml()` directly.
 
 ## See Also
 

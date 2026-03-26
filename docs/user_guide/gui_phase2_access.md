@@ -31,17 +31,28 @@ The GUI provides three core tabs:
 - Fine-tune model parameters via the parameter editor
 
 ### YAML Integration
-- **Load Config**: `File → Load Config (YAML)` validates and previews any configuration
-- **Save Template**: `File → Save Config (YAML)` exports a comprehensive YAML template
+- **Load Config**: `File → Load Config (YAML)` validates and previews any configuration (both canonical and legacy formats)
+- **Save Config**: `File → Save Config (YAML)` exports configuration in **canonical format** (`SensoryForgeConfig`)
+- **Round-Trip Workflow**: GUI → Save → CLI → Load → Same results
 - **Help → Advanced Features**: Overview of all available features
 - **Help → CLI Guide**: Complete CLI reference with examples
+
+### Canonical Configuration Export
+
+The GUI exports configurations in the **canonical format** (`SensoryForgeConfig`), which ensures:
+- **GUI-CLI Parity**: Configurations saved from GUI work seamlessly with CLI
+- **N-Population Support**: Export any number of populations (not limited to SA/RA/SA2)
+- **Round-Trip Fidelity**: Save → Load → Same results
+- **Extensibility**: Easy to add new population types and configurations
+
+When you save a configuration from the GUI, it uses the canonical schema with `grids`, `populations`, `stimulus`, and `simulation` sections.
 
 ## CLI: Scalable Execution
 
 Once a configuration is designed and validated in the GUI, export to YAML and use the CLI for scale:
 
 ```bash
-# Validate configuration
+# Validate configuration (accepts both canonical and legacy formats)
 sensoryforge validate my_config.yml
 
 # Run simulation
@@ -54,69 +65,138 @@ sensoryforge run my_config.yml --device cuda --duration 5000
 sensoryforge list-components
 ```
 
-### Example YAML Configuration
+### Round-Trip Workflow
+
+The canonical format ensures seamless workflow between GUI and CLI:
+
+1. **Design in GUI**: Configure grids, populations, stimuli interactively
+2. **Save Config**: `File → Save Config (YAML)` exports canonical format
+3. **Run in CLI**: `sensoryforge run config.yml` executes with same results
+4. **Load Back**: GUI can load the same config for further editing
+
+### Example: GUI-Exported Canonical Configuration
+
+When you save from the GUI, you get canonical format:
 
 ```yaml
-pipeline:
-  device: cpu
-  seed: 42
-  grid_size: 80
-  spacing: 0.15
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+    center_x: 0.0
+    center_y: 0.0
 
-neurons:
-  sa_neurons: 100
-  ra_neurons: 196
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+    connections_per_neuron: 28
+    sigma_d_mm: 0.39
 
-stimuli:
-  - type: gaussian
-    config: {amplitude: 30.0, sigma: 1.0}
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 1.0
 
-solver:
-  type: euler
+simulation:
+  device: "cpu"
+  dt: 0.5
 ```
 
-### Advanced YAML Features
+This format is directly compatible with the CLI and supports N populations.
+
+### Advanced Canonical Configuration Example
+
+The GUI can export complex configurations with multiple populations:
 
 ```yaml
-# Multi-population grid
-grid:
-  type: composite
-  populations:
-    sa1: {density: 10.0, arrangement: poisson}
-    ra1: {density: 5.0, arrangement: hex}
-    sa2: {density: 3.0, arrangement: poisson}
+grids:
+  - name: "Composite Receptor Grid"
+    arrangement: "composite"
+    # Composite grid configuration...
 
-# Equation DSL neuron model
-neurons:
-  type: dsl
-  equations: |
-    dv/dt = 0.04*v**2 + 5*v + 140 - u + I
-    du/dt = a*(b*v - u)
-  threshold: "v >= 30"
-  reset: "v = c; u = u + d"
-  parameters: {a: 0.02, b: 0.2, c: -65.0, d: 8.0}
+populations:
+  - name: "SA1 Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA1 Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+  - name: "Custom DSL Population"
+    neuron_type: "Custom"
+    neuron_model: "dsl"
+    dsl_config:
+      equations: |
+        dv/dt = 0.04*v**2 + 5*v + 140 - u + I
+        du/dt = a*(b*v - u)
+      threshold: "v >= 30"
+      reset: "v = c; u = u + d"
+      parameters: {a: 0.02, b: 0.2, c: -65.0, d: 8.0}
 
-# Adaptive solver for stiff systems
-solver:
-  type: adaptive
-  config: {method: dopri5, rtol: 1e-5}
+simulation:
+  device: "cpu"
+  dt: 0.5
+  solver_config:
+    type: "adaptive"
+    method: "dopri5"
+    rtol: 1.0e-5
+    atol: 1.0e-7
 ```
+
+**Note**: The GUI exports canonical format, which supports N populations. Legacy format examples are shown for backward compatibility reference.
 
 ## Python API
 
+The Python API supports both canonical and legacy configurations:
+
 ```python
+from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
-# Load from YAML
-pipeline = GeneralizedTactileEncodingPipeline.from_yaml('config.yml')
+# Option 1: Load canonical config (GUI-exported format)
+config = SensoryForgeConfig.from_yaml('gui_exported_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
+
+# Option 2: Load legacy config (backward compatible)
+pipeline = GeneralizedTactileEncodingPipeline.from_yaml('legacy_config.yml')
 results = pipeline.forward(duration_ms=1000)
 
-# Or configure programmatically
-pipeline = GeneralizedTactileEncodingPipeline.from_config({
-    'pipeline': {'device': 'cpu', 'grid_size': 80},
-    'neurons': {'sa_neurons': 100, 'ra_neurons': 196},
-})
+# Option 3: Configure programmatically (canonical format)
+config = SensoryForgeConfig(
+    grids=[GridConfig(name="Grid", arrangement="grid", rows=80, cols=80, spacing=0.15)],
+    populations=[
+        PopulationConfig(name="SA", neuron_type="SA", neuron_model="izhikevich", 
+                        filter_method="sa", innervation_method="gaussian", neurons_per_row=10),
+        PopulationConfig(name="RA", neuron_type="RA", neuron_model="izhikevich",
+                        filter_method="ra", innervation_method="gaussian", neurons_per_row=14),
+    ],
+    stimulus=StimulusConfig(type="gaussian", amplitude=30.0),
+    simulation=SimulationConfig(device="cpu", dt=0.5),
+)
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
 ```
+
+**Note**: For GUI-exported configs, use `SensoryForgeConfig.from_yaml()` for best compatibility and N-population support.
 
 ## Documentation
 

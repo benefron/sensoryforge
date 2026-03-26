@@ -36,10 +36,63 @@ register_all()
 
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
-    """
-    Generalized tactile encoding pipeline with configurable parameters
-    and defaults. Supports multiple stimulus types and flexible
-    configuration.
+    """Generalized tactile encoding pipeline with configurable parameters.
+    
+    This pipeline supports both legacy format (hardcoded SA/RA/SA2) and canonical
+    format (N-population dynamic) via an adapter layer. Components are created
+    via registry system for extensibility.
+    
+    **Configuration Formats:**
+    
+    1. **Legacy Format** (backward compatible):
+       - Hardcoded SA/RA/SA2 structure
+       - Format: `{'pipeline': {...}, 'neurons': {...}, 'filters': {...}}`
+       - Fully supported
+    
+    2. **Canonical Format** (recommended):
+       - N-population dynamic support
+       - Format: `{'grids': [...], 'populations': [...], 'stimulus': {...}, 'simulation': {...}}`
+       - Converted to legacy format via `_canonical_to_legacy_config()` adapter
+       - **Limitation**: Only first 3 populations are used (mapped to SA/RA/SA2 slots)
+    
+    **Component Creation:**
+    
+    Components (neurons, filters) are created via registry lookup:
+    - Falls back to hardcoded classes if not found in registry
+    - Uses `NEURON_REGISTRY` and `FILTER_REGISTRY` for dynamic lookup
+    
+    **Future:**
+    
+    For full N-population dynamic support, use `SimulationEngine` instead:
+    - `SimulationEngine` supports unlimited populations
+    - Built from scratch to handle canonical configs natively
+    - Will become the unified execution engine for GUI/CLI/Batch
+    
+    **Example:**
+        >>> # Legacy format
+        >>> config = {'pipeline': {'device': 'cpu'}, 'neurons': {'sa_neurons': 100}}
+        >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+        >>> 
+        >>> # Canonical format (adapter converts to legacy)
+        >>> from sensoryforge.config.schema import SensoryForgeConfig
+        >>> canonical = SensoryForgeConfig(...)
+        >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(canonical.to_dict())
+        >>> 
+        >>> # Run simulation
+        >>> results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
+        >>> sa_spikes = results['sa_spikes']  # [time_steps, num_sa_neurons]
+    
+    **Returns:**
+        Results dictionary with keys:
+        - `'sa_spikes'`: SA population spikes [time_steps, num_sa_neurons]
+        - `'ra_spikes'`: RA population spikes [time_steps, num_ra_neurons]
+        - `'sa2_spikes'`: SA2 population spikes [time_steps, num_sa2_neurons] (if configured)
+        - Additional keys if `return_intermediates=True`
+    
+    **See Also:**
+        - `SimulationEngine`: For full N-population support
+        - `SensoryForgeConfig`: Canonical configuration schema
+        - `.cursor/rules/extensibility-patterns.mdc`: Extensibility patterns
     """
 
     # Default configuration values
@@ -1445,24 +1498,45 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
     def from_config(cls, config: dict) -> 'GeneralizedTactileEncodingPipeline':
         """Create pipeline from configuration dictionary.
         
-        This is the recommended way to instantiate pipelines from YAML configs,
-        supporting all Phase 2 features: CompositeGrid, DSL neurons, extended
-        stimuli, and adaptive solvers.
+        Supports both legacy and canonical configuration formats. Canonical
+        configs are automatically converted to legacy format via adapter.
+        
+        **Configuration Format Detection:**
+        
+        - **Canonical Format**: Detected by presence of `'grids'` and `'populations'` keys
+        - **Legacy Format**: Detected by presence of `'pipeline'` and `'neurons'` keys
+        
+        **Canonical Config Limitations:**
+        
+        - Only first 3 populations are used (mapped to SA/RA/SA2 slots)
+        - Population selection based on `neuron_type` prefix matching
+        - For full N-population support, use `SimulationEngine`
+        
+        **Component Creation:**
+        
+        Components are created via registry lookup (`NEURON_REGISTRY`, `FILTER_REGISTRY`)
+        with fallback to hardcoded classes for backward compatibility.
         
         Args:
-            config: Configuration dictionary with keys like 'metadata', 'grid',
-                'stimuli', 'filters', 'neurons', 'solver', 'gui'.
+            config: Configuration dictionary. Can be:
+                - Legacy format: `{'pipeline': {...}, 'neurons': {...}, ...}`
+                - Canonical format: `{'grids': [...], 'populations': [...], ...}`
         
         Returns:
             Initialized GeneralizedTactileEncodingPipeline instance.
         
-        Note:
-            Currently uses the existing pipeline implementation. Full Phase 2
-            support (CompositeGrid, DSL neurons, adaptive solvers) will be
-            integrated in future updates while maintaining backward compatibility.
-        
         Example:
+            >>> # Legacy format
             >>> config = {
+            >>>     'pipeline': {'device': 'cpu', 'grid_size': 80},
+            >>>     'neurons': {'sa_neurons': 100, 'ra_neurons': 196},
+            >>> }
+            >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+            >>> 
+            >>> # Canonical format (auto-converted via adapter)
+            >>> from sensoryforge.config.schema import SensoryForgeConfig
+            >>> canonical = SensoryForgeConfig(...)
+            >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(canonical.to_dict())
             ...     'pipeline': {'device': 'cpu', 'grid_size': 64},
             ...     'neurons': {'sa_neurons': 20, 'ra_neurons': 30}
             ... }

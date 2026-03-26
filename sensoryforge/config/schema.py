@@ -191,14 +191,43 @@ class PopulationConfig:
     seed: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict for YAML serialization."""
+        """Convert to plain dict for YAML serialization.
+        
+        Returns:
+            Dictionary representation suitable for YAML export.
+            None values are removed for cleaner YAML output.
+        
+        Example:
+            >>> config = PopulationConfig(name="SA", neurons_per_row=10)
+            >>> config_dict = config.to_dict()
+            >>> # Can be saved to YAML or passed to pipeline
+        """
         result = asdict(self)
         # Remove None values for cleaner YAML
         return {k: v for k, v in result.items() if v is not None}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PopulationConfig:
-        """Create from dict (e.g., from YAML)."""
+        """Create from dict (e.g., from YAML).
+        
+        Handles missing optional fields by using defaults from dataclass definition.
+        
+        Args:
+            data: Dictionary with population configuration fields.
+                Can include any subset of PopulationConfig fields.
+        
+        Returns:
+            PopulationConfig instance with provided values and defaults.
+        
+        Example:
+            >>> data = {
+            ...     "name": "SA Population",
+            ...     "neuron_model": "izhikevich",
+            ...     "filter_method": "sa",
+            ...     "neurons_per_row": 10,
+            ... }
+            >>> config = PopulationConfig.from_dict(data)
+        """
         # Handle missing optional fields
         kwargs = {}
         for field_name in cls.__dataclass_fields__:
@@ -376,9 +405,15 @@ class SensoryForgeConfig:
 
     def to_yaml(self) -> str:
         """Serialize to YAML string.
-
+        
         Returns:
-            YAML-formatted string.
+            YAML-formatted string suitable for saving to file or CLI usage.
+        
+        Example:
+            >>> config = SensoryForgeConfig(...)
+            >>> yaml_str = config.to_yaml()
+            >>> with open('config.yml', 'w') as f:
+            ...     f.write(yaml_str)
         """
         return yaml.dump(
             self.to_dict(),
@@ -390,12 +425,29 @@ class SensoryForgeConfig:
     @classmethod
     def from_yaml(cls, yaml_str: str) -> SensoryForgeConfig:
         """Load from YAML string.
-
+        
         Args:
-            yaml_str: YAML-formatted string.
-
+            yaml_str: YAML-formatted string (can be file contents or direct string).
+        
         Returns:
             SensoryForgeConfig instance.
+        
+        Raises:
+            ValueError: If YAML does not produce a dict.
+        
+        Example:
+            >>> # From file
+            >>> with open('config.yml', 'r') as f:
+            ...     config = SensoryForgeConfig.from_yaml(f.read())
+            >>> 
+            >>> # From string
+            >>> yaml_str = '''
+            ... grids:
+            ...   - name: "Main Grid"
+            ...     arrangement: "grid"
+            ...     rows: 80
+            ... '''
+            >>> config = SensoryForgeConfig.from_yaml(yaml_str)
         """
         data = yaml.safe_load(yaml_str)
         if not isinstance(data, dict):
