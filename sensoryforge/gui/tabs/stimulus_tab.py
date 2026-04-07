@@ -1475,6 +1475,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._committed_config = self._collect_config()
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
+        self._request_preview()
 
     def _on_composition_changed(self, mode: str) -> None:
         self._composition_mode = str(mode)
@@ -2122,7 +2123,17 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.timeline_scrubber.set_cursor(0.0)
 
     def _collect_preview_configs(self) -> List[StimulusConfig]:
+        """Return configs to render in the preview.
+
+        When a stack item is actively selected for editing, show only that item
+        so the user can clearly see the effect of parameter changes.  When no
+        item is selected (or the stack is empty) fall back to the current UI
+        state so there is always something to preview.
+        """
         if self._stimulus_stack:
+            if self._active_stack_index is not None and 0 <= self._active_stack_index < len(self._stimulus_stack):
+                # Show only the item being edited so changes are immediately visible
+                return [self._stimulus_stack[self._active_stack_index]]
             return list(self._stimulus_stack)
         return [self._collect_config()]
 
@@ -2346,7 +2357,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             edge_width=self.spin_edge_width.value(),
             noise_scale=self.spin_noise_scale.value(),
             noise_kernel_size=self.spin_noise_kernel.value(),
-            moving_subtype=self.cmb_motion_type.currentText().lower() if self.cmb_motion_type.currentText().lower() != "static" else self._moving_subtype,
+            moving_subtype=self._moving_subtype,
             num_steps=self.spin_num_steps.value() if self._moving_subtype == "linear" else self.spin_circular_num_steps.value() if self._moving_subtype == "circular" else self.spin_slide_num_steps.value(),
             radius=self.spin_radius.value(),
             start_angle=self.spin_start_angle.value(),

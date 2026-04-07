@@ -1594,12 +1594,86 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
         return config
 
+    def _generate_motion_trajectory_frames(
+        self,
+        config: StimulusConfig,
+    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """Generate frames for any spatial stimulus type using an explicit trajectory.
+
+        Mirrors stimulus_tab._generate_motion_trajectory_frames so that
+        circular and slide motion types produce consistent output in both tabs.
+        """
+        from sensoryforge.stimuli.moving import circular_motion, slide_trajectory, linear_motion
+
+        if self.generator is None or self.grid_manager is None:
+            return None, None, None
+
+        device = self.generator.xx.device
+        xx = self.generator.xx
+        yy = self.generator.yy
+        mt = config.motion_type
+        num_steps = max(config.num_steps, 2)
+
+        if mt == "circular":
+            trajectory = circular_motion(
+                center=config.start,
+                radius=max(config.radius, 0.01),
+                num_steps=num_steps,
+                start_angle=config.start_angle,
+                end_angle=config.end_angle,
+                device=device,
+            )
+        elif mt == "slide":
+            trajectory = slide_trajectory(
+                start=config.start,
+                end=config.end,
+                num_steps=num_steps,
+                velocity_type="constant",
+                device=device,
+            )
+        else:
+            trajectory = linear_motion(
+                start=config.start,
+                end=config.end,
+                num_steps=num_steps,
+                device=device,
+            )
+
+        dt = max(config.dt_ms, MIN_TIME_STEP_MS)
+        time_axis = torch.arange(0.0, num_steps * dt, dt, device=device)[:num_steps]
+        amplitude_profile = self._amplitude_profile(time_axis, config)
+        peak = max(config.amplitude, 0.0)
+        frames = torch.zeros((num_steps,) + xx.shape, device=device, dtype=xx.dtype)
+
+        for idx in range(num_steps):
+            pos_x = float(trajectory[idx, 0].item())
+            pos_y = float(trajectory[idx, 1].item())
+            if config.repeat_enabled and (config.repeat_nx > 1 or config.repeat_ny > 1):
+                nx, ny = config.repeat_nx, config.repeat_ny
+                sx, sy = config.repeat_spacing_x, config.repeat_spacing_y
+                tiled = torch.zeros_like(xx)
+                for ix in range(nx):
+                    for iy in range(ny):
+                        ox = (ix - (nx - 1) / 2.0) * sx
+                        oy = (iy - (ny - 1) / 2.0) * sy
+                        tiled = tiled + self._compute_base_frame(xx, yy, pos_x + ox, pos_y + oy, config, device)
+                frame = tiled
+            else:
+                frame = self._compute_base_frame(xx, yy, pos_x, pos_y, config, device)
+            amp = float(amplitude_profile[idx].item()) * peak if peak > 0.0 else 0.0
+            frames[idx] = frame * amp
+
+        return frames, time_axis, amplitude_profile
+
     def _build_stimulus_frames(
         self,
         config: StimulusConfig,
     ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor],]:
         if self.generator is None or self.grid_manager is None:
             return None, None, None
+        # Dispatch circular/slide motion to the trajectory generator
+        if config.motion_type in ("circular", "slide") and config.stimulus_type != "moving":
+            return self._generate_motion_trajectory_frames(config)
         device = self.generator.xx.device
         dt = max(config.dt_ms, MIN_TIME_STEP_MS)
         total_time = max(config.total_ms, dt)
