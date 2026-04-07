@@ -28,6 +28,7 @@ from sensoryforge.core.innervation import (  # noqa: E402
     create_neuron_centers,
 )
 from sensoryforge.core.composite_grid import CompositeReceptorGrid  # noqa: E402
+from sensoryforge.gui.widgets.collapsible import CollapsibleGroupBox  # noqa: E402
 
 
 CONFIG_SCHEMA_VERSION = "1.0.0"
@@ -56,90 +57,6 @@ _POPULATION_COLORS = [
 
 def _default_population_name(neuron_type: str, index: int) -> str:
     return f"{neuron_type} #{index}" if neuron_type else f"Population #{index}"
-
-
-class CollapsibleGroupBox(QtWidgets.QWidget):
-    """Collapsible section with toggle button, normal content styling."""
-
-    def __init__(self, title: str, parent: Optional[QtWidgets.QWidget] = None, start_expanded: bool = False, nested: bool = False):
-        super().__init__(parent)
-        self._title = title
-        self._is_expanded = start_expanded
-        self._nested = nested
-
-        main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 4)
-        main_layout.setSpacing(2)
-
-        # Toggle button - subtle for main sections, minimal for nested
-        self._toggle_btn = QtWidgets.QPushButton()
-        if nested:
-            # Nested: minimal style, just slightly highlighted
-            self._toggle_btn.setStyleSheet("""
-                QPushButton {
-                    text-align: left;
-                    padding: 3px 6px;
-                    border: 1px solid #b0b0b0;
-                    border-radius: 2px;
-                    background: #e0e0e0;
-                }
-                QPushButton:hover {
-                    background: #d8d8d8;
-                    border: 1px solid #909090;
-                }
-            """)
-        else:
-            # Main sections: subtle gradient
-            self._toggle_btn.setStyleSheet("""
-                QPushButton {
-                    text-align: left;
-                    padding: 5px 8px;
-                    border: 1px solid #a0a0a0;
-                    border-radius: 3px;
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e0e0e0, stop:1 #d4d4d4);
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8e8e8, stop:1 #dcdcdc);
-                    border: 1px solid #909090;
-                }
-            """)
-        self._toggle_btn.clicked.connect(self._on_toggle)
-        main_layout.addWidget(self._toggle_btn)
-
-        # Content widget - NO special styling, inherits normal UI look
-        self._content = QtWidgets.QWidget()
-        self._content_layout = QtWidgets.QFormLayout(self._content)
-        self._content_layout.setContentsMargins(8, 6, 8, 6)
-        self._content_layout.setSpacing(6)
-        main_layout.addWidget(self._content)
-
-        self._update_button_text()
-        self._content.setVisible(self._is_expanded)
-
-    def _update_button_text(self):
-        """Update button text with collapse indicator."""
-        arrow = "▼" if self._is_expanded else "▶"
-        self._toggle_btn.setText(f"{arrow}  {self._title}")
-
-    def _on_toggle(self):
-        """Toggle collapsed state."""
-        self._is_expanded = not self._is_expanded
-        self._content.setVisible(self._is_expanded)
-        self._update_button_text()
-
-    def setChecked(self, checked: bool) -> None:
-        """Compatibility method for existing code."""
-        self._is_expanded = checked
-        self._content.setVisible(self._is_expanded)
-        self._update_button_text()
-
-    def layout(self) -> QtWidgets.QFormLayout:
-        """Return the form layout for adding widgets."""
-        return self._content_layout
-
-    def addRow(self, *args) -> None:
-        """Convenience method to add rows directly."""
-        self._content_layout.addRow(*args)
 
 
 @dataclass

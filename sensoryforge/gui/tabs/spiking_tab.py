@@ -1313,9 +1313,15 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 with json_path.open("r", encoding="utf-8") as fp:
                     payload = json.load(fp)
                 name = payload.get("name") or json_path.stem
-                stim_type = payload.get("type", "unknown")
-                motion = payload.get("motion", "static")
-                display = f"{name} — {stim_type}/{motion}"
+                kind = payload.get("kind", "stimulus")
+                if kind == "stimulus_stack":
+                    n_stim = len(payload.get("stimuli", []))
+                    mode = payload.get("composition_mode", "add")
+                    display = f"{name} — stack[{n_stim}×{mode}]"
+                else:
+                    stim_type = payload.get("type", "unknown")
+                    motion = payload.get("motion", "static")
+                    display = f"{name} — {stim_type}/{motion}"
                 entries.append((display, json_path))
             except (OSError, json.JSONDecodeError):
                 continue
@@ -1383,6 +1389,10 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 "Schema mismatch",
                 "Stimulus schema version differs; attempting to load anyway.",
             )
+        # Dispatch composite stacks to dedicated handler
+        if payload.get("kind") == "stimulus_stack":
+            self._load_stimulus_stack_preview(payload, path)
+            return
         config = self._config_from_payload(payload, path)
         frames, time_axis, amplitude_profile = self._build_stimulus_frames(config)
         if frames is None or time_axis is None:
@@ -1417,6 +1427,120 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
         self.lbl_stimulus_summary.setText(summary)
 
+    def _load_stimulus_stack_preview(self, payload: Dict[str, object], path: Path) -> None:
+        """Load a stimulus_stack JSON and build composite frames for simulation."""
+        stimuli_data = payload.get("stimuli", [])
+        composition_mode = str(payload.get("composition_mode", "add"))
+        if not stimuli_data:
+            self._clear_stimulus_preview()
+            return
+        configs = [self._config_from_payload(s, path) for s in stimuli_data]
+        frames, time_axis, amplitude_profile = self._build_composite_frames(configs, composition_mode)
+        if frames is None or time_axis is None:
+            self._clear_stimulus_preview()
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Stack load failed",
+                "One or more stack stimuli could not be generated for the current grid.",
+            )
+            return
+        self._stimulus_frames = frames
+        ref_cfg = configs[0]
+        self._stimulus_dt_ms = max(float(ref_cfg.dt_ms), MIN_TIME_STEP_MS)
+        time_np = time_axis.detach().cpu().numpy().reshape(-1)
+        self._stimulus_times = time_np
+        amplitude_np = (
+            amplitude_profile.detach().cpu().numpy().reshape(-1)
+            if amplitude_profile is not None
+            else np.zeros_like(time_np)
+        )
+        self._stimulus_amplitude = amplitude_np
+        self.amplitude_curve.setData(time_np, amplitude_np)
+        amp_item = self.amplitude_plot.getPlotItem()
+        if amp_item is not None:
+            amp_item.enableAutoRange(x=True, y=True)
+        duration_ms = float(time_np[-1]) if time_np.size else 0.0
+        self.lbl_stimulus_summary.setText(
+            f"Stack ({len(configs)} stimuli, {composition_mode} mode) — "
+            f"duration {duration_ms:.1f} ms, dt {self._stimulus_dt_ms:.2f} ms"
+        )
+
+    def _build_composite_frames(
+        self,
+        configs: List["StimulusConfig"],
+        composition_mode: str = "add",
+    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """Build composite frames from a list of StimulusConfig objects.
+
+        Supports both simple (same-duration) and timeline-aware (onset_ms / duration_ms)
+        composition with add, max, and mean modes.
+
+        Args:
+            configs: List of StimulusConfig objects to composite.
+            composition_mode: 'add', 'max', or 'mean'.
+
+        Returns:
+            Tuple of (frames [T, H, W], time_axis [T], amplitude_profile [T]).
+        """
+        if not configs or self.generator is None:
+            return None, None, None
+
+        uses_timeline = any(cfg.onset_ms > 0 or cfg.duration_ms > 0 for cfg in configs)
+
+        if not uses_timeline:
+            frames_list: List[torch.Tensor] = []
+            amp_list: List[torch.Tensor] = []
+            time_out: Optional[torch.Tensor] = None
+            for cfg in configs:
+                f, t, a = self._build_stimulus_frames(cfg)
+                if f is None or t is None:
+                    continue
+                min_len = f.shape[0] if not frames_list else min(frames_list[0].shape[0], f.shape[0])
+                frames_list.append(f[:min_len])
+                amp_list.append(a[:min_len] if a is not None else torch.zeros(min_len, device=f.device, dtype=f.dtype))
+                time_out = t[:min_len]
+            if not frames_list:
+                return None, None, None
+            stacked = torch.stack(frames_list, dim=0)
+            if composition_mode == "max":
+                combined = torch.max(stacked, dim=0).values
+            elif composition_mode == "mean":
+                combined = torch.mean(stacked, dim=0)
+            else:
+                combined = torch.sum(stacked, dim=0)
+            amp_sum = sum(amp_list)  # type: ignore[arg-type]
+            return combined, time_out, amp_sum
+
+        # Timeline mode — stitch stimuli at their onset times
+        global_dt = max(configs[0].dt_ms, MIN_TIME_STEP_MS)
+        global_total = 0.0
+        for cfg in configs:
+            eff_dur = cfg.duration_ms if cfg.duration_ms > 0 else cfg.total_ms
+            global_total = max(global_total, cfg.onset_ms + eff_dur)
+            global_dt = min(global_dt, max(cfg.dt_ms, MIN_TIME_STEP_MS))
+        if global_total <= 0:
+            return None, None, None
+        device = self.generator.xx.device
+        time_axis = torch.arange(0.0, global_total + 0.5 * global_dt, global_dt, device=device)
+        num_steps = time_axis.numel()
+        xx = self.generator.xx
+        combined = torch.zeros((num_steps,) + xx.shape, device=device, dtype=xx.dtype)
+        amplitude_sum = torch.zeros(num_steps, device=device, dtype=xx.dtype)
+        for cfg in configs:
+            frames, _, local_amp = self._build_stimulus_frames(cfg)
+            if frames is None:
+                continue
+            onset_frame = int(cfg.onset_ms / global_dt)
+            local_len = frames.shape[0]
+            end_frame = min(onset_frame + local_len, num_steps)
+            copy_len = end_frame - onset_frame
+            if copy_len <= 0:
+                continue
+            combined[onset_frame:end_frame] += frames[:copy_len]
+            if local_amp is not None:
+                amplitude_sum[onset_frame:end_frame] += local_amp[:copy_len]
+        return combined, time_axis, amplitude_sum
+
     def _config_from_payload(
         self,
         payload: Dict[str, object],
@@ -1432,7 +1556,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         start = payload.get("start", [0.0, 0.0])
         end = payload.get("end", start)
         config = StimulusConfig(
-            name=payload.get("name", path.stem),
+            name=payload.get("name", path.stem if isinstance(path, Path) else str(path)),
             stimulus_type=payload.get("type", "gaussian"),
             motion=payload.get("motion", "static"),
             start=_tuple(start, (0.0, 0.0)),
@@ -1446,6 +1570,27 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             total_ms=float(payload.get("total_ms", 300.0)),
             dt_ms=float(payload.get("dt_ms", 1.0)),
             speed_mm_s=float(payload.get("speed_mm_s", 0.0)),
+            texture_subtype=payload.get("texture_subtype", "gabor"),
+            wavelength=float(payload.get("wavelength", 0.5)),
+            phase=float(payload.get("phase", 0.0)),
+            edge_count=int(payload.get("edge_count", 5)),
+            edge_width=float(payload.get("edge_width", 0.05)),
+            noise_scale=float(payload.get("noise_scale", 1.0)),
+            noise_kernel_size=int(payload.get("noise_kernel_size", 5)),
+            moving_subtype=payload.get("moving_subtype", "linear"),
+            num_steps=int(payload.get("num_steps", 100)),
+            radius=float(payload.get("radius", 1.0)),
+            start_angle=float(payload.get("start_angle", 0.0)),
+            end_angle=float(payload.get("end_angle", 6.28318)),
+            moving_sigma=float(payload.get("moving_sigma", 0.3)),
+            onset_ms=float(payload.get("onset_ms", 0.0)),
+            duration_ms=float(payload.get("duration_ms", 0.0)),
+            motion_type=payload.get("motion_type", "static"),
+            repeat_enabled=bool(payload.get("repeat_enabled", False)),
+            repeat_nx=int(payload.get("repeat_nx", 1)),
+            repeat_ny=int(payload.get("repeat_ny", 1)),
+            repeat_spacing_x=float(payload.get("repeat_spacing_x", 1.0)),
+            repeat_spacing_y=float(payload.get("repeat_spacing_y", 1.0)),
         )
         return config
 
@@ -1490,34 +1635,50 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 cx, cy = start_x, start_y
             if config.stimulus_type == "gaussian":
                 frame = gaussian_pressure_torch(
-                    xx,
-                    yy,
-                    cx,
-                    cy,
-                    amplitude=1.0,
-                    sigma=max(config.spread, 1e-6),
+                    xx, yy, cx, cy, amplitude=1.0, sigma=max(config.spread, 1e-6),
                 )
             elif config.stimulus_type == "point":
                 frame = point_pressure_torch(
-                    xx,
-                    yy,
-                    cx,
-                    cy,
-                    amplitude=1.0,
-                    diameter_mm=max(config.spread, 1e-6),
+                    xx, yy, cx, cy, amplitude=1.0, diameter_mm=max(config.spread, 1e-6),
                 )
+            elif config.stimulus_type in ("gabor", "grating", "noise", "texture"):
+                from sensoryforge.stimuli.texture import gabor_texture, edge_grating, noise_texture
+                subtype = config.texture_subtype
+                if config.stimulus_type == "gabor":
+                    subtype = "gabor"
+                elif config.stimulus_type == "grating":
+                    subtype = "edge_grating"
+                elif config.stimulus_type == "noise":
+                    subtype = "noise"
+                if subtype == "gabor":
+                    frame = gabor_texture(
+                        xx, yy, center_x=cx, center_y=cy, amplitude=1.0,
+                        sigma=max(config.spread, 1e-6), wavelength=max(config.wavelength, 0.1),
+                        orientation=math.radians(config.orientation_deg), phase=config.phase,
+                        device=device,
+                    )
+                elif subtype == "edge_grating":
+                    frame = edge_grating(
+                        xx, yy, orientation=math.radians(config.orientation_deg),
+                        spacing=max(config.spread, 0.1), count=config.edge_count,
+                        edge_width=max(config.edge_width, 0.01), amplitude=1.0,
+                        device=device,
+                    )
+                elif subtype == "noise":
+                    from sensoryforge.stimuli.texture import noise_texture
+                    frame = noise_texture(
+                        height=xx.shape[0], width=xx.shape[1],
+                        scale=config.noise_scale, kernel_size=config.noise_kernel_size,
+                        device=device,
+                    )
+                else:
+                    frame = torch.zeros_like(xx)
             else:
                 theta = torch.tensor(
-                    math.radians(config.orientation_deg),
-                    device=device,
-                    dtype=xx.dtype,
+                    math.radians(config.orientation_deg), device=device, dtype=xx.dtype,
                 )
                 frame = edge_stimulus_torch(
-                    xx - cx,
-                    yy - cy,
-                    theta=theta,
-                    w=max(config.spread, 1e-6),
-                    amplitude=1.0,
+                    xx - cx, yy - cy, theta=theta, w=max(config.spread, 1e-6), amplitude=1.0,
                 )
             frames[idx] = frame * amplitude_profile[idx]
         return frames, time_axis, amplitude_profile
