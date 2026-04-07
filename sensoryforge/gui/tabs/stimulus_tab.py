@@ -808,6 +808,10 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         circular_form.addRow("End Angle (rad):", self.spin_end_angle)
         circular_form.addRow("Sigma (mm):", self.spin_circular_sigma)
         layout.addWidget(self.circular_params_widget)
+        # Save label refs so we can hide duplicate rows for non-"moving" types
+        self.lbl_circ_center_x_label = circular_form.labelForField(self.spin_circular_center_x)
+        self.lbl_circ_center_y_label = circular_form.labelForField(self.spin_circular_center_y)
+        self.lbl_circ_sigma_label = circular_form.labelForField(self.spin_circular_sigma)
         self.circular_params_widget.setVisible(False)
         
         # Slide parameters (reuses linear parameters)
@@ -852,6 +856,12 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         slide_form.addRow("Num Steps:", self.spin_slide_num_steps)
         slide_form.addRow("Sigma (mm):", self.spin_slide_sigma)
         layout.addWidget(self.slide_params_widget)
+        # Save label refs for rows that duplicate the spatial section for non-"moving" types
+        self.lbl_slide_start_x_label = slide_form.labelForField(self.spin_slide_start_x)
+        self.lbl_slide_start_y_label = slide_form.labelForField(self.spin_slide_start_y)
+        self.lbl_slide_end_x_label = slide_form.labelForField(self.spin_slide_end_x)
+        self.lbl_slide_end_y_label = slide_form.labelForField(self.spin_slide_end_y)
+        self.lbl_slide_sigma_label = slide_form.labelForField(self.spin_slide_sigma)
         self.slide_params_widget.setVisible(False)
         
         self.moving_group.setVisible(False)
@@ -1274,19 +1284,79 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             self.spin_end_x.setValue(self.spin_start_x.value())
             self.spin_end_y.setValue(self.spin_start_y.value())
 
-        # Show moving_group and sync sub-params for trajectory-based motion types
-        is_full_field = self._selected_type in ("noise", "grating")
-        if motion_type in ("linear", "circular", "slide") and not is_full_field:
-            self.moving_group.setVisible(True)
-            self._moving_subtype = motion_type
-            self.linear_params_widget.setVisible(motion_type == "linear")
-            self.circular_params_widget.setVisible(motion_type == "circular")
-            self.slide_params_widget.setVisible(motion_type == "slide")
-        elif motion_type == "static" and self._selected_type != "moving":
-            self.moving_group.setVisible(False)
-
+        self._update_moving_group_visibility(motion_type)
         self._update_motion_dependencies(from_speed=False)
         self._request_preview()
+
+    def _update_moving_group_visibility(self, motion_type: str) -> None:
+        """Show/hide the moving_group and suppress duplicate rows for non-'moving' types.
+
+        Rules:
+        - Full-field types (noise, grating): always hide moving_group.
+        - stimulus_type == 'moving': always show full moving_group; the active
+          subtype panel is determined by self._moving_subtype.
+        - stimulus_type != 'moving' + linear: hide moving_group entirely
+          (start/end live in the spatial section; the time-loop handles motion).
+        - stimulus_type != 'moving' + circular: show moving_group with only the
+          non-duplicate rows — Radius, Num Steps, Start/End Angle (Center X/Y
+          shadows spin_start_x/y and Sigma is unused in this path).
+        - stimulus_type != 'moving' + slide: show moving_group with only Num
+          Steps (Start/End X/Y duplicate the spatial section, Sigma is unused).
+        - static: hide for non-'moving', keep visible for 'moving'.
+        """
+        is_moving_type = self._selected_type == "moving"
+        is_full_field = self._selected_type in ("noise", "grating")
+
+        def _row_vis(spin: QtWidgets.QWidget, lbl_attr: str, visible: bool) -> None:
+            spin.setVisible(visible)
+            lbl = getattr(self, lbl_attr, None)
+            if lbl is not None:
+                lbl.setVisible(visible)
+
+        if is_full_field:
+            self.moving_group.setVisible(False)
+            return
+
+        if motion_type == "static":
+            self.moving_group.setVisible(is_moving_type)
+            if is_moving_type:
+                active = self._moving_subtype
+                self.linear_params_widget.setVisible(active == "linear")
+                self.circular_params_widget.setVisible(active == "circular")
+                self.slide_params_widget.setVisible(active == "slide")
+            return
+
+        # Linear + non-"moving": all params are in the spatial section; hide group
+        if motion_type == "linear" and not is_moving_type:
+            self.moving_group.setVisible(False)
+            return
+
+        # Circular or slide (or "moving" type with any subtype)
+        self.moving_group.setVisible(True)
+        active = self._moving_subtype if is_moving_type else motion_type
+        self.linear_params_widget.setVisible(is_moving_type and active == "linear")
+        self.circular_params_widget.setVisible(active == "circular")
+        self.slide_params_widget.setVisible(active == "slide")
+
+        # For non-"moving" types: hide rows that duplicate the spatial section
+        # Circular: Center X/Y = spatial start_x/y; Sigma unused (_generate_motion_trajectory_frames uses config.spread)
+        _row_vis(self.spin_circular_center_x, "lbl_circ_center_x_label", is_moving_type)
+        _row_vis(self.spin_circular_center_y, "lbl_circ_center_y_label", is_moving_type)
+        _row_vis(self.spin_circular_sigma, "lbl_circ_sigma_label", is_moving_type)
+        # Slide: Start/End X/Y = spatial start/end; Sigma unused
+        _row_vis(self.spin_slide_start_x, "lbl_slide_start_x_label", is_moving_type)
+        _row_vis(self.spin_slide_start_y, "lbl_slide_start_y_label", is_moving_type)
+        _row_vis(self.spin_slide_end_x, "lbl_slide_end_x_label", is_moving_type)
+        _row_vis(self.spin_slide_end_y, "lbl_slide_end_y_label", is_moving_type)
+        _row_vis(self.spin_slide_sigma, "lbl_slide_sigma_label", is_moving_type)
+
+        # Update group title to communicate context to the user
+        if is_moving_type:
+            self.moving_group.setTitle("Moving Stimulus Parameters")
+        elif active == "circular":
+            self.moving_group.setTitle("Circular Trajectory Parameters")
+        elif active == "slide":
+            self.moving_group.setTitle("Slide Trajectory Steps")
 
     def _on_repeat_toggled(self, state: int) -> None:
         """Handle repeat pattern checkbox toggle."""
@@ -2125,15 +2195,17 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _collect_preview_configs(self) -> List[StimulusConfig]:
         """Return configs to render in the preview.
 
-        When a stack item is actively selected for editing, show only that item
-        so the user can clearly see the effect of parameter changes.  When no
-        item is selected (or the stack is empty) fall back to the current UI
-        state so there is always something to preview.
+        When a stack item is actively selected for editing, return the *current
+        UI state* via ``_collect_config()`` so every parameter change is
+        immediately reflected in the preview — the user does not need to click
+        Update to see the effect.  When no item is selected but the stack is
+        populated, return the full composite (all saved items).  When the stack
+        is empty, fall back to the current UI state.
         """
+        if self._active_stack_index is not None and 0 <= self._active_stack_index < len(self._stimulus_stack):
+            # Live preview: use current UI state so edits are visible before Update
+            return [self._collect_config()]
         if self._stimulus_stack:
-            if self._active_stack_index is not None and 0 <= self._active_stack_index < len(self._stimulus_stack):
-                # Show only the item being edited so changes are immediately visible
-                return [self._stimulus_stack[self._active_stack_index]]
             return list(self._stimulus_stack)
         return [self._collect_config()]
 
@@ -2397,8 +2469,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 lbl.setVisible(not is_full_field)
         self.dbl_spread.setVisible(not is_noise)
         self.lbl_spread.setVisible(not is_noise)
-        needs_trajectory_ui = config.motion_type != "static" and not is_full_field
-        self.moving_group.setVisible(self._selected_type == "moving" or needs_trajectory_ui)
         show_orient = self._selected_type in ("edge", "gabor", "grating")
         self.dbl_orientation.setVisible(show_orient)
         if self.lbl_orientation_label is not None:
