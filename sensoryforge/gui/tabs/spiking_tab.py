@@ -1680,8 +1680,87 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 frame = edge_stimulus_torch(
                     xx - cx, yy - cy, theta=theta, w=max(config.spread, 1e-6), amplitude=1.0,
                 )
+            # Apply repeat tiling if enabled
+            if config.repeat_enabled and (config.repeat_nx > 1 or config.repeat_ny > 1):
+                nx, ny = config.repeat_nx, config.repeat_ny
+                sx, sy = config.repeat_spacing_x, config.repeat_spacing_y
+                tiled = torch.zeros_like(xx)
+                for ix in range(nx):
+                    for iy in range(ny):
+                        ox = (ix - (nx - 1) / 2.0) * sx
+                        oy = (iy - (ny - 1) / 2.0) * sy
+                        tiled = tiled + self._compute_base_frame(
+                            xx, yy, cx + ox, cy + oy, config, device
+                        )
+                frame = tiled
             frames[idx] = frame * amplitude_profile[idx]
         return frames, time_axis, amplitude_profile
+
+    def _compute_base_frame(
+        self,
+        xx: torch.Tensor,
+        yy: torch.Tensor,
+        cx: float,
+        cy: float,
+        config: "StimulusConfig",
+        device: torch.device,
+    ) -> torch.Tensor:
+        """Compute a single spatial frame for *config* at position (cx, cy).
+
+        Mirrors stimulus_tab._compute_base_frame so that repeat tiling in the
+        spiking tab produces the same output as in the stimulus designer.
+        """
+        if config.stimulus_type == "gaussian":
+            return gaussian_pressure_torch(
+                xx, yy, cx, cy, amplitude=1.0, sigma=max(config.spread, 1e-6),
+            )
+        if config.stimulus_type == "point":
+            return point_pressure_torch(
+                xx, yy, cx, cy, amplitude=1.0, diameter_mm=max(config.spread, 1e-6),
+            )
+        if config.stimulus_type in ("gabor", "grating", "noise", "texture"):
+            from sensoryforge.stimuli.texture import gabor_texture, edge_grating, noise_texture
+            subtype = config.texture_subtype
+            if config.stimulus_type == "gabor":
+                subtype = "gabor"
+            elif config.stimulus_type == "grating":
+                subtype = "edge_grating"
+            elif config.stimulus_type == "noise":
+                subtype = "noise"
+            if subtype == "gabor":
+                return gabor_texture(
+                    xx, yy, center_x=cx, center_y=cy, amplitude=1.0,
+                    sigma=max(config.spread, 1e-6),
+                    wavelength=max(config.wavelength, 0.1),
+                    orientation=math.radians(config.orientation_deg),
+                    phase=config.phase,
+                    device=device,
+                )
+            if subtype == "edge_grating":
+                return edge_grating(
+                    xx, yy,
+                    orientation=math.radians(config.orientation_deg),
+                    spacing=max(config.spread, 0.1),
+                    count=config.edge_count,
+                    edge_width=max(config.edge_width, 0.01),
+                    amplitude=1.0,
+                    device=device,
+                )
+            if subtype == "noise":
+                return noise_texture(
+                    height=xx.shape[0], width=xx.shape[1],
+                    scale=config.noise_scale,
+                    kernel_size=config.noise_kernel_size,
+                    device=device,
+                )
+            return torch.zeros_like(xx)
+        # Default: edge stimulus
+        theta = torch.tensor(
+            math.radians(config.orientation_deg), device=device, dtype=xx.dtype,
+        )
+        return edge_stimulus_torch(
+            xx - cx, yy - cy, theta=theta, w=max(config.spread, 1e-6), amplitude=1.0,
+        )
 
     def _amplitude_profile(
         self,

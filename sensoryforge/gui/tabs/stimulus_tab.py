@@ -711,16 +711,12 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         """Build moving stimulus sub-type selector and parameter controls."""
         self.moving_group = QtWidgets.QGroupBox("Moving Stimulus Parameters")
         layout = QtWidgets.QVBoxLayout(self.moving_group)
-        
-        # Sub-type selector
-        subtype_row = QtWidgets.QHBoxLayout()
-        subtype_row.addWidget(QtWidgets.QLabel("Motion Type:"))
+
+        # Hidden backing combo — not shown in UI; cmb_motion_type is the single
+        # visible control. Kept here so existing signal connections still work.
         self.moving_subtype_combo = QtWidgets.QComboBox()
         self.moving_subtype_combo.addItems(["Linear", "Circular", "Slide"])
-        subtype_row.addWidget(self.moving_subtype_combo)
-        subtype_row.addStretch(1)
-        layout.addLayout(subtype_row)
-        
+
         # Linear motion parameters
         self.linear_params_widget = QtWidgets.QWidget()
         linear_form = QtWidgets.QFormLayout(self.linear_params_widget)
@@ -1282,11 +1278,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         is_full_field = self._selected_type in ("noise", "grating")
         if motion_type in ("linear", "circular", "slide") and not is_full_field:
             self.moving_group.setVisible(True)
-            idx_map = {"linear": 0, "circular": 1, "slide": 2}
-            target_idx = idx_map.get(motion_type, 0)
-            self.moving_subtype_combo.blockSignals(True)
-            self.moving_subtype_combo.setCurrentIndex(target_idx)
-            self.moving_subtype_combo.blockSignals(False)
             self._moving_subtype = motion_type
             self.linear_params_widget.setVisible(motion_type == "linear")
             self.circular_params_widget.setVisible(motion_type == "circular")
@@ -1384,14 +1375,36 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             self.stimulus_stack_list.addItem(item)
         self.stimulus_stack_list.blockSignals(False)
 
+    def _default_config(self) -> StimulusConfig:
+        """Return a blank default gaussian stimulus at the origin."""
+        return StimulusConfig(
+            name="Stimulus",
+            stimulus_type="gaussian",
+            motion="static",
+            start=(0.0, 0.0),
+            end=(0.0, 0.0),
+            spread=0.3,
+            orientation_deg=0.0,
+            amplitude=1.0,
+            ramp_up_ms=50.0,
+            plateau_ms=200.0,
+            ramp_down_ms=50.0,
+            total_ms=300.0,
+            dt_ms=1.0,
+            speed_mm_s=0.0,
+        )
+
     def _on_stack_add_new(self) -> None:
-        """Append current UI state as a new stimulus in the stack."""
-        config = self._collect_config()
-        self._stimulus_stack.append(config)
+        """Append a blank default gaussian stimulus to the stack and reset UI to it."""
+        default = self._default_config()
+        self._stimulus_stack.append(default)
         self._refresh_stack_list()
         new_index = len(self._stimulus_stack) - 1
         self._active_stack_index = new_index
-        self._committed_config = self._collect_config()
+        self._loading = True  # suppress preview during apply
+        self._apply_config(default)
+        self._loading = False
+        self._committed_config = default
         self.stimulus_stack_list.setCurrentRow(new_index)
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
@@ -1429,6 +1442,10 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         duplicate.name = f"{base.name} Copy"
         self._stimulus_stack.append(duplicate)
         self._refresh_stack_list()
+        new_index = len(self._stimulus_stack) - 1
+        # Selecting the new row triggers _on_stack_selection_changed which
+        # loads the duplicate's config into the UI.
+        self.stimulus_stack_list.setCurrentRow(new_index)
         self._request_preview()
 
     def _on_stack_remove(self) -> None:
@@ -1738,6 +1755,21 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.library_status.setText(f"Saved stimulus to {path}")
         self._refresh_stimulus_library()
         self._select_library_item(path)
+        self._reset_stack()
+
+    def _reset_stack(self) -> None:
+        """Clear the stimulus stack and reset the UI to a blank default state."""
+        self._stimulus_stack.clear()
+        self._active_stack_index = None
+        self._committed_config = None
+        self._refresh_stack_list()
+        self.btn_stack_update.setEnabled(False)
+        self.btn_stack_revert.setEnabled(False)
+        self._loading = True
+        self._apply_config(self._default_config())
+        self._loading = False
+        self._current_stimulus_path = None
+        self.txt_stimulus_name.setText("Stimulus")
 
     def _load_selected_stimulus(self) -> None:
         if self._current_stimulus_path is None:
@@ -2314,7 +2346,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             edge_width=self.spin_edge_width.value(),
             noise_scale=self.spin_noise_scale.value(),
             noise_kernel_size=self.spin_noise_kernel.value(),
-            moving_subtype=self._moving_subtype,
+            moving_subtype=self.cmb_motion_type.currentText().lower() if self.cmb_motion_type.currentText().lower() != "static" else self._moving_subtype,
             num_steps=self.spin_num_steps.value() if self._moving_subtype == "linear" else self.spin_circular_num_steps.value() if self._moving_subtype == "circular" else self.spin_slide_num_steps.value(),
             radius=self.spin_radius.value(),
             start_angle=self.spin_start_angle.value(),
@@ -2381,8 +2413,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._moving_subtype = config.moving_subtype
         tex_map = {"gabor": 0, "edge_grating": 1, "noise": 2}
         self.texture_subtype_combo.setCurrentIndex(tex_map.get(self._texture_subtype, 0))
-        move_map = {"linear": 0, "circular": 1, "slide": 2}
-        self.moving_subtype_combo.setCurrentIndex(move_map.get(self._moving_subtype, 0))
         self.spin_wavelength.setValue(config.wavelength)
         self.spin_phase.setValue(config.phase)
         self.spin_edge_count.setValue(config.edge_count)
