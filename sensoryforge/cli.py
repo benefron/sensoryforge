@@ -19,6 +19,7 @@ import yaml
 import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.config.schema import SensoryForgeConfig
@@ -165,82 +166,122 @@ def validate_config(config: Dict[str, Any]) -> bool:
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Run simulation from YAML config.
-    
+
     Args:
         args: Command-line arguments with config, duration, output, device.
-    
+
     Returns:
         Exit code (0 for success, 1 for error).
     """
     try:
         # Load configuration
         config = load_config_file(args.config)
-        
+
         # Validate
         if not validate_config(config):
             print("Configuration validation failed", file=sys.stderr)
             return 1
-        
-        # Override device if specified
-        if args.device:
-            if 'pipeline' not in config:
-                config['pipeline'] = {}
-            config['pipeline']['device'] = args.device
-        
-        # Create pipeline
-        print(f"Loading pipeline from {args.config}...")
-        pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-        
-        # Run simulation
-        print(f"Running simulation (duration: {args.duration}ms)...")
-        
-        # Generate stimulus based on config or default
+
+        # Detect format
+        is_canonical = (
+            isinstance(config.get("grids"), list) and
+            isinstance(config.get("populations"), list) and
+            "pipeline" not in config
+        )
+
+        # Resolve stimulus type and params once (shared by both paths)
         stimulus_type = 'trapezoidal'
+        stimulus_params: Dict[str, Any] = {}
         if 'stimuli' in config and isinstance(config['stimuli'], list) and config['stimuli']:
-            # Use first stimulus definition
             stimulus_cfg = config['stimuli'][0]
             stimulus_type = stimulus_cfg.get('type', 'trapezoidal')
-        
-        # Build stimulus parameters from CLI args and config
-        # (resolves ReviewFinding#M10)
-        stimulus_params = {}
-        if 'stimuli' in config and isinstance(config['stimuli'], list) and config['stimuli']:
-            stimulus_cfg = config['stimuli'][0]
             stimulus_params = {k: v for k, v in stimulus_cfg.items() if k != 'type'}
-        # For non-trapezoidal types, pass duration from CLI
         if stimulus_type != 'trapezoidal' and args.duration:
             stimulus_params['duration'] = args.duration
-        
-        results = pipeline.forward(
-            stimulus_type=stimulus_type,
-            return_intermediates=True,
-            **stimulus_params,
-        )
-        
-        # Save output if requested
-        if args.output:
-            output_path = Path(args.output)
-            print(f"Saving results to {output_path}...")
-            
-            # Save as PyTorch checkpoint
-            save_dict = {
-                'config': config,
-                'results': {k: v.cpu() if isinstance(v, torch.Tensor) else v 
-                           for k, v in results.items()},
-                'pipeline_info': pipeline.get_pipeline_info()
-            }
-            torch.save(save_dict, output_path)
-            print(f"Results saved successfully")
+
+        print(f"Loading pipeline from {args.config}...")
+
+        if is_canonical:
+            # ---------------------------------------------------------------
+            # Canonical path — SimulationEngine
+            # ---------------------------------------------------------------
+            # Apply device override into the config dict before parsing
+            if args.device:
+                if 'simulation' not in config:
+                    config['simulation'] = {}
+                config['simulation']['device'] = args.device
+
+            sf_config = SensoryForgeConfig.from_dict(config)
+
+            # Stimulus generation: reuse GeneralizedTactileEncodingPipeline for now
+            # (SimulationEngine does not yet have its own stimulus module)
+            pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+            stimulus_tensor, _, _ = pipeline.generate_stimulus(
+                stimulus_type=stimulus_type, **stimulus_params
+            )
+
+            print(f"Running simulation (duration: {args.duration}ms)...")
+            engine = SimulationEngine(sf_config)
+            results = engine.run(stimulus_tensor, return_intermediates=True)
+
+            if args.output:
+                output_path = Path(args.output)
+                print(f"Saving results to {output_path}...")
+                save_dict = {
+                    'config': config,
+                    'results': {
+                        f"{pop_name}__{k}": v.cpu() if isinstance(v, torch.Tensor) else v
+                        for pop_name, pop_results in results.items()
+                        for k, v in pop_results.items()
+                    },
+                    'populations': list(results.keys()),
+                }
+                torch.save(save_dict, output_path)
+                print("Results saved successfully")
+            else:
+                print("\nSimulation completed successfully!")
+                for pop_name, pop_results in results.items():
+                    total = int(pop_results['spikes'].sum().item())
+                    print(f"{pop_name} spikes: {total}")
+
         else:
-            # Print summary
-            print("\nSimulation completed successfully!")
-            print(f"SA spikes: {results['sa_spikes'].sum().item()}")
-            print(f"RA spikes: {results['ra_spikes'].sum().item()}")
-            if 'sa2_spikes' in results:
-                print(f"SA2 spikes: {results['sa2_spikes'].sum().item()}")
-        
+            # ---------------------------------------------------------------
+            # Legacy path — GeneralizedTactileEncodingPipeline (unchanged)
+            # ---------------------------------------------------------------
+            if args.device:
+                if 'pipeline' not in config:
+                    config['pipeline'] = {}
+                config['pipeline']['device'] = args.device
+
+            pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+
+            print(f"Running simulation (duration: {args.duration}ms)...")
+            results = pipeline.forward(
+                stimulus_type=stimulus_type,
+                return_intermediates=True,
+                **stimulus_params,
+            )
+
+            if args.output:
+                output_path = Path(args.output)
+                print(f"Saving results to {output_path}...")
+                save_dict = {
+                    'config': config,
+                    'results': {k: v.cpu() if isinstance(v, torch.Tensor) else v
+                               for k, v in results.items()},
+                    'pipeline_info': pipeline.get_pipeline_info()
+                }
+                torch.save(save_dict, output_path)
+                print("Results saved successfully")
+            else:
+                print("\nSimulation completed successfully!")
+                print(f"SA spikes: {results['sa_spikes'].sum().item()}")
+                print(f"RA spikes: {results['ra_spikes'].sum().item()}")
+                if 'sa2_spikes' in results:
+                    print(f"SA2 spikes: {results['sa2_spikes'].sum().item()}")
+
         return 0
-        
+
     except Exception as e:
         print(f"Error running simulation: {e}", file=sys.stderr)
         import traceback
