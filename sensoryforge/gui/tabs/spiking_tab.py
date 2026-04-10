@@ -140,14 +140,28 @@ class SimulationResult:
 class CollapsibleSection(QtWidgets.QWidget):
     """Simple collapsible container with a header toggle."""
 
+    _QSETTINGS_ORG = "SensoryForge"
+    _QSETTINGS_APP = "GUI"
+
     def __init__(
         self,
         title: str,
         parent: Optional[QtWidgets.QWidget] = None,
         collapsed: bool = True,
+        settings_key: Optional[str] = None,
     ) -> None:
         super().__init__(parent)
         self._title = title
+        self._settings_key = settings_key
+
+        # Restore persisted state if a key was provided, else use collapsed param
+        if settings_key is not None:
+            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            saved = qsettings.value(settings_key)
+            if saved is not None:
+                collapsed = saved not in (True, "true", 1, "1")
+            # else: keep collapsed as-is
+
         self._toggle = QtWidgets.QToolButton()
         self._toggle.setStyleSheet("QToolButton { border: none; }")
         self._toggle.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
@@ -206,6 +220,9 @@ class CollapsibleSection(QtWidgets.QWidget):
             QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow
         )
         self._content.setVisible(expanded)
+        if self._settings_key is not None:
+            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings.setValue(self._settings_key, expanded)
 
 
 class SpikingNeuronTab(QtWidgets.QWidget):
@@ -402,6 +419,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.model_params_section = CollapsibleSection(
             "Model Parameters",
             collapsed=True,
+            settings_key="gui/spiking_tab/model_parameters_expanded",
         )
         self.model_param_layout = QtWidgets.QFormLayout()
         self.model_param_layout.setLabelAlignment(QtCore.Qt.AlignRight)
@@ -414,6 +432,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.dsl_section = CollapsibleSection(
             "DSL Custom Neuron Editor",
             collapsed=False,
+            settings_key="gui/spiking_tab/dsl_custom_neuron_editor_expanded",
         )
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(8)
@@ -563,6 +582,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.filter_params_section = CollapsibleSection(
             "Filter Parameters",
             collapsed=True,
+            settings_key="gui/spiking_tab/filter_parameters_expanded",
         )
         self.filter_param_layout = QtWidgets.QFormLayout()
         self.filter_param_layout.setLabelAlignment(QtCore.Qt.AlignRight)
@@ -571,7 +591,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.control_layout.addWidget(self.filter_params_section)
 
     def _build_neuron_selector(self) -> None:
-        section = CollapsibleSection("Neuron Map", collapsed=True)
+        section = CollapsibleSection("Neuron Map", collapsed=True, settings_key="gui/spiking_tab/neuron_map_expanded")
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(6)
 
@@ -1011,6 +1031,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.adaptive_solver_section = CollapsibleSection(
             "Adaptive Solver Config",
             collapsed=True,
+            settings_key="gui/spiking_tab/adaptive_solver_config_expanded",
         )
         adaptive_layout = QtWidgets.QFormLayout()
         adaptive_layout.setLabelAlignment(QtCore.Qt.AlignRight)
