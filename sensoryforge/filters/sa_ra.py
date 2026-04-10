@@ -16,13 +16,15 @@ steady-state and edge-response handling used by the GUI and tests.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 import torch.nn as nn
 
+from sensoryforge.filters.base import BaseFilter
 
-class SAFilterTorch(nn.Module):
+
+class SAFilterTorch(BaseFilter):
     r"""Slowly adapting filter implementing Parvizi–Fard Equations 6 and 7.
 
     Continuous-time dynamics (currents in mA, time in ms):
@@ -64,18 +66,25 @@ class SAFilterTorch(nn.Module):
                 hyperpolarization in downstream neuron models, especially
                 when the k2 derivative term amplifies noise input.
         """
-        super().__init__()
+        super().__init__(dt=dt)
 
         self.tau_r = tau_r
         self.tau_d = tau_d
         self.k1 = k1
         self.k2 = k2
-        self.dt = dt
         self.clip_to_positive = clip_to_positive
 
         # State variables will be initialized when needed
         self.x = None  # auxiliary variable
         self.I_SA = None  # output current
+
+    def reset_state(self) -> None:
+        """Reset filter state (BaseFilter interface contract).
+
+        Clears internal state tensors so the next forward() call will
+        reinitialise them. Call between independent stimulus sequences.
+        """
+        self.clear_state()
 
     def clear_state(self) -> None:
         """Clear internal state so next forward() reinitialises.
@@ -229,7 +238,7 @@ class SAFilterTorch(nn.Module):
         return self.I_SA.clone()
 
 
-class RAFilterTorch(nn.Module):
+class RAFilterTorch(BaseFilter):
     r"""Rapidly adapting filter implementing Parvizi–Fard Equation 8.
 
     Continuous-time dynamics:
@@ -251,14 +260,21 @@ class RAFilterTorch(nn.Module):
         dt: float = 0.1,
     ) -> None:
         """Initialise with derivative-sensitive parameters."""
-        super().__init__()
+        super().__init__(dt=dt)
 
         self.tau_RA = tau_RA
         self.k3 = k3
-        self.dt = dt
 
         # State variable
         self.I_RA = None  # output current
+
+    def reset_state(self) -> None:
+        """Reset filter state (BaseFilter interface contract).
+
+        Clears internal state tensors so the next forward() call will
+        reinitialise them. Call between independent stimulus sequences.
+        """
+        self.clear_state()
 
     def clear_state(self) -> None:
         """Clear internal state so next forward() reinitialises.
