@@ -745,7 +745,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         """Create neuron models with configuration"""
         neuron_cfg = self.config["neuron_params"]
         neuron_top_cfg = self.config.get("neurons", {})
-        dt = neuron_top_cfg.get("dt", 0.5)
+        dt = neuron_top_cfg.get("dt", 0.1)
 
         # Handle Equation DSL
         if neuron_top_cfg.get("type") == "dsl":
