@@ -449,7 +449,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         seed_row.addWidget(self.spin_global_seed)
         control_layout.addLayout(seed_row)
 
-        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)", start_expanded=False, nested=True)
+        adv_seeds_group = CollapsibleGroupBox("Advanced (separate seeds)", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/adv_seeds_expanded")
         adv_seeds_layout = adv_seeds_group.layout()
         self.spin_grid_seed = QtWidgets.QSpinBox()
         self.spin_grid_seed.setRange(-1, 1000000)
@@ -485,7 +485,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.addWidget(grid_list_group)
 
         # Grid Settings — collapsible
-        grid_settings_group = CollapsibleGroupBox("Grid Settings", start_expanded=True)
+        grid_settings_group = CollapsibleGroupBox("Grid Settings", start_expanded=True, settings_key="gui/mechanoreceptor_tab/grid_settings_expanded")
         grid_layout = grid_settings_group.layout()
 
         # Per-grid editor panel
@@ -532,7 +532,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_spacing.valueChanged.connect(self._on_grid_editor_changed)
         grid_layout.addRow("Spacing (mm):", self.dbl_spacing)
 
-        pos_group = CollapsibleGroupBox("Position (center, offset)", start_expanded=False, nested=True)
+        pos_group = CollapsibleGroupBox("Position (center, offset)", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/position_expanded")
         pos_layout = pos_group.layout()
         self.dbl_center_x = QtWidgets.QDoubleSpinBox()
         self.dbl_center_x.setRange(-50.0, 50.0)
@@ -589,7 +589,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.addWidget(pop_list_group)
 
         # Population Settings — collapsible
-        pop_settings_group = CollapsibleGroupBox("Population Settings", start_expanded=False)
+        pop_settings_group = CollapsibleGroupBox("Population Settings", start_expanded=False, settings_key="gui/mechanoreceptor_tab/pop_settings_expanded")
         pop_layout = pop_settings_group.layout()
         self._pop_layout = pop_layout
         self._block_population_editor = False
@@ -691,7 +691,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             "0 = pure distance weighting; 100 = fully random weights."
         )
         self.dbl_distance_randomness_pct.valueChanged.connect(self._on_population_editor_changed)
-        self._dist_params_group = CollapsibleGroupBox("Distance weighting params", start_expanded=False, nested=True)
+        self._dist_params_group = CollapsibleGroupBox("Distance weighting params", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/dist_params_expanded")
         self._dist_params_group.addRow("Max Distance (mm):", self.dbl_max_distance)
         self._dist_params_group.addRow("Decay Function:", self.cmb_decay_function)
         self._dist_params_group.addRow("Decay Rate:", self.dbl_decay_rate)
@@ -699,14 +699,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow(self._dist_params_group)
         self._dist_params_group.setVisible(False)
 
-        weights_group = CollapsibleGroupBox("Weights", start_expanded=False, nested=True)
+        weights_group = CollapsibleGroupBox("Weights", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/weights_expanded")
         weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
         weights_group.layout().addRow("Weight max:", self.dbl_weight_max)
         pop_layout.addRow(weights_group)
 
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
         pop_layout.addRow("Color:", self.btn_pick_color)
-        adv_group = CollapsibleGroupBox("Advanced", start_expanded=False, nested=True)
+        adv_group = CollapsibleGroupBox("Advanced", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/adv_neurons_expanded")
         self.dbl_far_connection_fraction = QtWidgets.QDoubleSpinBox()
         self.dbl_far_connection_fraction.setDecimals(3)
         self.dbl_far_connection_fraction.setRange(0.0, 1.0)
@@ -773,7 +773,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.addWidget(pop_settings_group)
 
         # Layers visibility — collapsible
-        layers_group = CollapsibleGroupBox("Layers", start_expanded=False)
+        layers_group = CollapsibleGroupBox("Layers", start_expanded=False, settings_key="gui/mechanoreceptor_tab/layers_expanded")
         self.chk_show_mechanoreceptors = QtWidgets.QCheckBox("Show mechanoreceptors")
         self.chk_show_mechanoreceptors.setChecked(True)
         self.chk_show_mechanoreceptors.stateChanged.connect(

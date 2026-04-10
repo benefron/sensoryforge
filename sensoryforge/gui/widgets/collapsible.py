@@ -5,7 +5,7 @@ Extracted from mechanoreceptor_tab.py so it can be shared across all tabs.
 
 from typing import Optional
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 
 class CollapsibleGroupBox(QtWidgets.QWidget):
@@ -13,20 +13,33 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
 
     Provides a collapsible panel with a clickable header that expands or
     collapses the contained content. Supports both flat (main section) and
-    nested (sub-section) visual styles.
+    nested (sub-section) visual styles. When ``settings_key`` is provided,
+    the expanded/collapsed state is persisted via ``QSettings`` so it
+    survives application restarts.
 
     Args:
         title: Text displayed on the toggle button header.
         parent: Optional parent widget.
-        start_expanded: Whether the section starts in the expanded state.
+        start_expanded: Whether the section starts in the expanded state
+            (used only when no saved state exists for ``settings_key``).
         nested: If True, uses a more compact nested style.
+        settings_key: Optional ``QSettings`` key for state persistence
+            (e.g. ``"gui/mechanoreceptor_tab/grid_settings_expanded"``).
+            If None, state is not persisted across sessions.
 
     Example:
-        >>> group = CollapsibleGroupBox("Spatial Parameters", start_expanded=True)
+        >>> group = CollapsibleGroupBox(
+        ...     "Spatial Parameters",
+        ...     start_expanded=True,
+        ...     settings_key="gui/tabs/spatial_params_expanded",
+        ... )
         >>> group.addRow("X (mm):", spin_x)
         >>> group.addRow("Y (mm):", spin_y)
         >>> layout.addWidget(group)
     """
+
+    _QSETTINGS_ORG = "SensoryForge"
+    _QSETTINGS_APP = "GUI"
 
     def __init__(
         self,
@@ -34,11 +47,23 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         parent: Optional[QtWidgets.QWidget] = None,
         start_expanded: bool = False,
         nested: bool = False,
+        settings_key: Optional[str] = None,
     ):
         super().__init__(parent)
         self._title = title
-        self._is_expanded = start_expanded
         self._nested = nested
+        self._settings_key = settings_key
+
+        # Restore persisted state if a key was provided, else use start_expanded
+        if settings_key is not None:
+            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            saved = qsettings.value(settings_key)
+            if saved is not None:
+                self._is_expanded = saved in (True, "true", 1, "1")
+            else:
+                self._is_expanded = start_expanded
+        else:
+            self._is_expanded = start_expanded
 
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 4)
@@ -99,10 +124,13 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         self._toggle_btn.setText(f"{arrow}  {self._title}")
 
     def _on_toggle(self) -> None:
-        """Toggle the collapsed/expanded state."""
+        """Toggle the collapsed/expanded state and persist if key is set."""
         self._is_expanded = not self._is_expanded
         self._content.setVisible(self._is_expanded)
         self._update_button_text()
+        if self._settings_key is not None:
+            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings.setValue(self._settings_key, self._is_expanded)
 
     # ------------------------------------------------------------------
     # Public API
