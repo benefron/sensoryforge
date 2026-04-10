@@ -66,7 +66,23 @@ class MQIFNeuronTorch(nn.Module):
         """
         pass
 
-    def forward(self, input_current):
+    def _dynamics(self, v, u, input_t):
+        """Compute MQIF state derivatives (subthreshold dynamics only).
+
+        Args:
+            v: Membrane voltage tensor [batch, features] in mV.
+            u: Adaptation variable tensor [batch, features].
+            input_t: External current at this time step [batch, features] in mA.
+
+        Returns:
+            Tuple (dv, du) of derivative tensors, each [batch, features].
+        """
+        quad_term = self.a * (v - self.vr) * (v - self.vt)
+        dv = (quad_term - u + input_t) / self.tau_m
+        du = (self.b * (v - self.vr) - u) / self.tau_u
+        return dv, du
+
+    def forward(self, input_current, solver=None):
         batch, steps, features = input_current.shape
         device, dtype = input_current.device, input_current.dtype
         v = torch.full((batch, features), self.v_init, dtype=dtype, device=device)
@@ -85,9 +101,7 @@ class MQIFNeuronTorch(nn.Module):
             v_next = torch.where(fired, torch.full_like(v, self.v_reset), v)
             u_next = torch.where(fired, u + self.d, u)
             not_fired = ~fired
-            quad_term = self.a * (v - self.vr) * (v - self.vt)
-            dv = (quad_term - u + input_current[:, t, :]) / self.tau_m
-            du = (self.b * (v - self.vr) - u) / self.tau_u
+            dv, du = self._dynamics(v, u, input_current[:, t, :])
             # Add Langevin noise to v integration (not during reset)
             if self.noise_std != 0.0:
                 sqrt_dt = math.sqrt(max(self.dt, 1e-6))
