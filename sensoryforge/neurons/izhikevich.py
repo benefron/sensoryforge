@@ -74,6 +74,22 @@ class IzhikevichNeuronTorch(nn.Module):
         """
         pass
 
+    def _dynamics(self, v, u, input_t):
+        """Compute Izhikevich state derivatives (subthreshold dynamics only).
+
+        Args:
+            v: Membrane voltage tensor [batch, features] in mV.
+            u: Recovery variable tensor [batch, features].
+            input_t: External current at this time step [batch, features] in mA.
+
+        Returns:
+            Tuple (dv, du) of derivative tensors, each [batch, features].
+            Uses the current model parameters (a, b) stored on self.
+        """
+        dv = 0.04 * v**2 + 5 * v + 140 - u + input_t
+        du = self.a * (self.b * v - u)
+        return dv, du
+
     def forward(
         self,
         input_current,
@@ -82,6 +98,7 @@ class IzhikevichNeuronTorch(nn.Module):
         c=None,
         d=None,
         threshold=None,
+        solver=None,
     ):
         """
         input_current: torch.Tensor, shape [batch, steps, features]
@@ -173,6 +190,9 @@ class IzhikevichNeuronTorch(nn.Module):
             not_fired = ~fired
             dv = 0.04 * v**2 + 5 * v + 140 - u + input_current[:, t, :]
             du = a_tensor.unsqueeze(0) * (b_tensor.unsqueeze(0) * v - u)
+            # NOTE: _dynamics() uses self.a/self.b; forward() uses per-neuron
+            # tensors for heterogeneous populations (a_tensor, b_tensor).
+            # The two are equivalent when a=self.a, b=self.b (no std).
             # Add Langevin noise when integrating v (not during reset)
             if self.noise_std != 0.0:
                 sqrt_dt = math.sqrt(max(self.dt, 1e-6))
