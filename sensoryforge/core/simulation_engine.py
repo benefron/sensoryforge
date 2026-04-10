@@ -196,6 +196,7 @@ class SimulationEngine:
             )
             
             # Create innervation module
+            innervation_method = pop_cfg.innervation_method or "gaussian"
             if use_flat:
                 innervation_module = FlatInnervationModule(
                     neuron_type=pop_cfg.neuron_type,
@@ -344,7 +345,12 @@ class SimulationEngine:
                 filtered = filter_module(drive)
             else:
                 filtered = drive
-            
+
+            # Apply per-population input gain (scales drive entering the neuron)
+            input_gain = pop["config"].input_gain
+            if input_gain != 1.0:
+                filtered = filtered * input_gain
+
             # Apply neuron model (returns tuple: (v_trace, spikes) or just spikes)
             neuron_output = neuron_model(filtered)
             if isinstance(neuron_output, tuple):
