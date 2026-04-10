@@ -40,6 +40,7 @@ class MQIFNeuronTorch(nn.Module):
         u_init=None,
         dt=0.05,
         noise_std: float = 0.0,
+        v_floor: float = -120.0,
     ):
         super().__init__()
         self.a = a
@@ -56,6 +57,9 @@ class MQIFNeuronTorch(nn.Module):
         self.u_init = 0.0 if u_init is None else u_init
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
+        # Physiological voltage floor (mV). Prevents non-physical hyperpolarization
+        # from large negative drive (e.g., noisy SA filter output). Default: -120 mV.
+        self.v_floor = v_floor
 
     def reset_state(self) -> None:
         """Reset internal state (no-op for stateless MQIF).
@@ -110,6 +114,8 @@ class MQIFNeuronTorch(nn.Module):
             else:
                 v_next = torch.where(not_fired, v + self.dt * dv, v_next)
             u_next = torch.where(not_fired, u + self.dt * du, u_next)
+            if self.v_floor is not None:
+                v_next = v_next.clamp(min=self.v_floor)
             v = v_next
             u = u_next
             v_trace[:, t + 1, :] = v

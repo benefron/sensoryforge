@@ -44,6 +44,7 @@ class IzhikevichNeuronTorch(nn.Module):
         threshold_std=0.0,
         seed=None,
         noise_std: float = 0.0,
+        v_floor: float = -120.0,
     ):
         super().__init__()
         self.a = a
@@ -64,6 +65,11 @@ class IzhikevichNeuronTorch(nn.Module):
         self.seed = seed
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
+        # Physiological voltage floor (mV). Izhikevich dynamics can drive v
+        # far below the reset value c when input current is very negative.
+        # Clamping prevents non-physical hyperpolarization and avoids runaway
+        # in the v^2 quadratic term. Default: -120 mV (generous K+ reversal).
+        self.v_floor = v_floor
 
     def reset_state(self) -> None:
         """Reset internal state (no-op for stateless Izhikevich).
@@ -201,6 +207,12 @@ class IzhikevichNeuronTorch(nn.Module):
             else:
                 v_next = torch.where(not_fired, v + self.dt * dv, v_next)
             u_next = torch.where(not_fired, u + self.dt * du, u_next)
+            # Clamp v to physiological floor to prevent non-physical
+            # hyperpolarization when drive is very negative (e.g., noise
+            # through SA filter). Does not affect spiking neurons since
+            # they are reset to c before this clamp is applied.
+            if self.v_floor is not None:
+                v_next = v_next.clamp(min=self.v_floor)
             v = v_next
             u = u_next
             v_trace[:, t + 1, :] = v

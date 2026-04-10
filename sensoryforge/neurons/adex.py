@@ -43,6 +43,7 @@ class AdExNeuronTorch(nn.Module):
         w_init=None,
         dt=0.05,
         noise_std: float = 0.0,
+        v_floor: float = -130.0,
     ):
         super().__init__()
         self.EL = EL
@@ -60,6 +61,9 @@ class AdExNeuronTorch(nn.Module):
         self.w_init = 0.0 if w_init is None else w_init
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
+        # Physiological voltage floor (mV). Prevents non-physical hyperpolarization
+        # from large negative drive (e.g., noisy SA filter output). Default: -130 mV.
+        self.v_floor = v_floor
 
     def reset_state(self) -> None:
         """Reset internal state (no-op for stateless AdEx).
@@ -115,6 +119,8 @@ class AdExNeuronTorch(nn.Module):
             else:
                 v_next = torch.where(not_fired, v + self.dt * dv, v_next)
             w_next = torch.where(not_fired, w + self.dt * dw, w_next)
+            if self.v_floor is not None:
+                v_next = v_next.clamp(min=self.v_floor)
             v = v_next
             w = w_next
             v_trace[:, t + 1, :] = v
