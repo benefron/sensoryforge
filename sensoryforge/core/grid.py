@@ -63,8 +63,16 @@ def get_grid_spacing(
     Returns:
         Tuple ``(dx, dy)`` with physical spacing along each axis.
     """
-    dx = xx[1, 0] - xx[0, 0]  # x varies along dim-0 (ij indexing)
-    dy = yy[0, 1] - yy[0, 0]  # y varies along dim-1 (ij indexing)
+    # Guard against degenerate grids (n_x==1 or n_y==1): fall back to spacing
+    # derived from the other axis, or return 0.0 if truly a 1×1 grid.
+    if xx.shape[0] > 1:
+        dx = xx[1, 0] - xx[0, 0]  # x varies along dim-0 (ij indexing)
+    else:
+        dx = torch.tensor(0.0, dtype=xx.dtype, device=xx.device)
+    if yy.shape[1] > 1:
+        dy = yy[0, 1] - yy[0, 0]  # y varies along dim-1 (ij indexing)
+    else:
+        dy = torch.tensor(0.0, dtype=yy.dtype, device=yy.device)
     return dx, dy
 
 
