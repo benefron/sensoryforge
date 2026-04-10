@@ -111,7 +111,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         },
         # Phase 3: Processing layers between receptor grid and innervation
         "processing_layers": [],  # list of {type: "identity", ...} dicts
-        "neurons": {"sa_neurons": 10, "ra_neurons": 14, "sa2_neurons": 5, "dt": 0.5},
+        "neurons": {"sa_neurons": 10, "ra_neurons": 14, "sa2_neurons": 5, "dt": 0.1},
         "innervation": {
             "receptors_per_neuron": 28,
             "sa_spread": 0.3,
@@ -209,7 +209,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             "t_plateau": 800,
             "t_pre": 25,
             "t_post": 200,
-            "dt": 0.5,
+            "dt": 0.1,
         },
     }
 
@@ -341,7 +341,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         sim_cfg = canonical.get("simulation", {})
         legacy["pipeline"]["device"] = sim_cfg.get("device", "cpu")
         legacy["pipeline"]["seed"] = canonical.get("metadata", {}).get("seed", 42)
-        legacy["neurons"]["dt"] = sim_cfg.get("dt", 1.0)
+        legacy["neurons"]["dt"] = sim_cfg.get("dt", 0.1)
         
         # Extract grids
         grids = canonical.get("grids", [])
