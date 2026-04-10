@@ -50,7 +50,9 @@ from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY  # noqa: E402
 register_all()
 
 
-DEFAULT_DT_MS = 1.0
+# Safe default for Forward Euler integration of Izhikevich/AdEx/MQIF models.
+# 1.0 ms was the previous default and caused subthreshold oscillations.
+DEFAULT_DT_MS = 0.1
 GAUSSIAN_SIGMA_FRACTION = 0.25
 
 

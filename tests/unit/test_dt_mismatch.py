@@ -42,11 +42,10 @@ def test_gui_default_dt_documented():
         "protocol_backend must export DEFAULT_DT_MS so the GUI dt default "
         "is explicit and trackable"
     )
-    # Document current value — update this assertion if the default changes
-    # intentionally (e.g. after fixing the instability with a smaller default)
-    assert protocol_backend.DEFAULT_DT_MS == 1.0, (
+    # Fixed from 1.0 → 0.1 ms (item 8): 1.0 ms caused Forward Euler instability.
+    assert protocol_backend.DEFAULT_DT_MS == 0.1, (
         f"GUI DEFAULT_DT_MS={protocol_backend.DEFAULT_DT_MS}; "
-        "expected 1.0 (current known value). Update this test if changed."
+        "expected 0.1 ms (safe Euler bound). Update this test if changed intentionally."
     )
 
 

@@ -46,11 +46,16 @@ register_all()
 
 
 MODULE_SCHEMA_VERSION = "1.0.0"
-MIN_TIME_STEP_MS = 0.1
+MIN_TIME_STEP_MS = 0.05
+# Default integration timestep — must be small enough for Forward Euler
+# stability in Izhikevich/AdEx/MQIF models.  1.0 ms causes subthreshold
+# oscillations; 0.1 ms is the safe upper bound for these models.
+DEFAULT_DT_MS = 0.1
 DEFAULT_PARAMS_PATH = os.path.join(HERE, "..", "default_params.json")
 
-# Will update DEFAULT_DT_MS after loading defaults
-DEFAULT_DT_MS = 1.0
+# Threshold above which Forward Euler integration is considered unstable
+# for the neuron models implemented in this project.
+_DT_INSTABILITY_THRESHOLD_MS = 0.5
 
 
 @dataclass
@@ -2070,6 +2075,19 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         dt_ms: float,
         device: torch.device,
     ) -> SimulationResult:
+        # Warn if dt is too large for stable Forward Euler integration.
+        # Izhikevich/AdEx/MQIF models require dt < 0.5 ms to avoid spurious
+        # subthreshold oscillations.  See test_dt_mismatch.py for regression tests.
+        if dt_ms > _DT_INSTABILITY_THRESHOLD_MS:
+            import warnings
+            warnings.warn(
+                f"dt={dt_ms:.2f} ms exceeds the stable range for Forward Euler "
+                f"integration (< {_DT_INSTABILITY_THRESHOLD_MS} ms). "
+                "Neuron models may produce spurious subthreshold spikes. "
+                "Reduce Δt in the Stimulus Designer to 0.1 ms or smaller.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         # Use module or flat_module (Poisson/composite use flat_module)
         module = getattr(population, "module", None) or getattr(
             population, "flat_module", None

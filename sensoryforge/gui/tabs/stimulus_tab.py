@@ -973,8 +973,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_dt = QtWidgets.QDoubleSpinBox()
         self.spin_dt.setDecimals(2)
         self.spin_dt.setRange(MIN_TIME_STEP_MS, 100.0)
-        self.spin_dt.setSingleStep(0.1)
-        self.spin_dt.setValue(1.0)
+        self.spin_dt.setSingleStep(0.05)
+        self.spin_dt.setValue(0.1)  # 0.1 ms: safe upper bound for Euler stability
         self.spin_dt.setSuffix(" ms")
 
         self.lbl_time_steps = QtWidgets.QLabel("-- frames")
