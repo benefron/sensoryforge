@@ -501,14 +501,28 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.spin_grid_rows = QtWidgets.QSpinBox()
         self.spin_grid_rows.setRange(4, 256)
         self.spin_grid_rows.setValue(40)
-        self.spin_grid_rows.valueChanged.connect(self._on_grid_editor_changed)
+        self.spin_grid_rows.valueChanged.connect(self._on_grid_rows_changed)
         grid_layout.addRow("Rows:", self.spin_grid_rows)
+
+        # Square-grid toggle: when checked, cols mirrors rows automatically.
+        # Unchecking exposes the cols spinbox for independent control.
+        self.chk_square_grid = QtWidgets.QCheckBox("Square (cols = rows)")
+        self.chk_square_grid.setChecked(True)
+        self.chk_square_grid.setToolTip(
+            "Keep columns equal to rows. Uncheck to set a non-square grid."
+        )
+        self.chk_square_grid.toggled.connect(self._on_square_grid_toggled)
+        grid_layout.addRow("", self.chk_square_grid)
 
         self.spin_grid_cols = QtWidgets.QSpinBox()
         self.spin_grid_cols.setRange(4, 256)
         self.spin_grid_cols.setValue(40)
         self.spin_grid_cols.valueChanged.connect(self._on_grid_editor_changed)
-        grid_layout.addRow("Cols:", self.spin_grid_cols)
+        self._cols_row_label = QtWidgets.QLabel("Cols:")
+        grid_layout.addRow(self._cols_row_label, self.spin_grid_cols)
+        # Hide cols by default (square mode)
+        self.spin_grid_cols.setVisible(False)
+        self._cols_row_label.setVisible(False)
 
         self.dbl_spacing = QtWidgets.QDoubleSpinBox()
         self.dbl_spacing.setDecimals(4)
@@ -912,9 +926,32 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_offset_x.setValue(entry.offset_x)
         self.dbl_offset_y.setValue(entry.offset_y)
         self._update_grid_color_button(entry.color)
+        # Set square toggle based on whether rows == cols
+        is_square = entry.rows == entry.cols
+        self.chk_square_grid.setChecked(is_square)
+        self.spin_grid_cols.setVisible(not is_square)
+        self._cols_row_label.setVisible(not is_square)
         self._block_grid_editor = False
         self._update_grid_editor_visibility(entry.arrangement)
         self._highlight_grid_in_plot(entry)
+
+    def _on_grid_rows_changed(self, value: int) -> None:
+        """When rows change in square mode, mirror to cols before syncing entry."""
+        if getattr(self, "chk_square_grid", None) and self.chk_square_grid.isChecked():
+            self.spin_grid_cols.blockSignals(True)
+            self.spin_grid_cols.setValue(value)
+            self.spin_grid_cols.blockSignals(False)
+        self._on_grid_editor_changed()
+
+    def _on_square_grid_toggled(self, checked: bool) -> None:
+        """Show/hide the cols spinbox and sync cols=rows when switching to square mode."""
+        self.spin_grid_cols.setVisible(not checked)
+        self._cols_row_label.setVisible(not checked)
+        if checked:
+            self.spin_grid_cols.blockSignals(True)
+            self.spin_grid_cols.setValue(self.spin_grid_rows.value())
+            self.spin_grid_cols.blockSignals(False)
+            self._on_grid_editor_changed()
 
     def _on_grid_editor_changed(self, *_args: object) -> None:
         """Sync editor widgets back to the selected GridEntry."""
@@ -1585,14 +1622,25 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             if target_text != "(all receptors)":
                 target_grid = target_text
 
+        # Default neuron count adapts to the current grid size.
+        # Heuristic: grid_rows // 4, clamped to [4, 32].
+        # For a 40×40 grid this gives 10 (same as the old hardcoded value).
+        default_neurons = 10
+        if self.grid_manager is not None:
+            try:
+                grid_rows, _ = self.grid_manager.grid_size
+                default_neurons = max(4, min(32, int(grid_rows) // 4))
+            except Exception:
+                pass
+
         population = NeuronPopulation(
             name=name,
             neuron_type="SA",
             color=QtGui.QColor(color),
-            neurons_per_row=10,
+            neurons_per_row=default_neurons,
             connections_per_neuron=28.0,
-            neuron_rows=10,
-            neuron_cols=10,
+            neuron_rows=default_neurons,
+            neuron_cols=default_neurons,
             neuron_arrangement="grid",
             sigma_d_mm=0.3,
             weight_min=0.1,
