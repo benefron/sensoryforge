@@ -60,7 +60,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         self.mechanoreceptor_tab = MechanoreceptorTab()
         tabs.addTab(
             self.mechanoreceptor_tab,
-            "Mechanoreceptors & Innervation",
+            "Grid & Innervation",
         )
 
         self.stimulus_tab = StimulusDesignerTab(self.mechanoreceptor_tab)
