@@ -48,6 +48,7 @@ class SAFilterTorch(nn.Module):
         k1: float = 0.05,
         k2: float = 3.0,
         dt: float = 0.1,
+        clip_to_positive: bool = True,
     ) -> None:
         """Initialise the SA filter with biophysical parameters.
 
@@ -57,6 +58,11 @@ class SAFilterTorch(nn.Module):
             k1: Gain applied to the input current inside equation 7.
             k2: Gain applied to the derivative term in equation 7.
             dt: Integration step size in milliseconds.
+            clip_to_positive: If True (default), clamp the output I_SA to
+                [0, ∞). SA mechanoreceptors have zero minimum firing rate —
+                negative output is non-physiological and causes extreme
+                hyperpolarization in downstream neuron models, especially
+                when the k2 derivative term amplifies noise input.
         """
         super().__init__()
 
@@ -65,6 +71,7 @@ class SAFilterTorch(nn.Module):
         self.k1 = k1
         self.k2 = k2
         self.dt = dt
+        self.clip_to_positive = clip_to_positive
 
         # State variables will be initialized when needed
         self.x = None  # auxiliary variable
@@ -137,6 +144,12 @@ class SAFilterTorch(nn.Module):
         # Equation 6: τ_d * dI_SA/dt = x - I_SA
         dI_SA_dt = (self.x - self.I_SA) / self.tau_d
         self.I_SA = self.I_SA + dI_SA_dt * self.dt
+
+        # SA mechanoreceptors cannot have negative firing rates.
+        # The k2·dI/dt derivative term can produce large negative output for
+        # rapidly decreasing or noisy inputs — this is non-physiological.
+        if self.clip_to_positive:
+            self.I_SA = self.I_SA.clamp(min=0.0)
 
         return self.I_SA.clone()
 
