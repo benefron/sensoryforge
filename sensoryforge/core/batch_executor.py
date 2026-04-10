@@ -42,6 +42,8 @@ import torch
 import numpy as np
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.core.simulation_engine import SimulationEngine
+from sensoryforge.config.schema import SensoryForgeConfig
 
 
 class BatchExecutor:
@@ -84,10 +86,26 @@ class BatchExecutor:
         if not self.batch_config:
             raise ValueError("Configuration must include 'batch' section")
         
-        # Initialize pipeline with base configuration
+        # Detect config format and initialise the appropriate engine
+        self._is_canonical = (
+            isinstance(self.base_config.get("grids"), list) and
+            isinstance(self.base_config.get("populations"), list) and
+            "pipeline" not in self.base_config
+        )
+
+        # Always create the legacy pipeline — it is reused for stimulus generation
+        # on canonical configs (SimulationEngine has no built-in stimulus module yet)
         self.pipeline = GeneralizedTactileEncodingPipeline.from_config(
             self.base_config
         )
+
+        # For canonical configs, also create a SimulationEngine for the actual run
+        if self._is_canonical:
+            self._sf_config = SensoryForgeConfig.from_dict(self.base_config)
+            self.engine: Optional[SimulationEngine] = SimulationEngine(self._sf_config)
+        else:
+            self._sf_config = None
+            self.engine = None
         
         # Setup output directory
         output_dir = self.batch_config.get('output_dir', './batch_results')
@@ -384,14 +402,44 @@ class BatchExecutor:
         seed = stim_config['seed']
         torch.manual_seed(seed)
         np.random.seed(seed)
-        
-        # Execute through pipeline
-        results = self.pipeline.forward(
-            stimulus_type=stim_config['type'],
-            return_intermediates=save_intermediates,
-            **stimulus_params
-        )
-        
+
+        if self._is_canonical:
+            # Canonical path: generate stimulus tensor via pipeline, run via engine
+            stimulus_tensor, _, _ = self.pipeline.generate_stimulus(
+                stimulus_type=stim_config['type'], **stimulus_params
+            )
+            # Resize stimulus to engine's grid if shapes differ (the legacy
+            # pipeline may create a different spatial resolution than the
+            # canonical config's rows/cols due to _canonical_to_legacy_config)
+            grid_cfg = self._sf_config.grids[0]
+            target_h = grid_cfg.rows or 40
+            target_w = grid_cfg.cols or 40
+            if stimulus_tensor.shape[-2] != target_h or stimulus_tensor.shape[-1] != target_w:
+                import torch.nn.functional as F
+                b, t, h, w = stimulus_tensor.shape
+                stim_2d = stimulus_tensor.view(b * t, 1, h, w)
+                stim_2d = F.interpolate(
+                    stim_2d, size=(target_h, target_w),
+                    mode='bilinear', align_corners=False
+                )
+                stimulus_tensor = stim_2d.view(b, t, target_h, target_w)
+
+            engine_results = self.engine.run(
+                stimulus_tensor, return_intermediates=save_intermediates
+            )
+            # Flatten {pop_name: {spikes, drive, ...}} → {pop_name__spikes, ...}
+            results: Dict[str, Any] = {}
+            for pop_name, pop_data in engine_results.items():
+                for key, value in pop_data.items():
+                    results[f"{pop_name}__{key}"] = value
+        else:
+            # Legacy path: unchanged
+            results = self.pipeline.forward(
+                stimulus_type=stim_config['type'],
+                return_intermediates=save_intermediates,
+                **stimulus_params
+            )
+
         return results
     
     def _save_checkpoint(
@@ -443,6 +491,11 @@ class BatchExecutor:
             output_path: Path to output .pt file
         """
         # Consolidate results
+        pipeline_info = (
+            {'populations': [p['name'] for p in self.base_config.get('populations', [])]}
+            if self._is_canonical
+            else self.pipeline.get_pipeline_info()
+        )
         consolidated = {
             'metadata': {
                 'batch_id': self.batch_id,
@@ -451,7 +504,7 @@ class BatchExecutor:
                 'timestamp': datetime.now().isoformat(),
             },
             'results': results,
-            'pipeline_info': self.pipeline.get_pipeline_info(),
+            'pipeline_info': pipeline_info,
         }
         
         # Move tensors to CPU before saving
@@ -493,8 +546,15 @@ class BatchExecutor:
             
             # Save grid information
             grid_grp = f.create_group('grid')
-            pipeline_info = self.pipeline.get_pipeline_info()
-            for key, value in pipeline_info['grid_properties'].items():
+            if self._is_canonical:
+                grid_props = {
+                    g['name']: {k: v for k, v in g.items() if k != 'name'}
+                    for g in self.base_config.get('grids', [])
+                }
+                pipeline_info_for_grid: Dict[str, Any] = {'grid_properties': grid_props}
+            else:
+                pipeline_info_for_grid = self.pipeline.get_pipeline_info()
+            for key, value in pipeline_info_for_grid['grid_properties'].items():
                 if isinstance(value, (int, float, str)):
                     grid_grp.attrs[key] = value
                 elif isinstance(value, (list, tuple)):
@@ -517,32 +577,13 @@ class BatchExecutor:
                 # Save responses
                 resp_subgrp = responses_grp.create_group(stim_id)
                 
-                # Save spike data
-                for key in ['sa_spikes', 'ra_spikes', 'sa2_spikes']:
-                    if key in result:
-                        tensor = result[key]
-                        if isinstance(tensor, torch.Tensor):
-                            data = tensor.cpu().numpy()
-                        else:
-                            data = np.array(tensor)
-                        
-                        resp_subgrp.create_dataset(
-                            key,
-                            data=data,
-                            compression='gzip',
-                            compression_opts=4
-                        )
-                
-                # Save intermediate results if present
-                for key in ['sa_currents', 'ra_currents', 'sa_voltages', 
-                           'ra_voltages', 'stimulus']:
-                    if key in result:
-                        tensor = result[key]
-                        if isinstance(tensor, torch.Tensor):
-                            data = tensor.cpu().numpy()
-                        else:
-                            data = np.array(tensor)
-                        
+                # Save all tensor values (works for both legacy flat keys and
+                # canonical pop_name__key keys)
+                for key, value in result.items():
+                    if key in ('stimulus_config', 'stimulus_index'):
+                        continue
+                    if isinstance(value, (torch.Tensor, np.ndarray)):
+                        data = value.cpu().numpy() if isinstance(value, torch.Tensor) else value
                         resp_subgrp.create_dataset(
                             key,
                             data=data,
@@ -558,12 +599,17 @@ class BatchExecutor:
         """
         metadata_file = output_dir / 'batch_metadata.json'
         
+        pipeline_info = (
+            {'populations': [p['name'] for p in self.base_config.get('populations', [])]}
+            if self._is_canonical
+            else self.pipeline.get_pipeline_info()
+        )
         metadata = {
             'batch_id': self.batch_id,
             'config': self.config,
             'num_stimuli': len(self.stimulus_configs),
             'timestamp': datetime.now().isoformat(),
-            'pipeline_info': self.pipeline.get_pipeline_info(),
+            'pipeline_info': pipeline_info,
         }
         
         with open(metadata_file, 'w') as f:
