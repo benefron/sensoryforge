@@ -70,7 +70,23 @@ class AdExNeuronTorch(nn.Module):
         """
         pass
 
-    def forward(self, input_current):
+    def _dynamics(self, v, w, input_t):
+        """Compute AdEx state derivatives (subthreshold dynamics only).
+
+        Args:
+            v: Membrane voltage tensor [batch, features] in mV.
+            w: Adaptation current tensor [batch, features].
+            input_t: External current at this time step [batch, features] in mA.
+
+        Returns:
+            Tuple (dv, dw) of derivative tensors, each [batch, features].
+        """
+        exp_term = self.DeltaT * torch.exp((v - self.VT) / self.DeltaT)
+        dv = (-(v - self.EL) + exp_term - w + self.R * input_t) / self.tau_m
+        dw = (self.a * (v - self.EL) - w) / self.tau_w
+        return dv, dw
+
+    def forward(self, input_current, solver=None):
         batch, steps, features = input_current.shape
         device, dtype = input_current.device, input_current.dtype
         v = torch.full((batch, features), self.v_init, dtype=dtype, device=device)
@@ -89,10 +105,7 @@ class AdExNeuronTorch(nn.Module):
             v_next = torch.where(fired, torch.full_like(v, self.v_reset), v)
             w_next = torch.where(fired, w + self.b, w)
             not_fired = ~fired
-            exp_term = self.DeltaT * torch.exp((v - self.VT) / self.DeltaT)
-            dv_input = self.R * input_current[:, t, :]
-            dv = (-(v - self.EL) + exp_term - w + dv_input) / self.tau_m
-            dw = (self.a * (v - self.EL) - w) / self.tau_w
+            dv, dw = self._dynamics(v, w, input_current[:, t, :])
             # Add Langevin noise to v integration (not during reset)
             if self.noise_std != 0.0:
                 # scale by sqrt(dt) for discrete-time white noise
