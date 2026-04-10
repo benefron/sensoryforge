@@ -1701,8 +1701,11 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _on_config_dir_changed(self, directory: Optional[Path]) -> None:
         self._current_project_dir = directory
         if directory is None:
+            # Stimulus generation works in-memory without a project directory.
+            # Only saving to the library requires a project to be saved first.
             self.library_status.setText(
-                "No project loaded. Save a configuration first."
+                "No project folder — stimuli cannot be saved to library yet. "
+                "Stimulus generation and simulation work without saving."
             )
             self._library_dir = None
             self.stimulus_list.clear()
@@ -1752,8 +1755,10 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         if self._library_dir is None:
             QtWidgets.QMessageBox.warning(
                 self,
-                "Project required",
-                "Save a mechanoreceptor configuration before storing stimuli.",
+                "Project folder required",
+                "Save the configuration to a project folder first "
+                "(File → Save Configuration), then stimuli can be stored.\n\n"
+                "Tip: You can still run simulations with the current in-memory stimulus.",
             )
             return
         if self._current_stimulus_path is None:
@@ -1765,8 +1770,9 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         if self._library_dir is None:
             QtWidgets.QMessageBox.warning(
                 self,
-                "Project required",
-                "Save a mechanoreceptor configuration before storing stimuli.",
+                "Project folder required",
+                "Save the configuration to a project folder first "
+                "(File → Save Configuration), then stimuli can be stored.",
             )
             return
 
