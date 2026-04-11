@@ -340,37 +340,87 @@ class SimulationEngine:
             
             drive = innervation(receptor_input)
             
-            # Apply filter
-            if filter_module is not None:
-                filtered = filter_module(drive)
-            else:
-                filtered = drive
-
-            # Apply per-population input gain (scales drive entering the neuron)
-            input_gain = pop["config"].input_gain
-            if input_gain != 1.0:
-                filtered = filtered * input_gain
-
-            # Apply neuron model (returns tuple: (v_trace, spikes) or just spikes)
-            neuron_output = neuron_model(filtered)
-            if isinstance(neuron_output, tuple):
-                v_trace, spikes = neuron_output
-            else:
-                spikes = neuron_output
-                v_trace = None
-            
-            # Store results
-            pop_results = {"spikes": spikes}
-            if return_intermediates:
-                pop_results.update({
-                    "drive": drive,
-                    "filtered": filtered,
-                })
-                if v_trace is not None:
-                    pop_results["voltages"] = v_trace
+            pop_results = self._run_pop_from_drive(
+                drive=drive,
+                filter_module=filter_module,
+                neuron_model=neuron_model,
+                input_gain=pop["config"].input_gain,
+                noise_std=pop["config"].noise_std,
+                return_intermediates=return_intermediates,
+            )
             results[pop_name] = pop_results
-        
+
         return results
+
+    @staticmethod
+    def _run_pop_from_drive(
+        drive: "torch.Tensor",
+        filter_module: Optional[Any],
+        neuron_model: Any,
+        input_gain: float = 1.0,
+        noise_std: float = 0.0,
+        return_intermediates: bool = False,
+    ) -> Dict[str, Any]:
+        """Run filter → gain → noise → neuron on a pre-computed drive tensor.
+
+        This is the shared backend kernel used by :meth:`run` and by the GUI
+        simulation tab (C3-Step4 adapter). Callers that already have a drive
+        tensor (from their own innervation module) can call this directly to
+        obtain the same filter/gain/noise/neuron behaviour as the engine,
+        without re-building innervation.
+
+        Args:
+            drive: Innervation output ``[batch, time, num_neurons]`` in mA.
+            filter_module: Instantiated :class:`~sensoryforge.filters.base.BaseFilter`
+                or ``None`` for no filtering.
+            neuron_model: Instantiated neuron model with ``forward()`` returning
+                ``(v_trace, spikes)`` or just ``spikes``.
+            input_gain: Multiplicative gain applied to the filtered drive before
+                the neuron model.  Default ``1.0`` (no scaling).
+            noise_std: Standard deviation of Gaussian noise added after gain.
+                Default ``0.0`` (no noise).
+            return_intermediates: If ``True``, include ``"drive"``, ``"filtered"``,
+                and ``"voltages"`` in the returned dict.
+
+        Returns:
+            Dictionary with at minimum ``"spikes"`` and, if
+            *return_intermediates* is ``True``, also ``"drive"``,
+            ``"filtered"``, and optionally ``"voltages"``.
+        """
+        import torch as _torch  # local import to keep signature clean
+
+        # Apply filter (resets state on each call via BaseFilter contract)
+        if filter_module is not None:
+            filtered = filter_module(drive)
+        else:
+            filtered = drive
+
+        # Apply per-population input gain
+        if input_gain != 1.0:
+            filtered = filtered * input_gain
+
+        # Additive Gaussian noise
+        if noise_std > 0.0:
+            filtered = filtered + _torch.randn_like(filtered) * noise_std
+
+        filtered = filtered.float()
+
+        # Apply neuron model
+        neuron_output = neuron_model(filtered)
+        if isinstance(neuron_output, tuple):
+            v_trace, spikes = neuron_output
+        else:
+            spikes = neuron_output
+            v_trace = None
+
+        pop_results: Dict[str, Any] = {"spikes": spikes}
+        if return_intermediates:
+            pop_results["drive"] = drive
+            pop_results["filtered"] = filtered
+            if v_trace is not None:
+                pop_results["voltages"] = v_trace
+
+        return pop_results
     
     def _stimulus_to_receptors(
         self,
