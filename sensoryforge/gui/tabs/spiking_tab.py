@@ -2128,36 +2128,54 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             stimuli = frames
         else:
             raise RuntimeError("Unexpected stimulus dimensions.")
+
+        # ── Innervation (GUI-managed, reuses existing weights) ──────────
         neuron_drive = module(stimuli)
         if neuron_drive.ndim == 2:
             neuron_drive = neuron_drive.unsqueeze(1)
         raw_drive_np = neuron_drive.detach().cpu().numpy()[0]  # [T, N] before filter
-        filtered = self._apply_filter(
-            neuron_drive, population.neuron_type, config, dt_ms, device
+
+        # ── Backend kernel: filter → gain → noise → neuron ──────────────
+        # Shared with SimulationEngine._run_pop_from_drive() (C3-Step4)
+        from sensoryforge.core.simulation_engine import SimulationEngine as _Engine
+        filter_module = self._build_filter_module(
+            config, population.neuron_type, dt_ms, device
         )
-        drive = filtered * config.input_gain
-        if config.noise_std > 0.0:
-            drive = drive + torch.randn_like(drive) * config.noise_std
-        drive = drive.float()
         neuron_model = self._create_neuron_model(config, dt_ms, device)
-        v_trace, spikes = neuron_model(drive)
+        backend = _Engine._run_pop_from_drive(
+            drive=neuron_drive,
+            filter_module=filter_module,
+            neuron_model=neuron_model,
+            input_gain=config.input_gain,
+            noise_std=config.noise_std,
+            return_intermediates=True,
+        )
+
+        drive = backend["filtered"]     # gain + noise applied
+        spikes = backend["spikes"]
+        v_trace = backend.get("voltages")
+
+        # ── Align time axes ─────────────────────────────────────────────
         drive_np = drive.detach().cpu().numpy()[0]
         steps = drive_np.shape[0]
-        v_np = v_trace.detach().cpu().numpy()[0]
-        if v_np.shape[0] > steps:
-            v_np = v_np[:steps]
-        elif v_np.shape[0] < steps:
-            steps = v_np.shape[0]
-            drive_np = drive_np[:steps]
         spikes_np = spikes.detach().cpu().numpy()[0]
         if spikes_np.shape[0] > steps:
             spikes_np = spikes_np[:steps]
         elif spikes_np.shape[0] < steps:
             steps = spikes_np.shape[0]
-            v_np = v_np[:steps]
             drive_np = drive_np[:steps]
-        time_ms = np.arange(steps, dtype=float) * dt_ms
+        if v_trace is not None:
+            v_np = v_trace.detach().cpu().numpy()[0]
+            if v_np.shape[0] > steps:
+                v_np = v_np[:steps]
+            elif v_np.shape[0] < steps:
+                steps = v_np.shape[0]
+                drive_np = drive_np[:steps]
+                spikes_np = spikes_np[:steps]
+        else:
+            v_np = np.zeros((steps, drive_np.shape[1] if drive_np.ndim > 1 else 1))
         raw_drive_np = raw_drive_np[:steps] if raw_drive_np.shape[0] > steps else raw_drive_np
+        time_ms = np.arange(steps, dtype=float) * dt_ms
         return SimulationResult(
             population_name=config.name,
             dt_ms=dt_ms,
@@ -2167,6 +2185,46 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             drive=drive_np,
             raw_drive=raw_drive_np,
         )
+
+    def _build_filter_module(
+        self,
+        config: PopulationConfig,
+        neuron_type: str,
+        dt_ms: float,
+        device: torch.device,
+    ):
+        """Return an instantiated filter module for *config*, or ``None``.
+
+        Mirrors the creation logic in :meth:`_apply_filter` but does **not**
+        apply the filter — the returned module is passed to
+        :meth:`SimulationEngine._run_pop_from_drive` which applies it.
+
+        Returns:
+            A :class:`~sensoryforge.filters.base.BaseFilter` instance moved to
+            *device*, or ``None`` when ``filter_method`` is ``"none"``.
+        """
+        method = normalize_filter_method(config.filter_method, neuron_type)
+        if method == "none":
+            return None
+        filter_params = self._gather_filter_parameters(config)
+        try:
+            filter_cls = FILTER_REGISTRY.get_class(method)
+            filter_kwargs = dict(filter_params)
+            filter_kwargs = self._filter_kwargs(filter_cls, filter_kwargs)
+            filter_kwargs["dt"] = dt_ms
+            return filter_cls(**filter_kwargs).to(device)
+        except KeyError:
+            if method == "sa":
+                sa_kwargs = dict(filter_params)
+                sa_kwargs = self._filter_kwargs(SAFilterTorch, sa_kwargs)
+                sa_kwargs["dt"] = dt_ms
+                return SAFilterTorch(**sa_kwargs).to(device)
+            elif method == "ra":
+                ra_kwargs = dict(filter_params)
+                ra_kwargs = self._filter_kwargs(RAFilterTorch, ra_kwargs)
+                ra_kwargs["dt"] = dt_ms
+                return RAFilterTorch(**ra_kwargs).to(device)
+        return None
 
     def _apply_filter(
         self,
