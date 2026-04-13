@@ -8,10 +8,65 @@ the framework (resolves ReviewFinding#H1).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
+
+
+# ---------------------------------------------------------------------------
+# Parameter spec dataclass
+# ---------------------------------------------------------------------------
+
+class ParamSpec:
+    """Descriptor for a single stimulus parameter, used for UI auto-generation.
+
+    Attributes:
+        name: Python attribute name.
+        label: Human-readable label for display.
+        dtype: ``"float"``, ``"int"``, or ``"bool"``.
+        default: Default value.
+        min_val: Minimum allowed value (float/int; ignored for bool).
+        max_val: Maximum allowed value (float/int; ignored for bool).
+        step: Suggested spin-box step (None → auto).
+        unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string = dimensionless.
+        tooltip: Optional help text shown as a tooltip in the UI.
+    """
+
+    __slots__ = ("name", "label", "dtype", "default", "min_val", "max_val",
+                 "step", "unit", "tooltip")
+
+    def __init__(
+        self,
+        name: str,
+        label: str = "",
+        dtype: str = "float",
+        default: Any = 0.0,
+        min_val: Optional[float] = None,
+        max_val: Optional[float] = None,
+        step: Optional[float] = None,
+        unit: str = "",
+        tooltip: str = "",
+    ) -> None:
+        self.name = name
+        self.label = label or name.replace("_", " ").title()
+        self.dtype = dtype
+        self.default = default
+        self.min_val = min_val
+        self.max_val = max_val
+        self.step = step
+        self.unit = unit
+        self.tooltip = tooltip
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise to a plain dictionary."""
+        return {k: getattr(self, k) for k in self.__slots__}
+
+    def __repr__(self) -> str:
+        return (
+            f"ParamSpec(name={self.name!r}, dtype={self.dtype!r}, "
+            f"default={self.default!r}, unit={self.unit!r})"
+        )
 
 
 class BaseStimulus(nn.Module, ABC):
@@ -90,3 +145,28 @@ class BaseStimulus(nn.Module, ABC):
             Dictionary suitable for YAML/JSON serialisation.
         """
         return {}
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation.
+
+        Override in subclasses to expose stimulus parameters as
+        :class:`ParamSpec` descriptors.  The GUI uses these to build
+        parameter forms dynamically.
+
+        Returns:
+            Ordered list of :class:`ParamSpec` instances describing
+            every user-configurable parameter.  Empty list by default.
+
+        Example::
+
+            @classmethod
+            def get_param_spec(cls):
+                return [
+                    ParamSpec("amplitude", dtype="float", default=1.0,
+                              min_val=0.0, max_val=100.0, unit="mA"),
+                    ParamSpec("sigma", dtype="float", default=0.5,
+                              min_val=0.01, max_val=20.0, unit="mm"),
+                ]
+        """
+        return []

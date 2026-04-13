@@ -15,7 +15,10 @@ Example:
 
 from __future__ import annotations
 
+from typing import List
+
 import torch
+from sensoryforge.stimuli.base import ParamSpec
 
 
 def gaussian_stimulus(
@@ -221,6 +224,24 @@ class GaussianStimulus(torch.nn.Module):
             sigma=float(self.sigma),
             device=xx.device,
         )
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation."""
+        return [
+            ParamSpec("center_x", label="Center X", dtype="float", default=0.0,
+                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm",
+                      tooltip="X position of Gaussian peak"),
+            ParamSpec("center_y", label="Center Y", dtype="float", default=0.0,
+                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm",
+                      tooltip="Y position of Gaussian peak"),
+            ParamSpec("amplitude", label="Amplitude", dtype="float", default=1.0,
+                      min_val=0.0, max_val=500.0, step=0.5, unit="mA",
+                      tooltip="Peak current amplitude"),
+            ParamSpec("sigma", label="Sigma", dtype="float", default=0.2,
+                      min_val=0.01, max_val=20.0, step=0.05, unit="mm",
+                      tooltip="Gaussian width (standard deviation)"),
+        ]
 
 
 def batched_gaussian_stimulus(

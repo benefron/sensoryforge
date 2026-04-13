@@ -15,8 +15,11 @@ Example:
 from __future__ import annotations
 
 import math
+from typing import List
+
 import torch
 import torch.nn.functional as F
+from sensoryforge.stimuli.base import ParamSpec
 
 
 def gabor_texture(
@@ -324,6 +327,26 @@ class GaborTexture(torch.nn.Module):
             device=xx.device,
         )
 
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation."""
+        return [
+            ParamSpec("center_x", label="Center X", dtype="float", default=0.0,
+                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm"),
+            ParamSpec("center_y", label="Center Y", dtype="float", default=0.0,
+                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm"),
+            ParamSpec("amplitude", label="Amplitude", dtype="float", default=1.0,
+                      min_val=0.0, max_val=500.0, step=0.5, unit="mA"),
+            ParamSpec("sigma", label="Sigma (envelope)", dtype="float", default=0.3,
+                      min_val=0.01, max_val=20.0, step=0.05, unit="mm"),
+            ParamSpec("wavelength", label="Wavelength", dtype="float", default=0.5,
+                      min_val=0.01, max_val=10.0, step=0.05, unit="mm"),
+            ParamSpec("orientation", label="Orientation", dtype="float", default=0.0,
+                      min_val=0.0, max_val=6.2832, step=0.05, unit="rad"),
+            ParamSpec("phase", label="Phase", dtype="float", default=0.0,
+                      min_val=0.0, max_val=6.2832, step=0.05, unit="rad"),
+        ]
+
 
 class EdgeGrating(torch.nn.Module):
     """PyTorch module for generating edge grating stimuli.
@@ -408,6 +431,22 @@ class EdgeGrating(torch.nn.Module):
             normalize=self.normalize,
             device=xx.device,
         )
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation."""
+        return [
+            ParamSpec("orientation", label="Orientation", dtype="float", default=0.0,
+                      min_val=0.0, max_val=6.2832, step=0.05, unit="rad"),
+            ParamSpec("spacing", label="Spacing", dtype="float", default=0.6,
+                      min_val=0.01, max_val=20.0, step=0.05, unit="mm"),
+            ParamSpec("count", label="Edge Count", dtype="int", default=5,
+                      min_val=1, max_val=100, step=1, unit=""),
+            ParamSpec("edge_width", label="Edge Width", dtype="float", default=0.05,
+                      min_val=0.001, max_val=5.0, step=0.005, unit="mm"),
+            ParamSpec("amplitude", label="Amplitude", dtype="float", default=1.0,
+                      min_val=0.0, max_val=500.0, step=0.5, unit="mA"),
+        ]
 
 
 __all__ = [

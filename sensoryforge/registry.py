@@ -151,13 +151,13 @@ class ComponentRegistry:
     
     def get_class(self, name: str) -> Type:
         """Get the registered class for a component name.
-        
+
         Args:
             name: Registered component name.
-        
+
         Returns:
             Component class.
-        
+
         Raises:
             KeyError: If name is not registered.
         """
@@ -169,6 +169,29 @@ class ComponentRegistry:
             )
         cls, _ = self._registry[name]
         return cls
+
+    def get_param_spec(self, name: str) -> list:
+        """Return the ``get_param_spec()`` list for a registered component.
+
+        Calls ``cls.get_param_spec()`` on the registered class.  If the class
+        does not implement ``get_param_spec`` the method returns an empty list
+        rather than raising.
+
+        Args:
+            name: Registered component name.
+
+        Returns:
+            List of :class:`~sensoryforge.stimuli.base.ParamSpec` instances,
+            or an empty list if the class does not expose one.
+
+        Raises:
+            KeyError: If ``name`` is not registered.
+        """
+        cls = self.get_class(name)
+        spec_fn = getattr(cls, "get_param_spec", None)
+        if spec_fn is None or not callable(spec_fn):
+            return []
+        return spec_fn()
 
 
 # Global registries for each component type
