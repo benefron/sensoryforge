@@ -114,6 +114,22 @@ class GridEntry:
 
 
 @dataclass
+class _CSVPopulationModule:
+    """Minimal data container for CSV-imported neuron positions and weights.
+
+    Mimics the ``FlatInnervationModule`` interface so that the existing
+    ``_update_innervation_graphics_flat`` code path works without modification.
+    """
+    neuron_centers: torch.Tensor      # [N, 2] (x, y) in mm
+    innervation_weights: torch.Tensor  # [N, M] float
+    receptor_coords: torch.Tensor      # [M, 2] (x, y) in mm
+
+    @property
+    def num_neurons(self) -> int:
+        return int(self.neuron_centers.shape[0])
+
+
+@dataclass
 class NeuronPopulation:
     """Configuration and visualization handles for a population layer."""
 
@@ -140,6 +156,7 @@ class NeuronPopulation:
     edge_offset: Optional[float] = None
     neuron_jitter_factor: float = 1.0
     target_grid: Optional[str] = None  # Name of target grid layer
+    csv_folder: Optional[str] = None   # Set when positions/weights loaded from CSV
     module: Optional[InnervationModule] = None
     flat_module: Optional[FlatInnervationModule] = None
     scatter_item: Optional[pg.ScatterPlotItem] = None
@@ -678,6 +695,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow("Name:", self.txt_population_name)
         pop_layout.addRow("Target Grid:", self.cmb_target_grid)
         pop_layout.addRow("Neurons/row:", self.spin_neurons_per_row)
+
+        # Square toggle for neurons — mirrors the receptor grid's chk_square_grid
+        self.chk_square_neurons = QtWidgets.QCheckBox("Square (cols = rows)")
+        self.chk_square_neurons.setChecked(True)
+        self.chk_square_neurons.setToolTip(
+            "Keep neuron columns equal to rows. Uncheck to set a non-square neuron layout."
+        )
+        self.chk_square_neurons.toggled.connect(self._on_square_neurons_toggled)
+        pop_layout.addRow("", self.chk_square_neurons)
+
+        self.spin_neurons_per_col = QtWidgets.QSpinBox()
+        self.spin_neurons_per_col.setRange(1, 128)
+        self.spin_neurons_per_col.setValue(10)
+        self.spin_neurons_per_col.setToolTip("Number of neuron columns (horizontal).")
+        self.spin_neurons_per_col.valueChanged.connect(self._on_population_editor_changed)
+        self._neurons_col_label = QtWidgets.QLabel("Neurons/col:")
+        pop_layout.addRow(self._neurons_col_label, self.spin_neurons_per_col)
+        self.spin_neurons_per_col.setVisible(False)
+        self._neurons_col_label.setVisible(False)
+
         pop_layout.addRow("Connections:", self.dbl_connections)
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
@@ -779,6 +816,31 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.btn_generate_population.clicked.connect(self._on_generate_population)
         self.btn_generate_population.setEnabled(False)
         pop_layout.addRow(self.btn_generate_population)
+
+        # CSV import/export — lets users load custom neuron placements and weights
+        csv_group = CollapsibleGroupBox(
+            "Custom CSV",
+            start_expanded=False,
+            nested=True,
+            settings_key="gui/mechanoreceptor_tab/csv_expanded",
+        )
+        self.lbl_csv_folder = QtWidgets.QLabel("No CSV folder loaded")
+        self.lbl_csv_folder.setWordWrap(True)
+        csv_group.addRow(self.lbl_csv_folder)
+        self.btn_import_csv = QtWidgets.QPushButton("Import CSV Folder…")
+        self.btn_import_csv.setToolTip(
+            "Load neuron positions (x,y) and innervation weights from a CSV folder."
+        )
+        self.btn_import_csv.clicked.connect(self._on_import_population_csv)
+        csv_group.addRow(self.btn_import_csv)
+        self.btn_export_csv = QtWidgets.QPushButton("Export CSV Folder…")
+        self.btn_export_csv.setToolTip(
+            "Export current neuron positions and innervation weights to a CSV folder."
+        )
+        self.btn_export_csv.clicked.connect(self._on_export_population_csv)
+        csv_group.addRow(self.btn_export_csv)
+        pop_layout.addRow(csv_group)
+
         control_layout.addWidget(pop_settings_group)
 
         # Layers visibility — collapsible
@@ -962,6 +1024,18 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.spin_grid_cols.blockSignals(False)
             self._on_grid_editor_changed()
 
+    def _on_square_neurons_toggled(self, checked: bool) -> None:
+        """Show/hide the per-col spinbox and sync cols=rows when switching to square mode."""
+        if hasattr(self, "spin_neurons_per_col"):
+            self.spin_neurons_per_col.setVisible(not checked)
+        if hasattr(self, "_neurons_col_label"):
+            self._neurons_col_label.setVisible(not checked)
+        if checked and hasattr(self, "spin_neurons_per_col"):
+            self.spin_neurons_per_col.blockSignals(True)
+            self.spin_neurons_per_col.setValue(self.spin_neurons_per_row.value())
+            self.spin_neurons_per_col.blockSignals(False)
+        self._on_population_editor_changed()
+
     def _on_grid_editor_changed(self, *_args: object) -> None:
         """Sync editor widgets back to the selected GridEntry."""
         if self._block_grid_editor:
@@ -1050,7 +1124,15 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop.color = QtGui.QColor(self._population_color)
         pop.neurons_per_row = self.spin_neurons_per_row.value()
         pop.neuron_rows = self.spin_neuron_rows.value()
-        pop.neuron_cols = self.spin_neuron_cols.value()
+        if (
+            hasattr(self, "chk_square_neurons")
+            and self.chk_square_neurons.isChecked()
+        ):
+            pop.neuron_cols = pop.neuron_rows
+        elif hasattr(self, "spin_neurons_per_col"):
+            pop.neuron_cols = self.spin_neurons_per_col.value()
+        else:
+            pop.neuron_cols = self.spin_neuron_cols.value()
         pop.connections_per_neuron = self.dbl_connections.value()
         pop.sigma_d_mm = self.dbl_sigma.value()
         pop.innervation_method = self.cmb_innervation_method.currentText()
@@ -1086,6 +1168,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop = self._selected_population
         if pop is None:
             return
+        if pop.csv_folder is not None:
+            return  # CSV populations are not recomputed on parameter change
         if self.grid_manager is None and self._composite_grid is None:
             return
         if pop.module is None and pop.flat_module is None:
@@ -1585,6 +1669,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.spin_neuron_rows.setValue(value)
         if hasattr(self, "spin_neuron_cols"):
             self.spin_neuron_cols.setValue(value)
+        # Keep per-col main spinbox in sync when square mode is active
+        if (
+            hasattr(self, "chk_square_neurons")
+            and self.chk_square_neurons.isChecked()
+            and hasattr(self, "spin_neurons_per_col")
+        ):
+            self.spin_neurons_per_col.setValue(value)
         self._block_neuron_sync = False
 
     def _sync_simple_from_rows_cols(self) -> None:
@@ -1595,6 +1686,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         r, c = self.spin_neuron_rows.value(), self.spin_neuron_cols.value()
         self._block_neuron_sync = True
         self.spin_neurons_per_row.setValue(r if r == c else int((r * c) ** 0.5))
+        if hasattr(self, "spin_neurons_per_col"):
+            self.spin_neurons_per_col.setValue(c)
         self._block_neuron_sync = False
 
     def _set_weight_defaults(self, weights: Tuple[float, float]) -> None:
@@ -1699,6 +1792,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             torch.manual_seed(seed_val)
         if self.grid_manager is not None:
             for population in self.populations:
+                if population.csv_folder is not None:
+                    # CSV-loaded population: redraw graphics without recomputing weights
+                    self._create_population_graphics(population)
+                    continue
                 population.module = None
                 population.flat_module = None
                 if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
@@ -1712,6 +1809,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             bounds = self._composite_grid.computed_bounds
             xlim, ylim = bounds[0], bounds[1]
             for population in self.populations:
+                if population.csv_folder is not None:
+                    self._create_population_graphics(population)
+                    continue
                 population.module = None
                 population.flat_module = None
                 target = population.target_grid
@@ -1768,6 +1868,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             self.spin_neuron_rows.setValue(n_rows)
         if hasattr(self, "spin_neuron_cols"):
             self.spin_neuron_cols.setValue(n_cols)
+        is_square = n_rows == n_cols
+        if hasattr(self, "chk_square_neurons"):
+            self.chk_square_neurons.setChecked(is_square)
+        if hasattr(self, "spin_neurons_per_col"):
+            self.spin_neurons_per_col.setValue(n_cols)
+            self.spin_neurons_per_col.setVisible(not is_square)
+        if hasattr(self, "_neurons_col_label"):
+            self._neurons_col_label.setVisible(not is_square)
+        if hasattr(self, "lbl_csv_folder"):
+            if population.csv_folder:
+                from pathlib import Path as _Path
+                self.lbl_csv_folder.setText(f"CSV: {_Path(population.csv_folder).name}")
+            else:
+                self.lbl_csv_folder.setText("No CSV folder loaded")
         self.dbl_connections.setValue(population.connections_per_neuron)
         self.dbl_sigma.setValue(population.sigma_d_mm)
         method = population.innervation_method
@@ -2304,7 +2418,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         for population in self.populations:
             population.delete_graphics(self.plot)
             population.module = None
-            population.flat_module = None
+            # Preserve CSV-loaded modules; they are still valid until user explicitly
+            # re-imports (the user can also just re-import if the receptor count changes).
+            if population.csv_folder is None:
+                population.flat_module = None
 
     def _update_generate_population_button(self) -> None:
         """Enable Generate Population only when a grid exists."""
@@ -2334,6 +2451,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         # Rebuild all population innervation
         if self.grid_manager is not None:
             for population in self.populations:
+                if population.csv_folder is not None:
+                    self._create_population_graphics(population)
+                    continue
                 if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
                     population.instantiate(self.grid_manager)
                 else:
@@ -2346,6 +2466,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             xlim = bounds[0]
             ylim = bounds[1]
             for population in self.populations:
+                if population.csv_folder is not None:
+                    self._create_population_graphics(population)
+                    continue
                 target = population.target_grid
                 if target is not None:
                     coords = self._composite_grid.get_population_coordinates(target)
@@ -2838,6 +2961,190 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         dialog = ExportDialog(self, parent=self.window())
         dialog.exec_()
+
+    # ------------------------------------------------------------------ #
+    #  CSV import / export for custom neuron populations (Item 5)          #
+    # ------------------------------------------------------------------ #
+
+    def _on_export_population_csv(self) -> None:
+        """Export the selected population's positions and weights to a CSV folder."""
+        pop = self._selected_population
+        if pop is None:
+            QtWidgets.QMessageBox.warning(
+                self, "No population selected", "Select a population first."
+            )
+            return
+        centers = pop.neuron_centers
+        weights = pop.innervation_weights
+        if centers is None or weights is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Population not instantiated",
+                "Generate (or import) the population before exporting.",
+            )
+            return
+
+        base_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select destination folder", ""
+        )
+        if not base_dir:
+            return
+        default_name = self._sanitize_name(pop.name or "population") + "_csv"
+        name, ok = QtWidgets.QInputDialog.getText(
+            self, "CSV Folder Name", "Folder name:", text=default_name
+        )
+        if not ok or not name.strip():
+            return
+        target = Path(base_dir) / self._sanitize_name(name)
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Export failed", f"Could not create folder:\n{exc}"
+            )
+            return
+
+        centers_np = centers.detach().cpu().numpy()
+        weights_np = weights.detach().cpu().numpy()
+
+        try:
+            np.savetxt(
+                target / "neuron_positions.csv",
+                centers_np,
+                delimiter=",",
+                header="x_mm,y_mm",
+                comments="",
+            )
+            np.savetxt(
+                target / "innervation_weights.csv",
+                weights_np,
+                delimiter=",",
+            )
+            manifest = {
+                "version": 1,
+                "num_neurons": int(centers_np.shape[0]),
+                "num_receptors": int(weights_np.shape[1]),
+                "positions_file": "neuron_positions.csv",
+                "weights_file": "innervation_weights.csv",
+            }
+            with (target / "manifest.json").open("w", encoding="utf-8") as fp:
+                json.dump(manifest, fp, indent=2)
+        except OSError as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Export failed", f"Could not write CSV files:\n{exc}"
+            )
+            return
+
+        QtWidgets.QMessageBox.information(
+            self, "Exported", f"CSV folder saved to:\n{target}"
+        )
+
+    def _on_import_population_csv(self) -> None:
+        """Import neuron positions and innervation weights from a CSV folder."""
+        pop = self._selected_population
+        if pop is None:
+            QtWidgets.QMessageBox.warning(
+                self, "No population selected", "Select a population first."
+            )
+            return
+
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select CSV folder (must contain manifest.json)", ""
+        )
+        if not folder:
+            return
+        folder_path = Path(folder)
+        manifest_path = folder_path / "manifest.json"
+        if not manifest_path.exists():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Invalid folder",
+                "No manifest.json found.\nExport a population first to create a valid CSV folder.",
+            )
+            return
+
+        try:
+            with manifest_path.open("r", encoding="utf-8") as fp:
+                manifest = json.load(fp)
+            positions_path = folder_path / manifest["positions_file"]
+            weights_path = folder_path / manifest["weights_file"]
+            centers_np = np.loadtxt(positions_path, delimiter=",", skiprows=1)
+            weights_np = np.loadtxt(weights_path, delimiter=",")
+        except (OSError, KeyError, ValueError) as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Import failed", f"Could not read CSV files:\n{exc}"
+            )
+            return
+
+        if centers_np.ndim == 1:
+            centers_np = centers_np.reshape(1, -1)
+        if weights_np.ndim == 1:
+            weights_np = weights_np.reshape(1, -1)
+
+        # Resolve current receptor coordinates for the stub module
+        receptor_coords: Optional[torch.Tensor] = None
+        if self.grid_manager is not None:
+            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
+                xx, yy = self.grid_manager.get_coordinates()
+                receptor_coords = torch.stack(
+                    [xx.flatten(), yy.flatten()], dim=1
+                )
+            else:
+                receptor_coords = self.grid_manager.get_receptor_coordinates()
+        elif self._composite_grid is not None:
+            target = pop.target_grid
+            receptor_coords = (
+                self._composite_grid.get_population_coordinates(target)
+                if target
+                else self._composite_grid.get_all_coordinates()
+            )
+
+        num_receptors_csv = int(weights_np.shape[1])
+        if receptor_coords is not None:
+            num_receptors_grid = int(receptor_coords.shape[0])
+            if num_receptors_csv != num_receptors_grid:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Receptor count mismatch",
+                    f"CSV has {num_receptors_csv} receptors but the current grid has "
+                    f"{num_receptors_grid}. Proceeding with stub coordinates.",
+                )
+                receptor_coords = None
+
+        if receptor_coords is None:
+            receptor_coords = torch.zeros(num_receptors_csv, 2, dtype=torch.float32)
+
+        neuron_centers_t = torch.tensor(centers_np, dtype=torch.float32)
+        weights_t = torch.tensor(weights_np, dtype=torch.float32)
+
+        # Attach the CSV module and redraw
+        pop.delete_graphics(self.plot)
+        pop.module = None
+        stub = _CSVPopulationModule(
+            neuron_centers=neuron_centers_t,
+            innervation_weights=weights_t,
+            receptor_coords=receptor_coords,
+        )
+        pop.flat_module = stub  # type: ignore[assignment]
+        pop.csv_folder = str(folder_path)
+        pop.neurons_per_row = int(centers_np.shape[0]) ** (1 / 2)  # approximate
+        pop.neuron_rows = int(centers_np.shape[0])
+        pop.neuron_cols = 1
+
+        if hasattr(self, "lbl_csv_folder"):
+            self.lbl_csv_folder.setText(f"CSV: {folder_path.name}")
+
+        self._create_population_graphics(pop)
+        self._highlight_population(self._selected_population)
+        self._update_layer_visibility()
+        self.populations_changed.emit(list(self.populations))
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Imported",
+            f"Loaded {neuron_centers_t.shape[0]} neurons and "
+            f"{weights_t.shape[1]} receptors from:\n{folder_path}",
+        )
 
     def current_grid_manager(self) -> Optional[GridManager]:
         return self.grid_manager
