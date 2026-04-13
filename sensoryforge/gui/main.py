@@ -29,6 +29,7 @@ from sensoryforge.gui.tabs import (  # noqa: E402
 )
 from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 from sensoryforge.config.schema import SensoryForgeConfig  # noqa: E402
+from sensoryforge.core.experiment_manager import ExperimentManager  # noqa: E402
 
 
 class SensoryForgeWindow(QtWidgets.QMainWindow):
@@ -88,6 +89,10 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         registry_root = Path.cwd() / "project_registry"
         self._registry = ProjectRegistry(registry_root)
 
+        # Shared experiment manager — one project directory for all tabs
+        self._em = ExperimentManager()
+        self._push_experiment_manager()
+
     def _create_menu_bar(self) -> None:
         """Create menu bar with config load/save options."""
         menubar = self.menuBar()
@@ -110,7 +115,22 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         file_menu.addAction(save_action)
         
         file_menu.addSeparator()
-        
+
+        # Project actions
+        new_project_action = QtWidgets.QAction('&New Project...', self)
+        new_project_action.setShortcut('Ctrl+N')
+        new_project_action.setStatusTip('Create a new experiment project directory')
+        new_project_action.triggered.connect(self._new_project)
+        file_menu.addAction(new_project_action)
+
+        open_project_action = QtWidgets.QAction('&Open Project...', self)
+        open_project_action.setShortcut('Ctrl+P')
+        open_project_action.setStatusTip('Open an existing experiment project directory')
+        open_project_action.triggered.connect(self._open_project)
+        file_menu.addAction(open_project_action)
+
+        file_menu.addSeparator()
+
         # Exit action
         exit_action = QtWidgets.QAction('E&xit', self)
         exit_action.setShortcut('Ctrl+Q')
@@ -268,6 +288,77 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
                 self, 'Save Error',
                 f'Failed to save configuration:\n{e}'
             )
+
+    # ------------------------------------------------------------------
+    # Experiment project management
+    # ------------------------------------------------------------------
+
+    def _push_experiment_manager(self) -> None:
+        """Propagate the current ExperimentManager to all tabs."""
+        for tab in (
+            self.mechanoreceptor_tab,
+            self.stimulus_tab,
+            self.spiking_tab,
+        ):
+            if hasattr(tab, "set_experiment_manager"):
+                tab.set_experiment_manager(self._em)
+
+    def _new_project(self) -> None:
+        """Create a new experiment project directory and open it."""
+        base_dir = QFileDialog.getExistingDirectory(
+            self, "Select parent folder for new project"
+        )
+        if not base_dir:
+            return
+        name, ok = QtWidgets.QInputDialog.getText(
+            self, "New Project", "Project folder name:", text="experiment_01"
+        )
+        if not ok or not name.strip():
+            return
+        path = Path(base_dir) / name.strip().replace(" ", "_")
+        try:
+            self._em.create(path)
+        except FileExistsError:
+            # Directory exists but is non-empty — ask to open it instead
+            reply = QMessageBox.question(
+                self,
+                "Directory exists",
+                f"'{path.name}' already exists.\n\nOpen it as an existing project?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    self._em.open(path)
+                except Exception as exc:
+                    QMessageBox.critical(self, "Open failed", str(exc))
+                    return
+            else:
+                return
+        except OSError as exc:
+            QMessageBox.critical(self, "Create failed", str(exc))
+            return
+        self._push_experiment_manager()
+        self.setWindowTitle(
+            f"SensoryForge – {path.name}  [{path}]"
+        )
+
+    def _open_project(self) -> None:
+        """Open an existing experiment project directory."""
+        path = QFileDialog.getExistingDirectory(
+            self, "Open project directory"
+        )
+        if not path:
+            return
+        try:
+            self._em.open(Path(path))
+        except Exception as exc:
+            QMessageBox.critical(self, "Open failed", str(exc))
+            return
+        self._push_experiment_manager()
+        self.setWindowTitle(
+            f"SensoryForge – {Path(path).name}  [{path}]"
+        )
 
     def _gui_config_to_canonical(
         self,

@@ -348,11 +348,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._grid_entries: List[GridEntry] = []
         self._grid_counter = 1
         self._block_grid_editor = False
+        self._em = None  # ExperimentManager — injected by main window
         self._setup_ui()
         self._configure_plot()
         if self._grid_entries:
             self._generate_grids()
         self.populations_changed.emit(list(self.populations))
+
+    def set_experiment_manager(self, em) -> None:
+        """Inject the shared ExperimentManager from the main window.
+
+        Args:
+            em: ExperimentManager instance (or None to clear).
+        """
+        self._em = em
 
     @staticmethod
     def _sanitize_name(name: str) -> str:
@@ -2376,9 +2385,15 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         return False
 
     def _prompt_save_directory(self) -> Optional[Path]:
+        initial = (
+            str(self._em.project_dir)
+            if self._em is not None and self._em.is_open
+            else ""
+        )
         base_dir = QtWidgets.QFileDialog.getExistingDirectory(
             self,
             "Select destination folder",
+            initial,
         )
         if not base_dir:
             return None

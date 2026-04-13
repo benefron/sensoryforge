@@ -327,6 +327,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._current_stimulus_path: Optional[Path] = None
         self._time_syncing = False
         self._speed_syncing = False
+        self._em = None  # ExperimentManager — injected by main window
         self._loading = False
         self._preview_frame_count = 0
         self._preview_times = np.zeros(0, dtype=float)
@@ -362,6 +363,14 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             mechanoreceptor_tab.configuration_directory_changed.connect(
                 self._on_config_dir_changed
             )
+
+    def set_experiment_manager(self, em) -> None:
+        """Inject the shared ExperimentManager from the main window.
+
+        Args:
+            em: ExperimentManager instance (or None to clear).
+        """
+        self._em = em
 
     # ------------------------------------------------------------------
     # UI construction

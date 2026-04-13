@@ -283,6 +283,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self._active_neuron_centers: Optional[np.ndarray] = None
         self._compiled_dsl_model: Optional[Any] = None
 
+        self._em = None  # ExperimentManager — injected by main window
+
         self._setup_ui()
         self._connect_signals()
         self._populate_device_options()
@@ -294,6 +296,14 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self._on_populations_changed(populations_attr)
         self._on_grid_changed(self.grid_manager)
         self._on_config_dir_changed(self._current_project_dir)
+
+    def set_experiment_manager(self, em) -> None:
+        """Inject the shared ExperimentManager from the main window.
+
+        Args:
+            em: ExperimentManager instance (or None to clear).
+        """
+        self._em = em
 
     # ------------------------------------------------------------------
     # Defaults handling
