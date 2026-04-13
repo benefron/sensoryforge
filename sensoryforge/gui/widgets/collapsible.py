@@ -128,7 +128,7 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         self._is_expanded = not self._is_expanded
         self._content.setVisible(self._is_expanded)
         self._update_button_text()
-        if self._settings_key is not None:
+        if getattr(self, "_settings_key", None) is not None:
             qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
             qsettings.setValue(self._settings_key, self._is_expanded)
 

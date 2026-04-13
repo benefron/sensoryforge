@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Tuple, Type
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
+from pyqtgraph.dockarea import DockArea, Dock  # type: ignore
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir))
@@ -112,179 +113,155 @@ _DEFAULT_PRESET = "Default"
 
 
 # ---------------------------------------------------------------------------
-# PanelSlot: one cell in the canvas grid
+# DockCanvas: DockArea-based panel container (replaces _Canvas + _PanelSlot)
 # ---------------------------------------------------------------------------
 
-class _PanelSlot(QtWidgets.QWidget):
-    """Container cell that holds one VisualizationPanel and an 'Add Panel' placeholder."""
+# DockArea dark stylesheet — applied once at construction
+_DOCK_AREA_STYLE = """
+    DockArea {
+        background: #1c1c1c;
+    }
+    Dock > QWidget {
+        background: #1c1c1c;
+    }
+    DockLabel {
+        background: #2e2e2e;
+        color: #cccccc;
+        font-size: 10px;
+        border: none;
+        border-bottom: 1px solid #1a1a1a;
+    }
+    DockLabel:hover {
+        background: #3a3a3a;
+    }
+"""
 
-    panel_settings_requested = QtCore.pyqtSignal(object)  # VisualizationPanel
-    replace_requested = QtCore.pyqtSignal(object, str)   # slot, panel_type_name
 
-    def __init__(
-        self,
-        panel: Optional[VisualizationPanel] = None,
-        parent: Optional[QtWidgets.QWidget] = None,
-        *,
-        panel_type_options: Optional[List[str]] = None,
-    ) -> None:
-        super().__init__(parent)
-        self._panel: Optional[VisualizationPanel] = None
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
-        self._layout = layout
-        self.setMinimumSize(160, 120)
+def _preset_to_dock_layout(
+    preset: List[Tuple[int, int, int, int, Type[VisualizationPanel]]],
+    data: Optional["VisData"],
+    panel_type_names: List[str],
+) -> Tuple["DockArea", List["VisualizationPanel"]]:
+    """Build a DockArea populated according to a preset spec.
 
-        if panel is not None:
-            self.set_panel(panel, panel_type_options=panel_type_options)
+    The preset is a list of ``(row, col, rowspan, colspan, PanelClass)`` tuples.
+    We convert the grid spec into DockArea relative-position calls.
 
-    def set_panel(
-        self,
-        panel: VisualizationPanel,
-        panel_type_options: Optional[List[str]] = None,
-    ) -> None:
-        self._clear()
-        self._panel = panel
-        self._layout.addWidget(panel)
-        panel.close_requested.connect(self._on_panel_close_requested)
-        panel._settings_btn.clicked.connect(
-            lambda: self.panel_settings_requested.emit(panel)
+    Returns:
+        (DockArea widget, list of VisualizationPanel instances)
+    """
+    area = DockArea()
+    area.setStyleSheet(_DOCK_AREA_STYLE)
+
+    panels: List[VisualizationPanel] = []
+    docks: List[Dock] = []
+
+    # Build ordered list of (row, col, rowspan, colspan, panel)
+    entries = []
+    for row, col, rowspan, colspan, PanelClass in preset:
+        panel = PanelClass()
+        if data is not None:
+            panel.set_data(data)
+        panel.set_panel_type_options(panel_type_names)
+        entries.append((row, col, rowspan, colspan, panel))
+        panels.append(panel)
+
+    # Map (row, col) → Dock for adjacency lookups
+    placed: Dict[Tuple[int, int], Dock] = {}
+
+    for idx, (row, col, rowspan, colspan, panel) in enumerate(entries):
+        dock = Dock(
+            panel.PANEL_DISPLAY_NAME,
+            size=(300 * colspan, 250 * rowspan),
+            closable=True,
         )
-        if panel_type_options is not None:
-            panel.set_panel_type_options(panel_type_options)
-        panel.replace_with_requested.connect(
-            lambda name: self.replace_requested.emit(self, name)
-        )
+        dock.addWidget(panel)
+        docks.append(dock)
 
-    def _clear(self) -> None:
-        if self._panel is not None:
-            self._layout.removeWidget(self._panel)
-            self._panel.setParent(None)
-            self._panel = None
+        if idx == 0:
+            area.addDock(dock, "left")
+        else:
+            # Find the best anchor: a dock already placed in an adjacent cell
+            anchor_dock = None
+            position = "right"
 
-    def _on_panel_close_requested(self, panel: VisualizationPanel) -> None:
-        self._clear()
-        self._show_placeholder()
+            # Try left neighbour (same row, col-1)
+            for c in range(col - 1, -1, -1):
+                if (row, c) in placed:
+                    anchor_dock = placed[(row, c)]
+                    position = "right"
+                    break
 
-    def _show_placeholder(self) -> None:
-        ph = _PlaceholderWidget(self)
-        self._layout.addWidget(ph)
+            if anchor_dock is None:
+                # Try top neighbour (row-1, same col)
+                for r in range(row - 1, -1, -1):
+                    if (r, col) in placed:
+                        anchor_dock = placed[(r, col)]
+                        position = "bottom"
+                        break
 
-    @property
-    def panel(self) -> Optional[VisualizationPanel]:
-        return self._panel
+            if anchor_dock is None:
+                # Fallback: add to the right of the first dock
+                anchor_dock = docks[0]
+                position = "right"
+
+            area.addDock(dock, position, anchor_dock)
+
+        # Register all cells this dock occupies
+        for r in range(row, row + rowspan):
+            for c in range(col, col + colspan):
+                placed[(r, c)] = dock
+
+    return area, panels
 
 
-class _PlaceholderWidget(QtWidgets.QWidget):
-    """Grey placeholder shown in an empty panel slot."""
+class _DockCanvas(QtWidgets.QWidget):
+    """Hosts the panel grid using pyqtgraph DockArea for drag/float/split."""
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setStyleSheet(
-            "background: #f0f0f0; border: 2px dashed #cccccc; border-radius: 4px;"
-        )
-        layout = QtWidgets.QVBoxLayout(self)
-        lbl = QtWidgets.QLabel("No panel")
-        lbl.setAlignment(QtCore.Qt.AlignCenter)
-        lbl.setStyleSheet("color: #aaaaaa; font-size: 12px; font-style: italic;")
-        layout.addWidget(lbl)
-
-
-# ---------------------------------------------------------------------------
-# Canvas: the grid of PanelSlots
-# ---------------------------------------------------------------------------
-
-class _Canvas(QtWidgets.QWidget):
-    """Hosts the panel grid using nested QSplitters for resizable cells."""
-
-    panel_settings_requested = QtCore.pyqtSignal(object)
-    replace_requested = QtCore.pyqtSignal(object, str)  # slot, panel_type_name
+    panel_settings_requested = QtCore.pyqtSignal(object)   # VisualizationPanel
+    replace_requested = QtCore.pyqtSignal(object, str)      # panel, panel_type_name
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
-        self._layout = QtWidgets.QVBoxLayout(self)
-        self._layout.setContentsMargins(4, 4, 4, 4)
-        self._layout.setSpacing(4)
-        self._slots: List[_PanelSlot] = []
-        self._splitter_rows: Optional[QtWidgets.QSplitter] = None
+        self.setStyleSheet("background: #1c1c1c;")
+        self._outer = QtWidgets.QVBoxLayout(self)
+        self._outer.setContentsMargins(0, 0, 0, 0)
+        self._outer.setSpacing(0)
+        self._area: Optional[DockArea] = None
+        self._panels: List[VisualizationPanel] = []
 
     def apply_preset(
         self,
         preset: List[Tuple[int, int, int, int, Type[VisualizationPanel]]],
         data: Optional[VisData],
     ) -> List[VisualizationPanel]:
-        """Tear down current layout, build preset, return new panels."""
+        """Tear down current DockArea, build preset, return new panels."""
         self._clear()
-        self._slots.clear()
-
-        # Build a logical grid: find dims
-        max_row = max(r + rs for r, c, rs, cs, _ in preset)
-        max_col = max(c + cs for r, c, rs, cs, _ in preset)
-
-        # Use a vertical splitter of horizontal splitters
-        v_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-        v_splitter.setChildrenCollapsible(False)
-        self._splitter_rows = v_splitter
-        self._layout.addWidget(v_splitter)
-
-        # Grid of slots: grid[row][col] = _PanelSlot or None
-        grid: List[List[Optional[_PanelSlot]]] = [
-            [None] * max_col for _ in range(max_row)
-        ]
-
-        panels: List[VisualizationPanel] = []
-
         panel_type_names = list(_PANEL_CLASSES.keys())
-        for row, col, rowspan, colspan, PanelClass in preset:
-            panel = PanelClass()
-            if data is not None:
-                panel.set_data(data)
-            slot = _PanelSlot(panel, panel_type_options=panel_type_names)
-            slot.panel_settings_requested.connect(self.panel_settings_requested)
-            slot.replace_requested.connect(self.replace_requested.emit)
-            self._slots.append(slot)
-            panels.append(panel)
-            for r in range(row, row + rowspan):
-                for c in range(col, col + colspan):
-                    if r < max_row and c < max_col:
-                        grid[r][c] = slot
+        area, panels = _preset_to_dock_layout(preset, data, panel_type_names)
+        self._area = area
+        self._panels = panels
+        self._outer.addWidget(area)
 
-        # Build row splitters
-        row_widgets: List[QtWidgets.QWidget] = []
-        placed: set = set()
-        for r in range(max_row):
-            h_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-            h_splitter.setChildrenCollapsible(False)
-            for c in range(max_col):
-                slot = grid[r][c]
-                if slot is None:
-                    ph = _PlaceholderWidget()
-                    h_splitter.addWidget(ph)
-                elif id(slot) not in placed:
-                    h_splitter.addWidget(slot)
-                    placed.add(id(slot))
-            row_widgets.append(h_splitter)
-            v_splitter.addWidget(h_splitter)
+        for panel in panels:
+            panel._settings_btn.clicked.connect(
+                lambda _, p=panel: self.panel_settings_requested.emit(p)
+            )
+            panel.replace_with_requested.connect(
+                lambda name, p=panel: self.replace_requested.emit(p, name)
+            )
 
-        # Equal sizes
-        row_h = [1] * max_row
-        v_splitter.setSizes(row_h)
-
-        return panels
+        return list(panels)
 
     def _clear(self) -> None:
-        # Clear the Python list BEFORE destroying C++ objects.
-        # Slots are children of the splitter and get deleted when it is.
-        # Calling setParent(None) on them afterwards crashes (C++ object deleted).
-        self._slots = []
-        if self._splitter_rows is not None:
-            self._layout.removeWidget(self._splitter_rows)
-            self._splitter_rows.setParent(None)
-            self._splitter_rows = None
+        self._panels = []
+        if self._area is not None:
+            self._outer.removeWidget(self._area)
+            self._area.setParent(None)
+            self._area = None
 
     def all_panels(self) -> List[VisualizationPanel]:
-        return [s.panel for s in self._slots if s.panel is not None]
+        return list(self._panels)
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +275,7 @@ class _SettingsSidebar(QtWidgets.QWidget):
         super().__init__(parent)
         self.setFixedWidth(220)
         self.setStyleSheet(
-            "QWidget { background: #f5f5f5; border-left: 1px solid #cccccc; }"
+            "QWidget { background: #252525; border-left: 1px solid #1a1a1a; color: #cccccc; }"
         )
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -308,21 +285,21 @@ class _SettingsSidebar(QtWidgets.QWidget):
         self._title_bar.setFixedHeight(32)
         self._title_bar.setStyleSheet(
             "QWidget { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-            "stop:0 #e0e0e0,stop:1 #d0d0d0); border-bottom: 1px solid #bbb; }"
+            "stop:0 #3a3a3a,stop:1 #2e2e2e); border-bottom: 1px solid #1a1a1a; }"
         )
         tb_layout = QtWidgets.QHBoxLayout(self._title_bar)
         tb_layout.setContentsMargins(8, 0, 4, 0)
         self._title_lbl = QtWidgets.QLabel("Settings")
         self._title_lbl.setStyleSheet(
-            "font-weight: bold; font-size: 11px; border: none; background: transparent;"
+            "font-weight: bold; font-size: 11px; border: none; background: transparent; color: #dddddd;"
         )
         tb_layout.addWidget(self._title_lbl)
         tb_layout.addStretch()
         close_btn = QtWidgets.QToolButton()
         close_btn.setText("✕")
         close_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 11px; color: #999; background: transparent;}"
-            "QToolButton:hover { color: #cc3333; }"
+            "QToolButton { border: none; font-size: 11px; color: #777; background: transparent;}"
+            "QToolButton:hover { color: #ff5555; }"
         )
         close_btn.clicked.connect(self.hide)
         tb_layout.addWidget(close_btn)
@@ -370,20 +347,34 @@ class _Toolbar(QtWidgets.QWidget):
         self.setFixedHeight(44)
         self.setStyleSheet("""
             QWidget {
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #eaeaea, stop:1 #d8d8d8);
-                border-bottom: 1px solid #bbbbbb;
+                background: #2a2a2a;
+                border-bottom: 1px solid #1a1a1a;
             }
             QPushButton, QToolButton {
                 padding: 3px 10px;
-                border: 1px solid #aaaaaa;
+                border: 1px solid #444444;
                 border-radius: 3px;
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #f5f5f5, stop:1 #e8e8e8);
+                background: #383838;
+                color: #cccccc;
                 font-size: 11px;
             }
-            QPushButton:hover { background: #eeeeee; border-color: #888; }
-            QPushButton:pressed { background: #d8d8d8; }
+            QPushButton:hover { background: #464646; border-color: #666; }
+            QPushButton:pressed { background: #2e2e2e; }
+            QComboBox {
+                background: #383838;
+                border: 1px solid #444444;
+                border-radius: 3px;
+                color: #cccccc;
+                font-size: 11px;
+                padding: 2px 6px;
+            }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #2a2a2a;
+                color: #cccccc;
+                border: 1px solid #444;
+                selection-background-color: #3a7bd5;
+            }
         """)
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(10, 4, 10, 4)
@@ -391,7 +382,7 @@ class _Toolbar(QtWidgets.QWidget):
 
         # Layout presets
         lbl = QtWidgets.QLabel("Layout:")
-        lbl.setStyleSheet("font-size: 11px; color: #444; background: transparent; border: none;")
+        lbl.setStyleSheet("font-size: 11px; color: #999; background: transparent; border: none;")
         layout.addWidget(lbl)
 
         self._preset_cmb = QtWidgets.QComboBox()
@@ -417,9 +408,9 @@ class _Toolbar(QtWidgets.QWidget):
         # Add Panel button with dropdown
         add_menu = QtWidgets.QMenu()
         add_menu.setStyleSheet(
-            "QMenu { border: 1px solid #aaa; background: #fff; }"
+            "QMenu { border: 1px solid #444; background: #2a2a2a; color: #ddd; }"
             "QMenu::item { padding: 4px 16px; font-size: 11px; }"
-            "QMenu::item:selected { background: #4287f5; color: #fff; }"
+            "QMenu::item:selected { background: #3a7bd5; color: #fff; }"
         )
         for name in _PANEL_CLASSES:
             action = add_menu.addAction(name)
@@ -439,7 +430,7 @@ class _Toolbar(QtWidgets.QWidget):
         # Data status
         self._status_lbl = QtWidgets.QLabel("No simulation data loaded")
         self._status_lbl.setStyleSheet(
-            "font-size: 11px; color: #888; background: transparent; border: none;"
+            "font-size: 11px; color: #777; background: transparent; border: none;"
         )
         layout.addWidget(self._status_lbl)
 
@@ -462,7 +453,7 @@ class VisualizationTab(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
-        pg.setConfigOptions(antialias=True, background="w", foreground="k")
+        pg.setConfigOptions(antialias=True, background="#1c1c1c", foreground="#cccccc")
 
         self._data: Optional[VisData] = None
         self._panels: List[VisualizationPanel] = []
@@ -629,7 +620,7 @@ class VisualizationTab(QtWidgets.QWidget):
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(0)
 
-        self._canvas = _Canvas()
+        self._canvas = _DockCanvas()
         self._canvas.panel_settings_requested.connect(self._on_panel_settings_requested)
         self._canvas.replace_requested.connect(self._on_replace_requested)
         body.addWidget(self._canvas, stretch=1)
@@ -656,7 +647,7 @@ class VisualizationTab(QtWidgets.QWidget):
         )
         self._empty_label.setAlignment(QtCore.Qt.AlignCenter)
         self._empty_label.setStyleSheet(
-            "QLabel { color: #aaaaaa; font-size: 14px; font-style: italic; "
+            "QLabel { color: #555555; font-size: 14px; font-style: italic; "
             "background: transparent; }"
         )
         self._empty_label.setParent(self._canvas)
@@ -707,53 +698,51 @@ class VisualizationTab(QtWidgets.QWidget):
     def _on_panel_settings_requested(self, panel: VisualizationPanel) -> None:
         self._sidebar.show_panel_settings(panel)
 
-    def _on_replace_requested(self, slot: "_PanelSlot", panel_type_name: str) -> None:
-        """Replace the panel in the given slot with a new panel of the requested type."""
-        PanelClass = _PANEL_CLASSES.get(panel_type_name)
-        if PanelClass is None:
-            return
-        old_panel = slot.panel
-        if old_panel is None:
-            return
-        new_panel = PanelClass()
-        if self._data is not None:
-            new_panel.set_data(self._data)
-        idx = self._panels.index(old_panel)
-        self._panels[idx] = new_panel
-        slot.set_panel(new_panel, panel_type_options=list(_PANEL_CLASSES.keys()))
-        new_panel._settings_btn.clicked.connect(
-            lambda _, p=new_panel: self._on_panel_settings_requested(p)
-        )
-        t_idx = self._playback.current_step
-        if self._data is not None and self._data.n_steps > 0:
-            new_panel.seek(t_idx)
-
     def _on_replace_requested(
         self,
-        slot: "_PanelSlot",
+        old_panel: VisualizationPanel,
         panel_type_name: str,
     ) -> None:
-        """Replace the panel in the given slot with a new panel of the requested type."""
+        """Replace a panel with a new panel of the requested type.
+
+        The DockCanvas emits (panel, type_name).  We find the Dock containing
+        the old panel, swap the widget, and update our tracking list.
+        """
         PanelClass = _PANEL_CLASSES.get(panel_type_name)
         if PanelClass is None:
             return
-        old_panel = slot.panel
-        if old_panel is None:
-            return
         new_panel = PanelClass()
+        new_panel.set_panel_type_options(list(_PANEL_CLASSES.keys()))
         if self._data is not None:
             new_panel.set_data(self._data)
-        # Update _panels: replace old with new
+
+        # Find the Dock that contains old_panel and swap
+        if self._canvas._area is not None:
+            for dock in self._canvas._area.docks.values():
+                # Dock.widgets is a list; check membership
+                if old_panel in getattr(dock, "widgets", []):
+                    dock.addWidget(new_panel)
+                    old_panel.setParent(None)
+                    dock.label.setText(new_panel.PANEL_DISPLAY_NAME)
+                    break
+
+        # Update tracking list
         try:
             idx = self._panels.index(old_panel)
             self._panels[idx] = new_panel
         except ValueError:
             self._panels.append(new_panel)
-        slot.set_panel(new_panel, panel_type_options=list(_PANEL_CLASSES.keys()))
-        # Wire settings
+
+        # Wire signals for new panel
         new_panel._settings_btn.clicked.connect(
             lambda _, p=new_panel: self._on_panel_settings_requested(p)
         )
+        new_panel.replace_with_requested.connect(
+            lambda name, p=new_panel: self._canvas.replace_requested.emit(p, name)
+        )
+        t_idx = self._playback.current_step
+        if self._data is not None and self._data.n_steps > 0:
+            new_panel.seek(t_idx)
 
     # ------------------------------------------------------------------
     # Layout
@@ -761,16 +750,9 @@ class VisualizationTab(QtWidgets.QWidget):
 
     def _apply_preset(self, preset_name: str) -> None:
         self._playback.stop()
-        # Clear _panels BEFORE canvas teardown so any pending seek/timer calls
-        # on the old (about-to-be-destroyed) panels are no-ops.
         self._panels = []
         preset = _PRESETS.get(preset_name, _PRESETS[_DEFAULT_PRESET])
         self._panels = self._canvas.apply_preset(preset, self._data)
-        for panel in self._panels:
-            panel._settings_btn.clicked.connect(
-                lambda _, p=panel: self._on_panel_settings_requested(p)
-            )
-        # Hide empty label once data arrives
         if self._data is not None:
             self._empty_label.hide()
 

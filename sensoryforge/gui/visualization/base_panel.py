@@ -109,16 +109,16 @@ class VisualizationPanel(QtWidgets.QWidget):
         QWidget#PanelHeader {{
             background: qlineargradient(
                 x1:0, y1:0, x2:0, y2:1,
-                stop:0 #e0e0e0, stop:1 #d0d0d0
+                stop:0 #3a3a3a, stop:1 #2e2e2e
             );
-            border-bottom: 1px solid #aaaaaa;
+            border-bottom: 1px solid #1a1a1a;
         }}
     """
     PANEL_STYLE = """
         QWidget#PanelFrame {{
-            border: 1px solid #cccccc;
+            border: 1px solid #1e1e1e;
             border-radius: 4px;
-            background: #ffffff;
+            background: #1c1c1c;
         }}
     """
 
@@ -169,7 +169,7 @@ class VisualizationPanel(QtWidgets.QWidget):
 
         self._title_label = QtWidgets.QLabel(self._title)
         self._title_label.setStyleSheet(
-            "QLabel { font-weight: bold; font-size: 11px; color: #333333; }"
+            "QLabel { font-weight: bold; font-size: 11px; color: #dddddd; }"
         )
         h_layout.addWidget(self._title_label)
         h_layout.addStretch()
@@ -179,8 +179,8 @@ class VisualizationPanel(QtWidgets.QWidget):
         self._settings_btn.setToolTip("Panel settings")
         self._settings_btn.setFixedSize(20, 20)
         self._settings_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 12px; color: #666; }"
-            "QToolButton:hover { color: #222; }"
+            "QToolButton { border: none; font-size: 12px; color: #999; background: transparent; }"
+            "QToolButton:hover { color: #eeeeee; }"
         )
         self._settings_btn.clicked.connect(self._on_settings_clicked)
         h_layout.addWidget(self._settings_btn)
@@ -190,8 +190,8 @@ class VisualizationPanel(QtWidgets.QWidget):
         self._change_type_btn.setToolTip("Change panel type — click to swap this panel for another view")
         self._change_type_btn.setFixedSize(20, 20)
         self._change_type_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 11px; color: #666; }"
-            "QToolButton:hover { color: #222; }"
+            "QToolButton { border: none; font-size: 11px; color: #999; background: transparent; }"
+            "QToolButton:hover { color: #eeeeee; }"
         )
         self._change_type_btn.clicked.connect(self._on_change_type_clicked)
         h_layout.addWidget(self._change_type_btn)
@@ -201,8 +201,8 @@ class VisualizationPanel(QtWidgets.QWidget):
         close_btn.setToolTip("Remove panel")
         close_btn.setFixedSize(20, 20)
         close_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 11px; color: #999; }"
-            "QToolButton:hover { color: #cc3333; }"
+            "QToolButton { border: none; font-size: 11px; color: #777; background: transparent; }"
+            "QToolButton:hover { color: #ff5555; }"
         )
         close_btn.clicked.connect(lambda: self.close_requested.emit(self))
         h_layout.addWidget(close_btn)
@@ -262,9 +262,9 @@ class VisualizationPanel(QtWidgets.QWidget):
             return
         menu = QtWidgets.QMenu(self)
         menu.setStyleSheet(
-            "QMenu { border: 1px solid #aaa; background: #fff; }"
+            "QMenu { border: 1px solid #444; background: #2a2a2a; color: #ddd; }"
             "QMenu::item { padding: 4px 16px; font-size: 11px; }"
-            "QMenu::item:selected { background: #4287f5; color: #fff; }"
+            "QMenu::item:selected { background: #3a7bd5; color: #fff; }"
         )
         current = self.PANEL_DISPLAY_NAME
         for name in self._panel_type_options:
@@ -285,7 +285,7 @@ class VisualizationPanel(QtWidgets.QWidget):
 
     @staticmethod
     def _make_plot(
-        background: str = "w",
+        background: str = "#1c1c1c",
         **kwargs,
     ) -> pg.PlotWidget:
         pw = pg.PlotWidget(background=background, **kwargs)
@@ -302,6 +302,6 @@ class VisualizationPanel(QtWidgets.QWidget):
         lbl = QtWidgets.QLabel(msg)
         lbl.setAlignment(QtCore.Qt.AlignCenter)
         lbl.setStyleSheet(
-            "QLabel { color: #aaaaaa; font-size: 13px; font-style: italic; }"
+            "QLabel { color: #666666; font-size: 13px; font-style: italic; }"
         )
         layout.addWidget(lbl)
