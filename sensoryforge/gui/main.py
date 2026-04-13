@@ -26,6 +26,7 @@ from sensoryforge.gui.tabs import (  # noqa: E402
     StimulusDesignerTab,
     SpikingNeuronTab,
     VisualizationTab,
+    BatchTab,
 )
 from sensoryforge.utils.project_registry import ProjectRegistry  # noqa: E402
 from sensoryforge.config.schema import SensoryForgeConfig  # noqa: E402
@@ -75,6 +76,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
         self.visualization_tab = VisualizationTab()
         tabs.addTab(self.visualization_tab, "Visualization")
+
+        self.batch_tab = BatchTab()
+        tabs.addTab(self.batch_tab, "Batch")
 
         # Wire simulation results → visualization tab
         self.spiking_tab.simulation_finished.connect(
@@ -299,6 +303,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             self.mechanoreceptor_tab,
             self.stimulus_tab,
             self.spiking_tab,
+            self.batch_tab,
         ):
             if hasattr(tab, "set_experiment_manager"):
                 tab.set_experiment_manager(self._em)
