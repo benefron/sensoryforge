@@ -20,6 +20,18 @@ The window opens with five tabs:
 | **Visualization** | View spike rasters and drive signals |
 | **Batch** | Run parameter sweeps and export SLURM scripts |
 
+### Expert mode
+
+Each tab has an **Expert mode** checkbox at the top of its control panel
+(unchecked by default).
+
+| Mode | What you see |
+|------|-------------|
+| **Basic** (default) | Essential controls only — grid size, population settings, neuron model, run button |
+| **Expert** | All advanced controls — separate seeds, position offsets, weight ranges, far-connection tuning, filter parameters, DSL editor, CSV import/export |
+
+State is saved in `QSettings` and persists across sessions.
+
 ---
 
 ## Step 1 — Grid & Innervation
@@ -46,7 +58,36 @@ The scatter plot on the right shows receptor positions.
 
 The innervation weights are built automatically.
 
-### 1c. Save the configuration
+### 1c. Import a custom population from CSV
+
+If you have pre-computed neuron positions and innervation weights, you can
+bypass the built-in innervation module entirely:
+
+1. Add a population as normal (step 1b).
+2. Enable **Expert mode** (see below) to reveal the **Custom CSV** section
+   inside Population Settings.
+3. Click **Export CSV Folder…** on any existing instantiated population to
+   create a valid folder with the right file format.
+4. Edit the exported CSVs or replace them with your own data.
+5. Click **Import CSV Folder…** and select the folder.
+
+The folder must contain three files:
+
+| File | Format | Description |
+|------|--------|-------------|
+| `neuron_positions.csv` | header row `x_mm,y_mm`, then N rows | Neuron center coordinates in mm |
+| `innervation_weights.csv` | N rows × M columns, no header | Weight matrix (rows = neurons, cols = receptors) |
+| `manifest.json` | JSON | Metadata: `num_neurons`, `num_receptors`, file names |
+
+**Important:** `M` (number of receptors) must match the current grid's
+receptor count.  If it doesn't, SensoryForge will warn and load the population
+with zero-filled receptor coordinates instead of crashing.
+
+Once imported, the population uses the CSV data for all subsequent
+visualizations and simulations.  The CSV stub is preserved through
+**Generate Population(s)** — regeneration only affects non-CSV populations.
+
+### 1d. Save the configuration
 
 Click **Save As…** in the bottom toolbar to save the grid + population
 configuration as a `bundle.json` inside a project folder.

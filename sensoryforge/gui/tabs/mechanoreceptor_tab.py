@@ -59,6 +59,17 @@ def _default_population_name(neuron_type: str, index: int) -> str:
     return f"{neuron_type} #{index}" if neuron_type else f"Population #{index}"
 
 
+def _bounds_from_coords(
+    coords: "torch.Tensor",
+) -> "Tuple[Tuple[float, float], Tuple[float, float]]":
+    """Return ((xmin, xmax), (ymin, ymax)) from an [N, 2] coordinate tensor."""
+    xmin = coords[:, 0].min().item()
+    xmax = coords[:, 0].max().item()
+    ymin = coords[:, 1].min().item()
+    ymax = coords[:, 1].max().item()
+    return (xmin, xmax), (ymin, ymax)
+
+
 @dataclass
 class GridEntry:
     """Configuration for one receptor grid layer in the unified grid workspace."""
@@ -465,6 +476,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         control_layout.setAlignment(QtCore.Qt.AlignTop)
         scroll_area.setWidget(control_panel)
 
+        # Expert mode toggle — pinned at the top of the control panel
+        self._expert_only_widgets: List = []
+        _qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        _saved_expert = _qsettings.value("gui/mechanoreceptor_tab/expert_mode")
+        _initial_expert = _saved_expert in (True, "true", 1, "1") if _saved_expert is not None else False
+        self.chk_expert_mode = QtWidgets.QCheckBox("Expert mode")
+        self.chk_expert_mode.setToolTip(
+            "Show advanced controls (separate seeds, position offsets, weight ranges, "
+            "far-connection tuning, CSV import/export)."
+        )
+        self.chk_expert_mode.setChecked(_initial_expert)
+        self.chk_expert_mode.toggled.connect(self._on_expert_mode_toggled)
+        control_layout.addWidget(self.chk_expert_mode)
+
         # Global seed (top-level, used for both grid and neuron populations)
         seed_row = QtWidgets.QHBoxLayout()
         seed_row.addWidget(QtWidgets.QLabel("Seed (-1 = random):"))
@@ -489,6 +514,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.spin_population_seed.setSpecialValueText("use global")
         self.spin_population_seed.setToolTip("Override global seed for neuron arrangements. -1 = use global.")
         adv_seeds_layout.addRow("Population seed:", self.spin_population_seed)
+        self._adv_seeds_group = adv_seeds_group
+        self._expert_only_widgets.append(adv_seeds_group)
         control_layout.addWidget(adv_seeds_group)
 
         # Grid List — always visible at top
@@ -584,15 +611,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_offset_y.setValue(0.0)
         self.dbl_offset_y.valueChanged.connect(self._on_grid_editor_changed)
         pos_layout.addRow("Offset Y (mm):", self.dbl_offset_y)
+        self._pos_group = pos_group
+        self._expert_only_widgets.append(pos_group)
         grid_layout.addRow(pos_group)
 
         self.btn_grid_color = QtWidgets.QPushButton("Pick Color")
         self.btn_grid_color.clicked.connect(self._on_pick_grid_color)
         grid_layout.addRow("Color:", self.btn_grid_color)
 
-        self.btn_generate_grid = QtWidgets.QPushButton("Generate Grid(s)")
-        self.btn_generate_grid.clicked.connect(self._on_generate_grid)
-        grid_layout.addRow(self.btn_generate_grid)
         control_layout.addWidget(grid_settings_group)
 
         # Population List — always visible
@@ -748,6 +774,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         weights_group = CollapsibleGroupBox("Weights", start_expanded=False, nested=True, settings_key="gui/mechanoreceptor_tab/weights_expanded")
         weights_group.layout().addRow("Weight min:", self.dbl_weight_min)
         weights_group.layout().addRow("Weight max:", self.dbl_weight_max)
+        self._weights_group = weights_group
+        self._expert_only_widgets.append(weights_group)
         pop_layout.addRow(weights_group)
 
         pop_layout.addRow("Edge offset (mm):", self.dbl_edge_offset)
@@ -804,6 +832,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         adv_group.addRow("Neuron cols:", self.spin_neuron_cols)
         adv_group.addRow("Neuron arrangement:", self.cmb_neuron_arrangement)
         adv_group.addRow("Jitter multiplier:", self.dbl_neuron_jitter)
+        self._adv_neurons_group = adv_group
+        self._expert_only_widgets.append(adv_group)
         pop_layout.addRow(adv_group)
         self.spin_neurons_per_row.valueChanged.connect(self._sync_neuron_rows_cols_from_simple)
         self.spin_neuron_rows.valueChanged.connect(self._sync_simple_from_rows_cols)
@@ -812,10 +842,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._on_innervation_method_changed(
             self.cmb_innervation_method.currentText()
         )
-        self.btn_generate_population = QtWidgets.QPushButton("Generate Population(s)")
-        self.btn_generate_population.clicked.connect(self._on_generate_population)
-        self.btn_generate_population.setEnabled(False)
-        pop_layout.addRow(self.btn_generate_population)
 
         # CSV import/export — lets users load custom neuron placements and weights
         csv_group = CollapsibleGroupBox(
@@ -839,6 +865,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         )
         self.btn_export_csv.clicked.connect(self._on_export_population_csv)
         csv_group.addRow(self.btn_export_csv)
+        self._csv_group = csv_group
+        self._expert_only_widgets.append(csv_group)
         pop_layout.addRow(csv_group)
 
         control_layout.addWidget(pop_settings_group)
@@ -890,6 +918,16 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         figure_layout.addWidget(self.btn_export_figure)
         control_layout.addWidget(figure_group)
         control_layout.addStretch(1)
+
+        # Apply initial expert mode state after all widgets are created
+        self._on_expert_mode_toggled(_initial_expert)
+
+    def _on_expert_mode_toggled(self, checked: bool) -> None:
+        """Show or hide advanced widgets based on expert mode state."""
+        for w in self._expert_only_widgets:
+            w.setVisible(checked)
+        qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        qsettings.setValue("gui/mechanoreceptor_tab/expert_mode", checked)
 
     def _configure_plot(self) -> None:
         self.plot.setAspectLocked(True, 1)
@@ -1037,7 +1075,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._on_population_editor_changed()
 
     def _on_grid_editor_changed(self, *_args: object) -> None:
-        """Sync editor widgets back to the selected GridEntry."""
+        """Sync editor widgets back to the selected GridEntry and regenerate."""
         if self._block_grid_editor:
             return
         row = self.grid_list.currentRow()
@@ -1058,6 +1096,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if item is not None:
             self._refresh_grid_list_item(item, entry)
         self._refresh_target_grid_dropdown()
+        self._generate_grids()
+
 
     def _on_grid_arrangement_changed(self, arrangement: str) -> None:
         """Show/hide rows/cols vs density based on arrangement type."""
@@ -1172,8 +1212,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             return  # CSV populations are not recomputed on parameter change
         if self.grid_manager is None and self._composite_grid is None:
             return
-        if pop.module is None and pop.flat_module is None:
-            return
         pop.delete_graphics(self.plot)
         seed_val = self._get_population_seed()
         if seed_val is not None:
@@ -1190,19 +1228,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         elif self._composite_grid is not None:
             pop.module = None
             pop.flat_module = None
-            bounds = self._composite_grid.computed_bounds
-            xlim, ylim = bounds[0], bounds[1]
             target = pop.target_grid
-            coords = (
-                self._composite_grid.get_population_coordinates(target)
-                if target
-                else self._composite_grid.get_all_coordinates()
-            )
+            if target:
+                coords = self._composite_grid.get_population_coordinates(target)
+                xlim, ylim = _bounds_from_coords(coords)
+            else:
+                coords = self._composite_grid.get_all_coordinates()
+                bounds = self._composite_grid.computed_bounds
+                xlim, ylim = bounds[0], bounds[1]
             if coords is not None and coords.shape[0] > 0:
                 pop.instantiate_flat(coords, xlim, ylim)
         self._create_population_graphics(pop)
         self._highlight_population(self._selected_population)
         self._update_layer_visibility()
+        self.populations_changed.emit(list(self.populations))
 
     def _on_generate_grid(self) -> None:
         """Generate grid(s) from all grid entries."""
@@ -1266,6 +1305,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._update_grid_visualization()
         self._clear_population_graphics_on_grid_change()
         self._update_generate_population_button()
+        if self.populations:
+            self._generate_populations()
         self.grid_changed.emit(self.grid_manager)
 
     def _sync_edge_offset_from_grid(self, spacing: float) -> None:
@@ -1298,19 +1339,25 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         cg = CompositeReceptorGrid(xlim=xlim, ylim=ylim, device="cpu")
 
         self._composite_populations = []
-        area = (xlim[1] - xlim[0]) * (ylim[1] - ylim[0])
-        area = max(area, 1e-6)
         for e in entries:
-            offset = (e.offset_x, e.offset_y)
             color_rgba = (e.color.red(), e.color.green(), e.color.blue(), e.color.alpha())
-            density = self._density_from_grid_params(e.rows, e.cols, e.spacing)
-            expected_count = e.rows * e.cols
-            layer_density = expected_count / area
-            cg.add_layer(
-                name=e.name,
-                density=layer_density,
+            center = (e.center_x + e.offset_x, e.center_y + e.offset_y)
+            # Generate each grid at its own center/size/spacing so coordinates
+            # are placed correctly in world space (not spread across the full
+            # composite bounding box as density-based add_layer() would do).
+            entry_grid = GridManager(
+                grid_size=(e.cols, e.rows),
+                spacing=e.spacing,
+                center=center,
                 arrangement=e.arrangement,
-                offset=offset,
+                density=None,
+                device="cpu",
+            )
+            coords = entry_grid.get_receptor_coordinates()
+            density = self._density_from_grid_params(e.rows, e.cols, e.spacing)
+            cg.add_layer_with_coords(
+                name=e.name,
+                coordinates=coords,
                 color=color_rgba,
             )
             self._composite_populations.append({
@@ -1318,9 +1365,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 "rows": e.rows,
                 "cols": e.cols,
                 "spacing": e.spacing,
-                "density": layer_density,
+                "density": density,
                 "arrangement": e.arrangement,
-                "offset": list(offset),
+                "offset": [e.offset_x, e.offset_y],
                 "color": list(color_rgba),
             })
 
@@ -1334,6 +1381,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._update_grid_visualization()
         self._clear_population_graphics_on_grid_change()
         self._update_generate_population_button()
+        if self.populations:
+            self._generate_populations()
         self.grid_changed.emit({
             "type": "composite",
             "grid": cg,
@@ -1413,7 +1462,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     def _auto_range_plot(self, x: np.ndarray, y: np.ndarray) -> None:
         if x.size == 0 or y.size == 0:
             return
-        padding = max(x.ptp(), y.ptp()) * 0.05 + 1e-6
+        padding = max(x.max() - x.min(), y.max() - y.min()) * 0.05 + 1e-6
         self.plot.setXRange(x.min() - padding, x.max() + padding, padding=0)
         self.plot.setYRange(y.min() - padding, y.max() + padding, padding=0)
 
@@ -1718,8 +1767,18 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         name = f"Pop #{self._population_counter}"
         color = _POPULATION_COLORS[len(self.populations) % len(_POPULATION_COLORS)]
         seed = self._get_population_seed()
-        target_grid = None
-        if self._composite_grid is not None and self.cmb_target_grid.isEnabled():
+        # Default to the first grid entry rather than the combined bounding box,
+        # so neurons are placed within a specific receptor sheet by default.
+        target_grid = self._grid_entries[0].name if self._grid_entries else None
+        if self.cmb_target_grid.isEnabled():
+            # Reflect the default in the dropdown so the user can see/change it
+            if target_grid is not None:
+                idx = self.cmb_target_grid.findText(target_grid)
+                if idx >= 0:
+                    self._block_population_editor = True
+                    self.cmb_target_grid.setCurrentIndex(idx)
+                    self._block_population_editor = False
+            # Allow explicit override if the user has already picked something else
             target_text = self.cmb_target_grid.currentText()
             if target_text != "(all receptors)":
                 target_grid = target_text
@@ -1766,6 +1825,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._selected_population = population
         self._load_population_into_form(population)
         self.populations_changed.emit(list(self.populations))
+        # Auto-instantiate immediately if a grid is available
+        self._regenerate_selected_population_if_instantiated()
 
     def _on_generate_population(self) -> None:
         """Instantiate all populations from current configs (requires grid)."""
@@ -1806,8 +1867,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     population.instantiate_flat(coords, props["xlim"], props["ylim"])
                 self._create_population_graphics(population)
         elif self._composite_grid is not None:
-            bounds = self._composite_grid.computed_bounds
-            xlim, ylim = bounds[0], bounds[1]
             for population in self.populations:
                 if population.csv_folder is not None:
                     self._create_population_graphics(population)
@@ -1815,11 +1874,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 population.module = None
                 population.flat_module = None
                 target = population.target_grid
-                coords = (
-                    self._composite_grid.get_population_coordinates(target)
-                    if target
-                    else self._composite_grid.get_all_coordinates()
-                )
+                if target:
+                    coords = self._composite_grid.get_population_coordinates(target)
+                    xlim, ylim = _bounds_from_coords(coords)
+                else:
+                    coords = self._composite_grid.get_all_coordinates()
+                    bounds = self._composite_grid.computed_bounds
+                    xlim, ylim = bounds[0], bounds[1]
                 if coords is not None and coords.shape[0] > 0:
                     population.instantiate_flat(coords, xlim, ylim)
                     self._create_population_graphics(population)

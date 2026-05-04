@@ -108,7 +108,7 @@ class PopulationConfig:
             model=str(payload.get("model", "Izhikevich")),
             filter_method=filter_method,
             enabled=bool(payload.get("enabled", True)),
-            input_gain=float(payload.get("input_gain", 1.0)),
+            input_gain=float(payload.get("input_gain", 50.0)),
             noise_std=float(payload.get("noise_std", 0.0)),
             model_params=dict(payload.get("model_params", {})),
             filter_params=dict(payload.get("filter_params", {})),
@@ -321,6 +321,13 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 "stimulus": {},
             }
 
+    def _on_expert_mode_toggled(self, checked: bool) -> None:
+        """Show or hide advanced sections based on expert mode state."""
+        for w in self._expert_only_widgets_spiking:
+            w.setVisible(checked)
+        qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        qsettings.setValue("gui/spiking_tab/expert_mode", checked)
+
     # ------------------------------------------------------------------
     # UI construction
     # ------------------------------------------------------------------
@@ -337,10 +344,28 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         scroll_area.setWidget(control_widget)
         layout.addWidget(scroll_area, stretch=2)
 
+        # Expert mode toggle
+        self._expert_only_widgets_spiking: List = []
+        _qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        _saved_expert = _qsettings.value("gui/spiking_tab/expert_mode")
+        self._initial_expert_spiking = (
+            _saved_expert in (True, "true", 1, "1") if _saved_expert is not None else False
+        )
+        self.chk_expert_mode = QtWidgets.QCheckBox("Expert mode")
+        self.chk_expert_mode.setToolTip(
+            "Show advanced controls (filter parameters, model parameters, DSL editor)."
+        )
+        self.chk_expert_mode.setChecked(self._initial_expert_spiking)
+        self.chk_expert_mode.toggled.connect(self._on_expert_mode_toggled)
+        self.control_layout.addWidget(self.chk_expert_mode)
+
         self._build_stimulus_section()
         self._build_population_section()
         self._build_simulation_section()
         self.control_layout.addStretch(1)
+
+        # Apply initial expert mode state after all sections are built
+        self._on_expert_mode_toggled(self._initial_expert_spiking)
 
         right_container = QtWidgets.QWidget()
         right_layout = QtWidgets.QVBoxLayout(right_container)
@@ -401,8 +426,14 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.dbl_input_gain = QtWidgets.QDoubleSpinBox()
         self.dbl_input_gain.setDecimals(4)
         self.dbl_input_gain.setRange(0.0, 1000.0)
-        self.dbl_input_gain.setSingleStep(0.1)
-        self.dbl_input_gain.setValue(1.0)
+        self.dbl_input_gain.setSingleStep(1.0)
+        self.dbl_input_gain.setValue(50.0)
+        self.dbl_input_gain.setToolTip(
+            "Multiplicative gain applied to filter output before the neuron model.\n"
+            "Typical range 20\u2013200 for Izhikevich/AdEx with default SA/RA filter\n"
+            "parameters. The SA/RA filters were calibrated for N/mm\u00b2 stimulus units;\n"
+            "SensoryForge uses mA, so gain \u2248 50 compensates for the unit mismatch."
+        )
         form.addRow("Input gain:", self.dbl_input_gain)
 
         self.dbl_noise_std = QtWidgets.QDoubleSpinBox()
@@ -436,6 +467,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.model_params_section.setContentLayout(self.model_param_layout)
         self.model_params_section.setVisible(False)
         self.control_layout.addWidget(self.model_params_section)
+        self._expert_only_widgets_spiking.append(self.model_params_section)
 
     def _build_dsl_editor_section(self) -> None:
         """Create DSL equation editor panel for custom neuron models."""
@@ -510,6 +542,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.dsl_section.setContentLayout(layout)
         self.dsl_section.setVisible(False)
         self.control_layout.addWidget(self.dsl_section)
+        self._expert_only_widgets_spiking.append(self.dsl_section)
 
     def _populate_dsl_params(self, params: Dict[str, float]) -> None:
         """Populate DSL parameter table with given parameters."""
@@ -599,6 +632,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.filter_params_section.setContentLayout(self.filter_param_layout)
         self.filter_params_section.setVisible(False)
         self.control_layout.addWidget(self.filter_params_section)
+        self._expert_only_widgets_spiking.append(self.filter_params_section)
 
     def _build_neuron_selector(self) -> None:
         section = CollapsibleSection("Neuron Map", collapsed=True, settings_key="gui/spiking_tab/neuron_map_expanded")

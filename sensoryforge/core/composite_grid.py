@@ -174,6 +174,44 @@ class CompositeReceptorGrid(BaseGrid):
             "count": coordinates.shape[0],
         }
     
+    def add_layer_with_coords(
+        self,
+        name: str,
+        coordinates: torch.Tensor,
+        color: Optional[Tuple[int, int, int, int]] = None,
+        **metadata: Any,
+    ) -> None:
+        """Add a named receptor layer from pre-generated coordinates.
+
+        Use this when receptor positions are already computed (e.g. from a
+        ``ReceptorGrid``) and you want to register them under a layer name
+        without triggering density-based generation.
+
+        Args:
+            name: Unique identifier for this layer.
+            coordinates: Receptor positions [N, 2] in mm (x, y).
+            color: RGBA color tuple (r, g, b, a) for GUI visualization.
+            **metadata: Additional metadata stored with the layer config.
+
+        Raises:
+            ValueError: If layer name already exists or coordinates are empty.
+        """
+        if name in self.layers:
+            raise ValueError(f"Layer '{name}' already exists")
+        if coordinates.shape[0] == 0:
+            raise ValueError(f"Layer '{name}' has no coordinates")
+        coordinates = coordinates.to(self.device)
+        self.layers[name] = {
+            "config": {
+                "density": None,
+                "arrangement": None,
+                "color": color,
+                "metadata": metadata,
+            },
+            "coordinates": coordinates,
+            "count": coordinates.shape[0],
+        }
+
     def get_layer_coordinates(self, name: str) -> torch.Tensor:
         """Retrieve receptor coordinates for a named layer.
         

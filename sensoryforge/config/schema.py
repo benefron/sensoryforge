@@ -187,7 +187,7 @@ class PopulationConfig:
 
     # Simulation control
     enabled: bool = True
-    input_gain: float = 1.0
+    input_gain: float = 50.0
     seed: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:

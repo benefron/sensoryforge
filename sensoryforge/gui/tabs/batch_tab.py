@@ -188,7 +188,7 @@ class BatchTab(QtWidgets.QWidget):
         self._log.setReadOnly(True)
         self._log.setMaximumBlockCount(2000)
         self._log.setStyleSheet(
-            "QPlainTextEdit { font-family: monospace; font-size: 11px; }"
+            "QPlainTextEdit { font-family: 'Courier New'; font-size: 11px; }"
         )
         log_layout.addWidget(self._log)
         outer.addWidget(log_group, stretch=1)

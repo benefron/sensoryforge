@@ -172,6 +172,12 @@ The GUI reads/writes `SensoryForgeConfig`. Export to YAML → run via CLI for ba
 
 **Project management:** `ExperimentManager` (`core/experiment_manager.py`) owns a project directory (`stimuli/`, `results/`, `figures/`). `SensoryForgeWindow` holds one instance and pushes it to all tabs via `set_experiment_manager()`.
 
+**Expert mode:** Each tab has a `chk_expert_mode` `QCheckBox` pinned at the top of the control panel. When unchecked (Basic mode, default), advanced widgets are hidden via `w.setVisible(False)` on each widget in `self._expert_only_widgets` (MechanoreceptorTab) or `self._expert_only_widgets_spiking` (SpikingNeuronTab). State is persisted via `QSettings` keys `"gui/mechanoreceptor_tab/expert_mode"` and `"gui/spiking_tab/expert_mode"`.
+
+**Per-column neuron toggle (MechanoreceptorTab):** `chk_square_neurons` checkbox + `spin_neurons_per_col` spinbox in Population Settings. When checked (default), `neuron_cols` is forced equal to `neuron_rows`. When unchecked, `spin_neurons_per_col` becomes visible and `neuron_cols` is set independently. Mirrors the receptor grid's `chk_square_grid` pattern.
+
+**CSV Population Import/Export (MechanoreceptorTab):** The `_CSVPopulationModule` dataclass (`mechanoreceptor_tab.py`) mimics the `FlatInnervationModule` interface (`neuron_centers`, `innervation_weights`, `receptor_coords`, `num_neurons`) so CSV-imported populations work with the existing `_update_innervation_graphics_flat` code path. Export writes `neuron_positions.csv` (x,y mm), `innervation_weights.csv` (N×M), and `manifest.json` to a user-selected folder. Import reads the same folder, validates receptor count against the current grid (falls back to zero-fill if mismatched), and attaches the stub as `pop.flat_module`. The `csv_folder: Optional[str]` field on `NeuronPopulation` marks whether a population uses CSV data and prevents regeneration during `_generate_populations()`.
+
 ### Backend / Frontend Contract
 
 When the GUI runs a simulation:
@@ -192,6 +198,7 @@ These are open issues documented in `reviews/CODE_REVIEW_20260408.md`:
 - **Equation DSL (`model_dsl.py`) is numpy-only** — DSL-compiled neuron models do not support CUDA or autograd. They work on CPU only. This is tracked as C-2 in the review.
 - **`reset_states()` vs `reset_state()`** — `SAFilterTorch` exposes `reset_states()` (plural), breaking polymorphism with the `BaseFilter` interface. New filters must use `reset_state()` (singular).
 - **`BatchExecutor` stimulus shape** — `_canonical_to_legacy_config` sets `grid_size = rows*cols`, which `GeneralizedTactileEncodingPipeline` treats as per-side count. The executor works around this with bilinear interpolation, but the root bug in `_canonical_to_legacy_config` is unresolved.
+- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Pierzowski (1995) for stimulus inputs in N/mm². SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 
 ---
 

@@ -117,7 +117,7 @@ class PlaybackController(QtWidgets.QWidget):
         self._time_label = QtWidgets.QLabel("t = 0.0 ms")
         self._time_label.setFixedWidth(100)
         self._time_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self._time_label.setStyleSheet("font-family: monospace; font-size: 11px;")
+        self._time_label.setStyleSheet("font-family: 'Courier New'; font-size: 11px;")
         layout.addWidget(self._time_label)
 
         # ---- Slider
