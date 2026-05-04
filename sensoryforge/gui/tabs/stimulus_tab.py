@@ -341,9 +341,12 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._target_layer_name: Optional[str] = None
         self._committed_config: Optional[StimulusConfig] = None
         self._active_stack_index: Optional[int] = None
+        self._dirty = False
+        self._expert_only_widgets_stimulus: List[QtWidgets.QWidget] = []
 
         self._setup_ui()
         self._connect_signals()
+        self._init_expert_mode_stimulus()
 
         self._preview_timer = QtCore.QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -421,7 +424,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         action_row = QtWidgets.QHBoxLayout(action_bar)
         action_row.setContentsMargins(4, 3, 4, 3)
         action_row.setSpacing(4)
-        self.btn_stack_update = QtWidgets.QPushButton("Update Selected")
+        self.btn_stack_update = QtWidgets.QPushButton("Save to Stack")
+        self.btn_stack_update.setToolTip("Overwrite the selected stack entry with current parameters")
         self.btn_stack_revert = QtWidgets.QPushButton("Revert")
         self.btn_stack_update.setEnabled(False)
         self.btn_stack_revert.setEnabled(False)
@@ -496,6 +500,13 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         layout.addWidget(preview_container, stretch=3)
 
     def _build_metadata_section(self) -> None:
+        expert_row = QtWidgets.QHBoxLayout()
+        expert_row.addStretch(1)
+        self.chk_expert_mode = QtWidgets.QCheckBox("Expert mode")
+        self.chk_expert_mode.setToolTip("Show advanced parameters")
+        expert_row.addWidget(self.chk_expert_mode)
+        self.control_layout.addLayout(expert_row)
+
         name_row = QtWidgets.QHBoxLayout()
         name_row.setContentsMargins(0, 2, 0, 2)
         name_row.addWidget(QtWidgets.QLabel("Name:"))
@@ -533,20 +544,27 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
         # (Update/Revert buttons are in the persistent action bar below the scroll area)
 
+        self._composition_widget = QtWidgets.QWidget()
+        comp_vbox = QtWidgets.QVBoxLayout(self._composition_widget)
+        comp_vbox.setContentsMargins(0, 0, 0, 0)
+        comp_vbox.setSpacing(2)
+
         mode_row = QtWidgets.QHBoxLayout()
         mode_row.addWidget(QtWidgets.QLabel("Composition:"))
         self.cmb_composition_mode = QtWidgets.QComboBox()
         self.cmb_composition_mode.addItems(["add", "max", "mean"])
         self.cmb_composition_mode.setCurrentText(self._composition_mode)
         mode_row.addWidget(self.cmb_composition_mode, stretch=1)
-        layout.addLayout(mode_row)
+        comp_vbox.addLayout(mode_row)
 
         layer_row = QtWidgets.QHBoxLayout()
         layer_row.addWidget(QtWidgets.QLabel("Target Layer:"))
         self.cmb_target_layer = QtWidgets.QComboBox()
         self.cmb_target_layer.addItem("standard")
         layer_row.addWidget(self.cmb_target_layer, stretch=1)
-        layout.addLayout(layer_row)
+        comp_vbox.addLayout(layer_row)
+
+        layout.addWidget(self._composition_widget)
 
         group.addRow(container)
         self.control_layout.addWidget(group)
@@ -615,7 +633,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         
         # Sub-type selector
         subtype_row = QtWidgets.QHBoxLayout()
-        subtype_row.addWidget(QtWidgets.QLabel("Texture Type:"))
+        self.lbl_texture_type = QtWidgets.QLabel("Texture Type:")
+        subtype_row.addWidget(self.lbl_texture_type)
         self.texture_subtype_combo = QtWidgets.QComboBox()
         self.texture_subtype_combo.addItems(["Gabor", "Edge Grating", "Noise"])
         subtype_row.addWidget(self.texture_subtype_combo)
@@ -655,6 +674,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         gabor_form.addRow("Orientation (°):", self.spin_texture_orientation)
         gabor_form.addRow("Sigma (mm):", self.spin_texture_sigma)
         gabor_form.addRow("Phase (rad):", self.spin_phase)
+        self._lbl_texture_sigma_row = gabor_form.labelForField(self.spin_texture_sigma)
+        self._lbl_phase_row = gabor_form.labelForField(self.spin_phase)
         layout.addWidget(self.gabor_params_widget)
         
         # Edge Grating parameters
@@ -689,6 +710,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         edge_form.addRow("Spacing (mm):", self.spin_spacing)
         edge_form.addRow("Count:", self.spin_edge_count)
         edge_form.addRow("Edge Width (mm):", self.spin_edge_width)
+        self._lbl_edge_width_row = edge_form.labelForField(self.spin_edge_width)
         layout.addWidget(self.edge_grating_params_widget)
         self.edge_grating_params_widget.setVisible(False)
         
@@ -710,6 +732,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         
         noise_form.addRow("Scale:", self.spin_noise_scale)
         noise_form.addRow("Kernel Size:", self.spin_noise_kernel)
+        self._lbl_noise_kernel_row = noise_form.labelForField(self.spin_noise_kernel)
         layout.addWidget(self.noise_params_widget)
         self.noise_params_widget.setVisible(False)
         
@@ -767,6 +790,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         linear_form.addRow("End Y (mm):", self.spin_linear_end_y)
         linear_form.addRow("Num Steps:", self.spin_num_steps)
         linear_form.addRow("Sigma (mm):", self.spin_moving_sigma)
+        self._lbl_num_steps_row = linear_form.labelForField(self.spin_num_steps)
+        self._lbl_moving_sigma_row = linear_form.labelForField(self.spin_moving_sigma)
         layout.addWidget(self.linear_params_widget)
         
         # Circular motion parameters
@@ -816,6 +841,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         circular_form.addRow("Start Angle (rad):", self.spin_start_angle)
         circular_form.addRow("End Angle (rad):", self.spin_end_angle)
         circular_form.addRow("Sigma (mm):", self.spin_circular_sigma)
+        self._lbl_circular_num_steps_row = circular_form.labelForField(self.spin_circular_num_steps)
         layout.addWidget(self.circular_params_widget)
         # Save label refs so we can hide duplicate rows for non-"moving" types
         self.lbl_circ_center_x_label = circular_form.labelForField(self.spin_circular_center_x)
@@ -864,6 +890,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         slide_form.addRow("End Y (mm):", self.spin_slide_end_y)
         slide_form.addRow("Num Steps:", self.spin_slide_num_steps)
         slide_form.addRow("Sigma (mm):", self.spin_slide_sigma)
+        self._lbl_slide_num_steps_row = slide_form.labelForField(self.spin_slide_num_steps)
         layout.addWidget(self.slide_params_widget)
         # Save label refs for rows that duplicate the spatial section for non-"moving" types
         self.lbl_slide_start_x_label = slide_form.labelForField(self.spin_slide_start_x)
@@ -999,6 +1026,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         timing_sep = QtWidgets.QLabel("― Sub-Stimulus Timing ―")
         timing_sep.setAlignment(QtCore.Qt.AlignCenter)
         timing_sep.setStyleSheet("color: gray; font-style: italic;")
+        self._timing_sep = timing_sep
         form.addRow(timing_sep)
 
         self.spin_onset = QtWidgets.QDoubleSpinBox()
@@ -1009,6 +1037,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_onset.setSuffix(" ms")
         self.spin_onset.setToolTip("When this sub-stimulus starts in the global timeline")
         form.addRow("Onset (ms):", self.spin_onset)
+        self._lbl_onset_row = form.labelForField(self.spin_onset)
 
         self.spin_duration = QtWidgets.QDoubleSpinBox()
         self.spin_duration.setDecimals(1)
@@ -1018,9 +1047,11 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_duration.setSuffix(" ms")
         self.spin_duration.setToolTip("Duration of this sub-stimulus (0 = use global total)")
         form.addRow("Duration (ms):", self.spin_duration)
+        self._lbl_duration_row = form.labelForField(self.spin_duration)
 
         # Phase 3: Repeat pattern controls
         repeat_group = CollapsibleGroupBox("Repeat Pattern", nested=True, start_expanded=False)
+        self._repeat_group = repeat_group
         repeat_layout = repeat_group.layout()
         repeat_layout.setLabelAlignment(QtCore.Qt.AlignRight)
 
@@ -1080,6 +1111,84 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.control_layout.addWidget(group)
 
     # ------------------------------------------------------------------
+    # Expert mode
+    # ------------------------------------------------------------------
+    def _init_expert_mode_stimulus(self) -> None:
+        """Populate _expert_only_widgets_stimulus and restore persisted state."""
+        ew = self._expert_only_widgets_stimulus
+
+        # Composition / target layer row (stack section)
+        if hasattr(self, "_composition_widget"):
+            ew.append(self._composition_widget)
+
+        # Sub-stimulus timing controls (temporal section)
+        if hasattr(self, "_timing_sep"):
+            ew.append(self._timing_sep)
+        for w in (self.spin_onset, self.spin_duration):
+            ew.append(w)
+        for attr in ("_lbl_onset_row", "_lbl_duration_row"):
+            lbl = getattr(self, attr, None)
+            if lbl is not None:
+                ew.append(lbl)
+
+        # Repeat pattern group (temporal section)
+        if hasattr(self, "_repeat_group"):
+            ew.append(self._repeat_group)
+
+        # Gabor advanced: sigma and phase
+        for w in (self.spin_texture_sigma, self.spin_phase):
+            ew.append(w)
+        for attr in ("_lbl_texture_sigma_row", "_lbl_phase_row"):
+            lbl = getattr(self, attr, None)
+            if lbl is not None:
+                ew.append(lbl)
+
+        # Grating advanced: edge width
+        ew.append(self.spin_edge_width)
+        lbl = getattr(self, "_lbl_edge_width_row", None)
+        if lbl is not None:
+            ew.append(lbl)
+
+        # Noise advanced: kernel size
+        ew.append(self.spin_noise_kernel)
+        lbl = getattr(self, "_lbl_noise_kernel_row", None)
+        if lbl is not None:
+            ew.append(lbl)
+
+        # Motion advanced: num_steps and sigma for each trajectory type
+        for w in (
+            self.spin_num_steps, self.spin_moving_sigma,
+            self.spin_circular_num_steps, self.spin_circular_sigma,
+            self.spin_slide_num_steps, self.spin_slide_sigma,
+        ):
+            ew.append(w)
+        for attr in (
+            "_lbl_num_steps_row", "_lbl_moving_sigma_row",
+            "_lbl_circular_num_steps_row", "lbl_circ_sigma_label",
+            "_lbl_slide_num_steps_row", "lbl_slide_sigma_label",
+        ):
+            lbl = getattr(self, attr, None)
+            if lbl is not None:
+                ew.append(lbl)
+
+        # Restore persisted state
+        settings = QtCore.QSettings()
+        expert = settings.value("gui/stimulus_tab/expert_mode", False, type=bool)
+        self.chk_expert_mode.blockSignals(True)
+        self.chk_expert_mode.setChecked(expert)
+        self.chk_expert_mode.blockSignals(False)
+        self._on_expert_mode_changed_stimulus(
+            QtCore.Qt.Checked if expert else QtCore.Qt.Unchecked
+        )
+
+    def _on_expert_mode_changed_stimulus(self, state: int) -> None:
+        """Show/hide expert-only widgets based on checkbox state."""
+        expert = state == QtCore.Qt.Checked
+        for w in self._expert_only_widgets_stimulus:
+            w.setVisible(expert)
+        QtCore.QSettings().setValue("gui/stimulus_tab/expert_mode", expert)
+
+    # ------------------------------------------------------------------
     # Signal connections
     # ------------------------------------------------------------------
     def _connect_signals(self) -> None:
@@ -1110,6 +1219,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_total_time.valueChanged.connect(self._on_total_time_changed)
 
         self.txt_stimulus_name.textChanged.connect(self._on_name_changed)
+        self.chk_expert_mode.stateChanged.connect(self._on_expert_mode_changed_stimulus)
 
         self.btn_stack_add.clicked.connect(self._on_stack_add_new)
         self.btn_stack_update.clicked.connect(self._on_stack_update_selected)
@@ -1192,21 +1302,26 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._selected_type = str(stimulus_type)
         self._update_spread_label()
 
-        # Show/hide texture group for legacy "texture" type
+        # Show texture group for any type that has texture parameters
         is_texture = self._selected_type == "texture"
-        self.texture_group.setVisible(is_texture)
-
-        # Show/hide gabor params for new "gabor" type
         is_gabor = self._selected_type == "gabor"
-        self.gabor_params_widget.setVisible(is_gabor)
-
-        # Show/hide grating params for new "grating" type
         is_grating = self._selected_type == "grating"
-        self.edge_grating_params_widget.setVisible(is_grating)
-
-        # Show/hide noise params for new "noise" type
         is_noise = self._selected_type == "noise"
-        self.noise_params_widget.setVisible(is_noise)
+        is_texture_type = is_texture or is_gabor or is_grating or is_noise
+        self.texture_group.setVisible(is_texture_type)
+        if is_texture_type:
+            use_combo = is_texture
+            self.lbl_texture_type.setVisible(use_combo)
+            self.texture_subtype_combo.setVisible(use_combo)
+            self.gabor_params_widget.setVisible(
+                is_gabor or (use_combo and self.texture_subtype_combo.currentIndex() == 0)
+            )
+            self.edge_grating_params_widget.setVisible(
+                is_grating or (use_combo and self.texture_subtype_combo.currentIndex() == 1)
+            )
+            self.noise_params_widget.setVisible(
+                is_noise or (use_combo and self.texture_subtype_combo.currentIndex() == 2)
+            )
 
         # Full-field types (noise, grating) don't need position/spread coords
         is_full_field = self._selected_type in ("noise", "grating")
@@ -1388,6 +1503,9 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._request_preview()
 
     def _handle_preview_request(self, *_: float) -> None:
+        if self._active_stack_index is not None:
+            self._dirty = True
+            self.btn_stack_update.setText("Save to Stack *")
         self._request_preview()
 
     def _on_ramp_component_changed(self, _: float) -> None:
@@ -1498,6 +1616,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         config = self._collect_config()
         self._stimulus_stack[self._active_stack_index] = config
         self._committed_config = config
+        self._dirty = False
+        self.btn_stack_update.setText("Save to Stack")
         self._refresh_stack_list()
         self.stimulus_stack_list.setCurrentRow(self._active_stack_index)
         self._request_preview()
@@ -1507,6 +1627,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         if self._committed_config is None:
             return
         self._apply_config(self._committed_config)
+        self._dirty = False
+        self.btn_stack_update.setText("Save to Stack")
         self._request_preview()
 
     def _on_stack_duplicate(self) -> None:
@@ -1543,6 +1665,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         if selected is None:
             self._active_stack_index = None
             self._committed_config = None
+            self._dirty = False
+            self.btn_stack_update.setText("Save to Stack")
             self.btn_stack_update.setEnabled(False)
             self.btn_stack_revert.setEnabled(False)
             return
@@ -1552,6 +1676,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._active_stack_index = index
         self._apply_config(self._stimulus_stack[index])
         self._committed_config = self._collect_config()
+        self._dirty = False
+        self.btn_stack_update.setText("Save to Stack")
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
         self._request_preview()
@@ -1841,7 +1967,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.library_status.setText(f"Saved stimulus to {path}")
         self._refresh_stimulus_library()
         self._select_library_item(path)
-        self._reset_stack()
 
     def _reset_stack(self) -> None:
         """Clear the stimulus stack and reset the UI to a blank default state."""
