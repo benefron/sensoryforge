@@ -74,6 +74,10 @@ class StimulusConfig:
     repeat_spacing_x: float = 1.0
     repeat_spacing_y: float = 1.0
 
+    # Grid targeting: "all" means the full composite extent; any other value
+    # is the name of a specific grid layer this sub-stimulus applies to.
+    target_grid: str = "all"
+
     def as_dict(self) -> Dict[str, object]:
         return {
             "name": self.name,
@@ -111,6 +115,7 @@ class StimulusConfig:
             "repeat_ny": int(self.repeat_ny),
             "repeat_spacing_x": float(self.repeat_spacing_x),
             "repeat_spacing_y": float(self.repeat_spacing_y),
+            "target_grid": str(self.target_grid),
         }
 
 
@@ -302,6 +307,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
     PREVIEW_THROTTLE_MS = 120
 
+    stimulus_changed = QtCore.pyqtSignal()
+
     def __init__(
         self,
         mechanoreceptor_tab,
@@ -389,25 +396,20 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(2)
 
-        # Always-visible save/load toolbar
+        # Toolbar: import from disk + info label
         save_bar = QtWidgets.QFrame()
         save_bar.setFrameShape(QtWidgets.QFrame.StyledPanel)
         save_row = QtWidgets.QHBoxLayout(save_bar)
         save_row.setContentsMargins(4, 3, 4, 3)
         save_row.setSpacing(4)
-        self.btn_save_stimulus = QtWidgets.QPushButton("Save")
-        self.btn_save_stimulus_as = QtWidgets.QPushButton("Save As…")
-        self.btn_load_stimulus = QtWidgets.QPushButton("Load")
-        self.btn_delete_stimulus = QtWidgets.QPushButton("Delete")
-        self.btn_refresh_library = QtWidgets.QPushButton("⟳")
-        self.btn_refresh_library.setFixedWidth(28)
-        self.btn_refresh_library.setToolTip("Refresh stimulus library")
-        save_row.addWidget(self.btn_save_stimulus)
-        save_row.addWidget(self.btn_save_stimulus_as)
-        save_row.addWidget(self.btn_load_stimulus)
-        save_row.addWidget(self.btn_delete_stimulus)
-        save_row.addWidget(self.btn_refresh_library)
-        save_row.addStretch(1)
+        self.btn_import_stimulus = QtWidgets.QPushButton("Import…")
+        self.btn_import_stimulus.setToolTip(
+            "Import a stimulus from a JSON file and add it to the current set"
+        )
+        save_row.addWidget(self.btn_import_stimulus)
+        lbl_save_hint = QtWidgets.QLabel("Use File › Save to save the project")
+        lbl_save_hint.setStyleSheet("color: gray; font-size: 10px;")
+        save_row.addWidget(lbl_save_hint, stretch=1)
         left_layout.addWidget(save_bar)
 
         scroll_area = QtWidgets.QScrollArea()
@@ -424,8 +426,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         action_row = QtWidgets.QHBoxLayout(action_bar)
         action_row.setContentsMargins(4, 3, 4, 3)
         action_row.setSpacing(4)
-        self.btn_stack_update = QtWidgets.QPushButton("Save to Stack")
-        self.btn_stack_update.setToolTip("Overwrite the selected stack entry with current parameters")
+        self.btn_stack_update = QtWidgets.QPushButton("Apply")
+        self.btn_stack_update.setToolTip("Commit current parameters to the selected stimulus in the set")
         self.btn_stack_revert = QtWidgets.QPushButton("Revert")
         self.btn_stack_update.setEnabled(False)
         self.btn_stack_revert.setEnabled(False)
@@ -515,8 +517,23 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         name_row.addWidget(self.txt_stimulus_name, stretch=1)
         self.control_layout.addLayout(name_row)
 
+        # Grid selector — visible only when multiple grids are configured
+        self._preview_grid_widget = QtWidgets.QWidget()
+        grid_row = QtWidgets.QHBoxLayout(self._preview_grid_widget)
+        grid_row.setContentsMargins(0, 2, 0, 2)
+        grid_row.setSpacing(4)
+        grid_row.addWidget(QtWidgets.QLabel("Apply to grid:"))
+        self.cmb_preview_grid = QtWidgets.QComboBox()
+        self.cmb_preview_grid.addItem("All Grids")
+        self.cmb_preview_grid.setToolTip(
+            "Select which grid this stimulus applies to in preview and simulation"
+        )
+        grid_row.addWidget(self.cmb_preview_grid, stretch=1)
+        self._preview_grid_widget.setVisible(False)
+        self.control_layout.addWidget(self._preview_grid_widget)
+
     def _build_stack_section(self) -> None:
-        group = CollapsibleGroupBox("Stimulus Stack", start_expanded=True)
+        group = CollapsibleGroupBox("Stimulus Set", start_expanded=True)
         container = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -534,7 +551,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
         # Row 1: Add New + Duplicate + Remove
         btn_row1 = QtWidgets.QHBoxLayout()
-        self.btn_stack_add = QtWidgets.QPushButton("Add New")
+        self.btn_stack_add = QtWidgets.QPushButton("Add Stimulus")
         self.btn_stack_duplicate = QtWidgets.QPushButton("Duplicate")
         self.btn_stack_remove = QtWidgets.QPushButton("Remove")
         btn_row1.addWidget(self.btn_stack_add)
@@ -556,13 +573,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.cmb_composition_mode.setCurrentText(self._composition_mode)
         mode_row.addWidget(self.cmb_composition_mode, stretch=1)
         comp_vbox.addLayout(mode_row)
-
-        layer_row = QtWidgets.QHBoxLayout()
-        layer_row.addWidget(QtWidgets.QLabel("Target Layer:"))
-        self.cmb_target_layer = QtWidgets.QComboBox()
-        self.cmb_target_layer.addItem("standard")
-        layer_row.addWidget(self.cmb_target_layer, stretch=1)
-        comp_vbox.addLayout(layer_row)
 
         layout.addWidget(self._composition_widget)
 
@@ -1232,8 +1242,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.cmb_composition_mode.currentTextChanged.connect(
             self._on_composition_changed
         )
-        self.cmb_target_layer.currentTextChanged.connect(
-            self._on_target_layer_changed
+        self.cmb_preview_grid.currentTextChanged.connect(
+            self._on_preview_grid_changed
         )
 
         self.btn_save_stimulus.clicked.connect(self._save_stimulus_update)
@@ -1505,7 +1515,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _handle_preview_request(self, *_: float) -> None:
         if self._active_stack_index is not None:
             self._dirty = True
-            self.btn_stack_update.setText("Save to Stack *")
+            self.btn_stack_update.setText("Apply *")
         self._request_preview()
 
     def _on_ramp_component_changed(self, _: float) -> None:
@@ -1617,7 +1627,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._stimulus_stack[self._active_stack_index] = config
         self._committed_config = config
         self._dirty = False
-        self.btn_stack_update.setText("Save to Stack")
+        self.btn_stack_update.setText("Apply")
         self._refresh_stack_list()
         self.stimulus_stack_list.setCurrentRow(self._active_stack_index)
         self._request_preview()
@@ -1628,7 +1638,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             return
         self._apply_config(self._committed_config)
         self._dirty = False
-        self.btn_stack_update.setText("Save to Stack")
+        self.btn_stack_update.setText("Apply")
         self._request_preview()
 
     def _on_stack_duplicate(self) -> None:
@@ -1666,7 +1676,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             self._active_stack_index = None
             self._committed_config = None
             self._dirty = False
-            self.btn_stack_update.setText("Save to Stack")
+            self.btn_stack_update.setText("Apply")
             self.btn_stack_update.setEnabled(False)
             self.btn_stack_revert.setEnabled(False)
             return
@@ -1677,7 +1687,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._apply_config(self._stimulus_stack[index])
         self._committed_config = self._collect_config()
         self._dirty = False
-        self.btn_stack_update.setText("Save to Stack")
+        self.btn_stack_update.setText("Apply")
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
         self._request_preview()
@@ -1686,35 +1696,59 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._composition_mode = str(mode)
         self._request_preview()
 
-    def _on_target_layer_changed(self, layer_name: str) -> None:
-        self._target_layer_name = str(layer_name)
+    def _on_preview_grid_changed(self, grid_name: str) -> None:
+        if not grid_name or grid_name == "All Grids":
+            self._target_layer_name = None
+        else:
+            self._target_layer_name = str(grid_name)
         self._resolve_composite_grid_layer()
         self._request_preview()
 
     def _set_target_layer_options(self, payload: Optional[Dict[str, object]]) -> None:
-        self.cmb_target_layer.blockSignals(True)
-        self.cmb_target_layer.clear()
+        self.cmb_preview_grid.blockSignals(True)
+        self.cmb_preview_grid.clear()
+        self.cmb_preview_grid.addItem("All Grids")
         if isinstance(payload, dict) and payload.get("type") == "composite":
             layers = payload.get("layers", [])
             names = [layer.get("name", "layer") for layer in layers if isinstance(layer, dict)]
-            if not names:
-                names = ["layer1"]
             for name in names:
-                self.cmb_target_layer.addItem(str(name))
-            if self._target_layer_name in names:
-                self.cmb_target_layer.setCurrentText(self._target_layer_name)
+                self.cmb_preview_grid.addItem(str(name))
+            self._preview_grid_widget.setVisible(True)
+            # Restore previous selection if still valid, otherwise default to "All Grids"
+            if self._target_layer_name and self._target_layer_name in names:
+                self.cmb_preview_grid.setCurrentText(self._target_layer_name)
             else:
-                self._target_layer_name = names[0]
-                self.cmb_target_layer.setCurrentText(names[0])
+                self._target_layer_name = None
+                self.cmb_preview_grid.setCurrentText("All Grids")
         else:
-            self.cmb_target_layer.addItem("standard")
-            self._target_layer_name = "standard"
-        self.cmb_target_layer.blockSignals(False)
+            self._preview_grid_widget.setVisible(False)
+            self._target_layer_name = None
+        self.cmb_preview_grid.blockSignals(False)
 
     def _resolve_composite_grid_layer(self) -> None:
         if not isinstance(self._composite_grid_info, dict):
             return
         layers = self._composite_grid_info.get("layers", [])
+        xlim = self._composite_grid_info.get("xlim", [-5.0, 5.0])
+        ylim = self._composite_grid_info.get("ylim", [-5.0, 5.0])
+
+        if self._target_layer_name is None:
+            # "All Grids" — build a representative grid over the full composite extent
+            densities = [
+                float(l.get("density", 100.0))
+                for l in layers
+                if isinstance(l, dict)
+            ]
+            avg_density = sum(densities) / max(len(densities), 1) if densities else 100.0
+            self.grid_manager = self._create_grid_from_layer(
+                arrangement="grid",
+                density=avg_density,
+                xlim=xlim,
+                ylim=ylim,
+            )
+            self.generator = StimulusGenerator(self.grid_manager)
+            return
+
         layer_name = self._target_layer_name
         selected = None
         for layer in layers:
@@ -1730,18 +1764,33 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         if arrangement not in ("grid", "jittered_grid"):
             self.grid_manager = None
             self.lbl_preview_status.setText(
-                f"Composite layer '{selected.get('name', 'layer')}' uses '{arrangement}'. "
+                f"Grid '{selected.get('name', 'layer')}' uses '{arrangement}'. "
                 "Preview requires grid or jittered_grid arrangement."
             )
             return
-        xlim = self._composite_grid_info.get("xlim", [-5.0, 5.0])
-        ylim = self._composite_grid_info.get("ylim", [-5.0, 5.0])
+
         density = float(selected.get("density", 100.0))
+        # Use per-layer bounds derived from the layer's own center + grid dimensions
+        center = selected.get("center")
+        if center is not None:
+            rows = int(selected.get("rows", 10))
+            cols = int(selected.get("cols", 10))
+            spacing = float(selected.get("spacing", 0.5))
+            cx, cy = float(center[0]), float(center[1])
+            half_w = (cols - 1) * spacing / 2.0
+            half_h = (rows - 1) * spacing / 2.0
+            layer_xlim: Sequence[float] = [cx - half_w, cx + half_w]
+            layer_ylim: Sequence[float] = [cy - half_h, cy + half_h]
+        else:
+            # Fallback: use composite extent (old behaviour)
+            layer_xlim = xlim
+            layer_ylim = ylim
+
         self.grid_manager = self._create_grid_from_layer(
             arrangement=arrangement,
             density=density,
-            xlim=xlim,
-            ylim=ylim,
+            xlim=layer_xlim,
+            ylim=layer_ylim,
         )
         self.generator = StimulusGenerator(self.grid_manager)
 
@@ -1771,6 +1820,76 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             arrangement=arrangement,
             device="cpu",
         )
+
+    def _resolve_generator_for_grid(
+        self, grid_name: str
+    ) -> Tuple[Optional["StimulusGenerator"], Optional[GridManager]]:
+        """Return (generator, grid_manager) appropriate for *grid_name*.
+
+        Args:
+            grid_name: Either "all" / "All Grids" (use the composite-wide
+                grid) or the name of a specific layer in the composite grid.
+
+        Returns:
+            A ``(StimulusGenerator, GridManager)`` pair, or ``(None, None)``
+            if no suitable grid is available.
+        """
+        is_all = not grid_name or grid_name in ("all", "All Grids")
+
+        if not isinstance(self._composite_grid_info, dict):
+            # Single-grid mode — the global generator/grid_manager is always used.
+            return self.generator, self.grid_manager
+
+        # Composite mode
+        xlim = self._composite_grid_info.get("xlim", [-5.0, 5.0])
+        ylim = self._composite_grid_info.get("ylim", [-5.0, 5.0])
+        layers = self._composite_grid_info.get("layers", [])
+
+        if is_all:
+            densities = [
+                float(l.get("density", 100.0))
+                for l in layers
+                if isinstance(l, dict)
+            ]
+            avg_density = sum(densities) / max(len(densities), 1) if densities else 100.0
+            gm = self._create_grid_from_layer(
+                arrangement="grid",
+                density=avg_density,
+                xlim=xlim,
+                ylim=ylim,
+            )
+            return StimulusGenerator(gm), gm
+
+        for layer in layers:
+            if not isinstance(layer, dict) or layer.get("name") != grid_name:
+                continue
+            arrangement = str(layer.get("arrangement", "grid"))
+            if arrangement not in ("grid", "jittered_grid"):
+                return None, None
+            density = float(layer.get("density", 100.0))
+            center = layer.get("center")
+            if center is not None:
+                rows = int(layer.get("rows", 10))
+                cols = int(layer.get("cols", 10))
+                spacing = float(layer.get("spacing", 0.5))
+                cx, cy = float(center[0]), float(center[1])
+                half_w = (cols - 1) * spacing / 2.0
+                half_h = (rows - 1) * spacing / 2.0
+                layer_xlim: Sequence[float] = [cx - half_w, cx + half_w]
+                layer_ylim: Sequence[float] = [cy - half_h, cy + half_h]
+            else:
+                layer_xlim = xlim
+                layer_ylim = ylim
+            gm = self._create_grid_from_layer(
+                arrangement=arrangement,
+                density=density,
+                xlim=layer_xlim,
+                ylim=layer_ylim,
+            )
+            return StimulusGenerator(gm), gm
+
+        # Named layer not found — fall back to global
+        return self.generator, self.grid_manager
 
     # ------------------------------------------------------------------
     # Grid and project context updates
@@ -2335,18 +2454,17 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _collect_preview_configs(self) -> List[StimulusConfig]:
         """Return configs to render in the preview.
 
-        When a stack item is actively selected for editing, return the *current
-        UI state* via ``_collect_config()`` so every parameter change is
-        immediately reflected in the preview — the user does not need to click
-        Update to see the effect.  When no item is selected but the stack is
-        populated, return the full composite (all saved items).  When the stack
-        is empty, fall back to the current UI state.
+        Always returns the full set so the composite preview shows all stimuli
+        together (spatially overlaid or temporally sequenced).  When a set item
+        is being edited, the live UI state replaces that slot so every parameter
+        change is immediately visible without clicking Apply first.  Falls back
+        to a single live config when the set is empty.
         """
-        if self._active_stack_index is not None and 0 <= self._active_stack_index < len(self._stimulus_stack):
-            # Live preview: use current UI state so edits are visible before Update
-            return [self._collect_config()]
         if self._stimulus_stack:
-            return list(self._stimulus_stack)
+            configs = list(self._stimulus_stack)
+            if self._active_stack_index is not None and 0 <= self._active_stack_index < len(configs):
+                configs[self._active_stack_index] = self._collect_config()
+            return configs
         return [self._collect_config()]
 
     def _build_composite_frames(
@@ -2583,6 +2701,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             repeat_ny=self.spin_repeat_ny.value(),
             repeat_spacing_x=self.spin_repeat_spacing_x.value(),
             repeat_spacing_y=self.spin_repeat_spacing_y.value(),
+            target_grid=self.cmb_preview_grid.currentText() or "all",
         )
         return config
 
@@ -2656,6 +2775,14 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_repeat_ny.setValue(config.repeat_ny)
         self.spin_repeat_spacing_x.setValue(config.repeat_spacing_x)
         self.spin_repeat_spacing_y.setValue(config.repeat_spacing_y)
+        # Grid target — update combo without triggering a live-preview re-resolve
+        self.cmb_preview_grid.blockSignals(True)
+        target = config.target_grid if config.target_grid else "all"
+        idx = self.cmb_preview_grid.findText(target)
+        if idx < 0:
+            idx = 0  # fall back to "All Grids"
+        self.cmb_preview_grid.setCurrentIndex(idx)
+        self.cmb_preview_grid.blockSignals(False)
 
     def _build_stimulus_frames(
         self,
@@ -3246,7 +3373,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             "type": self._selected_type,
             "motion": "moving" if self.radio_moving.isChecked() else "static",
             "composition_mode": self._composition_mode,
-            "target_layer": self._target_layer_name,
+            "target_layer": self._target_layer_name or "all",
             "stimuli": [config.as_dict() for config in self._stimulus_stack],
             "start": [self.spin_start_x.value(), self.spin_start_y.value()],
             "end": [self.spin_end_x.value(), self.spin_end_y.value()],
@@ -3324,7 +3451,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         # --- Stack ---
         self._composition_mode = str(config.get("composition_mode", "add"))
         self.cmb_composition_mode.setCurrentText(self._composition_mode)
-        self._target_layer_name = config.get("target_layer")
+        raw_target = config.get("target_layer")
+        self._target_layer_name = None if (not raw_target or raw_target == "all") else str(raw_target)
         self._stimulus_stack = []
         for item in config.get("stimuli", []):
             if not isinstance(item, dict):

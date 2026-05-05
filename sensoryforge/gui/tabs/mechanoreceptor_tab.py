@@ -1369,6 +1369,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 "arrangement": e.arrangement,
                 "offset": [e.offset_x, e.offset_y],
                 "color": list(color_rgba),
+                "center": [float(center[0]), float(center[1])],
             })
 
         self._composite_grid = cg
