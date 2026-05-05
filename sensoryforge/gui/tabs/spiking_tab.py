@@ -359,6 +359,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.chk_expert_mode.toggled.connect(self._on_expert_mode_toggled)
         self.control_layout.addWidget(self.chk_expert_mode)
 
+        self._build_active_pair_section()
         self._build_stimulus_section()
         self._build_population_section()
         self._build_simulation_section()
@@ -378,6 +379,25 @@ class SpikingNeuronTab(QtWidgets.QWidget):
 
         layout.addWidget(right_container, stretch=3)
 
+    def _build_active_pair_section(self) -> None:
+        group = QtWidgets.QGroupBox("Active Run")
+        layout = QtWidgets.QFormLayout(group)
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
+
+        self.lbl_active_stimulus = QtWidgets.QLabel("No stimulus")
+        self.lbl_active_stimulus.setWordWrap(True)
+        layout.addRow("Stimulus:", self.lbl_active_stimulus)
+
+        self.lbl_active_model = QtWidgets.QLabel("No model")
+        self.lbl_active_model.setWordWrap(True)
+        layout.addRow("Model:", self.lbl_active_model)
+
+        self.btn_run_active = QtWidgets.QPushButton("Run Simulation")
+        self.btn_run_active.setToolTip("Run simulation with the active stimulus and model")
+        layout.addRow(self.btn_run_active)
+
+        self.control_layout.addWidget(group)
+
     def _build_stimulus_section(self) -> None:
         group = QtWidgets.QGroupBox("Stimulus Library")
         layout = QtWidgets.QVBoxLayout(group)
@@ -389,12 +409,17 @@ class SpikingNeuronTab(QtWidgets.QWidget):
 
         self.stimulus_list = QtWidgets.QListWidget()
         self.stimulus_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.stimulus_list.setMaximumHeight(120)
+        self.stimulus_list.setToolTip("Double-click to load a saved stimulus set")
         layout.addWidget(self.stimulus_list, stretch=1)
 
         button_row = QtWidgets.QHBoxLayout()
         button_row.setSpacing(6)
+        self.btn_use_live_set = QtWidgets.QPushButton("Use Live Set")
+        self.btn_use_live_set.setToolTip("Use the current in-memory stimulus set from the Stimulus tab")
         self.btn_refresh_stimuli = QtWidgets.QPushButton("Refresh")
         self.btn_open_stimuli = QtWidgets.QPushButton("Open Folder")
+        button_row.addWidget(self.btn_use_live_set)
         button_row.addWidget(self.btn_refresh_stimuli)
         button_row.addWidget(self.btn_open_stimuli)
         layout.addLayout(button_row)
@@ -1117,15 +1142,23 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.btn_run_simulation = QtWidgets.QPushButton("Run Simulation")
         layout.addWidget(self.btn_run_simulation)
 
-        save_row = QtWidgets.QHBoxLayout()
-        save_row.setSpacing(6)
-        self.btn_save_module = QtWidgets.QPushButton("Save (Update)")
-        self.btn_save_as_module = QtWidgets.QPushButton("Save As...")
-        self.btn_load_module = QtWidgets.QPushButton("Load...")
-        save_row.addWidget(self.btn_save_module)
-        save_row.addWidget(self.btn_save_as_module)
-        save_row.addWidget(self.btn_load_module)
-        layout.addLayout(save_row)
+        # Model Library
+        layout.addWidget(QtWidgets.QLabel("Model Library:"))
+        self.module_list = QtWidgets.QListWidget()
+        self.module_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.module_list.setMaximumHeight(120)
+        self.module_list.setToolTip("Double-click to load a saved model")
+        layout.addWidget(self.module_list)
+
+        module_btn_row = QtWidgets.QHBoxLayout()
+        module_btn_row.setSpacing(6)
+        self.btn_save_module = QtWidgets.QPushButton("Save Model")
+        self.btn_save_module.setToolTip("Save current model config to the library")
+        self.btn_load_module = QtWidgets.QPushButton("Load")
+        self.btn_load_module.setToolTip("Load selected model or open file dialog")
+        module_btn_row.addWidget(self.btn_save_module)
+        module_btn_row.addWidget(self.btn_load_module)
+        layout.addLayout(module_btn_row)
 
         self.lbl_module_status = QtWidgets.QLabel("No module loaded.")
         self.lbl_module_status.setWordWrap(True)
@@ -1247,9 +1280,12 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.spin_neuron_index.valueChanged.connect(self._on_neuron_index_changed)
 
         self.btn_run_simulation.clicked.connect(self._run_simulation)
+        self.btn_run_active.clicked.connect(self._run_simulation)
+        self.btn_use_live_set.clicked.connect(self._on_use_live_set)
         self.btn_save_module.clicked.connect(self._save_module_update)
-        self.btn_save_as_module.clicked.connect(self._save_module_as)
         self.btn_load_module.clicked.connect(self._load_module)
+        self.module_list.itemDoubleClicked.connect(lambda _: self._load_selected_module())
+        self.module_list.itemSelectionChanged.connect(self._on_module_selection_changed)
 
     def _on_solver_changed(self, index: int) -> None:
         """Show/hide adaptive solver configuration panel."""
@@ -1310,28 +1346,21 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if directory is None:
             self._stimulus_dir = None
             self._module_dir = None
-            self.lbl_stimulus_status.setText(
-                "No project loaded. Save a configuration first."
-            )
-            self.lbl_module_status.setText("No module loaded.")
+            self.lbl_stimulus_status.setText("No workspace. Use File > New Project.")
             self.stimulus_list.clear()
+            self.module_list.clear()
             self._current_stimulus_path = None
             self._current_module_path = None
-            self.btn_save_module.setEnabled(False)
-            self.btn_save_as_module.setEnabled(False)
-            self.btn_load_module.setEnabled(False)
+            self._update_active_pair_labels()
             return
 
         self._stimulus_dir = directory / "stimuli"
         self._stimulus_dir.mkdir(parents=True, exist_ok=True)
         self._module_dir = directory / "neuron_modules"
         self._module_dir.mkdir(parents=True, exist_ok=True)
-        self.lbl_stimulus_status.setText(f"Stimuli folder: {self._stimulus_dir}")
-        self.lbl_module_status.setText("Ready to save neuron modules.")
-        self.btn_save_module.setEnabled(True)
-        self.btn_save_as_module.setEnabled(True)
-        self.btn_load_module.setEnabled(True)
+        self.lbl_stimulus_status.setText(f"Stimuli: {self._stimulus_dir.name}")
         self._refresh_stimulus_library()
+        self._refresh_module_library()
 
     def _on_populations_changed(self, populations: Sequence) -> None:
         population_map: Dict[str, Tuple[str, object]] = {}
@@ -1424,10 +1453,104 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if item is None:
             self._current_stimulus_path = None
             self._clear_stimulus_preview()
+            self._update_active_pair_labels()
             return
         path_str = item.data(QtCore.Qt.UserRole)
         self._current_stimulus_path = Path(path_str) if path_str else None
         self._load_stimulus_preview(self._current_stimulus_path)
+        self._update_active_pair_labels()
+
+    def _on_use_live_set(self) -> None:
+        self.stimulus_list.clearSelection()
+        self._current_stimulus_path = None
+        self._on_stimulus_tab_changed()
+        self._update_active_pair_labels()
+
+    # ------------------------------------------------------------------
+    # Model library
+    # ------------------------------------------------------------------
+
+    def _refresh_module_library(self) -> None:
+        self.module_list.blockSignals(True)
+        self.module_list.clear()
+        if self._module_dir is None:
+            self.module_list.blockSignals(False)
+            return
+        for json_path in sorted(self._module_dir.glob("*.json")):
+            try:
+                with json_path.open("r", encoding="utf-8") as fp:
+                    bundle = json.load(fp)
+                if bundle.get("kind") != "neuron_module":
+                    continue
+                name = json_path.stem
+                pops = bundle.get("population_configs", [])
+                model = pops[0].get("neuron_type", "?") if pops else "?"
+                display = f"{name} — {model}"
+            except (OSError, json.JSONDecodeError):
+                continue
+            item = QtWidgets.QListWidgetItem(display)
+            item.setData(QtCore.Qt.UserRole, str(json_path))
+            self.module_list.addItem(item)
+        self.module_list.blockSignals(False)
+        if self._current_module_path is not None:
+            self._select_module_item(self._current_module_path)
+
+    def _select_module_item(self, path: Path) -> None:
+        for index in range(self.module_list.count()):
+            item = self.module_list.item(index)
+            stored = item.data(QtCore.Qt.UserRole)
+            if stored and Path(stored) == path:
+                self.module_list.setCurrentItem(item)
+                break
+
+    def _on_module_selection_changed(self) -> None:
+        item = self.module_list.currentItem()
+        if item is None:
+            return
+        path_str = item.data(QtCore.Qt.UserRole)
+        if path_str:
+            self._current_module_path = Path(path_str)
+            self._update_active_pair_labels()
+
+    def _load_selected_module(self) -> None:
+        item = self.module_list.currentItem()
+        if item is None:
+            return
+        path_str = item.data(QtCore.Qt.UserRole)
+        if not path_str:
+            return
+        manifest_path = Path(path_str)
+        try:
+            with manifest_path.open("r", encoding="utf-8") as fp:
+                bundle = json.load(fp)
+        except (OSError, json.JSONDecodeError) as exc:
+            QtWidgets.QMessageBox.critical(self, "Load failed", f"Unable to read module:\n{exc}")
+            return
+        if bundle.get("schema_version") != MODULE_SCHEMA_VERSION:
+            QtWidgets.QMessageBox.warning(
+                self, "Schema mismatch", "Module schema version differs; attempting to load anyway."
+            )
+        self._current_module_path = manifest_path
+        self._apply_module_bundle(bundle, manifest_path.parent)
+        self.lbl_module_status.setText(f"Loaded: {manifest_path.stem}")
+        self._update_active_pair_labels()
+
+    # ------------------------------------------------------------------
+    # Active pair labels
+    # ------------------------------------------------------------------
+
+    def _update_active_pair_labels(self) -> None:
+        if self._current_stimulus_path is not None:
+            stim_label = self._current_stimulus_path.stem
+        else:
+            n = len(getattr(self.stimulus_tab, "_stimulus_stack", []) if self.stimulus_tab else [])
+            stim_label = f"Live set ({n} stimul{'i' if n != 1 else 'us'})" if n else "No stimulus"
+        self.lbl_active_stimulus.setText(stim_label)
+
+        if self._current_module_path is not None:
+            self.lbl_active_model.setText(self._current_module_path.stem)
+        else:
+            self.lbl_active_model.setText("No model")
 
     def _clear_stimulus_preview(self) -> None:
         self._stimulus_frames = None
@@ -1572,6 +1695,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             f"Set ({mode_label}, {composition_mode} mode) — "
             f"duration {duration_ms:.1f} ms, dt {self._stimulus_dt_ms:.2f} ms"
         )
+        self._update_active_pair_labels()
 
     def _build_composite_frames(
         self,
@@ -2532,7 +2656,10 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 f"Unable to write module file:\n{exc}",
             )
             return
-        self.lbl_module_status.setText(f"Saved module to {path}")
+        self.lbl_module_status.setText(f"Saved: {path.stem}")
+        self._refresh_module_library()
+        self._select_module_item(path)
+        self._update_active_pair_labels()
 
     def _collect_module_bundle(self) -> Dict[str, object]:
         stimulus_rel = None
@@ -2578,6 +2705,10 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         }
 
     def _load_module(self) -> None:
+        selected = self.module_list.currentItem()
+        if selected is not None:
+            self._load_selected_module()
+            return
         if self._module_dir is None:
             QtWidgets.QMessageBox.warning(
                 self,
@@ -2612,6 +2743,10 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             )
         self._current_module_path = manifest_path
         self._apply_module_bundle(bundle, manifest_path.parent)
+        self.lbl_module_status.setText(f"Loaded: {manifest_path.stem}")
+        self._refresh_module_library()
+        self._select_module_item(manifest_path)
+        self._update_active_pair_labels()
 
     def _apply_module_bundle(
         self,
