@@ -1,7 +1,7 @@
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as _dc_replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Sequence
 
@@ -1246,18 +1246,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             self._on_preview_grid_changed
         )
 
-        self.btn_save_stimulus.clicked.connect(self._save_stimulus_update)
-        self.btn_save_stimulus_as.clicked.connect(self._save_stimulus_as)
-        self.btn_load_stimulus.clicked.connect(self._load_selected_stimulus)
-        self.btn_delete_stimulus.clicked.connect(self._delete_selected_stimulus)
-        self.btn_refresh_library.clicked.connect(self._refresh_stimulus_library)
-
-        self.stimulus_list.itemSelectionChanged.connect(
-            self._on_library_selection_changed
-        )
-        self.stimulus_list.itemDoubleClicked.connect(
-            lambda _: self._load_selected_stimulus()
-        )
+        self.btn_import_stimulus.clicked.connect(self._on_import_stimulus)
 
         self.btn_play.toggled.connect(self._toggle_animation)
         self.frame_slider.valueChanged.connect(self._on_frame_changed)
@@ -1615,6 +1604,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.stimulus_stack_list.setCurrentRow(new_index)
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
+        self.stimulus_changed.emit()
         self._request_preview()
 
     def _on_stack_update_selected(self) -> None:
@@ -1630,6 +1620,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.btn_stack_update.setText("Apply")
         self._refresh_stack_list()
         self.stimulus_stack_list.setCurrentRow(self._active_stack_index)
+        self.stimulus_changed.emit()
         self._request_preview()
 
     def _on_stack_revert(self) -> None:
@@ -1654,9 +1645,8 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._stimulus_stack.append(duplicate)
         self._refresh_stack_list()
         new_index = len(self._stimulus_stack) - 1
-        # Selecting the new row triggers _on_stack_selection_changed which
-        # loads the duplicate's config into the UI.
         self.stimulus_stack_list.setCurrentRow(new_index)
+        self.stimulus_changed.emit()
         self._request_preview()
 
     def _on_stack_remove(self) -> None:
@@ -1668,6 +1658,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             return
         self._stimulus_stack.pop(index)
         self._refresh_stack_list()
+        self.stimulus_changed.emit()
         self._request_preview()
 
     def _on_stack_selection_changed(self) -> None:
@@ -1692,6 +1683,40 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.btn_stack_revert.setEnabled(True)
         self._request_preview()
 
+    def _on_import_stimulus(self) -> None:
+        """Import a stimulus JSON file and add its entries to the current set."""
+        path_str, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import Stimulus", "", "Stimulus Files (*.json);;All Files (*)"
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            with path.open("r", encoding="utf-8") as fp:
+                payload = json.load(fp)
+        except (OSError, json.JSONDecodeError) as exc:
+            QtWidgets.QMessageBox.critical(self, "Import failed", str(exc))
+            return
+        if payload.get("kind") == "stimulus_stack":
+            for item in payload.get("stimuli", []):
+                try:
+                    cfg = self._config_from_payload(item, path)
+                    self._stimulus_stack.append(cfg)
+                except Exception:
+                    pass
+        else:
+            try:
+                cfg = self._config_from_payload(payload, path)
+                self._stimulus_stack.append(cfg)
+            except Exception as exc:
+                QtWidgets.QMessageBox.critical(self, "Import failed", str(exc))
+                return
+        self._refresh_stack_list()
+        if self._stimulus_stack:
+            self.stimulus_stack_list.setCurrentRow(len(self._stimulus_stack) - 1)
+        self.stimulus_changed.emit()
+        self._request_preview()
+
     def _on_composition_changed(self, mode: str) -> None:
         self._composition_mode = str(mode)
         self._request_preview()
@@ -1699,9 +1724,21 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _on_preview_grid_changed(self, grid_name: str) -> None:
         if not grid_name or grid_name == "All Grids":
             self._target_layer_name = None
+            stored = "all"
         else:
             self._target_layer_name = str(grid_name)
+            stored = str(grid_name)
         self._resolve_composite_grid_layer()
+        # Persist the change to the currently-selected stack item so the
+        # assignment survives navigation to other items and back.
+        if (
+            self._active_stack_index is not None
+            and 0 <= self._active_stack_index < len(self._stimulus_stack)
+        ):
+            old = self._stimulus_stack[self._active_stack_index]
+            self._stimulus_stack[self._active_stack_index] = _dc_replace(
+                old, target_grid=stored
+            )
         self._request_preview()
 
     def _set_target_layer_options(self, payload: Optional[Dict[str, object]]) -> None:
@@ -2100,6 +2137,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._loading = False
         self._current_stimulus_path = None
         self.txt_stimulus_name.setText("Stimulus")
+        self.stimulus_changed.emit()
 
     def _load_selected_stimulus(self) -> None:
         if self._current_stimulus_path is None:
@@ -2173,6 +2211,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                         repeat_ny=int(item.get("repeat_ny", 1)),
                         repeat_spacing_x=float(item.get("repeat_spacing_x", 1.0)),
                         repeat_spacing_y=float(item.get("repeat_spacing_y", 1.0)),
+                        target_grid=str(item.get("target_grid", "all")),
                     ))
                 self._refresh_stack_list()
                 if self._stimulus_stack:
@@ -2187,6 +2226,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 self._update_motion_dependencies(from_speed=False)
                 self._update_library_buttons()
                 self.library_status.setText(f"Loaded stimulus from {path}")
+                self.stimulus_changed.emit()
                 self._request_preview()
                 return
 
@@ -2284,6 +2324,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._update_motion_dependencies(from_speed=False)
         self._update_library_buttons()
         self.library_status.setText(f"Loaded stimulus from {path}")
+        self.stimulus_changed.emit()
         self._request_preview()
 
         grid_sig = payload.get("grid")
@@ -2783,6 +2824,11 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             idx = 0  # fall back to "All Grids"
         self.cmb_preview_grid.setCurrentIndex(idx)
         self.cmb_preview_grid.blockSignals(False)
+        # Sync the global layer name + generator to this item's target so the
+        # next preview render uses the correct spatial extent.
+        actual_text = self.cmb_preview_grid.currentText() or "All Grids"
+        self._target_layer_name = None if actual_text in ("all", "All Grids") else actual_text
+        self._resolve_composite_grid_layer()
 
     def _build_stimulus_frames(
         self,
@@ -3229,12 +3275,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 break
 
     def _update_library_buttons(self) -> None:
-        has_project = self._library_dir is not None
-        has_selection = self._current_stimulus_path is not None
-        self.btn_save_stimulus.setEnabled(has_project)
-        self.btn_save_stimulus_as.setEnabled(has_project)
-        self.btn_load_stimulus.setEnabled(has_selection)
-        self.btn_delete_stimulus.setEnabled(has_selection)
+        pass  # save/delete buttons removed — project-level save handles persistence
 
     def _update_motion_dependencies(self, from_speed: bool) -> None:
         if self._loading:
@@ -3489,6 +3530,15 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                     start_angle=float(item.get("start_angle", 0.0)),
                     end_angle=float(item.get("end_angle", 6.28318)),
                     moving_sigma=float(item.get("moving_sigma", 0.3)),
+                    onset_ms=float(item.get("onset_ms", 0.0)),
+                    duration_ms=float(item.get("duration_ms", 0.0)),
+                    motion_type=str(item.get("motion_type", "static")),
+                    repeat_enabled=bool(item.get("repeat_enabled", False)),
+                    repeat_nx=int(item.get("repeat_nx", 1)),
+                    repeat_ny=int(item.get("repeat_ny", 1)),
+                    repeat_spacing_x=float(item.get("repeat_spacing_x", 1.0)),
+                    repeat_spacing_y=float(item.get("repeat_spacing_y", 1.0)),
+                    target_grid=str(item.get("target_grid", "all")),
                 )
             )
         self._refresh_stack_list()

@@ -1209,6 +1209,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self.mechanoreceptor_tab.populations_changed.connect(
                 self._on_populations_changed
             )
+        if hasattr(self.stimulus_tab, "stimulus_changed"):
+            self.stimulus_tab.stimulus_changed.connect(self._on_stimulus_tab_changed)
 
         self.btn_refresh_stimuli.clicked.connect(self._refresh_stimulus_library)
         self.btn_open_stimuli.clicked.connect(self._open_stimulus_folder)
@@ -1532,6 +1534,42 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         duration_ms = float(time_np[-1]) if time_np.size else 0.0
         self.lbl_stimulus_summary.setText(
             f"Stack ({len(configs)} stimuli, {composition_mode} mode) — "
+            f"duration {duration_ms:.1f} ms, dt {self._stimulus_dt_ms:.2f} ms"
+        )
+
+    def _on_stimulus_tab_changed(self) -> None:
+        """Reload the stimulus preview from the in-memory stimulus set."""
+        if self.generator is None:
+            return
+        configs = list(getattr(self.stimulus_tab, "_stimulus_stack", []))
+        if not configs:
+            self._clear_stimulus_preview()
+            return
+        composition_mode = str(getattr(self.stimulus_tab, "_composition_mode", "add"))
+        frames, time_axis, amplitude_profile = self._build_composite_frames(configs, composition_mode)
+        if frames is None or time_axis is None:
+            self._clear_stimulus_preview()
+            return
+        self._stimulus_frames = frames
+        ref_cfg = configs[0]
+        self._stimulus_dt_ms = max(float(ref_cfg.dt_ms), MIN_TIME_STEP_MS)
+        time_np = time_axis.detach().cpu().numpy().reshape(-1)
+        self._stimulus_times = time_np
+        amplitude_np = (
+            amplitude_profile.detach().cpu().numpy().reshape(-1)
+            if amplitude_profile is not None
+            else np.zeros_like(time_np)
+        )
+        self._stimulus_amplitude = amplitude_np
+        self.amplitude_curve.setData(time_np, amplitude_np)
+        amp_item = self.amplitude_plot.getPlotItem()
+        if amp_item is not None:
+            amp_item.enableAutoRange(x=True, y=True)
+        duration_ms = float(time_np[-1]) if time_np.size else 0.0
+        n = len(configs)
+        mode_label = f"{n} stimulus{'i' if n != 1 else ''}" if n > 1 else configs[0].stimulus_type
+        self.lbl_stimulus_summary.setText(
+            f"Set ({mode_label}, {composition_mode} mode) — "
             f"duration {duration_ms:.1f} ms, dt {self._stimulus_dt_ms:.2f} ms"
         )
 

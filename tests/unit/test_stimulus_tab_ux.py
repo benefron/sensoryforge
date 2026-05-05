@@ -116,10 +116,12 @@ def test_update_preserves_selection(stim_tab):
     )
 
 
-def test_save_to_stack_button_label(stim_tab):
-    """btn_stack_update must be labelled 'Save to Stack' (not 'Update Selected')."""
-    assert "Save to Stack" in stim_tab.btn_stack_update.text(), (
-        f"Expected 'Save to Stack' in button text, got {stim_tab.btn_stack_update.text()!r}"
+def test_apply_button_label(stim_tab):
+    """btn_stack_update must be labelled 'Apply'."""
+    # Strip asterisk (dirty marker) before checking base label
+    text = stim_tab.btn_stack_update.text().replace(" *", "")
+    assert text == "Apply", (
+        f"Expected 'Apply' button label, got {stim_tab.btn_stack_update.text()!r}"
     )
 
 
@@ -261,10 +263,10 @@ def test_dirty_indicator_appears_on_edit(stim_tab):
 
 
 def test_dirty_indicator_clears_on_save(stim_tab):
-    """After Save to Stack, the asterisk must be gone."""
+    """After Apply, the asterisk must be gone."""
     stim_tab._on_stack_update_selected()
     assert "*" not in stim_tab.btn_stack_update.text(), (
-        f"Asterisk should be gone after Save to Stack, got {stim_tab.btn_stack_update.text()!r}"
+        f"Asterisk should be gone after Apply, got {stim_tab.btn_stack_update.text()!r}"
     )
 
 
