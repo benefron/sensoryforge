@@ -233,6 +233,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     #           dt_ms float, xlim tuple, ylim tuple)
     simulation_finished = QtCore.pyqtSignal(object, object, object, object, object, object)
 
+    # Emitted after results are auto-saved to disk; payload is the run_id string.
+    results_saved = QtCore.pyqtSignal(str)
+
     def __init__(
         self,
         mechanoreceptor_tab,
@@ -2293,6 +2296,63 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 pass
 
         self.simulation_finished.emit(results, frames_np, time_ms, dt_ms, xlim, ylim)
+        self._auto_save_results(results, frames_np, time_ms, dt_ms, xlim, ylim)
+
+    def _auto_save_results(
+        self,
+        results: Dict[str, "SimulationResult"],
+        frames_np: Optional[np.ndarray],
+        time_ms: np.ndarray,
+        dt_ms: float,
+        xlim: tuple,
+        ylim: tuple,
+    ) -> None:
+        em = getattr(self, "_em", None)
+        if em is None or not em.is_open:
+            return
+        results_dir = em.results_dir
+        if results_dir is None:
+            return
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        stimulus_stem = (
+            self._current_stimulus_path.stem
+            if self._current_stimulus_path is not None
+            else "live"
+        )
+        model_stem = (
+            self._current_module_path.stem
+            if self._current_module_path is not None
+            else "unsaved"
+        )
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_id = f"{stimulus_stem}__{model_stem}__{ts}"
+
+        serializable = {}
+        for pop_name, result in results.items():
+            serializable[pop_name] = {
+                "spikes": result.spikes,
+                "drive": result.drive,
+                "v_trace": result.v_trace,
+                "time_ms": result.time_ms,
+            }
+
+        bundle = {
+            "run_id": run_id,
+            "stimulus": stimulus_stem,
+            "model": model_stem,
+            "results": serializable,
+            "time_ms": time_ms,
+            "dt_ms": dt_ms,
+            "frames": frames_np,
+            "xlim": xlim,
+            "ylim": ylim,
+        }
+        try:
+            torch.save(bundle, results_dir / f"{run_id}.pt")
+            self.results_saved.emit(run_id)
+        except Exception:
+            pass
 
     def _simulate_population(
         self,

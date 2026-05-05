@@ -92,6 +92,10 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         self.spiking_tab.simulation_finished.connect(
             self.visualization_tab.set_simulation_results
         )
+        # Wire auto-saved results notification → visualization tab past-runs refresh
+        self.spiking_tab.results_saved.connect(
+            self.visualization_tab.refresh_results_list
+        )
         # Wire population changes → visualization tab (for spatial positions)
         self.mechanoreceptor_tab.populations_changed.connect(
             self.visualization_tab.set_populations
@@ -388,6 +392,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             self.mechanoreceptor_tab,
             self.stimulus_tab,
             self.spiking_tab,
+            self.visualization_tab,
             self.batch_tab,
         ):
             if hasattr(tab, "set_experiment_manager"):

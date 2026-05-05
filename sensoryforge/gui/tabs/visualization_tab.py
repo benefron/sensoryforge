@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Type
 
 import numpy as np
+import torch
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
 from pyqtgraph.dockarea import DockArea, Dock  # type: ignore
@@ -457,6 +459,7 @@ class VisualizationTab(QtWidgets.QWidget):
 
         self._data: Optional[VisData] = None
         self._panels: List[VisualizationPanel] = []
+        self._results_dir: Optional[Path] = None
 
         self._build_ui()
 
@@ -600,6 +603,19 @@ class VisualizationTab(QtWidgets.QWidget):
             self._data.receptor_positions = positions
             self._push_data_to_panels()
 
+    def set_experiment_manager(self, em) -> None:
+        """Receive ExperimentManager so the Past Runs panel knows where to look."""
+        if em is not None and em.is_open and em.results_dir is not None:
+            self._results_dir = em.results_dir
+            self._results_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self._results_dir = None
+        self.refresh_results_list()
+
+    def refresh_results_list(self, run_id: str = "") -> None:
+        """Refresh the Past Runs list widget. Called on results_saved signal."""
+        self._refresh_past_runs()
+
     # ------------------------------------------------------------------
     # Build UI
     # ------------------------------------------------------------------
@@ -608,6 +624,33 @@ class VisualizationTab(QtWidgets.QWidget):
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
+
+        # Past Runs collapsible panel
+        self._past_runs_bar = QtWidgets.QWidget()
+        self._past_runs_bar.setStyleSheet(
+            "QWidget { background: #232323; border-bottom: 1px solid #333; }"
+        )
+        pr_layout = QtWidgets.QHBoxLayout(self._past_runs_bar)
+        pr_layout.setContentsMargins(6, 4, 6, 4)
+        pr_layout.setSpacing(6)
+        pr_label = QtWidgets.QLabel("Past Runs:")
+        pr_label.setStyleSheet("color: #aaa; font-size: 11px; background: transparent; border: none;")
+        pr_layout.addWidget(pr_label)
+        self._results_list = QtWidgets.QListWidget()
+        self._results_list.setMaximumHeight(72)
+        self._results_list.setStyleSheet(
+            "QListWidget { background: #1c1c1c; color: #ccc; font-size: 11px; border: 1px solid #444; }"
+            "QListWidget::item:selected { background: #3a7bd5; }"
+        )
+        self._results_list.setToolTip("Double-click to reload cached results")
+        self._results_list.itemDoubleClicked.connect(lambda _: self._load_selected_cached_result())
+        pr_layout.addWidget(self._results_list, stretch=1)
+        btn_refresh_runs = QtWidgets.QPushButton("↻")
+        btn_refresh_runs.setFixedWidth(28)
+        btn_refresh_runs.setToolTip("Refresh past runs list")
+        btn_refresh_runs.clicked.connect(self._refresh_past_runs)
+        pr_layout.addWidget(btn_refresh_runs)
+        outer.addWidget(self._past_runs_bar)
 
         # Toolbar
         self._toolbar = _Toolbar()
@@ -784,3 +827,72 @@ class VisualizationTab(QtWidgets.QWidget):
 
         if self._data.n_steps > 0:
             self._empty_label.hide()
+
+    # ------------------------------------------------------------------
+    # Past Runs browser
+    # ------------------------------------------------------------------
+
+    def _refresh_past_runs(self) -> None:
+        self._results_list.blockSignals(True)
+        self._results_list.clear()
+        if self._results_dir is None or not self._results_dir.exists():
+            self._results_list.blockSignals(False)
+            return
+        entries = []
+        for pt_path in sorted(self._results_dir.glob("*.pt"), reverse=True):
+            try:
+                bundle = torch.load(str(pt_path), map_location="cpu", weights_only=False)
+                run_id = bundle.get("run_id", pt_path.stem)
+                stimulus = bundle.get("stimulus", "?")
+                model = bundle.get("model", "?")
+                ts = run_id.split("__")[-1] if "__" in run_id else ""
+                display = f"{stimulus} × {model}  —  {ts}"
+            except Exception:
+                display = pt_path.stem
+                run_id = pt_path.stem
+            item = QtWidgets.QListWidgetItem(display)
+            item.setData(QtCore.Qt.UserRole, str(pt_path))
+            entries.append(item)
+        for item in entries:
+            self._results_list.addItem(item)
+        self._results_list.blockSignals(False)
+
+    def _load_selected_cached_result(self) -> None:
+        item = self._results_list.currentItem()
+        if item is None:
+            return
+        path_str = item.data(QtCore.Qt.UserRole)
+        if not path_str:
+            return
+        try:
+            bundle = torch.load(path_str, map_location="cpu", weights_only=False)
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self, "Load failed", f"Cannot load cached result:\n{exc}")
+            return
+
+        sim_results_raw = bundle.get("results", {})
+        time_ms = bundle.get("time_ms", np.zeros(0))
+        dt_ms = float(bundle.get("dt_ms", 1.0))
+        frames_np = bundle.get("frames")
+        xlim = tuple(bundle.get("xlim", (-5.0, 5.0)))
+        ylim = tuple(bundle.get("ylim", (-5.0, 5.0)))
+
+        # Reconstruct a dict compatible with set_simulation_results
+        from sensoryforge.gui.tabs.spiking_tab import SimulationResult
+        empty = np.zeros((len(time_ms), 1), dtype=np.float32)
+        sim_results = {}
+        for pop_name, data in sim_results_raw.items():
+            if isinstance(data, dict):
+                pop_time = data.get("time_ms", time_ms)
+                if pop_time is None:
+                    pop_time = time_ms
+                sim_results[pop_name] = SimulationResult(
+                    population_name=pop_name,
+                    dt_ms=dt_ms,
+                    time_ms=pop_time,
+                    spikes=data.get("spikes", empty.astype(bool)),
+                    drive=data.get("drive", empty),
+                    v_trace=data.get("v_trace", empty),
+                )
+
+        self.set_simulation_results(sim_results, frames_np, time_ms, dt_ms, xlim, ylim)
