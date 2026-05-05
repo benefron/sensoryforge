@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 # Ensure repository root on sys.path for package imports when run as a script
@@ -56,6 +56,14 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         # Create menu bar
         self._create_menu_bar()
 
+        # Global save toolbar (always visible)
+        self._create_toolbar()
+
+        # Status bar with workspace label
+        self._workspace_status_lbl = QtWidgets.QLabel("Workspace: none")
+        self._workspace_status_lbl.setContentsMargins(4, 0, 4, 0)
+        self.statusBar().addWidget(self._workspace_status_lbl, 1)
+
         tabs = QtWidgets.QTabWidget()
         self.setCentralWidget(tabs)
 
@@ -89,13 +97,90 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             self.visualization_tab.set_populations
         )
 
+        # Wire stimulus tab's workspace request → ensure workspace is ready
+        if hasattr(self.stimulus_tab, "request_workspace"):
+            self.stimulus_tab.request_workspace.connect(self._ensure_workspace)
+
         # Create project registry (used for config save/load and exports)
         registry_root = Path.cwd() / "project_registry"
         self._registry = ProjectRegistry(registry_root)
 
         # Shared experiment manager — one project directory for all tabs
         self._em = ExperimentManager()
+
+        # Auto-open the last-used workspace so libraries are immediately active
+        self._ensure_workspace()
+
+    def _create_toolbar(self) -> None:
+        """Add a persistent top toolbar with the most common project actions."""
+        tb = self.addToolBar("Main")
+        tb.setMovable(False)
+        tb.setIconSize(QtCore.QSize(18, 18))
+
+        open_act = QtWidgets.QAction("Open Project", self)
+        open_act.setToolTip("Open an existing project directory (Ctrl+P)")
+        open_act.triggered.connect(self._open_project)
+        tb.addAction(open_act)
+
+        new_act = QtWidgets.QAction("New Project", self)
+        new_act.setToolTip("Create a new project directory (Ctrl+N)")
+        new_act.triggered.connect(self._new_project)
+        tb.addAction(new_act)
+
+        tb.addSeparator()
+
+        save_act = QtWidgets.QAction("Save Config (YAML)", self)
+        save_act.setToolTip("Save a full YAML snapshot of the current state (Ctrl+S)")
+        save_act.triggered.connect(self._save_config)
+        tb.addAction(save_act)
+
+        tb.addSeparator()
+
+        # Workspace label (read-only info)
+        self._toolbar_workspace_lbl = QtWidgets.QLabel("  No workspace")
+        self._toolbar_workspace_lbl.setStyleSheet("color: gray; font-size: 11px;")
+        tb.addWidget(self._toolbar_workspace_lbl)
+
+    # ------------------------------------------------------------------
+    # Workspace helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_workspace(self) -> None:
+        """Open or create the default workspace so libraries are always active.
+
+        Checks QSettings for the last-used workspace path.  Falls back to
+        ``~/SensoryForge/workspace/``.  Called at startup and whenever a tab
+        requests a workspace (e.g. on first "Save to Library").
+        """
+        settings = QtCore.QSettings("SensoryForge", "GUI")
+        last = str(settings.value("last_workspace", ""))
+        default = Path.home() / "SensoryForge" / "workspace"
+        path = Path(last) if last and Path(last).is_dir() else default
+        try:
+            if path.exists():
+                self._em.open(path)
+            else:
+                self._em.create(path)
+            settings.setValue("last_workspace", str(path))
+        except Exception:
+            # Non-fatal: workspace unavailable, continue without libraries
+            return
         self._push_experiment_manager()
+        self._update_workspace_label()
+
+    def _update_workspace_label(self) -> None:
+        """Refresh the toolbar and status-bar workspace labels."""
+        if self._em.is_open and self._em.project_dir is not None:
+            name = self._em.project_dir.name
+            full = str(self._em.project_dir)
+            self._toolbar_workspace_lbl.setText(f"  Workspace: {name}")
+            self._toolbar_workspace_lbl.setToolTip(full)
+            self._workspace_status_lbl.setText(f"Workspace: {full}")
+            self.setWindowTitle(f"SensoryForge – {name}")
+        else:
+            self._toolbar_workspace_lbl.setText("  No workspace")
+            self._workspace_status_lbl.setText("Workspace: none")
+            self.setWindowTitle("SensoryForge – Sensory Encoding Workbench")
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with config load/save options."""
@@ -343,10 +428,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         except OSError as exc:
             QMessageBox.critical(self, "Create failed", str(exc))
             return
+        QtCore.QSettings("SensoryForge", "GUI").setValue("last_workspace", str(path))
         self._push_experiment_manager()
-        self.setWindowTitle(
-            f"SensoryForge – {path.name}  [{path}]"
-        )
+        self._update_workspace_label()
 
     def _open_project(self) -> None:
         """Open an existing experiment project directory."""
@@ -360,10 +444,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Open failed", str(exc))
             return
+        QtCore.QSettings("SensoryForge", "GUI").setValue("last_workspace", str(path))
         self._push_experiment_manager()
-        self.setWindowTitle(
-            f"SensoryForge – {Path(path).name}  [{path}]"
-        )
+        self._update_workspace_label()
 
     def _gui_config_to_canonical(
         self,

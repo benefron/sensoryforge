@@ -308,6 +308,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     PREVIEW_THROTTLE_MS = 120
 
     stimulus_changed = QtCore.pyqtSignal()
+    request_workspace = QtCore.pyqtSignal()  # emitted when library needed but no workspace
 
     def __init__(
         self,
@@ -395,22 +396,6 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         left_layout = QtWidgets.QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(2)
-
-        # Toolbar: import from disk + info label
-        save_bar = QtWidgets.QFrame()
-        save_bar.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        save_row = QtWidgets.QHBoxLayout(save_bar)
-        save_row.setContentsMargins(4, 3, 4, 3)
-        save_row.setSpacing(4)
-        self.btn_import_stimulus = QtWidgets.QPushButton("Import…")
-        self.btn_import_stimulus.setToolTip(
-            "Import a stimulus from a JSON file and add it to the current set"
-        )
-        save_row.addWidget(self.btn_import_stimulus)
-        lbl_save_hint = QtWidgets.QLabel("Use File › Save to save the project")
-        lbl_save_hint.setStyleSheet("color: gray; font-size: 10px;")
-        save_row.addWidget(lbl_save_hint, stretch=1)
-        left_layout.addWidget(save_bar)
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -549,7 +534,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         )
         layout.addWidget(self.stimulus_stack_list)
 
-        # Row 1: Add New + Duplicate + Remove
+        # Row 1: Add Stimulus + Duplicate + Remove
         btn_row1 = QtWidgets.QHBoxLayout()
         self.btn_stack_add = QtWidgets.QPushButton("Add Stimulus")
         self.btn_stack_duplicate = QtWidgets.QPushButton("Duplicate")
@@ -559,7 +544,15 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         btn_row1.addWidget(self.btn_stack_remove)
         layout.addLayout(btn_row1)
 
-        # (Update/Revert buttons are in the persistent action bar below the scroll area)
+        # Row 2: Save current set to the workspace library
+        self.btn_save_to_library = QtWidgets.QPushButton("Save Set to Library")
+        self.btn_save_to_library.setToolTip(
+            "Save the current stimulus set as a named file in the workspace library"
+        )
+        self.btn_save_to_library.setEnabled(False)
+        layout.addWidget(self.btn_save_to_library)
+
+        # (Apply/Revert buttons are in the persistent action bar below the scroll area)
 
         self._composition_widget = QtWidgets.QWidget()
         comp_vbox = QtWidgets.QVBoxLayout(self._composition_widget)
@@ -1103,19 +1096,34 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.control_layout.addWidget(group)
 
     def _build_library_section(self) -> None:
-        group = CollapsibleGroupBox("Stimulus Library", start_expanded=False)
+        group = CollapsibleGroupBox("Saved Sets", start_expanded=True)
         container = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
 
-        self.library_status = QtWidgets.QLabel("No project loaded.")
+        self.library_status = QtWidgets.QLabel("")
         self.library_status.setWordWrap(True)
+        self.library_status.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(self.library_status)
 
         self.stimulus_list = QtWidgets.QListWidget()
         self.stimulus_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        layout.addWidget(self.stimulus_list, stretch=1)
+        self.stimulus_list.setMaximumHeight(120)
+        self.stimulus_list.setToolTip("Double-click to load a saved set")
+        layout.addWidget(self.stimulus_list)
+
+        lib_btn_row = QtWidgets.QHBoxLayout()
+        self.btn_load_stimulus = QtWidgets.QPushButton("Load")
+        self.btn_load_stimulus.setToolTip("Load selected set into the current Stimulus Set")
+        self.btn_delete_stimulus = QtWidgets.QPushButton("Delete")
+        self.btn_delete_stimulus.setToolTip("Delete selected set from library")
+        self.btn_import_stimulus = QtWidgets.QPushButton("Import from file…")
+        self.btn_import_stimulus.setToolTip("Import a stimulus JSON file into the set")
+        lib_btn_row.addWidget(self.btn_load_stimulus)
+        lib_btn_row.addWidget(self.btn_delete_stimulus)
+        lib_btn_row.addWidget(self.btn_import_stimulus)
+        layout.addLayout(lib_btn_row)
 
         group.addRow(container)
         self.control_layout.addWidget(group)
@@ -1247,6 +1255,11 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         )
 
         self.btn_import_stimulus.clicked.connect(self._on_import_stimulus)
+        self.btn_save_to_library.clicked.connect(self._on_save_to_library)
+        self.btn_load_stimulus.clicked.connect(self._load_selected_stimulus)
+        self.btn_delete_stimulus.clicked.connect(self._delete_selected_stimulus)
+        self.stimulus_list.itemSelectionChanged.connect(self._on_library_selection_changed)
+        self.stimulus_list.itemDoubleClicked.connect(lambda _: self._load_selected_stimulus())
 
         self.btn_play.toggled.connect(self._toggle_animation)
         self.frame_slider.valueChanged.connect(self._on_frame_changed)
@@ -1604,6 +1617,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.stimulus_stack_list.setCurrentRow(new_index)
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
+        self.btn_save_to_library.setEnabled(True)
         self.stimulus_changed.emit()
         self._request_preview()
 
@@ -1658,6 +1672,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             return
         self._stimulus_stack.pop(index)
         self._refresh_stack_list()
+        self._update_library_buttons()
         self.stimulus_changed.emit()
         self._request_preview()
 
@@ -1682,6 +1697,42 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.btn_stack_update.setEnabled(True)
         self.btn_stack_revert.setEnabled(True)
         self._request_preview()
+
+    def _on_save_to_library(self) -> None:
+        """Save the current stimulus set as a named JSON file in the workspace library."""
+        if not self._stimulus_stack:
+            return
+        if self._library_dir is None:
+            # Request the main window to create/open a workspace, then retry.
+            self.request_workspace.emit()
+            if self._library_dir is None:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No workspace",
+                    "Open or create a project (File › New Project) before saving to the library.",
+                )
+                return
+
+        # Determine save name: reuse current path stem or ask for a new name
+        default_name = self.txt_stimulus_name.text().strip() or "Stimulus"
+        if self._current_stimulus_path is not None:
+            default_name = self._current_stimulus_path.stem
+
+        name, ok = QtWidgets.QInputDialog.getText(
+            self, "Save to Library", "Set name:", text=default_name
+        )
+        if not ok or not name.strip():
+            return
+
+        import re
+        sanitized = re.sub(r"[^A-Za-z0-9_\-]+", "_", name.strip()) or "stimulus"
+        target = self._library_dir / f"{sanitized}.json"
+        self._write_stimulus(target)
+        self._current_stimulus_path = target
+        self._refresh_stimulus_library()
+        self._select_library_item(target)
+        self._update_library_buttons()
+        self.library_status.setText(f"Saved: {sanitized}")
 
     def _on_import_stimulus(self) -> None:
         """Import a stimulus JSON file and add its entries to the current set."""
@@ -2132,6 +2183,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._refresh_stack_list()
         self.btn_stack_update.setEnabled(False)
         self.btn_stack_revert.setEnabled(False)
+        self._update_library_buttons()
         self._loading = True
         self._apply_config(self._default_config())
         self._loading = False
@@ -3275,7 +3327,11 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 break
 
     def _update_library_buttons(self) -> None:
-        pass  # save/delete buttons removed — project-level save handles persistence
+        has_selection = self._current_stimulus_path is not None
+        has_stack = len(self._stimulus_stack) > 0
+        self.btn_save_to_library.setEnabled(has_stack)
+        self.btn_load_stimulus.setEnabled(has_selection)
+        self.btn_delete_stimulus.setEnabled(has_selection)
 
     def _update_motion_dependencies(self, from_speed: bool) -> None:
         if self._loading:

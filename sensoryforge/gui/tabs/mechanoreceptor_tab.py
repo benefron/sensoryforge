@@ -390,6 +390,14 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             em: ExperimentManager instance (or None to clear).
         """
         self._em = em
+        # Propagate project directory to stimulus/spiking tabs via the
+        # configuration_directory_changed signal they already subscribe to.
+        if em is not None and em.is_open and em.project_dir is not None:
+            self._current_config_dir = em.project_dir
+            self.configuration_directory_changed.emit(em.project_dir)
+        elif em is None or not em.is_open:
+            self._current_config_dir = None
+            self.configuration_directory_changed.emit(None)
 
     @staticmethod
     def _sanitize_name(name: str) -> str:
@@ -893,19 +901,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         layers_group.layout().addRow(self.chk_show_innervation)
         layers_group.layout().addRow(self.chk_show_innervation_lines)
         control_layout.addWidget(layers_group)
-
-        persistence_group = QtWidgets.QGroupBox("Configuration")
-        persistence_layout = QtWidgets.QVBoxLayout(persistence_group)
-        self.btn_save_configuration = QtWidgets.QPushButton("Save (Update)")
-        self.btn_save_as_configuration = QtWidgets.QPushButton("Save As...")
-        self.btn_load_configuration = QtWidgets.QPushButton("Load Configuration...")
-        self.btn_save_configuration.clicked.connect(self._on_save_configuration)
-        self.btn_save_as_configuration.clicked.connect(self._on_save_as_configuration)
-        self.btn_load_configuration.clicked.connect(self._on_load_configuration)
-        persistence_layout.addWidget(self.btn_save_configuration)
-        persistence_layout.addWidget(self.btn_save_as_configuration)
-        persistence_layout.addWidget(self.btn_load_configuration)
-        control_layout.addWidget(persistence_group)
 
         figure_group = QtWidgets.QGroupBox("Figure Export")
         figure_layout = QtWidgets.QVBoxLayout(figure_group)
@@ -2762,42 +2757,6 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._current_config_dir = config_dir
         self.configuration_directory_changed.emit(self._current_config_dir)
         return True
-
-    def _on_save_configuration(self) -> None:
-        if not self._ensure_grid_ready():
-            return
-        if self._current_config_dir is None:
-            QtWidgets.QMessageBox.information(
-                self,
-                "Select folder",
-                "Choose a destination with 'Save As...' before updating.",
-            )
-            self._on_save_as_configuration()
-            return
-        if self._perform_save(
-            self._current_config_dir,
-            confirm_overwrite=False,
-        ):
-            manifest_path = self._current_config_dir / CONFIG_JSON_NAME
-            QtWidgets.QMessageBox.information(
-                self,
-                "Configuration saved",
-                f"Updated configuration in '{manifest_path}'.",
-            )
-
-    def _on_save_as_configuration(self) -> None:
-        if not self._ensure_grid_ready():
-            return
-        config_dir = self._prompt_save_directory()
-        if config_dir is None:
-            return
-        if self._perform_save(config_dir, confirm_overwrite=True):
-            manifest_path = config_dir / CONFIG_JSON_NAME
-            QtWidgets.QMessageBox.information(
-                self,
-                "Configuration saved",
-                f"Saved configuration to '{manifest_path}'.",
-            )
 
     def _on_load_configuration(self) -> None:
         json_path, _ = QtWidgets.QFileDialog.getOpenFileName(
