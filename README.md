@@ -1,8 +1,5 @@
 # SensoryForge
 
-[![Tests](https://github.com/benefron/sensoryforge/workflows/Tests/badge.svg)](https://github.com/benefron/sensoryforge/actions)
-[![Documentation](https://github.com/benefron/sensoryforge/workflows/Documentation/badge.svg)](https://benefron.github.io/sensoryforge)
-[![PyPI version](https://badge.fury.io/py/sensoryforge.svg)](https://badge.fury.io/py/sensoryforge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
@@ -27,7 +24,7 @@ Designed for **neuroscientists**, **neuromorphic engineers**, and **ML researche
 - 🌐 **Modality Agnostic:** Same framework for touch, vision, audition, and fabricated modalities
 - 🔬 **Adaptive ODE Solvers:** Optional torchdiffeq/torchode integration for stiff systems
 - 📐 **Equation DSL:** Define custom neuron models via equations — no coding required
-- 📦 **Production Ready:** pip-installable with proper testing and CI/CD
+- 📦 **Tested:** unit and integration test suites, installable from source
 
 ---
 
@@ -36,8 +33,12 @@ Designed for **neuroscientists**, **neuromorphic engineers**, and **ML researche
 ### Installation
 
 ```bash
-pip install sensoryforge
+git clone https://github.com/benefron/sensoryforge.git
+cd sensoryforge
+pip install -e .
 ```
+
+Not yet published to PyPI; install from source.
 
 ### Basic Example
 
