@@ -147,12 +147,12 @@ ra_spikes = ra_neurons(ra_filtered)[1]
 
 ## 📖 Documentation
 
-- **[Installation Guide](https://benefron.github.io/sensoryforge/getting_started/installation/)** - Set up your environment
-- **[Quick Start](https://benefron.github.io/sensoryforge/getting_started/quickstart/)** - Run your first simulation
-- **[User Guide](https://benefron.github.io/sensoryforge/user_guide/overview/)** - Detailed documentation
-- **[Tutorials](https://benefron.github.io/sensoryforge/tutorials/basic_pipeline/)** - Step-by-step guides
-- **[API Reference](https://benefron.github.io/sensoryforge/api_reference/core/)** - Complete API documentation
-- **[Extending SensoryForge](https://benefron.github.io/sensoryforge/extending/plugins/)** - Create custom components
+- **[Installation Guide](docs/getting_started/installation.md)** - Set up your environment
+- **[Quick Start](docs/getting_started/quickstart.md)** - Run your first simulation
+- **[User Guide](docs/user_guide/)** - Detailed documentation
+- **[Tutorials](docs/tutorials/)** - Step-by-step guides
+- **[API Reference](docs/api_reference/)** - Complete API documentation
+- **[Extending SensoryForge](docs/developer_guide/)** - Create custom components
 
 ---
 
@@ -302,7 +302,7 @@ pip install torchdiffeq  # Dormand-Prince, adjoint method
 pip install torchode     # GPU-parallel batched solving
 ```
 
-See the [Solvers Guide](https://benefron.github.io/sensoryforge/user_guide/solvers/) for details.
+See the [Solvers Guide](docs/user_guide/) for details.
 
 ---
 
@@ -338,7 +338,7 @@ pytest --cov=sensoryforge --cov-report=html
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome. Open an issue to discuss a change before sending a pull request.
 
 ### Development Installation
 
@@ -364,12 +364,11 @@ We maintain high standards:
 If you use SensoryForge in your research, please cite:
 
 ```bibtex
-@article{sensoryforge2026,
+@software{sensoryforge,
   title={SensoryForge: A Modular, Extensible Framework for Simulating Sensory Encoding Across Modalities},
-  author={Your Name},
-  journal={Journal of Open Source Software},
+  author={Efron, Ben},
   year={2026},
-  doi={10.xxxxx/joss.xxxxx}
+  url={https://github.com/benefron/sensoryforge}
 }
 ```
 
@@ -383,7 +382,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- **Documentation:** https://benefron.github.io/sensoryforge
+- **Documentation:** [`docs/`](docs/) in this repository (MkDocs source; site not yet published)
 - **GitHub:** https://github.com/benefron/sensoryforge
 - **PyPI:** https://pypi.org/project/sensoryforge
 - **Issue Tracker:** https://github.com/benefron/sensoryforge/issues
@@ -402,7 +401,7 @@ This project builds on foundational work in:
 
 ## 📬 Contact
 
-- **Maintainer:** [Your Name] ([your.email@example.com](mailto:your.email@example.com))
+- **Maintainer:** Ben Efron ([benefron@gmail.com](mailto:benefron@gmail.com))
 - **Discussions:** [GitHub Discussions](https://github.com/benefron/sensoryforge/discussions)
 - **Issues:** [GitHub Issues](https://github.com/benefron/sensoryforge/issues)
 
