@@ -201,7 +201,7 @@ No FS/RS Izhikevich split: RA populations get RS (a=0.02,d=8); pressure-simulati
 Filter calibration attributed to "Pierzowski (1995)" in CLAUDE.md, docs/user_guide/units_and_gains.md, refs/ (unverifiable) but to Parvizi-Fard 2021 in sa_ra.py and throughout pressure-simulation
 → commit 7a188b6
 
-## F-006 · OPEN · finding · - · 2026-09-14
+## F-006 · CLOSED · finding · - · 2026-09-14
 Same seed gives different wiring across repos: batched torch.multinomial (innervation.py:949) vs per-neuron loop in pressure-simulation; innervation still reseeds the global RNG (innervation.py:897)
 → commit 7a188b6
 
