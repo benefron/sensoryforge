@@ -750,7 +750,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._neurons_col_label.setVisible(False)
 
         pop_layout.addRow("Connections:", self.dbl_connections)
+        self._lbl_connections = pop_layout.labelForField(self.dbl_connections)
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
+        self._lbl_sigma = pop_layout.labelForField(self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
         self.chk_use_distance_weights = QtWidgets.QCheckBox("Use distance weights")
         self.chk_use_distance_weights.setChecked(False)
@@ -1700,7 +1702,20 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 scatter_item.setOpacity(dim_opacity)
 
     def _on_innervation_method_changed(self, method: str) -> None:
-        pass
+        # connections_per_neuron is not used by the uniform method
+        show_connections = method != "uniform"
+        self.dbl_connections.setVisible(show_connections)
+        if hasattr(self, "_lbl_connections") and self._lbl_connections is not None:
+            self._lbl_connections.setVisible(show_connections)
+
+        # Sigma controls a different quantity depending on the method
+        if hasattr(self, "_lbl_sigma") and self._lbl_sigma is not None:
+            if method == "gaussian":
+                self._lbl_sigma.setText("Sigma d (mm):")
+            elif method == "one_to_one":
+                self._lbl_sigma.setText("Max dist (mm):")
+            else:  # uniform
+                self._lbl_sigma.setText("Spatial scale (mm):")
 
     def _on_use_distance_weights_changed(self, state: int) -> None:
         if hasattr(self, "_dist_params_group"):
