@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-019 · CLOSED · decision · - · 2026-09-14
+default innervation uses analytic Gaussian weights; the stochastic uniform-weight builder is the named control arm
+→ commit b1f67a3
+
 ## F-036 · OPEN · finding · - · 2026-09-14
 flake8 style debt after black (all default checks, 88 columns): 364 violations, mainly E501 164, F401 141, F541 18, E402 14, F841 11; CI gates only E9,F63,F7,F82 until ratcheted
 → commit 7da39f9
@@ -185,7 +189,7 @@ SAFilterTorch rectifies I_SA (clip_to_positive=True, sa_ra.py:53,160); pressure-
 tau_RA is 30 ms (sa_ra.py:258) / 15 ms (default_config.yml:94) / 30 (CombinedSARAFilter) here; pressure-simulation locked 8 ms (Kandel Ch.21, its 0ee0653). CombinedSARAFilter() is called with no args in core/pipeline.py:145 so YAML filters are dead on that path
 → commit 7a188b6
 
-## F-003 · OPEN · finding · - · 2026-09-14
+## F-003 · CLOSED · finding · - · 2026-09-14
 Default innervation is the stochastic builder (uniform-random weights; Gaussian only in selection probability, innervation.py:952) that pressure-simulation retired to a control arm; docstring innervation.py:880 says "Gaussian falloff"; use_distance_weights defaults False (schema.py:147); no deterministic K-nearest builder
 → commit 7a188b6
 
