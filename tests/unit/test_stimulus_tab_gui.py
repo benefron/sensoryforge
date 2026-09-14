@@ -92,7 +92,41 @@ def _make_pyqt5_stubs():
     sys.modules["pyqtgraph"] = pg
 
 
-_make_pyqt5_stubs()
+# Module names _make_pyqt5_stubs() may install fakes for. Saved/restored by
+# the fixture below so the fakes never leak into test files collected after
+# this one (F-016: previously installed unconditionally at import time and
+# never undone, so a later file's `from PyQt5 import QtGui` could get this
+# module's MagicMock stub instead of the real PyQt5).
+_PYQT5_STUB_MODULE_NAMES = (
+    "PyQt5",
+    "PyQt5.QtWidgets",
+    "PyQt5.QtCore",
+    "PyQt5.QtGui",
+    "pyqtgraph",
+)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _pyqt5_stub_environment():
+    """Install the PyQt5 stubs for this module's tests only, then restore.
+
+    Saves whatever was in ``sys.modules`` for each stubbed name (the real
+    PyQt5, if already imported, or nothing) and restores exactly that after
+    this module's tests finish -- so later test files never see this
+    module's fakes.
+    """
+    saved = {
+        name: sys.modules[name] for name in _PYQT5_STUB_MODULE_NAMES if name in sys.modules
+    }
+    _make_pyqt5_stubs()
+    try:
+        yield
+    finally:
+        for name in _PYQT5_STUB_MODULE_NAMES:
+            if name in saved:
+                sys.modules[name] = saved[name]
+            else:
+                sys.modules.pop(name, None)
 
 
 # ---------------------------------------------------------------------------
