@@ -15,9 +15,18 @@ The fix: the adapter now emits ``grid_size = (rows, cols)`` — a tuple, which
 ``ReceptorGrid.__init__`` already accepts and uses directly as ``(n_x, n_y)``.
 """
 
+import pytest
 import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.core.simulation_engine import SimulationEngine
+from sensoryforge.config.schema import (
+    GridConfig,
+    PopulationConfig,
+    SensoryForgeConfig,
+    SimulationConfig,
+    StimulusConfig,
+)
 
 
 def _canonical_config(rows: int, cols: int) -> dict:
@@ -76,3 +85,63 @@ def test_canonical_20x20_allocates_400_receptors_not_160000():
         stimulus_type="gaussian", amplitude=10.0, sigma=1.0, duration=5.0
     )
     assert stimulus_tensor.shape[-2:] == (20, 20)
+
+
+def _canonical_neuron_count_config(
+    neuron_rows: int, neuron_cols: int, grid_rows: int = 30, grid_cols: int = 30
+) -> SensoryForgeConfig:
+    return SensoryForgeConfig(
+        grids=[GridConfig(name="grid", arrangement="grid", rows=grid_rows, cols=grid_cols, spacing=0.15)],
+        populations=[
+            PopulationConfig(
+                name="SA Pop",
+                target_grid="grid",
+                neuron_type="SA",
+                neuron_model="izhikevich",
+                filter_method="sa",
+                innervation_method="gaussian",
+                neuron_rows=neuron_rows,
+                neuron_cols=neuron_cols,
+            )
+        ],
+        stimulus=StimulusConfig(type="gaussian", amplitude=10.0, sigma=1.0),
+        simulation=SimulationConfig(device="cpu", dt=0.1),
+    )
+
+
+@pytest.mark.parametrize("rows,cols", [(4, 4), (3, 5)])
+def test_adapter_does_not_square_neuron_counts(rows, cols):
+    """Regression for F-025: the adapter must build rows*cols neurons, not (rows*cols)**2.
+
+    Before the fix, ``_canonical_to_legacy_config`` wrote ``neuron_rows * neuron_cols``
+    into ``neurons.sa_neurons``, which ``InnervationModule`` then squares again
+    (treating it as per-row). A canonical 4x4 population built 256 neurons instead
+    of 16; a 3x5 population built 225 instead of 15.
+    """
+    config = _canonical_neuron_count_config(rows, cols)
+    pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+    assert pipeline.sa_innervation.num_neurons == rows * cols
+
+    engine = SimulationEngine(config)
+    engine_neurons = engine.populations[0]["innervation"].num_neurons
+    assert engine_neurons == rows * cols
+    assert pipeline.sa_innervation.num_neurons == engine_neurons, (
+        "legacy pipeline and SimulationEngine must build identical neuron counts "
+        "for the same canonical config"
+    )
+
+
+def test_legacy_config_mistaken_total_neuron_count_raises():
+    """Regression for F-023: a legacy per-row key that reads like a total must fail fast.
+
+    ``neurons.sa_neurons`` is per-row (squared by InnervationModule), so passing
+    what looks like a total count (e.g. 100000, meaning "100000 SA neurons") would
+    silently build a 100000x100000-neuron population and allocate a dense weight
+    tensor far beyond any reasonable memory budget. This must raise instead.
+    """
+    config = {
+        "pipeline": {"device": "cpu", "grid_size": 80, "spacing": 0.15},
+        "neurons": {"sa_neurons": 100000, "dt": 0.1},
+    }
+    with pytest.raises(ValueError, match="sa_neurons"):
+        GeneralizedTactileEncodingPipeline.from_config(config)

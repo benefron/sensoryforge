@@ -34,6 +34,11 @@ from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY
 # Ensure components are registered
 register_all()
 
+# Cap on the dense N x H x W innervation weight tensor (rows*cols neurons x receptors).
+# Above this, a config that meant "total neuron count" but read as per-row (F-023) would
+# silently allocate a multi-GB tensor; fail fast instead.
+_DENSE_WEIGHT_CAP = 2e8
+
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
     """Generalized tactile encoding pipeline with configurable parameters.
@@ -401,10 +406,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         
         # Map population configs to legacy format
         if sa_pop:
-            legacy["neurons"]["sa_neurons"] = (
-                sa_pop.get("neuron_rows", sa_pop.get("neurons_per_row", 10)) *
-                sa_pop.get("neuron_cols", sa_pop.get("neurons_per_row", 10))
-            )
+            sa_rows = sa_pop.get("neuron_rows", sa_pop.get("neurons_per_row", 10))
+            sa_cols = sa_pop.get("neuron_cols", sa_pop.get("neurons_per_row", 10))
+            legacy["neurons"]["sa_neuron_rows"] = sa_rows
+            legacy["neurons"]["sa_neuron_cols"] = sa_cols
+            legacy["neurons"]["sa_neurons"] = sa_pop.get("neurons_per_row", sa_rows)
             legacy["innervation"]["sa_spread"] = sa_pop.get("sigma_d_mm", 0.3)
             legacy["innervation"]["sa_method"] = sa_pop.get("innervation_method", "gaussian")
             legacy["innervation"]["sa_seed"] = sa_pop.get("seed", 33)
@@ -444,10 +450,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["noise"]["sa_membrane_seed"] = sa_pop.get("noise_seed", 42)
         
         if ra_pop:
-            legacy["neurons"]["ra_neurons"] = (
-                ra_pop.get("neuron_rows", ra_pop.get("neurons_per_row", 14)) *
-                ra_pop.get("neuron_cols", ra_pop.get("neurons_per_row", 14))
-            )
+            ra_rows = ra_pop.get("neuron_rows", ra_pop.get("neurons_per_row", 14))
+            ra_cols = ra_pop.get("neuron_cols", ra_pop.get("neurons_per_row", 14))
+            legacy["neurons"]["ra_neuron_rows"] = ra_rows
+            legacy["neurons"]["ra_neuron_cols"] = ra_cols
+            legacy["neurons"]["ra_neurons"] = ra_pop.get("neurons_per_row", ra_rows)
             legacy["innervation"]["ra_spread"] = ra_pop.get("sigma_d_mm", 0.39)
             legacy["innervation"]["ra_method"] = ra_pop.get("innervation_method", "gaussian")
             legacy["innervation"]["ra_seed"] = ra_pop.get("seed", 33)
@@ -477,10 +484,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["noise"]["ra_membrane_seed"] = ra_pop.get("noise_seed", 43)
         
         if sa2_pop:
-            legacy["neurons"]["sa2_neurons"] = (
-                sa2_pop.get("neuron_rows", sa2_pop.get("neurons_per_row", 5)) *
-                sa2_pop.get("neuron_cols", sa2_pop.get("neurons_per_row", 5))
-            )
+            sa2_rows = sa2_pop.get("neuron_rows", sa2_pop.get("neurons_per_row", 5))
+            sa2_cols = sa2_pop.get("neuron_cols", sa2_pop.get("neurons_per_row", 5))
+            legacy["neurons"]["sa2_neuron_rows"] = sa2_rows
+            legacy["neurons"]["sa2_neuron_cols"] = sa2_cols
+            legacy["neurons"]["sa2_neurons"] = sa2_pop.get("neurons_per_row", sa2_rows)
             legacy["innervation"]["sa2_spread"] = sa2_pop.get("sigma_d_mm", 2.0)
             legacy["innervation"]["sa2_method"] = sa2_pop.get("innervation_method", "gaussian")
             legacy["innervation"]["sa2_seed"] = sa2_pop.get("seed", 39)
@@ -602,6 +610,30 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         """
         innervation_cfg = self.config["innervation"]
         neuron_cfg = self.config["neurons"]
+
+        if self.composite_grid is not None:
+            n_receptors = self.composite_grid.get_all_coordinates().shape[0]
+        else:
+            n_receptors = self.grid_manager.grid_size[0] * self.grid_manager.grid_size[1]
+
+        def _row_col(prefix: str, default: int) -> tuple[int, int]:
+            rows = neuron_cfg.get(f"{prefix}_neuron_rows", neuron_cfg.get(f"{prefix}_neurons", default))
+            cols = neuron_cfg.get(f"{prefix}_neuron_cols", neuron_cfg.get(f"{prefix}_neurons", default))
+            n_elements = rows * cols * n_receptors
+            if n_elements > _DENSE_WEIGHT_CAP:
+                raise ValueError(
+                    f"neurons.{prefix}_neurons (or {prefix}_neuron_rows x {prefix}_neuron_cols) "
+                    f"= {rows}x{cols} against {n_receptors} receptors would build a dense weight "
+                    f"tensor of {n_elements} elements, exceeding the cap of {_DENSE_WEIGHT_CAP}. "
+                    f"If {rows}x{cols} was meant as a total neuron count rather than per-row, "
+                    f"pass neuron_rows/neuron_cols (or a smaller neurons_per_row) instead."
+                )
+            return rows, cols
+
+        sa_rows, sa_cols = _row_col("sa", 10)
+        ra_rows, ra_cols = _row_col("ra", 14)
+        sa2_rows, sa2_cols = _row_col("sa2", 5)
+
         use_flat = (
             self.composite_grid is not None
             and innervation_cfg.get("method") == "flat"
@@ -638,6 +670,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 receptor_coords=all_coords,
                 neuron_centers=sa_centers,
                 neurons_per_row=neuron_cfg["sa_neurons"],
+                neuron_rows=sa_rows,
+                neuron_cols=sa_cols,
                 xlim=xlim,
                 ylim=ylim,
                 innervation_method=innervation_cfg.get("sa_method", "gaussian"),
@@ -653,6 +687,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 receptor_coords=all_coords,
                 neuron_centers=ra_centers,
                 neurons_per_row=neuron_cfg["ra_neurons"],
+                neuron_rows=ra_rows,
+                neuron_cols=ra_cols,
                 xlim=xlim,
                 ylim=ylim,
                 innervation_method=innervation_cfg.get("ra_method", "gaussian"),
@@ -668,6 +704,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 receptor_coords=all_coords,
                 neuron_centers=sa2_centers,
                 neurons_per_row=neuron_cfg["sa2_neurons"],
+                neuron_rows=sa2_rows,
+                neuron_cols=sa2_cols,
                 xlim=xlim,
                 ylim=ylim,
                 innervation_method=innervation_cfg.get("sa2_method", "gaussian"),
@@ -683,6 +721,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 neuron_type="SA",
                 grid_manager=self.grid_manager,
                 neurons_per_row=neuron_cfg["sa_neurons"],
+                neuron_rows=sa_rows,
+                neuron_cols=sa_cols,
                 connections_per_neuron=innervation_cfg["receptors_per_neuron"],
                 sigma_d_mm=innervation_cfg["sa_spread"],
                 weight_range=tuple(innervation_cfg["connection_strength"]),
@@ -694,6 +734,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 neuron_type="RA",
                 grid_manager=self.grid_manager,
                 neurons_per_row=neuron_cfg["ra_neurons"],
+                neuron_rows=ra_rows,
+                neuron_cols=ra_cols,
                 connections_per_neuron=innervation_cfg["receptors_per_neuron"],
                 sigma_d_mm=innervation_cfg["ra_spread"],
                 weight_range=tuple(innervation_cfg["connection_strength"]),
@@ -705,6 +747,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 neuron_type="SA2" if sa2_centers is not None else "SA",
                 grid_manager=self.grid_manager,
                 neurons_per_row=neuron_cfg["sa2_neurons"],
+                neuron_rows=sa2_rows,
+                neuron_cols=sa2_cols,
                 connections_per_neuron=innervation_cfg.get("sa2_connections", 500),
                 sigma_d_mm=innervation_cfg["sa2_spread"],
                 weight_range=tuple(innervation_cfg["sa2_weights"]),
