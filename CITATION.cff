@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use SensoryForge in your research, please cite it as below."
+title: "SensoryForge: A Modular, Extensible Framework for Simulating Sensory Encoding Across Modalities"
+type: software
+authors:
+  - family-names: Efron
+    given-names: Ben
+    email: benefron@gmail.com
+repository-code: "https://github.com/benefron/sensoryforge"
+license: MIT
+version: 0.2.0
