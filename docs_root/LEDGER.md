@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-033 · OPEN · finding · - · 2026-09-14
+pyproject.toml uses project.license as a TOML table plus the "License :: OSI Approved :: MIT License" classifier; setuptools 81 warns both are deprecated and builds stop being supported after 2027-02-18. Use license = "MIT", license-files = ["LICENSE"], setuptools>=77.
+→ commit 5508313
+
+## F-034 · OPEN · finding · - · 2026-09-14
+pressure-simulation encoding/encode_runner.py still defaults RA k3 to 1.0 (commented as calibrated for fast-spiking RA at input gain 40), contradicting D-018 "k3 = 2.0 everywhere"; the golden parity test (E5) cannot pass at zero tolerance until one value is used in both repos. Needs user confirmation of scope.
+→ commit 5508313
+
 ## D-018 · CLOSED · decision · - · 2026-09-14
 RA filter gain k3 = 2.0 everywhere (D-Q1).
 → commit e518611
