@@ -31,9 +31,12 @@ Example:
 
 import re
 import math
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple, Any, Union, TYPE_CHECKING
 import torch
 import torch.nn as nn
+
+if TYPE_CHECKING:
+    from sensoryforge.solvers.base import BaseSolver
 
 # Check for sympy availability and provide helpful error message
 try:
