@@ -65,7 +65,7 @@ class TestGUICLIParity:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -116,7 +116,7 @@ class TestGUICLIParity:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -158,7 +158,7 @@ class TestGUICLIParity:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 

@@ -398,7 +398,7 @@ config = SensoryForgeConfig(
     ),
     simulation=SimulationConfig(
         device="cpu",
-        dt=0.5,
+        dt_ms=0.5,
     ),
 )
 

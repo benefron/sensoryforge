@@ -293,7 +293,7 @@ class SimulationEngine:
                         )
                     else:
                         filter_params = dict(pop_cfg.filter_params or {})
-                    filter_params["dt"] = self.config.simulation.dt
+                    filter_params["dt"] = self.config.simulation.dt_ms
                     filter_module = filter_cls(**filter_params).to(self.device)
                 except KeyError:
                     raise ValueError(f"Unknown filter method: {filter_method}")
@@ -308,7 +308,10 @@ class SimulationEngine:
                 neuron_params = resolve_neuron_params(
                     neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
                 )
-                neuron_params["dt"] = self.config.simulation.dt
+                # F-008: the neuron integrates at integrate_dt_ms (finer,
+                # default 0.05 ms), not the record step dt_ms; sub-stepping
+                # happens in _run_pop_from_drive.
+                neuron_params["dt"] = self.config.simulation.integrate_dt_ms
                 neuron_params["noise_std"] = pop_cfg.noise_std
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
             except KeyError:
@@ -348,7 +351,7 @@ class SimulationEngine:
             Dictionary with results for each population, keyed by population name:
             {
                 "population_name": {
-                    "spikes": torch.Tensor,  # Shape: [batch, time, num_neurons], binary (0 or 1)
+                    "spikes": torch.Tensor,  # Shape: [batch, time, num_neurons], sub-step spike count per record bin (F-008); use > 0 for a binary raster
                     "drive": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
                     "filtered": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
                     "voltages": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mV (if return_intermediates)
@@ -398,6 +401,8 @@ class SimulationEngine:
                 input_gain=pop["config"].input_gain,
                 noise_std=pop["config"].noise_std,
                 return_intermediates=return_intermediates,
+                dt_ms=self.config.simulation.dt_ms,
+                integrate_dt_ms=self.config.simulation.integrate_dt_ms,
             )
             results[pop_name] = pop_results
 
@@ -411,8 +416,10 @@ class SimulationEngine:
         input_gain: float = 1.0,
         noise_std: float = 0.0,
         return_intermediates: bool = False,
+        dt_ms: float = 1.0,
+        integrate_dt_ms: float = 0.05,
     ) -> Dict[str, Any]:
-        """Run filter → gain → noise → neuron on a pre-computed drive tensor.
+        """Run filter → gain → noise → sub-stepped neuron on a drive tensor.
 
         This is the shared backend kernel used by :meth:`run` and by the GUI
         simulation tab (C3-Step4 adapter). Callers that already have a drive
@@ -420,11 +427,27 @@ class SimulationEngine:
         obtain the same filter/gain/noise/neuron behaviour as the engine,
         without re-building innervation.
 
+        Matches pressure-simulation's ``encoding/encode_runner.run_encoding``
+        exactly (F-008): the filter integrates at the record step ``dt_ms``
+        (one value per record bin); gain and noise are applied per record
+        bin, on that filtered signal; the drive is then held constant across
+        ``n = max(1, round(dt_ms / integrate_dt_ms))`` sub-steps per bin
+        (``repeat_interleave``) and run through ``neuron_model`` (which must
+        already be constructed with ``dt=integrate_dt_ms``) in a single
+        forward pass, so its state carries continuously across bins. The
+        model's initial sample is dropped (``[:, 1:, :]``, matching
+        pressure-simulation and fixing the historical T+1-vs-T mismatch
+        between spikes and drive/filtered, ledger F-013); each bin's
+        sub-steps are then reduced to a spike **count** (not just any/binary
+        -- pressure-simulation's own binary flag is exactly ``counts > 0``)
+        and a bin-end voltage.
+
         Args:
             drive: Innervation output ``[batch, time, num_neurons]`` in mA.
             filter_module: Instantiated :class:`~sensoryforge.filters.base.BaseFilter`
                 or ``None`` for no filtering.
-            neuron_model: Instantiated neuron model with ``forward()`` returning
+            neuron_model: Instantiated neuron model (constructed with
+                ``dt=integrate_dt_ms``) with ``forward()`` returning
                 ``(v_trace, spikes)`` or just ``spikes``.
             input_gain: Multiplicative gain applied to the filtered drive before
                 the neuron model.  Default ``1.0`` (no scaling).
@@ -432,11 +455,16 @@ class SimulationEngine:
                 Default ``0.0`` (no noise).
             return_intermediates: If ``True``, include ``"drive"``, ``"filtered"``,
                 and ``"voltages"`` in the returned dict.
+            dt_ms: Record step (ms) -- the time resolution of ``drive`` and
+                the returned ``"spikes"``/``"filtered"``/``"voltages"``.
+            integrate_dt_ms: Neuron integration step (ms); must match the dt
+                ``neuron_model`` was constructed with.
 
         Returns:
-            Dictionary with at minimum ``"spikes"`` and, if
+            Dictionary with at minimum ``"spikes"`` (integer sub-step spike
+            counts per record bin, ``[batch, time, num_neurons]``) and, if
             *return_intermediates* is ``True``, also ``"drive"``,
-            ``"filtered"``, and optionally ``"voltages"``.
+            ``"filtered"``, and optionally ``"voltages"`` (at bin ends).
         """
         import torch as _torch  # local import to keep signature clean
 
@@ -456,13 +484,34 @@ class SimulationEngine:
 
         filtered = filtered.float()
 
-        # Apply neuron model
-        neuron_output = neuron_model(filtered)
+        # F-008: hold the (record-step) drive constant across n sub-steps
+        # per bin, then run the neuron once over the whole sub-stepped
+        # sequence so its state carries continuously across bins.
+        n_substeps = max(1, round(dt_ms / integrate_dt_ms))
+        filtered_sub = filtered.repeat_interleave(n_substeps, dim=1)
+
+        neuron_output = neuron_model(filtered_sub)
         if isinstance(neuron_output, tuple):
-            v_trace, spikes = neuron_output
+            v_trace_sub, spikes_sub = neuron_output
         else:
-            spikes = neuron_output
-            v_trace = None
+            spikes_sub = neuron_output
+            v_trace_sub = None
+
+        batch, _, num_neurons = filtered.shape
+        time_steps = filtered.shape[1]
+
+        # Drop the initial sample (index 0), then collapse each bin's
+        # n_substeps sub-steps: sum -> integer spike count per bin.
+        spikes_sub = spikes_sub[:, 1:, :].float()
+        spikes = spikes_sub.view(batch, time_steps, n_substeps, num_neurons).sum(dim=2)
+
+        v_trace = None
+        if v_trace_sub is not None:
+            v_trace_sub = v_trace_sub[:, 1:, :]
+            # Voltage at each bin's end: the last sub-step.
+            v_trace = v_trace_sub.view(batch, time_steps, n_substeps, num_neurons)[
+                :, :, -1, :
+            ]
 
         pop_results: Dict[str, Any] = {"spikes": spikes}
         if return_intermediates:

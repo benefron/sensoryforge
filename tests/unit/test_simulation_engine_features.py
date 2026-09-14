@@ -49,7 +49,7 @@ def _make_config(
         noise_std=noise_std,
         seed=seed,
     )
-    sim = SimulationConfig(dt=0.1, device="cpu")
+    sim = SimulationConfig(dt_ms=0.1, device="cpu")
     return SensoryForgeConfig(grids=[grid], populations=[pop], simulation=sim)
 
 
@@ -211,7 +211,7 @@ def _make_pop_config(
         model_params=model_params or {},
         seed=seed,
     )
-    sim = SimulationConfig(dt=0.1, device="cpu")
+    sim = SimulationConfig(dt_ms=0.1, device="cpu")
     return SensoryForgeConfig(grids=[grid], populations=[pop], simulation=sim)
 
 

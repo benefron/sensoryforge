@@ -128,7 +128,7 @@ def _engine_config(neuron_type: str) -> SensoryForgeConfig:
             )
         ],
         stimulus=StimulusConfig(type="gaussian", amplitude=10.0, sigma=1.0),
-        simulation=SimulationConfig(device="cpu", dt=0.1),
+        simulation=SimulationConfig(device="cpu", dt_ms=0.1),
     )
 
 

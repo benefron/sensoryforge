@@ -68,7 +68,7 @@ def _minimal_config(
                 seed=seed + i * 1000,
             )
         )
-    sim = SimulationConfig(dt=dt, device="cpu")
+    sim = SimulationConfig(dt_ms=dt, device="cpu")
     return SensoryForgeConfig(grids=[grid], populations=populations, simulation=sim)
 
 
@@ -162,15 +162,18 @@ class TestResultStructure:
         assert "SA Pop" in result
         assert "spikes" in result["SA Pop"]
 
-    def test_spikes_dtype_is_bool_or_binary(self):
+    def test_spikes_are_nonnegative_integer_counts(self):
+        """F-008: "spikes" is a sub-step spike COUNT per record bin, not a
+        binary flag -- pressure-simulation's own binary raster is exactly
+        ``counts > 0``. Counts must be non-negative integers.
+        """
         engine = SimulationEngine(_minimal_config())
         result = engine.run(_constant_stimulus())
         spikes = result["SA Pop"]["spikes"]
-        # Accept bool or float binary (0/1)
-        unique = spikes.unique().tolist()
-        assert all(
-            v in [0.0, 1.0, True, False] for v in unique
-        ), f"Spike tensor must be binary, got unique values: {unique}"
+        assert (spikes >= 0).all(), "spike counts must be non-negative"
+        assert torch.equal(
+            spikes, spikes.round()
+        ), "spike counts must be integer-valued"
 
     def test_spikes_batch_dim_is_1(self):
         engine = SimulationEngine(_minimal_config())
@@ -331,3 +334,102 @@ class TestNumericalSanity:
         assert (
             neg == 0
         ), f"SA filter output should be non-negative, got {neg} negative values."
+
+
+# ---------------------------------------------------------------------------
+# E4 — Neuron sub-stepping (F-008)
+# ---------------------------------------------------------------------------
+
+
+class TestNeuronSubStepping:
+    """SimulationEngine._run_pop_from_drive sub-steps the neuron to match
+    pressure-simulation's encoding/encode_runner.run_encoding exactly:
+    filter integrates at dt_ms, gain+noise per record bin, then the drive is
+    held constant across n = max(1, round(dt_ms / integrate_dt_ms)) sub-steps
+    per bin and the neuron runs once over the whole sub-stepped sequence.
+    """
+
+    def test_no_substepping_matches_direct_construction(self):
+        """With integrate_dt_ms == dt_ms (n_substeps=1), the engine's spike
+        counts must equal a direct single-shot IzhikevichNeuronTorch(dt=dt_ms)
+        run on the same filtered+gained drive, dropping its own initial
+        sample the same way (this is "the current behaviour" the sub-stepping
+        rewrite must reproduce exactly when there is no sub-stepping).
+        """
+        from sensoryforge.core.simulation_engine import SimulationEngine as Engine
+
+        torch.manual_seed(11)
+        drive = torch.rand(1, 40, 3) * 25.0
+        from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+
+        neuron_same_dt = IzhikevichNeuronTorch(dt=0.1, preset="FS")
+        neuron_for_engine = IzhikevichNeuronTorch(dt=0.1, preset="FS")
+        neuron_for_engine.load_state_dict(neuron_same_dt.state_dict())
+
+        engine_result = Engine._run_pop_from_drive(
+            drive=drive,
+            filter_module=None,
+            neuron_model=neuron_for_engine,
+            dt_ms=0.1,
+            integrate_dt_ms=0.1,
+        )
+
+        _, direct_spikes_bool = neuron_same_dt(drive)
+        direct_counts = direct_spikes_bool[:, 1:, :].float()
+
+        assert torch.equal(engine_result["spikes"], direct_counts), (
+            "with integrate_dt_ms == dt_ms, engine spike counts must equal a "
+            "direct single-shot neuron run with its initial sample dropped"
+        )
+
+    def test_substepped_counts_sum_to_direct_fine_step_total(self):
+        """With sub-stepping, the summed counts must equal the raw spike
+        count of a direct fine-step run over the same repeated-drive
+        sequence (the reduction is a pure reshape+sum, so totals must match
+        exactly by construction).
+        """
+        from sensoryforge.core.simulation_engine import SimulationEngine as Engine
+        from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+
+        torch.manual_seed(22)
+        dt_ms = 1.0
+        integrate_dt_ms = 0.05
+        n_substeps = round(dt_ms / integrate_dt_ms)
+        drive = torch.rand(1, 15, 4) * 25.0
+
+        neuron_a = IzhikevichNeuronTorch(dt=integrate_dt_ms, preset="FS")
+        neuron_b = IzhikevichNeuronTorch(dt=integrate_dt_ms, preset="FS")
+        neuron_b.load_state_dict(neuron_a.state_dict())
+
+        engine_result = Engine._run_pop_from_drive(
+            drive=drive,
+            filter_module=None,
+            neuron_model=neuron_a,
+            dt_ms=dt_ms,
+            integrate_dt_ms=integrate_dt_ms,
+        )
+
+        drive_sub = drive.repeat_interleave(n_substeps, dim=1)
+        _, spikes_bool_sub = neuron_b(drive_sub)
+        direct_fine_step_total = spikes_bool_sub[:, 1:, :].float().sum().item()
+
+        assert engine_result["spikes"].sum().item() == direct_fine_step_total
+
+    def test_engine_constructs_neuron_at_integrate_dt_not_record_dt(self):
+        """SimulationEngine must construct the neuron with integrate_dt_ms,
+        not the record step dt_ms (F-008). The GUI-side half of this check
+        (SpikingNeuronTab._create_neuron_model) lives in
+        tests/unit/test_spiking_tab_defaults.py (gui-marked); both that test
+        and this one assert the same DEFAULT_INTEGRATE_DT_MS/
+        SimulationConfig.integrate_dt_ms default (0.05 ms), and both
+        ultimately call the shared SimulationEngine._run_pop_from_drive
+        kernel, so identical spikes/voltages for identical inputs follows
+        from that sharing.
+        """
+        dt_ms = 0.5
+        assert dt_ms != 0.05  # SimulationConfig.integrate_dt_ms default
+
+        cfg = _minimal_config(dt=dt_ms)
+        engine = SimulationEngine(cfg)
+        neuron = engine.populations[0]["neuron"]
+        assert neuron.dt == 0.05

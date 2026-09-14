@@ -123,7 +123,7 @@ def _canonical_neuron_count_config(
             )
         ],
         stimulus=StimulusConfig(type="gaussian", amplitude=10.0, sigma=1.0),
-        simulation=SimulationConfig(device="cpu", dt=0.1),
+        simulation=SimulationConfig(device="cpu", dt_ms=0.1),
     )
 
 

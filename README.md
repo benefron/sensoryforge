@@ -72,7 +72,7 @@ config = SensoryForgeConfig(
         ),
     ],
     stimulus=StimulusConfig(type="gaussian", amplitude=30.0, sigma=0.5),
-    simulation=SimulationConfig(device="cpu", dt=0.5),
+    simulation=SimulationConfig(device="cpu", dt_ms=0.5),
 )
 
 # Create pipeline

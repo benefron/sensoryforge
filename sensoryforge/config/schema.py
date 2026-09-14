@@ -315,14 +315,23 @@ class SimulationConfig:
 
     Attributes:
         device: Device to run on (cpu, cuda, mps).
-        dt: Time step in ms.
+        dt_ms: Record step in ms -- the time resolution of the filter,
+            stimulus, and returned spike/voltage arrays. Was named ``dt``;
+            ``from_dict`` still accepts the legacy ``dt`` key as an alias.
+        integrate_dt_ms: Neuron integration step in ms (F-008). The neuron
+            model is stepped at this (generally finer) resolution, holding
+            the drive constant across ``round(dt_ms / integrate_dt_ms)``
+            sub-steps per record bin, matching pressure-simulation's
+            ``encoding/encode_runner.run_encoding`` exactly. Defaults to
+            0.05 ms, its hard-coded native Izhikevich integration step.
         solver: Global solver config (type, method, rtol, atol).
         duration_ms: Simulation duration in ms (optional, can be inferred
             from stimulus).
     """
 
     device: str = "cpu"
-    dt: float = 1.0  # ms
+    dt_ms: float = 1.0  # ms
+    integrate_dt_ms: float = 0.05  # ms
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
 
@@ -333,11 +342,17 @@ class SimulationConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> SimulationConfig:
-        """Create from dict (e.g., from YAML)."""
+        """Create from dict (e.g., from YAML).
+
+        Accepts the legacy ``dt`` key as an alias for ``dt_ms`` (F-008): if
+        ``dt`` is present and ``dt_ms`` is not, ``dt`` becomes ``dt_ms``.
+        """
         kwargs = {}
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
+        if "dt_ms" not in kwargs and "dt" in data:
+            kwargs["dt_ms"] = data["dt"]
         return cls(**kwargs)
 
 

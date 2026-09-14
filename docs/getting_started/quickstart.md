@@ -52,7 +52,7 @@ config = SensoryForgeConfig(
     ),
     simulation=SimulationConfig(
         device="cpu",  # or 'cuda' or 'mps'
-        dt=0.5,  # 0.5ms time step
+        dt_ms=0.5,  # 0.5ms time step
     ),
 )
 

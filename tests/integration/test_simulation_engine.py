@@ -52,7 +52,7 @@ class TestSimulationEngineBasic:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -99,7 +99,7 @@ class TestSimulationEngineBasic:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -139,7 +139,7 @@ class TestSimulationEngineBasic:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -183,7 +183,7 @@ class TestSimulationEngineBasic:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -235,7 +235,7 @@ class TestSimulationEngineNeuronArrangements:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -286,7 +286,7 @@ class TestSimulationEngineInnervationMethods:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -338,7 +338,7 @@ class TestSimulationEngineFilters:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -387,7 +387,7 @@ class TestSimulationEngineNeuronModels:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -423,7 +423,7 @@ class TestSimulationEngineErrorHandling:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -458,7 +458,7 @@ class TestSimulationEngineErrorHandling:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -493,7 +493,7 @@ class TestSimulationEngineErrorHandling:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 

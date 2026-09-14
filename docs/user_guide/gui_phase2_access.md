@@ -191,7 +191,7 @@ config = SensoryForgeConfig(
                         filter_method="ra", innervation_method="gaussian", neurons_per_row=14),
     ],
     stimulus=StimulusConfig(type="gaussian", amplitude=30.0),
-    simulation=SimulationConfig(device="cpu", dt=0.5),
+    simulation=SimulationConfig(device="cpu", dt_ms=0.5),
 )
 pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
 ```

@@ -56,6 +56,12 @@ MIN_TIME_STEP_MS = 0.05
 # stability in Izhikevich/AdEx/MQIF models.  1.0 ms causes subthreshold
 # oscillations; 0.1 ms is the safe upper bound for these models.
 DEFAULT_DT_MS = 0.1
+# Neuron sub-step integration dt (F-008), matching SimulationConfig.
+# integrate_dt_ms and pressure-simulation's hard-coded native Izhikevich
+# step. The neuron is always constructed with this dt, not the record
+# step dt_ms; SimulationEngine._run_pop_from_drive sub-steps the drive
+# to match.
+DEFAULT_INTEGRATE_DT_MS = 0.05
 # Resolved via importlib.resources (F-014) so this works from an installed
 # wheel, not just when the package sits on disk at a fixed __file__-relative
 # path.
@@ -2587,7 +2593,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         filter_module = self._build_filter_module(
             config, population.neuron_type, dt_ms, device
         )
-        neuron_model = self._create_neuron_model(config, dt_ms, device)
+        # F-008: the neuron is always constructed at the (finer) sub-step
+        # dt, matching SimulationEngine -- not the record step dt_ms.
+        neuron_model = self._create_neuron_model(
+            config, DEFAULT_INTEGRATE_DT_MS, device
+        )
         backend = _Engine._run_pop_from_drive(
             drive=neuron_drive,
             filter_module=filter_module,
@@ -2595,6 +2605,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             input_gain=config.input_gain,
             noise_std=config.noise_std,
             return_intermediates=True,
+            dt_ms=dt_ms,
+            integrate_dt_ms=DEFAULT_INTEGRATE_DT_MS,
         )
 
         drive = backend["filtered"]  # gain + noise applied

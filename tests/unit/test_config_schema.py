@@ -126,7 +126,7 @@ class TestSensoryForgeConfig:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
@@ -172,7 +172,7 @@ class TestSensoryForgeConfig:
             ),
             simulation=SimulationConfig(
                 device="cpu",
-                dt=1.0,
+                dt_ms=1.0,
             ),
         )
 
