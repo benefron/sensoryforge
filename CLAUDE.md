@@ -192,13 +192,23 @@ This ensures the GUI simulation path and the `SimulationEngine.run()` path produ
 
 ### Known Technical Debt
 
-These are open issues documented in `reviews/CODE_REVIEW_20260408.md`:
+**The living ledger (`docs_root/LEDGER.md`) is the current source of truth for open findings.**
+The items below are the ones still open as of 2026-09-14 (ledger `F-0NN` IDs); see
+`docs/development/reviews/` for the historical audits they came from, and note several items that
+audit once listed here (DSL/CUDA support, `reset_states`) were already fixed — see ledger `R-001`,
+`D-011`.
 
-- **`SimulationEngine` composite grids** — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet.
-- **Equation DSL (`model_dsl.py`) is numpy-only** — DSL-compiled neuron models do not support CUDA or autograd. They work on CPU only. This is tracked as C-2 in the review.
-- **`reset_states()` vs `reset_state()`** — `SAFilterTorch` exposes `reset_states()` (plural), breaking polymorphism with the `BaseFilter` interface. New filters must use `reset_state()` (singular).
-- **`BatchExecutor` stimulus shape** — `_canonical_to_legacy_config` sets `grid_size = rows*cols`, which `GeneralizedTactileEncodingPipeline` treats as per-side count. The executor works around this with bilinear interpolation, but the root bug in `_canonical_to_legacy_config` is unresolved.
-- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Pierzowski (1995) for stimulus inputs in N/mm². SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
+- **`SimulationEngine` composite grids** — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet. (F-010)
+- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but innervation still samples from a synthetic regular lattice; DSL neurons cannot be instantiated through the engine yet. (F-010)
+- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
+- **Dual, unsynchronised `dt` config keys in the legacy pipeline** — `GeneralizedTactileEncodingPipeline`'s `neurons.dt` controls neuron integration but `_generate_gaussian_stimulus`/`_generate_step_stimulus`/`_generate_ramp_stimulus` read a separate `temporal.dt` key; setting only `neurons.dt` silently leaves the stimulus time axis at the `temporal.dt` default (0.1 ms). Set both when using the legacy config format. (F-024)
+- **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it (`neurons_per_row² = total neurons`), so passing what looks like a total (e.g. `sa_neurons: 100` meaning "100 SA neurons") silently builds a 100×100 = 10,000-neuron population with a dense `[N, H, W]` weight tensor. (F-023)
+
+**Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
+decision record): `clip_to_positive` now defaults to `False` on `SAFilterTorch` for sign parity with
+pressure-simulation (F-001); `tau_RA` is locked to 8 ms everywhere (F-002); the canonical→legacy
+adapter emits `grid_size=(rows, cols)` instead of `rows*cols`, which used to allocate a
+`(rows·cols)²`-receptor lattice and OOM on the README's own quick-start example (F-012).
 
 ---
 
@@ -251,5 +261,8 @@ Follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `bu
 ## Documentation Layout
 
 - `docs/` — user-facing docs (ships publicly with MkDocs)
-- `docs_root/` — internal notes, research, working plans (not published)
-- `reviews/` — engineering review artifacts and remediation plans
+- `docs/development/reviews/` — engineering review and audit artefacts (tracked; see its README for
+  which are current vs. historical)
+- `docs_root/` — internal notes, research, working plans; gitignored except `docs_root/LEDGER.md`,
+  the living ledger of decisions/findings (see it for what is actually open today, not the stale
+  Open/Resolved counts inside older review files)

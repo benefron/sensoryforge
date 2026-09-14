@@ -144,7 +144,7 @@ class TestTimelineStimulusPipeline:
             duration=100.0,
         )
         assert seq.shape[0] == 1
-        assert seq.shape[1] == 200  # 100ms / 0.5ms dt
+        assert seq.shape[1] == 1000  # 100ms / 0.1ms dt (D-005 default)
         assert seq.shape[2] == 80
         assert seq.shape[3] == 80
 
@@ -169,7 +169,7 @@ class TestTimelineStimulusPipeline:
         )
         # At t=0 only s1 is active, at t=30ms both are active
         t_zero = seq[0, 0].max().item()
-        t_overlap_idx = int(30.0 / 0.5)  # step 60
+        t_overlap_idx = int(30.0 / 0.1)  # step 300 (D-005: default dt=0.1ms)
         t_overlap = seq[0, t_overlap_idx].max().item()
         assert t_overlap > t_zero  # combined should be larger
 
@@ -187,7 +187,7 @@ class TestTimelineStimulusPipeline:
             duration=50.0,
         )
         assert "sa_spikes" in results
-        assert results["stimulus_sequence"].shape[1] == 100  # 50ms / 0.5
+        assert results["stimulus_sequence"].shape[1] == 500  # 50ms / 0.1ms dt (D-005 default)
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +208,7 @@ class TestRepeatedPatternStimulusPipeline:
             spacing_y=1.0,
             duration=50.0,
         )
-        assert seq.shape == (1, 100, 80, 80)
+        assert seq.shape == (1, 500, 80, 80)  # 50ms / 0.1ms dt (D-005 default)
 
     def test_repeated_pattern_with_custom_base(self):
         """Repeated pattern accepts a custom base stimulus."""

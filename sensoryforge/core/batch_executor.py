@@ -408,21 +408,23 @@ class BatchExecutor:
             stimulus_tensor, _, _ = self.pipeline.generate_stimulus(
                 stimulus_type=stim_config['type'], **stimulus_params
             )
-            # Resize stimulus to engine's grid if shapes differ (the legacy
-            # pipeline may create a different spatial resolution than the
-            # canonical config's rows/cols due to _canonical_to_legacy_config)
+            # The legacy pipeline's stimulus resolution now matches the
+            # canonical config's rows/cols exactly (ledger F-012 fixed the
+            # rows*cols -> per-side adapter bug that used to force a
+            # bilinear resize here). Assert instead of silently resampling,
+            # so a future adapter regression fails loudly rather than
+            # quietly blurring the stimulus.
             grid_cfg = self._sf_config.grids[0]
             target_h = grid_cfg.rows or 40
             target_w = grid_cfg.cols or 40
             if stimulus_tensor.shape[-2] != target_h or stimulus_tensor.shape[-1] != target_w:
-                import torch.nn.functional as F
-                b, t, h, w = stimulus_tensor.shape
-                stim_2d = stimulus_tensor.view(b * t, 1, h, w)
-                stim_2d = F.interpolate(
-                    stim_2d, size=(target_h, target_w),
-                    mode='bilinear', align_corners=False
+                raise ValueError(
+                    "Canonical stimulus resolution "
+                    f"{tuple(stimulus_tensor.shape[-2:])} does not match the "
+                    f"grid config ({target_h}, {target_w}) — the "
+                    "canonical->legacy adapter is out of sync with the "
+                    "engine's grid (see _canonical_to_legacy_config)."
                 )
-                stimulus_tensor = stim_2d.view(b, t, target_h, target_w)
 
             engine_results = self.engine.run(
                 stimulus_tensor, return_intermediates=save_intermediates

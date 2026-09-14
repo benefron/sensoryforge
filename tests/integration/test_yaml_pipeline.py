@@ -122,7 +122,7 @@ class TestYAMLPipelineExecution:
         )
         
         assert 'sa_spikes' in results
-        assert results['stimulus_sequence'].shape[1] == 200  # duration/dt
+        assert results['stimulus_sequence'].shape[1] == 1000  # 100ms / 0.1ms dt (D-005 default)
 
     def test_pipeline_produces_spikes_with_sufficient_stimulus(self):
         """Test that pipeline generates spikes with strong stimulus."""

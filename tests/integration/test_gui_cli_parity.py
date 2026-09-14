@@ -200,8 +200,15 @@ class TestConfigAdapter:
                 "center": [0.0, 0.0],
             },
             "neurons": {
-                "sa_neurons": 100,
-                "ra_neurons": 196,
+                # NOTE: sa_neurons/ra_neurons in the legacy config section
+                # are NEURONS-PER-ROW (InnervationModule builds an NxN
+                # population), not a total count — see ledger F-023. Using
+                # 100/196 here (as if they were totals) used to build
+                # 100x100=10,000 SA and 196x196=38,416 RA neurons, each
+                # with a dense [N, 80, 80] weight tensor, and OOM the test
+                # process (observed >2.7GB RSS during the 2026-09-14 audit).
+                "sa_neurons": 10,
+                "ra_neurons": 14,
                 "dt": 0.5,
             },
             "innervation": {

@@ -51,7 +51,18 @@ class TestPipelineBackwardCompatibility:
         assert hasattr(pipeline, 'ra_filter')
     
     def test_pipeline_forward_pass_still_works(self):
-        """Test that pipeline forward pass still works."""
+        """Test that pipeline forward pass still works.
+
+        NOTE (ledger F-024, discovered 2026-09-14): "gaussian"/"step"/"ramp"
+        stimulus generation in GeneralizedTactileEncodingPipeline reads its
+        timestep from ``config["temporal"]["dt"]``, a separate key from
+        ``config["neurons"]["dt"]`` that controls neuron integration. Setting
+        only ``neurons.dt`` (as one would expect) silently leaves the
+        stimulus time axis at the DEFAULT_CONFIG ``temporal.dt`` (0.1 ms),
+        desynchronising stimulus and neuron time steps. Both are set here so
+        the test is internally consistent; the underlying dual-dt-key
+        footgun is unresolved.
+        """
         config = {
             "pipeline": {
                 "device": "cpu",
@@ -63,6 +74,7 @@ class TestPipelineBackwardCompatibility:
                 "ra_neurons": 14,
                 "dt": 1.0,
             },
+            "temporal": {"dt": 1.0},
         }
         
         pipeline = GeneralizedTactileEncodingPipeline(config_dict=config)
@@ -79,8 +91,10 @@ class TestPipelineBackwardCompatibility:
         assert "ra_spikes" in results
         assert isinstance(results["sa_spikes"], torch.Tensor)
         assert isinstance(results["ra_spikes"], torch.Tensor)
-        assert results["sa_spikes"].shape[1] == 100  # time dimension
-        assert results["ra_spikes"].shape[1] == 100
+        # steps+1: neuron models return one extra sample for v_init/spike[0]
+        # (BaseNeuron contract, neurons/base.py).
+        assert results["sa_spikes"].shape[1] == 101
+        assert results["ra_spikes"].shape[1] == 101
 
 
 class TestRegistryBackwardCompatibility:

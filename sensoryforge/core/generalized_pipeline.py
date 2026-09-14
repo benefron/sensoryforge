@@ -346,9 +346,18 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Extract grids
         grids = canonical.get("grids", [])
         if grids:
-            # Use first grid for main grid_manager
+            # Use first grid for main grid_manager. NOTE: this must stay a
+            # (rows, cols) tuple, not rows*cols — ReceptorGrid/GridManager
+            # treats an int grid_size as a PER-SIDE count, so passing the
+            # product here used to build a (rows*cols) x (rows*cols) lattice
+            # (e.g. a 40x40 canonical grid allocated 1600x1600 = 2.56M
+            # receptors, and the README's 80x80 quick-start allocated 41M —
+            # ledger finding F-012, fixed 2026-09-14).
             first_grid = grids[0]
-            legacy["pipeline"]["grid_size"] = first_grid.get("rows", 40) * first_grid.get("cols", 40)
+            legacy["pipeline"]["grid_size"] = (
+                first_grid.get("rows", 40),
+                first_grid.get("cols", 40),
+            )
             legacy["pipeline"]["spacing"] = first_grid.get("spacing", 0.15)
             center = first_grid.get("center", [0.0, 0.0])
             if isinstance(center, list):

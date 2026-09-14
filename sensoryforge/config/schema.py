@@ -19,6 +19,7 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
 
@@ -423,24 +424,32 @@ class SensoryForgeConfig:
         )
 
     @classmethod
-    def from_yaml(cls, yaml_str: str) -> SensoryForgeConfig:
-        """Load from YAML string.
-        
+    def from_yaml(cls, yaml_str_or_path: str | Path) -> SensoryForgeConfig:
+        """Load from a YAML string, or from a path to a YAML file.
+
         Args:
-            yaml_str: YAML-formatted string (can be file contents or direct string).
-        
+            yaml_str_or_path: Either YAML-formatted text (file contents or a
+                direct string), or a path (``str``/``pathlib.Path``) to a
+                ``.yml``/``.yaml`` file to read. A path is detected by
+                checking whether it names an existing file; prefer
+                :meth:`from_yaml_file` when the caller already knows it has
+                a path, to avoid that filesystem check.
+
         Returns:
             SensoryForgeConfig instance.
-        
+
         Raises:
-            ValueError: If YAML does not produce a dict.
-        
+            ValueError: If the YAML does not produce a dict.
+
         Example:
-            >>> # From file
+            >>> # From a path (str or Path)
+            >>> config = SensoryForgeConfig.from_yaml('config.yml')
+            >>>
+            >>> # From file contents
             >>> with open('config.yml', 'r') as f:
             ...     config = SensoryForgeConfig.from_yaml(f.read())
-            >>> 
-            >>> # From string
+            >>>
+            >>> # From a string
             >>> yaml_str = '''
             ... grids:
             ...   - name: "Main Grid"
@@ -449,7 +458,34 @@ class SensoryForgeConfig:
             ... '''
             >>> config = SensoryForgeConfig.from_yaml(yaml_str)
         """
-        data = yaml.safe_load(yaml_str)
+        candidate_path = Path(yaml_str_or_path)
+        if isinstance(yaml_str_or_path, Path) or (
+            "\n" not in str(yaml_str_or_path) and candidate_path.is_file()
+        ):
+            return cls.from_yaml_file(candidate_path)
+        data = yaml.safe_load(yaml_str_or_path)
         if not isinstance(data, dict):
             raise ValueError("YAML did not produce a dict")
+        return cls.from_dict(data)
+
+    @classmethod
+    def from_yaml_file(cls, path: str | Path) -> SensoryForgeConfig:
+        """Load from a YAML file path.
+
+        Args:
+            path: Path to a ``.yml``/``.yaml`` configuration file.
+
+        Returns:
+            SensoryForgeConfig instance.
+
+        Raises:
+            ValueError: If the YAML does not produce a dict.
+
+        Example:
+            >>> config = SensoryForgeConfig.from_yaml_file('config.yml')
+        """
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            raise ValueError(f"YAML file {path} did not produce a dict")
         return cls.from_dict(data)

@@ -197,6 +197,11 @@ class SimulationEngine:
             
             # Create innervation module
             innervation_method = pop_cfg.innervation_method or "gaussian"
+            if innervation_method not in INNERVATION_REGISTRY.list_registered():
+                raise ValueError(
+                    f"Unknown innervation method: {innervation_method!r}. "
+                    f"Registered methods: {sorted(INNERVATION_REGISTRY.list_registered())}"
+                )
             if use_flat:
                 innervation_module = FlatInnervationModule(
                     neuron_type=pop_cfg.neuron_type,
@@ -258,9 +263,20 @@ class SimulationEngine:
             neuron_model_name = pop_cfg.neuron_model or "izhikevich"
             try:
                 neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name.lower())
-                neuron_params = pop_cfg.model_params or {}
+                neuron_params = dict(pop_cfg.model_params or {})
                 neuron_params["dt"] = self.config.simulation.dt
                 neuron_params["noise_std"] = pop_cfg.noise_std
+                # F-004: RA/RA-I (Meissner) populations default to the
+                # fast-spiking Izhikevich preset for parity with
+                # pressure-simulation, unless the config already pins a
+                # preset or explicit a/b/c/d. SA keeps the RS default.
+                is_izhikevich = neuron_model_name.lower() == "izhikevich"
+                is_ra = (pop_cfg.neuron_type or "").upper().startswith("RA")
+                no_explicit_params = not any(
+                    k in neuron_params for k in ("preset", "a", "b", "c", "d")
+                )
+                if is_izhikevich and is_ra and no_explicit_params:
+                    neuron_params["preset"] = "FS"
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
             except KeyError:
                 raise ValueError(f"Unknown neuron model: {neuron_model_name}")
