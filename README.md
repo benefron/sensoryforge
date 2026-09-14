@@ -125,7 +125,7 @@ ra_innervation = create_ra_innervation(
 
 # Temporal filtering
 sa_filter = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=1.0)
-ra_filter = RAFilterTorch(tau_RA=15.0, k3=2.0, dt=1.0)
+ra_filter = RAFilterTorch(tau_RA=8.0, k3=2.0, dt=1.0)
 
 # Spiking neurons
 sa_neurons = IzhikevichNeuronTorch(dt=1.0, a=0.02, b=0.2, c=-65.0, d=8.0)

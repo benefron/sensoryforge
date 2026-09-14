@@ -40,6 +40,10 @@ from sensoryforge.neurons.sa import SANeuronTorch  # noqa: E402
 from sensoryforge.gui.filter_utils import normalize_filter_method  # noqa: E402
 from sensoryforge.register_components import register_all  # noqa: E402
 from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY  # noqa: E402
+from sensoryforge.config.defaults import (  # noqa: E402
+    resolve_filter_params,
+    resolve_neuron_params,
+)
 
 # Ensure components are registered
 register_all()
@@ -771,13 +775,39 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             return widget.text()
         return widget.property("value") or ""
 
+    def _model_defaults(self, model_name: str, neuron_type: str) -> Dict[str, Any]:
+        """Resolve model parameter defaults for the population's neuron type.
+
+        Izhikevich defaults (a/b/c/d/threshold/noise_std) are owned by
+        :func:`sensoryforge.config.defaults.resolve_neuron_params` so the GUI
+        agrees with SimulationEngine (F-026): an RA population resolves to
+        the fast-spiking preset, SA/SA2 to regular-spiking. Other models have
+        no cross-repo divergence (their class defaults already match
+        ``gui/default_params.json``), so they keep reading from the JSON.
+        """
+        if model_name.lower() == "izhikevich":
+            return resolve_neuron_params(model_name, neuron_type, {})
+        return dict(self.default_params.get("models", {}).get(model_name, {}))
+
+    def _filter_defaults(self, filter_key: str) -> Dict[str, Any]:
+        """Resolve filter parameter defaults for "SA" or "RA".
+
+        tau_r/tau_d/k1/k2 (SA) and tau_RA (RA) are resolver-owned (F-026).
+        RA's k3 is excluded from the resolver pending D-Q1 (F-030): it keeps
+        reading from ``gui/default_params.json`` until that decision lands.
+        """
+        method = filter_key.lower()
+        resolved = resolve_filter_params(method, {})
+        json_defaults = dict(self.default_params.get("filters", {}).get(filter_key, {}))
+        extra = {k: v for k, v in json_defaults.items() if k not in resolved}
+        return {**resolved, **extra}
+
     def _populate_model_parameter_fields(
         self,
         config: PopulationConfig,
     ) -> None:
         model_name = config.model or "Izhikevich"
-        model_defaults = self.default_params.get("models", {})
-        defaults = dict(model_defaults.get(model_name, {}))
+        defaults = self._model_defaults(model_name, config.neuron_type)
         merged = dict(defaults)
         merged.update(config.model_params or {})
         self._clear_form_layout(self.model_param_layout)
@@ -805,7 +835,6 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             config.filter_method,
             config.neuron_type,
         )
-        defaults_map = self.default_params.get("filters", {})
         self._clear_form_layout(self.filter_param_layout)
         self.filter_param_fields.clear()
         self.filter_param_kinds.clear()
@@ -813,7 +842,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self.filter_params_section.setVisible(False)
             return
         filter_key = "SA" if method == "sa" else "RA"
-        defaults = dict(defaults_map.get(filter_key, {}))
+        defaults = self._filter_defaults(filter_key)
         merged = dict(defaults)
         merged.update(config.filter_params or {})
         if not merged:
@@ -839,7 +868,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         config: PopulationConfig,
     ) -> Dict[str, Any]:
         model_name = config.model or "Izhikevich"
-        defaults = dict(self.default_params.get("models", {}).get(model_name, {}))
+        defaults = self._model_defaults(model_name, config.neuron_type)
         collected: Dict[str, Any] = {}
         for key, widget in self.model_param_fields.items():
             kind = self.model_param_kinds.get(key, "str")
@@ -861,7 +890,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if method == "none":
             return {}
         filter_key = "SA" if method == "sa" else "RA"
-        defaults = dict(self.default_params.get("filters", {}).get(filter_key, {}))
+        defaults = self._filter_defaults(filter_key)
         collected: Dict[str, Any] = {}
         for key, widget in self.filter_param_fields.items():
             kind = self.filter_param_kinds.get(key, "str")
@@ -888,7 +917,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         config: PopulationConfig,
     ) -> Dict[str, Any]:
         model_name = config.model or "Izhikevich"
-        defaults = dict(self.default_params.get("models", {}).get(model_name, {}))
+        defaults = self._model_defaults(model_name, config.neuron_type)
         params = dict(defaults)
         params.update(config.model_params or {})
         return params
@@ -904,7 +933,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if method == "none":
             return {}
         key = "SA" if method == "sa" else "RA"
-        defaults = dict(self.default_params.get("filters", {}).get(key, {}))
+        defaults = self._filter_defaults(key)
         params = dict(defaults)
         params.update(config.filter_params or {})
         return params

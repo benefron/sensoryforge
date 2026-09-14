@@ -130,7 +130,7 @@ filter_params:
 For RA filter:
 ```yaml
 filter_params:
-  tau_RA: 15.0  # RA time constant (ms)
+  tau_RA: 8.0  # RA time constant (ms)
   k3: 2.0       # RA gain parameter
 ```
 
@@ -207,7 +207,7 @@ populations:
     connections_per_neuron: 28
     sigma_d_mm: 0.39
     filter_params:
-      tau_RA: 15.0
+      tau_RA: 8.0
       k3: 2.0
   
   - name: "Custom DSL Population"
@@ -334,7 +334,7 @@ populations:
     connections_per_neuron: 28
     sigma_d_mm: 0.39
     filter_params:
-      tau_RA: 15.0
+      tau_RA: 8.0
       k3: 2.0
 
 stimulus:

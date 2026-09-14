@@ -35,6 +35,7 @@ from sensoryforge.neurons import (  # noqa: E402
     SANeuronTorch,
 )
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch  # noqa: E402
+from sensoryforge.config.defaults import FILTER_DEFAULTS, resolve_neuron_params  # noqa: E402
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -109,8 +110,8 @@ def ensure_default_params_file() -> None:
             },
         },
         "filters": {
-            "SA": {"tau_r": 5, "tau_d": 30, "k1": 0.05, "k2": 3.0},
-            "RA": {"tau_RA": 30, "k3": 2.0},
+            "SA": dict(FILTER_DEFAULTS["sa"]),
+            "RA": {**FILTER_DEFAULTS["ra"], "k3": 2.0},  # D-Q1 pending (F-030)
         },
         "stimulus": {
             "shape": "step",

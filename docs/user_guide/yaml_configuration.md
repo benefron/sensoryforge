@@ -125,7 +125,7 @@ populations:
     connections_per_neuron: 28
     sigma_d_mm: 0.39
     filter_params:
-      tau_RA: 15.0
+      tau_RA: 8.0
       k3: 2.0
 
 stimulus:
@@ -387,7 +387,7 @@ filters:
   sa_k2: 3.0       # Gain parameter 2
   
   # RA filter (rapidly adapting)
-  ra_tau_ra: 15.0  # RA time constant (ms)
+  ra_tau_ra: 8.0  # RA time constant (ms)
   ra_k3: 2.0       # RA gain parameter
   
   # SA2 (simple scaling, no filter)
@@ -582,7 +582,7 @@ stimuli:
 filters:
   sa_tau_r: 5.0
   sa_tau_d: 30.0
-  ra_tau_ra: 15.0
+  ra_tau_ra: 8.0
 
 neuron_params:
   sa_a: 0.02

@@ -18,6 +18,7 @@ from .innervation import (
     FlatInnervationModule,
 )
 from .processing import ProcessingPipeline
+from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
@@ -134,7 +135,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             "sa_tau_d": 30.0,
             "sa_k1": 0.05,
             "sa_k2": 3.0,
-            "ra_tau_ra": 30.0,
+            "ra_tau_ra": 8.0,
             "ra_k3": 2.0,
             "sa2_tau_r": 8.0,  # New SA2 filter parameter
             "sa2_tau_d": 40.0,  # New SA2 filter parameter
@@ -428,21 +429,22 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 legacy["neurons"]["parameters"] = dsl_cfg.get("parameters", {})
             else:
                 model_params = sa_pop.get("model_params", {})
-                legacy["neuron_params"]["sa_a"] = model_params.get("a", 0.02)
-                legacy["neuron_params"]["sa_b"] = model_params.get("b", 0.2)
-                legacy["neuron_params"]["sa_c"] = model_params.get("c", -65.0)
-                legacy["neuron_params"]["sa_d"] = model_params.get("d", 8.0)
+                resolved = resolve_neuron_params("izhikevich", "SA", model_params)
+                legacy["neuron_params"]["sa_a"] = resolved["a"]
+                legacy["neuron_params"]["sa_b"] = resolved["b"]
+                legacy["neuron_params"]["sa_c"] = resolved["c"]
+                legacy["neuron_params"]["sa_d"] = resolved["d"]
                 legacy["neuron_params"]["sa_v_init"] = model_params.get("v_init", -65.0)
-                legacy["neuron_params"]["sa_threshold"] = model_params.get("threshold", 30.0)
-            
+                legacy["neuron_params"]["sa_threshold"] = resolved["threshold"]
+
             # Map filter params
             filter_method = sa_pop.get("filter_method", "none")
             if filter_method.lower() in ("sa", "safilter"):
-                filter_params = sa_pop.get("filter_params", {})
-                legacy["filters"]["sa_tau_r"] = filter_params.get("tau_r", 5.0)
-                legacy["filters"]["sa_tau_d"] = filter_params.get("tau_d", 30.0)
-                legacy["filters"]["sa_k1"] = filter_params.get("k1", 0.05)
-                legacy["filters"]["sa_k2"] = filter_params.get("k2", 3.0)
+                resolved_filter = resolve_filter_params("sa", sa_pop.get("filter_params", {}))
+                legacy["filters"]["sa_tau_r"] = resolved_filter["tau_r"]
+                legacy["filters"]["sa_tau_d"] = resolved_filter["tau_d"]
+                legacy["filters"]["sa_k1"] = resolved_filter["k1"]
+                legacy["filters"]["sa_k2"] = resolved_filter["k2"]
             
             # Map noise params
             legacy["noise"]["sa_membrane_std"] = sa_pop.get("noise_std", 3.0)
@@ -466,17 +468,21 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                     legacy["neurons"]["type"] = "dsl"
             else:
                 model_params = ra_pop.get("model_params", {})
-                legacy["neuron_params"]["ra_a"] = model_params.get("a", 0.02)
-                legacy["neuron_params"]["ra_b"] = model_params.get("b", 0.2)
-                legacy["neuron_params"]["ra_c"] = model_params.get("c", -65.0)
-                legacy["neuron_params"]["ra_d"] = model_params.get("d", 8.0)
+                resolved = resolve_neuron_params("izhikevich", "RA", model_params)
+                legacy["neuron_params"]["ra_a"] = resolved["a"]
+                legacy["neuron_params"]["ra_b"] = resolved["b"]
+                legacy["neuron_params"]["ra_c"] = resolved["c"]
+                legacy["neuron_params"]["ra_d"] = resolved["d"]
                 legacy["neuron_params"]["ra_v_init"] = model_params.get("v_init", -65.0)
-                legacy["neuron_params"]["ra_threshold"] = model_params.get("threshold", 30.0)
-            
+                legacy["neuron_params"]["ra_threshold"] = resolved["threshold"]
+
             filter_method = ra_pop.get("filter_method", "none")
             if filter_method.lower() in ("ra", "rafilter"):
                 filter_params = ra_pop.get("filter_params", {})
-                legacy["filters"]["ra_tau_ra"] = filter_params.get("tau_ra", 30.0)
+                # D-Q1 pending (F-030): k3 is not resolver-owned; keep this
+                # fallback's own 2.0 default (RAFilterTorch's class default).
+                resolved_filter = resolve_filter_params("ra", filter_params)
+                legacy["filters"]["ra_tau_ra"] = resolved_filter["tau_RA"]
                 legacy["filters"]["ra_k3"] = filter_params.get("k3", 2.0)
             
             legacy["noise"]["ra_membrane_std"] = ra_pop.get("noise_std", 3.0)

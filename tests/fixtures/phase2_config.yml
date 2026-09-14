@@ -66,7 +66,7 @@ filters:
   sa_tau_d: 30.0
   sa_k1: 0.05
   sa_k2: 3.0
-  ra_tau_ra: 15.0
+  ra_tau_ra: 8.0
   ra_k3: 2.0
   sa2_scale: 0.005
 

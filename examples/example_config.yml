@@ -36,7 +36,7 @@ filters:
   sa_tau_d: 30.0      # SA decay time constant (ms)
   sa_k1: 0.05         # SA gain parameter 1
   sa_k2: 3.0          # SA gain parameter 2
-  ra_tau_ra: 15.0     # RA time constant (ms)
+  ra_tau_ra: 8.0     # RA time constant (ms)
   ra_k3: 2.0          # RA gain parameter
   sa2_scale: 0.005    # SA2 scaling factor
 

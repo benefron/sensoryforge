@@ -25,6 +25,7 @@ import torch
 import numpy as np
 
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.register_components import register_all
 from sensoryforge.registry import (
     NEURON_REGISTRY,
@@ -247,36 +248,37 @@ class SimulationEngine:
                     neuron_jitter_factor=pop_cfg.neuron_jitter_factor if hasattr(pop_cfg, 'neuron_jitter_factor') else 1.0,
                 )
             
-            # Build filter
+            # Build filter -- parameters resolved from the single shared
+            # default table (sensoryforge.config.defaults) so the engine and
+            # the GUI agree when a population supplies no overrides (F-026).
             filter_method = pop_cfg.filter_method or "none"
             filter_module = None
             if filter_method != "none":
                 try:
                     filter_cls = FILTER_REGISTRY.get_class(filter_method)
-                    filter_params = pop_cfg.filter_params or {}
+                    if filter_method.lower() in ("sa", "ra"):
+                        filter_params = resolve_filter_params(
+                            filter_method, pop_cfg.filter_params
+                        )
+                    else:
+                        filter_params = dict(pop_cfg.filter_params or {})
                     filter_params["dt"] = self.config.simulation.dt
                     filter_module = filter_cls(**filter_params).to(self.device)
                 except KeyError:
                     raise ValueError(f"Unknown filter method: {filter_method}")
-            
-            # Build neuron model
+
+            # Build neuron model -- F-004: RA/RA-I (Meissner) populations
+            # resolve to the fast-spiking Izhikevich preset unless the
+            # config already pins a preset or explicit a/b/c/d (SA/SA2 keep
+            # the regular-spiking default). See resolve_neuron_params.
             neuron_model_name = pop_cfg.neuron_model or "izhikevich"
             try:
                 neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name.lower())
-                neuron_params = dict(pop_cfg.model_params or {})
+                neuron_params = resolve_neuron_params(
+                    neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
+                )
                 neuron_params["dt"] = self.config.simulation.dt
                 neuron_params["noise_std"] = pop_cfg.noise_std
-                # F-004: RA/RA-I (Meissner) populations default to the
-                # fast-spiking Izhikevich preset for parity with
-                # pressure-simulation, unless the config already pins a
-                # preset or explicit a/b/c/d. SA keeps the RS default.
-                is_izhikevich = neuron_model_name.lower() == "izhikevich"
-                is_ra = (pop_cfg.neuron_type or "").upper().startswith("RA")
-                no_explicit_params = not any(
-                    k in neuron_params for k in ("preset", "a", "b", "c", "d")
-                )
-                if is_izhikevich and is_ra and no_explicit_params:
-                    neuron_params["preset"] = "FS"
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
             except KeyError:
                 raise ValueError(f"Unknown neuron model: {neuron_model_name}")
