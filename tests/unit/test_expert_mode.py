@@ -16,6 +16,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 # Keep QApplication alive for the entire module — must be a module-level var
 # so it is not GC'd between fixture calls.
 _APP = None

@@ -16,6 +16,8 @@ import pytest
 import torch
 import numpy as np
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 
 # ======================================================================
 # A.1 + A.2: CompositeReceptorGrid offset & color

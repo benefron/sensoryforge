@@ -4,6 +4,8 @@ import json
 import pytest
 import torch
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 
 def test_neuron_explorer_import():
     """Test that NeuronExplorer can be imported without Qt errors."""

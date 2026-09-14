@@ -18,6 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 # ---------------------------------------------------------------------------
 # Minimal PyQt5 stubs so the module can be imported without a display server
 # ---------------------------------------------------------------------------

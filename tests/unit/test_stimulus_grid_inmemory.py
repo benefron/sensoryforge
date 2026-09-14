@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from sensoryforge.stimuli.stimulus import StimulusGenerator
 from sensoryforge.core.grid import ReceptorGrid
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 
 # ---------------------------------------------------------------------------
 # Backend tests: StimulusGenerator works without any file path

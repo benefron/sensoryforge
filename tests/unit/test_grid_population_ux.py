@@ -9,6 +9,8 @@ Covers:
 import pytest
 from sensoryforge.core.grid import ReceptorGrid
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 
 # ---------------------------------------------------------------------------
 # GridEntry dataclass behaviour (import without Qt)

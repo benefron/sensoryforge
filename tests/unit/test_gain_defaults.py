@@ -12,6 +12,8 @@ import sys
 import pytest
 import torch
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 
 # ---------------------------------------------------------------------------
 # Helpers

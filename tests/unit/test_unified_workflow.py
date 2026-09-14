@@ -20,6 +20,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
+
 _APP = None
 
 
