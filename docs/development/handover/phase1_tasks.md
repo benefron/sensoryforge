@@ -10,8 +10,8 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Work through the waves in order (A before
-> anything else). Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Wave A is done except task A8; start with A8,
+> then continue with Wave B. Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
 > skip it and continue with the next unblocked task. Stop and report when a wave is finished.
@@ -54,6 +54,45 @@ test file in isolation on both the pre-Phase-0 tree and HEAD, and reproducing ea
 
 `CLAUDE.md` "Known Technical Debt" and `.claude/rules/engine-parity.md` were corrected in the same
 commit so they no longer claim these items are resolved.
+
+## 1b. Review of Wave A (2026-09-14, commits `f9048bb..d194cd4`, pressure-simulation `fa4af7e`)
+
+Verified by re-running every acceptance check, running each new test against the commit before its
+fix, and probing the resolver with configs the tests did not cover.
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| A1 neuron counts | Accepted | README quick-start peaks at 332 MB (was killed above 3 GB); new tests fail on the old tree, and the cap test exhausts memory there |
+| A2 `from_yaml` | Accepted | long one-line text parses; test fails on the old tree |
+| A3 keyword-only preset | Accepted | test fails on the old tree |
+| A4 defaults resolver | **Rejected in part** | defaults agree between GUI, engine and adapter, but a partial override breaks both (F-031, below) |
+| A5 coverage tests | Accepted | both tests fail on the commits before the behaviour they cover |
+| A6 docs exclusion | Accepted | 0 warnings mention `development/`; remaining 8 warnings pre-date Phase 0 |
+| A7 pressure-simulation mirror | Accepted | one file changed; that repo's uncommitted ledger was left alone |
+| Suites | Green | non-GUI 722 passed, 6 skipped; Qt files one at a time 226 passed |
+
+**F-031 (A4 defect).** `resolve_neuron_params` expands the neuron-type preset only when no `a`/`b`/`c`/`d`
+override is present. The GUI stores only values that differ from the resolved defaults, so a user who
+changes just `d` on an RA population exports `model_params: {d: 4.0}`. Measured on that config:
+
+| Path | a | d |
+|---|---|---|
+| GUI (`_gather_model_parameters`) | 0.1 | 4.0 |
+| `SimulationEngine` | 0.02 | 4.0 |
+| `GeneralizedTactileEncodingPipeline` adapter | raises `KeyError: 'a'` | — |
+
+The adapter crash means CLI and batch runs of that GUI config fail, because both build the adapter
+pipeline for stimulus generation. `tests/unit/test_config_defaults.py::test_explicit_d_override_suppresses_preset`
+asserts the wrong semantics and must be rewritten. F-026 and F-004 were closed with this defect present.
+
+**F-032 (not covered by A4's file list).** RA neurons in `TactileEncodingPipelineTorch`
+(`core/pipeline.py:161-162`) and in hand-written legacy configs (`DEFAULT_CONFIG` `ra_a`/`ra_d`,
+`core/generalized_pipeline.py:160-163`) still use regular-spiking defaults, and `CombinedSARAFilter`
+keeps its own default dict (`filters/sa_ra.py:455-456`) instead of reading `FILTER_DEFAULTS`.
+
+**Minor, no task needed yet:** the F-023 cap (2e8 elements) does not catch the smaller mistake quoted in
+F-023 itself (`sa_neurons: 100` on 80×80 builds 10,000 neurons, 6.4e7 elements); `SimulationEngine`
+resolves filter defaults only for the names `sa`/`ra`, not the registered aliases `safilter`/`rafilter`.
 
 ---
 
@@ -158,6 +197,17 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Files:** `~/Documents/pressure simulation/encoding/filters_torch.py:408` only.
 - **Do:** change `CombinedSARAFilter`'s `default_ra` τ_RA from 30 to 8.0 and run that repo's `pytest tests/test_enhanced_filters.py -q`. Stage only that file. Commit there with `Decision: CombinedSARAFilter default tau_RA is 8 ms, matching RAFilterTorch and SensoryForge (SensoryForge D-015)`.
 - **Done when:** its filter tests pass and `git -C "~/Documents/pressure simulation" show --stat HEAD` lists exactly one file.
+
+#### A8. Keep the preset as the base when overriding single neuron parameters (do this next)
+- **Goal:** GUI, `SimulationEngine` and both legacy pipelines build identical Izhikevich parameters for every combination of neuron type, explicit `preset`, and individual `a`/`b`/`c`/`d` overrides.
+- **Files:** `sensoryforge/config/defaults.py` (`resolve_neuron_params`); `tests/unit/test_config_defaults.py` (rewrite `test_explicit_d_override_suppresses_preset`); `sensoryforge/core/generalized_pipeline.py` (`DEFAULT_CONFIG` neuron keys near `:148-175`, adapter near `:432` and `:471`, the neuron construction that reads `neuron_params`); `sensoryforge/core/pipeline.py:161-162`; `sensoryforge/filters/sa_ra.py:455-456`; `tests/regression/` (new file).
+- **Do:**
+  1. In `resolve_neuron_params`, always start from a preset: the explicit `preset` override if given, otherwise `NEURON_PRESET_BY_TYPE` for the neuron type. Then apply `a`/`b`/`c`/`d` overrides on top. The result for Izhikevich must always contain `a`, `b`, `c`, `d`, `threshold`. This matches `IzhikevichNeuronTorch(preset=..., d=...)` semantics.
+  2. Rewrite the wrong test so `resolve_neuron_params("Izhikevich", "RA", {"d": 99.0})` gives `a == 0.1`, `d == 99.0`.
+  3. Route `CombinedSARAFilter`'s defaults through `FILTER_DEFAULTS` (k3 stays at 2.0 with the D-Q1 comment).
+  4. In `TactileEncodingPipelineTorch` build the RA neurons from `resolve_neuron_params("izhikevich", "RA", {})` and the SA neurons from `"SA"`. In `GeneralizedTactileEncodingPipeline`, make the RA `DEFAULT_CONFIG` a/b/c/d come from the resolver (FS) so hand-written legacy configs agree. Keep the `*_std` keys as they are.
+- **Done when:** a new regression test builds an RA population with each of `{}`, `{"d": 4.0}`, `{"a": 0.05}`, `{"preset": "IB"}`, `{"preset": "IB", "d": 1.0}` and asserts identical a/b/c/d from (i) `resolve_neuron_params` as the GUI merges it, (ii) `SimulationEngine`, (iii) `GeneralizedTactileEncodingPipeline.from_config` (no `KeyError`); it fails on `d194cd4`. A second test asserts `TactileEncodingPipelineTorch` RA neurons have `a == 0.1`. The appendix parity script with `model_params={"d": 4.0}` prints identical GUI and engine values. Non-GUI suite green; `test_spiking_tab_defaults.py` still passes when run alone.
+- **Trailers:** `Closes: F-031`, `Closes: F-032`.
 
 ### Wave B — packaging (plan 1b, F-014)
 
@@ -264,7 +314,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-003, F-004, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-023, F-025–F-030 closed or explicitly reported as blocked.
+- Ledger: F-003, F-004, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-030, F-031, F-032 closed or explicitly reported as blocked (F-023, F-025–F-029 closed in Wave A).
 
 ---
 
