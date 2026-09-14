@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'D=\"${CLAUDE_PROJECT_DIR:-.}\"; \"$D/.claude/hooks/digest.sh\"'",
+            "timeout": 20,
+            "statusMessage": "Loading project ledger\u2026"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'D=\"${CLAUDE_PROJECT_DIR:-.}\"; \"$D/.claude/hooks/digest.sh\"'",
+            "timeout": 20,
+            "statusMessage": "Restoring ledger after compaction\u2026"
+          }
+        ]
+      }
+    ]
+  }
+}
