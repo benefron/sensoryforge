@@ -2,6 +2,18 @@ import math
 import torch
 import torch.nn as nn
 
+#: Named (a, b, c, d) parameter sets from Izhikevich (2003), "Simple Model of
+#: Spiking Neurons", IEEE Trans. Neural Networks 14(6):1569-1572, Fig. 2. Pass
+#: ``preset=...`` to :class:`IzhikevichNeuronTorch` instead of spelling out
+#: a/b/c/d by hand. ``RS`` reproduces the class's historical defaults exactly.
+IZHIKEVICH_PRESETS: dict = {
+    "RS":  {"a": 0.02, "b": 0.20, "c": -65.0, "d": 8.0},  # regular spiking
+    "FS":  {"a": 0.10, "b": 0.20, "c": -65.0, "d": 2.0},  # fast spiking
+    "IB":  {"a": 0.02, "b": 0.20, "c": -55.0, "d": 4.0},  # intrinsically bursting
+    "CH":  {"a": 0.02, "b": 0.20, "c": -50.0, "d": 2.0},  # chattering
+    "LTS": {"a": 0.02, "b": 0.25, "c": -65.0, "d": 2.0},  # low-threshold spiking
+}
+
 
 class IzhikevichNeuronTorch(nn.Module):
     r"""Project-compatible Izhikevich neuron with optional parameter noise.
@@ -19,7 +31,13 @@ class IzhikevichNeuronTorch(nn.Module):
     When ``v >= threshold`` the neuron emits a spike, resets ``v`` to ``c`` and
     increments ``u`` by ``d`` (with broadcast over batch/features). Parameters
     ``a, b, c, d, threshold`` may be floats or ``(mean, std)`` tuples that are
-    sampled per feature each forward pass.
+    sampled per feature each forward pass. Pass ``preset=`` (one of
+    ``IZHIKEVICH_PRESETS``, e.g. ``"FS"`` for a fast-spiking population) to
+    set a/b/c/d from a named regime instead of spelling them out; an
+    explicit ``a=``/``b=``/``c=``/``d=`` still overrides the preset value for
+    that one parameter. ledger F-004: RA/RA-I (Meissner) populations should
+    use ``preset="FS"`` for parity with pressure-simulation; SA/SA-I
+    (Merkel) populations use the default ``"RS"``.
 
     Inputs ``I`` use shape ``[batch, steps, features]`` (currents in mA). The
     forward pass returns ``(v_trace, spikes)`` where ``v_trace`` tracks
@@ -29,10 +47,11 @@ class IzhikevichNeuronTorch(nn.Module):
 
     def __init__(
         self,
-        a=0.02,
-        b=0.2,
-        c=-65.0,
-        d=8.0,
+        a=None,
+        b=None,
+        c=None,
+        d=None,
+        preset: str = "RS",
         v_init=-65.0,
         u_init=None,
         dt=0.05,
@@ -47,13 +66,23 @@ class IzhikevichNeuronTorch(nn.Module):
         v_floor: float = -120.0,
     ):
         super().__init__()
-        self.a = a
-        self.b = b
-        self.c = c
-        self.d = d
+        if preset not in IZHIKEVICH_PRESETS:
+            raise ValueError(
+                f"Unknown Izhikevich preset {preset!r}; choose one of "
+                f"{sorted(IZHIKEVICH_PRESETS)}"
+            )
+        defaults = IZHIKEVICH_PRESETS[preset]
+        self.preset = preset
+        self.a = defaults["a"] if a is None else a
+        self.b = defaults["b"] if b is None else b
+        self.c = defaults["c"] if c is None else c
+        self.d = defaults["d"] if d is None else d
         self.v_init = v_init
-        # Handle tuple params: use mean for u_init calculation
-        b_val = b[0] if isinstance(b, tuple) else b
+        # Handle tuple params: use mean for u_init calculation. Use the
+        # resolved self.b (preset default or explicit override), not the
+        # raw `b` argument, which is None whenever the caller relies on the
+        # preset.
+        b_val = self.b[0] if isinstance(self.b, tuple) else self.b
         self.u_init = b_val * v_init if u_init is None else u_init
         self.dt = dt
         self.threshold = threshold

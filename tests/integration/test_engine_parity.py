@@ -37,6 +37,7 @@ def _minimal_config(
     seed: int = 42,
     n_pops: int = 1,
     dt: float = 0.1,
+    filter_params: dict | None = None,
 ) -> SensoryForgeConfig:
     """Minimal 4×4 grid canonical config, optionally multi-population."""
     grid = GridConfig(
@@ -60,6 +61,7 @@ def _minimal_config(
                 connections_per_neuron=4,
                 sigma_d_mm=2.0,
                 filter_method=filter_method,
+                filter_params=dict(filter_params) if filter_params else None,
                 neuron_model="Izhikevich",
                 input_gain=input_gain,
                 noise_std=noise_std,
@@ -298,9 +300,17 @@ class TestNumericalSanity:
         assert torch.isfinite(drive).all(), "Drive tensor contains NaN or Inf."
 
     def test_sa_filter_output_non_negative(self):
-        """SA-filtered drive must not contain negative values (clip_to_positive fix)."""
+        """With clip_to_positive=True, SA-filtered drive stays non-negative.
+
+        Opt-in since ledger F-001 (2026-09-14): the default was flipped to
+        False so SensoryForge's SA channel is sign-preserving, matching
+        pressure-simulation's encoder, whose decoder recovers stimulus
+        velocity sign from SA.
+        """
         stim = torch.randn(100, 4, 4) * 2.0  # noise input
-        engine = SimulationEngine(_minimal_config(filter_method="SA"))
+        engine = SimulationEngine(
+            _minimal_config(filter_method="SA", filter_params={"clip_to_positive": True})
+        )
         result = engine.run(stim, return_intermediates=True)
         filtered = result["SA Pop"]["filtered"]
         neg = (filtered < 0).sum().item()

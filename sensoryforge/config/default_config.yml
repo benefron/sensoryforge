@@ -91,7 +91,7 @@ filters:
     k2: 3.0
     dt_ms: 0.5
   ra:
-    tau_RA: 15.0
+    tau_RA: 8.0
     k3: 2.0
     dt_ms: 0.5
 

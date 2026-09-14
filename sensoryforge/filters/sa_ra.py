@@ -50,7 +50,7 @@ class SAFilterTorch(BaseFilter):
         k1: float = 0.05,
         k2: float = 3.0,
         dt: float = 0.1,
-        clip_to_positive: bool = True,
+        clip_to_positive: bool = False,
     ) -> None:
         """Initialise the SA filter with biophysical parameters.
 
@@ -60,7 +60,7 @@ class SAFilterTorch(BaseFilter):
             k1: Gain applied to the input current inside equation 7.
             k2: Gain applied to the derivative term in equation 7.
             dt: Integration step size in milliseconds.
-            clip_to_positive: If True (default), clamp the output I_SA to
+            clip_to_positive: If True, clamp the output I_SA to
                 [0, ∞). SA mechanoreceptors have zero minimum firing rate —
                 negative output is non-physiological and causes extreme
                 hyperpolarization in downstream neuron models, especially
@@ -251,11 +251,20 @@ class RAFilterTorch(BaseFilter):
     ``(batch, neurons)`` for a single step or ``(batch, time, neurons)`` for
     sequences. States are reset between sequences unless
     ``reset_states=False``.
+
+    Physiological basis (Kandel, *Principles of Neural Science*, Ch. 21):
+    RA-I (Meissner corpuscle) responds from 1-300 Hz, best sensitivity at
+    ~50 Hz. A time constant of 8 ms (f_c ~ 20 Hz) places the RA channel
+    distinctly in the mid-frequency band, above SA-I's best-frequency of
+    ~5 Hz (tau_SA ~ 30 ms) and below the Pacinian range (>200 Hz). These
+    values serve as grounded priors for the SA1/RA1 case study and are kept
+    identical to the pressure-simulation project's encoder for parity (see
+    docs_root/LEDGER.md F-002).
     """
 
     def __init__(
         self,
-        tau_RA: float = 30.0,
+        tau_RA: float = 8.0,
         k3: float = 2.0,
         dt: float = 0.1,
     ) -> None:
@@ -444,7 +453,7 @@ class CombinedSARAFilter(nn.Module):
 
         # Default parameters from Parvizi-Fard paper
         default_sa = {"tau_r": 5, "tau_d": 30, "k1": 0.05, "k2": 3.0, "dt": 0.1}
-        default_ra = {"tau_RA": 30, "k3": 2.0, "dt": 0.1}
+        default_ra = {"tau_RA": 8.0, "k3": 2.0, "dt": 0.1}
 
         sa_params = sa_params or default_sa
         ra_params = ra_params or default_ra

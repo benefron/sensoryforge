@@ -27,15 +27,17 @@ DT = 0.1   # ms
 # ---------------------------------------------------------------------------
 
 def test_sa_filter_output_non_negative_for_noise():
-    """SA filter output must never be negative for noise input.
+    """With clip_to_positive=True, SA filter output is never negative.
 
     SA mechanoreceptors have zero minimum firing rate; negative output is
     non-physiological and causes extreme hyperpolarization in neuron models.
+    This is opt-in (F-001) — see module docstring.
     """
     torch.manual_seed(0)
     noise = torch.randn(1, 2000, 4) * 30.0  # amp=30, 4 neurons
 
-    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT)
+    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT,
+                        clip_to_positive=True)
     out = sa(noise)
 
     assert (out >= 0).all(), (
@@ -46,13 +48,17 @@ def test_sa_filter_output_non_negative_for_noise():
 
 
 def test_sa_filter_output_non_negative_for_step_decrement():
-    """SA output must remain >=0 even during a step-down stimulus."""
+    """With clip_to_positive=True, SA output stays >=0 through a step-down.
+
+    Opt-in (F-001) — see module docstring.
+    """
     steps = 500
     stim = torch.zeros(1, steps, 1)
     stim[:, :200, :] = 30.0   # ON for first 200 steps
     # OFF after step 200 — large dI/dt at the edge can make x negative
 
-    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT)
+    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT,
+                        clip_to_positive=True)
     out = sa(stim)
 
     assert (out >= 0).all(), (

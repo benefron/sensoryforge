@@ -144,8 +144,18 @@ class TactileEncodingPipelineTorch(nn.Module):
             self.grid_manager, seed=self.seed, **ra_config
         )
 
-        # Create SA/RA filters
-        self.filters = CombinedSARAFilter()
+        # Create SA/RA filters, honouring the YAML `filters:` section when
+        # present instead of silently falling back to class defaults
+        # (resolves the dead-config bug in ledger finding F-002).
+        filters_config = self.config.get("filters", {})
+        sa_filter_config = dict(filters_config.get("sa", {}))
+        ra_filter_config = dict(filters_config.get("ra", {}))
+        sa_filter_config.pop("dt_ms", None)
+        ra_filter_config.pop("dt_ms", None)
+        self.filters = CombinedSARAFilter(
+            sa_params=sa_filter_config or None,
+            ra_params=ra_filter_config or None,
+        )
 
         # Neuron models
         self.sa_neurons = IzhikevichNeuronTorch(dt=neuron_config.get("dt", 0.1))
