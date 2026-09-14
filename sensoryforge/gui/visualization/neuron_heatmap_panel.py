@@ -114,8 +114,7 @@ class NeuronHeatmapPanel(VisualizationPanel):
             return
         if self._pop_name not in self._data.population_names:
             self._pop_name = (
-                self._data.population_names[0]
-                if self._data.population_names else None
+                self._data.population_names[0] if self._data.population_names else None
             )
         self._precompute()
         self._set_view_range()
@@ -291,11 +290,13 @@ class NeuronHeatmapPanel(VisualizationPanel):
             pop_cmb.addItems(self._data.population_names)
             if self._pop_name:
                 pop_cmb.setCurrentText(self._pop_name)
+
             def _pop_changed(name):
                 self._pop_name = name
                 self._precompute()
                 self._set_view_range()
                 self._render_frame(self._t_idx)
+
             pop_cmb.currentTextChanged.connect(_pop_changed)
             form.addRow("Population:", pop_cmb)
 
@@ -303,10 +304,12 @@ class NeuronHeatmapPanel(VisualizationPanel):
         sig_cmb.addItems(_SIGNAL_OPTIONS)
         sig_cmb.setCurrentText(self._signal)
         sig_cmb.setToolTip("Signal used to color neuron points")
+
         def _sig_changed(name):
             self._signal = name
             self._precompute()
             self._render_frame(self._t_idx)
+
         sig_cmb.currentTextChanged.connect(_sig_changed)
         form.addRow("Neuron color:", sig_cmb)
 
@@ -316,11 +319,13 @@ class NeuronHeatmapPanel(VisualizationPanel):
         bin_spin.setValue(self._bin_ms)
         bin_spin.setSuffix(" ms")
         bin_spin.setToolTip("Temporal bin for firing rate")
+
         def _bin_changed(v):
             self._bin_ms = v
             if self._signal == "Firing rate":
                 self._precompute()
                 self._render_frame(self._t_idx)
+
         bin_spin.valueChanged.connect(_bin_changed)
         form.addRow("Rate bin:", bin_spin)
 
@@ -329,9 +334,11 @@ class NeuronHeatmapPanel(VisualizationPanel):
         smooth_spin.setSingleStep(0.25)
         smooth_spin.setValue(self._smooth_sigma)
         smooth_spin.setToolTip("Spatial smoothing (0 = none)")
+
         def _smooth_changed(v):
             self._smooth_sigma = v
             self._render_frame(self._t_idx)
+
         smooth_spin.valueChanged.connect(_smooth_changed)
         form.addRow("Smooth (px):", smooth_spin)
 

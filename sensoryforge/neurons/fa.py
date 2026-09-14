@@ -106,7 +106,9 @@ class FANeuronTorch(nn.Module):
             va_trace, spikes: both [batch, steps+1, features]
         """
         # Renamed x → input_current for API consistency (resolves ReviewFinding#H6)
-        assert input_current.dim() == 3, "input_current must be [batch, steps, features]"
+        assert (
+            input_current.dim() == 3
+        ), "input_current must be [batch, steps, features]"
         B, T, F = input_current.shape
         device, dtype = input_current.device, input_current.dtype
 

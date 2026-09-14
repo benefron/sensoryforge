@@ -15,6 +15,7 @@ stimulus synthesis, batch execution, and device handling.  Helper constructors
 ``create_standard_pipeline`` and ``create_small_pipeline`` provide common
 configuration presets used by notebooks and pytest suites.
 """
+
 from __future__ import annotations
 
 import copy

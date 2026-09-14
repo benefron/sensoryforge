@@ -5,6 +5,7 @@ encoding pipeline outputs.
 - Modular, extensible, and notebook-friendly
 - Supports raster plots, PSTH, heatmaps, innervation, and aggregation
 """
+
 from typing import Optional, Tuple
 
 import plotly.graph_objects as go

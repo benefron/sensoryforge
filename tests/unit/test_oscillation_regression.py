@@ -19,12 +19,13 @@ from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.neurons.adex import AdExNeuronTorch
 from sensoryforge.neurons.mqif import MQIFNeuronTorch
 
-DT = 0.1   # ms
+DT = 0.1  # ms
 
 
 # ---------------------------------------------------------------------------
 # SA filter output must be non-negative (physiological correctness)
 # ---------------------------------------------------------------------------
+
 
 def test_sa_filter_output_non_negative_for_noise():
     """With clip_to_positive=True, SA filter output is never negative.
@@ -36,8 +37,9 @@ def test_sa_filter_output_non_negative_for_noise():
     torch.manual_seed(0)
     noise = torch.randn(1, 2000, 4) * 30.0  # amp=30, 4 neurons
 
-    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT,
-                        clip_to_positive=True)
+    sa = SAFilterTorch(
+        tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT, clip_to_positive=True
+    )
     out = sa(noise)
 
     assert (out >= 0).all(), (
@@ -54,16 +56,17 @@ def test_sa_filter_output_non_negative_for_step_decrement():
     """
     steps = 500
     stim = torch.zeros(1, steps, 1)
-    stim[:, :200, :] = 30.0   # ON for first 200 steps
+    stim[:, :200, :] = 30.0  # ON for first 200 steps
     # OFF after step 200 — large dI/dt at the edge can make x negative
 
-    sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT,
-                        clip_to_positive=True)
+    sa = SAFilterTorch(
+        tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT, clip_to_positive=True
+    )
     out = sa(stim)
 
-    assert (out >= 0).all(), (
-        f"SA filter went negative during step-down: min={out.min():.4f}"
-    )
+    assert (
+        out >= 0
+    ).all(), f"SA filter went negative during step-down: min={out.min():.4f}"
 
 
 def test_sa_filter_derivative_amplification_bounded():
@@ -92,11 +95,15 @@ def test_sa_filter_derivative_amplification_bounded():
 # Neuron model v must stay within physiological bounds
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("model_cls,v_min_expected", [
-    (IzhikevichNeuronTorch, -120.0),   # c=-65, so v shouldn't go below c - 55
-    (AdExNeuronTorch, -130.0),         # EL=-70, v shouldn't go below -130
-    (MQIFNeuronTorch, -120.0),         # vr=-60, shouldn't go below -120
-])
+
+@pytest.mark.parametrize(
+    "model_cls,v_min_expected",
+    [
+        (IzhikevichNeuronTorch, -120.0),  # c=-65, so v shouldn't go below c - 55
+        (AdExNeuronTorch, -130.0),  # EL=-70, v shouldn't go below -130
+        (MQIFNeuronTorch, -120.0),  # vr=-60, shouldn't go below -120
+    ],
+)
 def test_neuron_v_bounded_below_with_large_negative_input(model_cls, v_min_expected):
     """Neuron voltage must not drop below physiological minimum.
 
@@ -119,6 +126,7 @@ def test_neuron_v_bounded_below_with_large_negative_input(model_cls, v_min_expec
 # ---------------------------------------------------------------------------
 # Full pipeline: noise + SA filter + gain=100 — no extreme voltage excursions
 # ---------------------------------------------------------------------------
+
 
 def test_noise_sa_gain100_no_extreme_voltages():
     """Noise → SA filter → gain=100 → neuron: v must stay in [-120, 50].
@@ -169,6 +177,7 @@ def test_noise_sa_gain100_no_nan_inf():
 # SA filter step response must remain correct after clamping fix
 # ---------------------------------------------------------------------------
 
+
 def test_sa_filter_step_response_unchanged():
     """Clamping output to >=0 must not affect the step response (all-positive).
 
@@ -180,6 +189,6 @@ def test_sa_filter_step_response_unchanged():
 
     assert (out >= 0).all(), "Step response should be non-negative"
     # Final value should approach k1 * I = 0.05 * 1.0 = 0.05
-    assert abs(out[0, -1, 0].item() - 0.05) < 0.005, (
-        f"Steady-state value {out[0,-1,0].item():.4f} != expected k1=0.05"
-    )
+    assert (
+        abs(out[0, -1, 0].item() - 0.05) < 0.005
+    ), f"Steady-state value {out[0,-1,0].item():.4f} != expected k1=0.05"

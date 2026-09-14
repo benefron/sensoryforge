@@ -42,7 +42,8 @@ class FiringRatePanel(VisualizationPanel):
         self._pw.addLegend(offset=(10, 10))
 
         self._cursor = pg.InfiniteLine(
-            pos=0, angle=90,
+            pos=0,
+            angle=90,
             pen=pg.mkPen(color=(180, 180, 180), width=1.5, style=pg.QtCore.Qt.DashLine),
         )
         self._pw.addItem(self._cursor)
@@ -73,7 +74,7 @@ class FiringRatePanel(VisualizationPanel):
             return
         for name in self._selected_populations:
             res = self._data.population_results.get(name, {})
-            spk = res.get("spikes")     # [T, N]
+            spk = res.get("spikes")  # [T, N]
             if spk is None:
                 continue
             rate = _smooth_firing_rate(spk, self._data.dt_ms, self._bin_ms)
@@ -124,6 +125,7 @@ class FiringRatePanel(VisualizationPanel):
             for name in self._data.population_names:
                 chk = QtWidgets.QCheckBox(name)
                 chk.setChecked(name in self._selected_populations)
+
                 def _toggle(checked, n=name):
                     if checked and n not in self._selected_populations:
                         self._selected_populations.append(n)
@@ -131,6 +133,7 @@ class FiringRatePanel(VisualizationPanel):
                         self._selected_populations.remove(n)
                     self._precompute_rates()
                     self._draw_curves()
+
                 chk.stateChanged.connect(_toggle)
                 layout.addWidget(chk)
 
@@ -139,10 +142,12 @@ class FiringRatePanel(VisualizationPanel):
         bin_spin.setSingleStep(5.0)
         bin_spin.setValue(self._bin_ms)
         bin_spin.setSuffix(" ms")
+
         def _bin_changed(v):
             self._bin_ms = v
             self._precompute_rates()
             self._draw_curves()
+
         bin_spin.valueChanged.connect(_bin_changed)
         lbl = QtWidgets.QLabel("Bin size:")
         layout.addWidget(lbl)

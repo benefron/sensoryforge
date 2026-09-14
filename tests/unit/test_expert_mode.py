@@ -27,6 +27,7 @@ def _ensure_app():
     global _APP
     try:
         from PyQt5 import QtWidgets
+
         _APP = QtWidgets.QApplication.instance()
         if _APP is None:
             _APP = QtWidgets.QApplication(sys.argv[:1])
@@ -37,6 +38,7 @@ def _ensure_app():
 # ---------------------------------------------------------------------------
 # Module-scoped fixtures — each tab is created once per test session
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def mech_tab():
@@ -63,14 +65,19 @@ def spiking_tab(mech_tab):
 # MechanoreceptorTab
 # ---------------------------------------------------------------------------
 
+
 def test_mechanoreceptor_tab_has_expert_mode_checkbox(mech_tab):
     """MechanoreceptorTab must expose chk_expert_mode."""
-    assert hasattr(mech_tab, "chk_expert_mode"), "MechanoreceptorTab missing chk_expert_mode"
+    assert hasattr(
+        mech_tab, "chk_expert_mode"
+    ), "MechanoreceptorTab missing chk_expert_mode"
 
 
 def test_mechanoreceptor_expert_only_widgets_non_empty(mech_tab):
     """_expert_only_widgets must contain at least one widget."""
-    assert len(mech_tab._expert_only_widgets) > 0, "_expert_only_widgets must not be empty"
+    assert (
+        len(mech_tab._expert_only_widgets) > 0
+    ), "_expert_only_widgets must not be empty"
 
 
 def test_mechanoreceptor_basic_mode_hides_advanced_widgets(mech_tab):
@@ -84,23 +91,28 @@ def test_mechanoreceptor_expert_mode_shows_advanced_widgets(mech_tab):
     """In Expert mode (checked), all _expert_only_widgets must not be hidden."""
     mech_tab.chk_expert_mode.setChecked(True)
     for w in mech_tab._expert_only_widgets:
-        assert not w.isHidden(), f"Widget {w!r} should not be hidden in Expert mode but is"
+        assert (
+            not w.isHidden()
+        ), f"Widget {w!r} should not be hidden in Expert mode but is"
 
 
 # ---------------------------------------------------------------------------
 # SpikingNeuronTab
 # ---------------------------------------------------------------------------
 
+
 def test_spiking_tab_has_expert_mode_checkbox(spiking_tab):
     """SpikingNeuronTab must expose chk_expert_mode."""
-    assert hasattr(spiking_tab, "chk_expert_mode"), "SpikingNeuronTab missing chk_expert_mode"
+    assert hasattr(
+        spiking_tab, "chk_expert_mode"
+    ), "SpikingNeuronTab missing chk_expert_mode"
 
 
 def test_spiking_expert_only_widgets_non_empty(spiking_tab):
     """_expert_only_widgets_spiking must contain at least one widget."""
-    assert len(spiking_tab._expert_only_widgets_spiking) > 0, (
-        "_expert_only_widgets_spiking must not be empty"
-    )
+    assert (
+        len(spiking_tab._expert_only_widgets_spiking) > 0
+    ), "_expert_only_widgets_spiking must not be empty"
 
 
 def test_spiking_basic_mode_hides_advanced_widgets(spiking_tab):
@@ -114,4 +126,6 @@ def test_spiking_expert_mode_shows_advanced_widgets(spiking_tab):
     """In Expert mode, all _expert_only_widgets_spiking must not be hidden."""
     spiking_tab.chk_expert_mode.setChecked(True)
     for w in spiking_tab._expert_only_widgets_spiking:
-        assert not w.isHidden(), f"Widget {w!r} should not be hidden in Expert mode but is"
+        assert (
+            not w.isHidden()
+        ), f"Widget {w!r} should not be hidden in Expert mode but is"

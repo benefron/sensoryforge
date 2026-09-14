@@ -8,13 +8,18 @@ Covers:
 
 import pytest
 import torch
-from sensoryforge.config.schema import SensoryForgeConfig, GridConfig, PopulationConfig, SimulationConfig
+from sensoryforge.config.schema import (
+    SensoryForgeConfig,
+    GridConfig,
+    PopulationConfig,
+    SimulationConfig,
+)
 from sensoryforge.core.simulation_engine import SimulationEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(
     input_gain: float = 1.0,
@@ -58,6 +63,7 @@ def _make_stimulus(timesteps: int = 50) -> torch.Tensor:
 # Bug fix: innervation_method must not be undefined
 # ---------------------------------------------------------------------------
 
+
 def test_engine_initialises_without_innervation_method_crash():
     """SimulationEngine must not raise NameError for undefined innervation_method.
 
@@ -74,6 +80,7 @@ def test_engine_initialises_without_innervation_method_crash():
 # ---------------------------------------------------------------------------
 # input_gain applied in run()
 # ---------------------------------------------------------------------------
+
 
 def test_input_gain_1_is_identity():
     """input_gain=1.0 (default) must not change spike output vs no gain."""
@@ -127,9 +134,9 @@ def test_input_gain_zero_silences_neuron():
     result = engine.run(stim)
     total_spikes = result["test_pop"]["spikes"].sum().item()
 
-    assert total_spikes == 0, (
-        f"input_gain=0.0 should silence all neurons, got {total_spikes} spikes"
-    )
+    assert (
+        total_spikes == 0
+    ), f"input_gain=0.0 should silence all neurons, got {total_spikes} spikes"
 
 
 def test_input_gain_reflected_in_filtered_intermediate():
@@ -158,6 +165,7 @@ def test_input_gain_reflected_in_filtered_intermediate():
 # Filter state reset between independent run() calls
 # ---------------------------------------------------------------------------
 
+
 def test_filter_run_is_stateless_across_calls():
     """Calling run() twice with identical stimuli must produce identical results.
 
@@ -185,7 +193,10 @@ def test_filter_run_is_stateless_across_calls():
 # overrides suppressing it (docs/development/handover/phase1_tasks.md, A5)
 # ---------------------------------------------------------------------------
 
-def _make_pop_config(neuron_type: str, model_params=None, seed: int = 42) -> SensoryForgeConfig:
+
+def _make_pop_config(
+    neuron_type: str, model_params=None, seed: int = 42
+) -> SensoryForgeConfig:
     grid = GridConfig(name="test_grid", rows=4, cols=4, spacing=1.0, arrangement="grid")
     pop = PopulationConfig(
         name="test_pop",

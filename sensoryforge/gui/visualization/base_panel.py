@@ -13,10 +13,10 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
 
-
 # ---------------------------------------------------------------------------
 # Data container passed to every panel
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class VisData:
@@ -46,14 +46,12 @@ class VisData:
 
     time_ms: np.ndarray = field(default_factory=lambda: np.array([]))
     dt_ms: float = 1.0
-    stimulus_frames: Optional[np.ndarray] = None        # [T, H, W]
+    stimulus_frames: Optional[np.ndarray] = None  # [T, H, W]
     stimulus_xlim: tuple = (-5.0, 5.0)
     stimulus_ylim: tuple = (-5.0, 5.0)
-    population_results: Dict[str, Dict[str, np.ndarray]] = field(
-        default_factory=dict
-    )
+    population_results: Dict[str, Dict[str, np.ndarray]] = field(default_factory=dict)
     neuron_positions: Dict[str, np.ndarray] = field(default_factory=dict)
-    receptor_positions: Optional[np.ndarray] = None     # [M, 2]
+    receptor_positions: Optional[np.ndarray] = None  # [M, 2]
     population_colors: Dict[str, QtGui.QColor] = field(default_factory=dict)
     innervation_weights: Dict[str, np.ndarray] = field(default_factory=dict)
 
@@ -66,12 +64,16 @@ class VisData:
         return list(self.population_results.keys())
 
     def has_spikes(self, name: str) -> bool:
-        return name in self.population_results and "spikes" in self.population_results[name]
+        return (
+            name in self.population_results
+            and "spikes" in self.population_results[name]
+        )
 
 
 # ---------------------------------------------------------------------------
 # Shared colormaps
 # ---------------------------------------------------------------------------
+
 
 def make_colormap(name: str = "viridis") -> pg.ColorMap:
     """Return a named pyqtgraph colormap, falling back to a grey gradient."""
@@ -84,6 +86,7 @@ def make_colormap(name: str = "viridis") -> pg.ColorMap:
 # ---------------------------------------------------------------------------
 # Base panel
 # ---------------------------------------------------------------------------
+
 
 class VisualizationPanel(QtWidgets.QWidget):
     """Abstract base for all visualization panels.
@@ -98,7 +101,7 @@ class VisualizationPanel(QtWidgets.QWidget):
     """
 
     title_changed = QtCore.pyqtSignal(str)
-    close_requested = QtCore.pyqtSignal(object)   # passes self
+    close_requested = QtCore.pyqtSignal(object)  # passes self
     replace_with_requested = QtCore.pyqtSignal(str)  # panel type name
 
     PANEL_DISPLAY_NAME: str = "Panel"  # override in subclasses
@@ -187,7 +190,9 @@ class VisualizationPanel(QtWidgets.QWidget):
 
         self._change_type_btn = QtWidgets.QToolButton()
         self._change_type_btn.setText("▾")
-        self._change_type_btn.setToolTip("Change panel type — click to swap this panel for another view")
+        self._change_type_btn.setToolTip(
+            "Change panel type — click to swap this panel for another view"
+        )
         self._change_type_btn.setFixedSize(20, 20)
         self._change_type_btn.setStyleSheet(
             "QToolButton { border: none; font-size: 11px; color: #999; background: transparent; }"
@@ -275,9 +280,11 @@ class VisualizationPanel(QtWidgets.QWidget):
                 lambda checked, n=name: self.replace_with_requested.emit(n)
             )
         if menu.actions():
-            menu.exec_(self._change_type_btn.mapToGlobal(
-                self._change_type_btn.rect().bottomLeft()
-            ))
+            menu.exec_(
+                self._change_type_btn.mapToGlobal(
+                    self._change_type_btn.rect().bottomLeft()
+                )
+            )
 
     # ------------------------------------------------------------------
     # Helpers for subclasses

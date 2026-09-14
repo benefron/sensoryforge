@@ -11,9 +11,8 @@ from typing import Optional
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-
 _SPEED_OPTIONS = [0.25, 0.5, 1.0, 2.0, 4.0]
-_SPEED_LABELS  = ["¼×", "½×", "1×", "2×", "4×"]
+_SPEED_LABELS = ["¼×", "½×", "1×", "2×", "4×"]
 _DEFAULT_SPEED_IDX = 2  # 1×
 _BASE_INTERVAL_MS = 50  # timer interval at 1× speed → ~20 fps
 
@@ -28,14 +27,14 @@ class PlaybackController(QtWidgets.QWidget):
     """
 
     seek_requested = QtCore.pyqtSignal(int)
-    speed_changed  = QtCore.pyqtSignal(float)
+    speed_changed = QtCore.pyqtSignal(float)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self._n_steps: int = 0
-        self._t_idx:   int = 0
+        self._t_idx: int = 0
         self._playing: bool = False
-        self._speed:   float = 1.0
+        self._speed: float = 1.0
 
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._on_tick)
@@ -50,8 +49,8 @@ class PlaybackController(QtWidgets.QWidget):
     def set_length(self, n_steps: int, dt_ms: float) -> None:
         """Configure for a new simulation with ``n_steps`` frames."""
         self._n_steps = max(1, n_steps)
-        self._dt_ms   = dt_ms
-        self._t_idx   = 0
+        self._dt_ms = dt_ms
+        self._t_idx = 0
         self._slider.blockSignals(True)
         self._slider.setRange(0, self._n_steps - 1)
         self._slider.setValue(0)

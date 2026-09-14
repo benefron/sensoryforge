@@ -127,8 +127,10 @@ class RasterPanel(VisualizationPanel):
         self._img.setTransform(tr)
 
         self._pw.setRange(
-            xRange=[float(time_ms[0] if len(time_ms) else 0),
-                    float(time_ms[-1] if len(time_ms) else T)],
+            xRange=[
+                float(time_ms[0] if len(time_ms) else 0),
+                float(time_ms[-1] if len(time_ms) else T),
+            ],
             yRange=[-0.5, n_total - 0.5],
             padding=0.02,
         )
@@ -143,12 +145,16 @@ class RasterPanel(VisualizationPanel):
                 continue
             n_neurons = spk.shape[1]
             color = self._data.population_colors.get(name, QtGui.QColor(200, 200, 200))
-            qt_color = color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
+            qt_color = (
+                color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
+            )
             if row > 0:
                 sep = pg.InfiniteLine(
                     pos=row - 0.5,
                     angle=0,
-                    pen=pg.mkPen(qt_color.lighter(150), width=1, style=QtCore.Qt.DashLine),
+                    pen=pg.mkPen(
+                        qt_color.lighter(150), width=1, style=QtCore.Qt.DashLine
+                    ),
                 )
                 self._pw.addItem(sep)
                 self._sep_lines.append(sep)
@@ -176,9 +182,12 @@ class RasterPanel(VisualizationPanel):
             return
         for name in self._selected_populations:
             color = self._data.population_colors.get(name, QtGui.QColor(200, 200, 200))
-            qt_color = color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
+            qt_color = (
+                color if isinstance(color, QtGui.QColor) else QtGui.QColor(*color)
+            )
             curve = self._psth_pw.plot(
-                [], [],
+                [],
+                [],
                 pen=pg.mkPen(qt_color, width=2),
                 name=name,
             )
@@ -252,6 +261,7 @@ class RasterPanel(VisualizationPanel):
             for name in self._data.population_names:
                 chk = QtWidgets.QCheckBox(name)
                 chk.setChecked(name in self._selected_populations)
+
                 def _toggle(checked, n=name):
                     if checked and n not in self._selected_populations:
                         self._selected_populations.append(n)
@@ -260,15 +270,18 @@ class RasterPanel(VisualizationPanel):
                     self._build_raster_image()
                     self._build_psth_curves()
                     self._render_frame(self._t_idx)
+
                 chk.stateChanged.connect(_toggle)
                 layout.addWidget(chk)
 
         sort_chk = QtWidgets.QCheckBox("Sort by firing rate")
         sort_chk.setChecked(self._sort_by_rate)
+
         def _sort_changed(s):
             self._sort_by_rate = bool(s)
             self._build_raster_image()
             self._render_frame(self._t_idx)
+
         sort_chk.stateChanged.connect(_sort_changed)
         layout.addWidget(sort_chk)
 

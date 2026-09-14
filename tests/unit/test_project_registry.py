@@ -2,6 +2,7 @@
 
 Tests for ReviewFindings#T1.
 """
+
 import pytest
 import json
 import tempfile
@@ -29,15 +30,15 @@ class TestProtocolDefinition:
             stimulus={"type": "gaussian", "sigma": 2.0},
             execution={"duration_ms": 500, "dt_ms": 1.0},
             tags=["spatial", "transient"],
-            metadata={"author": "test"}
+            metadata={"author": "test"},
         )
-        
+
         # Serialize
         data = protocol.to_dict()
-        
+
         # Deserialize
         restored = ProtocolDefinition.from_dict(data)
-        
+
         # Verify
         assert restored.protocol_id == protocol.protocol_id
         assert restored.version == protocol.version
@@ -57,7 +58,7 @@ class TestProtocolDefinition:
                 name="Test",
                 description="Test",
                 stimulus={},
-                execution={}
+                execution={},
             )
 
 
@@ -73,15 +74,15 @@ class TestNeuronModuleManifest:
             parameters={"a": 0.02, "b": 0.2, "c": -65.0, "d": 8.0},
             file="sa_izhikevich.pt",
             tags=["sa", "izhikevich"],
-            metadata={"created": "2026-02-11"}
+            metadata={"created": "2026-02-11"},
         )
-        
+
         # Serialize
         data = manifest.to_dict()
-        
+
         # Deserialize
         restored = NeuronModuleManifest.from_dict(data)
-        
+
         # Verify
         assert restored.name == manifest.name
         assert restored.model == manifest.model
@@ -94,7 +95,7 @@ class TestNeuronModuleManifest:
 
 class TestProtocolRunRecord:
     """Test suite for ProtocolRunRecord serialization.
-    
+
     Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
     """
 
@@ -107,15 +108,15 @@ class TestProtocolRunRecord:
                 model="IzhikevichNeuronTorch",
                 filter="SAFilterTorch",
                 parameters={"a": 0.02},
-                file="sa_test.pt"
+                file="sa_test.pt",
             ),
             NeuronModuleManifest(
                 name="ra_test",
                 model="IzhikevichNeuronTorch",
                 filter="RAFilterTorch",
                 parameters={"a": 0.02},
-                file="ra_test.pt"
-            )
+                file="ra_test.pt",
+            ),
         ]
 
     def test_to_dict_and_from_dict_roundtrip(self, sample_neuron_modules):
@@ -127,19 +128,19 @@ class TestProtocolRunRecord:
             neuron_modules=sample_neuron_modules,
             tensors={
                 "sa_spikes": "runs/run_001/sa_spikes.pt",
-                "ra_spikes": "runs/run_001/ra_spikes.pt"
+                "ra_spikes": "runs/run_001/ra_spikes.pt",
             },
             metrics={"spike_count": 1000},
             notes="Test run",
-            metadata={"device": "cpu"}
+            metadata={"device": "cpu"},
         )
-        
+
         # Serialize
         data = record.to_dict()
-        
+
         # Deserialize
         restored = ProtocolRunRecord.from_dict(data)
-        
+
         # Verify
         assert restored.run_id == record.run_id
         assert restored.protocol_id == record.protocol_id
@@ -157,11 +158,11 @@ class TestProtocolRunRecord:
             protocol_id="gaussian_tap",
             stimulus_reference="test.pt",
             neuron_modules=sample_neuron_modules,
-            tensors={}
+            tensors={},
         )
-        
+
         # Verify created_at is a valid ISO timestamp
-        created_at = datetime.fromisoformat(record.created_at.replace('Z', '+00:00'))
+        created_at = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
         assert isinstance(created_at, datetime)
 
 
@@ -170,36 +171,39 @@ class TestSTAAnalysisRecord:
 
     def test_to_dict_and_from_dict_roundtrip(self):
         """Test serialization roundtrip for STAAnalysisRecord."""
-        from sensoryforge.utils.project_registry import STAConfiguration, STAConfigurationResult
-        
+        from sensoryforge.utils.project_registry import (
+            STAConfiguration,
+            STAConfigurationResult,
+        )
+
         result = STAConfigurationResult(
             kernel="sta_analyses/sta_001/kernel_0.pt",
             metrics={"spike_count": 10},
-            parameters={"neuron_idx": 0}
+            parameters={"neuron_idx": 0},
         )
-        
+
         config = STAConfiguration(
             name="standard_window",
             method="standard",
             signal_source="spikes",
             parameters={"window_ms": 100},
-            results=[result]
+            results=[result],
         )
-        
+
         record = STAAnalysisRecord.new(
             analysis_id="sta_001",
             source_run="run_001",
             population="sa_test",
             configurations=[config],
-            metadata={"note": "test"}
+            metadata={"note": "test"},
         )
-        
+
         # Serialize
         data = record.to_dict()
-        
+
         # Deserialize
         restored = STAAnalysisRecord.from_dict(data)
-        
+
         # Verify
         assert restored.analysis_id == record.analysis_id
         assert restored.source_run == record.source_run
@@ -211,7 +215,7 @@ class TestSTAAnalysisRecord:
 
 class TestProjectRegistry:
     """Test suite for ProjectRegistry file operations.
-    
+
     Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
     """
 
@@ -229,7 +233,7 @@ class TestProjectRegistry:
             name="Test Protocol",
             description="A test protocol",
             stimulus={"type": "gaussian"},
-            execution={"duration_ms": 500}
+            execution={"duration_ms": 500},
         )
 
     def test_registry_directory_structure(self, temp_registry):
@@ -243,14 +247,16 @@ class TestProjectRegistry:
         """Test saving and loading protocol definitions."""
         # Save
         temp_registry.save_protocol(sample_protocol)
-        
+
         # Verify file exists
-        protocol_file = temp_registry.paths["protocols"] / f"{sample_protocol.protocol_id}.json"
+        protocol_file = (
+            temp_registry.paths["protocols"] / f"{sample_protocol.protocol_id}.json"
+        )
         assert protocol_file.exists()
-        
+
         # Load
         loaded = temp_registry.load_protocol(sample_protocol.protocol_id)
-        
+
         # Verify
         assert loaded.protocol_id == sample_protocol.protocol_id
         assert loaded.name == sample_protocol.name
@@ -263,19 +269,19 @@ class TestProjectRegistry:
             protocol_id="test_protocol",
             stimulus_reference="test.pt",
             neuron_modules=[],
-            tensors={"spikes": "runs/test_run/spikes.pt"}
+            tensors={"spikes": "runs/test_run/spikes.pt"},
         )
-        
+
         # Save
         temp_registry.save_run(record)
-        
+
         # Verify file exists
         run_file = temp_registry.paths["runs"] / f"{record.run_id}.json"
         assert run_file.exists()
-        
+
         # Load
         loaded = temp_registry.load_run(record.run_id)
-        
+
         # Verify
         assert loaded.run_id == record.run_id
         assert loaded.protocol_id == record.protocol_id
@@ -285,20 +291,20 @@ class TestProjectRegistry:
         """Test listing all saved protocols."""
         # Save multiple protocols
         temp_registry.save_protocol(sample_protocol)
-        
+
         protocol2 = ProtocolDefinition(
             protocol_id="test_protocol_2",
             version="1.0",
             name="Test Protocol 2",
             description="Another test",
             stimulus={},
-            execution={}
+            execution={},
         )
         temp_registry.save_protocol(protocol2)
-        
+
         # List
         protocols = temp_registry.list_protocols()
-        
+
         # Verify
         assert len(protocols) >= 2
         protocol_ids = [p.protocol_id for p in protocols]
@@ -317,26 +323,26 @@ class TestProjectRegistry:
                     model="TestModel",
                     filter=None,
                     parameters={"param": 1.5},
-                    file="test.pt"
+                    file="test.pt",
                 )
             ],
             tensors={"spikes": "spikes.pt"},
             metrics={"count": 100},
             notes="Test notes",
-            metadata={"key": "value"}
+            metadata={"key": "value"},
         )
-        
+
         # Write to JSON file
         json_path = tmp_path / "test_record.json"
-        with open(json_path, 'w') as f:
+        with open(json_path, "w") as f:
             json.dump(record.to_dict(), f, indent=2)
-        
+
         # Read back
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             data = json.load(f)
-        
+
         restored = ProtocolRunRecord.from_dict(data)
-        
+
         # Verify all fields preserved
         assert restored.run_id == record.run_id
         assert restored.tensors == record.tensors

@@ -16,17 +16,25 @@ pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 # GridEntry dataclass behaviour (import without Qt)
 # ---------------------------------------------------------------------------
 
+
 def _make_grid_entry(**kwargs):
     """Import GridEntry from the GUI module without requiring a QApplication."""
     try:
         from PyQt5 import QtWidgets, QtGui
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
         from sensoryforge.gui.tabs.mechanoreceptor_tab import GridEntry
-        defaults = dict(name="test", rows=20, cols=20, spacing=0.15,
-                        color=QtGui.QColor(100, 100, 200, 200))
+
+        defaults = dict(
+            name="test",
+            rows=20,
+            cols=20,
+            spacing=0.15,
+            color=QtGui.QColor(100, 100, 200, 200),
+        )
         defaults.update(kwargs)
         return GridEntry(**defaults)
     except ImportError:
@@ -47,15 +55,17 @@ def test_grid_entry_non_square_round_trips():
     entry = _make_grid_entry(rows=20, cols=40)
     d = entry.to_dict()
     from sensoryforge.gui.tabs.mechanoreceptor_tab import GridEntry
+
     restored = GridEntry.from_dict(d)
-    assert restored.rows == 20 and restored.cols == 40, (
-        f"Round-trip failed: got rows={restored.rows}, cols={restored.cols}"
-    )
+    assert (
+        restored.rows == 20 and restored.cols == 40
+    ), f"Round-trip failed: got rows={restored.rows}, cols={restored.cols}"
 
 
 # ---------------------------------------------------------------------------
 # Population defaults adapt to grid size (item 3)
 # ---------------------------------------------------------------------------
+
 
 def test_add_population_default_neurons_proportional_to_grid():
     """When adding a population to a 40x40 grid, the neuron default should
@@ -69,6 +79,7 @@ def test_add_population_default_neurons_proportional_to_grid():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -96,10 +107,14 @@ def test_add_population_neuron_count_adapts_to_larger_grid():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
-        from sensoryforge.gui.tabs.mechanoreceptor_tab import MechanoreceptorTab, GridEntry
+        from sensoryforge.gui.tabs.mechanoreceptor_tab import (
+            MechanoreceptorTab,
+            GridEntry,
+        )
         from PyQt5 import QtGui
     except ImportError:
         pytest.skip("PyQt5 not available")
@@ -107,20 +122,26 @@ def test_add_population_neuron_count_adapts_to_larger_grid():
     tab = MechanoreceptorTab()
 
     # Add a large grid (80x80)
-    entry = GridEntry(name="BigGrid", rows=80, cols=80, spacing=0.15,
-                      color=QtGui.QColor(100, 100, 200))
+    entry = GridEntry(
+        name="BigGrid",
+        rows=80,
+        cols=80,
+        spacing=0.15,
+        color=QtGui.QColor(100, 100, 200),
+    )
     tab._add_grid_entry(entry)
     tab._on_add_population()
     pop = tab.populations[-1]
     expected = max(4, min(32, 80 // 4))  # = 20 for 80x80
-    assert pop.neurons_per_row == expected, (
-        f"neurons_per_row={pop.neurons_per_row} for 80x80 grid; expected {expected}"
-    )
+    assert (
+        pop.neurons_per_row == expected
+    ), f"neurons_per_row={pop.neurons_per_row} for 80x80 grid; expected {expected}"
 
 
 # ---------------------------------------------------------------------------
 # Grid square toggle logic (item 4) — pure logic, no Qt widget needed
 # ---------------------------------------------------------------------------
+
 
 def test_square_grid_cols_equals_rows():
     """When square mode is active, cols must equal rows at entry creation."""
@@ -132,24 +153,25 @@ def test_square_grid_cols_equals_rows():
 def test_non_square_grid_cols_independent():
     """When square mode is off, cols can differ from rows."""
     entry = _make_grid_entry(rows=20, cols=40)
-    assert entry.rows != entry.cols, (
-        "Non-square GridEntry should have rows != cols"
-    )
+    assert entry.rows != entry.cols, "Non-square GridEntry should have rows != cols"
 
 
 # ---------------------------------------------------------------------------
 # NeuronPopulation per-col toggle (item 4) — dataclass behaviour
 # ---------------------------------------------------------------------------
 
+
 def _make_neuron_population(**kwargs):
     """Create a NeuronPopulation without requiring a running display."""
     try:
         from PyQt5 import QtWidgets, QtGui
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
         from sensoryforge.gui.tabs.mechanoreceptor_tab import NeuronPopulation
+
         defaults = dict(
             name="SA #1",
             neuron_type="SA",
@@ -185,11 +207,13 @@ def test_neuron_population_non_square_stores_independently():
 # NeuronPopulation per-col toggle (item 4) — Qt widget behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_chk_square_neurons_default_is_checked():
     """Square neurons checkbox must be checked by default and col spinbox hidden."""
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -198,12 +222,18 @@ def test_chk_square_neurons_default_is_checked():
         pytest.skip("PyQt5 not available")
 
     tab = MechanoreceptorTab()
-    assert hasattr(tab, "chk_square_neurons"), "MechanoreceptorTab missing chk_square_neurons"
-    assert tab.chk_square_neurons.isChecked(), "chk_square_neurons should be checked by default"
-    assert hasattr(tab, "spin_neurons_per_col"), "MechanoreceptorTab missing spin_neurons_per_col"
-    assert tab.spin_neurons_per_col.isHidden(), (
-        "spin_neurons_per_col should be hidden when square mode is on"
-    )
+    assert hasattr(
+        tab, "chk_square_neurons"
+    ), "MechanoreceptorTab missing chk_square_neurons"
+    assert (
+        tab.chk_square_neurons.isChecked()
+    ), "chk_square_neurons should be checked by default"
+    assert hasattr(
+        tab, "spin_neurons_per_col"
+    ), "MechanoreceptorTab missing spin_neurons_per_col"
+    assert (
+        tab.spin_neurons_per_col.isHidden()
+    ), "spin_neurons_per_col should be hidden when square mode is on"
 
 
 def test_uncheck_square_reveals_col_spinbox():
@@ -211,6 +241,7 @@ def test_uncheck_square_reveals_col_spinbox():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -220,9 +251,9 @@ def test_uncheck_square_reveals_col_spinbox():
 
     tab = MechanoreceptorTab()
     tab.chk_square_neurons.setChecked(False)
-    assert not tab.spin_neurons_per_col.isHidden(), (
-        "spin_neurons_per_col should not be hidden when square mode is off"
-    )
+    assert (
+        not tab.spin_neurons_per_col.isHidden()
+    ), "spin_neurons_per_col should not be hidden when square mode is off"
 
 
 def test_population_editor_non_square_writes_correct_cols():
@@ -230,6 +261,7 @@ def test_population_editor_non_square_writes_correct_cols():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -261,10 +293,14 @@ def test_load_population_into_form_restores_non_square():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
-        from sensoryforge.gui.tabs.mechanoreceptor_tab import MechanoreceptorTab, NeuronPopulation
+        from sensoryforge.gui.tabs.mechanoreceptor_tab import (
+            MechanoreceptorTab,
+            NeuronPopulation,
+        )
         from PyQt5 import QtGui
     except ImportError:
         pytest.skip("PyQt5 not available")
@@ -284,12 +320,12 @@ def test_load_population_into_form_restores_non_square():
     )
     tab._load_population_into_form(pop)
 
-    assert not tab.chk_square_neurons.isChecked(), (
-        "chk_square_neurons should be unchecked for non-square population"
-    )
-    assert tab.spin_neurons_per_col.value() == 10, (
-        f"Expected spin_neurons_per_col=10, got {tab.spin_neurons_per_col.value()}"
-    )
-    assert not tab.spin_neurons_per_col.isHidden(), (
-        "spin_neurons_per_col should not be hidden after loading non-square population"
-    )
+    assert (
+        not tab.chk_square_neurons.isChecked()
+    ), "chk_square_neurons should be unchecked for non-square population"
+    assert (
+        tab.spin_neurons_per_col.value() == 10
+    ), f"Expected spin_neurons_per_col=10, got {tab.spin_neurons_per_col.value()}"
+    assert (
+        not tab.spin_neurons_per_col.isHidden()
+    ), "spin_neurons_per_col should not be hidden after loading non-square population"

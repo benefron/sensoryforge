@@ -13,10 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 
-
 # ---------------------------------------------------------------------------
 # Parameter spec dataclass
 # ---------------------------------------------------------------------------
+
 
 class ParamSpec:
     """Descriptor for a single stimulus parameter, used for UI auto-generation.
@@ -33,8 +33,17 @@ class ParamSpec:
         tooltip: Optional help text shown as a tooltip in the UI.
     """
 
-    __slots__ = ("name", "label", "dtype", "default", "min_val", "max_val",
-                 "step", "unit", "tooltip")
+    __slots__ = (
+        "name",
+        "label",
+        "dtype",
+        "default",
+        "min_val",
+        "max_val",
+        "step",
+        "unit",
+        "tooltip",
+    )
 
     def __init__(
         self,

@@ -27,7 +27,6 @@ from sensoryforge.config.schema import (
 )
 from sensoryforge.core.simulation_engine import SimulationEngine
 
-
 DEFAULT_PARAMS_PATH = (
     Path(__file__).resolve().parents[2] / "sensoryforge" / "gui" / "default_params.json"
 )
@@ -114,7 +113,9 @@ class TestResolveNeuronParams:
 
 def _engine_config(neuron_type: str) -> SensoryForgeConfig:
     return SensoryForgeConfig(
-        grids=[GridConfig(name="grid", arrangement="grid", rows=10, cols=10, spacing=0.15)],
+        grids=[
+            GridConfig(name="grid", arrangement="grid", rows=10, cols=10, spacing=0.15)
+        ],
         populations=[
             PopulationConfig(
                 name="Pop",

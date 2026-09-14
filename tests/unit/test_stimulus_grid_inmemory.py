@@ -18,6 +18,7 @@ pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 # Backend tests: StimulusGenerator works without any file path
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def simple_grid():
     """A minimal ReceptorGrid with no file backing."""
@@ -44,6 +45,7 @@ def test_stimulus_generator_grid_update_preserves_no_crash(simple_grid):
 # Integration: _on_grid_changed should not block stimulus creation
 # ---------------------------------------------------------------------------
 
+
 def test_on_grid_changed_creates_generator_without_library_dir():
     """_on_grid_changed must create a StimulusGenerator even when _library_dir is None.
 
@@ -56,6 +58,7 @@ def test_on_grid_changed_creates_generator_without_library_dir():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -92,6 +95,7 @@ def test_grid_update_preserves_stimulus_stack():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])
@@ -127,6 +131,7 @@ def test_grid_update_preserves_stimulus_stack():
 # Save-to-disk only blocks disk writes, not in-memory generation
 # ---------------------------------------------------------------------------
 
+
 def test_save_blocked_without_library_dir_does_not_affect_generation():
     """Stimulus saving to disk is correctly blocked without project dir.
 
@@ -136,6 +141,7 @@ def test_save_blocked_without_library_dir_does_not_affect_generation():
     try:
         from PyQt5 import QtWidgets
         import sys
+
         app = QtWidgets.QApplication.instance()
         if app is None:
             app = QtWidgets.QApplication(sys.argv[:1])

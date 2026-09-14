@@ -5,6 +5,7 @@ comparatively small SA/RA neuron populations via the innervation tensors.  This
 module exposes lightweight helpers for inspecting that linear operator and
 reusing it downstream (e.g., when building analytical decoders).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,13 +20,13 @@ if TYPE_CHECKING:  # pragma: no cover
 @dataclass
 class CompressionOperator:
     """Dense linear operator describing SA/RA spatial compression.
-    
+
     Supports both grid-shaped innervation weights [num_neurons, H, W] and
     flat innervation weights [num_neurons, num_receptors].
-    
+
     Attributes:
         sa_weights: SA innervation weights
-        ra_weights: RA innervation weights  
+        ra_weights: RA innervation weights
         grid_shape: Grid dimensions (H, W) or None for flat innervation
         num_receptors: Total receptor count (explicit for flat innervation)
     """
@@ -41,8 +42,10 @@ class CompressionOperator:
         self.sa_weights.requires_grad_(False)
         self.ra_weights.requires_grad_(False)
         self._combined = torch.cat(
-            [self.sa_weights.view(self.sa_weights.shape[0], -1),
-             self.ra_weights.view(self.ra_weights.shape[0], -1)],
+            [
+                self.sa_weights.view(self.sa_weights.shape[0], -1),
+                self.ra_weights.view(self.ra_weights.shape[0], -1),
+            ],
             dim=0,
         )
 
@@ -55,14 +58,16 @@ class CompressionOperator:
     @property
     def num_receptors(self) -> int:
         """Return total receptor count.
-        
+
         For grid-shaped innervation, computes from grid_shape.
         For flat innervation, uses explicit _num_receptors.
         """
         if self._num_receptors is not None:
             return self._num_receptors
         if self.grid_shape is None:
-            raise ValueError("Cannot determine num_receptors: both grid_shape and _num_receptors are None")
+            raise ValueError(
+                "Cannot determine num_receptors: both grid_shape and _num_receptors are None"
+            )
         return int(self.grid_shape[0] * self.grid_shape[1])
 
     def compression_ratio(self, population: str = "combined") -> float:
@@ -135,13 +140,13 @@ def build_compression_operator(
     pipeline: "TactileEncodingPipelineTorch",
 ) -> CompressionOperator:
     """Construct a :class:`CompressionOperator` from a tactile pipeline.
-    
+
     Automatically detects flat innervation [num_neurons, num_receptors] vs.
     grid-shaped innervation [num_neurons, grid_h, grid_w].
     """
     sa_weights = pipeline.sa_innervation.innervation_weights
     ra_weights = pipeline.ra_innervation.innervation_weights
-    
+
     # Detect flat innervation (resolves ReviewFinding#H1)
     if sa_weights.ndim == 2:
         # Flat innervation: [num_neurons, num_receptors]

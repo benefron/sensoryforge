@@ -11,13 +11,18 @@ import pytest
 import torch
 from unittest.mock import patch, MagicMock
 
-from sensoryforge.config.schema import SensoryForgeConfig, GridConfig, PopulationConfig, SimulationConfig
+from sensoryforge.config.schema import (
+    SensoryForgeConfig,
+    GridConfig,
+    PopulationConfig,
+    SimulationConfig,
+)
 from sensoryforge.core.simulation_engine import SimulationEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _canonical_config_dict(device: str = "cpu") -> dict:
     """Minimal canonical config dict with a single 4×4 grid and SA population."""
@@ -71,6 +76,7 @@ def _legacy_config_dict() -> dict:
 # SimulationEngine round-trip on canonical config
 # ---------------------------------------------------------------------------
 
+
 def test_simulation_engine_runs_canonical_config():
     """SimulationEngine must produce spikes dict for a canonical config + stimulus."""
     sf_config = SensoryForgeConfig.from_dict(_canonical_config_dict())
@@ -104,14 +110,15 @@ def test_simulation_engine_produces_nonzero_spikes_for_strong_drive():
     results = engine.run(stimulus)
     total_spikes = results["SA Pop"]["spikes"].sum().item()
 
-    assert total_spikes > 0, (
-        "Strong constant input should produce at least one spike over 200 timesteps."
-    )
+    assert (
+        total_spikes > 0
+    ), "Strong constant input should produce at least one spike over 200 timesteps."
 
 
 # ---------------------------------------------------------------------------
 # Device override for canonical configs
 # ---------------------------------------------------------------------------
+
 
 def test_canonical_device_override_applied_via_simulation_key():
     """Device override must go into config['simulation']['device'] for canonical format.
@@ -130,12 +137,13 @@ def test_canonical_device_override_applied_via_simulation_key():
 # Canonical format detection logic (mirrors cli.py is_canonical check)
 # ---------------------------------------------------------------------------
 
+
 def _is_canonical(config: dict) -> bool:
     """Mirror of the is_canonical check in cli.cmd_run."""
     return (
-        isinstance(config.get("grids"), list) and
-        isinstance(config.get("populations"), list) and
-        "pipeline" not in config
+        isinstance(config.get("grids"), list)
+        and isinstance(config.get("populations"), list)
+        and "pipeline" not in config
     )
 
 

@@ -11,10 +11,10 @@ from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.neurons.adex import AdExNeuronTorch
 from sensoryforge.neurons.mqif import MQIFNeuronTorch
 
-
 # ---------------------------------------------------------------------------
 # Test 1: Document the dt defaults — changes here are visible in git history
 # ---------------------------------------------------------------------------
+
 
 def test_neuron_model_dt_defaults():
     """All neuron model dt defaults must be < 0.5 ms for Euler stability."""
@@ -38,6 +38,7 @@ def test_gui_default_dt_documented():
     appears clearly in test failures and git history.
     """
     from sensoryforge.gui import protocol_backend
+
     assert hasattr(protocol_backend, "DEFAULT_DT_MS"), (
         "protocol_backend must export DEFAULT_DT_MS so the GUI dt default "
         "is explicit and trackable"
@@ -53,8 +54,8 @@ def test_gui_default_dt_documented():
 # Test 2: Euler stability — subthreshold input must NOT produce spikes
 # ---------------------------------------------------------------------------
 
-def _count_spikes(model_cls, dt_ms: float, amplitude: float,
-                  steps: int = 500) -> int:
+
+def _count_spikes(model_cls, dt_ms: float, amplitude: float, steps: int = 500) -> int:
     """Run model with constant sub/suprathreshold drive, return spike count."""
     model = model_cls(dt=dt_ms)
     drive = torch.full((1, steps, 1), float(amplitude))
@@ -62,10 +63,13 @@ def _count_spikes(model_cls, dt_ms: float, amplitude: float,
     return int(spikes.sum().item())
 
 
-@pytest.mark.parametrize("model_cls,amplitude", [
-    (IzhikevichNeuronTorch, 3.0),   # Below Izhikevich rheobase (~10 mA)
-    (MQIFNeuronTorch, 3.0),          # Below MQIF rheobase
-])
+@pytest.mark.parametrize(
+    "model_cls,amplitude",
+    [
+        (IzhikevichNeuronTorch, 3.0),  # Below Izhikevich rheobase (~10 mA)
+        (MQIFNeuronTorch, 3.0),  # Below MQIF rheobase
+    ],
+)
 def test_no_spurious_spikes_small_dt(model_cls, amplitude):
     """Subthreshold drive at dt=0.05 ms must produce zero spikes."""
     n = _count_spikes(model_cls, dt_ms=0.05, amplitude=amplitude)
@@ -75,10 +79,13 @@ def test_no_spurious_spikes_small_dt(model_cls, amplitude):
     )
 
 
-@pytest.mark.parametrize("model_cls,amplitude", [
-    (IzhikevichNeuronTorch, 3.0),
-    (MQIFNeuronTorch, 3.0),
-])
+@pytest.mark.parametrize(
+    "model_cls,amplitude",
+    [
+        (IzhikevichNeuronTorch, 3.0),
+        (MQIFNeuronTorch, 3.0),
+    ],
+)
 def test_large_dt_instability_documented(model_cls, amplitude):
     """At dt=1.0 ms, Euler diverges: subthreshold input produces spurious spikes.
 
@@ -100,11 +107,15 @@ def test_large_dt_instability_documented(model_cls, amplitude):
 # Test 3: No double-fire — exactly one spike per threshold crossing
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("model_cls", [
-    IzhikevichNeuronTorch,
-    AdExNeuronTorch,
-    MQIFNeuronTorch,
-])
+
+@pytest.mark.parametrize(
+    "model_cls",
+    [
+        IzhikevichNeuronTorch,
+        AdExNeuronTorch,
+        MQIFNeuronTorch,
+    ],
+)
 def test_no_consecutive_spikes(model_cls):
     """No two consecutive time steps may both fire for the same neuron.
 
@@ -125,6 +136,7 @@ def test_no_consecutive_spikes(model_cls):
 # ---------------------------------------------------------------------------
 # Test 4: Voltage reset value correctness after spike
 # ---------------------------------------------------------------------------
+
 
 def test_izhikevich_resets_to_c_after_spike():
     """After a spike, membrane voltage must reset to c (not remain at threshold)."""
@@ -170,11 +182,15 @@ def test_adex_resets_to_v_reset_after_spike():
 # Test 5: Neuron models accept explicit dt and honour it
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("model_cls", [
-    IzhikevichNeuronTorch,
-    AdExNeuronTorch,
-    MQIFNeuronTorch,
-])
+
+@pytest.mark.parametrize(
+    "model_cls",
+    [
+        IzhikevichNeuronTorch,
+        AdExNeuronTorch,
+        MQIFNeuronTorch,
+    ],
+)
 @pytest.mark.parametrize("dt_ms", [0.05, 0.1, 0.5])
 def test_neuron_accepts_explicit_dt(model_cls, dt_ms):
     """Neuron models must accept dt as a constructor parameter and store it."""

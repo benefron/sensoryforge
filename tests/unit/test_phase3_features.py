@@ -23,6 +23,7 @@ pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 # A.1 + A.2: CompositeReceptorGrid offset & color
 # ======================================================================
 
+
 class TestCompositeGridOffset:
     """Test spatial offset support in CompositeReceptorGrid."""
 
@@ -124,6 +125,7 @@ class TestCompositeGridBounds:
 # A.3: GaussianInnervation 3σ cutoff
 # ======================================================================
 
+
 class TestGaussianInnervationLocality:
     """Test that GaussianInnervation respects spatial locality cutoff."""
 
@@ -131,16 +133,19 @@ class TestGaussianInnervationLocality:
         from sensoryforge.core.innervation import GaussianInnervation
 
         # Create widely spaced receptors and neurons
-        receptors = torch.tensor([
-            [0.0, 0.0],
-            [0.1, 0.1],
-            [10.0, 10.0],  # far away
-        ])
+        receptors = torch.tensor(
+            [
+                [0.0, 0.0],
+                [0.1, 0.1],
+                [10.0, 10.0],  # far away
+            ]
+        )
         neurons = torch.tensor([[0.0, 0.0]])
         sigma = 0.3
 
         gi = GaussianInnervation(
-            receptors, neurons,
+            receptors,
+            neurons,
             connections_per_neuron=2,
             sigma_d_mm=sigma,
             max_sigma_distance=3.0,
@@ -156,21 +161,24 @@ class TestGaussianInnervationLocality:
     def test_cutoff_disabled_with_zero(self):
         from sensoryforge.core.innervation import GaussianInnervation
 
-        receptors = torch.tensor([
-            [0.0, 0.0],
-            [10.0, 10.0],
-        ])
+        receptors = torch.tensor(
+            [
+                [0.0, 0.0],
+                [10.0, 10.0],
+            ]
+        )
         neurons = torch.tensor([[0.0, 0.0]])
 
         gi = GaussianInnervation(
-            receptors, neurons,
+            receptors,
+            neurons,
             connections_per_neuron=2,
             sigma_d_mm=0.3,
             max_sigma_distance=0.0,  # disabled
             seed=42,
         )
         weights = gi.compute_weights()
-        # With cutoff disabled, far receptor may get nonzero weight 
+        # With cutoff disabled, far receptor may get nonzero weight
         # (depends on sampling); at minimum all receptors are eligible
         assert weights.shape == (1, 2)
 
@@ -178,6 +186,7 @@ class TestGaussianInnervationLocality:
 # ======================================================================
 # A.4: ProcessingLayer base class
 # ======================================================================
+
 
 class TestProcessingLayer:
     """Test ProcessingLayer base and concrete classes."""
@@ -210,6 +219,7 @@ class TestProcessingLayer:
 # ======================================================================
 # A.5: Timeline + RepeatedPattern stimuli (builder)
 # ======================================================================
+
 
 class TestTimelineStimulus:
     """Test TimelineStimulus from the builder module."""
@@ -281,7 +291,9 @@ class TestRepeatedPatternStimulus:
         from sensoryforge.stimuli.builder import Stimulus, RepeatedPatternStimulus
 
         dot = Stimulus.gaussian(amplitude=1.0, sigma=0.1, center=(0.0, 0.0))
-        pattern = Stimulus.repeat_pattern(dot, copies_x=3, copies_y=2, spacing_x=0.5, spacing_y=0.5)
+        pattern = Stimulus.repeat_pattern(
+            dot, copies_x=3, copies_y=2, spacing_x=0.5, spacing_y=0.5
+        )
         assert isinstance(pattern, RepeatedPatternStimulus)
         assert len(pattern._offsets) == 6
 
@@ -289,7 +301,9 @@ class TestRepeatedPatternStimulus:
         from sensoryforge.stimuli.builder import Stimulus
 
         dot = Stimulus.gaussian(amplitude=1.0, sigma=0.1, center=(0.0, 0.0))
-        pattern = Stimulus.repeat_pattern(dot, copies_x=2, copies_y=1, spacing_x=2.0, spacing_y=1.0)
+        pattern = Stimulus.repeat_pattern(
+            dot, copies_x=2, copies_y=1, spacing_x=2.0, spacing_y=1.0
+        )
 
         xx = torch.linspace(-3, 3, 100).unsqueeze(0).expand(100, -1)
         yy = torch.linspace(-3, 3, 100).unsqueeze(1).expand(-1, 100)
@@ -303,7 +317,9 @@ class TestRepeatedPatternStimulus:
         from sensoryforge.stimuli.builder import Stimulus, RepeatedPatternStimulus
 
         dot = Stimulus.gaussian(amplitude=1.0, sigma=0.1)
-        pattern = Stimulus.repeat_pattern(dot, copies_x=3, copies_y=2, spacing_x=0.5, spacing_y=0.5)
+        pattern = Stimulus.repeat_pattern(
+            dot, copies_x=3, copies_y=2, spacing_x=0.5, spacing_y=0.5
+        )
         d = pattern.to_dict()
         assert d["class"] == "RepeatedPatternStimulus"
         assert d["copies_x"] == 3
@@ -316,6 +332,7 @@ class TestRepeatedPatternStimulus:
 # ======================================================================
 # A.6: FlatInnervationModule
 # ======================================================================
+
 
 class TestFlatInnervationModule:
     """Test FlatInnervationModule for composite grid wiring."""
@@ -381,6 +398,7 @@ class TestFlatInnervationModule:
 # C.1-C.6: StimulusConfig Phase 3 fields
 # ======================================================================
 
+
 class TestStimulusConfigPhase3:
     """Test StimulusConfig Phase 3 dataclass fields."""
 
@@ -388,10 +406,20 @@ class TestStimulusConfigPhase3:
         from sensoryforge.gui.tabs.stimulus_tab import StimulusConfig
 
         cfg = StimulusConfig(
-            name="Test", stimulus_type="gaussian", motion="static",
-            start=(0, 0), end=(0, 0), spread=0.3, orientation_deg=0,
-            amplitude=1.0, ramp_up_ms=50, plateau_ms=200, ramp_down_ms=50,
-            total_ms=300, dt_ms=1.0, speed_mm_s=0,
+            name="Test",
+            stimulus_type="gaussian",
+            motion="static",
+            start=(0, 0),
+            end=(0, 0),
+            spread=0.3,
+            orientation_deg=0,
+            amplitude=1.0,
+            ramp_up_ms=50,
+            plateau_ms=200,
+            ramp_down_ms=50,
+            total_ms=300,
+            dt_ms=1.0,
+            speed_mm_s=0,
         )
         assert cfg.onset_ms == 0.0
         assert cfg.duration_ms == 0.0
@@ -402,10 +430,20 @@ class TestStimulusConfigPhase3:
         from sensoryforge.gui.tabs.stimulus_tab import StimulusConfig
 
         cfg = StimulusConfig(
-            name="Test", stimulus_type="gabor", motion="static",
-            start=(0, 0), end=(0, 0), spread=0.3, orientation_deg=45,
-            amplitude=1.0, ramp_up_ms=50, plateau_ms=200, ramp_down_ms=50,
-            total_ms=300, dt_ms=1.0, speed_mm_s=0,
+            name="Test",
+            stimulus_type="gabor",
+            motion="static",
+            start=(0, 0),
+            end=(0, 0),
+            spread=0.3,
+            orientation_deg=45,
+            amplitude=1.0,
+            ramp_up_ms=50,
+            plateau_ms=200,
+            ramp_down_ms=50,
+            total_ms=300,
+            dt_ms=1.0,
+            speed_mm_s=0,
             onset_ms=100.0,
             duration_ms=200.0,
             motion_type="linear",
@@ -428,7 +466,7 @@ class TestStimulusConfigPhase3:
 
 class TestTimelineScrubberWidget:
     """Test TimelineScrubberWidget coordinate helpers.
-    
+
     Note: These require QApplication; skip if unavailable.
     """
 
@@ -436,6 +474,7 @@ class TestTimelineScrubberWidget:
     def _ensure_qapp(self):
         """Ensure QApplication exists for widget tests."""
         from PyQt5.QtWidgets import QApplication
+
         app = QApplication.instance()
         if app is None:
             self._app = QApplication([])
@@ -456,24 +495,47 @@ class TestTimelineScrubberWidget:
 
     def test_set_entries(self):
         from sensoryforge.gui.tabs.stimulus_tab import (
-            TimelineScrubberWidget, StimulusConfig,
+            TimelineScrubberWidget,
+            StimulusConfig,
         )
 
         w = TimelineScrubberWidget()
         configs = [
             StimulusConfig(
-                name="G1", stimulus_type="gaussian", motion="static",
-                start=(0, 0), end=(0, 0), spread=0.3, orientation_deg=0,
-                amplitude=1.0, ramp_up_ms=50, plateau_ms=200, ramp_down_ms=50,
-                total_ms=300, dt_ms=1.0, speed_mm_s=0,
-                onset_ms=50.0, duration_ms=100.0,
+                name="G1",
+                stimulus_type="gaussian",
+                motion="static",
+                start=(0, 0),
+                end=(0, 0),
+                spread=0.3,
+                orientation_deg=0,
+                amplitude=1.0,
+                ramp_up_ms=50,
+                plateau_ms=200,
+                ramp_down_ms=50,
+                total_ms=300,
+                dt_ms=1.0,
+                speed_mm_s=0,
+                onset_ms=50.0,
+                duration_ms=100.0,
             ),
             StimulusConfig(
-                name="G2", stimulus_type="gaussian", motion="static",
-                start=(0, 0), end=(0, 0), spread=0.3, orientation_deg=0,
-                amplitude=1.0, ramp_up_ms=50, plateau_ms=200, ramp_down_ms=50,
-                total_ms=300, dt_ms=1.0, speed_mm_s=0,
-                onset_ms=100.0, duration_ms=200.0,
+                name="G2",
+                stimulus_type="gaussian",
+                motion="static",
+                start=(0, 0),
+                end=(0, 0),
+                spread=0.3,
+                orientation_deg=0,
+                amplitude=1.0,
+                ramp_up_ms=50,
+                plateau_ms=200,
+                ramp_down_ms=50,
+                total_ms=300,
+                dt_ms=1.0,
+                speed_mm_s=0,
+                onset_ms=100.0,
+                duration_ms=200.0,
             ),
         ]
         w.set_entries(configs)

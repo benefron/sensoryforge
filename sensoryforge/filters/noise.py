@@ -50,12 +50,16 @@ class MembraneNoiseTorch(nn.Module):
             Noisy current, same shape as input.
         """
         if self._generator is not None:
-            noise = torch.randn(
-                current.shape,
-                generator=self._generator,
-                device=current.device,
-                dtype=current.dtype,
-            ) * self.std + self.mean
+            noise = (
+                torch.randn(
+                    current.shape,
+                    generator=self._generator,
+                    device=current.device,
+                    dtype=current.dtype,
+                )
+                * self.std
+                + self.mean
+            )
         else:
             noise = torch.randn_like(current) * self.std + self.mean
         return current + noise
@@ -105,12 +109,16 @@ class ReceptorNoiseTorch(nn.Module):
             Noisy responses, same shape as input.
         """
         if self._generator is not None:
-            noise = torch.randn(
-                responses.shape,
-                generator=self._generator,
-                device=responses.device,
-                dtype=responses.dtype,
-            ) * self.std + self.mean
+            noise = (
+                torch.randn(
+                    responses.shape,
+                    generator=self._generator,
+                    device=responses.device,
+                    dtype=responses.dtype,
+                )
+                * self.std
+                + self.mean
+            )
         else:
             noise = torch.randn_like(responses) * self.std + self.mean
         return responses + noise

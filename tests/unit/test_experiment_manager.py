@@ -12,10 +12,10 @@ from sensoryforge.core.experiment_manager import (
     _MANIFEST_FILENAME,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def em():
@@ -31,6 +31,7 @@ def project_path(tmp_path):
 # Initial state
 # ---------------------------------------------------------------------------
 
+
 def test_initially_closed(em):
     assert em.is_open is False
     assert em.project_dir is None
@@ -43,6 +44,7 @@ def test_initially_closed(em):
 # ---------------------------------------------------------------------------
 # create()
 # ---------------------------------------------------------------------------
+
 
 def test_create_makes_directory(em, project_path):
     em.create(project_path)
@@ -76,6 +78,7 @@ def test_create_raises_if_non_empty(em, project_path):
 # open()
 # ---------------------------------------------------------------------------
 
+
 def test_open_existing_project(em, project_path):
     em.create(project_path)
     em.close()
@@ -103,6 +106,7 @@ def test_open_raises_for_file(em, tmp_path):
 # close()
 # ---------------------------------------------------------------------------
 
+
 def test_close_clears_state(em, project_path):
     em.create(project_path)
     em.close()
@@ -113,6 +117,7 @@ def test_close_clears_state(em, project_path):
 # ---------------------------------------------------------------------------
 # Property paths
 # ---------------------------------------------------------------------------
+
 
 def test_property_paths(em, project_path):
     em.create(project_path)
@@ -125,6 +130,7 @@ def test_property_paths(em, project_path):
 # ---------------------------------------------------------------------------
 # next_results_path / next_stimulus_path
 # ---------------------------------------------------------------------------
+
 
 def test_next_results_path_numbered(em, project_path):
     em.create(project_path)
@@ -152,6 +158,7 @@ def test_next_results_path_raises_when_closed(em):
 # ---------------------------------------------------------------------------
 # list_stimuli / list_results
 # ---------------------------------------------------------------------------
+
 
 def test_list_stimuli_empty_when_closed(em):
     assert em.list_stimuli() == []

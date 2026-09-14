@@ -25,10 +25,10 @@ from sensoryforge.config.schema import (
 )
 from sensoryforge.core.simulation_engine import SimulationEngine
 
-
 # ---------------------------------------------------------------------------
 # Shared config factories
 # ---------------------------------------------------------------------------
+
 
 def _minimal_config(
     filter_method: str = "none",
@@ -81,17 +81,19 @@ def _constant_stimulus(timesteps: int = 100) -> torch.Tensor:
 # Helper: replicate the CLI is_canonical check
 # ---------------------------------------------------------------------------
 
+
 def _is_canonical(config: dict) -> bool:
     return (
-        isinstance(config.get("grids"), list) and
-        isinstance(config.get("populations"), list) and
-        "pipeline" not in config
+        isinstance(config.get("grids"), list)
+        and isinstance(config.get("populations"), list)
+        and "pipeline" not in config
     )
 
 
 # ---------------------------------------------------------------------------
 # D3.1 — Determinism: identical config + seed → identical spikes
 # ---------------------------------------------------------------------------
+
 
 class TestDeterminism:
 
@@ -109,9 +111,9 @@ class TestDeterminism:
         e2 = SimulationEngine(cfg)
         r2 = e2.run(stim)
 
-        assert torch.equal(r1["SA Pop"]["spikes"], r2["SA Pop"]["spikes"]), (
-            "Same config + same seed must produce bit-identical spike tensors."
-        )
+        assert torch.equal(
+            r1["SA Pop"]["spikes"], r2["SA Pop"]["spikes"]
+        ), "Same config + same seed must produce bit-identical spike tensors."
 
     def test_repeated_run_same_engine_same_spikes(self):
         """Calling run() twice on the same engine with the same stimulus must
@@ -122,9 +124,9 @@ class TestDeterminism:
         r1 = engine.run(stim, return_intermediates=True)
         r2 = engine.run(stim, return_intermediates=True)
 
-        assert torch.equal(r1["SA Pop"]["spikes"], r2["SA Pop"]["spikes"]), (
-            "Filter state must be reset between run() calls."
-        )
+        assert torch.equal(
+            r1["SA Pop"]["spikes"], r2["SA Pop"]["spikes"]
+        ), "Filter state must be reset between run() calls."
         assert torch.allclose(
             r1["SA Pop"]["filtered"], r2["SA Pop"]["filtered"], atol=1e-6
         ), "Filtered drive must match on second run (no residual filter state)."
@@ -151,6 +153,7 @@ class TestDeterminism:
 # D3.2 — Result structure matches expected schema
 # ---------------------------------------------------------------------------
 
+
 class TestResultStructure:
 
     def test_spikes_key_always_present(self):
@@ -165,9 +168,9 @@ class TestResultStructure:
         spikes = result["SA Pop"]["spikes"]
         # Accept bool or float binary (0/1)
         unique = spikes.unique().tolist()
-        assert all(v in [0.0, 1.0, True, False] for v in unique), (
-            f"Spike tensor must be binary, got unique values: {unique}"
-        )
+        assert all(
+            v in [0.0, 1.0, True, False] for v in unique
+        ), f"Spike tensor must be binary, got unique values: {unique}"
 
     def test_spikes_batch_dim_is_1(self):
         engine = SimulationEngine(_minimal_config())
@@ -185,7 +188,9 @@ class TestResultStructure:
         engine = SimulationEngine(_minimal_config())
         result = engine.run(_constant_stimulus(50), return_intermediates=False)
         pop = result["SA Pop"]
-        assert "drive" not in pop, "drive must not be present when return_intermediates=False"
+        assert (
+            "drive" not in pop
+        ), "drive must not be present when return_intermediates=False"
         assert "filtered" not in pop, "filtered must not be present by default"
 
     def test_multi_population_all_in_results(self):
@@ -201,6 +206,7 @@ class TestResultStructure:
 # ---------------------------------------------------------------------------
 # D3.3 — input_gain parity
 # ---------------------------------------------------------------------------
+
 
 class TestInputGainParity:
 
@@ -221,7 +227,9 @@ class TestInputGainParity:
         low = e_low.run(stim)["SA Pop"]["spikes"].sum().item()
         torch.manual_seed(0)
         high = e_high.run(stim)["SA Pop"]["spikes"].sum().item()
-        assert high >= low, f"gain=5.0 must produce ≥ spikes vs gain=0.1, got {high} vs {low}"
+        assert (
+            high >= low
+        ), f"gain=5.0 must produce ≥ spikes vs gain=0.1, got {high} vs {low}"
 
     def test_gain_reflected_in_filtered_intermediate(self):
         """With filter_method='none', filtered == drive * input_gain exactly."""
@@ -230,14 +238,15 @@ class TestInputGainParity:
         result = engine.run(_constant_stimulus(30), return_intermediates=True)
         drive = result["SA Pop"]["drive"]
         filtered = result["SA Pop"]["filtered"]
-        assert torch.allclose(filtered, drive * 4.0, atol=1e-5), (
-            f"filtered should equal drive×4, max diff: {(filtered - drive*4).abs().max():.5f}"
-        )
+        assert torch.allclose(
+            filtered, drive * 4.0, atol=1e-5
+        ), f"filtered should equal drive×4, max diff: {(filtered - drive*4).abs().max():.5f}"
 
 
 # ---------------------------------------------------------------------------
 # D3.4 — Config detection (mirrors CLI is_canonical predicate)
 # ---------------------------------------------------------------------------
+
 
 class TestConfigDetection:
 
@@ -273,6 +282,7 @@ class TestConfigDetection:
 # D3.5 — Numerical sanity
 # ---------------------------------------------------------------------------
 
+
 class TestNumericalSanity:
 
     def test_strong_drive_produces_spikes(self):
@@ -281,7 +291,9 @@ class TestNumericalSanity:
         engine = SimulationEngine(_minimal_config(seed=1))
         result = engine.run(stim)
         total = result["SA Pop"]["spikes"].sum().item()
-        assert total > 0, "Strong constant drive should produce at least one spike over 200 ms."
+        assert (
+            total > 0
+        ), "Strong constant drive should produce at least one spike over 200 ms."
 
     def test_zero_stimulus_produces_no_spikes_with_gain_zero(self):
         """Zero stimulus with zero gain must produce zero spikes."""
@@ -309,11 +321,13 @@ class TestNumericalSanity:
         """
         stim = torch.randn(100, 4, 4) * 2.0  # noise input
         engine = SimulationEngine(
-            _minimal_config(filter_method="SA", filter_params={"clip_to_positive": True})
+            _minimal_config(
+                filter_method="SA", filter_params={"clip_to_positive": True}
+            )
         )
         result = engine.run(stim, return_intermediates=True)
         filtered = result["SA Pop"]["filtered"]
         neg = (filtered < 0).sum().item()
-        assert neg == 0, (
-            f"SA filter output should be non-negative, got {neg} negative values."
-        )
+        assert (
+            neg == 0
+        ), f"SA filter output should be non-negative, got {neg} negative values."

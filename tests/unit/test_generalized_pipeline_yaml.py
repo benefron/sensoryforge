@@ -2,6 +2,7 @@
 
 Tests for ReviewFindings#M2.
 """
+
 import pytest
 import tempfile
 import os
@@ -29,19 +30,19 @@ neurons:
 
     def test_from_yaml_loads_config(self, minimal_yaml_config, tmp_path):
         """Regression test for ReviewFinding#M2.
-        
+
         Verifies that GeneralizedTactileEncodingPipeline.from_yaml()
         correctly loads and parses YAML configuration files.
-        
+
         Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#M2
         """
         # Create temporary YAML file
         config_path = tmp_path / "test_config.yml"
         config_path.write_text(minimal_yaml_config)
-        
+
         # Should not raise AttributeError or any other exception
         pipeline = GeneralizedTactileEncodingPipeline.from_yaml(str(config_path))
-        
+
         # Verify pipeline initialized correctly
         assert pipeline is not None
         assert pipeline.grid_manager is not None
@@ -56,21 +57,21 @@ neurons:
         """Test the exact example shown in documentation."""
         config_path = tmp_path / "config.yml"
         config_path.write_text(minimal_yaml_config)
-        
+
         # This is the documented API (from docs/index.md and docs/user_guide/gui_phase2_access.md)
         pipeline = GeneralizedTactileEncodingPipeline.from_yaml(str(config_path))
-        
+
         # Pipeline should be initialized and callable
-        assert hasattr(pipeline, 'forward')
+        assert hasattr(pipeline, "forward")
         assert callable(pipeline.forward)
 
     def test_from_config_still_works(self):
         """Verify from_config continues to work as before."""
         config = {
-            'pipeline': {'device': 'cpu', 'grid_size': 32},
-            'neurons': {'sa_neurons': 10, 'ra_neurons': 10}
+            "pipeline": {"device": "cpu", "grid_size": 32},
+            "neurons": {"sa_neurons": 10, "ra_neurons": 10},
         }
-        
+
         pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
         assert pipeline is not None
         # grid_size can be an int or tuple

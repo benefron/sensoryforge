@@ -17,10 +17,10 @@ from sensoryforge.core.generalized_pipeline import (
 from sensoryforge.core.innervation import FlatInnervationModule, InnervationModule
 from sensoryforge.stimuli.builder import StaticStimulus
 
-
 # ---------------------------------------------------------------------------
 # Composite Grid + Flat Innervation
 # ---------------------------------------------------------------------------
+
 
 class TestCompositeGridPipeline:
     """Pipeline with composite grid and FlatInnervationModule."""
@@ -92,6 +92,7 @@ class TestCompositeGridPipeline:
 # Processing Layers
 # ---------------------------------------------------------------------------
 
+
 class TestProcessingLayersPipeline:
     """Processing layers configuration in the pipeline."""
 
@@ -126,16 +127,22 @@ class TestProcessingLayersPipeline:
 # Timeline Stimulus
 # ---------------------------------------------------------------------------
 
+
 class TestTimelineStimulusPipeline:
     """Timeline stimulus generation through the pipeline."""
 
     def test_timeline_stimulus_shape(self):
         """Timeline stimulus has correct [1, T, H, W] shape."""
         p = GeneralizedTactileEncodingPipeline()
-        s1 = StaticStimulus('gaussian', {
-            'amplitude': 20.0, 'sigma': 0.3,
-            'center_x': -1.0, 'center_y': 0.0,
-        })
+        s1 = StaticStimulus(
+            "gaussian",
+            {
+                "amplitude": 20.0,
+                "sigma": 0.3,
+                "center_x": -1.0,
+                "center_y": 0.0,
+            },
+        )
         seq, t, tp = p.generate_stimulus(
             "timeline",
             sub_stimuli=[
@@ -151,14 +158,24 @@ class TestTimelineStimulusPipeline:
     def test_timeline_two_overlapping_stimuli(self):
         """Two overlapping timeline sub-stimuli produce combined output."""
         p = GeneralizedTactileEncodingPipeline()
-        s1 = StaticStimulus('gaussian', {
-            'amplitude': 20.0, 'sigma': 0.3,
-            'center_x': -1.0, 'center_y': 0.0,
-        })
-        s2 = StaticStimulus('gaussian', {
-            'amplitude': 30.0, 'sigma': 0.3,
-            'center_x': 1.0, 'center_y': 0.0,
-        })
+        s1 = StaticStimulus(
+            "gaussian",
+            {
+                "amplitude": 20.0,
+                "sigma": 0.3,
+                "center_x": -1.0,
+                "center_y": 0.0,
+            },
+        )
+        s2 = StaticStimulus(
+            "gaussian",
+            {
+                "amplitude": 30.0,
+                "sigma": 0.3,
+                "center_x": 1.0,
+                "center_y": 0.0,
+            },
+        )
         seq, t, tp = p.generate_stimulus(
             "timeline",
             sub_stimuli=[
@@ -176,9 +193,13 @@ class TestTimelineStimulusPipeline:
     def test_timeline_full_forward_pass(self):
         """Timeline stimulus runs through full pipeline forward."""
         p = GeneralizedTactileEncodingPipeline()
-        s1 = StaticStimulus('gaussian', {
-            'amplitude': 30.0, 'sigma': 0.5,
-        })
+        s1 = StaticStimulus(
+            "gaussian",
+            {
+                "amplitude": 30.0,
+                "sigma": 0.5,
+            },
+        )
         results = p.forward(
             stimulus_type="timeline",
             sub_stimuli=[
@@ -187,12 +208,15 @@ class TestTimelineStimulusPipeline:
             duration=50.0,
         )
         assert "sa_spikes" in results
-        assert results["stimulus_sequence"].shape[1] == 500  # 50ms / 0.1ms dt (D-005 default)
+        assert (
+            results["stimulus_sequence"].shape[1] == 500
+        )  # 50ms / 0.1ms dt (D-005 default)
 
 
 # ---------------------------------------------------------------------------
 # Repeated Pattern Stimulus
 # ---------------------------------------------------------------------------
+
 
 class TestRepeatedPatternStimulusPipeline:
     """Repeated-pattern stimulus generation through the pipeline."""
@@ -213,9 +237,13 @@ class TestRepeatedPatternStimulusPipeline:
     def test_repeated_pattern_with_custom_base(self):
         """Repeated pattern accepts a custom base stimulus."""
         p = GeneralizedTactileEncodingPipeline()
-        base = StaticStimulus('gaussian', {
-            'amplitude': 15.0, 'sigma': 0.2,
-        })
+        base = StaticStimulus(
+            "gaussian",
+            {
+                "amplitude": 15.0,
+                "sigma": 0.2,
+            },
+        )
         seq, t, tp = p.generate_stimulus(
             "repeated_pattern",
             base_stimulus=base,
@@ -244,6 +272,7 @@ class TestRepeatedPatternStimulusPipeline:
 # ---------------------------------------------------------------------------
 # Backward Compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestBackwardCompatibility:
     """Existing pipeline behaviour is preserved."""

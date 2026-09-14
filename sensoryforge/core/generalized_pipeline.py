@@ -5,6 +5,7 @@ Configurable pipeline for generating tactile encoding data with
 defaults. Compatible with notebook but generalizable for different stimuli
 and parameters.
 """
+
 import torch
 import torch.nn as nn
 from typing import Optional, Dict, Any, Union, List
@@ -53,58 +54,58 @@ _DEFAULT_RA_NEURON = resolve_neuron_params("izhikevich", "RA", {})
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
     """Generalized tactile encoding pipeline with configurable parameters.
-    
+
     This pipeline supports both legacy format (hardcoded SA/RA/SA2) and canonical
     format (N-population dynamic) via an adapter layer. Components are created
     via registry system for extensibility.
-    
+
     **Configuration Formats:**
-    
+
     1. **Legacy Format** (backward compatible):
        - Hardcoded SA/RA/SA2 structure
        - Format: `{'pipeline': {...}, 'neurons': {...}, 'filters': {...}}`
        - Fully supported
-    
+
     2. **Canonical Format** (recommended):
        - N-population dynamic support
        - Format: `{'grids': [...], 'populations': [...], 'stimulus': {...}, 'simulation': {...}}`
        - Converted to legacy format via `_canonical_to_legacy_config()` adapter
        - **Limitation**: Only first 3 populations are used (mapped to SA/RA/SA2 slots)
-    
+
     **Component Creation:**
-    
+
     Components (neurons, filters) are created via registry lookup:
     - Falls back to hardcoded classes if not found in registry
     - Uses `NEURON_REGISTRY` and `FILTER_REGISTRY` for dynamic lookup
-    
+
     **Future:**
-    
+
     For full N-population dynamic support, use `SimulationEngine` instead:
     - `SimulationEngine` supports unlimited populations
     - Built from scratch to handle canonical configs natively
     - Will become the unified execution engine for GUI/CLI/Batch
-    
+
     **Example:**
         >>> # Legacy format
         >>> config = {'pipeline': {'device': 'cpu'}, 'neurons': {'sa_neurons': 100}}
         >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-        >>> 
+        >>>
         >>> # Canonical format (adapter converts to legacy)
         >>> from sensoryforge.config.schema import SensoryForgeConfig
         >>> canonical = SensoryForgeConfig(...)
         >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(canonical.to_dict())
-        >>> 
+        >>>
         >>> # Run simulation
         >>> results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
         >>> sa_spikes = results['sa_spikes']  # [time_steps, num_sa_neurons]
-    
+
     **Returns:**
         Results dictionary with keys:
         - `'sa_spikes'`: SA population spikes [time_steps, num_sa_neurons]
         - `'ra_spikes'`: RA population spikes [time_steps, num_ra_neurons]
         - `'sa2_spikes'`: SA2 population spikes [time_steps, num_sa2_neurons] (if configured)
         - Additional keys if `return_intermediates=True`
-    
+
     **See Also:**
         - `SimulationEngine`: For full N-population support
         - `SensoryForgeConfig`: Canonical configuration schema
@@ -123,7 +124,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Phase 3: Composite grid with per-population offset/color
         "grid": {
             "type": "standard",  # "standard" or "composite"
-            "populations": {},   # name → {density, arrangement, offset, color, ...}
+            "populations": {},  # name → {density, arrangement, offset, color, ...}
         },
         # Phase 3: Processing layers between receptor grid and innervation
         "processing_layers": [],  # list of {type: "identity", ...} dicts
@@ -262,11 +263,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         grid_cfg = self.config.get("grid", {})
         if grid_cfg.get("type") == "composite":
             self.composite_grid = CompositeReceptorGrid(
-                xlim=self.grid_manager.xlim, 
-                ylim=self.grid_manager.ylim, 
-                device=self.device
+                xlim=self.grid_manager.xlim,
+                ylim=self.grid_manager.ylim,
+                device=self.device,
             )
-            
+
             # Add populations using Phase 3 add_layer() with offset/color
             populations = grid_cfg.get("populations", {})
             for name, pop_cfg in populations.items():
@@ -293,7 +294,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
     def _load_config(self, config_path, config_dict):
         """Load configuration with defaults fallback.
-        
+
         Supports both canonical schema (SensoryForgeConfig format) and
         legacy format. If canonical format is detected, converts it to
         legacy format for backward compatibility.
@@ -322,43 +323,43 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             config = self._deep_merge_dict(config, config_dict)
 
         return config
-    
+
     def _is_canonical_config(self, config: dict) -> bool:
         """Check if config is in canonical schema format.
-        
+
         Canonical format has 'grids' (list) and 'populations' (list) at top level,
         while legacy format has 'pipeline', 'grid', 'neurons', etc.
         """
         return (
-            isinstance(config.get("grids"), list) and
-            isinstance(config.get("populations"), list) and
-            "pipeline" not in config
+            isinstance(config.get("grids"), list)
+            and isinstance(config.get("populations"), list)
+            and "pipeline" not in config
         )
-    
+
     def _canonical_to_legacy_config(self, canonical: dict) -> dict:
         """Convert canonical schema config to legacy pipeline format.
-        
+
         This adapter allows the pipeline to work with canonical configs
         while maintaining backward compatibility with legacy format.
-        
+
         Note: The pipeline currently supports up to 3 populations (SA, RA, SA2).
         For full N-population dynamic support, use SimulationEngine instead.
         This adapter maps the first 3 populations from canonical config to
         SA/RA/SA2 slots based on neuron_type.
-        
+
         Limitations:
         - Only first 3 populations are used (mapped to SA/RA/SA2)
         - Population selection based on neuron_type prefix matching
         - For N-population support, use SimulationEngine
         """
         legacy = self._deep_copy_dict(self.DEFAULT_CONFIG)
-        
+
         # Extract simulation config
         sim_cfg = canonical.get("simulation", {})
         legacy["pipeline"]["device"] = sim_cfg.get("device", "cpu")
         legacy["pipeline"]["seed"] = canonical.get("metadata", {}).get("seed", 42)
         legacy["neurons"]["dt"] = sim_cfg.get("dt", 0.1)
-        
+
         # Extract grids
         grids = canonical.get("grids", [])
         if grids:
@@ -381,9 +382,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             else:
                 legacy["pipeline"]["center"] = [
                     first_grid.get("center_x", 0.0),
-                    first_grid.get("center_y", 0.0)
+                    first_grid.get("center_y", 0.0),
                 ]
-            
+
             # If multiple grids, create composite grid config
             if len(grids) > 1:
                 legacy["grid"]["type"] = "composite"
@@ -393,19 +394,25 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                     legacy["grid"]["populations"][name] = {
                         "density": g.get("density", 10.0),
                         "arrangement": g.get("arrangement", "grid"),
-                        "offset": g.get("offset", [0.0, 0.0]) if "offset" in g else [
-                            g.get("center_x", 0.0) - legacy["pipeline"]["center"][0],
-                            g.get("center_y", 0.0) - legacy["pipeline"]["center"][1]
-                        ],
+                        "offset": (
+                            g.get("offset", [0.0, 0.0])
+                            if "offset" in g
+                            else [
+                                g.get("center_x", 0.0)
+                                - legacy["pipeline"]["center"][0],
+                                g.get("center_y", 0.0)
+                                - legacy["pipeline"]["center"][1],
+                            ]
+                        ),
                         "color": g.get("color", [66, 135, 245, 200]),
                     }
-        
+
         # Extract populations - map to SA/RA/SA2 for legacy format
         populations = canonical.get("populations", [])
         sa_pop = None
         ra_pop = None
         sa2_pop = None
-        
+
         for pop in populations:
             neuron_type = pop.get("neuron_type", "SA").upper()
             if neuron_type.startswith("SA2") or neuron_type == "SA2":
@@ -414,7 +421,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 ra_pop = pop
             elif neuron_type.startswith("SA") or not sa_pop:
                 sa_pop = pop
-        
+
         # Map population configs to legacy format
         if sa_pop:
             sa_rows = sa_pop.get("neuron_rows", sa_pop.get("neurons_per_row", 10))
@@ -423,14 +430,22 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["neurons"]["sa_neuron_cols"] = sa_cols
             legacy["neurons"]["sa_neurons"] = sa_pop.get("neurons_per_row", sa_rows)
             legacy["innervation"]["sa_spread"] = sa_pop.get("sigma_d_mm", 0.3)
-            legacy["innervation"]["sa_method"] = sa_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["sa_method"] = sa_pop.get(
+                "innervation_method", "gaussian"
+            )
             legacy["innervation"]["sa_seed"] = sa_pop.get("seed", 33)
-            legacy["innervation"]["receptors_per_neuron"] = sa_pop.get("connections_per_neuron", 28)
-            legacy["innervation"]["connection_strength"] = sa_pop.get("weight_range", [0.05, 1.0])
-            
+            legacy["innervation"]["receptors_per_neuron"] = sa_pop.get(
+                "connections_per_neuron", 28
+            )
+            legacy["innervation"]["connection_strength"] = sa_pop.get(
+                "weight_range", [0.05, 1.0]
+            )
+
             # Map neuron model params
             model = sa_pop.get("neuron_model", "Izhikevich")
-            if model == "DSL (Custom)" or (sa_pop.get("dsl_config") and sa_pop["dsl_config"].get("equations")):
+            if model == "DSL (Custom)" or (
+                sa_pop.get("dsl_config") and sa_pop["dsl_config"].get("equations")
+            ):
                 legacy["neurons"]["type"] = "dsl"
                 dsl_cfg = sa_pop.get("dsl_config", {})
                 legacy["neurons"]["equations"] = dsl_cfg.get("equations", "")
@@ -450,17 +465,19 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             # Map filter params
             filter_method = sa_pop.get("filter_method", "none")
             if filter_method.lower() in ("sa", "safilter"):
-                resolved_filter = resolve_filter_params("sa", sa_pop.get("filter_params", {}))
+                resolved_filter = resolve_filter_params(
+                    "sa", sa_pop.get("filter_params", {})
+                )
                 legacy["filters"]["sa_tau_r"] = resolved_filter["tau_r"]
                 legacy["filters"]["sa_tau_d"] = resolved_filter["tau_d"]
                 legacy["filters"]["sa_k1"] = resolved_filter["k1"]
                 legacy["filters"]["sa_k2"] = resolved_filter["k2"]
-            
+
             # Map noise params
             legacy["noise"]["sa_membrane_std"] = sa_pop.get("noise_std", 3.0)
             legacy["noise"]["sa_membrane_mean"] = sa_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa_membrane_seed"] = sa_pop.get("noise_seed", 42)
-        
+
         if ra_pop:
             ra_rows = ra_pop.get("neuron_rows", ra_pop.get("neurons_per_row", 14))
             ra_cols = ra_pop.get("neuron_cols", ra_pop.get("neurons_per_row", 14))
@@ -468,11 +485,15 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["neurons"]["ra_neuron_cols"] = ra_cols
             legacy["neurons"]["ra_neurons"] = ra_pop.get("neurons_per_row", ra_rows)
             legacy["innervation"]["ra_spread"] = ra_pop.get("sigma_d_mm", 0.39)
-            legacy["innervation"]["ra_method"] = ra_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["ra_method"] = ra_pop.get(
+                "innervation_method", "gaussian"
+            )
             legacy["innervation"]["ra_seed"] = ra_pop.get("seed", 33)
-            
+
             model = ra_pop.get("neuron_model", "Izhikevich")
-            if model == "DSL (Custom)" or (ra_pop.get("dsl_config") and ra_pop["dsl_config"].get("equations")):
+            if model == "DSL (Custom)" or (
+                ra_pop.get("dsl_config") and ra_pop["dsl_config"].get("equations")
+            ):
                 # Use DSL if RA also uses DSL
                 if legacy["neurons"].get("type") != "dsl":
                     legacy["neurons"]["type"] = "dsl"
@@ -492,11 +513,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 resolved_filter = resolve_filter_params("ra", filter_params)
                 legacy["filters"]["ra_tau_ra"] = resolved_filter["tau_RA"]
                 legacy["filters"]["ra_k3"] = resolved_filter["k3"]
-            
+
             legacy["noise"]["ra_membrane_std"] = ra_pop.get("noise_std", 3.0)
             legacy["noise"]["ra_membrane_mean"] = ra_pop.get("noise_mean", 0.0)
             legacy["noise"]["ra_membrane_seed"] = ra_pop.get("noise_seed", 43)
-        
+
         if sa2_pop:
             sa2_rows = sa2_pop.get("neuron_rows", sa2_pop.get("neurons_per_row", 5))
             sa2_cols = sa2_pop.get("neuron_cols", sa2_pop.get("neurons_per_row", 5))
@@ -504,23 +525,31 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["neurons"]["sa2_neuron_cols"] = sa2_cols
             legacy["neurons"]["sa2_neurons"] = sa2_pop.get("neurons_per_row", sa2_rows)
             legacy["innervation"]["sa2_spread"] = sa2_pop.get("sigma_d_mm", 2.0)
-            legacy["innervation"]["sa2_method"] = sa2_pop.get("innervation_method", "gaussian")
+            legacy["innervation"]["sa2_method"] = sa2_pop.get(
+                "innervation_method", "gaussian"
+            )
             legacy["innervation"]["sa2_seed"] = sa2_pop.get("seed", 39)
-            legacy["innervation"]["sa2_connections"] = sa2_pop.get("connections_per_neuron", 500)
-            legacy["innervation"]["sa2_weights"] = sa2_pop.get("weight_range", [0.4, 0.75])
-            
+            legacy["innervation"]["sa2_connections"] = sa2_pop.get(
+                "connections_per_neuron", 500
+            )
+            legacy["innervation"]["sa2_weights"] = sa2_pop.get(
+                "weight_range", [0.4, 0.75]
+            )
+
             model_params = sa2_pop.get("model_params", {})
             legacy["neuron_params"]["sa2_a"] = model_params.get("a", 0.02)
             legacy["neuron_params"]["sa2_b"] = model_params.get("b", 0.2)
             legacy["neuron_params"]["sa2_c"] = model_params.get("c", -65.0)
             legacy["neuron_params"]["sa2_d"] = model_params.get("d", 8.0)
             legacy["neuron_params"]["sa2_v_init"] = model_params.get("v_init", -65.0)
-            legacy["neuron_params"]["sa2_threshold"] = model_params.get("threshold", 30.0)
-            
+            legacy["neuron_params"]["sa2_threshold"] = model_params.get(
+                "threshold", 30.0
+            )
+
             legacy["noise"]["sa2_membrane_std"] = sa2_pop.get("noise_std", 3.0)
             legacy["noise"]["sa2_membrane_mean"] = sa2_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa2_membrane_seed"] = sa2_pop.get("noise_seed", 44)
-        
+
         # Map solver config
         solver_cfg = sim_cfg.get("solver", {})
         if solver_cfg:
@@ -530,9 +559,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                     "method": solver_cfg.get("method", "dopri5"),
                     "rtol": solver_cfg.get("rtol", 1e-5),
                     "atol": solver_cfg.get("atol", 1e-7),
-                }
+                },
             }
-        
+
         return legacy
 
     def _deep_copy_dict(self, d):
@@ -565,9 +594,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         layer_configs = self.config.get("processing_layers", [])
         self.processing_pipeline = ProcessingPipeline.from_config(layer_configs)
 
-    def _sample_stimulus_at_receptors(
-        self, stimulus: torch.Tensor
-    ) -> torch.Tensor:
+    def _sample_stimulus_at_receptors(self, stimulus: torch.Tensor) -> torch.Tensor:
         """Sample grid-based stimulus at composite receptor coordinates.
 
         Uses bilinear interpolation via ``torch.nn.functional.grid_sample``
@@ -628,11 +655,17 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         if self.composite_grid is not None:
             n_receptors = self.composite_grid.get_all_coordinates().shape[0]
         else:
-            n_receptors = self.grid_manager.grid_size[0] * self.grid_manager.grid_size[1]
+            n_receptors = (
+                self.grid_manager.grid_size[0] * self.grid_manager.grid_size[1]
+            )
 
         def _row_col(prefix: str, default: int) -> tuple[int, int]:
-            rows = neuron_cfg.get(f"{prefix}_neuron_rows", neuron_cfg.get(f"{prefix}_neurons", default))
-            cols = neuron_cfg.get(f"{prefix}_neuron_cols", neuron_cfg.get(f"{prefix}_neurons", default))
+            rows = neuron_cfg.get(
+                f"{prefix}_neuron_rows", neuron_cfg.get(f"{prefix}_neurons", default)
+            )
+            cols = neuron_cfg.get(
+                f"{prefix}_neuron_cols", neuron_cfg.get(f"{prefix}_neurons", default)
+            )
             n_elements = rows * cols * n_receptors
             if n_elements > _DENSE_WEIGHT_CAP:
                 raise ValueError(
@@ -649,29 +682,28 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         sa2_rows, sa2_cols = _row_col("sa2", 5)
 
         use_flat = (
-            self.composite_grid is not None
-            and innervation_cfg.get("method") == "flat"
+            self.composite_grid is not None and innervation_cfg.get("method") == "flat"
         )
 
         # Handle CompositeGrid inputs
         sa_centers, ra_centers, sa2_centers = None, None, None
-        
+
         if self.composite_grid:
             pop_map = {k.lower(): k for k in self.composite_grid.layers.keys()}
-            
+
             # Map canonical names to user population names
-            if 'sa1' in pop_map:
-                sa_centers = self.composite_grid.get_layer_coordinates(pop_map['sa1'])
-            elif 'sa' in pop_map:
-                sa_centers = self.composite_grid.get_layer_coordinates(pop_map['sa'])
-            
-            if 'ra1' in pop_map:
-                ra_centers = self.composite_grid.get_layer_coordinates(pop_map['ra1'])
-            elif 'ra' in pop_map:
-                ra_centers = self.composite_grid.get_layer_coordinates(pop_map['ra'])
-            
-            if 'sa2' in pop_map:
-                sa2_centers = self.composite_grid.get_layer_coordinates(pop_map['sa2'])
+            if "sa1" in pop_map:
+                sa_centers = self.composite_grid.get_layer_coordinates(pop_map["sa1"])
+            elif "sa" in pop_map:
+                sa_centers = self.composite_grid.get_layer_coordinates(pop_map["sa"])
+
+            if "ra1" in pop_map:
+                ra_centers = self.composite_grid.get_layer_coordinates(pop_map["ra1"])
+            elif "ra" in pop_map:
+                ra_centers = self.composite_grid.get_layer_coordinates(pop_map["ra"])
+
+            if "sa2" in pop_map:
+                sa2_centers = self.composite_grid.get_layer_coordinates(pop_map["sa2"])
 
         if use_flat:
             # Phase 3: Flat innervation using composite grid coordinates
@@ -827,7 +859,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                     method=solver_args.get("method", "dopri5"),
                     rtol=solver_args.get("rtol", 1e-5),
                     atol=solver_args.get("atol", 1e-7),
-                    dt=dt  # Initial hint
+                    dt=dt,  # Initial hint
                 )
 
             model = NeuronModel(
@@ -835,14 +867,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 threshold=neuron_top_cfg["threshold"],
                 reset=neuron_top_cfg["reset"],
                 parameters=neuron_top_cfg.get("parameters", {}),
-                state_vars=neuron_top_cfg.get("state_vars", {"v": -65.0, "u": 0.0})
+                state_vars=neuron_top_cfg.get("state_vars", {"v": -65.0, "u": 0.0}),
             )
-            
+
             # Compile separate instances for each population
             self.sa_neuron = model.compile(solver=solver, dt=dt, device=self.device)
             self.ra_neuron = model.compile(solver=solver, dt=dt, device=self.device)
             self.sa2_neuron = model.compile(solver=solver, dt=dt, device=self.device)
-            
+
             # Initialize legacy params to None/safe values to avoid attribute errors if accessed
             self.a_params = None
             self.b_params = None
@@ -882,7 +914,6 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             v_init=neuron_cfg["ra_v_init"],
             threshold=neuron_cfg["ra_threshold"],
             a_std=neuron_cfg["ra_a_std"],
-
             b_std=neuron_cfg["ra_b_std"],
             c_std=neuron_cfg["ra_c_std"],
             d_std=neuron_cfg["ra_d_std"],
@@ -997,68 +1028,75 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         texture_type = params.get("pattern", "gabor")
         duration = params.get("duration", 200.0)
         dt = params.get("dt", self.config["neurons"]["dt"])
-        
+
         # Default spatial params
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
         amplitude = params.get("amplitude", 30.0)
-        
+
         xx, yy = self.grid_manager.get_coordinates()
-        
+
         if texture_type == "gabor":
             spatial_stimulus = gabor_texture(
-                xx, yy, 
-                center_x=center_x, center_y=center_y,
+                xx,
+                yy,
+                center_x=center_x,
+                center_y=center_y,
                 amplitude=amplitude,
                 wavelength=params.get("wavelength", 2.0),
-                orientation=params.get("orientation", 0.0), # rad
+                orientation=params.get("orientation", 0.0),  # rad
                 phase=params.get("phase", 0.0),
                 sigma=params.get("sigma", 2.0),
-                device=self.device
+                device=self.device,
             )
         elif texture_type == "grating":
-             # Use edge_grating if available, else fallback
-             from sensoryforge.stimuli.texture import edge_grating
-             spatial_stimulus = edge_grating(
-                 xx, yy, 
-                 orientation=params.get("orientation", 0.0),
-                 spacing=params.get("spacing", 2.0),
-                 count=params.get("count", 5),
-                 edge_width=params.get("edge_width", 0.05),
-                 amplitude=amplitude
-             )
+            # Use edge_grating if available, else fallback
+            from sensoryforge.stimuli.texture import edge_grating
+
+            spatial_stimulus = edge_grating(
+                xx,
+                yy,
+                orientation=params.get("orientation", 0.0),
+                spacing=params.get("spacing", 2.0),
+                count=params.get("count", 5),
+                edge_width=params.get("edge_width", 0.05),
+                amplitude=amplitude,
+            )
         else:
-             spatial_stimulus = gaussian_pressure_torch(xx, yy, center_x, center_y, amplitude, 1.0)
+            spatial_stimulus = gaussian_pressure_torch(
+                xx, yy, center_x, center_y, amplitude, 1.0
+            )
 
         # Create time arrays
         n_timesteps = int(duration / dt)
-        time_array = torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
-        
+        time_array = (
+            torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        )
+
         # Add temporal envelope
         temporal_profile = torch.ones(n_timesteps, device=self.device)
-        
+
         # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
         # (resolves ReviewFinding#H7)
-        stimulus_sequence = (
-            spatial_stimulus.unsqueeze(0).unsqueeze(0)
-            * temporal_profile.view(1, -1, 1, 1)
-        )
+        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(
+            0
+        ) * temporal_profile.view(1, -1, 1, 1)
 
         return stimulus_sequence, time_array, temporal_profile
 
     def _generate_moving_stimulus(self, **params):
         """Generate moving stimulus (blob following trajectory)"""
         from sensoryforge.stimuli.moving import linear_motion, circular_motion
-        
+
         motion_type = params.get("motion_type", "linear")
         duration = params.get("duration", 200.0)
         dt = params.get("dt", self.config["neurons"]["dt"])
         n_timesteps = int(duration / dt)
-        
+
         # Probe parameters
         amplitude = params.get("amplitude", 30.0)
         sigma = params.get("sigma", 1.0)
-        
+
         # Generate trajectory
         if motion_type == "linear":
             start = params.get("start", (-2.0, 0.0))
@@ -1067,21 +1105,27 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         elif motion_type == "circular":
             center = params.get("center", (0.0, 0.0))
             radius = params.get("radius", 2.0)
-            trajectory = circular_motion(center, radius, n_timesteps, device=self.device)
+            trajectory = circular_motion(
+                center, radius, n_timesteps, device=self.device
+            )
         else:
-             trajectory = torch.zeros((n_timesteps, 2), device=self.device)
-             
+            trajectory = torch.zeros((n_timesteps, 2), device=self.device)
+
         # Generate stimulus sequence
         xx, yy = self.grid_manager.get_coordinates()
         n_x, n_y = self.grid_manager.grid_size
         stimulus_sequence = torch.zeros((1, n_timesteps, n_x, n_y), device=self.device)
-        time_array = torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        time_array = (
+            torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        )
         temporal_profile = torch.ones(n_timesteps, device=self.device)
-        
+
         for t in range(n_timesteps):
             cx, cy = trajectory[t, 0], trajectory[t, 1]
-            stimulus_sequence[0, t] = gaussian_pressure_torch(xx, yy, cx, cy, amplitude, sigma)
-            
+            stimulus_sequence[0, t] = gaussian_pressure_torch(
+                xx, yy, cx, cy, amplitude, sigma
+            )
+
         return stimulus_sequence, time_array, temporal_profile
 
     def _generate_timeline_stimulus(self, **params):
@@ -1130,9 +1174,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Stack into [1, T, H, W]
         stimulus_sequence = torch.stack(frames, dim=0).unsqueeze(0)
-        time_array = torch.arange(
-            n_timesteps, dtype=torch.float32, device=self.device
-        ) * dt
+        time_array = (
+            torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        )
         temporal_profile = stimulus_sequence[0].amax(dim=(-2, -1))
         if temporal_profile.max() > 0:
             temporal_profile = temporal_profile / temporal_profile.max()
@@ -1170,12 +1214,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             base_stim = params.get("base_stimulus")
             if base_stim is None:
                 base_stim = StaticStimulus(
-                    stim_type='gaussian',
+                    stim_type="gaussian",
                     params={
-                        'amplitude': params.get("amplitude", 30.0),
-                        'sigma': params.get("sigma", 0.5),
-                        'center_x': 0.0,
-                        'center_y': 0.0,
+                        "amplitude": params.get("amplitude", 30.0),
+                        "sigma": params.get("sigma", 0.5),
+                        "center_x": 0.0,
+                        "center_y": 0.0,
                     },
                     device=self.device,
                 )
@@ -1193,13 +1237,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         spatial = repeated(xx, yy)  # [H, W]
 
         # Expand to time dimension
-        time_array = torch.arange(
-            n_timesteps, dtype=torch.float32, device=self.device
-        ) * dt
+        time_array = (
+            torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
+        )
         temporal_profile = torch.ones(n_timesteps, device=self.device)
-        stimulus_sequence = (
-            spatial.unsqueeze(0).unsqueeze(0)
-            * temporal_profile.view(1, -1, 1, 1)
+        stimulus_sequence = spatial.unsqueeze(0).unsqueeze(0) * temporal_profile.view(
+            1, -1, 1, 1
         )
 
         return stimulus_sequence, time_array, temporal_profile
@@ -1275,10 +1318,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
         # (resolves ReviewFinding#H7)
-        stimulus_sequence = (
-            spatial_stimulus.unsqueeze(0).unsqueeze(0)
-            * temporal_profile.view(1, -1, 1, 1)
-        )
+        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(
+            0
+        ) * temporal_profile.view(1, -1, 1, 1)
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -1307,9 +1349,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Vectorized: expand constant spatial to all timesteps [1, T, H, W]
         # (resolves ReviewFinding#H7)
-        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(0).expand(
-            1, n_timesteps, -1, -1
-        ).clone()
+        stimulus_sequence = (
+            spatial_stimulus.unsqueeze(0)
+            .unsqueeze(0)
+            .expand(1, n_timesteps, -1, -1)
+            .clone()
+        )
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -1343,10 +1388,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
         # (resolves ReviewFinding#H7)
-        stimulus_sequence = (
-            spatial_stimulus.unsqueeze(0).unsqueeze(0)
-            * temporal_profile.view(1, -1, 1, 1)
-        )
+        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(
+            0
+        ) * temporal_profile.view(1, -1, 1, 1)
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -1377,10 +1421,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Vectorized: broadcast spatial [H, W] × temporal [T] → [1, T, H, W]
         # (resolves ReviewFinding#H7)
-        stimulus_sequence = (
-            spatial_stimulus.unsqueeze(0).unsqueeze(0)
-            * temporal_profile.view(1, -1, 1, 1)
-        )
+        stimulus_sequence = spatial_stimulus.unsqueeze(0).unsqueeze(
+            0
+        ) * temporal_profile.view(1, -1, 1, 1)
 
         return stimulus_sequence, time_array, temporal_profile
 
@@ -1450,9 +1493,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         mechanoreceptor_responses = stimulus_sequence.clone()
 
         # Step 4.5: Apply processing layers (Phase 3)
-        mechanoreceptor_responses = self.processing_pipeline(
-            mechanoreceptor_responses
-        )
+        mechanoreceptor_responses = self.processing_pipeline(mechanoreceptor_responses)
 
         # Step 5: Compute neural inputs through innervation
         # FlatInnervationModule expects [B, T, N_receptors] not [B, T, H, W].
@@ -1562,36 +1603,36 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         return results_list
 
     @classmethod
-    def from_config(cls, config: dict) -> 'GeneralizedTactileEncodingPipeline':
+    def from_config(cls, config: dict) -> "GeneralizedTactileEncodingPipeline":
         """Create pipeline from configuration dictionary.
-        
+
         Supports both legacy and canonical configuration formats. Canonical
         configs are automatically converted to legacy format via adapter.
-        
+
         **Configuration Format Detection:**
-        
+
         - **Canonical Format**: Detected by presence of `'grids'` and `'populations'` keys
         - **Legacy Format**: Detected by presence of `'pipeline'` and `'neurons'` keys
-        
+
         **Canonical Config Limitations:**
-        
+
         - Only first 3 populations are used (mapped to SA/RA/SA2 slots)
         - Population selection based on `neuron_type` prefix matching
         - For full N-population support, use `SimulationEngine`
-        
+
         **Component Creation:**
-        
+
         Components are created via registry lookup (`NEURON_REGISTRY`, `FILTER_REGISTRY`)
         with fallback to hardcoded classes for backward compatibility.
-        
+
         Args:
             config: Configuration dictionary. Can be:
                 - Legacy format: `{'pipeline': {...}, 'neurons': {...}, ...}`
                 - Canonical format: `{'grids': [...], 'populations': [...], ...}`
-        
+
         Returns:
             Initialized GeneralizedTactileEncodingPipeline instance.
-        
+
         Example:
             >>> # Legacy format
             >>> config = {
@@ -1599,7 +1640,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             >>>     'neurons': {'sa_neurons': 100, 'ra_neurons': 196},
             >>> }
             >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-            >>> 
+            >>>
             >>> # Canonical format (auto-converted via adapter)
             >>> from sensoryforge.config.schema import SensoryForgeConfig
             >>> canonical = SensoryForgeConfig(...)
@@ -1612,23 +1653,23 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # For now, delegate to __init__ with config_dict
         # Future enhancement: handle CompositeGrid, DSL neurons, adaptive solvers
         return cls(config_dict=config)
-    
+
     @classmethod
-    def from_yaml(cls, yaml_path: str) -> 'GeneralizedTactileEncodingPipeline':
+    def from_yaml(cls, yaml_path: str) -> "GeneralizedTactileEncodingPipeline":
         """Create pipeline from YAML configuration file.
-        
+
         Convenience method that loads YAML and delegates to __init__.
-        
+
         Args:
             yaml_path: Path to YAML configuration file.
-        
+
         Returns:
             Initialized GeneralizedTactileEncodingPipeline instance.
-        
+
         Example:
             >>> pipeline = GeneralizedTactileEncodingPipeline.from_yaml('config.yml')
             >>> results = pipeline.run(duration_ms=1000)
-        
+
         Resolves ReviewFinding#M2.
         """
         # Pass the path directly to __init__'s config_path parameter
@@ -1666,8 +1707,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             }
         info["processing_layers"] = self.processing_pipeline.to_dict()
         info["innervation_type"] = (
-            "flat" if isinstance(self.sa_innervation, FlatInnervationModule)
-            else "grid"
+            "flat" if isinstance(self.sa_innervation, FlatInnervationModule) else "grid"
         )
         return info
 

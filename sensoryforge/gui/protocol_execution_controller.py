@@ -1,4 +1,5 @@
 """Execution controller linking Protocol Suite runs to STA extraction."""
+
 from __future__ import annotations
 
 import json
@@ -265,7 +266,7 @@ class ProtocolExecutionController(QtCore.QObject):
         )
         self._protocol_tab.refresh_run_records(self._registry.list_runs())
         self._analysis_runs[run_id] = summary
-        
+
         self.run_completed.emit(run_id)
         self._current_entry = None
         self._current_configs = {}
@@ -327,14 +328,16 @@ class ProtocolExecutionController(QtCore.QObject):
             if result.spike_counts is not None:
                 metrics[f"{sanitized}_spike_counts"] = result.spike_counts.tolist()
             if result.valid_mask is not None:
-                metrics[f"{sanitized}_valid"] = result.valid_mask.astype(
-                    bool
-                ).tolist()
+                metrics[f"{sanitized}_valid"] = result.valid_mask.astype(bool).tolist()
 
             populations_summary[pop_name] = {
                 "neuron_type": result.neuron_type,
                 "dt_ms": result.dt_ms,
-                "spike_count": int(result.spike_counts.sum()) if result.spike_counts is not None else 0,
+                "spike_count": (
+                    int(result.spike_counts.sum())
+                    if result.spike_counts is not None
+                    else 0
+                ),
             }
 
         manifests = self._build_manifests(self._current_configs)

@@ -78,11 +78,11 @@ def get_grid_spacing(
 
 class ReceptorGrid(BaseGrid):
     """Manage receptor grid creation with flexible spatial arrangements.
-    
+
     This class creates spatial grids representing mechanoreceptor positions
     with support for multiple arrangement patterns: regular grid, Poisson-like
     random distribution, hexagonal packing, and jittered grid.
-    
+
     Attributes:
         grid_size: Number of grid points along each axis (rows, cols).
         spacing: Distance between adjacent receptors in mm (for grid arrangement).
@@ -104,7 +104,7 @@ class ReceptorGrid(BaseGrid):
         device: torch.device | str = "cpu",
     ) -> None:
         """Construct receptor grid with specified arrangement pattern.
-        
+
         Args:
             grid_size: Number of points along each axis or (n_x, n_y) tuple.
                 Used for 'grid' and 'jittered_grid' arrangements.
@@ -116,7 +116,7 @@ class ReceptorGrid(BaseGrid):
                 derived from grid_size and spacing when None. Ignored for grid-based
                 arrangements.
             device: PyTorch device identifier for tensors.
-        
+
         """
         if isinstance(grid_size, tuple):
             self.grid_size = grid_size
@@ -133,17 +133,17 @@ class ReceptorGrid(BaseGrid):
             self.xx, self.yy, self.x, self.y = create_grid_torch(
                 grid_size, spacing, center, self.device
             )
-            
+
             # Calculate grid properties — store as float for type consistency
             dx_t, dy_t = get_grid_spacing(self.xx, self.yy)
             self.dx: float = dx_t.item()
             self.dy: float = dy_t.item()
             xlim = (self.x[0].item(), self.x[-1].item())
             ylim = (self.y[0].item(), self.y[-1].item())
-            
+
             # Initialize base class with computed bounds
             super().__init__(xlim, ylim, device)
-            
+
             if arrangement == "jittered_grid":
                 # Apply jitter to the grid coordinates
                 base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
@@ -181,8 +181,10 @@ class ReceptorGrid(BaseGrid):
                 self.y = None
             else:
                 # Regular grid - store flattened coordinates for consistency
-                self.coordinates = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
-                
+                self.coordinates = torch.stack(
+                    [self.xx.flatten(), self.yy.flatten()], dim=1
+                )
+
         elif arrangement in ["poisson", "hex"]:
             # Compute bounds from grid_size and spacing (same as regular grid)
             n_x, n_y = self.grid_size
@@ -192,7 +194,7 @@ class ReceptorGrid(BaseGrid):
 
             xlim = (x0 - total_x / 2, x0 + total_x / 2)
             ylim = (y0 - total_y / 2, y0 + total_y / 2)
-            
+
             # Initialize base class with computed bounds
             super().__init__(xlim, ylim, device)
 
@@ -206,7 +208,7 @@ class ReceptorGrid(BaseGrid):
                 self.coordinates = self._generate_poisson(density)
             else:  # hex
                 self.coordinates = self._generate_hex(density)
-            
+
             # For non-grid arrangements, meshgrids are not defined
             self.xx = None
             self.yy = None
@@ -219,15 +221,15 @@ class ReceptorGrid(BaseGrid):
 
     def to_device(self, device: torch.device | str) -> "ReceptorGrid":
         """Move grid tensors to device and return self for chaining.
-        
+
         Args:
             device: Target PyTorch device.
-        
+
         Returns:
             Self reference for method chaining.
         """
         self.device = torch.device(device) if isinstance(device, str) else device
-        
+
         if self.xx is not None:
             self.xx = self.xx.to(self.device)
         if self.yy is not None:
@@ -236,17 +238,17 @@ class ReceptorGrid(BaseGrid):
             self.x = self.x.to(self.device)
         if self.y is not None:
             self.y = self.y.to(self.device)
-        if hasattr(self, 'coordinates'):
+        if hasattr(self, "coordinates"):
             self.coordinates = self.coordinates.to(self.device)
-            
+
         return self
 
     def get_coordinates(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the 2D coordinate meshgrids (xx, yy).
-        
+
         Returns:
             Tuple of (xx, yy) meshgrids for grid-based arrangements.
-        
+
         Raises:
             ValueError: If arrangement does not support meshgrids.
         """
@@ -259,10 +261,10 @@ class ReceptorGrid(BaseGrid):
 
     def get_1d_coordinates(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return the 1D coordinate vectors (x, y).
-        
+
         Returns:
             Tuple of (x, y) 1D vectors for grid-based arrangements.
-        
+
         Raises:
             ValueError: If arrangement does not support 1D vectors.
         """
@@ -272,54 +274,56 @@ class ReceptorGrid(BaseGrid):
                 "arrangement. Use get_receptor_coordinates() instead."
             )
         return self.x, self.y
-    
+
     def get_receptor_coordinates(self) -> torch.Tensor:
         """Return receptor positions as [N, 2] tensor.
-        
+
         Returns:
             Tensor of shape (num_receptors, 2) with (x, y) coordinates in mm.
         """
         return self.coordinates
-    
+
     def get_all_coordinates(self) -> torch.Tensor:
         """Get all receptor coordinates (required by BaseGrid).
-        
+
         Returns:
             Tensor [N_receptors, 2] with (x, y) positions in mm.
         """
         return self.get_receptor_coordinates()
-    
+
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "ReceptorGrid":
         """Create ReceptorGrid from config dict.
-        
+
         Args:
             config: Dictionary with grid_size, spacing, center, arrangement,
                 density, device.
-        
+
         Returns:
             ReceptorGrid instance.
         """
         return cls(**config)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize grid parameters to dict.
-        
+
         Returns:
             Dictionary with grid configuration.
         """
         result = super().to_dict()
-        result.update({
-            "grid_size": self.grid_size,
-            "spacing": self.spacing,
-            "center": list(self.center),
-            "arrangement": self.arrangement,
-        })
+        result.update(
+            {
+                "grid_size": self.grid_size,
+                "spacing": self.spacing,
+                "center": list(self.center),
+                "arrangement": self.arrangement,
+            }
+        )
         return result
 
     def get_grid_properties(self) -> dict:
         """Return grid metadata consumed by downstream modules.
-        
+
         Returns:
             Dictionary with grid configuration and bounds.
         """
@@ -334,27 +338,27 @@ class ReceptorGrid(BaseGrid):
             "dy": self.dy,
             "device": self.device,
         }
-    
+
     def _compute_area(self) -> float:
         """Calculate total spatial area.
-        
+
         Returns:
             Area in mm².
         """
         width = self.xlim[1] - self.xlim[0]
         height = self.ylim[1] - self.ylim[0]
         return width * height
-    
+
     def _generate_poisson(self, density: float) -> torch.Tensor:
         """Generate approximate Poisson-distributed points via jittered grid.
-        
+
         Creates a random point distribution by starting from a regular grid
         at the target density and applying uniform jitter. This is **not**
         true Poisson-disk sampling but a computationally efficient approximation.
-        
+
         Args:
             density: Target receptor density in receptors per mm².
-        
+
         Returns:
             Tensor of approximately density × area points with shape [N, 2].
         """
@@ -379,27 +383,27 @@ class ReceptorGrid(BaseGrid):
         coordinates[:, 1] = torch.clamp(coordinates[:, 1], self.ylim[0], self.ylim[1])
 
         return coordinates
-    
+
     def _generate_hex(self, density: float) -> torch.Tensor:
         """Generate hexagonal lattice arrangement.
-        
+
         Creates optimal packing pattern with hexagonal symmetry.
-        
+
         Args:
             density: Target receptor density in receptors per mm².
-        
+
         Returns:
             Tensor of hexagonally arranged points.
         """
         # Hexagonal packing spacing formula
-        spacing = (2.0 / (3.0 ** 0.5 * density)) ** 0.5
-        
+        spacing = (2.0 / (3.0**0.5 * density)) ** 0.5
+
         # Determine grid dimensions
         width = self.xlim[1] - self.xlim[0]
         height = self.ylim[1] - self.ylim[0]
 
         n_x = max(1, int(width / spacing) + 1)
-        row_spacing = spacing * 3.0 ** 0.5 / 2.0
+        row_spacing = spacing * 3.0**0.5 / 2.0
         n_y = max(1, int(height / row_spacing) + 1)
 
         x = torch.linspace(self.xlim[0], self.xlim[1], n_x, device=self.device)

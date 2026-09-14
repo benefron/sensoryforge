@@ -24,24 +24,24 @@ import warnings
 
 class ComponentRegistry:
     """Generic registry for component classes.
-    
+
     Components register themselves with a string name, then can be
     instantiated by name with keyword arguments.
-    
+
     Attributes:
         _registry: Dict mapping component name → (class, factory_func)
             factory_func is optional - if None, class is instantiated directly
     """
-    
+
     def __init__(self, registry_name: str = "ComponentRegistry"):
         """Initialize empty registry.
-        
+
         Args:
             registry_name: Name for error messages (e.g., "NEURON_REGISTRY").
         """
         self._registry: Dict[str, tuple[Type, Optional[Callable]]] = {}
         self._name = registry_name
-    
+
     def register(
         self,
         name: str,
@@ -49,14 +49,14 @@ class ComponentRegistry:
         factory_func: Optional[Callable] = None,
     ) -> None:
         """Register a component class.
-        
+
         Args:
             name: String identifier for this component (e.g., "izhikevich").
             cls: Component class (must have from_config() classmethod).
             factory_func: Optional factory function. If provided, this is called
                 instead of cls(**kwargs). Useful for components that need
                 special instantiation logic.
-        
+
         Note:
             Registration is idempotent - if the same class is already registered
             with the same name, this is a no-op (even if factory_func differs).
@@ -76,31 +76,31 @@ class ComponentRegistry:
                 UserWarning,
             )
         self._registry[name] = (cls, factory_func)
-    
+
     def create(self, name: str, **kwargs) -> Any:
         """Create a component instance by name.
-        
+
         Uses factory function if provided, otherwise instantiates class directly.
         Supports both direct instantiation and `from_config()` pattern.
-        
+
         Args:
             name: Registered component name (e.g., "izhikevich", "sa", "gaussian").
             **kwargs: Arguments passed to component constructor or factory_func.
                 If `config` key is present and component has `from_config()`, uses that.
-        
+
         Returns:
             Component instance (type depends on registered class).
-        
+
         Raises:
             KeyError: If name is not registered. Error message includes available names.
-        
+
         Example:
             >>> # Direct instantiation
             >>> neuron = NEURON_REGISTRY.create("izhikevich", dt=1.0, a=0.02, b=0.2)
-            >>> 
+            >>>
             >>> # Using from_config pattern
             >>> neuron = NEURON_REGISTRY.create("izhikevich", config={"dt": 1.0, "a": 0.02})
-            >>> 
+            >>>
             >>> # Factory function (for innervation)
             >>> innervation = INNERVATION_REGISTRY.create(
             ...     "gaussian",
@@ -116,39 +116,41 @@ class ComponentRegistry:
                 f"{self._name}: Component '{name}' not registered. "
                 f"Available: {available}"
             )
-        
+
         cls, factory_func = self._registry[name]
-        
+
         if factory_func is not None:
             return factory_func(**kwargs)
         else:
             # Try from_config() first if kwargs looks like a config dict
             if "config" in kwargs and hasattr(cls, "from_config"):
                 return cls.from_config(kwargs["config"])
-            elif hasattr(cls, "from_config") and len(kwargs) == 1 and "config" in kwargs:
+            elif (
+                hasattr(cls, "from_config") and len(kwargs) == 1 and "config" in kwargs
+            ):
                 return cls.from_config(kwargs["config"])
             else:
                 return cls(**kwargs)
-    
+
     def list_registered(self) -> List[str]:
         """List all registered component names.
-        
+
         Returns:
             Sorted list of registered names.
         """
         return sorted(self._registry.keys())
-    
+
     def is_registered(self, name: str) -> bool:
         """Check if a component name is registered.
-        
+
         Args:
             name: Component name to check.
-        
+
         Returns:
             True if registered, False otherwise.
         """
         return name in self._registry
-    
+
     def get_class(self, name: str) -> Type:
         """Get the registered class for a component name.
 

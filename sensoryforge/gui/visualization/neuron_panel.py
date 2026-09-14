@@ -63,8 +63,7 @@ class NeuronPanel(VisualizationPanel):
             return
         if self._pop_name not in self._data.population_names:
             self._pop_name = (
-                self._data.population_names[0]
-                if self._data.population_names else None
+                self._data.population_names[0] if self._data.population_names else None
             )
         self._precompute()
         self._set_view_range()
@@ -76,7 +75,7 @@ class NeuronPanel(VisualizationPanel):
         if self._data is None or self._pop_name is None:
             return
         res = self._data.population_results.get(self._pop_name, {})
-        spk = res.get("spikes")    # [T, N]
+        spk = res.get("spikes")  # [T, N]
         if spk is not None and self._overlay == "Firing Rate":
             self._firing_rate = _smooth_firing_rate(spk, self._data.dt_ms, self._bin_ms)
 
@@ -111,10 +110,14 @@ class NeuronPanel(VisualizationPanel):
         if pos is not None and pos.shape[0] > 0:
             margin = 0.5
             self._pw.setRange(
-                xRange=[float(pos[:, 0].min()) - margin,
-                        float(pos[:, 0].max()) + margin],
-                yRange=[float(pos[:, 1].min()) - margin,
-                        float(pos[:, 1].max()) + margin],
+                xRange=[
+                    float(pos[:, 0].min()) - margin,
+                    float(pos[:, 0].max()) + margin,
+                ],
+                yRange=[
+                    float(pos[:, 1].min()) - margin,
+                    float(pos[:, 1].max()) + margin,
+                ],
                 padding=0,
             )
 
@@ -179,31 +182,37 @@ class NeuronPanel(VisualizationPanel):
             pop_cmb.addItems(self._data.population_names)
             if self._pop_name:
                 pop_cmb.setCurrentText(self._pop_name)
+
             def _pop_changed(name):
                 self._pop_name = name
                 self._precompute()
                 self._set_view_range()
                 self._render_frame(self._t_idx)
+
             pop_cmb.currentTextChanged.connect(_pop_changed)
             form.addRow("Population:", pop_cmb)
 
         overlay_cmb = QtWidgets.QComboBox()
         overlay_cmb.addItems(_OVERLAY_OPTIONS)
         overlay_cmb.setCurrentText(self._overlay)
+
         def _overlay_changed(name):
             self._overlay = name
             self._precompute()
             self._render_frame(self._t_idx)
+
         overlay_cmb.currentTextChanged.connect(_overlay_changed)
         form.addRow("Overlay:", overlay_cmb)
 
         cmap_cmb = QtWidgets.QComboBox()
         cmap_cmb.addItems(["viridis", "plasma", "inferno", "hot", "coolwarm"])
         cmap_cmb.setCurrentText(self._cmap_name)
+
         def _cmap_changed(name):
             self._cmap_name = name
             self._rebuild_lut()
             self._render_frame(self._t_idx)
+
         cmap_cmb.currentTextChanged.connect(_cmap_changed)
         form.addRow("Colormap:", cmap_cmb)
 
@@ -212,11 +221,13 @@ class NeuronPanel(VisualizationPanel):
         bin_spin.setSingleStep(5.0)
         bin_spin.setValue(self._bin_ms)
         bin_spin.setSuffix(" ms")
+
         def _bin_changed(v):
             self._bin_ms = v
             if self._overlay == "Firing Rate":
                 self._precompute()
                 self._render_frame(self._t_idx)
+
         bin_spin.valueChanged.connect(_bin_changed)
         form.addRow("Rate bin:", bin_spin)
         return w
@@ -226,8 +237,9 @@ class NeuronPanel(VisualizationPanel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _smooth_firing_rate(
-    spikes: np.ndarray,      # [T, N]
+    spikes: np.ndarray,  # [T, N]
     dt_ms: float,
     bin_ms: float,
 ) -> np.ndarray:

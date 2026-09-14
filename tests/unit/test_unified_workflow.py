@@ -89,29 +89,33 @@ def viz_tab():
 
 def test_mechanoreceptor_tab_no_save_configuration_button(mech_tab):
     """btn_save_configuration must not exist — replaced by global Save Config."""
-    assert not hasattr(mech_tab, "btn_save_configuration"), (
-        "btn_save_configuration still present; should have been removed in Part 2"
-    )
+    assert not hasattr(
+        mech_tab, "btn_save_configuration"
+    ), "btn_save_configuration still present; should have been removed in Part 2"
 
 
 def test_mechanoreceptor_tab_no_save_as_configuration_button(mech_tab):
     """btn_save_as_configuration must not exist."""
-    assert not hasattr(mech_tab, "btn_save_as_configuration"), (
-        "btn_save_as_configuration still present"
-    )
+    assert not hasattr(
+        mech_tab, "btn_save_as_configuration"
+    ), "btn_save_as_configuration still present"
 
 
 def test_mechanoreceptor_tab_no_load_configuration_button(mech_tab):
     """btn_load_configuration must not exist as a top-level attribute on the widget."""
-    assert not hasattr(mech_tab, "btn_load_configuration"), (
-        "btn_load_configuration still present"
-    )
+    assert not hasattr(
+        mech_tab, "btn_load_configuration"
+    ), "btn_load_configuration still present"
 
 
 def test_mechanoreceptor_tab_csv_buttons_still_present(mech_tab):
     """CSV import/export buttons must remain (they are not config saves)."""
-    assert hasattr(mech_tab, "btn_import_csv"), "btn_import_csv was removed unexpectedly"
-    assert hasattr(mech_tab, "btn_export_csv"), "btn_export_csv was removed unexpectedly"
+    assert hasattr(
+        mech_tab, "btn_import_csv"
+    ), "btn_import_csv was removed unexpectedly"
+    assert hasattr(
+        mech_tab, "btn_export_csv"
+    ), "btn_export_csv was removed unexpectedly"
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +135,9 @@ def test_set_experiment_manager_emits_config_dir(mech_tab, tmp_path):
     mech_tab.set_experiment_manager(em)
 
     assert len(received) >= 1, "configuration_directory_changed was not emitted"
-    assert received[-1] == tmp_path / "test_em_signal", (
-        f"Expected project_dir, got {received[-1]}"
-    )
+    assert (
+        received[-1] == tmp_path / "test_em_signal"
+    ), f"Expected project_dir, got {received[-1]}"
     # Cleanup
     mech_tab.configuration_directory_changed.disconnect()
 
@@ -153,9 +157,9 @@ def test_save_to_library_disabled_when_stack_empty(stim_tab):
     stim_tab._stimulus_stack.clear()
     stim_tab._refresh_stack_list()
     stim_tab._update_library_buttons()
-    assert not stim_tab.btn_save_to_library.isEnabled(), (
-        "Save to Library should be disabled with empty stack"
-    )
+    assert (
+        not stim_tab.btn_save_to_library.isEnabled()
+    ), "Save to Library should be disabled with empty stack"
 
 
 def test_save_to_library_enabled_after_add(stim_tab):
@@ -163,9 +167,9 @@ def test_save_to_library_enabled_after_add(stim_tab):
     stim_tab._stimulus_stack.clear()
     stim_tab._refresh_stack_list()
     stim_tab._on_stack_add_new()
-    assert stim_tab.btn_save_to_library.isEnabled(), (
-        "Save to Library should be enabled after adding a stack item"
-    )
+    assert (
+        stim_tab.btn_save_to_library.isEnabled()
+    ), "Save to Library should be enabled after adding a stack item"
 
 
 def test_save_to_library_disabled_after_remove_all(stim_tab):
@@ -178,9 +182,9 @@ def test_save_to_library_disabled_after_remove_all(stim_tab):
     stim_tab.stimulus_stack_list.setCurrentRow(0)
     stim_tab._on_stack_remove()
 
-    assert not stim_tab.btn_save_to_library.isEnabled(), (
-        "Save to Library should be disabled after removing all items"
-    )
+    assert (
+        not stim_tab.btn_save_to_library.isEnabled()
+    ), "Save to Library should be disabled after removing all items"
 
 
 def test_on_config_dir_changed_sets_library_dir(stim_tab, tmp_path):
@@ -188,9 +192,9 @@ def test_on_config_dir_changed_sets_library_dir(stim_tab, tmp_path):
     project_dir = tmp_path / "test_project"
     project_dir.mkdir()
     stim_tab._on_config_dir_changed(project_dir)
-    assert stim_tab._library_dir == project_dir / "stimuli", (
-        f"_library_dir expected {project_dir / 'stimuli'}, got {stim_tab._library_dir}"
-    )
+    assert (
+        stim_tab._library_dir == project_dir / "stimuli"
+    ), f"_library_dir expected {project_dir / 'stimuli'}, got {stim_tab._library_dir}"
     assert stim_tab._library_dir.exists(), "stimuli sub-directory was not created"
 
 
@@ -220,12 +224,12 @@ def test_save_to_library_writes_json(stim_tab, tmp_path):
     target = library_dir / "my_set.json"
     assert target.exists(), "Save to Library did not create the JSON file"
     payload = json.loads(target.read_text())
-    assert payload.get("kind") == "stimulus_stack", (
-        f"Expected kind=stimulus_stack, got {payload.get('kind')!r}"
-    )
-    assert len(payload.get("stimuli", [])) == 2, (
-        "Saved JSON must contain both stack items"
-    )
+    assert (
+        payload.get("kind") == "stimulus_stack"
+    ), f"Expected kind=stimulus_stack, got {payload.get('kind')!r}"
+    assert (
+        len(payload.get("stimuli", [])) == 2
+    ), "Saved JSON must contain both stack items"
 
 
 def test_save_to_library_overwrites_silently(stim_tab, tmp_path):
@@ -275,9 +279,9 @@ def test_save_to_library_updates_current_stimulus_path(stim_tab, tmp_path):
     ):
         stim_tab._on_save_to_library()
 
-    assert stim_tab._current_stimulus_path == library_dir / "path_check.json", (
-        "_current_stimulus_path not updated after save to library"
-    )
+    assert (
+        stim_tab._current_stimulus_path == library_dir / "path_check.json"
+    ), "_current_stimulus_path not updated after save to library"
 
 
 def test_save_to_library_emits_request_workspace_when_no_dir(stim_tab):
@@ -296,7 +300,9 @@ def test_save_to_library_emits_request_workspace_when_no_dir(stim_tab):
     ):
         stim_tab._on_save_to_library()
 
-    assert len(emitted) == 1, "request_workspace signal not emitted when library_dir is None"
+    assert (
+        len(emitted) == 1
+    ), "request_workspace signal not emitted when library_dir is None"
     stim_tab.request_workspace.disconnect()
 
 
@@ -331,17 +337,23 @@ def test_refresh_module_library_shows_json_files(sp_tab, tmp_path):
         "population_configs": [{"name": "Pop1", "neuron_type": "Izhikevich"}],
     }
     (module_dir / "fast_sa.json").write_text(json.dumps(bundle))
-    (module_dir / "slow_ra.json").write_text(json.dumps({**bundle, "population_configs": [{"name": "Pop1", "neuron_type": "AdEx"}]}))
+    (module_dir / "slow_ra.json").write_text(
+        json.dumps(
+            {**bundle, "population_configs": [{"name": "Pop1", "neuron_type": "AdEx"}]}
+        )
+    )
     # File with wrong kind — must be ignored
     (module_dir / "stim.json").write_text(json.dumps({"kind": "stimulus_stack"}))
 
     sp_tab._module_dir = module_dir
     sp_tab._refresh_module_library()
 
-    assert sp_tab.module_list.count() == 2, (
-        f"Expected 2 model entries, got {sp_tab.module_list.count()}"
-    )
-    texts = [sp_tab.module_list.item(i).text() for i in range(sp_tab.module_list.count())]
+    assert (
+        sp_tab.module_list.count() == 2
+    ), f"Expected 2 model entries, got {sp_tab.module_list.count()}"
+    texts = [
+        sp_tab.module_list.item(i).text() for i in range(sp_tab.module_list.count())
+    ]
     assert any("fast_sa" in t for t in texts), "fast_sa not shown in module list"
     assert any("slow_ra" in t for t in texts), "slow_ra not shown in module list"
 
@@ -350,7 +362,11 @@ def test_module_list_selects_current_path(sp_tab, tmp_path):
     """_refresh_module_library must auto-select the item matching _current_module_path."""
     module_dir = tmp_path / "neuron_modules_sel"
     module_dir.mkdir()
-    bundle = {"schema_version": "1.0.0", "kind": "neuron_module", "population_configs": []}
+    bundle = {
+        "schema_version": "1.0.0",
+        "kind": "neuron_module",
+        "population_configs": [],
+    }
     target = module_dir / "selected.json"
     target.write_text(json.dumps(bundle))
 
@@ -362,8 +378,13 @@ def test_module_list_selects_current_path(sp_tab, tmp_path):
     assert selected is not None, "No item selected after refresh with matching path"
     from pathlib import Path as P
 
-    assert P(selected.data(sp_tab.module_list.model().UserRole if hasattr(sp_tab.module_list.model(), 'UserRole') else 256)) == target or \
-           selected.data(256) == str(target), "Wrong item selected"
+    assert P(
+        selected.data(
+            sp_tab.module_list.model().UserRole
+            if hasattr(sp_tab.module_list.model(), "UserRole")
+            else 256
+        )
+    ) == target or selected.data(256) == str(target), "Wrong item selected"
 
 
 # ---------------------------------------------------------------------------
@@ -383,13 +404,13 @@ def test_active_pair_label_defaults(sp_tab):
     sp_tab._current_stimulus_path = None
     sp_tab._current_module_path = None
     sp_tab._update_active_pair_labels()
-    assert "No stimulus" in sp_tab.lbl_active_stimulus.text() or \
-           "Live set" in sp_tab.lbl_active_stimulus.text(), (
-        f"Expected default stimulus label, got {sp_tab.lbl_active_stimulus.text()!r}"
-    )
-    assert "No model" in sp_tab.lbl_active_model.text(), (
-        f"Expected 'No model', got {sp_tab.lbl_active_model.text()!r}"
-    )
+    assert (
+        "No stimulus" in sp_tab.lbl_active_stimulus.text()
+        or "Live set" in sp_tab.lbl_active_stimulus.text()
+    ), f"Expected default stimulus label, got {sp_tab.lbl_active_stimulus.text()!r}"
+    assert (
+        "No model" in sp_tab.lbl_active_model.text()
+    ), f"Expected 'No model', got {sp_tab.lbl_active_model.text()!r}"
 
 
 def test_active_pair_label_with_saved_stimulus(sp_tab, tmp_path):
@@ -399,9 +420,9 @@ def test_active_pair_label_with_saved_stimulus(sp_tab, tmp_path):
     sp_tab._current_stimulus_path = path
     sp_tab._current_module_path = None
     sp_tab._update_active_pair_labels()
-    assert sp_tab.lbl_active_stimulus.text() == "my_stimulus", (
-        f"Expected 'my_stimulus', got {sp_tab.lbl_active_stimulus.text()!r}"
-    )
+    assert (
+        sp_tab.lbl_active_stimulus.text() == "my_stimulus"
+    ), f"Expected 'my_stimulus', got {sp_tab.lbl_active_stimulus.text()!r}"
     sp_tab._current_stimulus_path = None
 
 
@@ -411,9 +432,9 @@ def test_active_pair_label_with_saved_model(sp_tab, tmp_path):
     path.touch()
     sp_tab._current_module_path = path
     sp_tab._update_active_pair_labels()
-    assert sp_tab.lbl_active_model.text() == "sa_fast", (
-        f"Expected 'sa_fast', got {sp_tab.lbl_active_model.text()!r}"
-    )
+    assert (
+        sp_tab.lbl_active_model.text() == "sa_fast"
+    ), f"Expected 'sa_fast', got {sp_tab.lbl_active_model.text()!r}"
     sp_tab._current_module_path = None
 
 
@@ -427,9 +448,9 @@ def test_active_pair_label_live_set_count(sp_tab, stim_tab):
 
     sp_tab._update_active_pair_labels()
     label = sp_tab.lbl_active_stimulus.text()
-    assert "Live set" in label and "2" in label, (
-        f"Expected 'Live set (2 stimuli)', got {label!r}"
-    )
+    assert (
+        "Live set" in label and "2" in label
+    ), f"Expected 'Live set (2 stimuli)', got {label!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -446,9 +467,9 @@ def test_use_live_set_clears_stimulus_path(sp_tab, tmp_path):
     """_on_use_live_set must set _current_stimulus_path to None."""
     sp_tab._current_stimulus_path = tmp_path / "some.json"
     sp_tab._on_use_live_set()
-    assert sp_tab._current_stimulus_path is None, (
-        "_current_stimulus_path should be None after Use Live Set"
-    )
+    assert (
+        sp_tab._current_stimulus_path is None
+    ), "_current_stimulus_path should be None after Use Live Set"
 
 
 def test_use_live_set_updates_active_label(sp_tab, stim_tab):
@@ -460,9 +481,9 @@ def test_use_live_set_updates_active_label(sp_tab, stim_tab):
     sp_tab._current_stimulus_path = None  # already cleared
     sp_tab._on_use_live_set()
     label = sp_tab.lbl_active_stimulus.text()
-    assert "Live set" in label or "No stimulus" in label, (
-        f"Unexpected label after Use Live Set: {label!r}"
-    )
+    assert (
+        "Live set" in label or "No stimulus" in label
+    ), f"Unexpected label after Use Live Set: {label!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -515,6 +536,7 @@ def test_auto_save_creates_pt_file(sp_tab, tmp_path):
     assert len(pt_files) == 1, f"Expected 1 .pt file, found {len(pt_files)}"
 
     import torch
+
     bundle = torch.load(str(pt_files[0]), map_location="cpu", weights_only=False)
     assert bundle.get("stimulus") == "live"
     assert bundle.get("model") == "unsaved"
@@ -584,7 +606,9 @@ def test_auto_save_emits_results_saved_signal(sp_tab, tmp_path):
 def test_visualization_tab_has_results_list(viz_tab):
     """VisualizationTab must expose _results_list and refresh_results_list."""
     assert hasattr(viz_tab, "_results_list"), "_results_list widget missing"
-    assert hasattr(viz_tab, "refresh_results_list"), "refresh_results_list method missing"
+    assert hasattr(
+        viz_tab, "refresh_results_list"
+    ), "refresh_results_list method missing"
     assert hasattr(viz_tab, "set_experiment_manager"), "set_experiment_manager missing"
 
 
@@ -594,9 +618,9 @@ def test_set_experiment_manager_sets_results_dir(viz_tab, tmp_path):
     results_dir.mkdir()
     em = _make_mock_em(results_dir)
     viz_tab.set_experiment_manager(em)
-    assert viz_tab._results_dir == results_dir, (
-        f"Expected {results_dir}, got {viz_tab._results_dir}"
-    )
+    assert (
+        viz_tab._results_dir == results_dir
+    ), f"Expected {results_dir}, got {viz_tab._results_dir}"
 
 
 def test_set_experiment_manager_none_clears_results_dir(viz_tab):
@@ -618,7 +642,10 @@ def test_refresh_past_runs_shows_pt_files(viz_tab, tmp_path):
     results_dir.mkdir()
 
     time_ms = np.linspace(0, 100, 101, dtype=np.float32)
-    for name in ("stim_a__model_x__20260101_120000", "stim_b__model_y__20260101_130000"):
+    for name in (
+        "stim_a__model_x__20260101_120000",
+        "stim_b__model_y__20260101_130000",
+    ):
         bundle = {
             "run_id": name,
             "stimulus": name.split("__")[0],
@@ -635,12 +662,19 @@ def test_refresh_past_runs_shows_pt_files(viz_tab, tmp_path):
     viz_tab._results_dir = results_dir
     viz_tab._refresh_past_runs()
 
-    assert viz_tab._results_list.count() == 2, (
-        f"Expected 2 past-run items, got {viz_tab._results_list.count()}"
-    )
-    texts = [viz_tab._results_list.item(i).text() for i in range(viz_tab._results_list.count())]
-    assert any("stim_a" in t and "model_x" in t for t in texts), "stim_a × model_x not in list"
-    assert any("stim_b" in t and "model_y" in t for t in texts), "stim_b × model_y not in list"
+    assert (
+        viz_tab._results_list.count() == 2
+    ), f"Expected 2 past-run items, got {viz_tab._results_list.count()}"
+    texts = [
+        viz_tab._results_list.item(i).text()
+        for i in range(viz_tab._results_list.count())
+    ]
+    assert any(
+        "stim_a" in t and "model_x" in t for t in texts
+    ), "stim_a × model_x not in list"
+    assert any(
+        "stim_b" in t and "model_y" in t for t in texts
+    ), "stim_b × model_y not in list"
 
 
 def test_refresh_past_runs_empty_when_no_dir(viz_tab):

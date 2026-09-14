@@ -32,7 +32,13 @@ from sensoryforge.config.schema import (
 def _canonical_config(rows: int, cols: int) -> dict:
     return {
         "grids": [
-            {"name": "grid", "arrangement": "grid", "rows": rows, "cols": cols, "spacing": 0.15}
+            {
+                "name": "grid",
+                "arrangement": "grid",
+                "rows": rows,
+                "cols": cols,
+                "spacing": 0.15,
+            }
         ],
         "populations": [
             {
@@ -55,7 +61,9 @@ def _canonical_config(rows: int, cols: int) -> dict:
 
 def test_adapter_emits_rows_cols_tuple_not_product():
     """The adapter's grid_size must be a (rows, cols) tuple, never rows*cols."""
-    pipeline = GeneralizedTactileEncodingPipeline.__new__(GeneralizedTactileEncodingPipeline)
+    pipeline = GeneralizedTactileEncodingPipeline.__new__(
+        GeneralizedTactileEncodingPipeline
+    )
     canonical = _canonical_config(rows=20, cols=20)
     legacy = pipeline._canonical_to_legacy_config(canonical)
 
@@ -75,7 +83,9 @@ def test_canonical_20x20_allocates_400_receptors_not_160000():
     grids; 20x20 is kept small enough to still fail fast (assertion, not
     a timeout) if the regression reappears.
     """
-    pipeline = GeneralizedTactileEncodingPipeline.from_config(_canonical_config(rows=20, cols=20))
+    pipeline = GeneralizedTactileEncodingPipeline.from_config(
+        _canonical_config(rows=20, cols=20)
+    )
 
     n_x, n_y = pipeline.grid_manager.grid_size
     assert (n_x, n_y) == (20, 20)
@@ -91,7 +101,15 @@ def _canonical_neuron_count_config(
     neuron_rows: int, neuron_cols: int, grid_rows: int = 30, grid_cols: int = 30
 ) -> SensoryForgeConfig:
     return SensoryForgeConfig(
-        grids=[GridConfig(name="grid", arrangement="grid", rows=grid_rows, cols=grid_cols, spacing=0.15)],
+        grids=[
+            GridConfig(
+                name="grid",
+                arrangement="grid",
+                rows=grid_rows,
+                cols=grid_cols,
+                spacing=0.15,
+            )
+        ],
         populations=[
             PopulationConfig(
                 name="SA Pop",

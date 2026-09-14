@@ -140,7 +140,9 @@ class SimulationResult:
     v_trace: np.ndarray
     spikes: np.ndarray
     drive: np.ndarray  # filtered drive (after SA/RA temporal filter)
-    raw_drive: Optional[np.ndarray] = None  # drive before filter (None if filter disabled)
+    raw_drive: Optional[np.ndarray] = (
+        None  # drive before filter (None if filter disabled)
+    )
 
     @property
     def neuron_count(self) -> int:
@@ -241,7 +243,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     # Emitted after a successful simulation so the VisualizationTab can update.
     # Payload: (sim_results dict, stimulus_frames ndarray|None, time_ms ndarray,
     #           dt_ms float, xlim tuple, ylim tuple)
-    simulation_finished = QtCore.pyqtSignal(object, object, object, object, object, object)
+    simulation_finished = QtCore.pyqtSignal(
+        object, object, object, object, object, object
+    )
 
     # Emitted after results are auto-saved to disk; payload is the run_id string.
     results_saved = QtCore.pyqtSignal(str)
@@ -362,7 +366,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         _qsettings = QtCore.QSettings("SensoryForge", "GUI")
         _saved_expert = _qsettings.value("gui/spiking_tab/expert_mode")
         self._initial_expert_spiking = (
-            _saved_expert in (True, "true", 1, "1") if _saved_expert is not None else False
+            _saved_expert in (True, "true", 1, "1")
+            if _saved_expert is not None
+            else False
         )
         self.chk_expert_mode = QtWidgets.QCheckBox("Expert mode")
         self.chk_expert_mode.setToolTip(
@@ -406,7 +412,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         layout.addRow("Model:", self.lbl_active_model)
 
         self.btn_run_active = QtWidgets.QPushButton("Run Simulation")
-        self.btn_run_active.setToolTip("Run simulation with the active stimulus and model")
+        self.btn_run_active.setToolTip(
+            "Run simulation with the active stimulus and model"
+        )
         layout.addRow(self.btn_run_active)
 
         self.control_layout.addWidget(group)
@@ -429,7 +437,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         button_row = QtWidgets.QHBoxLayout()
         button_row.setSpacing(6)
         self.btn_use_live_set = QtWidgets.QPushButton("Use Live Set")
-        self.btn_use_live_set.setToolTip("Use the current in-memory stimulus set from the Stimulus tab")
+        self.btn_use_live_set.setToolTip(
+            "Use the current in-memory stimulus set from the Stimulus tab"
+        )
         self.btn_refresh_stimuli = QtWidgets.QPushButton("Refresh")
         self.btn_open_stimuli = QtWidgets.QPushButton("Open Folder")
         button_row.addWidget(self.btn_use_live_set)
@@ -452,7 +462,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         form.addRow("Status:", self.chk_population_enabled)
 
         self.cmb_model = QtWidgets.QComboBox()
-        self.cmb_model.addItems(["Izhikevich", "AdEx", "MQIF", "FA", "SA", "DSL (Custom)"])
+        self.cmb_model.addItems(
+            ["Izhikevich", "AdEx", "MQIF", "FA", "SA", "DSL (Custom)"]
+        )
         form.addRow("Model:", self.cmb_model)
 
         self.cmb_filter = QtWidgets.QComboBox()
@@ -518,15 +530,22 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         layout.setSpacing(8)
 
         # Load DSL defaults from config
-        dsl_defaults = self.default_params.get("phase2", {}).get("dsl_neuron", {}).get("template", {})
-        
+        dsl_defaults = (
+            self.default_params.get("phase2", {})
+            .get("dsl_neuron", {})
+            .get("template", {})
+        )
+
         # Equations editor
         layout.addWidget(QtWidgets.QLabel("Equations:"))
         self.dsl_equations_edit = QtWidgets.QPlainTextEdit()
         self.dsl_equations_edit.setMaximumHeight(120)
         font = QtGui.QFont("Courier New", 10)
         self.dsl_equations_edit.setFont(font)
-        default_equations = dsl_defaults.get("equations", "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms")
+        default_equations = dsl_defaults.get(
+            "equations",
+            "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms",
+        )
         self.dsl_equations_edit.setPlaceholderText(default_equations)
         self.dsl_equations_edit.setPlainText(default_equations)
         layout.addWidget(self.dsl_equations_edit)
@@ -554,11 +573,13 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.dsl_param_table.setHorizontalHeaderLabels(["Name", "Value"])
         self.dsl_param_table.horizontalHeader().setStretchLastSection(True)
         self.dsl_param_table.setMaximumHeight(150)
-        
+
         # Pre-populate with Izhikevich defaults
-        default_params = dsl_defaults.get("parameters", {"a": 0.02, "b": 0.2, "c": -65.0, "d": 8.0})
+        default_params = dsl_defaults.get(
+            "parameters", {"a": 0.02, "b": 0.2, "c": -65.0, "d": 8.0}
+        )
         self._populate_dsl_params(default_params)
-        
+
         layout.addWidget(self.dsl_param_table)
 
         # Parameter add/remove buttons
@@ -572,7 +593,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         # Compile button and status
         self.btn_compile_dsl = QtWidgets.QPushButton("Compile Model")
         layout.addWidget(self.btn_compile_dsl)
-        
+
         self.dsl_status_label = QtWidgets.QLabel("Ready to compile")
         self.dsl_status_label.setWordWrap(True)
         layout.addWidget(self.dsl_status_label)
@@ -624,33 +645,35 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         """Compile the DSL model from editor contents."""
         try:
             from sensoryforge.neurons.model_dsl import NeuronModel
-            
+
             equations = self.dsl_equations_edit.toPlainText()
             threshold = self.dsl_threshold_edit.text()
             reset = self.dsl_reset_edit.text()
             parameters = self._get_dsl_parameters()
-            
+
             if not equations.strip():
                 raise ValueError("Equations cannot be empty")
             if not threshold.strip():
                 raise ValueError("Threshold cannot be empty")
             if not reset.strip():
                 raise ValueError("Reset cannot be empty")
-            
+
             model = NeuronModel(
                 equations=equations,
                 threshold=threshold,
                 reset=reset,
                 parameters=parameters,
             )
-            
+
             self._compiled_dsl_model = model
             self.dsl_status_label.setText("✓ Compiled successfully")
             self.dsl_status_label.setStyleSheet("color: green;")
         except ImportError as e:
             self._compiled_dsl_model = None
             if "sympy" in str(e).lower():
-                self.dsl_status_label.setText("✗ Error: SymPy not installed. Run: pip install sympy")
+                self.dsl_status_label.setText(
+                    "✗ Error: SymPy not installed. Run: pip install sympy"
+                )
             else:
                 self.dsl_status_label.setText(f"✗ Import error: {str(e)}")
             self.dsl_status_label.setStyleSheet("color: red;")
@@ -673,7 +696,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self._expert_only_widgets_spiking.append(self.filter_params_section)
 
     def _build_neuron_selector(self) -> None:
-        section = CollapsibleSection("Neuron Map", collapsed=True, settings_key="gui/spiking_tab/neuron_map_expanded")
+        section = CollapsibleSection(
+            "Neuron Map",
+            collapsed=True,
+            settings_key="gui/spiking_tab/neuron_map_expanded",
+        )
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(6)
 
@@ -1083,7 +1110,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if config.model != model_name:
             config.model_params = {}
         config.model = model_name
-        
+
         # Show/hide DSL editor vs standard params based on model selection
         if model_name == "DSL (Custom)":
             self.model_params_section.setVisible(False)
@@ -1091,7 +1118,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         else:
             self.dsl_section.setVisible(False)
             self._populate_model_parameter_fields(config)
-        
+
         self._apply_population_controls()
 
     def _on_filter_changed(self, index: int) -> None:
@@ -1125,12 +1152,16 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         solver_row.addWidget(QtWidgets.QLabel("Solver:"))
         self.cmb_solver = QtWidgets.QComboBox()
         self.cmb_solver.addItems(["Euler (default)", "Adaptive (RK45)"])
-        default_solver = self.default_params.get("gui", {}).get("default_solver", "euler")
+        default_solver = self.default_params.get("gui", {}).get(
+            "default_solver", "euler"
+        )
         if default_solver == "euler":
             self.cmb_solver.setCurrentIndex(0)
         else:
             self.cmb_solver.setCurrentIndex(1)
-        self.cmb_solver.setToolTip("Solver selection applies to DSL models. Built-in models use their native integration method.")
+        self.cmb_solver.setToolTip(
+            "Solver selection applies to DSL models. Built-in models use their native integration method."
+        )
         solver_row.addWidget(self.cmb_solver, stretch=1)
         layout.addLayout(solver_row)
 
@@ -1142,9 +1173,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
         adaptive_layout = QtWidgets.QFormLayout()
         adaptive_layout.setLabelAlignment(QtCore.Qt.AlignRight)
-        
-        adaptive_defaults = self.default_params.get("phase2", {}).get("solvers", {}).get("adaptive", {})
-        
+
+        adaptive_defaults = (
+            self.default_params.get("phase2", {}).get("solvers", {}).get("adaptive", {})
+        )
+
         self.cmb_adaptive_method = QtWidgets.QComboBox()
         self.cmb_adaptive_method.addItems(["dopri5", "bosh3", "adaptive_heun"])
         default_method = adaptive_defaults.get("method", "dopri5")
@@ -1152,21 +1185,21 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if idx >= 0:
             self.cmb_adaptive_method.setCurrentIndex(idx)
         adaptive_layout.addRow("Method:", self.cmb_adaptive_method)
-        
+
         self.dbl_rtol = QtWidgets.QDoubleSpinBox()
         self.dbl_rtol.setDecimals(10)
         self.dbl_rtol.setRange(1e-10, 1e-1)
         self.dbl_rtol.setValue(adaptive_defaults.get("rtol", 1e-5))
         self.dbl_rtol.setSingleStep(1e-6)
         adaptive_layout.addRow("rtol:", self.dbl_rtol)
-        
+
         self.dbl_atol = QtWidgets.QDoubleSpinBox()
         self.dbl_atol.setDecimals(12)
         self.dbl_atol.setRange(1e-12, 1e-1)
         self.dbl_atol.setValue(adaptive_defaults.get("atol", 1e-7))
         self.dbl_atol.setSingleStep(1e-8)
         adaptive_layout.addRow("atol:", self.dbl_atol)
-        
+
         self.adaptive_solver_section.setContentLayout(adaptive_layout)
         self.adaptive_solver_section.setVisible(False)
         layout.addWidget(self.adaptive_solver_section)
@@ -1322,7 +1355,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         self.btn_use_live_set.clicked.connect(self._on_use_live_set)
         self.btn_save_module.clicked.connect(self._save_module_update)
         self.btn_load_module.clicked.connect(self._load_module)
-        self.module_list.itemDoubleClicked.connect(lambda _: self._load_selected_module())
+        self.module_list.itemDoubleClicked.connect(
+            lambda _: self._load_selected_module()
+        )
         self.module_list.itemSelectionChanged.connect(self._on_module_selection_changed)
 
     def _on_solver_changed(self, index: int) -> None:
@@ -1562,11 +1597,15 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             with manifest_path.open("r", encoding="utf-8") as fp:
                 bundle = json.load(fp)
         except (OSError, json.JSONDecodeError) as exc:
-            QtWidgets.QMessageBox.critical(self, "Load failed", f"Unable to read module:\n{exc}")
+            QtWidgets.QMessageBox.critical(
+                self, "Load failed", f"Unable to read module:\n{exc}"
+            )
             return
         if bundle.get("schema_version") != MODULE_SCHEMA_VERSION:
             QtWidgets.QMessageBox.warning(
-                self, "Schema mismatch", "Module schema version differs; attempting to load anyway."
+                self,
+                "Schema mismatch",
+                "Module schema version differs; attempting to load anyway.",
             )
         self._current_module_path = manifest_path
         self._apply_module_bundle(bundle, manifest_path.parent)
@@ -1581,8 +1620,16 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if self._current_stimulus_path is not None:
             stim_label = self._current_stimulus_path.stem
         else:
-            n = len(getattr(self.stimulus_tab, "_stimulus_stack", []) if self.stimulus_tab else [])
-            stim_label = f"Live set ({n} stimul{'i' if n != 1 else 'us'})" if n else "No stimulus"
+            n = len(
+                getattr(self.stimulus_tab, "_stimulus_stack", [])
+                if self.stimulus_tab
+                else []
+            )
+            stim_label = (
+                f"Live set ({n} stimul{'i' if n != 1 else 'us'})"
+                if n
+                else "No stimulus"
+            )
         self.lbl_active_stimulus.setText(stim_label)
 
         if self._current_module_path is not None:
@@ -1660,7 +1707,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
         self.lbl_stimulus_summary.setText(summary)
 
-    def _load_stimulus_stack_preview(self, payload: Dict[str, object], path: Path) -> None:
+    def _load_stimulus_stack_preview(
+        self, payload: Dict[str, object], path: Path
+    ) -> None:
         """Load a stimulus_stack JSON and build composite frames for simulation."""
         stimuli_data = payload.get("stimuli", [])
         composition_mode = str(payload.get("composition_mode", "add"))
@@ -1668,7 +1717,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self._clear_stimulus_preview()
             return
         configs = [self._config_from_payload(s, path) for s in stimuli_data]
-        frames, time_axis, amplitude_profile = self._build_composite_frames(configs, composition_mode)
+        frames, time_axis, amplitude_profile = self._build_composite_frames(
+            configs, composition_mode
+        )
         if frames is None or time_axis is None:
             self._clear_stimulus_preview()
             QtWidgets.QMessageBox.warning(
@@ -1707,7 +1758,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self._clear_stimulus_preview()
             return
         composition_mode = str(getattr(self.stimulus_tab, "_composition_mode", "add"))
-        frames, time_axis, amplitude_profile = self._build_composite_frames(configs, composition_mode)
+        frames, time_axis, amplitude_profile = self._build_composite_frames(
+            configs, composition_mode
+        )
         if frames is None or time_axis is None:
             self._clear_stimulus_preview()
             return
@@ -1728,7 +1781,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             amp_item.enableAutoRange(x=True, y=True)
         duration_ms = float(time_np[-1]) if time_np.size else 0.0
         n = len(configs)
-        mode_label = f"{n} stimulus{'i' if n != 1 else ''}" if n > 1 else configs[0].stimulus_type
+        mode_label = (
+            f"{n} stimulus{'i' if n != 1 else ''}"
+            if n > 1
+            else configs[0].stimulus_type
+        )
         self.lbl_stimulus_summary.setText(
             f"Set ({mode_label}, {composition_mode} mode) — "
             f"duration {duration_ms:.1f} ms, dt {self._stimulus_dt_ms:.2f} ms"
@@ -1765,9 +1822,17 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 f, t, a = self._build_stimulus_frames(cfg)
                 if f is None or t is None:
                     continue
-                min_len = f.shape[0] if not frames_list else min(frames_list[0].shape[0], f.shape[0])
+                min_len = (
+                    f.shape[0]
+                    if not frames_list
+                    else min(frames_list[0].shape[0], f.shape[0])
+                )
                 frames_list.append(f[:min_len])
-                amp_list.append(a[:min_len] if a is not None else torch.zeros(min_len, device=f.device, dtype=f.dtype))
+                amp_list.append(
+                    a[:min_len]
+                    if a is not None
+                    else torch.zeros(min_len, device=f.device, dtype=f.dtype)
+                )
                 time_out = t[:min_len]
             if not frames_list:
                 return None, None, None
@@ -1791,7 +1856,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if global_total <= 0:
             return None, None, None
         device = self.generator.xx.device
-        time_axis = torch.arange(0.0, global_total + 0.5 * global_dt, global_dt, device=device)
+        time_axis = torch.arange(
+            0.0, global_total + 0.5 * global_dt, global_dt, device=device
+        )
         num_steps = time_axis.numel()
         xx = self.generator.xx
         combined = torch.zeros((num_steps,) + xx.shape, device=device, dtype=xx.dtype)
@@ -1826,7 +1893,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         start = payload.get("start", [0.0, 0.0])
         end = payload.get("end", start)
         config = StimulusConfig(
-            name=payload.get("name", path.stem if isinstance(path, Path) else str(path)),
+            name=payload.get(
+                "name", path.stem if isinstance(path, Path) else str(path)
+            ),
             stimulus_type=payload.get("type", "gaussian"),
             motion=payload.get("motion", "static"),
             start=_tuple(start, (0.0, 0.0)),
@@ -1873,7 +1942,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         Mirrors stimulus_tab._generate_motion_trajectory_frames so that
         circular and slide motion types produce consistent output in both tabs.
         """
-        from sensoryforge.stimuli.moving import circular_motion, slide_trajectory, linear_motion
+        from sensoryforge.stimuli.moving import (
+            circular_motion,
+            slide_trajectory,
+            linear_motion,
+        )
 
         if self.generator is None or self.grid_manager is None:
             return None, None, None
@@ -1926,7 +1999,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                     for iy in range(ny):
                         ox = (ix - (nx - 1) / 2.0) * sx
                         oy = (iy - (ny - 1) / 2.0) * sy
-                        tiled = tiled + self._compute_base_frame(xx, yy, pos_x + ox, pos_y + oy, config, device)
+                        tiled = tiled + self._compute_base_frame(
+                            xx, yy, pos_x + ox, pos_y + oy, config, device
+                        )
                 frame = tiled
             else:
                 frame = self._compute_base_frame(xx, yy, pos_x, pos_y, config, device)
@@ -1938,11 +2013,18 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     def _build_stimulus_frames(
         self,
         config: StimulusConfig,
-    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor],]:
+    ) -> Tuple[
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+    ]:
         if self.generator is None or self.grid_manager is None:
             return None, None, None
         # Dispatch circular/slide motion to the trajectory generator
-        if config.motion_type in ("circular", "slide") and config.stimulus_type != "moving":
+        if (
+            config.motion_type in ("circular", "slide")
+            and config.stimulus_type != "moving"
+        ):
             return self._generate_motion_trajectory_frames(config)
         device = self.generator.xx.device
         dt = max(config.dt_ms, MIN_TIME_STEP_MS)
@@ -1979,14 +2061,29 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 cx, cy = start_x, start_y
             if config.stimulus_type == "gaussian":
                 frame = gaussian_pressure_torch(
-                    xx, yy, cx, cy, amplitude=1.0, sigma=max(config.spread, 1e-6),
+                    xx,
+                    yy,
+                    cx,
+                    cy,
+                    amplitude=1.0,
+                    sigma=max(config.spread, 1e-6),
                 )
             elif config.stimulus_type == "point":
                 frame = point_pressure_torch(
-                    xx, yy, cx, cy, amplitude=1.0, diameter_mm=max(config.spread, 1e-6),
+                    xx,
+                    yy,
+                    cx,
+                    cy,
+                    amplitude=1.0,
+                    diameter_mm=max(config.spread, 1e-6),
                 )
             elif config.stimulus_type in ("gabor", "grating", "noise", "texture"):
-                from sensoryforge.stimuli.texture import gabor_texture, edge_grating, noise_texture
+                from sensoryforge.stimuli.texture import (
+                    gabor_texture,
+                    edge_grating,
+                    noise_texture,
+                )
+
                 subtype = config.texture_subtype
                 if config.stimulus_type == "gabor":
                     subtype = "gabor"
@@ -1996,33 +2093,52 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                     subtype = "noise"
                 if subtype == "gabor":
                     frame = gabor_texture(
-                        xx, yy, center_x=cx, center_y=cy, amplitude=1.0,
-                        sigma=max(config.spread, 1e-6), wavelength=max(config.wavelength, 0.1),
-                        orientation=math.radians(config.orientation_deg), phase=config.phase,
+                        xx,
+                        yy,
+                        center_x=cx,
+                        center_y=cy,
+                        amplitude=1.0,
+                        sigma=max(config.spread, 1e-6),
+                        wavelength=max(config.wavelength, 0.1),
+                        orientation=math.radians(config.orientation_deg),
+                        phase=config.phase,
                         device=device,
                     )
                 elif subtype == "edge_grating":
                     frame = edge_grating(
-                        xx, yy, orientation=math.radians(config.orientation_deg),
-                        spacing=max(config.spread, 0.1), count=config.edge_count,
-                        edge_width=max(config.edge_width, 0.01), amplitude=1.0,
+                        xx,
+                        yy,
+                        orientation=math.radians(config.orientation_deg),
+                        spacing=max(config.spread, 0.1),
+                        count=config.edge_count,
+                        edge_width=max(config.edge_width, 0.01),
+                        amplitude=1.0,
                         device=device,
                     )
                 elif subtype == "noise":
                     from sensoryforge.stimuli.texture import noise_texture
+
                     frame = noise_texture(
-                        height=xx.shape[0], width=xx.shape[1],
-                        scale=config.noise_scale, kernel_size=config.noise_kernel_size,
+                        height=xx.shape[0],
+                        width=xx.shape[1],
+                        scale=config.noise_scale,
+                        kernel_size=config.noise_kernel_size,
                         device=device,
                     )
                 else:
                     frame = torch.zeros_like(xx)
             else:
                 theta = torch.tensor(
-                    math.radians(config.orientation_deg), device=device, dtype=xx.dtype,
+                    math.radians(config.orientation_deg),
+                    device=device,
+                    dtype=xx.dtype,
                 )
                 frame = edge_stimulus_torch(
-                    xx - cx, yy - cy, theta=theta, w=max(config.spread, 1e-6), amplitude=1.0,
+                    xx - cx,
+                    yy - cy,
+                    theta=theta,
+                    w=max(config.spread, 1e-6),
+                    amplitude=1.0,
                 )
             # Apply repeat tiling if enabled
             if config.repeat_enabled and (config.repeat_nx > 1 or config.repeat_ny > 1):
@@ -2056,14 +2172,29 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         """
         if config.stimulus_type == "gaussian":
             return gaussian_pressure_torch(
-                xx, yy, cx, cy, amplitude=1.0, sigma=max(config.spread, 1e-6),
+                xx,
+                yy,
+                cx,
+                cy,
+                amplitude=1.0,
+                sigma=max(config.spread, 1e-6),
             )
         if config.stimulus_type == "point":
             return point_pressure_torch(
-                xx, yy, cx, cy, amplitude=1.0, diameter_mm=max(config.spread, 1e-6),
+                xx,
+                yy,
+                cx,
+                cy,
+                amplitude=1.0,
+                diameter_mm=max(config.spread, 1e-6),
             )
         if config.stimulus_type in ("gabor", "grating", "noise", "texture"):
-            from sensoryforge.stimuli.texture import gabor_texture, edge_grating, noise_texture
+            from sensoryforge.stimuli.texture import (
+                gabor_texture,
+                edge_grating,
+                noise_texture,
+            )
+
             subtype = config.texture_subtype
             if config.stimulus_type == "gabor":
                 subtype = "gabor"
@@ -2073,7 +2204,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 subtype = "noise"
             if subtype == "gabor":
                 return gabor_texture(
-                    xx, yy, center_x=cx, center_y=cy, amplitude=1.0,
+                    xx,
+                    yy,
+                    center_x=cx,
+                    center_y=cy,
+                    amplitude=1.0,
                     sigma=max(config.spread, 1e-6),
                     wavelength=max(config.wavelength, 0.1),
                     orientation=math.radians(config.orientation_deg),
@@ -2082,7 +2217,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 )
             if subtype == "edge_grating":
                 return edge_grating(
-                    xx, yy,
+                    xx,
+                    yy,
                     orientation=math.radians(config.orientation_deg),
                     spacing=max(config.spread, 0.1),
                     count=config.edge_count,
@@ -2092,7 +2228,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 )
             if subtype == "noise":
                 return noise_texture(
-                    height=xx.shape[0], width=xx.shape[1],
+                    height=xx.shape[0],
+                    width=xx.shape[1],
                     scale=config.noise_scale,
                     kernel_size=config.noise_kernel_size,
                     device=device,
@@ -2100,10 +2237,16 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             return torch.zeros_like(xx)
         # Default: edge stimulus
         theta = torch.tensor(
-            math.radians(config.orientation_deg), device=device, dtype=xx.dtype,
+            math.radians(config.orientation_deg),
+            device=device,
+            dtype=xx.dtype,
         )
         return edge_stimulus_torch(
-            xx - cx, yy - cy, theta=theta, w=max(config.spread, 1e-6), amplitude=1.0,
+            xx - cx,
+            yy - cy,
+            theta=theta,
+            w=max(config.spread, 1e-6),
+            amplitude=1.0,
         )
 
     def _amplitude_profile(
@@ -2305,9 +2448,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             raw = self._stimulus_frames.detach().cpu().float().numpy()
             # Ensure exactly 3-D: [T, H, W]
             if raw.ndim == 2:
-                raw = raw[:, np.newaxis, :]   # [T, 1, W]
+                raw = raw[:, np.newaxis, :]  # [T, 1, W]
             elif raw.ndim == 4:
-                raw = raw[:, 0]               # drop batch dim [B, T, H, W] → [T, H, W]
+                raw = raw[:, 0]  # drop batch dim [B, T, H, W] → [T, H, W]
             frames_np = raw
 
         # Time axis from first result
@@ -2402,6 +2545,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         # subthreshold oscillations.  See test_dt_mismatch.py for regression tests.
         if dt_ms > _DT_INSTABILITY_THRESHOLD_MS:
             import warnings
+
             warnings.warn(
                 f"dt={dt_ms:.2f} ms exceeds the stable range for Forward Euler "
                 f"integration (< {_DT_INSTABILITY_THRESHOLD_MS} ms). "
@@ -2439,6 +2583,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         # ── Backend kernel: filter → gain → noise → neuron ──────────────
         # Shared with SimulationEngine._run_pop_from_drive() (C3-Step4)
         from sensoryforge.core.simulation_engine import SimulationEngine as _Engine
+
         filter_module = self._build_filter_module(
             config, population.neuron_type, dt_ms, device
         )
@@ -2452,7 +2597,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             return_intermediates=True,
         )
 
-        drive = backend["filtered"]     # gain + noise applied
+        drive = backend["filtered"]  # gain + noise applied
         spikes = backend["spikes"]
         v_trace = backend.get("voltages")
 
@@ -2475,7 +2620,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 spikes_np = spikes_np[:steps]
         else:
             v_np = np.zeros((steps, drive_np.shape[1] if drive_np.ndim > 1 else 1))
-        raw_drive_np = raw_drive_np[:steps] if raw_drive_np.shape[0] > steps else raw_drive_np
+        raw_drive_np = (
+            raw_drive_np[:steps] if raw_drive_np.shape[0] > steps else raw_drive_np
+        )
         time_ms = np.arange(steps, dtype=float) * dt_ms
         return SimulationResult(
             population_name=config.name,
@@ -2542,7 +2689,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         if method == "none":
             return inputs
         filter_params = self._gather_filter_parameters(config)
-        
+
         # Use registry to create filter
         try:
             filter_cls = FILTER_REGISTRY.get_class(method)
@@ -2599,12 +2746,14 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     ):
         dt_value = max(dt_ms, 0.05)
         model_name = (config.model or "Izhikevich").lower()
-        
+
         # Handle DSL model
         if model_name == "dsl (custom)":
             if self._compiled_dsl_model is None:
-                raise ValueError("DSL model not compiled yet. Click 'Compile Model' first.")
-            
+                raise ValueError(
+                    "DSL model not compiled yet. Click 'Compile Model' first."
+                )
+
             # Compile DSL model with current solver selection
             solver = self._get_selected_solver()
             if solver == "adaptive":
@@ -2624,9 +2773,11 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 )
             except Exception as e:
                 if "torchdiffeq" in str(e) and solver == "adaptive":
-                    raise ValueError("Install torchdiffeq: pip install torchdiffeq") from e
+                    raise ValueError(
+                        "Install torchdiffeq: pip install torchdiffeq"
+                    ) from e
                 raise
-        
+
         # Handle standard neuron models
         params = self._gather_model_parameters(config)
 
@@ -2766,7 +2917,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             except ValueError:
                 stimulus_rel = str(self._current_stimulus_path)
         population_entries = [cfg.to_dict() for cfg in self.population_configs.values()]
-        
+
         # Collect DSL configuration if present
         dsl_config = None
         if self._compiled_dsl_model is not None:
@@ -2776,18 +2927,22 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 "reset": self.dsl_reset_edit.text(),
                 "parameters": self._get_dsl_parameters(),
             }
-        
+
         # Collect solver configuration
         solver_config = {
-            "solver_type": "adaptive" if self.cmb_solver.currentIndex() == 1 else "euler",
+            "solver_type": (
+                "adaptive" if self.cmb_solver.currentIndex() == 1 else "euler"
+            ),
         }
         if solver_config["solver_type"] == "adaptive":
-            solver_config.update({
-                "method": self.cmb_adaptive_method.currentText(),
-                "rtol": self.dbl_rtol.value(),
-                "atol": self.dbl_atol.value(),
-            })
-        
+            solver_config.update(
+                {
+                    "method": self.cmb_adaptive_method.currentText(),
+                    "rtol": self.dbl_rtol.value(),
+                    "atol": self.dbl_atol.value(),
+                }
+            )
+
         return {
             "schema_version": MODULE_SCHEMA_VERSION,
             "kind": "neuron_module",
@@ -2855,7 +3010,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                     continue
                 config = PopulationConfig.from_dict(entry)
                 self.population_configs[config.name] = config
-        
+
         # Restore DSL configuration if present
         dsl_config = bundle.get("dsl_config")
         if isinstance(dsl_config, dict):
@@ -2867,7 +3022,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 self._populate_dsl_params(params)
             # Auto-compile the DSL model
             self._compile_dsl_model()
-        
+
         # Restore solver configuration
         solver_config = bundle.get("solver_config")
         if isinstance(solver_config, dict):
@@ -2882,7 +3037,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 self.dbl_atol.setValue(solver_config.get("atol", 1e-7))
             else:
                 self.cmb_solver.setCurrentIndex(0)
-        
+
         stimulus_entry = bundle.get("stimulus")
         if stimulus_entry and self._stimulus_dir is not None:
             stimulus_path = Path(stimulus_entry)

@@ -50,9 +50,9 @@ class TestVectorizedStimulusGeneration:
         # All frames should be equal
         first_frame = stim[0, 0]
         for t in range(stim.shape[1]):
-            assert torch.allclose(stim[0, t], first_frame), (
-                f"Frame {t} differs from frame 0"
-            )
+            assert torch.allclose(
+                stim[0, t], first_frame
+            ), f"Frame {t} differs from frame 0"
 
     def test_step_stimulus_zero_before_step(self, pipeline):
         """Step stimulus should be zero before step time."""

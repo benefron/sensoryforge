@@ -10,7 +10,6 @@ import pytest
 
 from sensoryforge.neurons.izhikevich import IZHIKEVICH_PRESETS, IzhikevichNeuronTorch
 
-
 EXPECTED_PRESETS = {
     "RS": {"a": 0.02, "b": 0.20, "c": -65.0, "d": 8.0},
     "FS": {"a": 0.10, "b": 0.20, "c": -65.0, "d": 2.0},

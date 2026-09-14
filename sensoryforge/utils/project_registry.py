@@ -6,6 +6,7 @@ This module implements the shared persistence layer described in
 It provides dataclasses that mirror the JSON examples in the plan and a
 :class:`ProjectRegistry` helper for managing serialized metadata on disk.
 """
+
 from __future__ import annotations
 
 import json
@@ -542,14 +543,10 @@ class ProjectRegistry:
         self._write_json(path, analysis.to_dict())
         return path
 
-    def load_decoding_analysis(
-        self, analysis_id: str
-    ) -> DecodingAnalysisRecord:
+    def load_decoding_analysis(self, analysis_id: str) -> DecodingAnalysisRecord:
         path = self.paths["decoding_analyses"] / f"{analysis_id}.json"
         if not path.exists():
-            raise FileNotFoundError(
-                f"Decoding analysis '{analysis_id}' not found"
-            )
+            raise FileNotFoundError(f"Decoding analysis '{analysis_id}' not found")
         return DecodingAnalysisRecord.from_dict(self._read_json(path))
 
     def list_decoding_analyses(

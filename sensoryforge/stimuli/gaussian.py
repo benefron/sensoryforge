@@ -31,10 +31,10 @@ def gaussian_stimulus(
     device: torch.device | str | None = None,
 ) -> torch.Tensor:
     """Generate a 2D Gaussian bump stimulus centered at (center_x, center_y).
-    
+
     The Gaussian is defined as:
         amplitude * exp(-((x - center_x)^2 + (y - center_y)^2) / (2 * sigma^2))
-    
+
     Args:
         xx: Tensor of x-coordinates, shape [H, W] or [batch, H, W]. Units: mm.
         yy: Tensor of y-coordinates, shape [H, W] or [batch, H, W]. Units: mm.
@@ -43,14 +43,14 @@ def gaussian_stimulus(
         amplitude: Peak amplitude of the Gaussian. Units: arbitrary (e.g., mA for pressure).
         sigma: Standard deviation of the Gaussian. Units: mm.
         device: Device to create the stimulus on (cpu, cuda, mps). If None, uses xx.device.
-    
+
     Returns:
         Gaussian stimulus tensor with same shape as xx and yy. Units: same as amplitude.
-    
+
     Raises:
         ValueError: If sigma is non-positive.
         ValueError: If xx and yy shapes don't match.
-    
+
     Example:
         >>> import torch
         >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
@@ -60,23 +60,25 @@ def gaussian_stimulus(
     """
     if sigma <= 0:
         raise ValueError(f"sigma must be positive, got {sigma}")
-    
+
     if xx.shape != yy.shape:
-        raise ValueError(f"xx and yy must have the same shape, got {xx.shape} and {yy.shape}")
-    
+        raise ValueError(
+            f"xx and yy must have the same shape, got {xx.shape} and {yy.shape}"
+        )
+
     # Determine target device
     target_device = device if device is not None else xx.device
-    
+
     # Move coordinates to target device if needed
     if xx.device != target_device:
         xx = xx.to(target_device)
     if yy.device != target_device:
         yy = yy.to(target_device)
-    
+
     # Compute Gaussian
     r_squared = (xx - center_x) ** 2 + (yy - center_y) ** 2
-    gaussian = amplitude * torch.exp(-r_squared / (2 * sigma ** 2))
-    
+    gaussian = amplitude * torch.exp(-r_squared / (2 * sigma**2))
+
     return gaussian
 
 
@@ -89,10 +91,10 @@ def multi_gaussian_stimulus(
     device: torch.device | str | None = None,
 ) -> torch.Tensor:
     """Generate a superposition of multiple Gaussian stimuli.
-    
+
     This function creates multiple Gaussian bumps and adds them together,
     useful for creating complex spatial patterns.
-    
+
     Args:
         xx: Tensor of x-coordinates, shape [H, W]. Units: mm.
         yy: Tensor of y-coordinates, shape [H, W]. Units: mm.
@@ -100,13 +102,13 @@ def multi_gaussian_stimulus(
         amplitudes: List of amplitudes for each Gaussian. If None, uses 1.0 for all.
         sigmas: List of standard deviations for each Gaussian. If None, uses 0.2 for all.
         device: Device to create the stimulus on. If None, uses xx.device.
-    
+
     Returns:
         Superposition of all Gaussian stimuli, shape [H, W].
-    
+
     Raises:
         ValueError: If lengths of centers, amplitudes, and sigmas don't match.
-    
+
     Example:
         >>> import torch
         >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij')
@@ -116,13 +118,13 @@ def multi_gaussian_stimulus(
         torch.Size([64, 64])
     """
     n_gaussians = len(centers)
-    
+
     # Set default amplitudes and sigmas if not provided
     if amplitudes is None:
         amplitudes = [1.0] * n_gaussians
     if sigmas is None:
         sigmas = [0.2] * n_gaussians
-    
+
     # Validate lengths
     if len(amplitudes) != n_gaussians:
         raise ValueError(
@@ -132,33 +134,33 @@ def multi_gaussian_stimulus(
         raise ValueError(
             f"Number of sigmas ({len(sigmas)}) must match number of centers ({n_gaussians})"
         )
-    
+
     # Determine target device
     target_device = device if device is not None else xx.device
-    
+
     # Initialize output tensor
     result = torch.zeros_like(xx, device=target_device)
-    
+
     # Add each Gaussian
     for (cx, cy), amp, sig in zip(centers, amplitudes, sigmas):
         result += gaussian_stimulus(xx, yy, cx, cy, amp, sig, device=target_device)
-    
+
     return result
 
 
 class GaussianStimulus(torch.nn.Module):
     """PyTorch module for generating Gaussian stimuli.
-    
+
     This module encapsulates Gaussian stimulus generation as a stateful
     torch.nn.Module, allowing it to be composed with other PyTorch layers
     and moved between devices.
-    
+
     Attributes:
         center_x: X-coordinate of Gaussian center. Units: mm.
         center_y: Y-coordinate of Gaussian center. Units: mm.
         amplitude: Peak amplitude of the Gaussian.
         sigma: Standard deviation of the Gaussian. Units: mm.
-    
+
     Example:
         >>> import torch
         >>> gaussian = GaussianStimulus(center_x=0.5, center_y=-0.5, amplitude=2.0, sigma=0.3)
@@ -167,7 +169,7 @@ class GaussianStimulus(torch.nn.Module):
         >>> stim.shape
         torch.Size([32, 32])
     """
-    
+
     def __init__(
         self,
         center_x: float = 0.0,
@@ -176,37 +178,37 @@ class GaussianStimulus(torch.nn.Module):
         sigma: float = 0.2,
     ) -> None:
         """Initialize Gaussian stimulus parameters.
-        
+
         Args:
             center_x: X-coordinate of Gaussian center. Units: mm.
             center_y: Y-coordinate of Gaussian center. Units: mm.
             amplitude: Peak amplitude of the Gaussian.
             sigma: Standard deviation of the Gaussian. Units: mm.
-        
+
         Raises:
             ValueError: If sigma is non-positive.
         """
         super().__init__()
-        
+
         if sigma <= 0:
             raise ValueError(f"sigma must be positive, got {sigma}")
-        
+
         # Register parameters as buffers (non-trainable tensors that move with module)
         self.register_buffer("center_x", torch.tensor(center_x))
         self.register_buffer("center_y", torch.tensor(center_y))
         self.register_buffer("amplitude", torch.tensor(amplitude))
         self.register_buffer("sigma", torch.tensor(sigma))
-    
+
     def forward(self, xx: torch.Tensor, yy: torch.Tensor) -> torch.Tensor:
         """Generate Gaussian stimulus on the given coordinate grid.
-        
+
         Args:
             xx: Tensor of x-coordinates, shape [H, W] or [batch, H, W]. Units: mm.
             yy: Tensor of y-coordinates, shape [H, W] or [batch, H, W]. Units: mm.
-        
+
         Returns:
             Gaussian stimulus tensor with same shape as xx and yy.
-        
+
         Example:
             >>> gaussian = GaussianStimulus(0.0, 0.0, 1.0, 0.5)
             >>> xx = torch.linspace(-1, 1, 16).unsqueeze(0).expand(16, -1)
@@ -229,18 +231,50 @@ class GaussianStimulus(torch.nn.Module):
     def get_param_spec(cls) -> List[ParamSpec]:
         """Return parameter specifications for UI auto-generation."""
         return [
-            ParamSpec("center_x", label="Center X", dtype="float", default=0.0,
-                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm",
-                      tooltip="X position of Gaussian peak"),
-            ParamSpec("center_y", label="Center Y", dtype="float", default=0.0,
-                      min_val=-20.0, max_val=20.0, step=0.1, unit="mm",
-                      tooltip="Y position of Gaussian peak"),
-            ParamSpec("amplitude", label="Amplitude", dtype="float", default=1.0,
-                      min_val=0.0, max_val=500.0, step=0.5, unit="mA",
-                      tooltip="Peak current amplitude"),
-            ParamSpec("sigma", label="Sigma", dtype="float", default=0.2,
-                      min_val=0.01, max_val=20.0, step=0.05, unit="mm",
-                      tooltip="Gaussian width (standard deviation)"),
+            ParamSpec(
+                "center_x",
+                label="Center X",
+                dtype="float",
+                default=0.0,
+                min_val=-20.0,
+                max_val=20.0,
+                step=0.1,
+                unit="mm",
+                tooltip="X position of Gaussian peak",
+            ),
+            ParamSpec(
+                "center_y",
+                label="Center Y",
+                dtype="float",
+                default=0.0,
+                min_val=-20.0,
+                max_val=20.0,
+                step=0.1,
+                unit="mm",
+                tooltip="Y position of Gaussian peak",
+            ),
+            ParamSpec(
+                "amplitude",
+                label="Amplitude",
+                dtype="float",
+                default=1.0,
+                min_val=0.0,
+                max_val=500.0,
+                step=0.5,
+                unit="mA",
+                tooltip="Peak current amplitude",
+            ),
+            ParamSpec(
+                "sigma",
+                label="Sigma",
+                dtype="float",
+                default=0.2,
+                min_val=0.01,
+                max_val=20.0,
+                step=0.05,
+                unit="mm",
+                tooltip="Gaussian width (standard deviation)",
+            ),
         ]
 
 
@@ -253,11 +287,11 @@ def batched_gaussian_stimulus(
     device: torch.device | str | None = None,
 ) -> torch.Tensor:
     """Generate a batch of Gaussian stimuli with different parameters.
-    
+
     This function efficiently generates multiple Gaussian stimuli in parallel,
     with each item in the batch having potentially different centers, amplitudes,
     and sigmas. Useful for batch processing in neural network training.
-    
+
     Args:
         xx: Tensor of x-coordinates, shape [H, W]. Units: mm.
         yy: Tensor of y-coordinates, shape [H, W]. Units: mm.
@@ -265,14 +299,14 @@ def batched_gaussian_stimulus(
         amplitudes: Batch of amplitudes, shape [batch]. If None, uses 1.0 for all.
         sigmas: Batch of standard deviations, shape [batch]. If None, uses 0.2 for all.
         device: Device to create stimuli on. If None, uses xx.device.
-    
+
     Returns:
         Batch of Gaussian stimuli, shape [batch, H, W].
-    
+
     Raises:
         ValueError: If centers doesn't have shape [batch, 2].
         ValueError: If amplitudes or sigmas don't match batch size.
-    
+
     Example:
         >>> import torch
         >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
@@ -283,15 +317,15 @@ def batched_gaussian_stimulus(
     """
     if centers.ndim != 2 or centers.shape[1] != 2:
         raise ValueError(f"centers must have shape [batch, 2], got {centers.shape}")
-    
+
     batch_size = centers.shape[0]
-    
+
     # Set defaults
     if amplitudes is None:
         amplitudes = torch.ones(batch_size, device=centers.device)
     if sigmas is None:
         sigmas = torch.full((batch_size,), 0.2, device=centers.device)
-    
+
     # Validate shapes
     if amplitudes.shape[0] != batch_size:
         raise ValueError(
@@ -301,31 +335,31 @@ def batched_gaussian_stimulus(
         raise ValueError(
             f"sigmas batch size ({sigmas.shape[0]}) must match centers ({batch_size})"
         )
-    
+
     # Determine target device
     target_device = device if device is not None else xx.device
-    
+
     # Move everything to target device
     xx = xx.to(target_device)
     yy = yy.to(target_device)
     centers = centers.to(target_device)
     amplitudes = amplitudes.to(target_device)
     sigmas = sigmas.to(target_device)
-    
+
     # Expand spatial grids to batch dimension: [1, H, W]
     xx_batch = xx.unsqueeze(0)  # [1, H, W]
     yy_batch = yy.unsqueeze(0)  # [1, H, W]
-    
+
     # Expand parameters to spatial dimensions: [batch, 1, 1]
     centers_x = centers[:, 0].view(batch_size, 1, 1)  # [batch, 1, 1]
     centers_y = centers[:, 1].view(batch_size, 1, 1)  # [batch, 1, 1]
     amps = amplitudes.view(batch_size, 1, 1)  # [batch, 1, 1]
     sigs = sigmas.view(batch_size, 1, 1)  # [batch, 1, 1]
-    
+
     # Compute batched Gaussians using broadcasting
     r_squared = (xx_batch - centers_x) ** 2 + (yy_batch - centers_y) ** 2
-    gaussians = amps * torch.exp(-r_squared / (2 * sigs ** 2))
-    
+    gaussians = amps * torch.exp(-r_squared / (2 * sigs**2))
+
     return gaussians
 
 

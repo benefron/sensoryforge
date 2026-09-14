@@ -1,6 +1,7 @@
 """
 Test configuration and fixtures for the bio-inspired encoding project.
 """
+
 import os
 import sys
 from pathlib import Path

@@ -44,6 +44,7 @@ FIGURES_SUBDIR = "figures"
 # ExperimentManager
 # ---------------------------------------------------------------------------
 
+
 class ExperimentManager:
     """Manages an on-disk experiment directory shared across GUI tabs.
 

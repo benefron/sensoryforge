@@ -42,30 +42,29 @@ from sensoryforge.gui.visualization.raster_panel import RasterPanel
 from sensoryforge.gui.visualization.firing_rate_panel import FiringRatePanel
 from sensoryforge.gui.visualization.voltage_panel import VoltagePanel
 
-
 # ---------------------------------------------------------------------------
 # Preset layout definitions
 # ---------------------------------------------------------------------------
 
 # Each preset is a list of (row, col, rowspan, colspan, PanelClass) tuples.
 _PANEL_CLASSES: Dict[str, Type[VisualizationPanel]] = {
-    "Stimulus":         StimulusPanel,
-    "Receptor Drive":   ReceptorPanel,
-    "Neuron Heatmap":   NeuronHeatmapPanel,
-    "Neuron Activity":  NeuronPanel,
-    "Spike Raster":     RasterPanel,
-    "Firing Rate":      FiringRatePanel,
-    "Voltage Trace":    VoltagePanel,
+    "Stimulus": StimulusPanel,
+    "Receptor Drive": ReceptorPanel,
+    "Neuron Heatmap": NeuronHeatmapPanel,
+    "Neuron Activity": NeuronPanel,
+    "Spike Raster": RasterPanel,
+    "Firing Rate": FiringRatePanel,
+    "Voltage Trace": VoltagePanel,
 }
 
 _PRESET_ICON = {
-    "1 Panel":   "▣",
+    "1 Panel": "▣",
     "2 – Side by Side": "▣▣",
-    "2 – Stacked":      "▣\n▣",
-    "2×2 Grid":  "▣▣\n▣▣",
-    "Default":   "▣▣▣\n▣▣▣",
+    "2 – Stacked": "▣\n▣",
+    "2×2 Grid": "▣▣\n▣▣",
+    "Default": "▣▣▣\n▣▣▣",
     "2D Grid Focus": "▣▣▣",
-    "3 Wide":    "▣▣▣",
+    "3 Wide": "▣▣▣",
     "Focus + Details": "▣▣\n▣▣",
 }
 
@@ -220,8 +219,8 @@ def _preset_to_dock_layout(
 class _DockCanvas(QtWidgets.QWidget):
     """Hosts the panel grid using pyqtgraph DockArea for drag/float/split."""
 
-    panel_settings_requested = QtCore.pyqtSignal(object)   # VisualizationPanel
-    replace_requested = QtCore.pyqtSignal(object, str)      # panel, panel_type_name
+    panel_settings_requested = QtCore.pyqtSignal(object)  # VisualizationPanel
+    replace_requested = QtCore.pyqtSignal(object, str)  # panel, panel_type_name
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -269,6 +268,7 @@ class _DockCanvas(QtWidgets.QWidget):
 # ---------------------------------------------------------------------------
 # Settings sidebar
 # ---------------------------------------------------------------------------
+
 
 class _SettingsSidebar(QtWidgets.QWidget):
     """Right-side panel that shows the settings widget for the active panel."""
@@ -338,11 +338,12 @@ class _SettingsSidebar(QtWidgets.QWidget):
 # Toolbar: preset chooser + Add Panel
 # ---------------------------------------------------------------------------
 
+
 class _Toolbar(QtWidgets.QWidget):
     """Top bar: preset selector, add-panel menu, data status."""
 
     preset_selected = QtCore.pyqtSignal(str)
-    add_panel_requested = QtCore.pyqtSignal(str)   # panel display name
+    add_panel_requested = QtCore.pyqtSignal(str)  # panel display name
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -384,14 +385,18 @@ class _Toolbar(QtWidgets.QWidget):
 
         # Layout presets
         lbl = QtWidgets.QLabel("Layout:")
-        lbl.setStyleSheet("font-size: 11px; color: #999; background: transparent; border: none;")
+        lbl.setStyleSheet(
+            "font-size: 11px; color: #999; background: transparent; border: none;"
+        )
         layout.addWidget(lbl)
 
         self._preset_cmb = QtWidgets.QComboBox()
         self._preset_cmb.addItems(list(_PRESETS.keys()))
         self._preset_cmb.setCurrentText(_DEFAULT_PRESET)
         self._preset_cmb.setFixedWidth(160)
-        self._preset_cmb.setToolTip("Choose layout, then Apply. Use ▾ on each panel to change its type.")
+        self._preset_cmb.setToolTip(
+            "Choose layout, then Apply. Use ▾ on each panel to change its type."
+        )
         self._preset_cmb.currentTextChanged.connect(self.preset_selected)
         layout.addWidget(self._preset_cmb)
 
@@ -444,6 +449,7 @@ class _Toolbar(QtWidgets.QWidget):
 # Main VisualizationTab
 # ---------------------------------------------------------------------------
 
+
 class VisualizationTab(QtWidgets.QWidget):
     """Multi-panel, time-synchronized simulation visualization tab.
 
@@ -491,16 +497,18 @@ class VisualizationTab(QtWidgets.QWidget):
 
         for name, result in sim_results.items():
             population_results[name] = {
-                "drive":      result.drive,
-                "raw_drive": result.raw_drive if hasattr(result, "raw_drive") and result.raw_drive is not None else result.drive,
-                "v_trace":   result.v_trace,
-                "spikes":    result.spikes,
+                "drive": result.drive,
+                "raw_drive": (
+                    result.raw_drive
+                    if hasattr(result, "raw_drive") and result.raw_drive is not None
+                    else result.drive
+                ),
+                "v_trace": result.v_trace,
+                "spikes": result.spikes,
             }
 
         # Preserve spatial data if already set
-        neuron_positions = (
-            self._data.neuron_positions if self._data is not None else {}
-        )
+        neuron_positions = self._data.neuron_positions if self._data is not None else {}
         receptor_positions = (
             self._data.receptor_positions if self._data is not None else None
         )
@@ -572,11 +580,18 @@ class VisualizationTab(QtWidgets.QWidget):
                         break
                     except Exception:
                         pass
-                if receptor_positions is None and hasattr(pop, "module") and pop.module is not None:
+                if (
+                    receptor_positions is None
+                    and hasattr(pop, "module")
+                    and pop.module is not None
+                ):
                     try:
                         gm = getattr(pop, "_grid_manager_ref", None)
                         if gm is not None and gm.xx is not None:
-                            xx, yy = gm.xx.detach().cpu().numpy(), gm.yy.detach().cpu().numpy()
+                            xx, yy = (
+                                gm.xx.detach().cpu().numpy(),
+                                gm.yy.detach().cpu().numpy(),
+                            )
                             receptor_positions = np.stack(
                                 [xx.ravel(), yy.ravel()], axis=1
                             )
@@ -634,7 +649,9 @@ class VisualizationTab(QtWidgets.QWidget):
         pr_layout.setContentsMargins(6, 4, 6, 4)
         pr_layout.setSpacing(6)
         pr_label = QtWidgets.QLabel("Past Runs:")
-        pr_label.setStyleSheet("color: #aaa; font-size: 11px; background: transparent; border: none;")
+        pr_label.setStyleSheet(
+            "color: #aaa; font-size: 11px; background: transparent; border: none;"
+        )
         pr_layout.addWidget(pr_label)
         self._results_list = QtWidgets.QListWidget()
         self._results_list.setMaximumHeight(72)
@@ -643,7 +660,9 @@ class VisualizationTab(QtWidgets.QWidget):
             "QListWidget::item:selected { background: #3a7bd5; }"
         )
         self._results_list.setToolTip("Double-click to reload cached results")
-        self._results_list.itemDoubleClicked.connect(lambda _: self._load_selected_cached_result())
+        self._results_list.itemDoubleClicked.connect(
+            lambda _: self._load_selected_cached_result()
+        )
         pr_layout.addWidget(self._results_list, stretch=1)
         btn_refresh_runs = QtWidgets.QPushButton("↻")
         btn_refresh_runs.setFixedWidth(28)
@@ -709,7 +728,9 @@ class VisualizationTab(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _on_seek(self, t_idx: int) -> None:
-        for panel in list(self._panels):  # snapshot; list may change during preset switch
+        for panel in list(
+            self._panels
+        ):  # snapshot; list may change during preset switch
             try:
                 panel.seek(t_idx)
             except RuntimeError:
@@ -818,11 +839,14 @@ class VisualizationTab(QtWidgets.QWidget):
             del self._pending_innervation_weights
 
         import traceback
+
         for panel in self._panels:
             try:
                 panel.set_data(self._data)
             except Exception:
-                print(f"[VisualizationTab] Error in {panel.PANEL_DISPLAY_NAME}.set_data:")
+                print(
+                    f"[VisualizationTab] Error in {panel.PANEL_DISPLAY_NAME}.set_data:"
+                )
                 traceback.print_exc()
 
         if self._data.n_steps > 0:
@@ -841,7 +865,9 @@ class VisualizationTab(QtWidgets.QWidget):
         entries = []
         for pt_path in sorted(self._results_dir.glob("*.pt"), reverse=True):
             try:
-                bundle = torch.load(str(pt_path), map_location="cpu", weights_only=False)
+                bundle = torch.load(
+                    str(pt_path), map_location="cpu", weights_only=False
+                )
                 run_id = bundle.get("run_id", pt_path.stem)
                 stimulus = bundle.get("stimulus", "?")
                 model = bundle.get("model", "?")
@@ -867,7 +893,9 @@ class VisualizationTab(QtWidgets.QWidget):
         try:
             bundle = torch.load(path_str, map_location="cpu", weights_only=False)
         except Exception as exc:
-            QtWidgets.QMessageBox.critical(self, "Load failed", f"Cannot load cached result:\n{exc}")
+            QtWidgets.QMessageBox.critical(
+                self, "Load failed", f"Cannot load cached result:\n{exc}"
+            )
             return
 
         sim_results_raw = bundle.get("results", {})
@@ -879,6 +907,7 @@ class VisualizationTab(QtWidgets.QWidget):
 
         # Reconstruct a dict compatible with set_simulation_results
         from sensoryforge.gui.tabs.spiking_tab import SimulationResult
+
         empty = np.zeros((len(time_ms), 1), dtype=np.float32)
         sim_results = {}
         for pop_name, data in sim_results_raw.items():

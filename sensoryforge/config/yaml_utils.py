@@ -11,7 +11,9 @@ class UniqueKeyLoader(yaml.SafeLoader):
     """YAML loader that rejects duplicate keys."""
 
 
-def _construct_mapping(loader: UniqueKeyLoader, node: yaml.Node, deep: bool = False) -> dict:
+def _construct_mapping(
+    loader: UniqueKeyLoader, node: yaml.Node, deep: bool = False
+) -> dict:
     mapping = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=deep)

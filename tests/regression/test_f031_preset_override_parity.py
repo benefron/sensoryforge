@@ -30,7 +30,6 @@ from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPip
 from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
 from sensoryforge.core.simulation_engine import SimulationEngine
 
-
 OVERRIDE_CASES = [
     {},
     {"d": 4.0},
@@ -42,7 +41,9 @@ OVERRIDE_CASES = [
 
 def _canonical_config(overrides: dict) -> SensoryForgeConfig:
     return SensoryForgeConfig(
-        grids=[GridConfig(name="grid", arrangement="grid", rows=10, cols=10, spacing=0.15)],
+        grids=[
+            GridConfig(name="grid", arrangement="grid", rows=10, cols=10, spacing=0.15)
+        ],
         populations=[
             PopulationConfig(
                 name="RA Pop",
@@ -69,7 +70,9 @@ def test_resolver_engine_and_adapter_agree_on_ra_overrides(overrides):
     """
     resolved = resolve_neuron_params("izhikevich", "RA", overrides)
     for key in ("a", "b", "c", "d"):
-        assert key in resolved, f"resolved params missing {key!r} for overrides={overrides}"
+        assert (
+            key in resolved
+        ), f"resolved params missing {key!r} for overrides={overrides}"
 
     config = _canonical_config(overrides)
 

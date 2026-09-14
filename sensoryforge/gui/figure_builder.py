@@ -12,9 +12,11 @@ from PyQt5 import QtWidgets
 # Matplotlib for colorbar only (small, simple)
 try:
     import matplotlib
+
     matplotlib.use("Qt5Agg")
     from matplotlib.figure import Figure
     from matplotlib.colors import LinearSegmentedColormap, BoundaryNorm
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -53,11 +55,13 @@ def _export_colorbar(
     colors = []
     for frac in fractions:
         factor = 1.0 - frac * 0.65  # 1.0 at min (light), 0.35 at max (dark)
-        colors.append((
-            base_color[0] * factor,
-            base_color[1] * factor,
-            base_color[2] * factor,
-        ))
+        colors.append(
+            (
+                base_color[0] * factor,
+                base_color[1] * factor,
+                base_color[2] * factor,
+            )
+        )
     cmap = LinearSegmentedColormap.from_list("weight", colors, N=num_levels)
     boundaries = [
         weight_min + (weight_max - weight_min) * i / num_levels
@@ -125,9 +129,7 @@ class ExportDialog(QtWidgets.QDialog):
         layout.addWidget(colorbar_group)
 
         layout.addWidget(
-            QtWidgets.QLabel(
-                "Tip: Export both, then composite in your figure editor."
-            )
+            QtWidgets.QLabel("Tip: Export both, then composite in your figure editor.")
         )
 
         close_btn = QtWidgets.QPushButton("Close")
@@ -160,11 +162,15 @@ class ExportDialog(QtWidgets.QDialog):
                 exporter.parameters()["antialias"] = True
             exporter.export(str(path))
             QtWidgets.QMessageBox.information(
-                self, "Exported", f"Plot saved to {path}",
+                self,
+                "Exported",
+                f"Plot saved to {path}",
             )
         except Exception as exc:
             QtWidgets.QMessageBox.critical(
-                self, "Export failed", f"Could not export plot:\n{exc}",
+                self,
+                "Export failed",
+                f"Could not export plot:\n{exc}",
             )
 
     def _export_colorbar(self) -> None:
@@ -189,7 +195,8 @@ class ExportDialog(QtWidgets.QDialog):
             self,
             "Format",
             "Export as SVG (vector) or PNG (raster)?\nYes=SVG, No=PNG",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            QtWidgets.QMessageBox.Yes
+            | QtWidgets.QMessageBox.No
             | QtWidgets.QMessageBox.Cancel,
             QtWidgets.QMessageBox.Yes,
         )
@@ -200,10 +207,12 @@ class ExportDialog(QtWidgets.QDialog):
         ext = ".svg" if use_svg else ".png"
         try:
             for pop, w_min, w_max, rgb in pops:
-                safe_name = "".join(
-                    c if c.isalnum() or c in "_-" else "_"
-                    for c in pop.name
-                ).strip() or "population"
+                safe_name = (
+                    "".join(
+                        c if c.isalnum() or c in "_-" else "_" for c in pop.name
+                    ).strip()
+                    or "population"
+                )
                 path = out_dir / f"{safe_name}_colorbar{ext}"
                 _export_colorbar(
                     str(path),
@@ -220,5 +229,7 @@ class ExportDialog(QtWidgets.QDialog):
             )
         except Exception as exc:
             QtWidgets.QMessageBox.critical(
-                self, "Export failed", f"Could not export colorbars:\n{exc}",
+                self,
+                "Export failed",
+                f"Could not export colorbars:\n{exc}",
             )

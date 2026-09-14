@@ -21,7 +21,7 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 
 class TestSimulationEngineBasic:
     """Basic functionality tests for SimulationEngine."""
-    
+
     def test_engine_initialization(self):
         """Test that engine initializes correctly."""
         config = SensoryForgeConfig(
@@ -55,14 +55,14 @@ class TestSimulationEngineBasic:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         assert engine is not None
         assert len(engine.grids) == 1
         assert len(engine.populations) == 1
         assert engine.populations[0]["name"] == "SA Population"
-    
+
     def test_engine_with_multiple_populations(self):
         """Test engine with multiple populations."""
         config = SensoryForgeConfig(
@@ -102,13 +102,13 @@ class TestSimulationEngineBasic:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         assert len(engine.populations) == 2
         assert engine.populations[0]["name"] == "SA Population"
         assert engine.populations[1]["name"] == "RA Population"
-    
+
     def test_engine_run_basic(self):
         """Test basic simulation run."""
         config = SensoryForgeConfig(
@@ -142,19 +142,19 @@ class TestSimulationEngineBasic:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         # Create simple stimulus [batch, time, height, width] or [time, height, width]
         # SimulationEngine will add batch dimension if needed
         stimulus = torch.randn(100, 20, 20)  # [time, height, width]
-        
+
         results = engine.run(stimulus, return_intermediates=False)
-        
+
         assert "SA Population" in results
         assert "spikes" in results["SA Population"]
         assert isinstance(results["SA Population"]["spikes"], torch.Tensor)
-    
+
     def test_engine_run_with_intermediates(self):
         """Test simulation run with intermediate results."""
         config = SensoryForgeConfig(
@@ -186,12 +186,12 @@ class TestSimulationEngineBasic:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         stimulus = torch.randn(100, 20, 20)
         results = engine.run(stimulus, return_intermediates=True)
-        
+
         assert "SA Population" in results
         pop_results = results["SA Population"]
         assert "spikes" in pop_results
@@ -201,8 +201,10 @@ class TestSimulationEngineBasic:
 
 class TestSimulationEngineNeuronArrangements:
     """Test different neuron arrangements."""
-    
-    @pytest.mark.parametrize("arrangement", ["grid", "poisson", "hex", "jittered_grid", "blue_noise"])
+
+    @pytest.mark.parametrize(
+        "arrangement", ["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
+    )
     def test_neuron_arrangements(self, arrangement):
         """Test that different neuron arrangements work."""
         config = SensoryForgeConfig(
@@ -236,9 +238,9 @@ class TestSimulationEngineNeuronArrangements:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         # Verify neuron centers were generated
         assert len(engine.populations) == 1
         pop = engine.populations[0]
@@ -249,8 +251,10 @@ class TestSimulationEngineNeuronArrangements:
 
 class TestSimulationEngineInnervationMethods:
     """Test different innervation methods."""
-    
-    @pytest.mark.parametrize("method", ["gaussian", "uniform", "one_to_one", "distance_weighted"])
+
+    @pytest.mark.parametrize(
+        "method", ["gaussian", "uniform", "one_to_one", "distance_weighted"]
+    )
     def test_innervation_methods(self, method):
         """Test that different innervation methods work."""
         config = SensoryForgeConfig(
@@ -285,9 +289,9 @@ class TestSimulationEngineInnervationMethods:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         # Verify innervation module was created
         assert len(engine.populations) == 1
         pop = engine.populations[0]
@@ -297,7 +301,7 @@ class TestSimulationEngineInnervationMethods:
 
 class TestSimulationEngineFilters:
     """Test different filter methods."""
-    
+
     @pytest.mark.parametrize("filter_method", ["none", "sa", "ra"])
     def test_filter_methods(self, filter_method):
         """Test that different filter methods work."""
@@ -319,7 +323,13 @@ class TestSimulationEngineFilters:
                     filter_method=filter_method,
                     innervation_method="gaussian",
                     neurons_per_row=10,
-                    filter_params={"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0} if filter_method == "sa" else {"tau_RA": 30.0, "k3": 2.0} if filter_method == "ra" else {},
+                    filter_params=(
+                        {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0}
+                        if filter_method == "sa"
+                        else (
+                            {"tau_RA": 30.0, "k3": 2.0} if filter_method == "ra" else {}
+                        )
+                    ),
                 )
             ],
             stimulus=StimulusConfig(
@@ -331,9 +341,9 @@ class TestSimulationEngineFilters:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         # Verify filter was created (or None if "none")
         assert len(engine.populations) == 1
         pop = engine.populations[0]
@@ -346,7 +356,7 @@ class TestSimulationEngineFilters:
 
 class TestSimulationEngineNeuronModels:
     """Test different neuron models."""
-    
+
     @pytest.mark.parametrize("model", ["izhikevich", "adex", "mqif", "fa", "sa"])
     def test_neuron_models(self, model):
         """Test that different neuron models work."""
@@ -380,9 +390,9 @@ class TestSimulationEngineNeuronModels:
                 dt=1.0,
             ),
         )
-        
+
         engine = SimulationEngine(config)
-        
+
         # Verify neuron model was created
         assert len(engine.populations) == 1
         pop = engine.populations[0]
@@ -392,7 +402,7 @@ class TestSimulationEngineNeuronModels:
 
 class TestSimulationEngineErrorHandling:
     """Test error handling in SimulationEngine."""
-    
+
     def test_missing_grid_raises_error(self):
         """Test that missing grid raises appropriate error."""
         config = SensoryForgeConfig(
@@ -416,10 +426,10 @@ class TestSimulationEngineErrorHandling:
                 dt=1.0,
             ),
         )
-        
+
         with pytest.raises(ValueError, match="has no target grid"):
             SimulationEngine(config)
-    
+
     def test_invalid_innervation_method_raises_error(self):
         """Test that invalid innervation method raises error."""
         config = SensoryForgeConfig(
@@ -451,10 +461,10 @@ class TestSimulationEngineErrorHandling:
                 dt=1.0,
             ),
         )
-        
+
         with pytest.raises(ValueError, match="Unknown innervation method"):
             SimulationEngine(config)
-    
+
     def test_invalid_neuron_model_raises_error(self):
         """Test that invalid neuron model raises error."""
         config = SensoryForgeConfig(
@@ -486,6 +496,6 @@ class TestSimulationEngineErrorHandling:
                 dt=1.0,
             ),
         )
-        
+
         with pytest.raises(ValueError, match="Unknown neuron model"):
             SimulationEngine(config)

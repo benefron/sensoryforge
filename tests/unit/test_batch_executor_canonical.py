@@ -13,10 +13,10 @@ from unittest.mock import patch, MagicMock
 
 from sensoryforge.core.batch_executor import BatchExecutor
 
-
 # ---------------------------------------------------------------------------
 # Minimal configs
 # ---------------------------------------------------------------------------
+
 
 def _canonical_batch_config() -> dict:
     return {
@@ -90,6 +90,7 @@ def _legacy_batch_config() -> dict:
 # Format detection
 # ---------------------------------------------------------------------------
 
+
 def test_canonical_batch_config_detected():
     executor = BatchExecutor(_canonical_batch_config())
     assert executor._is_canonical is True
@@ -97,6 +98,7 @@ def test_canonical_batch_config_detected():
 
 def test_canonical_batch_config_creates_engine():
     from sensoryforge.core.simulation_engine import SimulationEngine
+
     executor = BatchExecutor(_canonical_batch_config())
     assert executor.engine is not None
     assert isinstance(executor.engine, SimulationEngine)
@@ -116,6 +118,7 @@ def test_legacy_batch_config_engine_is_none():
 # _execute_single_stimulus canonical path
 # ---------------------------------------------------------------------------
 
+
 def test_canonical_execute_returns_flattened_keys():
     """For canonical configs, result keys must be pop_name__metric format."""
     executor = BatchExecutor(_canonical_batch_config())
@@ -130,7 +133,9 @@ def test_canonical_execute_returns_flattened_keys():
 
     # Must have at least one key with __ separator
     flat_keys = [k for k in result.keys() if "__" in k]
-    assert len(flat_keys) > 0, f"Expected pop__key format keys, got: {list(result.keys())}"
+    assert (
+        len(flat_keys) > 0
+    ), f"Expected pop__key format keys, got: {list(result.keys())}"
 
     # Must have spikes key for the SA population
     spike_keys = [k for k in result.keys() if k.endswith("__spikes")]

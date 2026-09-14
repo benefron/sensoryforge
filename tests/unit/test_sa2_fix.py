@@ -2,6 +2,7 @@
 """
 Test comprehensive parameter control for all neuron types and membrane noise.
 """
+
 import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 

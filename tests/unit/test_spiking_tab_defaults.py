@@ -17,6 +17,7 @@ def _ensure_app():
     global _APP
     try:
         from PyQt5 import QtWidgets
+
         _APP = QtWidgets.QApplication.instance()
         if _APP is None:
             _APP = QtWidgets.QApplication(sys.argv[:1])
@@ -49,8 +50,12 @@ def test_ra_izhikevich_population_resolves_fast_spiking(spiking_tab):
     from sensoryforge.gui.tabs.spiking_tab import PopulationConfig
     import torch
 
-    config = PopulationConfig(name="RA Pop", neuron_type="RA", model="Izhikevich", filter_method="ra")
-    neuron = spiking_tab._create_neuron_model(config, dt_ms=0.1, device=torch.device("cpu"))
+    config = PopulationConfig(
+        name="RA Pop", neuron_type="RA", model="Izhikevich", filter_method="ra"
+    )
+    neuron = spiking_tab._create_neuron_model(
+        config, dt_ms=0.1, device=torch.device("cpu")
+    )
     assert neuron.a == 0.1
     assert neuron.d == 2.0
 
@@ -59,8 +64,12 @@ def test_sa_izhikevich_population_resolves_regular_spiking(spiking_tab):
     from sensoryforge.gui.tabs.spiking_tab import PopulationConfig
     import torch
 
-    config = PopulationConfig(name="SA Pop", neuron_type="SA", model="Izhikevich", filter_method="sa")
-    neuron = spiking_tab._create_neuron_model(config, dt_ms=0.1, device=torch.device("cpu"))
+    config = PopulationConfig(
+        name="SA Pop", neuron_type="SA", model="Izhikevich", filter_method="sa"
+    )
+    neuron = spiking_tab._create_neuron_model(
+        config, dt_ms=0.1, device=torch.device("cpu")
+    )
     assert neuron.a == 0.02
     assert neuron.d == 8.0
 
@@ -68,6 +77,8 @@ def test_sa_izhikevich_population_resolves_regular_spiking(spiking_tab):
 def test_ra_filter_resolves_tau_ra_8ms(spiking_tab):
     from sensoryforge.gui.tabs.spiking_tab import PopulationConfig
 
-    config = PopulationConfig(name="RA Pop", neuron_type="RA", model="Izhikevich", filter_method="ra")
+    config = PopulationConfig(
+        name="RA Pop", neuron_type="RA", model="Izhikevich", filter_method="ra"
+    )
     params = spiking_tab._gather_filter_parameters(config)
     assert params["tau_RA"] == 8.0

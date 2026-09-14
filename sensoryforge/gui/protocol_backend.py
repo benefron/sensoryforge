@@ -258,9 +258,7 @@ class ProtocolWorker(QtCore.QObject):
                 packets.extend(self._pack_center_surround(spec))
         return packets
 
-    def _execute_packets(
-        self, packets: List[StimulusPacket]
-    ) -> Dict[str, RunResult]:
+    def _execute_packets(self, packets: List[StimulusPacket]) -> Dict[str, RunResult]:
         if not packets:
             return {}
         total_jobs = max(len(self._populations) * len(packets), 1)
@@ -372,7 +370,7 @@ class ProtocolWorker(QtCore.QObject):
                     )
                 if not drive_segments or not spike_segments:
                     continue
-                
+
                 # Concatenate segments
                 drive_tensor = torch.cat(drive_segments, dim=1)
                 filtered_tensor = torch.cat(filtered_segments, dim=1)
@@ -381,7 +379,7 @@ class ProtocolWorker(QtCore.QObject):
                 stimulus_tensor = (
                     torch.cat(stimulus_segments, dim=1) if stimulus_segments else None
                 )
-                
+
                 # Clear buffers
                 drive_segments.clear()
                 filtered_segments.clear()
@@ -390,7 +388,7 @@ class ProtocolWorker(QtCore.QObject):
                 stimulus_segments.clear()
 
                 neuron_type = getattr(population, "neuron_type", None)
-                
+
                 results[pop_name] = RunResult(
                     population_name=pop_name,
                     neuron_type=str(neuron_type or ""),
@@ -656,7 +654,7 @@ class ProtocolWorker(QtCore.QObject):
             return inputs
         params = self._sanitize_parameters(dict(config.get("filter_params", {})))
         params.setdefault("dt", dt_ms)
-        
+
         # Use registry to create filter
         try:
             filter_cls = FILTER_REGISTRY.get_class(method)

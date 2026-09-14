@@ -28,6 +28,7 @@ if REPO_ROOT not in sys.path:
 # Worker thread
 # ---------------------------------------------------------------------------
 
+
 class _BatchWorker(QtCore.QThread):
     """Runs BatchExecutor.execute() in a background thread.
 
@@ -53,6 +54,7 @@ class _BatchWorker(QtCore.QThread):
         try:
             # Monkey-patch print so output goes to the log signal
             import builtins
+
             _orig_print = builtins.print
 
             def _patched_print(*args, **kwargs):
@@ -72,12 +74,14 @@ class _BatchWorker(QtCore.QThread):
             self.finished.emit(result)
         except Exception as exc:
             import traceback
+
             self.errored.emit(traceback.format_exc())
 
 
 # ---------------------------------------------------------------------------
 # BatchTab
 # ---------------------------------------------------------------------------
+
 
 class BatchTab(QtWidgets.QWidget):
     """Batch execution and SLURM export tab.
@@ -140,7 +144,9 @@ class BatchTab(QtWidgets.QWidget):
         self._cmb_format.addItems(["pytorch", "hdf5"])
         run_form.addRow("Save format:", self._cmb_format)
 
-        self._chk_intermediates = QtWidgets.QCheckBox("Save filtered drive and voltages")
+        self._chk_intermediates = QtWidgets.QCheckBox(
+            "Save filtered drive and voltages"
+        )
         run_form.addRow("", self._chk_intermediates)
 
         self._lbl_output = QtWidgets.QLabel("—")
@@ -219,6 +225,7 @@ class BatchTab(QtWidgets.QWidget):
 
         try:
             from sensoryforge.core.batch_executor import BatchExecutor
+
             self._executor = BatchExecutor.from_yaml(str(path))
             n = len(self._executor.stimulus_configs)
             self._lbl_sweep.setText(
@@ -235,6 +242,7 @@ class BatchTab(QtWidgets.QWidget):
             self._btn_run.setEnabled(False)
             self._btn_slurm.setEnabled(False)
             import traceback
+
             self._log_line(f"ERROR loading config:\n{traceback.format_exc()}")
 
     def _on_run(self) -> None:
@@ -253,9 +261,7 @@ class BatchTab(QtWidgets.QWidget):
             save_intermediates=self._chk_intermediates.isChecked(),
         )
         self._worker.log_line.connect(self._log_line)
-        self._worker.progress.connect(
-            lambda cur, total: self._progress.setValue(cur)
-        )
+        self._worker.progress.connect(lambda cur, total: self._progress.setValue(cur))
         self._worker.finished.connect(self._on_batch_finished)
         self._worker.errored.connect(self._on_batch_errored)
         self._worker.start()
@@ -322,14 +328,13 @@ class BatchTab(QtWidgets.QWidget):
 
     def _log_line(self, msg: str) -> None:
         self._log.appendPlainText(msg)
-        self._log.verticalScrollBar().setValue(
-            self._log.verticalScrollBar().maximum()
-        )
+        self._log.verticalScrollBar().setValue(self._log.verticalScrollBar().maximum())
 
 
 # ---------------------------------------------------------------------------
 # SLURM settings dialog
 # ---------------------------------------------------------------------------
+
 
 class _SlurmSettingsDialog(QtWidgets.QDialog):
     """Small dialog for SLURM job parameters."""

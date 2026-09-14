@@ -19,8 +19,10 @@ pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _build_small_drive(n_neurons: int = 4, n_steps: int = 2000,
-                       amplitude: float = 1.0) -> torch.Tensor:
+
+def _build_small_drive(
+    n_neurons: int = 4, n_steps: int = 2000, amplitude: float = 1.0
+) -> torch.Tensor:
     """Build a constant [1, T, N] drive tensor simulating a 200ms Gaussian stimulus."""
     return torch.full((1, n_steps, n_neurons), amplitude, dtype=torch.float32)
 
@@ -28,6 +30,7 @@ def _build_small_drive(n_neurons: int = 4, n_steps: int = 2000,
 # ---------------------------------------------------------------------------
 # Full-chain integration tests
 # ---------------------------------------------------------------------------
+
 
 def test_gain_50_produces_spikes():
     """SA filter → gain=50 → Izhikevich must fire at least one spike.
@@ -82,27 +85,33 @@ def test_gain_1_produces_silence():
 # Schema default
 # ---------------------------------------------------------------------------
 
+
 def test_population_config_default_input_gain():
     """PopulationConfig must default input_gain to 50.0, not 1.0."""
     from sensoryforge.config.schema import PopulationConfig
+
     cfg = PopulationConfig(name="test", neuron_type="SA", target_grid="g")
-    assert cfg.input_gain == 50.0, (
-        f"PopulationConfig.input_gain default should be 50.0, got {cfg.input_gain}"
-    )
+    assert (
+        cfg.input_gain == 50.0
+    ), f"PopulationConfig.input_gain default should be 50.0, got {cfg.input_gain}"
 
 
 def test_population_config_from_dict_default_input_gain():
     """PopulationConfig.from_dict must default input_gain to 50.0 when key is absent."""
     from sensoryforge.config.schema import PopulationConfig
-    cfg = PopulationConfig.from_dict({"name": "test", "neuron_type": "SA", "target_grid": "g"})
-    assert cfg.input_gain == 50.0, (
-        f"PopulationConfig.from_dict default input_gain should be 50.0, got {cfg.input_gain}"
+
+    cfg = PopulationConfig.from_dict(
+        {"name": "test", "neuron_type": "SA", "target_grid": "g"}
     )
+    assert (
+        cfg.input_gain == 50.0
+    ), f"PopulationConfig.from_dict default input_gain should be 50.0, got {cfg.input_gain}"
 
 
 # ---------------------------------------------------------------------------
 # GUI spinbox initial value
 # ---------------------------------------------------------------------------
+
 
 def test_spiking_tab_code_sets_gain_spinbox_to_50():
     """The source code for SpikingNeuronTab._build_population_section must set the spinbox to 50.0.
@@ -112,12 +121,13 @@ def test_spiking_tab_code_sets_gain_spinbox_to_50():
     multiple plot-widget-bearing tabs alive.
     """
     import inspect
+
     try:
         from sensoryforge.gui.tabs.spiking_tab import SpikingNeuronTab
     except ImportError:
         pytest.skip("PyQt5 not available")
 
     src = inspect.getsource(SpikingNeuronTab._build_population_section)
-    assert "setValue(50.0)" in src, (
-        "SpikingNeuronTab._build_population_section must call dbl_input_gain.setValue(50.0)"
-    )
+    assert (
+        "setValue(50.0)" in src
+    ), "SpikingNeuronTab._build_population_section must call dbl_input_gain.setValue(50.0)"

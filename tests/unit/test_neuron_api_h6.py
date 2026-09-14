@@ -17,7 +17,6 @@ from sensoryforge.neurons.mqif import MQIFNeuronTorch
 from sensoryforge.neurons.fa import FANeuronTorch
 from sensoryforge.neurons.sa import SANeuronTorch
 
-
 BATCH, STEPS, FEATURES = 2, 50, 10
 
 NEURON_CLASSES = [
@@ -77,9 +76,9 @@ class TestFANeuronRenamedParam:
         sig = inspect.signature(FANeuronTorch.forward)
         params = list(sig.parameters.keys())
         assert params[0] == "self"
-        assert params[1] == "input_current", (
-            f"Expected 'input_current' as first param, got '{params[1]}'"
-        )
+        assert (
+            params[1] == "input_current"
+        ), f"Expected 'input_current' as first param, got '{params[1]}'"
 
     def test_fa_reset_state_clears_internals(self):
         """reset_state() clears refractory and EMA buffers."""

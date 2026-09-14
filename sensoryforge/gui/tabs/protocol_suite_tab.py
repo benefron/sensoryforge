@@ -1,4 +1,5 @@
 """Protocol Suite tab for managing STA-oriented stimulus executions."""
+
 from __future__ import annotations
 
 import json

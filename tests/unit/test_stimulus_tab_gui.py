@@ -6,6 +6,7 @@ patch PyQt5 display calls.  No X11 / Wayland display is required.
 Run with:
     pytest tests/unit/test_stimulus_tab_gui.py -v
 """
+
 from __future__ import annotations
 
 import importlib
@@ -24,6 +25,7 @@ pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 # Minimal PyQt5 stubs so the module can be imported without a display server
 # ---------------------------------------------------------------------------
 
+
 def _make_pyqt5_stubs():
     """Inject lightweight PyQt5 stubs if PyQt5 is not importable."""
     if "PyQt5" in sys.modules:
@@ -37,11 +39,21 @@ def _make_pyqt5_stubs():
     qw = types.ModuleType("PyQt5.QtWidgets")
 
     # Real base-class stubs (needed for CollapsibleGroupBox inheritance chain)
-    class QObject: pass  # noqa: E301
-    class QWidget(QObject): pass  # noqa: E301
-    class QGroupBox(QWidget): pass  # noqa: E301
-    class QFrame(QWidget): pass  # noqa: E301
-    class QAbstractScrollArea(QFrame): pass  # noqa: E301
+    class QObject:
+        pass  # noqa: E301
+
+    class QWidget(QObject):
+        pass  # noqa: E301
+
+    class QGroupBox(QWidget):
+        pass  # noqa: E301
+
+    class QFrame(QWidget):
+        pass  # noqa: E301
+
+    class QAbstractScrollArea(QFrame):
+        pass  # noqa: E301
+
     class QAbstractItemView(QAbstractScrollArea):  # noqa: E301
         SingleSelection = 1
 
@@ -53,12 +65,27 @@ def _make_pyqt5_stubs():
 
     # Everything else can be MagicMock factories
     _MOCK_APIS = [
-        "QFormLayout", "QVBoxLayout", "QHBoxLayout",
-        "QListWidget", "QListWidgetItem", "QButtonGroup", "QToolButton",
-        "QPushButton", "QLabel", "QLineEdit", "QComboBox", "QSpinBox",
-        "QDoubleSpinBox", "QCheckBox", "QSlider", "QScrollArea",
-        "QSizePolicy", "QSplitter",
-        "QApplication", "QMessageBox", "QFileDialog",
+        "QFormLayout",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QListWidget",
+        "QListWidgetItem",
+        "QButtonGroup",
+        "QToolButton",
+        "QPushButton",
+        "QLabel",
+        "QLineEdit",
+        "QComboBox",
+        "QSpinBox",
+        "QDoubleSpinBox",
+        "QCheckBox",
+        "QSlider",
+        "QScrollArea",
+        "QSizePolicy",
+        "QSplitter",
+        "QApplication",
+        "QMessageBox",
+        "QFileDialog",
     ]
     for name in _MOCK_APIS:
         mock_cls = MagicMock(name=name)
@@ -116,7 +143,9 @@ def _pyqt5_stub_environment():
     module's fakes.
     """
     saved = {
-        name: sys.modules[name] for name in _PYQT5_STUB_MODULE_NAMES if name in sys.modules
+        name: sys.modules[name]
+        for name in _PYQT5_STUB_MODULE_NAMES
+        if name in sys.modules
     }
     _make_pyqt5_stubs()
     try:
@@ -190,7 +219,11 @@ class StimulusConfig:
 import importlib.util as _ilu  # noqa: E402
 
 _COLLAPSIBLE_FILE = (
-    Path(__file__).resolve().parents[2] / "sensoryforge" / "gui" / "widgets" / "collapsible.py"
+    Path(__file__).resolve().parents[2]
+    / "sensoryforge"
+    / "gui"
+    / "widgets"
+    / "collapsible.py"
 )
 
 
@@ -205,6 +238,7 @@ def _load_collapsible_class():
 # ===========================================================================
 # Tests for the CollapsibleGroupBox widget
 # ===========================================================================
+
 
 class TestCollapsibleGroupBox:
     """Tests for the shared CollapsibleGroupBox widget."""
@@ -281,6 +315,7 @@ class TestCollapsibleGroupBox:
 # ===========================================================================
 # Tests for stack management logic (isolated from Qt rendering)
 # ===========================================================================
+
 
 class TestStackManagement:
     """Tests for the Add/Update/Revert stack workflow logic."""
@@ -440,7 +475,10 @@ class TestStackSaveLoad:
 
     def test_stack_bundle_includes_all_stimuli(self):
         """Stack bundle includes every stimulus in order."""
-        stimuli = [StimulusConfig(name="S0").as_dict(), StimulusConfig(name="S1").as_dict()]
+        stimuli = [
+            StimulusConfig(name="S0").as_dict(),
+            StimulusConfig(name="S1").as_dict(),
+        ]
         bundle = self._make_bundle(stimuli)
         assert len(bundle["stimuli"]) == 2
         assert bundle["stimuli"][0]["name"] == "S0"
@@ -478,6 +516,7 @@ class TestStackSaveLoad:
 # ===========================================================================
 # Tests for repeat pattern tiling logic
 # ===========================================================================
+
 
 class TestRepeatPatternTiling:
     """Tests for the repeat tiling offset calculations."""
@@ -549,6 +588,7 @@ class TestRepeatPatternTiling:
 # ===========================================================================
 # Tests for type visibility mapping
 # ===========================================================================
+
 
 class TestTypeVisibilityMapping:
     """Tests for dynamic parameter visibility rules per stimulus type."""
@@ -629,22 +669,35 @@ class TestTypeVisibilityMapping:
 
     def test_all_types_at_most_one_subpanel(self):
         """Each type shows at most one primary subtype panel."""
-        all_types = ["gaussian", "point", "edge", "gabor", "grating", "noise",
-                     "texture", "moving"]
+        all_types = [
+            "gaussian",
+            "point",
+            "edge",
+            "gabor",
+            "grating",
+            "noise",
+            "texture",
+            "moving",
+        ]
         for stype in all_types:
             vis = self._visible_for_type(stype)
-            panels = [vis["texture_group"], vis["moving_group"],
-                      vis["gabor_params"], vis["edge_grating_params"],
-                      vis["noise_params"]]
+            panels = [
+                vis["texture_group"],
+                vis["moving_group"],
+                vis["gabor_params"],
+                vis["edge_grating_params"],
+                vis["noise_params"],
+            ]
             active = sum(1 for p in panels if p)
-            assert active <= 1, (
-                f"Type '{stype}' activates {active} subtype panels simultaneously"
-            )
+            assert (
+                active <= 1
+            ), f"Type '{stype}' activates {active} subtype panels simultaneously"
 
 
 # ===========================================================================
 # Tests for full-field stimulus type visibility rules (coord hiding)
 # ===========================================================================
+
 
 class TestFullFieldVisibilityRules:
     """Tests that noise/grating types hide irrelevant coordinate widgets.
@@ -720,16 +773,25 @@ class TestFullFieldVisibilityRules:
 
     def test_spread_hidden_only_for_noise(self):
         """Spread is hidden only for noise, not for grating or any other type."""
-        for stype in ["gaussian", "point", "edge", "gabor", "grating", "texture", "moving"]:
+        for stype in [
+            "gaussian",
+            "point",
+            "edge",
+            "gabor",
+            "grating",
+            "texture",
+            "moving",
+        ]:
             vis = self._compute_visibility(stype)
-            assert vis["spread_visible"] is True, (
-                f"spread should be visible for '{stype}' but was hidden"
-            )
+            assert (
+                vis["spread_visible"] is True
+            ), f"spread should be visible for '{stype}' but was hidden"
 
 
 # ===========================================================================
 # Tests for motion type dispatch logic
 # ===========================================================================
+
 
 class TestMotionTypeDispatchLogic:
     """Tests for the _build_stimulus_frames dispatch conditions.
@@ -787,14 +849,16 @@ class TestMotionTypeDispatchLogic:
         """Noise with circular motion dispatches to trajectory generator."""
         assert self._dispatch("circular", "noise") == "trajectory"
 
-    @pytest.mark.parametrize("stype", ["gaussian", "point", "edge", "gabor", "grating", "noise",
-                                        "texture"])
+    @pytest.mark.parametrize(
+        "stype", ["gaussian", "point", "edge", "gabor", "grating", "noise", "texture"]
+    )
     def test_circular_dispatches_for_all_spatial_types(self, stype):
         """All non-moving spatial types dispatch to trajectory with circular motion."""
         assert self._dispatch("circular", stype) == "trajectory"
 
-    @pytest.mark.parametrize("stype", ["gaussian", "point", "edge", "gabor", "grating", "noise",
-                                        "texture"])
+    @pytest.mark.parametrize(
+        "stype", ["gaussian", "point", "edge", "gabor", "grating", "noise", "texture"]
+    )
     def test_slide_dispatches_for_all_spatial_types(self, stype):
         """All non-moving spatial types dispatch to trajectory with slide motion."""
         assert self._dispatch("slide", stype) == "trajectory"
@@ -806,6 +870,7 @@ class TestMotionTypeDispatchLogic:
 
 try:
     import torch as _torch
+
     _TORCH_AVAILABLE = True
 except ImportError:
     _TORCH_AVAILABLE = False
@@ -827,6 +892,7 @@ class TestCircularMotionTrajectory:
 
     def _import_circular_motion(self):
         import importlib
+
         mod = importlib.import_module("sensoryforge.stimuli.moving")
         return mod.circular_motion, mod.slide_trajectory
 
@@ -844,39 +910,56 @@ class TestCircularMotionTrajectory:
         traj = circular_motion(center=(cx, cy), radius=r, num_steps=100)
         # Compute distance from center for each step
         dist = _torch.sqrt((traj[:, 0] - cx) ** 2 + (traj[:, 1] - cy) ** 2)
-        assert _torch.allclose(dist, _torch.full_like(dist, r), atol=1e-5), (
-            f"Radii not constant: min={dist.min():.6f} max={dist.max():.6f} expected={r}"
-        )
+        assert _torch.allclose(
+            dist, _torch.full_like(dist, r), atol=1e-5
+        ), f"Radii not constant: min={dist.min():.6f} max={dist.max():.6f} expected={r}"
 
     def test_circular_trajectory_first_position_matches_start_angle(self):
         """First position aligns with start_angle relative to center."""
         circular_motion, _ = self._import_circular_motion()
         start_angle = 0.0  # Expected → (center_x + r, center_y)
-        traj = circular_motion(center=(0.0, 0.0), radius=1.0, num_steps=10,
-                                start_angle=start_angle, end_angle=2 * _math.pi)
+        traj = circular_motion(
+            center=(0.0, 0.0),
+            radius=1.0,
+            num_steps=10,
+            start_angle=start_angle,
+            end_angle=2 * _math.pi,
+        )
         expected_x = 1.0  # cos(0) * r
         expected_y = 0.0  # sin(0) * r
-        assert _torch.allclose(traj[0], _torch.tensor([expected_x, expected_y]), atol=1e-5)
+        assert _torch.allclose(
+            traj[0], _torch.tensor([expected_x, expected_y]), atol=1e-5
+        )
 
     def test_circular_trajectory_not_linear(self):
         """Circular trajectory is NOT a straight line (x should vary non-monotonically)."""
         circular_motion, _ = self._import_circular_motion()
-        traj = circular_motion(center=(0.0, 0.0), radius=1.0, num_steps=50,
-                                start_angle=0.0, end_angle=2 * _math.pi)
+        traj = circular_motion(
+            center=(0.0, 0.0),
+            radius=1.0,
+            num_steps=50,
+            start_angle=0.0,
+            end_angle=2 * _math.pi,
+        )
         x_vals = traj[:, 0]
         # A full circle has x values that go +1, 0, -1, 0, +1 — not monotone
         is_monotone_increasing = _torch.all(x_vals[1:] >= x_vals[:-1])
         is_monotone_decreasing = _torch.all(x_vals[1:] <= x_vals[:-1])
-        assert not (is_monotone_increasing or is_monotone_decreasing), (
-            "Circular trajectory x-coordinates are monotone — it's producing a line, not a circle"
-        )
+        assert not (
+            is_monotone_increasing or is_monotone_decreasing
+        ), "Circular trajectory x-coordinates are monotone — it's producing a line, not a circle"
 
     def test_circular_trajectory_completes_full_circle(self):
         """A full-circle trajectory has first and last positions nearly the same."""
         circular_motion, _ = self._import_circular_motion()
         # Use many steps so start/end wrap close
-        traj = circular_motion(center=(0.0, 0.0), radius=1.0, num_steps=360,
-                                start_angle=0.0, end_angle=2 * _math.pi)
+        traj = circular_motion(
+            center=(0.0, 0.0),
+            radius=1.0,
+            num_steps=360,
+            start_angle=0.0,
+            end_angle=2 * _math.pi,
+        )
         # First point ~(1, 0), last point ~(1, 0) for a full revolution
         assert _torch.allclose(traj[0, 0], _torch.tensor(1.0), atol=0.05)
         assert _torch.allclose(traj[-1, 0], _torch.tensor(1.0), atol=0.05)
@@ -904,14 +987,15 @@ class TestCircularMotionTrajectory:
         _, slide_trajectory = self._import_circular_motion()
         traj = slide_trajectory(start=(0.0, 0.0), end=(5.0, 0.0), num_steps=30)
         x_vals = traj[:, 0]
-        assert _torch.all(x_vals[1:] >= x_vals[:-1] - 1e-6), (
-            "Slide trajectory should be monotone along the direction of motion"
-        )
+        assert _torch.all(
+            x_vals[1:] >= x_vals[:-1] - 1e-6
+        ), "Slide trajectory should be monotone along the direction of motion"
 
 
 # ===========================================================================
 # Tests for spiking tab config_from_payload — all new fields
 # ===========================================================================
+
 
 class TestConfigFromPayloadAllFields:
     """Tests that all StimulusConfig fields are parsed from a payload dict.
@@ -972,8 +1056,13 @@ class TestConfigFromPayloadAllFields:
 
     def test_basic_fields_parsed(self):
         """Basic stimulus fields (name, type, motion) are parsed correctly."""
-        payload = {"name": "my_stim", "type": "gabor", "motion": "moving",
-                   "start": [0.5, -0.5], "spread": 0.8}
+        payload = {
+            "name": "my_stim",
+            "type": "gabor",
+            "motion": "moving",
+            "start": [0.5, -0.5],
+            "spread": 0.8,
+        }
         config = self._config_from_payload(payload)
         assert config.name == "my_stim"
         assert config.stimulus_type == "gabor"
@@ -1082,6 +1171,7 @@ class TestConfigFromPayloadAllFields:
 # Tests for composite stack timeline logic
 # ===========================================================================
 
+
 class TestCompositeStackTimeline:
     """Tests for the timeline-aware composite frame building logic.
 
@@ -1111,8 +1201,10 @@ class TestCompositeStackTimeline:
             }
         else:
             # Timeline mode: place each stimulus at onset_ms
-            last_end = max(c.onset_ms + (c.duration_ms if c.duration_ms > 0 else c.total_ms)
-                           for c in configs)
+            last_end = max(
+                c.onset_ms + (c.duration_ms if c.duration_ms > 0 else c.total_ms)
+                for c in configs
+            )
             total_frames = int(last_end / dt_ms) + 1
             return {
                 "mode": "timeline",
@@ -1120,8 +1212,12 @@ class TestCompositeStackTimeline:
                 "n_stimuli": len(configs),
             }
 
-    def _make_cfg(self, total_ms=300.0, onset_ms=0.0, duration_ms=0.0) -> StimulusConfig:
-        return StimulusConfig(total_ms=total_ms, onset_ms=onset_ms, duration_ms=duration_ms)
+    def _make_cfg(
+        self, total_ms=300.0, onset_ms=0.0, duration_ms=0.0
+    ) -> StimulusConfig:
+        return StimulusConfig(
+            total_ms=total_ms, onset_ms=onset_ms, duration_ms=duration_ms
+        )
 
     def test_no_onset_uses_non_timeline_mode(self):
         """Configs with all onset_ms=0 use non-timeline (aligned) mode."""
@@ -1173,7 +1269,11 @@ class TestCompositeStackTimeline:
     def test_stack_bundle_kind_detection(self):
         """Stack payload kind detection works for add/max/mean modes."""
         for mode in ("add", "max", "mean"):
-            payload = {"kind": "stimulus_stack", "composition_mode": mode, "stimuli": []}
+            payload = {
+                "kind": "stimulus_stack",
+                "composition_mode": mode,
+                "stimuli": [],
+            }
             assert payload.get("kind") == "stimulus_stack"
             assert payload.get("composition_mode") == mode
 

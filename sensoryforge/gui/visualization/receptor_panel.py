@@ -67,8 +67,7 @@ class ReceptorPanel(VisualizationPanel):
         # Default to first population
         if self._pop_name not in self._data.population_names:
             self._pop_name = (
-                self._data.population_names[0]
-                if self._data.population_names else None
+                self._data.population_names[0] if self._data.population_names else None
             )
         self._build_receptor_drive()
         self._set_view_range()
@@ -87,7 +86,7 @@ class ReceptorPanel(VisualizationPanel):
         if self._data is None or self._pop_name is None:
             return
         res = self._data.population_results.get(self._pop_name, {})
-        drive = res.get("drive")    # [T, N_neurons]
+        drive = res.get("drive")  # [T, N_neurons]
         if drive is None:
             return
 
@@ -121,10 +120,14 @@ class ReceptorPanel(VisualizationPanel):
         if coords is not None and coords.shape[0] > 0:
             margin = 0.5
             self._pw.setRange(
-                xRange=[float(coords[:, 0].min()) - margin,
-                        float(coords[:, 0].max()) + margin],
-                yRange=[float(coords[:, 1].min()) - margin,
-                        float(coords[:, 1].max()) + margin],
+                xRange=[
+                    float(coords[:, 0].min()) - margin,
+                    float(coords[:, 0].max()) + margin,
+                ],
+                yRange=[
+                    float(coords[:, 1].min()) - margin,
+                    float(coords[:, 1].max()) + margin,
+                ],
                 padding=0,
             )
 
@@ -191,28 +194,34 @@ class ReceptorPanel(VisualizationPanel):
             pop_cmb.addItems(self._data.population_names)
             if self._pop_name:
                 pop_cmb.setCurrentText(self._pop_name)
+
             def _pop_changed(name):
                 self._pop_name = name
                 self._build_receptor_drive()
                 self._render_frame(self._t_idx)
+
             pop_cmb.currentTextChanged.connect(_pop_changed)
             form.addRow("Population:", pop_cmb)
 
         cmap_cmb = QtWidgets.QComboBox()
         cmap_cmb.addItems(["plasma", "viridis", "inferno", "hot", "magma"])
         cmap_cmb.setCurrentText(self._cmap_name)
+
         def _cmap_changed(name):
             self._cmap_name = name
             self._rebuild_lut()
             self._render_frame(self._t_idx)
+
         cmap_cmb.currentTextChanged.connect(_cmap_changed)
         form.addRow("Colormap:", cmap_cmb)
 
         log_chk = QtWidgets.QCheckBox("Log scale")
         log_chk.setChecked(self._log_scale)
+
         def _log_changed(s):
             self._log_scale = bool(s)
             self._render_frame(self._t_idx)
+
         log_chk.stateChanged.connect(_log_changed)
         form.addRow(log_chk)
         return w

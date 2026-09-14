@@ -2,6 +2,7 @@
 Notebook-compatible PyTorch tactile encoding pipeline.
 This version exactly matches the notebook pytorch_tactile_analysis.ipynb
 """
+
 import torch
 import torch.nn as nn
 from .grid import GridManager

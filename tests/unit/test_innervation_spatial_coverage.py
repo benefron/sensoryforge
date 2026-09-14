@@ -4,6 +4,7 @@ Tests for spatial coverage and bias of neuron innervation.
 Validates that SA and RA innervation fields cover the receptor grid
 uniformly and that neuron centers span the expected spatial extent.
 """
+
 import pytest
 import torch
 import numpy as np
@@ -14,10 +15,10 @@ from sensoryforge.core.innervation import create_sa_innervation, create_ra_inner
 
 GRID_SIZE = 40
 SPACING = 0.15
-SA_NEURONS_PER_ROW = 7   # 7² = 49 neurons
+SA_NEURONS_PER_ROW = 7  # 7² = 49 neurons
 RA_NEURONS_PER_ROW = 10  # 10² = 100 neurons
-NUM_SA_NEURONS = SA_NEURONS_PER_ROW ** 2
-NUM_RA_NEURONS = RA_NEURONS_PER_ROW ** 2
+NUM_SA_NEURONS = SA_NEURONS_PER_ROW**2
+NUM_RA_NEURONS = RA_NEURONS_PER_ROW**2
 RECEPTORS_PER_NEURON = 14
 SA_SPREAD = 0.3
 RA_SPREAD = 0.39
@@ -56,6 +57,7 @@ def ra_innervation(grid_manager):
 
 
 # ── Tests ────────────────────────────────────────────────────────────
+
 
 class TestSpatialCoverage:
     """Verify that innervation fields cover the receptor grid adequately."""
@@ -120,5 +122,9 @@ class TestSpatialCoverage:
             y_range = (centers[:, 1].max() - centers[:, 1].min()).item()
             grid_extent = (GRID_SIZE - 1) * SPACING
             # Centers should span at least 50 % of the grid in each axis
-            assert x_range > 0.5 * grid_extent, f"{label} X range too small: {x_range:.3f}"
-            assert y_range > 0.5 * grid_extent, f"{label} Y range too small: {y_range:.3f}"
+            assert (
+                x_range > 0.5 * grid_extent
+            ), f"{label} X range too small: {x_range:.3f}"
+            assert (
+                y_range > 0.5 * grid_extent
+            ), f"{label} Y range too small: {y_range:.3f}"

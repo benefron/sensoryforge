@@ -101,7 +101,13 @@ def test_custom_path_motion_invalid_params() -> None:
 
 
 def test_velocity_profile_range() -> None:
-    for profile_type in ["constant", "ramp_up", "ramp_down", "trapezoidal", "sinusoidal"]:
+    for profile_type in [
+        "constant",
+        "ramp_up",
+        "ramp_down",
+        "trapezoidal",
+        "sinusoidal",
+    ]:
         profile = velocity_profile(50, profile_type=profile_type)
         assert profile.min() >= 0
         assert profile.max() <= 1
@@ -115,7 +121,9 @@ def test_velocity_profile_invalid_type() -> None:
 def test_moving_stimulus_output_shape() -> None:
     trajectory = linear_motion((0.0, 0.0), (0.5, 0.5), 12)
 
-    def stim_gen(xx: torch.Tensor, yy: torch.Tensor, cx: float, cy: float) -> torch.Tensor:
+    def stim_gen(
+        xx: torch.Tensor, yy: torch.Tensor, cx: float, cy: float
+    ) -> torch.Tensor:
         return gaussian_stimulus(xx, yy, cx, cy, amplitude=1.0, sigma=0.2)
 
     moving = MovingStimulus(trajectory, stim_gen)
@@ -127,15 +135,27 @@ def test_moving_stimulus_output_shape() -> None:
 def test_tap_sequence_length() -> None:
     xx, yy = _grid(16)
 
-    def stim_gen(xx: torch.Tensor, yy: torch.Tensor, cx: float, cy: float) -> torch.Tensor:
+    def stim_gen(
+        xx: torch.Tensor, yy: torch.Tensor, cx: float, cy: float
+    ) -> torch.Tensor:
         return gaussian_stimulus(xx, yy, cx, cy, amplitude=1.0, sigma=0.2)
 
-    taps = tap_sequence((0.0, 0.0), num_taps=3, tap_duration=4, interval_duration=2, stimulus_generator=stim_gen, xx=xx, yy=yy)
+    taps = tap_sequence(
+        (0.0, 0.0),
+        num_taps=3,
+        tap_duration=4,
+        interval_duration=2,
+        stimulus_generator=stim_gen,
+        xx=xx,
+        yy=yy,
+    )
     assert taps.shape[0] == 3 * 4 + 2 * 2
 
 
 def test_slide_trajectory_endpoints() -> None:
-    trajectory = slide_trajectory((0.0, 0.0), (1.0, 0.0), 20, velocity_type="trapezoidal")
+    trajectory = slide_trajectory(
+        (0.0, 0.0), (1.0, 0.0), 20, velocity_type="trapezoidal"
+    )
     assert torch.allclose(trajectory[0], torch.tensor([0.0, 0.0]))
     assert torch.allclose(trajectory[-1], torch.tensor([1.0, 0.0]))
 

@@ -13,7 +13,7 @@ from sensoryforge.config.schema import (
 
 class TestGridConfig:
     """Test GridConfig dataclass."""
-    
+
     def test_from_dict(self):
         """Test creating GridConfig from dictionary."""
         config_dict = {
@@ -25,14 +25,14 @@ class TestGridConfig:
             "center_x": 0.0,
             "center_y": 0.0,
         }
-        
+
         grid = GridConfig.from_dict(config_dict)
         assert grid.name == "Test Grid"
         assert grid.arrangement == "grid"
         assert grid.rows == 40
         assert grid.cols == 40
         assert grid.spacing == 0.15
-    
+
     def test_to_dict(self):
         """Test serializing GridConfig to dictionary."""
         grid = GridConfig(
@@ -42,7 +42,7 @@ class TestGridConfig:
             cols=40,
             spacing=0.15,
         )
-        
+
         config_dict = grid.to_dict()
         assert config_dict["name"] == "Test Grid"
         assert config_dict["arrangement"] == "grid"
@@ -51,7 +51,7 @@ class TestGridConfig:
 
 class TestPopulationConfig:
     """Test PopulationConfig dataclass."""
-    
+
     def test_from_dict(self):
         """Test creating PopulationConfig from dictionary."""
         config_dict = {
@@ -64,14 +64,14 @@ class TestPopulationConfig:
             "connections_per_neuron": 28,
             "sigma_d_mm": 0.3,
         }
-        
+
         pop = PopulationConfig.from_dict(config_dict)
         assert pop.name == "SA Population"
         assert pop.neuron_type == "SA"
         assert pop.neuron_model == "izhikevich"
         assert pop.filter_method == "sa"
         assert pop.innervation_method == "gaussian"
-    
+
     def test_to_dict(self):
         """Test serializing PopulationConfig to dictionary."""
         pop = PopulationConfig(
@@ -84,7 +84,7 @@ class TestPopulationConfig:
             connections_per_neuron=28,
             sigma_d_mm=0.3,
         )
-        
+
         config_dict = pop.to_dict()
         assert config_dict["name"] == "SA Population"
         assert config_dict["neuron_type"] == "SA"
@@ -93,7 +93,7 @@ class TestPopulationConfig:
 
 class TestSensoryForgeConfig:
     """Test SensoryForgeConfig round-trip."""
-    
+
     def test_config_round_trip(self):
         """Test saving and loading config maintains all fields."""
         # Create config
@@ -129,13 +129,13 @@ class TestSensoryForgeConfig:
                 dt=1.0,
             ),
         )
-        
+
         # Serialize to dict
         config_dict = config.to_dict()
-        
+
         # Deserialize from dict
         config2 = SensoryForgeConfig.from_dict(config_dict)
-        
+
         # Verify round-trip
         assert len(config2.grids) == len(config.grids)
         assert config2.grids[0].name == config.grids[0].name
@@ -143,7 +143,7 @@ class TestSensoryForgeConfig:
         assert config2.populations[0].name == config.populations[0].name
         assert config2.stimulus.type == config.stimulus.type
         assert config2.simulation.device == config.simulation.device
-    
+
     def test_yaml_round_trip(self):
         """Test saving and loading config via YAML."""
         config = SensoryForgeConfig(
@@ -175,10 +175,10 @@ class TestSensoryForgeConfig:
                 dt=1.0,
             ),
         )
-        
+
         # Serialize to YAML
         yaml_str = config.to_yaml()
-        
+
         # Deserialize from YAML
         config2 = SensoryForgeConfig.from_yaml(yaml_str)
 

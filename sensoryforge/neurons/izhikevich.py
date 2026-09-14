@@ -7,10 +7,10 @@ import torch.nn as nn
 #: ``preset=...`` to :class:`IzhikevichNeuronTorch` instead of spelling out
 #: a/b/c/d by hand. ``RS`` reproduces the class's historical defaults exactly.
 IZHIKEVICH_PRESETS: dict = {
-    "RS":  {"a": 0.02, "b": 0.20, "c": -65.0, "d": 8.0},  # regular spiking
-    "FS":  {"a": 0.10, "b": 0.20, "c": -65.0, "d": 2.0},  # fast spiking
-    "IB":  {"a": 0.02, "b": 0.20, "c": -55.0, "d": 4.0},  # intrinsically bursting
-    "CH":  {"a": 0.02, "b": 0.20, "c": -50.0, "d": 2.0},  # chattering
+    "RS": {"a": 0.02, "b": 0.20, "c": -65.0, "d": 8.0},  # regular spiking
+    "FS": {"a": 0.10, "b": 0.20, "c": -65.0, "d": 2.0},  # fast spiking
+    "IB": {"a": 0.02, "b": 0.20, "c": -55.0, "d": 4.0},  # intrinsically bursting
+    "CH": {"a": 0.02, "b": 0.20, "c": -50.0, "d": 2.0},  # chattering
     "LTS": {"a": 0.02, "b": 0.25, "c": -65.0, "d": 2.0},  # low-threshold spiking
 }
 
@@ -164,9 +164,7 @@ class IzhikevichNeuronTorch(nn.Module):
                             t_val = torch.tensor(val, dtype=dtype, device=device)
                         except Exception:
                             # Fallback for scalar float/int
-                            t_val = torch.tensor(
-                                float(val), dtype=dtype, device=device
-                            )
+                            t_val = torch.tensor(float(val), dtype=dtype, device=device)
                     else:
                         t_val = val.to(dtype=dtype, device=device)
 

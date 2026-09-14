@@ -189,66 +189,68 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
     def _create_menu_bar(self) -> None:
         """Create menu bar with config load/save options."""
         menubar = self.menuBar()
-        
+
         # File menu
-        file_menu = menubar.addMenu('&File')
-        
+        file_menu = menubar.addMenu("&File")
+
         # Load config action
-        load_action = QtWidgets.QAction('&Load Config (YAML)...', self)
-        load_action.setShortcut('Ctrl+O')
-        load_action.setStatusTip('Load configuration from YAML file')
+        load_action = QtWidgets.QAction("&Load Config (YAML)...", self)
+        load_action.setShortcut("Ctrl+O")
+        load_action.setStatusTip("Load configuration from YAML file")
         load_action.triggered.connect(self._load_config)
         file_menu.addAction(load_action)
-        
+
         # Save config action
-        save_action = QtWidgets.QAction('&Save Config (YAML)...', self)
-        save_action.setShortcut('Ctrl+S')
-        save_action.setStatusTip('Save current configuration to YAML file')
+        save_action = QtWidgets.QAction("&Save Config (YAML)...", self)
+        save_action.setShortcut("Ctrl+S")
+        save_action.setStatusTip("Save current configuration to YAML file")
         save_action.triggered.connect(self._save_config)
         file_menu.addAction(save_action)
-        
+
         file_menu.addSeparator()
 
         # Project actions
-        new_project_action = QtWidgets.QAction('&New Project...', self)
-        new_project_action.setShortcut('Ctrl+N')
-        new_project_action.setStatusTip('Create a new experiment project directory')
+        new_project_action = QtWidgets.QAction("&New Project...", self)
+        new_project_action.setShortcut("Ctrl+N")
+        new_project_action.setStatusTip("Create a new experiment project directory")
         new_project_action.triggered.connect(self._new_project)
         file_menu.addAction(new_project_action)
 
-        open_project_action = QtWidgets.QAction('&Open Project...', self)
-        open_project_action.setShortcut('Ctrl+P')
-        open_project_action.setStatusTip('Open an existing experiment project directory')
+        open_project_action = QtWidgets.QAction("&Open Project...", self)
+        open_project_action.setShortcut("Ctrl+P")
+        open_project_action.setStatusTip(
+            "Open an existing experiment project directory"
+        )
         open_project_action.triggered.connect(self._open_project)
         file_menu.addAction(open_project_action)
 
         file_menu.addSeparator()
 
         # Exit action
-        exit_action = QtWidgets.QAction('E&xit', self)
-        exit_action.setShortcut('Ctrl+Q')
-        exit_action.setStatusTip('Exit application')
+        exit_action = QtWidgets.QAction("E&xit", self)
+        exit_action.setShortcut("Ctrl+Q")
+        exit_action.setStatusTip("Exit application")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
+
         # Help menu
-        help_menu = menubar.addMenu('&Help')
-        
+        help_menu = menubar.addMenu("&Help")
+
         # About action
-        about_action = QtWidgets.QAction('&About', self)
-        about_action.setStatusTip('About SensoryForge')
+        about_action = QtWidgets.QAction("&About", self)
+        about_action.setStatusTip("About SensoryForge")
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
-        
+
         # Advanced features action
-        advanced_action = QtWidgets.QAction('&Advanced Features', self)
-        advanced_action.setStatusTip('Information about advanced features')
+        advanced_action = QtWidgets.QAction("&Advanced Features", self)
+        advanced_action.setStatusTip("Information about advanced features")
         advanced_action.triggered.connect(self._show_phase2_info)
         help_menu.addAction(advanced_action)
-        
+
         # CLI Guide action
-        cli_guide_action = QtWidgets.QAction('&CLI Guide', self)
-        cli_guide_action.setStatusTip('How to use the command-line interface')
+        cli_guide_action = QtWidgets.QAction("&CLI Guide", self)
+        cli_guide_action.setStatusTip("How to use the command-line interface")
         cli_guide_action.triggered.connect(self._show_cli_guide)
         help_menu.addAction(cli_guide_action)
 
@@ -261,23 +263,20 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         """
         filename, _ = QFileDialog.getOpenFileName(
             self,
-            'Load YAML Configuration',
-            '',
-            'YAML Files (*.yml *.yaml);;All Files (*)'
+            "Load YAML Configuration",
+            "",
+            "YAML Files (*.yml *.yaml);;All Files (*)",
         )
         if not filename:
             return
 
         try:
-            with open(filename, 'r') as f:
+            with open(filename, "r") as f:
                 config = yaml.safe_load(f)
             if not isinstance(config, dict):
                 raise ValueError("YAML did not produce a dict")
         except Exception as e:
-            QMessageBox.critical(
-                self, 'Load Error',
-                f'Failed to parse YAML:\n{e}'
-            )
+            QMessageBox.critical(self, "Load Error", f"Failed to parse YAML:\n{e}")
             return
 
         # Convert canonical schema to GUI format if needed
@@ -319,14 +318,15 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         # Report result
         if errors:
             QMessageBox.warning(
-                self, 'Load Warnings',
-                f'Configuration loaded with warnings:\n\n'
-                + '\n'.join(errors)
+                self,
+                "Load Warnings",
+                f"Configuration loaded with warnings:\n\n" + "\n".join(errors),
             )
         else:
             QMessageBox.information(
-                self, 'Config Loaded',
-                f'Configuration loaded successfully from:\n{filename}'
+                self,
+                "Config Loaded",
+                f"Configuration loaded successfully from:\n{filename}",
             )
 
     def _save_config(self) -> None:
@@ -338,9 +338,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         """
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            'Save Configuration',
-            'sensoryforge_config.yml',
-            'YAML Files (*.yml *.yaml);;All Files (*)'
+            "Save Configuration",
+            "sensoryforge_config.yml",
+            "YAML Files (*.yml *.yaml);;All Files (*)",
         )
         if not filename:
             return
@@ -360,26 +360,25 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
             # Add metadata
             canonical.metadata = {
-                'version': '0.3.0',
-                'created': datetime.utcnow().isoformat() + 'Z',
-                'source': 'SensoryForge GUI',
+                "version": "0.3.0",
+                "created": datetime.utcnow().isoformat() + "Z",
+                "source": "SensoryForge GUI",
             }
 
             # Write YAML
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 f.write(canonical.to_yaml())
 
             QMessageBox.information(
                 self,
-                'Config Saved',
-                f'Configuration saved to:\n{filename}\n\n'
-                f'Load back with File → Load Config, or run via CLI:\n'
-                f'sensoryforge run {filename}'
+                "Config Saved",
+                f"Configuration saved to:\n{filename}\n\n"
+                f"Load back with File → Load Config, or run via CLI:\n"
+                f"sensoryforge run {filename}",
             )
         except Exception as e:
             QMessageBox.critical(
-                self, 'Save Error',
-                f'Failed to save configuration:\n{e}'
+                self, "Save Error", f"Failed to save configuration:\n{e}"
             )
 
     # ------------------------------------------------------------------
@@ -439,9 +438,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
     def _open_project(self) -> None:
         """Open an existing experiment project directory."""
-        path = QFileDialog.getExistingDirectory(
-            self, "Open project directory"
-        )
+        path = QFileDialog.getExistingDirectory(self, "Open project directory")
         if not path:
             return
         try:
@@ -460,12 +457,12 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         simulation: dict,
     ) -> SensoryForgeConfig:
         """Convert GUI config format to canonical schema.
-        
+
         Args:
             mechano: Config from MechanoreceptorTab.get_config().
             stimulus: Config from StimulusDesignerTab.get_config().
             simulation: Config from SpikingNeuronTab.get_config().
-            
+
         Returns:
             SensoryForgeConfig instance.
         """
@@ -479,24 +476,28 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
                 if grid_dict.get("type") == "composite":
                     grids = []
                     for i, pop in enumerate(grid_dict.get("composite_populations", [])):
-                        grids.append({
-                            "name": pop.get("name", f"layer{i+1}"),
-                            "arrangement": pop.get("arrangement", "grid"),
-                            "rows": pop.get("rows", 40),
-                            "cols": pop.get("cols", 40),
-                            "spacing": pop.get("spacing", 0.15),
-                        })
+                        grids.append(
+                            {
+                                "name": pop.get("name", f"layer{i+1}"),
+                                "arrangement": pop.get("arrangement", "grid"),
+                                "rows": pop.get("rows", 40),
+                                "cols": pop.get("cols", 40),
+                                "spacing": pop.get("spacing", 0.15),
+                            }
+                        )
                 else:
-                    grids = [{
-                        "name": "Grid 1",
-                        "arrangement": grid_dict.get("arrangement", "grid"),
-                        "rows": grid_dict.get("rows", 40),
-                        "cols": grid_dict.get("cols", 40),
-                        "spacing": grid_dict.get("spacing_mm", 0.15),
-                        "center_x": grid_dict.get("center", [0.0, 0.0])[0],
-                        "center_y": grid_dict.get("center", [0.0, 0.0])[1],
-                    }]
-        
+                    grids = [
+                        {
+                            "name": "Grid 1",
+                            "arrangement": grid_dict.get("arrangement", "grid"),
+                            "rows": grid_dict.get("rows", 40),
+                            "cols": grid_dict.get("cols", 40),
+                            "spacing": grid_dict.get("spacing_mm", 0.15),
+                            "center_x": grid_dict.get("center", [0.0, 0.0])[0],
+                            "center_y": grid_dict.get("center", [0.0, 0.0])[1],
+                        }
+                    ]
+
         # Convert GridEntry format (from GUI) to GridConfig format
         # GridEntry uses "center" as [x, y] and "offset" as [x, y]
         # GridConfig uses center_x, center_y and no offset
@@ -525,32 +526,38 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
         # Extract populations
         populations = mechano.get("populations", [])
-        
+
         # Merge population configs from simulation tab
         pop_configs = simulation.get("population_configs", {})
         solver_cfg = simulation.get("solver", {})
-        
+
         for pop in populations:
             pop_name = pop.get("name")
             if pop_name and pop_name in pop_configs:
                 # Merge simulation config into population config
                 sim_pop_cfg = pop_configs[pop_name]
-                pop.update({
-                    "neuron_model": sim_pop_cfg.get("model", "Izhikevich"),
-                    "model_params": sim_pop_cfg.get("model_params", {}),
-                    "filter_method": sim_pop_cfg.get("filter_method", "none"),
-                    "filter_params": sim_pop_cfg.get("filter_params", {}),
-                    "enabled": sim_pop_cfg.get("enabled", True),
-                    "input_gain": sim_pop_cfg.get("input_gain", 1.0),
-                    "noise_std": sim_pop_cfg.get("noise_std", 0.0),
-                    "dsl_config": {
-                        "equations": sim_pop_cfg.get("dsl_equations", ""),
-                        "threshold": sim_pop_cfg.get("dsl_threshold", ""),
-                        "reset": sim_pop_cfg.get("dsl_reset", ""),
-                        "parameters": sim_pop_cfg.get("dsl_parameters", {}),
-                    } if sim_pop_cfg.get("dsl_equations") else None,
-                })
-                
+                pop.update(
+                    {
+                        "neuron_model": sim_pop_cfg.get("model", "Izhikevich"),
+                        "model_params": sim_pop_cfg.get("model_params", {}),
+                        "filter_method": sim_pop_cfg.get("filter_method", "none"),
+                        "filter_params": sim_pop_cfg.get("filter_params", {}),
+                        "enabled": sim_pop_cfg.get("enabled", True),
+                        "input_gain": sim_pop_cfg.get("input_gain", 1.0),
+                        "noise_std": sim_pop_cfg.get("noise_std", 0.0),
+                        "dsl_config": (
+                            {
+                                "equations": sim_pop_cfg.get("dsl_equations", ""),
+                                "threshold": sim_pop_cfg.get("dsl_threshold", ""),
+                                "reset": sim_pop_cfg.get("dsl_reset", ""),
+                                "parameters": sim_pop_cfg.get("dsl_parameters", {}),
+                            }
+                            if sim_pop_cfg.get("dsl_equations")
+                            else None
+                        ),
+                    }
+                )
+
                 # Apply solver config to populations that use DSL
                 if sim_pop_cfg.get("model") == "DSL (Custom)":
                     pop["solver_config"] = {
@@ -567,24 +574,26 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             StimulusConfig,
             SimulationConfig,
         )
-        
+
         return SensoryForgeConfig(
             grids=[GridConfig.from_dict(g) for g in grids],
             populations=[PopulationConfig.from_dict(p) for p in populations],
             stimulus=StimulusConfig.from_dict(stimulus),
-            simulation=SimulationConfig.from_dict({
-                "device": simulation.get("device", "cpu"),
-                "dt": simulation.get("dt", 1.0),
-                "solver": solver_cfg,
-            }),
+            simulation=SimulationConfig.from_dict(
+                {
+                    "device": simulation.get("device", "cpu"),
+                    "dt": simulation.get("dt", 1.0),
+                    "solver": solver_cfg,
+                }
+            ),
         )
 
     def _canonical_to_gui_config(self, config: dict) -> dict:
         """Convert canonical schema to GUI config format.
-        
+
         Args:
             config: Dictionary from YAML (may be canonical or legacy).
-            
+
         Returns:
             Dictionary in GUI format (grids, populations, stimulus, simulation).
         """
@@ -595,7 +604,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
                 "grids": config.get("grids", []),
                 "populations": config.get("populations", []),
             }
-            
+
             # Extract simulation config and split population configs
             sim_cfg = config.get("simulation", {})
             pop_configs = {}
@@ -612,19 +621,35 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
                         "enabled": pop.get("enabled", True),
                         "input_gain": pop.get("input_gain", 1.0),
                         "noise_std": pop.get("noise_std", 0.0),
-                        "dsl_equations": pop.get("dsl_config", {}).get("equations", "") if pop.get("dsl_config") else "",
-                        "dsl_threshold": pop.get("dsl_config", {}).get("threshold", "") if pop.get("dsl_config") else "",
-                        "dsl_reset": pop.get("dsl_config", {}).get("reset", "") if pop.get("dsl_config") else "",
-                        "dsl_parameters": pop.get("dsl_config", {}).get("parameters", {}) if pop.get("dsl_config") else {},
+                        "dsl_equations": (
+                            pop.get("dsl_config", {}).get("equations", "")
+                            if pop.get("dsl_config")
+                            else ""
+                        ),
+                        "dsl_threshold": (
+                            pop.get("dsl_config", {}).get("threshold", "")
+                            if pop.get("dsl_config")
+                            else ""
+                        ),
+                        "dsl_reset": (
+                            pop.get("dsl_config", {}).get("reset", "")
+                            if pop.get("dsl_config")
+                            else ""
+                        ),
+                        "dsl_parameters": (
+                            pop.get("dsl_config", {}).get("parameters", {})
+                            if pop.get("dsl_config")
+                            else {}
+                        ),
                     }
-            
+
             simulation = {
                 "device": sim_cfg.get("device", "cpu"),
                 "solver": sim_cfg.get("solver", {"type": "euler"}),
                 "population_configs": pop_configs,
                 "dsl": config.get("dsl", {}),  # Preserve global DSL if present
             }
-            
+
             return {
                 "grids": mechano["grids"],
                 "populations": mechano["populations"],
@@ -639,86 +664,86 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         """Show about dialog."""
         QMessageBox.about(
             self,
-            'About SensoryForge',
-            '<h2>SensoryForge v0.2.0</h2>'
-            '<p>An extensible playground for generating population activity '
-            'in response to multiple stimuli and modalities.</p>'
-            '<p><b>Core Features:</b></p>'
-            '<ul>'
-            '<li>Multiple spiking neuron models (Izhikevich, AdEx, MQIF, FA, SA)</li>'
-            '<li>SA/RA dual-pathway temporal filtering</li>'
-            '<li>Multi-population grids (CompositeGrid)</li>'
-            '<li>Equation DSL for custom neuron models</li>'
-            '<li>Extended stimuli (Gaussian, texture, moving)</li>'
-            '<li>Adaptive ODE solvers (Euler, Dormand-Prince)</li>'
-            '<li>YAML configuration &amp; CLI for scalable batch runs</li>'
-            '</ul>'
-            '<p><b>Workflow:</b></p>'
-            '<ul>'
-            '<li><b>GUI:</b> Design &amp; test experiments interactively</li>'
-            '<li><b>CLI:</b> <tt>sensoryforge run config.yml</tt> for batch runs</li>'
-            '<li><b>Python API:</b> <tt>from sensoryforge.core import ...</tt></li>'
-            '</ul>'
+            "About SensoryForge",
+            "<h2>SensoryForge v0.2.0</h2>"
+            "<p>An extensible playground for generating population activity "
+            "in response to multiple stimuli and modalities.</p>"
+            "<p><b>Core Features:</b></p>"
+            "<ul>"
+            "<li>Multiple spiking neuron models (Izhikevich, AdEx, MQIF, FA, SA)</li>"
+            "<li>SA/RA dual-pathway temporal filtering</li>"
+            "<li>Multi-population grids (CompositeGrid)</li>"
+            "<li>Equation DSL for custom neuron models</li>"
+            "<li>Extended stimuli (Gaussian, texture, moving)</li>"
+            "<li>Adaptive ODE solvers (Euler, Dormand-Prince)</li>"
+            "<li>YAML configuration &amp; CLI for scalable batch runs</li>"
+            "</ul>"
+            "<p><b>Workflow:</b></p>"
+            "<ul>"
+            "<li><b>GUI:</b> Design &amp; test experiments interactively</li>"
+            "<li><b>CLI:</b> <tt>sensoryforge run config.yml</tt> for batch runs</li>"
+            "<li><b>Python API:</b> <tt>from sensoryforge.core import ...</tt></li>"
+            "</ul>",
         )
 
     def _show_phase2_info(self) -> None:
         """Show advanced features information."""
         QMessageBox.information(
             self,
-            'Advanced Features',
-            '<h3>Advanced Features</h3>'
-            '<p><b>CompositeGrid:</b> Multi-population receptor mosaics<br>'
-            'SA1, RA1, SA2 populations with different densities and arrangements</p>'
-            '<p><b>Equation DSL:</b> Define neuron models via equations<br>'
-            'Custom Izhikevich variants, AdEx, or your own dynamics</p>'
-            '<p><b>Extended Stimuli:</b> Texture and moving stimuli<br>'
-            'Gabor patches, edge gratings, linear/circular motion</p>'
-            '<p><b>Adaptive Solvers:</b> High-precision ODE integration<br>'
-            'Dormand-Prince (RK45) for stiff systems</p>'
-            '<p><b>YAML Configuration:</b> Declarative pipeline setup<br>'
-            '<tt>sensoryforge validate config.yml</tt></p>'
-            '<p><b>CLI:</b> Scalable batch simulation execution<br>'
-            'Commands: run, validate, visualize, list-components</p>'
-            '<hr>'
-            '<p>Design experiments in the GUI, then export to YAML '
-            'for large-scale batch runs via the CLI.</p>'
+            "Advanced Features",
+            "<h3>Advanced Features</h3>"
+            "<p><b>CompositeGrid:</b> Multi-population receptor mosaics<br>"
+            "SA1, RA1, SA2 populations with different densities and arrangements</p>"
+            "<p><b>Equation DSL:</b> Define neuron models via equations<br>"
+            "Custom Izhikevich variants, AdEx, or your own dynamics</p>"
+            "<p><b>Extended Stimuli:</b> Texture and moving stimuli<br>"
+            "Gabor patches, edge gratings, linear/circular motion</p>"
+            "<p><b>Adaptive Solvers:</b> High-precision ODE integration<br>"
+            "Dormand-Prince (RK45) for stiff systems</p>"
+            "<p><b>YAML Configuration:</b> Declarative pipeline setup<br>"
+            "<tt>sensoryforge validate config.yml</tt></p>"
+            "<p><b>CLI:</b> Scalable batch simulation execution<br>"
+            "Commands: run, validate, visualize, list-components</p>"
+            "<hr>"
+            "<p>Design experiments in the GUI, then export to YAML "
+            "for large-scale batch runs via the CLI.</p>",
         )
 
     def _show_cli_guide(self) -> None:
         """Show CLI usage guide."""
         QMessageBox.information(
             self,
-            'SensoryForge CLI Guide',
-            '<h3>Command-Line Interface</h3>'
-            '<p><b>Run a simulation:</b></p>'
-            '<pre>sensoryforge run config.yml --duration 1000 --output results.pt</pre>'
-            '<p><b>Validate configuration:</b></p>'
-            '<pre>sensoryforge validate config.yml</pre>'
-            '<p><b>List available components:</b></p>'
-            '<pre>sensoryforge list-components</pre>'
-            '<p><b>Visualize pipeline:</b></p>'
-            '<pre>sensoryforge visualize config.yml</pre>'
-            '<hr>'
-            '<h4>Example YAML Configuration:</h4>'
-            '<pre>'
-            'grid:\n'
-            '  type: composite\n'
-            '  populations:\n'
-            '    sa1: {density: 10.0, arrangement: poisson}\n'
-            '    ra1: {density: 5.0, arrangement: hex}\n\n'
-            'neurons:\n'
-            '  type: dsl\n'
+            "SensoryForge CLI Guide",
+            "<h3>Command-Line Interface</h3>"
+            "<p><b>Run a simulation:</b></p>"
+            "<pre>sensoryforge run config.yml --duration 1000 --output results.pt</pre>"
+            "<p><b>Validate configuration:</b></p>"
+            "<pre>sensoryforge validate config.yml</pre>"
+            "<p><b>List available components:</b></p>"
+            "<pre>sensoryforge list-components</pre>"
+            "<p><b>Visualize pipeline:</b></p>"
+            "<pre>sensoryforge visualize config.yml</pre>"
+            "<hr>"
+            "<h4>Example YAML Configuration:</h4>"
+            "<pre>"
+            "grid:\n"
+            "  type: composite\n"
+            "  populations:\n"
+            "    sa1: {density: 10.0, arrangement: poisson}\n"
+            "    ra1: {density: 5.0, arrangement: hex}\n\n"
+            "neurons:\n"
+            "  type: dsl\n"
             '  equations: "dv/dt = 0.04*v**2 + 5*v + 140 - u + I"\n'
             '  threshold: "v >= 30"\n'
             '  reset: "v = -65"\n\n'
-            'stimuli:\n'
-            '  - type: texture\n'
-            '    config: {pattern: gabor, wavelength: 2.0}\n\n'
-            'solver:\n'
-            '  type: adaptive\n'
-            '  config: {method: dopri5}\n'
-            '</pre>'
-            '<p>See docs/user_guide/cli.md for complete documentation.</p>'
+            "stimuli:\n"
+            "  - type: texture\n"
+            "    config: {pattern: gabor, wavelength: 2.0}\n\n"
+            "solver:\n"
+            "  type: adaptive\n"
+            "  config: {method: dopri5}\n"
+            "</pre>"
+            "<p>See docs/user_guide/cli.md for complete documentation.</p>",
         )
 
 

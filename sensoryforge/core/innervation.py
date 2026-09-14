@@ -30,20 +30,20 @@ InnervationMethod = Literal["gaussian", "one_to_one", "uniform", "distance_weigh
 
 class BaseInnervation(ABC):
     """Abstract base class for receptor-to-neuron innervation strategies.
-    
+
     Innervation defines how receptor grid positions connect to sensory neuron
     populations. Different strategies encode different biological assumptions
     about receptive field organization.
-    
+
     Subclasses must implement:
         - compute_weights(): Generate connection weight tensor
-    
+
     Attributes:
         receptor_coords: Receptor positions [N_receptors, 2] in mm
         neuron_centers: Neuron positions [N_neurons, 2] in mm
         device: PyTorch device for tensors
     """
-    
+
     def __init__(
         self,
         receptor_coords: torch.Tensor,
@@ -51,7 +51,7 @@ class BaseInnervation(ABC):
         device: torch.device | str = "cpu",
     ) -> None:
         """Initialize innervation strategy.
-        
+
         Args:
             receptor_coords: Receptor positions [N_receptors, 2] in mm.
             neuron_centers: Neuron center positions [N_neurons, 2] in mm.
@@ -62,42 +62,42 @@ class BaseInnervation(ABC):
         self.neuron_centers = neuron_centers.to(self.device)
         self.num_neurons = neuron_centers.shape[0]
         self.num_receptors = receptor_coords.shape[0]
-    
+
     @abstractmethod
     def compute_weights(self, **kwargs) -> torch.Tensor:
         """Compute connection weight tensor.
-        
+
         Returns:
             Weight tensor [num_neurons, num_receptors] where weights[i, j]
             is the connection strength from receptor j to neuron i.
         """
         pass
-    
+
     def get_connection_density(self, weights: torch.Tensor) -> float:
         """Calculate fraction of nonzero connections.
-        
+
         Args:
             weights: Connection weight tensor [num_neurons, num_receptors].
-        
+
         Returns:
             Density in range [0, 1].
         """
         total_connections = (weights > 0).sum().item()
         total_possible = weights.numel()
         return total_connections / total_possible
-    
+
     @classmethod
     def from_config(cls, config: dict) -> "BaseInnervation":
         """Create innervation instance from config dict.
-        
+
         Note: This is a base implementation. Subclasses should override
         to handle their specific parameters. The config must include
         receptor_coords and neuron_centers tensors.
-        
+
         Args:
             config: Dictionary with 'receptor_coords', 'neuron_centers',
                 'device', and method-specific parameters.
-        
+
         Returns:
             BaseInnervation instance.
         """
@@ -105,14 +105,14 @@ class BaseInnervation(ABC):
         neuron_centers = config.pop("neuron_centers")
         device = config.pop("device", "cpu")
         return cls(receptor_coords, neuron_centers, device=device, **config)
-    
+
     def to_dict(self) -> dict:
         """Serialize innervation parameters to dict.
-        
+
         Note: This does NOT serialize receptor_coords or neuron_centers
         tensors (they are too large). Only serializes configuration parameters.
         Subclasses should override to include their specific parameters.
-        
+
         Returns:
             Dictionary with method name and parameters (excluding tensors).
         """
@@ -126,15 +126,15 @@ class BaseInnervation(ABC):
 
 class GaussianInnervation(BaseInnervation):
     """Gaussian-weighted random innervation (existing method).
-    
+
     Each neuron connects to a random subset of receptors with connection
     probabilities weighted by spatial distance (Gaussian falloff). This
     produces irregular, overlapping receptive fields.
-    
+
     A hard spatial cutoff at ``max_sigma_distance * sigma_d_mm`` ensures
     biological locality: receptors beyond this distance have zero
     connection probability.
-    
+
     Attributes:
         connections_per_neuron: Mean number of connections per neuron.
         sigma_d_mm: Spatial spread (mm) for Gaussian weighting.
@@ -145,7 +145,7 @@ class GaussianInnervation(BaseInnervation):
             instead of random in [min, max].
         seed: Random seed for reproducibility.
     """
-    
+
     def __init__(
         self,
         receptor_coords: torch.Tensor,
@@ -162,7 +162,7 @@ class GaussianInnervation(BaseInnervation):
         device: torch.device | str = "cpu",
     ) -> None:
         """Initialize Gaussian innervation.
-        
+
         Args:
             receptor_coords: Receptor positions [N_receptors, 2].
             neuron_centers: Neuron positions [N_neurons, 2].
@@ -186,39 +186,41 @@ class GaussianInnervation(BaseInnervation):
         self.use_distance_weights = use_distance_weights
         self.far_connection_fraction = max(0.0, min(1.0, far_connection_fraction))
         self.far_sigma_factor = far_sigma_factor
-        self.distance_weight_randomness_pct = max(0.0, min(100.0, distance_weight_randomness_pct))
+        self.distance_weight_randomness_pct = max(
+            0.0, min(100.0, distance_weight_randomness_pct)
+        )
         self.seed = seed
-    
+
     def compute_weights(self, **kwargs) -> torch.Tensor:
         """Compute Gaussian-weighted random connections.
-        
+
         Receptors beyond ``max_sigma_distance * sigma_d_mm`` from a neuron
         have zero connection probability, enforcing spatial locality.
-        
+
         Returns:
             Weight tensor [num_neurons, num_receptors].
         """
         if self.seed is not None:
             torch.manual_seed(self.seed)
-        
+
         # Compute pairwise squared distances [num_neurons, num_receptors]
         # receptor_coords: [num_receptors, 2]
         # neuron_centers: [num_neurons, 2]
         receptor_exp = self.receptor_coords.unsqueeze(0)  # [1, num_receptors, 2]
-        neuron_exp = self.neuron_centers.unsqueeze(1)     # [num_neurons, 1, 2]
-        
+        neuron_exp = self.neuron_centers.unsqueeze(1)  # [num_neurons, 1, 2]
+
         d2 = ((receptor_exp - neuron_exp) ** 2).sum(-1)  # [num_neurons, num_receptors]
-        
+
         distances = torch.sqrt(d2)
-        gaussian_weights = torch.exp(-d2 / (2 * self.sigma_d_mm ** 2))
-        
+        gaussian_weights = torch.exp(-d2 / (2 * self.sigma_d_mm**2))
+
         if self.max_sigma_distance > 0:
             max_dist = self.max_sigma_distance * self.sigma_d_mm
             gaussian_weights[distances > max_dist] = 0.0
-        
+
         far_threshold = self.far_sigma_factor * self.sigma_d_mm
         is_far = distances > far_threshold
-        
+
         if self.far_connection_fraction > 0 and is_far.any():
             local_weights = gaussian_weights.clone()
             local_weights[is_far] = 0.0
@@ -229,21 +231,20 @@ class GaussianInnervation(BaseInnervation):
             local_prob = local_weights / local_sum
             far_prob = far_weights / far_sum
             prob_weights = (
-                (1.0 - self.far_connection_fraction) * local_prob
-                + self.far_connection_fraction * far_prob
-            )
+                1.0 - self.far_connection_fraction
+            ) * local_prob + self.far_connection_fraction * far_prob
         else:
             prob_weights = gaussian_weights
-        
+
         row_sums = prob_weights.sum(dim=1)
         empty_rows = row_sums <= 1e-12
         if empty_rows.any():
             nearest_idx = distances[empty_rows].argmin(dim=1)
             for i, neuron_row in enumerate(empty_rows.nonzero(as_tuple=True)[0]):
                 prob_weights[neuron_row, nearest_idx[i]] = 1.0
-        
+
         prob_weights = prob_weights / (prob_weights.sum(dim=1, keepdim=True) + 1e-12)
-        
+
         # Sample K connections per neuron. Poisson is used because (a) it models
         # count of independent rare events (each receptor has small connection
         # probability), (b) variance equals mean, giving biological variability
@@ -253,11 +254,11 @@ class GaussianInnervation(BaseInnervation):
         )
         K_per_neuron = torch.poisson(poisson_tensor).long().to(self.device)
         K_per_neuron = torch.clamp(K_per_neuron, min=1, max=self.num_receptors)
-        
+
         # Vectorized sampling
         max_K = K_per_neuron.max().item()
         weights = torch.zeros(self.num_neurons, self.num_receptors, device=self.device)
-        
+
         if max_K > 0:
             # Batched multinomial sampling
             all_idx = torch.multinomial(prob_weights, max_K, replacement=False)
@@ -266,28 +267,30 @@ class GaussianInnervation(BaseInnervation):
                 # Weights from Gaussian distance falloff, scaled to [w_min, w_max]
                 # Gather distances for sampled indices
                 d2_sampled = torch.gather(d2, 1, all_idx)
-                g_at_sampled = torch.exp(-d2_sampled / (2 * self.sigma_d_mm ** 2))
+                g_at_sampled = torch.exp(-d2_sampled / (2 * self.sigma_d_mm**2))
                 # Normalize per row to [0,1] then scale to weight range
                 row_max = g_at_sampled.max(dim=1, keepdim=True).values.clamp(min=1e-12)
                 norm = g_at_sampled / row_max
                 all_vals = w_min + norm * (w_max - w_min)
                 if self.distance_weight_randomness_pct > 0:
                     pct = self.distance_weight_randomness_pct / 100.0
-                    rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(w_min, w_max)
+                    rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(
+                        w_min, w_max
+                    )
                     all_vals = (1.0 - pct) * all_vals + pct * rand_vals
             else:
-                all_vals = torch.empty(self.num_neurons, max_K, device=self.device).uniform_(
-                    w_min, w_max
-                )
-            
+                all_vals = torch.empty(
+                    self.num_neurons, max_K, device=self.device
+                ).uniform_(w_min, w_max)
+
             # Mask out excess samples
             arange = torch.arange(max_K, device=self.device).unsqueeze(0)
             mask = arange < K_per_neuron.unsqueeze(1)
             all_vals[~mask] = 0.0
-            
+
             # Scatter into weight matrix
             weights.scatter_(1, all_idx, all_vals)
-        
+
         return weights
 
 
@@ -343,7 +346,9 @@ class UniformInnervation(BaseInnervation):
         self.max_distance_mm = max_distance_mm
         self.decay_function = decay_function
         self.decay_rate = decay_rate
-        self.distance_weight_randomness_pct = max(0.0, min(100.0, distance_weight_randomness_pct))
+        self.distance_weight_randomness_pct = max(
+            0.0, min(100.0, distance_weight_randomness_pct)
+        )
         self.seed = seed
 
     def compute_weights(self, **kwargs) -> torch.Tensor:
@@ -370,7 +375,9 @@ class UniformInnervation(BaseInnervation):
             vals = w_min + norm * (w_max - w_min)
             if self.distance_weight_randomness_pct > 0:
                 pct = self.distance_weight_randomness_pct / 100.0
-                rand_vals = torch.empty_like(vals, device=self.device).uniform_(w_min, w_max)
+                rand_vals = torch.empty_like(vals, device=self.device).uniform_(
+                    w_min, w_max
+                )
                 vals = (1.0 - pct) * vals + pct * rand_vals
         else:
             vals = torch.full(
@@ -386,13 +393,19 @@ class UniformInnervation(BaseInnervation):
                 far_weights.T[is_far] = 1.0
                 far_sum = far_weights.sum(dim=1, keepdim=True).clamp(min=1e-12)
                 far_prob = far_weights / far_sum
-                n_far_per_neuron = torch.poisson(
-                    torch.full(
-                        (self.num_neurons,),
-                        self.far_connection_fraction * self.num_receptors / max(1, self.num_neurons),
-                        device="cpu",
+                n_far_per_neuron = (
+                    torch.poisson(
+                        torch.full(
+                            (self.num_neurons,),
+                            self.far_connection_fraction
+                            * self.num_receptors
+                            / max(1, self.num_neurons),
+                            device="cpu",
+                        )
                     )
-                ).long().to(self.device)
+                    .long()
+                    .to(self.device)
+                )
                 n_far_per_neuron = torch.clamp(n_far_per_neuron, min=0)
                 max_far = n_far_per_neuron.max().item()
                 if max_far > 0:
@@ -445,7 +458,9 @@ class OneToOneInnervation(BaseInnervation):
         self.max_distance_mm = max_distance_mm
         self.decay_function = decay_function
         self.decay_rate = decay_rate
-        self.distance_weight_randomness_pct = max(0.0, min(100.0, distance_weight_randomness_pct))
+        self.distance_weight_randomness_pct = max(
+            0.0, min(100.0, distance_weight_randomness_pct)
+        )
         self.seed = seed
 
     def compute_weights(self, **kwargs) -> torch.Tensor:
@@ -506,21 +521,27 @@ class OneToOneInnervation(BaseInnervation):
                 already = set(all_idx.tolist())
                 extra = [j for j in local_idx.tolist() if j not in already][:remaining]
                 if extra:
-                    all_idx = torch.cat([all_idx, torch.tensor(extra, device=self.device)])
+                    all_idx = torch.cat(
+                        [all_idx, torch.tensor(extra, device=self.device)]
+                    )
             k_actual = min(K, len(all_idx))
             all_idx = all_idx[:k_actual]
             if self.use_distance_weights:
                 d_at_sampled = distances[i, all_idx]
                 decay_at = _decay_weights_from_distances(
-                    d_at_sampled, self.max_distance_mm,
-                    self.decay_function, self.decay_rate,
+                    d_at_sampled,
+                    self.max_distance_mm,
+                    self.decay_function,
+                    self.decay_rate,
                 )
                 row_max = decay_at.max().clamp(min=1e-12)
                 norm = decay_at / row_max
                 vals = w_min + norm * (w_max - w_min)
                 if self.distance_weight_randomness_pct > 0:
                     pct = self.distance_weight_randomness_pct / 100.0
-                    rand_vals = torch.empty(k_actual, device=self.device).uniform_(w_min, w_max)
+                    rand_vals = torch.empty(k_actual, device=self.device).uniform_(
+                        w_min, w_max
+                    )
                     vals = (1.0 - pct) * vals + pct * rand_vals
             else:
                 vals = torch.empty(k_actual, device=self.device).uniform_(w_min, w_max)
@@ -530,11 +551,11 @@ class OneToOneInnervation(BaseInnervation):
 
 class DistanceWeightedInnervation(BaseInnervation):
     """Distance-weighted innervation with mean connections and decay function.
-    
+
     Behaves like Gaussian: mean connections per neuron (Poisson), but weights
     come from distance decay (exponential, linear, inverse square) instead of
     random. Uses sigma_d_mm for spatial spread and max_distance_mm as cutoff.
-    
+
     Attributes:
         connections_per_neuron: Mean number of connections per neuron.
         sigma_d_mm: Spatial spread (mm) for probability weighting.
@@ -544,7 +565,7 @@ class DistanceWeightedInnervation(BaseInnervation):
         weight_range: (min, max) for weight scaling.
         seed: Random seed for reproducibility.
     """
-    
+
     def __init__(
         self,
         receptor_coords: torch.Tensor,
@@ -552,7 +573,9 @@ class DistanceWeightedInnervation(BaseInnervation):
         connections_per_neuron: float = 28.0,
         sigma_d_mm: float = 0.3,
         max_distance_mm: float = 1.0,
-        decay_function: Literal["exponential", "linear", "inverse_square"] = "exponential",
+        decay_function: Literal[
+            "exponential", "linear", "inverse_square"
+        ] = "exponential",
         decay_rate: float = 2.0,
         distance_weight_randomness_pct: float = 0.0,
         weight_range: Tuple[float, float] = (0.1, 1.0),
@@ -560,7 +583,7 @@ class DistanceWeightedInnervation(BaseInnervation):
         device: torch.device | str = "cpu",
     ) -> None:
         """Initialize distance-weighted innervation.
-        
+
         Args:
             receptor_coords: Receptor positions [N_receptors, 2].
             neuron_centers: Neuron positions [N_neurons, 2].
@@ -579,10 +602,12 @@ class DistanceWeightedInnervation(BaseInnervation):
         self.max_distance_mm = max_distance_mm
         self.decay_function = decay_function
         self.decay_rate = decay_rate
-        self.distance_weight_randomness_pct = max(0.0, min(100.0, distance_weight_randomness_pct))
+        self.distance_weight_randomness_pct = max(
+            0.0, min(100.0, distance_weight_randomness_pct)
+        )
         self.weight_range = weight_range
         self.seed = seed
-    
+
     def _decay_weights(self, distances: torch.Tensor) -> torch.Tensor:
         """Compute decay weights from distances."""
         if self.decay_function == "exponential":
@@ -594,23 +619,23 @@ class DistanceWeightedInnervation(BaseInnervation):
             return 1.0 / (1.0 + (self.decay_rate * distances) ** 2)
         else:
             raise ValueError(f"Unknown decay function: {self.decay_function}")
-    
+
     def compute_weights(self, **kwargs) -> torch.Tensor:
         """Compute distance-weighted connections with mean K per neuron.
-        
+
         Returns:
             Weight tensor [num_neurons, num_receptors].
         """
         if self.seed is not None:
             torch.manual_seed(self.seed)
-        
+
         receptor_exp = self.receptor_coords.unsqueeze(0)
         neuron_exp = self.neuron_centers.unsqueeze(1)
         distances = torch.sqrt(((receptor_exp - neuron_exp) ** 2).sum(-1))
-        
+
         decay_weights = self._decay_weights(distances)
         decay_weights[distances > self.max_distance_mm] = 0.0
-        
+
         # Fallback for neurons with no receptors in range
         row_sums = decay_weights.sum(dim=1)
         empty_rows = row_sums <= 1e-12
@@ -618,17 +643,25 @@ class DistanceWeightedInnervation(BaseInnervation):
             nearest_idx = distances[empty_rows].argmin(dim=1)
             for i, neuron_row in enumerate(empty_rows.nonzero(as_tuple=True)[0]):
                 decay_weights[neuron_row, nearest_idx[i]] = 1.0
-        
+
         prob_weights = decay_weights / (decay_weights.sum(dim=1, keepdim=True) + 1e-12)
-        
-        K_per_neuron = torch.poisson(
-            torch.full((self.num_neurons,), float(self.connections_per_neuron), device="cpu")
-        ).long().to(self.device)
+
+        K_per_neuron = (
+            torch.poisson(
+                torch.full(
+                    (self.num_neurons,),
+                    float(self.connections_per_neuron),
+                    device="cpu",
+                )
+            )
+            .long()
+            .to(self.device)
+        )
         K_per_neuron = torch.clamp(K_per_neuron, min=1, max=self.num_receptors)
-        
+
         max_K = K_per_neuron.max().item()
         weights = torch.zeros(self.num_neurons, self.num_receptors, device=self.device)
-        
+
         if max_K > 0:
             all_idx = torch.multinomial(prob_weights, max_K, replacement=False)
             dist_sampled = torch.gather(distances, 1, all_idx)
@@ -639,14 +672,16 @@ class DistanceWeightedInnervation(BaseInnervation):
             all_vals = w_min + norm * (w_max - w_min)
             if self.distance_weight_randomness_pct > 0:
                 pct = self.distance_weight_randomness_pct / 100.0
-                rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(w_min, w_max)
+                rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(
+                    w_min, w_max
+                )
                 all_vals = (1.0 - pct) * all_vals + pct * rand_vals
-            
+
             arange = torch.arange(max_K, device=self.device).unsqueeze(0)
             mask = arange < K_per_neuron.unsqueeze(1)
             all_vals[~mask] = 0.0
             weights.scatter_(1, all_idx, all_vals)
-        
+
         return weights
 
 
@@ -663,39 +698,39 @@ def create_innervation(
     **method_params,
 ) -> torch.Tensor:
     """Factory function to create innervation weight tensor.
-    
+
     This is the primary user-facing API for creating receptor-to-neuron
     connections. It instantiates the appropriate innervation strategy and
     returns the weight tensor. Uses registry pattern for extensibility.
-    
+
     Args:
         receptor_coords: Receptor positions [N_receptors, 2] in mm.
         neuron_centers: Neuron center positions [N_neurons, 2] in mm.
         method: Innervation method: 'gaussian', 'one_to_one', 'distance_weighted'.
         device: PyTorch device for tensors.
         **method_params: Method-specific parameters:
-            
+
             For 'gaussian':
                 - connections_per_neuron: float (default: 28.0)
                 - sigma_d_mm: float (default: 0.3)
                 - weight_range: Tuple[float, float] (default: (0.1, 1.0))
                 - seed: Optional[int]
-            
+
             For 'one_to_one':
                 - (no parameters)
-            
+
             For 'distance_weighted':
                 - max_distance_mm: float (default: 1.0)
                 - decay_function: str (default: 'exponential')
                 - decay_rate: float (default: 2.0)
-    
+
     Returns:
         Weight tensor [num_neurons, num_receptors] where weights[i, j] is the
         connection strength from receptor j to neuron i.
-    
+
     Raises:
         KeyError: If method is not registered in INNERVATION_REGISTRY.
-    
+
     Examples:
         >>> # Gaussian innervation
         >>> W = create_innervation(
@@ -704,13 +739,13 @@ def create_innervation(
         ...     connections_per_neuron=28.0,
         ...     sigma_d_mm=0.3
         ... )
-        
+
         >>> # One-to-one innervation
         >>> W = create_innervation(
         ...     receptor_coords, neuron_centers,
         ...     method="one_to_one"
         ... )
-        
+
         >>> # Distance-weighted innervation
         >>> W = create_innervation(
         ...     receptor_coords, neuron_centers,
@@ -722,9 +757,10 @@ def create_innervation(
     """
     # Import registry (ensure components are registered)
     from sensoryforge.register_components import register_all
+
     register_all()
     from sensoryforge.registry import INNERVATION_REGISTRY
-    
+
     # Use registry to create innervation instance
     try:
         innervation = INNERVATION_REGISTRY.create(
@@ -841,6 +877,7 @@ def create_neuron_centers(
         coords = base_coords + jitter
     elif arrangement == "hex":
         from .grid import ReceptorGrid
+
         center = ((x_min_eff + x_max_eff) / 2, (y_min_eff + y_max_eff) / 2)
         grid = ReceptorGrid(
             grid_size=(n_cols, n_rows),
@@ -923,9 +960,8 @@ def create_innervation_map_tensor(
         local_prob = local_weights / local_sum
         far_prob = far_weights / far_sum
         flat_weights = (
-            (1.0 - far_connection_fraction) * local_prob
-            + far_connection_fraction * far_prob
-        )
+            1.0 - far_connection_fraction
+        ) * local_prob + far_connection_fraction * far_prob
     else:
         flat_weights = flat_gaussian
 
@@ -952,7 +988,7 @@ def create_innervation_map_tensor(
         if use_distance_weights:
             d2_flat = d2.view(num_neurons, -1)
             d2_sampled = torch.gather(d2_flat, 1, all_idx)
-            g_at_sampled = torch.exp(-d2_sampled / (2 * sigma_d_mm ** 2))
+            g_at_sampled = torch.exp(-d2_sampled / (2 * sigma_d_mm**2))
             row_max = g_at_sampled.max(dim=1, keepdim=True).values.clamp(min=1e-12)
             norm = g_at_sampled / row_max
             all_vals = weight_min + norm * (weight_max - weight_min)
@@ -1273,16 +1309,26 @@ class FlatInnervationModule(nn.Module):
             self.num_neurons = n_rows * n_cols
 
             if xlim is None:
-                xlim = (receptor_coords[:, 0].min().item(),
-                        receptor_coords[:, 0].max().item())
+                xlim = (
+                    receptor_coords[:, 0].min().item(),
+                    receptor_coords[:, 0].max().item(),
+                )
             if ylim is None:
-                ylim = (receptor_coords[:, 1].min().item(),
-                        receptor_coords[:, 1].max().item())
+                ylim = (
+                    receptor_coords[:, 1].min().item(),
+                    receptor_coords[:, 1].max().item(),
+                )
 
             self.neuron_centers = create_neuron_centers(
-                neurons_per_row, xlim, ylim, self.device,
-                edge_offset=edge_offset, sigma=self.sigma_d_mm,
-                rows=n_rows, cols=n_cols, arrangement=neuron_arrangement,
+                neurons_per_row,
+                xlim,
+                ylim,
+                self.device,
+                edge_offset=edge_offset,
+                sigma=self.sigma_d_mm,
+                rows=n_rows,
+                cols=n_cols,
+                arrangement=neuron_arrangement,
                 seed=seed,
                 jitter_factor=neuron_jitter_factor,
             )
@@ -1290,7 +1336,8 @@ class FlatInnervationModule(nn.Module):
         # Compute weight matrix via BaseInnervation subclass -------------
         if innervation_method == "gaussian":
             weights = GaussianInnervation(
-                receptor_coords, self.neuron_centers,
+                receptor_coords,
+                self.neuron_centers,
                 connections_per_neuron=connections_per_neuron,
                 sigma_d_mm=self.sigma_d_mm,
                 max_sigma_distance=max_sigma_distance,
@@ -1299,11 +1346,13 @@ class FlatInnervationModule(nn.Module):
                 far_connection_fraction=far_connection_fraction,
                 far_sigma_factor=far_sigma_factor,
                 distance_weight_randomness_pct=distance_weight_randomness_pct,
-                seed=seed, device=self.device,
+                seed=seed,
+                device=self.device,
             ).compute_weights()
         elif innervation_method == "one_to_one":
             weights = OneToOneInnervation(
-                receptor_coords, self.neuron_centers,
+                receptor_coords,
+                self.neuron_centers,
                 connections_per_neuron=connections_per_neuron,
                 sigma_d_mm=self.sigma_d_mm,
                 weight_range=weight_range,
@@ -1319,7 +1368,8 @@ class FlatInnervationModule(nn.Module):
             ).compute_weights()
         elif innervation_method == "uniform":
             weights = UniformInnervation(
-                receptor_coords, self.neuron_centers,
+                receptor_coords,
+                self.neuron_centers,
                 sigma_d_mm=self.sigma_d_mm,
                 weight_range=weight_range,
                 use_distance_weights=use_distance_weights,
@@ -1334,7 +1384,8 @@ class FlatInnervationModule(nn.Module):
             ).compute_weights()
         elif innervation_method == "distance_weighted":
             weights = DistanceWeightedInnervation(
-                receptor_coords, self.neuron_centers,
+                receptor_coords,
+                self.neuron_centers,
                 connections_per_neuron=connections_per_neuron,
                 sigma_d_mm=self.sigma_d_mm,
                 max_distance_mm=max_distance_mm,

@@ -46,7 +46,8 @@ class VoltagePanel(VisualizationPanel):
             name="Drive",
         )
         self._cursor = pg.InfiniteLine(
-            pos=0, angle=90,
+            pos=0,
+            angle=90,
             pen=pg.mkPen(color=(200, 50, 50), width=1.5),
         )
         self._pw.addItem(self._cursor)
@@ -73,8 +74,7 @@ class VoltagePanel(VisualizationPanel):
             return
         if self._pop_name not in self._data.population_names:
             self._pop_name = (
-                self._data.population_names[0]
-                if self._data.population_names else None
+                self._data.population_names[0] if self._data.population_names else None
             )
         self._redraw_full_trace()
         self._render_frame(0)
@@ -86,9 +86,9 @@ class VoltagePanel(VisualizationPanel):
         if self._data is None or self._pop_name is None:
             return
         res = self._data.population_results.get(self._pop_name, {})
-        v_trace = res.get("v_trace")    # [T, N]
-        drive   = res.get("drive")      # [T, N]
-        spikes  = res.get("spikes")     # [T, N]
+        v_trace = res.get("v_trace")  # [T, N]
+        drive = res.get("drive")  # [T, N]
+        spikes = res.get("spikes")  # [T, N]
         time_ms = self._data.time_ms
 
         n_neurons = v_trace.shape[1] if v_trace is not None else 0
@@ -144,10 +144,12 @@ class VoltagePanel(VisualizationPanel):
             pop_cmb.addItems(self._data.population_names)
             if self._pop_name:
                 pop_cmb.setCurrentText(self._pop_name)
+
             def _pop_changed(name):
                 self._pop_name = name
                 self._neuron_idx = 0
                 self._redraw_full_trace()
+
             pop_cmb.currentTextChanged.connect(_pop_changed)
             form.addRow("Population:", pop_cmb)
 
@@ -160,17 +162,21 @@ class VoltagePanel(VisualizationPanel):
             neuron_spin = QtWidgets.QSpinBox()
             neuron_spin.setRange(0, max(0, n_neurons - 1))
             neuron_spin.setValue(self._neuron_idx)
+
             def _neuron_changed(idx):
                 self._neuron_idx = idx
                 self._redraw_full_trace()
+
             neuron_spin.valueChanged.connect(_neuron_changed)
             form.addRow("Neuron #:", neuron_spin)
 
         drive_chk = QtWidgets.QCheckBox("Overlay drive (scaled)")
         drive_chk.setChecked(self._show_drive)
+
         def _drive_changed(s):
             self._show_drive = bool(s)
             self._redraw_full_trace()
+
         drive_chk.stateChanged.connect(_drive_changed)
         form.addRow(drive_chk)
         return w

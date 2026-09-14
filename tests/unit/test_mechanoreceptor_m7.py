@@ -30,9 +30,9 @@ class TestMechanoreceptorBufferShape:
     def test_kernel_4d_after_update(self, module):
         """Kernel should remain 4D after update_parameters()."""
         module.update_parameters(sigma_x_mm=1.0, sigma_y_mm=1.0)
-        assert module.kernel.dim() == 4, (
-            f"Expected 4D kernel after update, got {module.kernel.dim()}D"
-        )
+        assert (
+            module.kernel.dim() == 4
+        ), f"Expected 4D kernel after update, got {module.kernel.dim()}D"
 
     def test_forward_after_update(self, module):
         """forward() should work after update_parameters()."""

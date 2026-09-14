@@ -11,10 +11,10 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.filters.sa_ra import SAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def drive():
@@ -30,6 +30,7 @@ def neuron():
 # ---------------------------------------------------------------------------
 # Basic functionality
 # ---------------------------------------------------------------------------
+
 
 def test_no_filter_returns_spikes(drive, neuron):
     result = SimulationEngine._run_pop_from_drive(
@@ -67,10 +68,10 @@ def test_intermediates_present_when_requested(drive, neuron):
 # Gain and noise
 # ---------------------------------------------------------------------------
 
+
 def test_gain_zero_silences_output(drive, neuron):
     result = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron,
-        input_gain=0.0
+        drive=drive, filter_module=None, neuron_model=neuron, input_gain=0.0
     )
     assert result["spikes"].sum().item() == 0
 
@@ -79,8 +80,11 @@ def test_gain_applied_to_filtered(drive):
     """filtered == drive * gain when filter is None."""
     neuron = IzhikevichNeuronTorch(dt=0.1).cpu()
     result = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron,
-        input_gain=3.0, return_intermediates=True
+        drive=drive,
+        filter_module=None,
+        neuron_model=neuron,
+        input_gain=3.0,
+        return_intermediates=True,
     )
     assert torch.allclose(result["filtered"], drive * 3.0, atol=1e-5)
 
@@ -90,12 +94,18 @@ def test_noise_std_zero_no_noise(drive):
     neuron1 = IzhikevichNeuronTorch(dt=0.1).cpu()
     neuron2 = IzhikevichNeuronTorch(dt=0.1).cpu()
     r1 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron1,
-        noise_std=0.0, return_intermediates=True
+        drive=drive,
+        filter_module=None,
+        neuron_model=neuron1,
+        noise_std=0.0,
+        return_intermediates=True,
     )
     r2 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron2,
-        noise_std=0.0, return_intermediates=True
+        drive=drive,
+        filter_module=None,
+        neuron_model=neuron2,
+        noise_std=0.0,
+        return_intermediates=True,
     )
     assert torch.allclose(r1["filtered"], r2["filtered"])
 
@@ -106,13 +116,19 @@ def test_noise_std_nonzero_adds_stochasticity(drive):
     neuron2 = IzhikevichNeuronTorch(dt=0.1).cpu()
     torch.manual_seed(1)
     r1 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron1,
-        noise_std=5.0, return_intermediates=True
+        drive=drive,
+        filter_module=None,
+        neuron_model=neuron1,
+        noise_std=5.0,
+        return_intermediates=True,
     )
     torch.manual_seed(2)
     r2 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=None, neuron_model=neuron2,
-        noise_std=5.0, return_intermediates=True
+        drive=drive,
+        filter_module=None,
+        neuron_model=neuron2,
+        noise_std=5.0,
+        return_intermediates=True,
     )
     # filtered tensors should differ (stochastic)
     assert not torch.equal(r1["filtered"], r2["filtered"])
@@ -121,6 +137,7 @@ def test_noise_std_nonzero_adds_stochasticity(drive):
 # ---------------------------------------------------------------------------
 # Filter state isolation
 # ---------------------------------------------------------------------------
+
 
 def test_filter_state_reset_between_calls():
     """Calling _run_pop_from_drive twice with the same filter and drive
@@ -131,13 +148,11 @@ def test_filter_state_reset_between_calls():
     drive = torch.ones(1, 60, 4) * 5.0
 
     r1 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=filt, neuron_model=neuron1,
-        return_intermediates=True
+        drive=drive, filter_module=filt, neuron_model=neuron1, return_intermediates=True
     )
     r2 = SimulationEngine._run_pop_from_drive(
-        drive=drive, filter_module=filt, neuron_model=neuron2,
-        return_intermediates=True
+        drive=drive, filter_module=filt, neuron_model=neuron2, return_intermediates=True
     )
-    assert torch.allclose(r1["filtered"], r2["filtered"], atol=1e-5), (
-        "Filter state leaked between _run_pop_from_drive calls."
-    )
+    assert torch.allclose(
+        r1["filtered"], r2["filtered"], atol=1e-5
+    ), "Filter state leaked between _run_pop_from_drive calls."

@@ -13,6 +13,7 @@ import torch
 
 try:
     from sensoryforge.neurons.model_dsl import NeuronModel
+
     SYMPY_AVAILABLE = True
 except ImportError:
     SYMPY_AVAILABLE = False

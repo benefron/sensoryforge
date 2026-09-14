@@ -95,16 +95,16 @@ class BaseFilter(nn.Module, ABC):
 
         Returns:
             Initialised filter instance.
-        
+
         Note:
             Base implementation passes config['dt'] to __init__.
             Subclasses should override this method if they accept
             additional parameters beyond dt.
-            
+
             Resolves ReviewFinding#M1.
         """
         # Extract dt for base __init__, subclasses override for more params
-        dt = config.get('dt', 0.001)
+        dt = config.get("dt", 0.001)
         return cls(dt=dt)
 
     def to_dict(self) -> Dict[str, Any]:

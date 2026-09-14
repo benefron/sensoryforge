@@ -15,6 +15,7 @@ register_all()
 # ParamSpec dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestParamSpec:
     def test_defaults(self):
         p = ParamSpec("sigma")
@@ -32,8 +33,16 @@ class TestParamSpec:
         assert p.label == "X pos"
 
     def test_to_dict_roundtrip(self):
-        p = ParamSpec("sigma", dtype="float", default=0.5, min_val=0.01,
-                      max_val=10.0, step=0.05, unit="mm", tooltip="width")
+        p = ParamSpec(
+            "sigma",
+            dtype="float",
+            default=0.5,
+            min_val=0.01,
+            max_val=10.0,
+            step=0.05,
+            unit="mm",
+            tooltip="width",
+        )
         d = p.to_dict()
         assert d["name"] == "sigma"
         assert d["min_val"] == 0.01
@@ -43,6 +52,7 @@ class TestParamSpec:
 # ---------------------------------------------------------------------------
 # BaseStimulus.get_param_spec default
 # ---------------------------------------------------------------------------
+
 
 class TestBaseStimulusDefault:
     def test_base_default_is_empty(self):
@@ -54,6 +64,7 @@ class TestBaseStimulusDefault:
 # ---------------------------------------------------------------------------
 # GaussianStimulus
 # ---------------------------------------------------------------------------
+
 
 class TestGaussianParamSpec:
     def test_returns_list(self):
@@ -76,13 +87,16 @@ class TestGaussianParamSpec:
         assert sigma.min_val is not None and sigma.min_val > 0
 
     def test_amplitude_unit_is_ma(self):
-        amp = next(s for s in GaussianStimulus.get_param_spec() if s.name == "amplitude")
+        amp = next(
+            s for s in GaussianStimulus.get_param_spec() if s.name == "amplitude"
+        )
         assert amp.unit == "mA"
 
 
 # ---------------------------------------------------------------------------
 # GaborTexture
 # ---------------------------------------------------------------------------
+
 
 class TestGaborParamSpec:
     def test_wavelength_present(self):
@@ -100,6 +114,7 @@ class TestGaborParamSpec:
 # EdgeGrating
 # ---------------------------------------------------------------------------
 
+
 class TestEdgeGratingParamSpec:
     def test_count_is_int(self):
         spec = next(s for s in EdgeGrating.get_param_spec() if s.name == "count")
@@ -113,6 +128,7 @@ class TestEdgeGratingParamSpec:
 # ---------------------------------------------------------------------------
 # Registry.get_param_spec
 # ---------------------------------------------------------------------------
+
 
 class TestRegistryGetParamSpec:
     def test_gaussian_via_registry(self):

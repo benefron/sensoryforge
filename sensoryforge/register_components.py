@@ -66,7 +66,7 @@ from sensoryforge.core.processing import IdentityLayer
 
 def register_all() -> None:
     """Register all SensoryForge components with their registries.
-    
+
     This function should be called once at module import time or application
     startup to ensure all components are available via registry lookup.
     """
@@ -83,7 +83,7 @@ def register_all() -> None:
     NEURON_REGISTRY.register("SA", SANeuronTorch)  # Alias
     NEURON_REGISTRY.register("dsl", NeuronModel)
     NEURON_REGISTRY.register("DSL (Custom)", NeuronModel)  # GUI alias
-    
+
     # Register filters
     # Note: SAFilterTorch and RAFilterTorch don't inherit BaseFilter yet
     # They will be refactored in a future update
@@ -95,42 +95,64 @@ def register_all() -> None:
     FILTER_REGISTRY.register("rafilter", RAFilterTorch)  # Alias
     FILTER_REGISTRY.register("none", type(None))  # No filter
     FILTER_REGISTRY.register("identity", type(None))  # No filter alias
-    
+
     # Register innervation methods
     # These use factory functions since they're instantiated via create_innervation()
     def create_gaussian_innervation(**kwargs):
         from sensoryforge.core.innervation import GaussianInnervation
+
         receptor_coords = kwargs.pop("receptor_coords")
         neuron_centers = kwargs.pop("neuron_centers")
         device = kwargs.pop("device", "cpu")
-        return GaussianInnervation(receptor_coords, neuron_centers, device=device, **kwargs)
-    
+        return GaussianInnervation(
+            receptor_coords, neuron_centers, device=device, **kwargs
+        )
+
     def create_uniform_innervation(**kwargs):
         from sensoryforge.core.innervation import UniformInnervation
+
         receptor_coords = kwargs.pop("receptor_coords")
         neuron_centers = kwargs.pop("neuron_centers")
         device = kwargs.pop("device", "cpu")
-        return UniformInnervation(receptor_coords, neuron_centers, device=device, **kwargs)
-    
+        return UniformInnervation(
+            receptor_coords, neuron_centers, device=device, **kwargs
+        )
+
     def create_one_to_one_innervation(**kwargs):
         from sensoryforge.core.innervation import OneToOneInnervation
+
         receptor_coords = kwargs.pop("receptor_coords")
         neuron_centers = kwargs.pop("neuron_centers")
         device = kwargs.pop("device", "cpu")
-        return OneToOneInnervation(receptor_coords, neuron_centers, device=device, **kwargs)
-    
+        return OneToOneInnervation(
+            receptor_coords, neuron_centers, device=device, **kwargs
+        )
+
     def create_distance_weighted_innervation(**kwargs):
         from sensoryforge.core.innervation import DistanceWeightedInnervation
+
         receptor_coords = kwargs.pop("receptor_coords")
         neuron_centers = kwargs.pop("neuron_centers")
         device = kwargs.pop("device", "cpu")
-        return DistanceWeightedInnervation(receptor_coords, neuron_centers, device=device, **kwargs)
-    
-    INNERVATION_REGISTRY.register("gaussian", GaussianInnervation, create_gaussian_innervation)
-    INNERVATION_REGISTRY.register("uniform", UniformInnervation, create_uniform_innervation)
-    INNERVATION_REGISTRY.register("one_to_one", OneToOneInnervation, create_one_to_one_innervation)
-    INNERVATION_REGISTRY.register("distance_weighted", DistanceWeightedInnervation, create_distance_weighted_innervation)
-    
+        return DistanceWeightedInnervation(
+            receptor_coords, neuron_centers, device=device, **kwargs
+        )
+
+    INNERVATION_REGISTRY.register(
+        "gaussian", GaussianInnervation, create_gaussian_innervation
+    )
+    INNERVATION_REGISTRY.register(
+        "uniform", UniformInnervation, create_uniform_innervation
+    )
+    INNERVATION_REGISTRY.register(
+        "one_to_one", OneToOneInnervation, create_one_to_one_innervation
+    )
+    INNERVATION_REGISTRY.register(
+        "distance_weighted",
+        DistanceWeightedInnervation,
+        create_distance_weighted_innervation,
+    )
+
     # Register stimuli
     STIMULUS_REGISTRY.register("gaussian", GaussianStimulus)
     STIMULUS_REGISTRY.register("static", StaticStimulus)
@@ -141,17 +163,19 @@ def register_all() -> None:
     STIMULUS_REGISTRY.register("texture", GaborTexture)  # Default texture type
     STIMULUS_REGISTRY.register("gabor", GaborTexture)
     STIMULUS_REGISTRY.register("edge_grating", EdgeGrating)
-    
+
     # Register solvers
     SOLVER_REGISTRY.register("euler", EulerSolver)
     SOLVER_REGISTRY.register("adaptive", AdaptiveSolver)
-    
+
     # Register processing layers
     PROCESSING_REGISTRY.register("identity", IdentityLayer)
-    
+
     # Register grid arrangements (as string identifiers)
     # These are used by ReceptorGrid, not instantiated directly
-    GRID_REGISTRY.register("grid", str)  # Placeholder - grid creation handled differently
+    GRID_REGISTRY.register(
+        "grid", str
+    )  # Placeholder - grid creation handled differently
     GRID_REGISTRY.register("poisson", str)
     GRID_REGISTRY.register("hex", str)
     GRID_REGISTRY.register("jittered_grid", str)

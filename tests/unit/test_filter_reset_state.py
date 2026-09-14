@@ -85,6 +85,6 @@ def test_reset_state_allows_fresh_forward():
     out2 = sa(x2)
 
     # Outputs should be identical since both started from zero state
-    assert torch.allclose(out1, out2, atol=1e-5), (
-        "After reset_state(), identical input should produce identical output"
-    )
+    assert torch.allclose(
+        out1, out2, atol=1e-5
+    ), "After reset_state(), identical input should produce identical output"

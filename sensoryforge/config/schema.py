@@ -41,6 +41,7 @@ class GridConfig:
         color: RGBA color tuple [r, g, b, a] for visualization.
         visible: Whether this grid layer is visible in the GUI.
     """
+
     name: str
     arrangement: str = "grid"  # grid, poisson, hex, jittered, blue_noise
     rows: Optional[int] = None
@@ -49,9 +50,7 @@ class GridConfig:
     density: Optional[float] = None  # receptors/mm²
     center_x: float = 0.0
     center_y: float = 0.0
-    color: List[int] = field(
-        default_factory=lambda: [66, 135, 245, 200]
-    )
+    color: List[int] = field(default_factory=lambda: [66, 135, 245, 200])
     visible: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
@@ -61,7 +60,7 @@ class GridConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> GridConfig:
         """Create from dict (e.g., from YAML).
-        
+
         Handles both GridEntry format (center as [x, y] list) and GridConfig
         format (center_x, center_y).
         """
@@ -69,7 +68,7 @@ class GridConfig:
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
-        
+
         # Handle GridEntry format: center and offset as lists
         if "center" in data and isinstance(data["center"], list):
             kwargs["center_x"] = data["center"][0]
@@ -82,7 +81,7 @@ class GridConfig:
                 kwargs["center_y"] = 0.0
             kwargs["center_x"] += data["offset"][0]
             kwargs["center_y"] += data["offset"][1]
-        
+
         return cls(**kwargs)
 
 
@@ -136,6 +135,7 @@ class PopulationConfig:
         input_gain: Input gain multiplier.
         seed: Random seed for innervation generation.
     """
+
     name: str
     neuron_type: str = "SA"
     target_grid: Optional[str] = None
@@ -151,9 +151,7 @@ class PopulationConfig:
     max_distance_mm: float = 1.0
     decay_function: str = "exponential"
     decay_rate: float = 2.0
-    weight_range: List[float] = field(
-        default_factory=lambda: [0.05, 1.0]
-    )
+    weight_range: List[float] = field(default_factory=lambda: [0.05, 1.0])
     edge_offset: float = 0.0
 
     # Neuron layout
@@ -181,9 +179,7 @@ class PopulationConfig:
     noise_seed: Optional[int] = None
 
     # Visualization
-    color: List[int] = field(
-        default_factory=lambda: [66, 135, 245, 255]
-    )
+    color: List[int] = field(default_factory=lambda: [66, 135, 245, 255])
     visible: bool = True
 
     # Simulation control
@@ -193,11 +189,11 @@ class PopulationConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization.
-        
+
         Returns:
             Dictionary representation suitable for YAML export.
             None values are removed for cleaner YAML output.
-        
+
         Example:
             >>> config = PopulationConfig(name="SA", neurons_per_row=10)
             >>> config_dict = config.to_dict()
@@ -210,16 +206,16 @@ class PopulationConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PopulationConfig:
         """Create from dict (e.g., from YAML).
-        
+
         Handles missing optional fields by using defaults from dataclass definition.
-        
+
         Args:
             data: Dictionary with population configuration fields.
                 Can include any subset of PopulationConfig fields.
-        
+
         Returns:
             PopulationConfig instance with provided values and defaults.
-        
+
         Example:
             >>> data = {
             ...     "name": "SA Population",
@@ -266,32 +262,33 @@ class StimulusConfig:
         center: Center point for circular motion.
         radius: Radius for circular motion.
     """
+
     name: str = "Stimulus"
     type: str = "gaussian"  # gaussian, texture, moving, timeline, repeated_pattern
     motion: str = "static"  # static, moving
     composition_mode: str = "single"
     target_layer: Optional[str] = None
     stimuli: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     # Spatial parameters
     start: List[float] = field(default_factory=lambda: [0.0, 0.0])
     end: List[float] = field(default_factory=lambda: [0.0, 0.0])
     spread: float = 1.0
     orientation_deg: float = 0.0
     amplitude: float = 30.0
-    
+
     # Temporal parameters
     speed_mm_s: float = 10.0
     ramp_up_ms: float = 10.0
     plateau_ms: float = 800.0
     ramp_down_ms: float = 10.0
-    
+
     # Texture-specific
     pattern: str = "gabor"  # gabor, grating
     wavelength: float = 2.0
     phase: float = 0.0
     sigma: float = 2.0
-    
+
     # Moving-specific
     motion_type: str = "linear"  # linear, circular
     center: List[float] = field(default_factory=lambda: [0.0, 0.0])
@@ -323,6 +320,7 @@ class SimulationConfig:
         duration_ms: Simulation duration in ms (optional, can be inferred
             from stimulus).
     """
+
     device: str = "cpu"
     dt: float = 1.0  # ms
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
@@ -357,6 +355,7 @@ class SensoryForgeConfig:
         simulation: Simulation configuration.
         metadata: Optional metadata dict (version, created timestamp, etc.).
     """
+
     grids: List[GridConfig] = field(default_factory=list)
     populations: List[PopulationConfig] = field(default_factory=list)
     stimulus: StimulusConfig = field(default_factory=StimulusConfig)
@@ -389,8 +388,7 @@ class SensoryForgeConfig:
         """
         grids = [GridConfig.from_dict(g) for g in data.get("grids", [])]
         populations = [
-            PopulationConfig.from_dict(p)
-            for p in data.get("populations", [])
+            PopulationConfig.from_dict(p) for p in data.get("populations", [])
         ]
         stimulus = StimulusConfig.from_dict(data.get("stimulus", {}))
         simulation = SimulationConfig.from_dict(data.get("simulation", {}))
@@ -406,10 +404,10 @@ class SensoryForgeConfig:
 
     def to_yaml(self) -> str:
         """Serialize to YAML string.
-        
+
         Returns:
             YAML-formatted string suitable for saving to file or CLI usage.
-        
+
         Example:
             >>> config = SensoryForgeConfig(...)
             >>> yaml_str = config.to_yaml()

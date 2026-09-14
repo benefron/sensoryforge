@@ -69,7 +69,7 @@ class StimulusPanel(VisualizationPanel):
         if self._data is None or self._data.stimulus_frames is None:
             self._show_placeholder()
             return
-        frames = self._data.stimulus_frames       # [T, H, W]
+        frames = self._data.stimulus_frames  # [T, H, W]
         self._global_min = float(frames.min())
         self._global_max = float(frames.max()) or 1.0
         # Set spatial transform so image axes match mm
@@ -95,7 +95,7 @@ class StimulusPanel(VisualizationPanel):
     def _render_frame(self, t_idx: int) -> None:
         if self._data is None or self._data.stimulus_frames is None:
             return
-        frame = self._data.stimulus_frames[t_idx]    # [n_x, n_y] = (x, y)
+        frame = self._data.stimulus_frames[t_idx]  # [n_x, n_y] = (x, y)
         self._img.setImage(
             frame,
             autoLevels=False,
@@ -112,7 +112,9 @@ class StimulusPanel(VisualizationPanel):
         form.setContentsMargins(8, 8, 8, 8)
 
         cmap_cmb = QtWidgets.QComboBox()
-        cmap_cmb.addItems(["viridis", "plasma", "inferno", "magma", "hot", "jet", "grey"])
+        cmap_cmb.addItems(
+            ["viridis", "plasma", "inferno", "magma", "hot", "jet", "grey"]
+        )
         cmap_cmb.setCurrentText(self._cmap_name)
         cmap_cmb.currentTextChanged.connect(self._set_colormap)
         form.addRow("Colormap:", cmap_cmb)

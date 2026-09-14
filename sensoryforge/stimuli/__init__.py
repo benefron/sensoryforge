@@ -14,20 +14,20 @@ temporal trajectories, and motion profiles for sensory encoding experiments.
 
 Example (Builder API):
     >>> from sensoryforge.stimuli import Stimulus
-    >>> 
+    >>>
     >>> # Static Gaussian
     >>> s1 = Stimulus.gaussian(amplitude=1.0, sigma=0.3, center=(0.5, 0.5))
-    >>> 
+    >>>
     >>> # Gaussian with linear motion
     >>> s2 = Stimulus.gaussian(amplitude=2.0, sigma=0.2).with_motion(
     ...     'linear', start=(0.0, 0.0), end=(1.0, 1.0), num_steps=100
     ... )
-    >>> 
+    >>>
     >>> # Gabor with circular motion
     >>> s3 = Stimulus.gabor(wavelength=0.5).with_motion(
     ...     'circular', center=(0.0, 0.0), radius=0.5, num_steps=200
     ... )
-    >>> 
+    >>>
     >>> # Composite stimulus
     >>> combined = Stimulus.compose([s1, s2, s3], mode='add')
 
