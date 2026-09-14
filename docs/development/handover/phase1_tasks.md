@@ -10,11 +10,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Wave A is done except task A8; start with A8,
-> then continue with Wave B. Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Waves A and B are done and reviewed (sections 1b
+> and 1c). Start with task B3, then do Wave C (C1, C2, C3). Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when a wave is finished.
+> skip it and continue with the next unblocked task. Stop and report when Wave C is finished.
 
 ---
 
@@ -93,6 +93,22 @@ keeps its own default dict (`filters/sa_ra.py:455-456`) instead of reading `FILT
 **Minor, no task needed yet:** the F-023 cap (2e8 elements) does not catch the smaller mistake quoted in
 F-023 itself (`sa_neurons: 100` on 80×80 builds 10,000 neurons, 6.4e7 elements); `SimulationEngine`
 resolves filter defaults only for the names `sa`/`ra`, not the registered aliases `safilter`/`rafilter`.
+
+## 1c. Review of A8 and Wave B (2026-09-14, commits `e518611`, `b6701a4`)
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| A8 preset base on partial overrides | Accepted | new regression test fails on `d194cd4` for the two partial-override cases and the legacy RA neurons; a 30-combination probe (SA/RA × 5 neuron overrides × 3 filter overrides) found no difference between `SimulationEngine`, the GUI resolution and the legacy adapter |
+| A8 k3 = 2.0 | Accepted as implemented; **decision must be confirmed by the user** | the commit states D-Q1 was decided by the user (ledger D-018). On the default trapezoidal stimulus, fast-spiking RA averaged 314 Hz at the old GUI value of 100 and 69 Hz at 2.0, with 61 of 64 neurons still firing |
+| B1 `pyproject.toml` | Accepted | wheel contains `config/default_config.yml` and `gui/default_params.json`, no tests or docs; entry point works |
+| B2 `importlib.resources` | Accepted | wheel installed in a scratch venv and run from `/tmp`: `sensoryforge list-components`, `create_standard_pipeline()` and both GUI parameter paths work |
+| Imports | OK | every touched module imports cleanly in a fresh interpreter (no cycle from `filters/sa_ra.py` → `config.defaults` → `neurons`) |
+| Suites | Green | non-GUI 728 passed, 6 skipped; Qt files one at a time 226 passed; README quick-start 338 MB |
+
+Two loose ends, recorded in the ledger:
+
+- **F-033:** setuptools warns that `project.license` as a table and the `License :: OSI Approved :: MIT License` classifier are deprecated; builds stop being supported after 2027-02-18. Task B3.
+- **F-034:** pressure-simulation's `encoding/encode_runner.py` still defaults RA k3 to 1.0 (its comment calls that calibrated for fast-spiking RA at input gain 40), which contradicts D-018 "k3 = 2.0 everywhere" and blocks a zero-tolerance golden parity test (E5). Needs the user to confirm whether "everywhere" includes that runner.
 
 ---
 
@@ -223,6 +239,12 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Done when:** the wheel check passes from an unrelated working directory, including importing `sensoryforge.gui.tabs.spiking_tab` with `QT_QPA_PLATFORM=offscreen`.
 - **Trailers:** `Closes: F-014`.
 
+#### B3. SPDX license metadata (do this first in the next run)
+- **Files:** `pyproject.toml`.
+- **Do:** `license = "MIT"`, `license-files = ["LICENSE"]`, remove the `License :: OSI Approved :: MIT License` classifier, raise `[build-system] requires` to `setuptools>=77`.
+- **Done when:** `python -m pip wheel . --no-deps --no-build-isolation -v -w <scratch>/dist 2>&1 | grep -c SetuptoolsDeprecationWarning` prints 0, and the appendix wheel check still passes.
+- **Trailers:** `Closes: F-033`.
+
 ### Wave C — test hygiene (plan 1c, F-016)
 
 #### C1. `pytest.ini` and markers
@@ -250,7 +272,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Done when:** the workflow file passes `python -c "import yaml; yaml.safe_load(open('.github/workflows/tests.yml'))"` and every command in it succeeds locally. Do not push; the user pushes.
 
 #### D3. Community and hygiene files
-- **Do:** add `CITATION.cff`, `CHANGELOG.md` (an "Unreleased" section that lists every behaviour change users will notice: SA no longer rectified by default, τ_RA 8 ms, RA fast-spiking preset, grid and neuron count fixes, defaults resolver), `CONTRIBUTING.md` (absorb `DEVELOPMENT.md`, then delete it; include the extension guide pointers and the ledger trailer convention), `CODE_OF_CONDUCT.md`. Delete `test_refactoring.py` at the repo root (superseded by `tests/integration/test_regression_refactoring.py`). Untrack `.github/copilot-instructions.md` with `git rm --cached` (it is already gitignored).
+- **Do:** add `CITATION.cff`, `CHANGELOG.md` (an "Unreleased" section that lists every behaviour change users will notice: SA no longer rectified by default, τ_RA 8 ms, RA fast-spiking preset, RA k3 2.0 in the GUI instead of 100 (RA firing on the default ramp stimulus drops from about 314 Hz to 69 Hz), grid and neuron count fixes, defaults resolver, Python 3.10+ and the `gui` extra for PyQt5), `CONTRIBUTING.md` (absorb `DEVELOPMENT.md`, then delete it; include the extension guide pointers and the ledger trailer convention), `CODE_OF_CONDUCT.md`. Delete `test_refactoring.py` at the repo root (superseded by `tests/integration/test_regression_refactoring.py`). Untrack `.github/copilot-instructions.md` with `git rm --cached` (it is already gitignored).
 - **Trailers:** `Closes: F-015`.
 
 ### Wave E — remaining engine parity (plan 1e)
@@ -279,7 +301,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Trailers:** `Closes: F-008`.
 
 #### E5. Golden parity test against pressure-simulation
-- **Blocked on:** D-Q1 and E4.
+- **Blocked on:** E4, and the user's answer to F-034 (whether pressure-simulation's `encode_runner.py` k3 default moves from 1.0 to 2.0). Do not edit pressure-simulation for this without that answer.
 - **Do:** write `scripts/dev/export_pressure_sim_golden.py`, run manually in pressure-simulation's environment, that calls its `encoding/encode_runner.run_encoding` with a fixed stimulus and fixed innervation weights and saves `weights`, `stimulus`, per-population filtered response and spikes to `tests/fixtures/pressure_sim_golden/*.npz`. Add `tests/integration/test_pressure_sim_parity.py`, which feeds the same weights and stimulus through `SimulationEngine` and compares (filtered response to 1e-6, spikes exactly).
 - **Trailers:** `Opens:` any mismatch found, with the measured difference.
 
@@ -314,7 +336,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-003, F-004, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-030, F-031, F-032 closed or explicitly reported as blocked (F-023, F-025–F-029 closed in Wave A).
+- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-033, F-034 closed or explicitly reported as blocked (F-014, F-023, F-025–F-032 closed in Waves A and B).
 
 ---
 
