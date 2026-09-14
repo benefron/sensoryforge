@@ -240,8 +240,10 @@ class TactileEncodingPipelineTorch(nn.Module):
         """Apply receptor and membrane noise in sequence.
 
         The same noise stack is used for both SA and RA pathways to model
-        receptor stochasticity followed by membrane fluctuations before
-        spiking.
+        receptor stochasticity followed by membrane fluctuations. Applied
+        after filtering and gain (filter -> gain -> noise), matching
+        :meth:`SimulationEngine._run_pop_from_drive` and
+        pressure-simulation's runner (F-007) -- not before filtering.
         """
         noisy_inputs = self.receptor_noise(inputs)
         return self.membrane_noise(noisy_inputs)
@@ -279,11 +281,6 @@ class TactileEncodingPipelineTorch(nn.Module):
         sa_inputs = self.sa_innervation(mech_responses)
         ra_inputs = self.ra_innervation(mech_responses)
 
-        # Apply biologically inspired receptor + membrane noise before
-        # filtering so each pathway sees matched stochastic perturbations.
-        sa_inputs = self.apply_noise(sa_inputs)
-        ra_inputs = self.apply_noise(ra_inputs)
-
         # Step 3: Apply SA/RA filters with enhanced processing
         if len(stimuli.shape) == 3:  # Single time step
             filter_method = filter_method or "multi_step"
@@ -302,6 +299,12 @@ class TactileEncodingPipelineTorch(nn.Module):
         # Apply configurable gain/bias to drive neurons
         sa_drive = sa_outputs * self.sa_input_gain + self.sa_input_bias
         ra_drive = ra_outputs * self.ra_input_gain + self.ra_input_bias
+
+        # F-007: noise is applied after filtering and gain (filter -> gain ->
+        # noise), matching SimulationEngine._run_pop_from_drive and
+        # pressure-simulation's runner -- not before filtering.
+        sa_drive = self.apply_noise(sa_drive)
+        ra_drive = self.apply_noise(ra_drive)
 
         sa_result = self.sa_neurons(sa_drive)
         ra_result = self.ra_neurons(ra_drive)
