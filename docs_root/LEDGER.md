@@ -92,7 +92,7 @@ when there are real new entries.
 SensoryForge is the general clean-slate sensory-encoding simulator (sensor channels -> receptive fields -> sensory neurons -> spiking or analog readout -> batch data); pressure-simulation is a use case that supplies the recipe (d, ensemble, MI scoring) and consumes the generated bundle
 → commit b28acda
 
-## F-025 · OPEN · finding · - · 2026-09-14
+## F-025 · CLOSED · finding · - · 2026-09-14
 The canonical->legacy adapter still squares neuron counts: it writes neuron_rows*neuron_cols into neurons.sa/ra/sa2_neurons, which InnervationModule treats as per-row (generalized_pipeline.py:404,447,480 -> :640-707). A 4-per-row canonical population builds 256 neurons in the legacy pipeline vs 16 in SimulationEngine; the README 80x80 quick-start still exceeds 3 GB. F-012 fixed only the receptor-grid half.
 → commit b28acda
 
@@ -132,7 +132,7 @@ RAFilterTorch.tau_RA is locked to 8 ms everywhere (Kandel Ch.21), matching press
 Izhikevich neuron presets (RS/FS/IB/CH/LTS, Izhikevich 2003) are available via preset=; RA populations default to FS in SimulationEngine (next commit)
 → commit be64ab2
 
-## F-023 · OPEN · finding · - · 2026-09-14
+## F-023 · CLOSED · finding · - · 2026-09-14
 Legacy config keys neurons.sa_neurons/ra_neurons mean neurons-per-row, not a total count -- InnervationModule squares it, so a value that reads as a total (e.g. 100) silently builds a 100x100=10,000-neuron population with a dense [N,H,W] weight tensor. Confirmed via test_gui_cli_parity.py::TestConfigAdapter::test_legacy_config_still_works, which passed sa_neurons=100/ra_neurons=196 (looking like the canonical example's totals) and hit >2.7GB RSS before the test was corrected to use per-row values.
 → commit 1c93fa6
 
