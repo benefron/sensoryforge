@@ -108,7 +108,7 @@ SensoryForgeConfig.from_yaml raises OSError (ENAMETOOLONG) on a one-line YAML/JS
 Phase 0/1a behaviour is untested (Izhikevich presets and override precedence, SimulationEngine RA->FS default, from_yaml path branch and from_yaml_file, core/pipeline.py reading filters.sa/ra) and preset was inserted positionally between d and v_init, breaking positional IzhikevichNeuronTorch callers.
 → commit b28acda
 
-## F-029 · OPEN · finding · - · 2026-09-14
+## F-029 · CLOSED · finding · - · 2026-09-14
 Moving reviews/ under docs/ added 9 mkdocs warnings (relative code links in REVIEW_AGENT_FINDINGS_20260211.md); mkdocs build --strict would fail.
 → commit b28acda
 
