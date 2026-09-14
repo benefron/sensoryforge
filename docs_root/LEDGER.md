@@ -88,11 +88,15 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-031 · OPEN · finding · - · 2026-09-14
+## D-018 · CLOSED · decision · - · 2026-09-14
+RA filter gain k3 = 2.0 everywhere (D-Q1).
+→ commit e518611
+
+## F-031 · CLOSED · finding · - · 2026-09-14
 resolve_neuron_params (config/defaults.py) expands the neuron-type preset only when no a/b/c/d override is present: RA population with model_params {d: 4.0} builds a=0.1 in the GUI but a=0.02 in SimulationEngine, and GeneralizedTactileEncodingPipeline raises KeyError 'a' (generalized_pipeline.py:432,471), breaking CLI/batch runs of GUI-exported configs with one tweaked neuron parameter. test_config_defaults.py::test_explicit_d_override_suppresses_preset asserts the wrong semantics. F-026 and F-004 were closed with this present.
 → commit 6bab8cc
 
-## F-032 · OPEN · finding · - · 2026-09-14
+## F-032 · CLOSED · finding · - · 2026-09-14
 RS defaults for RA remain outside the resolver: TactileEncodingPipelineTorch builds RA neurons with the RS class default (core/pipeline.py:161-162), GeneralizedTactileEncodingPipeline DEFAULT_CONFIG has RS ra_a/ra_d for hand-written legacy configs (:160-163), and CombinedSARAFilter keeps its own default dict (filters/sa_ra.py:455-456) instead of FILTER_DEFAULTS.
 → commit 6bab8cc
 
@@ -120,7 +124,7 @@ Phase 0/1a behaviour is untested (Izhikevich presets and override precedence, Si
 Moving reviews/ under docs/ added 9 mkdocs warnings (relative code links in REVIEW_AGENT_FINDINGS_20260211.md); mkdocs build --strict would fail.
 → commit b28acda
 
-## F-030 · OPEN · finding · - · 2026-09-14
+## F-030 · CLOSED · finding · - · 2026-09-14
 RA filter gain k3 is unresolved across both repos: SensoryForge GUI 100, SensoryForge engine 2.0, pressure-simulation class/config/decoder gain 2.0 but its encode_runner uses 1.0 and notes k3=100 saturates fast-spiking RA near 1000 Hz. Needs a user decision (D-Q1 in the handover).
 → commit b28acda
 
