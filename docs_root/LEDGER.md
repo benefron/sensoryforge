@@ -209,7 +209,7 @@ Same seed gives different wiring across repos: batched torch.multinomial (innerv
 Two noise topologies: core/pipeline.py:239 applies receptor+membrane noise before the filter; SimulationEngine:393-404 applies one post-gain randn and no receptor noise
 → commit 7a188b6
 
-## F-008 · OPEN · finding · - · 2026-09-14
+## F-008 · CLOSED · finding · - · 2026-09-14
 No sub-stepping: SimulationConfig.dt=1.0 ms (schema.py:326) is fed straight to the neuron (simulation_engine.py:262); pressure-simulation sub-steps Izhikevich at 0.05 ms inside 1 ms bins
 → commit 7a188b6
 
