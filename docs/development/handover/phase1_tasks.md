@@ -10,11 +10,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A to D are done and reviewed (sections
-> 1b-1e). Start with task D4, then do Wave E in order (E1, E2, E3, E4, E5). Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Waves A to E are done and reviewed (sections
+> 1b-1f). Do the Wave E fixes in order (E6, E7, E8, E9, E10), then Wave F (F1, F2). Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when Wave E is finished.
+> skip it and continue with the next unblocked task. Stop and report when Wave F is finished.
 
 ---
 
@@ -148,6 +148,23 @@ Corrections made in the review commit:
 - D1's style-debt `Finding:` was written as a wrapped multi-line trailer, which the ledger parser silently drops. It is recorded as F-036. Guardrail 8 now requires single-line trailers.
 
 pressure-simulation: the user decided k3 = 2.0 everywhere. Commit `f7784f9` there sets the RA default in `encoding/encode_runner.py` and `GUIs/ebkf_viewer.py`, and the decoder fallbacks in `decoding/pipeline.py` and the pseudo-inverse reconstructor, to 2.0 (filter, pipeline and decoder tests: 48 passed before and after). F-034 is closed. That commit also records, in pressure-simulation's ledger, that its RA input gains were tuned at k3 = 1.0.
+
+## 1f. Review of D4 and Wave E (2026-09-14, commits `6dbf9ac..6c02331`)
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| D4 CI hardening | Accepted | pins and apt libraries as specified; CI still has never run on GitHub |
+| E1 analytic Gaussian weights | Accepted | defaults changed in schema, both innervation modules and the GUI; `CHANGELOG.md` updated. README example spikes change from SA 8 / RA 15 to SA 2 / RA 19 |
+| E2 per-instance RNG | **Rejected in part** | global RNG no longer touched and same-seed CPU wiring is bit-identical to before, but seeded innervation now crashes on MPS (and, by the same mechanism, CUDA): `Expected a 'mps' device type for generator but found 'cpu'`. Before E2, `InnervationModule` and `SimulationEngine` ran on MPS. F-038 |
+| E3 noise after filter and gain | Accepted | not in `CHANGELOG.md` (task E10) |
+| E4 neuron sub-stepping | Accepted, with two regressions and two gaps | sub-stepping matches pressure-simulation (proved by E5). Regression: the canonical adapter still reads `simulation.dt`, so texture, moving, timeline, repeated-pattern and custom stimuli in CLI/batch runs use 0.1 ms whatever `dt_ms` says (F-039). Regression: `SimulationConfig(dt=...)` no longer constructs (only `from_dict` accepts the alias). Gap: a record step that is not a whole multiple of `integrate_dt_ms` silently rescales neuron time, e.g. 0.12 ms bins integrate 0.10 ms (F-042). Gap: none of the E4 behaviour changes are in `CHANGELOG.md` |
+| E5 golden parity | Accepted | 159 SA and 304 RA spikes in the fixture; the fixture regenerates bit-identically from pressure-simulation; four mutations (integration step 0.1, τ_RA 9, k3 2.1, RA `d` 2.2) each make the test fail; pressure-simulation's unclamped SA voltage bottoms at −106.4 mV, so the −120 mV clamp never engages in this case |
+| Suites | Green | gui 230 passed, 1 skipped; not-gui 741 passed, 6 skipped; full 971 passed, 7 skipped; all exit 0 at ~1.3 GB peak; black and flake8 exit 0 |
+
+Two older problems became more consequential once `dt_ms` started driving filter integration and sub-steps:
+
+- **F-040:** a CLI run of a canonical config with `dt_ms: 1.0 --duration 100` produces 10,450 bins, because trapezoid, gaussian, step and ramp stimuli use the legacy `temporal.dt` (0.1 ms, F-024) and the trapezoid ignores `--duration`. The engine then reads every bin as 1 ms, so the simulated timeline is about 100× longer than requested. The pre-Wave-E tree gives 10,451 bins, so this predates Wave E. It is on the CLI/batch data-generation path.
+- **F-041:** a GUI export always writes `simulation.dt_ms: 1.0`, because `SpikingNeuronTab.get_config()` carries no time step and `gui/main.py` `_gui_to_canonical` defaults to 1.0. The GUI simulates at the stimulus step (0.1 ms by default), so a GUI-exported config runs with different filter integration and sub-steps from the CLI.
 
 ---
 
@@ -368,6 +385,36 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
   3. SensoryForge clamps Izhikevich voltage at −120 mV (`v_floor`, D-007) and pressure-simulation does not (F-037). Keep the golden stimulus positive so neither side reaches the clamp, and note the limitation in the test docstring.
 - **Trailers:** `Opens:` any mismatch found, with the measured difference.
 
+#### E6. Draw innervation randomness on CPU, then move to the device (do this first in the next run)
+- **Files:** `sensoryforge/core/innervation.py` (every call that takes `generator=`).
+- **Do:** keep the per-instance CPU generator, create every seeded random tensor on the CPU, then `.to(self.device)` / `.to(device)`. This keeps a given seed's wiring identical across CPU, MPS and CUDA. Where a call currently passes a device tensor (for example `torch.multinomial(prob_weights, ...)` with `prob_weights` on the device), compute that draw on a CPU copy.
+- **Done when:** a test marked `skipif(not torch.backends.mps.is_available() and not torch.cuda.is_available())` builds seeded `InnervationModule` and `FlatInnervationModule` on the accelerator and asserts the weights equal the CPU build for the same seed; `SimulationEngine` with `device="mps"` (when available) runs a small config; the E2 RNG-isolation test still passes. Run the accelerator test locally (MPS is available on this machine) and paste its output, since CI cannot.
+- **Trailers:** `Closes: F-038`.
+
+#### E7. One record step end to end for CLI and batch (F-039, F-040, F-024)
+- **Files:** `sensoryforge/core/generalized_pipeline.py` (`_canonical_to_legacy_config`, and the stimulus generators' `dt` lookups), `sensoryforge/cli.py` (`cmd_run` stimulus parameters), `sensoryforge/core/batch_executor.py` (canonical stimulus generation).
+- **Do:** in the adapter read `dt_ms` (falling back to `dt`) and write it to both `neurons.dt` and `temporal.dt`. For legacy configs that set only `neurons.dt`, make `temporal.dt` follow it (and vice versa when only `temporal.dt` is set). Make every stimulus generator read one resolved record step. Pass `--duration` through to every stimulus type, including trapezoid, or scale the trapezoid's plateau so its total length equals the requested duration; document which.
+- **Done when:** a CLI integration test runs a canonical config with `dt_ms: 1.0 --duration 100` for gaussian and trapezoid stimuli and gets 100 bins; a BatchExecutor test with `dt_ms: 0.5` gets stimulus length `duration / 0.5`; the adapter test covers `dt_ms`, legacy `dt`, and each moving/texture/timeline stimulus; each new test fails on `6c02331`.
+- **Trailers:** `Closes: F-039`, `Closes: F-040`, `Closes: F-024`.
+
+#### E8. GUI export writes the step it simulated (F-041)
+- **Files:** `sensoryforge/gui/tabs/spiking_tab.py` (`get_config`, `set_config`), `sensoryforge/gui/main.py` (`_gui_to_canonical`, `_canonical_to_gui_config`).
+- **Do:** export `dt_ms` from the active stimulus step and `integrate_dt_ms` from `DEFAULT_INTEGRATE_DT_MS`; read both back on load.
+- **Done when:** a `gui`-marked test sets a 0.1 ms stimulus step, exports, and gets `simulation.dt_ms == 0.1` in the canonical dict; loading that dict restores 0.1 ms; the test fails on `6c02331`.
+- **Trailers:** `Closes: F-041`.
+
+#### E9. Reject record steps that are not a whole multiple of the integration step (F-042)
+- **Files:** `sensoryforge/config/schema.py` (`SimulationConfig.__post_init__`), `sensoryforge/core/simulation_engine.py` (`_run_pop_from_drive`), the GUI time-step spinbox in `spiking_tab.py`.
+- **Do:** raise `ValueError` naming both values when `abs(dt_ms / integrate_dt_ms - round(dt_ms / integrate_dt_ms)) > 1e-6` or `dt_ms < integrate_dt_ms`; apply the same check in `_run_pop_from_drive` for direct callers; set the GUI spinbox single step to `integrate_dt_ms` so it can only produce valid values.
+- **Done when:** tests show 1.0, 0.5, 0.1 and 0.05 accepted and 0.12, 0.07 and 0.03 rejected; both suites still pass.
+- **Trailers:** `Closes: F-042`.
+
+#### E10. Keep the old constructor keyword working and document Wave E
+- **Files:** `sensoryforge/config/schema.py`, `CHANGELOG.md`.
+- **Do:** accept `SimulationConfig(dt=...)` as a deprecated alias for `dt_ms` (emit `DeprecationWarning`; reject passing both). Add to `CHANGELOG.md` "Changed": noise is applied after filter and gain in `TactileEncodingPipelineTorch`; `simulation.dt` is now `dt_ms` with the old key and keyword accepted; neurons integrate at `integrate_dt_ms` (0.05 ms) with the drive held per record bin, which multiplies neuron-stage runtime by `dt_ms / 0.05` (20× at 1 ms); `SimulationEngine` spikes are integer counts per bin (use `> 0` for a raster) of length T, not booleans of length T+1; innervation no longer changes the global RNG.
+- **Done when:** a test constructs `SimulationConfig(dt=0.5)` and gets `dt_ms == 0.5` with a `DeprecationWarning`; the changelog lists every item above.
+- **Trailers:** none.
+
 ### Wave F — docs (plan 1f, F-020, F-018)
 
 #### F1. Navigation, links, strict build
@@ -399,7 +446,7 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-037 closed or explicitly reported as blocked; F-035 and F-036 may stay open for later phases (F-014–F-016, F-023, F-025–F-034 closed in Waves A–D).
+- Ledger: F-018, F-020, F-024, F-038, F-039, F-040, F-041, F-042 closed; F-013, F-035, F-036 and F-037 may stay open for later phases (F-003, F-006–F-008, F-014–F-016, F-023, F-025–F-034 closed in Waves A–E).
 
 ---
 
