@@ -26,6 +26,8 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   (`sensoryforge.config.defaults.resolve_filter_params` / `resolve_neuron_params`), used by the GUI,
   `SimulationEngine`, and the legacy pipeline. Previously the GUI and the CLI could silently build
   different models from the same config.
+- **Default innervation weights are analytic Gaussian; the stochastic uniform-random builder
+  remains available as the control arm.** Pass `use_distance_weights=False` to restore it.
 - **`requires-python` is now `>=3.10`** (a neuron module already used 3.10-only syntax). The PyQt5
   GUI is now an optional extra: `pip install -e ".[gui]"`.
 

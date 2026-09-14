@@ -145,7 +145,7 @@ class PopulationConfig:
     connections_per_neuron: int = 28
     sigma_d_mm: float = 0.3
     distance_weight_randomness_pct: float = 0.0
-    use_distance_weights: bool = False
+    use_distance_weights: bool = True
     far_connection_fraction: float = 0.0
     far_sigma_factor: float = 5.0
     max_distance_mm: float = 1.0

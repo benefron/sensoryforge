@@ -162,7 +162,7 @@ class NeuronPopulation:
     neuron_rows: Optional[int] = None
     neuron_cols: Optional[int] = None
     neuron_arrangement: str = "grid"
-    use_distance_weights: bool = False
+    use_distance_weights: bool = True
     far_connection_fraction: float = 0.0
     far_sigma_factor: float = 5.0
     max_distance_mm: float = 1.0
@@ -804,7 +804,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self._lbl_sigma = pop_layout.labelForField(self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
         self.chk_use_distance_weights = QtWidgets.QCheckBox("Use distance weights")
-        self.chk_use_distance_weights.setChecked(False)
+        self.chk_use_distance_weights.setChecked(True)
         self.chk_use_distance_weights.setToolTip(
             "When enabled, connection weights follow distance decay instead of uniform."
         )
@@ -1921,7 +1921,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             weight_min=0.1,
             weight_max=1.0,
             innervation_method="gaussian",
-            use_distance_weights=False,
+            use_distance_weights=True,
             far_connection_fraction=0.0,
             far_sigma_factor=5.0,
             max_distance_mm=1.0,
@@ -3010,7 +3010,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 neuron_cols=params.get("neuron_cols"),
                 neuron_arrangement=params.get("neuron_arrangement", "grid"),
                 innervation_method=params.get("innervation_method", "gaussian"),
-                use_distance_weights=bool(params.get("use_distance_weights", False)),
+                use_distance_weights=bool(params.get("use_distance_weights", True)),
                 far_connection_fraction=float(
                     params.get("far_connection_fraction", 0.0)
                 ),
@@ -3471,7 +3471,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 ),
                 sigma_d_mm=float(pop_cfg.get("sigma_d_mm", 0.3)),
                 innervation_method=pop_cfg.get("innervation_method", "gaussian"),
-                use_distance_weights=bool(pop_cfg.get("use_distance_weights", False)),
+                use_distance_weights=bool(pop_cfg.get("use_distance_weights", True)),
                 far_connection_fraction=float(
                     pop_cfg.get("far_connection_fraction", 0.0)
                 ),

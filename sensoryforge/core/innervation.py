@@ -127,9 +127,19 @@ class BaseInnervation(ABC):
 class GaussianInnervation(BaseInnervation):
     """Gaussian-weighted random innervation (existing method).
 
-    Each neuron connects to a random subset of receptors with connection
-    probabilities weighted by spatial distance (Gaussian falloff). This
-    produces irregular, overlapping receptive fields.
+    Each neuron connects to a random subset of receptors, with which
+    receptors get selected weighted by spatial distance (Gaussian falloff
+    on the *selection probability*). This produces irregular, overlapping
+    receptive fields.
+
+    The connection *weight* assigned to each selected receptor is a
+    separate choice controlled by ``use_distance_weights``: by default
+    (``False``, the "stochastic" control arm) weights are drawn uniformly
+    from ``weight_range`` regardless of distance; with ``use_distance_weights
+    =True`` (the default for :class:`InnervationModule` /
+    :class:`FlatInnervationModule`, D-Analytic-Gaussian/F-003) the weight
+    itself also follows the Gaussian falloff, so nearer receptors get
+    proportionally larger weights.
 
     A hard spatial cutoff at ``max_sigma_distance * sigma_d_mm`` ensures
     biological locality: receptors beyond this distance have zero
@@ -1029,7 +1039,7 @@ class InnervationModule(nn.Module):
         connections_per_neuron: Optional[int] = 28,
         sigma_d_mm: Optional[float] = None,
         weight_range: Optional[Tuple[float, float]] = (0.1, 1.0),
-        use_distance_weights: bool = False,
+        use_distance_weights: bool = True,
         far_connection_fraction: float = 0.0,
         far_sigma_factor: float = 5.0,
         distance_weight_randomness_pct: float = 0.0,
@@ -1242,7 +1252,7 @@ class FlatInnervationModule(nn.Module):
         sigma_d_mm: Optional[float] = None,
         max_sigma_distance: float = 3.0,
         weight_range: Tuple[float, float] = (0.1, 1.0),
-        use_distance_weights: bool = False,
+        use_distance_weights: bool = True,
         far_connection_fraction: float = 0.0,
         far_sigma_factor: float = 5.0,
         max_distance_mm: float = 1.0,
