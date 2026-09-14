@@ -88,7 +88,7 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-033 · OPEN · finding · - · 2026-09-14
+## F-033 · CLOSED · finding · - · 2026-09-14
 pyproject.toml uses project.license as a TOML table plus the "License :: OSI Approved :: MIT License" classifier; setuptools 81 warns both are deprecated and builds stop being supported after 2027-02-18. Use license = "MIT", license-files = ["LICENSE"], setuptools>=77.
 → commit 5508313
 
