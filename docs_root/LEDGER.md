@@ -104,7 +104,7 @@ Filter and neuron defaults live in several places and disagree, so GUI and CLI r
 SensoryForgeConfig.from_yaml raises OSError (ENAMETOOLONG) on a one-line YAML/JSON string longer than 255 bytes because it probes Path.is_file() before parsing (schema.py:427).
 → commit b28acda
 
-## F-028 · OPEN · finding · - · 2026-09-14
+## F-028 · CLOSED · finding · - · 2026-09-14
 Phase 0/1a behaviour is untested (Izhikevich presets and override precedence, SimulationEngine RA->FS default, from_yaml path branch and from_yaml_file, core/pipeline.py reading filters.sa/ra) and preset was inserted positionally between d and v_init, breaking positional IzhikevichNeuronTorch callers.
 → commit b28acda
 
