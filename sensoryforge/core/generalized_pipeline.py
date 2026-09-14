@@ -40,6 +40,16 @@ register_all()
 # silently allocate a multi-GB tensor; fail fast instead.
 _DENSE_WEIGHT_CAP = 2e8
 
+# DEFAULT_CONFIG's flat filter/neuron keys are computed from the single
+# resolver (sensoryforge/config/defaults.py, F-032) instead of duplicating
+# its numbers, so a hand-written legacy config (with no filters:/neuron_params:
+# section at all) gets the same RA fast-spiking preset and tau_RA/k3 as the
+# canonical adapter and SimulationEngine.
+_DEFAULT_SA_FILTER = resolve_filter_params("sa", {})
+_DEFAULT_RA_FILTER = resolve_filter_params("ra", {})
+_DEFAULT_SA_NEURON = resolve_neuron_params("izhikevich", "SA", {})
+_DEFAULT_RA_NEURON = resolve_neuron_params("izhikevich", "RA", {})
+
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
     """Generalized tactile encoding pipeline with configurable parameters.
@@ -131,12 +141,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             "sa2_seed": 39,
         },
         "filters": {
-            "sa_tau_r": 5.0,
-            "sa_tau_d": 30.0,
-            "sa_k1": 0.05,
-            "sa_k2": 3.0,
-            "ra_tau_ra": 8.0,
-            "ra_k3": 2.0,
+            "sa_tau_r": _DEFAULT_SA_FILTER["tau_r"],
+            "sa_tau_d": _DEFAULT_SA_FILTER["tau_d"],
+            "sa_k1": _DEFAULT_SA_FILTER["k1"],
+            "sa_k2": _DEFAULT_SA_FILTER["k2"],
+            "ra_tau_ra": _DEFAULT_RA_FILTER["tau_RA"],
+            "ra_k3": _DEFAULT_RA_FILTER["k3"],
             "sa2_tau_r": 8.0,  # New SA2 filter parameter
             "sa2_tau_d": 40.0,  # New SA2 filter parameter
             "sa2_k1": 0.03,  # New SA2 filter parameter
@@ -145,10 +155,10 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         },
         "neuron_params": {
             # SA neuron Izhikevich parameters
-            "sa_a": 0.02,
-            "sa_b": 0.2,
-            "sa_c": -65.0,
-            "sa_d": 8.0,
+            "sa_a": _DEFAULT_SA_NEURON["a"],
+            "sa_b": _DEFAULT_SA_NEURON["b"],
+            "sa_c": _DEFAULT_SA_NEURON["c"],
+            "sa_d": _DEFAULT_SA_NEURON["d"],
             "sa_v_init": -65.0,
             "sa_threshold": 30.0,
             "sa_a_std": 0.005,  # Variability in 'a' parameter
@@ -157,10 +167,10 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             "sa_d_std": 0.0,  # Variability in 'd' parameter
             "sa_threshold_std": 3.0,  # Variability in threshold
             # RA neuron Izhikevich parameters
-            "ra_a": 0.02,
-            "ra_b": 0.2,
-            "ra_c": -65.0,
-            "ra_d": 8.0,
+            "ra_a": _DEFAULT_RA_NEURON["a"],
+            "ra_b": _DEFAULT_RA_NEURON["b"],
+            "ra_c": _DEFAULT_RA_NEURON["c"],
+            "ra_d": _DEFAULT_RA_NEURON["d"],
             "ra_v_init": -65.0,
             "ra_threshold": 30.0,
             "ra_a_std": 0.005,
@@ -479,11 +489,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             filter_method = ra_pop.get("filter_method", "none")
             if filter_method.lower() in ("ra", "rafilter"):
                 filter_params = ra_pop.get("filter_params", {})
-                # D-Q1 pending (F-030): k3 is not resolver-owned; keep this
-                # fallback's own 2.0 default (RAFilterTorch's class default).
                 resolved_filter = resolve_filter_params("ra", filter_params)
                 legacy["filters"]["ra_tau_ra"] = resolved_filter["tau_RA"]
-                legacy["filters"]["ra_k3"] = filter_params.get("k3", 2.0)
+                legacy["filters"]["ra_k3"] = resolved_filter["k3"]
             
             legacy["noise"]["ra_membrane_std"] = ra_pop.get("noise_std", 3.0)
             legacy["noise"]["ra_membrane_mean"] = ra_pop.get("noise_mean", 0.0)

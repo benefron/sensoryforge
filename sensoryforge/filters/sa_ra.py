@@ -22,6 +22,7 @@ import torch
 import torch.nn as nn
 
 from sensoryforge.filters.base import BaseFilter
+from sensoryforge.config.defaults import FILTER_DEFAULTS
 
 
 class SAFilterTorch(BaseFilter):
@@ -451,9 +452,10 @@ class CombinedSARAFilter(nn.Module):
         """Initialise both filters with optional parameter overrides."""
         super().__init__()
 
-        # Default parameters from Parvizi-Fard paper
-        default_sa = {"tau_r": 5, "tau_d": 30, "k1": 0.05, "k2": 3.0, "dt": 0.1}
-        default_ra = {"tau_RA": 8.0, "k3": 2.0, "dt": 0.1}
+        # Defaults come from the single resolver (sensoryforge.config.defaults,
+        # F-032) so this class never drifts from SimulationEngine/the GUI.
+        default_sa = {**FILTER_DEFAULTS["sa"], "dt": 0.1}
+        default_ra = {**FILTER_DEFAULTS["ra"], "dt": 0.1}
 
         sa_params = sa_params or default_sa
         ra_params = ra_params or default_ra

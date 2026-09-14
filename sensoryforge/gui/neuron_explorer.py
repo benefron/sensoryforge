@@ -111,7 +111,7 @@ def ensure_default_params_file() -> None:
         },
         "filters": {
             "SA": dict(FILTER_DEFAULTS["sa"]),
-            "RA": {**FILTER_DEFAULTS["ra"], "k3": 2.0},  # D-Q1 pending (F-030)
+            "RA": dict(FILTER_DEFAULTS["ra"]),  # D-Q1 decided: k3 = 2.0
         },
         "stimulus": {
             "shape": "step",

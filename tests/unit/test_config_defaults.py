@@ -1,4 +1,4 @@
-"""Unit tests for sensoryforge.config.defaults (task A4, F-026).
+"""Unit tests for sensoryforge.config.defaults (tasks A4/A8, F-026/F-030/F-031).
 
 These tests are Qt-free: they cover the resolver functions directly, that
 SimulationEngine builds exactly what the resolvers say, and that
@@ -38,10 +38,10 @@ class TestResolveFilterParams:
         params = resolve_filter_params("sa", {})
         assert params == {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0}
 
-    def test_ra_empty_overrides_excludes_k3(self):
+    def test_ra_empty_overrides_includes_k3(self):
+        """D-Q1 decided: k3 = 2.0, resolver-owned like every other filter param."""
         params = resolve_filter_params("ra", {})
-        assert params == {"tau_RA": 8.0}
-        assert "k3" not in params  # D-Q1 pending
+        assert params == {"tau_RA": 8.0, "k3": 2.0}
 
     def test_overrides_win(self):
         params = resolve_filter_params("sa", {"tau_r": 99.0})
@@ -74,23 +74,23 @@ class TestResolveNeuronParams:
         params = resolve_neuron_params("Izhikevich", "SA2", {})
         assert params["a"] == 0.02
 
-    def test_explicit_d_override_suppresses_preset(self):
-        """An explicit a/b/c/d in overrides wins over the neuron_type preset.
-
-        No preset is expanded in this case, so "a"/"b"/"c" are absent from
-        the resolved dict entirely -- IzhikevichNeuronTorch falls back to
-        its own RS class default for those when constructed.
+    def test_explicit_d_override_keeps_preset_as_base(self):
+        """Regression for F-031: overriding one of a/b/c/d must NOT drop the
+        neuron-type preset for the rest -- the preset is always the base,
+        with overrides applied on top (matching
+        IzhikevichNeuronTorch(preset=..., d=...) semantics). Fails on d194cd4,
+        where an RA {"d": 99.0} override silently reverted a/b/c to RS.
         """
         params = resolve_neuron_params("Izhikevich", "RA", {"d": 99.0})
-        assert params["d"] == 99.0
-        assert "a" not in params
-        assert "b" not in params
-        assert "c" not in params
+        assert params["a"] == 0.1  # RA/FS base, not suppressed
+        assert params["b"] == 0.2
+        assert params["c"] == -65.0
+        assert params["d"] == 99.0  # override applied on top
 
         from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 
         neuron = IzhikevichNeuronTorch(**params)
-        assert neuron.a == 0.02  # RS class default, not the RA/FS preset
+        assert neuron.a == 0.1
         assert neuron.d == 99.0
 
     def test_explicit_preset_override_wins(self):
@@ -158,7 +158,7 @@ class TestSimulationEngineMatchesResolvers:
 
 class TestDefaultParamsJsonDoesNotDrift:
     """Regression: gui/default_params.json must not silently diverge from the
-    resolver for the keys the resolver owns. k3 is excluded (D-Q1 pending).
+    resolver for the keys the resolver owns (including k3, since D-Q1).
     """
 
     @pytest.fixture(autouse=True)
@@ -188,10 +188,11 @@ class TestDefaultParamsJsonDoesNotDrift:
                 f"drifted from the resolver value {value!r}"
             )
 
-    def test_json_ra_tau_ra_matches_resolver(self):
+    def test_json_ra_filter_matches_resolver(self):
         json_ra = self.json_defaults["filters"]["RA"]
         resolved = resolve_filter_params("ra", {})
-        assert json_ra["tau_RA"] == resolved["tau_RA"]
-        # k3 is intentionally NOT resolver-owned (D-Q1 pending) -- the GUI
-        # keeps its own 100 default until that decision lands.
-        assert "k3" in json_ra
+        for key, value in resolved.items():
+            assert json_ra[key] == value, (
+                f"default_params.json filters.RA.{key}={json_ra[key]!r} has "
+                f"drifted from the resolver value {value!r}"
+            )

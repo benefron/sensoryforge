@@ -792,9 +792,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
     def _filter_defaults(self, filter_key: str) -> Dict[str, Any]:
         """Resolve filter parameter defaults for "SA" or "RA".
 
-        tau_r/tau_d/k1/k2 (SA) and tau_RA (RA) are resolver-owned (F-026).
-        RA's k3 is excluded from the resolver pending D-Q1 (F-030): it keeps
-        reading from ``gui/default_params.json`` until that decision lands.
+        tau_r/tau_d/k1/k2 (SA) and tau_RA/k3 (RA) are all resolver-owned
+        (F-026, D-Q1). Any remaining JSON-only keys for this filter (none
+        today) would still be merged in from ``gui/default_params.json``.
         """
         method = filter_key.lower()
         resolved = resolve_filter_params(method, {})

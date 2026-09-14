@@ -10,11 +10,10 @@ and :func:`resolve_neuron_params` instead of hard-coding its own copy.
 This module has no Qt (or other GUI-framework) dependency so it can be
 imported and tested from a plain, headless process.
 
-Note (D-Q1, ledger F-030): the RA filter gain ``k3`` is intentionally
-excluded from :data:`FILTER_DEFAULTS` — its value is undecided across
-SensoryForge and pressure-simulation. Each caller keeps its own k3 default
-(``RAFilterTorch``'s class default of 2.0 for the engine/legacy pipeline,
-``gui/default_params.json``'s 100 for the GUI) until D-Q1 is answered.
+D-Q1 (ledger F-030) is decided: the RA filter gain ``k3`` is 2.0,
+matching both repos' ``RAFilterTorch`` class default, pressure-simulation's
+``config/pipeline_config.yml`` and its decoder gain. It is resolver-owned
+like every other filter parameter.
 """
 
 from __future__ import annotations
@@ -23,11 +22,11 @@ from typing import Any, Dict, Optional
 
 from sensoryforge.neurons.izhikevich import IZHIKEVICH_PRESETS
 
-#: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere).
-#: k3 is deliberately absent -- see module docstring (D-Q1 pending).
+#: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere;
+#: D-Q1: RA gain k3 = 2.0 everywhere).
 FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
     "sa": {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0},
-    "ra": {"tau_RA": 8.0},
+    "ra": {"tau_RA": 8.0, "k3": 2.0},
 }
 
 #: F-004: which Izhikevich preset each population neuron type builds by
@@ -51,8 +50,7 @@ def resolve_filter_params(
 
     Returns:
         Resolved parameter dict (defaults merged with ``overrides``). Does
-        not include ``dt`` -- callers add the simulation dt separately, and
-        does not include ``k3`` for "ra" -- see module docstring.
+        not include ``dt`` -- callers add the simulation dt separately.
 
     Raises:
         ValueError: If ``method`` is not "sa" or "ra".
@@ -72,12 +70,17 @@ def resolve_neuron_params(
 ) -> Dict[str, Any]:
     """Resolve neuron model parameters, applying the F-004 RA->FS preset.
 
-    For the Izhikevich model, resolves ``a``/``b``/``c``/``d`` from
-    :data:`NEURON_PRESET_BY_TYPE` (unless the caller already supplies an
-    explicit ``preset`` or any of ``a``/``b``/``c``/``d``, in which case that
-    choice wins). The preset is expanded into concrete numeric values (not
+    For the Izhikevich model, always starts from a preset -- the explicit
+    ``preset`` override if given, otherwise :data:`NEURON_PRESET_BY_TYPE` for
+    ``neuron_type`` -- then applies any ``a``/``b``/``c``/``d`` overrides on
+    top of it (matching ``IzhikevichNeuronTorch(preset=..., d=...)``
+    semantics). The preset is expanded into concrete numeric values (not
     left as a ``"preset"`` key) so GUI widgets and engine construction see
-    the same numbers either way.
+    the same numbers either way. The result always contains ``a``, ``b``,
+    ``c``, ``d`` and ``threshold`` -- overriding a single parameter (e.g.
+    ``{"d": 4.0}`` on an RA population) never drops the rest of the preset
+    (F-031: it used to, silently reverting the other three to the RS/type
+    default and raising ``KeyError`` in the legacy adapter).
 
     Non-Izhikevich models pass ``overrides`` straight through: their
     defaults live only in the class constructor signature, which is already
@@ -97,19 +100,16 @@ def resolve_neuron_params(
         return overrides
 
     params = dict(_IZHIKEVICH_BASE_DEFAULTS)
-    has_explicit = any(k in overrides for k in ("preset", "a", "b", "c", "d"))
-    if has_explicit:
-        preset_name = overrides.get("preset")
-        if preset_name is not None:
-            if preset_name not in IZHIKEVICH_PRESETS:
-                raise ValueError(
-                    f"Unknown Izhikevich preset {preset_name!r}; choose one of "
-                    f"{sorted(IZHIKEVICH_PRESETS)}"
-                )
-            params.update(IZHIKEVICH_PRESETS[preset_name])
+    preset_name = overrides.get("preset")
+    if preset_name is not None:
+        if preset_name not in IZHIKEVICH_PRESETS:
+            raise ValueError(
+                f"Unknown Izhikevich preset {preset_name!r}; choose one of "
+                f"{sorted(IZHIKEVICH_PRESETS)}"
+            )
     else:
         preset_name = NEURON_PRESET_BY_TYPE.get((neuron_type or "").upper(), "RS")
-        params.update(IZHIKEVICH_PRESETS[preset_name])
+    params.update(IZHIKEVICH_PRESETS[preset_name])
 
     params.update(overrides)
     params.pop("preset", None)

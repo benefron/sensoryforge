@@ -28,6 +28,7 @@ from torch import Tensor
 from .grid import GridManager
 from sensoryforge.stimuli.stimulus import StimulusGenerator
 from sensoryforge.config.yaml_utils import load_yaml
+from sensoryforge.config.defaults import resolve_neuron_params
 from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import CombinedSARAFilter
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
@@ -157,9 +158,17 @@ class TactileEncodingPipelineTorch(nn.Module):
             ra_params=ra_filter_config or None,
         )
 
-        # Neuron models
-        self.sa_neurons = IzhikevichNeuronTorch(dt=neuron_config.get("dt", 0.1))
-        self.ra_neurons = IzhikevichNeuronTorch(dt=neuron_config.get("dt", 0.1))
+        # Neuron models -- a/b/c/d resolved from the single resolver
+        # (sensoryforge.config.defaults, F-032) so this legacy pipeline's RA
+        # population gets the same fast-spiking preset as SimulationEngine
+        # and the GUI instead of its own regular-spiking default.
+        dt_value = neuron_config.get("dt", 0.1)
+        self.sa_neurons = IzhikevichNeuronTorch(
+            dt=dt_value, **resolve_neuron_params("izhikevich", "SA", {})
+        )
+        self.ra_neurons = IzhikevichNeuronTorch(
+            dt=dt_value, **resolve_neuron_params("izhikevich", "RA", {})
+        )
 
         # Optional input scaling/bias before neurons (helps ensure spiking)
         # Supports shared keys (input_gain, input_bias) or per-type variants

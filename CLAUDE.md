@@ -203,18 +203,16 @@ audit once listed here (DSL/CUDA support, `reset_states`) were already fixed —
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Dual, unsynchronised `dt` config keys in the legacy pipeline** — `GeneralizedTactileEncodingPipeline`'s `neurons.dt` controls neuron integration but `_generate_gaussian_stimulus`/`_generate_step_stimulus`/`_generate_ramp_stimulus` read a separate `temporal.dt` key; setting only `neurons.dt` silently leaves the stimulus time axis at the `temporal.dt` default (0.1 ms). Set both when using the legacy config format. (F-024)
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. Since F-023 a config whose dense weight tensor would exceed 2e8 elements raises `ValueError`, but smaller mistakes (e.g. `sa_neurons: 100` on an 80×80 grid, 10,000 neurons) still build silently. Canonical configs are unaffected: the adapter now passes explicit neuron rows and columns (F-025).
-- **Overriding one Izhikevich parameter drops the population's preset** — `sensoryforge/config/defaults.py` `resolve_neuron_params` only expands the neuron-type preset when no `a`/`b`/`c`/`d` override is present. An RA population with `model_params: {d: 4.0}` gets fast-spiking `a=0.1` in the GUI but regular-spiking `a=0.02` in `SimulationEngine`, and `GeneralizedTactileEncodingPipeline` raises `KeyError: 'a'` building it (so CLI and batch runs of such a GUI-exported config crash). (F-031)
-- **Regular-spiking RA defaults survive in the legacy classes** — `TactileEncodingPipelineTorch` (`core/pipeline.py`) builds RA neurons with the RS default, the `GeneralizedTactileEncodingPipeline` `DEFAULT_CONFIG` still has RS `ra_a`/`ra_d` for hand-written legacy configs, and `CombinedSARAFilter` keeps its own default dict instead of `FILTER_DEFAULTS`. (F-032)
-- **RA filter gain k3 is undecided (D-Q1)** — the resolver deliberately does not own k3: the GUI keeps 100 from `gui/default_params.json`, the engine and legacy pipeline use the class default 2.0. (F-030)
-
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
 decision records): `SAFilterTorch` no longer rectifies by default (F-001); the canonical→legacy
 adapter no longer squares grid size or neuron counts (F-012, F-025); filter and Izhikevich defaults
-are resolved by `sensoryforge/config/defaults.py` for the GUI, the engine and the canonical adapter,
-and τ_RA is 8 ms everywhere (F-026, except the partial-override defect F-031); `from_yaml` accepts
-long one-line text (F-027); presets are keyword-only and tested (F-028); internal records are
-excluded from the docs build (F-029). The Phase 1 task list, with the review of Wave A, is
-`docs/development/handover/phase1_tasks.md`.
+are resolved by `sensoryforge/config/defaults.py` for the GUI, the engine, the canonical adapter,
+`TactileEncodingPipelineTorch` and `CombinedSARAFilter` (F-026, F-032), and τ_RA is 8 ms everywhere;
+overriding a single Izhikevich parameter keeps the neuron-type preset as the base instead of
+dropping it (F-031); D-Q1 is decided -- RA filter gain k3 = 2.0 everywhere, resolver-owned (F-030);
+`from_yaml` accepts long one-line text (F-027); presets are keyword-only and tested (F-028);
+internal records are excluded from the docs build (F-029). The Phase 1 task list, with the review
+of Wave A, is `docs/development/handover/phase1_tasks.md`.
 
 ---
 
