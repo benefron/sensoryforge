@@ -225,7 +225,7 @@ Installed package does not run: python_requires>=3.8 but neurons/sa.py:49 needs 
 Release scaffolding and hygiene missing: no pyproject.toml, pytest.ini, lint config, .github/workflows, CITATION.cff, CHANGELOG.md, CONTRIBUTING.md; test_refactoring.py at root; devo_reports/ raw notes tracked; .github/copilot-instructions.md tracked despite gitignore; three author strings; dead PyPI link README.md:387
 → commit 7a188b6
 
-## F-016 · OPEN · finding · - · 2026-09-14
+## F-016 · CLOSED · finding · - · 2026-09-14
 Qt test suite is order-dependent: tests/unit/test_stimulus_tab_gui.py:86-89 puts MagicMocks into sys.modules["PyQt5*"] and never restores them (86x "QtGui has no attribute QColor" in later files); Qt files segfault at interpreter exit when run alone
 → commit 7a188b6
 
