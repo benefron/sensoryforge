@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-031 · OPEN · finding · - · 2026-09-14
+resolve_neuron_params (config/defaults.py) expands the neuron-type preset only when no a/b/c/d override is present: RA population with model_params {d: 4.0} builds a=0.1 in the GUI but a=0.02 in SimulationEngine, and GeneralizedTactileEncodingPipeline raises KeyError 'a' (generalized_pipeline.py:432,471), breaking CLI/batch runs of GUI-exported configs with one tweaked neuron parameter. test_config_defaults.py::test_explicit_d_override_suppresses_preset asserts the wrong semantics. F-026 and F-004 were closed with this present.
+→ commit 6bab8cc
+
+## F-032 · OPEN · finding · - · 2026-09-14
+RS defaults for RA remain outside the resolver: TactileEncodingPipelineTorch builds RA neurons with the RS class default (core/pipeline.py:161-162), GeneralizedTactileEncodingPipeline DEFAULT_CONFIG has RS ra_a/ra_d for hand-written legacy configs (:160-163), and CombinedSARAFilter keeps its own default dict (filters/sa_ra.py:455-456) instead of FILTER_DEFAULTS.
+→ commit 6bab8cc
+
 ## D-017 · CLOSED · decision · - · 2026-09-14
 SensoryForge is the general clean-slate sensory-encoding simulator (sensor channels -> receptive fields -> sensory neurons -> spiking or analog readout -> batch data); pressure-simulation is a use case that supplies the recipe (d, ensemble, MI scoring) and consumes the generated bundle
 → commit b28acda
