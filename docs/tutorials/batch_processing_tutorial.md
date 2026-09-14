@@ -12,8 +12,10 @@ This tutorial demonstrates how to use SensoryForge's batch processing system to 
 
 ## Prerequisites
 
+Not yet published to PyPI; install from source with the HDF5 extra:
+
 ```bash
-pip install sensoryforge h5py  # h5py for HDF5 format
+pip install -e ".[hdf5]"
 ```
 
 ## Part 1: Basic Batch Configuration

@@ -4,9 +4,9 @@ from sensoryforge.core.pipeline import TactileEncodingPipelineTorch
 
 
 def main():
-    # Load canonical configuration shared by GUI/tests
-    config_path = "sensoryforge/config/default_config.yml"
-    pipeline = TactileEncodingPipelineTorch(config_path=config_path)
+    # Load the packaged default configuration shared by GUI/tests (resolved
+    # via importlib.resources by TactileEncodingPipelineTorch, F-014).
+    pipeline = TactileEncodingPipelineTorch()
 
     # Generate trapezoid stimulus steps
     stimulus_configs = [

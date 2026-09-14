@@ -4,13 +4,7 @@ SensoryForge provides a comprehensive command-line interface for running simulat
 
 ## Installation
 
-The CLI is automatically available after installing SensoryForge:
-
-```bash
-pip install sensoryforge
-```
-
-Or in development mode:
+Not yet published to PyPI. The CLI is available after installing from source:
 
 ```bash
 git clone https://github.com/benefron/sensoryforge.git

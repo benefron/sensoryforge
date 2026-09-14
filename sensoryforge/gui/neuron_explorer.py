@@ -1,5 +1,6 @@
 """Standalone PyQt5 tool for exploring tactile neuron model responses."""
 
+import importlib.resources
 import json
 import math
 import os
@@ -40,7 +41,12 @@ from sensoryforge.config.defaults import FILTER_DEFAULTS, resolve_neuron_params 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
-DEFAULT_PARAMS_PATH = os.path.join(HERE, "default_params.json")
+# Resolved via importlib.resources (F-014) so this works from an installed
+# wheel, not just when the package sits on disk at a fixed __file__-relative
+# path.
+DEFAULT_PARAMS_PATH = str(
+    importlib.resources.files("sensoryforge.gui") / "default_params.json"
+)
 
 
 def ensure_default_params_file() -> None:

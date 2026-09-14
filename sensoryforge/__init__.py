@@ -26,7 +26,7 @@ Example:
 """
 
 __version__ = "0.2.0"
-__author__ = "Sensory Forge Contributors"
+__author__ = "Ben Efron"
 __license__ = "MIT"
 
 # Import key classes for top-level access (resolves ReviewFinding#L4)

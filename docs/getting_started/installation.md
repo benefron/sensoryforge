@@ -2,17 +2,13 @@
 
 ## Requirements
 
-- Python 3.8 or later
+- Python 3.10 or later
 - PyTorch 1.12.0 or later
 - (Optional) CUDA-capable GPU for acceleration
 
 ## Installation Methods
 
-### From PyPI (Recommended)
-
-```bash
-pip install sensoryforge
-```
+Not yet published to PyPI; install from source.
 
 ### From Source
 
@@ -30,12 +26,11 @@ pip install -e .
 For full functionality, including HDF5 batch output and adaptive ODE solvers:
 
 ```bash
-# Install with all optional dependencies
-pip install sensoryforge[full]
-
-# Or install specific optional dependencies
-pip install h5py>=3.0          # For HDF5 batch output
-pip install torchdiffeq>=0.2.0 # For adaptive ODE solvers
+# From a source checkout, install specific optional dependencies
+pip install -e ".[hdf5]"      # For HDF5 batch output
+pip install -e ".[solvers]"   # For adaptive ODE solvers
+pip install -e ".[dsl]"       # For the equation DSL
+pip install -e ".[gui]"       # For the PyQt5 GUI
 ```
 
 ## Verify Installation
@@ -115,7 +110,7 @@ pip list | grep sensoryforge
 
 # Reinstall if needed
 pip uninstall sensoryforge
-pip install sensoryforge
+pip install -e .
 ```
 
 ### GUI Issues

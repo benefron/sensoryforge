@@ -1,7 +1,7 @@
 # SensoryForge
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 **An extensible playground for simulating sensory encoding and generating population activity across modalities**
 
@@ -384,7 +384,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **Documentation:** [`docs/`](docs/) in this repository (MkDocs source; site not yet published)
 - **GitHub:** https://github.com/benefron/sensoryforge
-- **PyPI:** https://pypi.org/project/sensoryforge
 - **Issue Tracker:** https://github.com/benefron/sensoryforge/issues
 
 ---

@@ -13,6 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
 
 # Ensure repository root on sys.path for package imports when run as a script
+import importlib.resources
 import os
 import sys
 
@@ -55,7 +56,12 @@ MIN_TIME_STEP_MS = 0.05
 # stability in Izhikevich/AdEx/MQIF models.  1.0 ms causes subthreshold
 # oscillations; 0.1 ms is the safe upper bound for these models.
 DEFAULT_DT_MS = 0.1
-DEFAULT_PARAMS_PATH = os.path.join(HERE, "..", "default_params.json")
+# Resolved via importlib.resources (F-014) so this works from an installed
+# wheel, not just when the package sits on disk at a fixed __file__-relative
+# path.
+DEFAULT_PARAMS_PATH = str(
+    importlib.resources.files("sensoryforge.gui") / "default_params.json"
+)
 
 # Threshold above which Forward Euler integration is considered unstable
 # for the neuron models implemented in this project.

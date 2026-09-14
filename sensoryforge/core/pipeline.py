@@ -18,6 +18,7 @@ configuration presets used by notebooks and pytest suites.
 from __future__ import annotations
 
 import copy
+import importlib.resources
 from typing import Any, Dict, Optional
 
 import torch
@@ -33,6 +34,16 @@ from .innervation import create_sa_innervation, create_ra_innervation
 from sensoryforge.filters.sa_ra import CombinedSARAFilter
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.filters.noise import MembraneNoiseTorch, ReceptorNoiseTorch
+
+
+def _default_config_path() -> str:
+    """Resolve the packaged default_config.yml path (F-014).
+
+    Uses :mod:`importlib.resources` instead of a cwd-relative string so this
+    works from an installed wheel run outside the repository, not just when
+    the current working directory happens to be the repo root.
+    """
+    return str(importlib.resources.files("sensoryforge.config") / "default_config.yml")
 
 
 def _deep_update(
@@ -84,7 +95,7 @@ class TactileEncodingPipelineTorch(nn.Module):
 
     def __init__(
         self,
-        config_path: str = "sensoryforge/config/default_config.yml",
+        config_path: Optional[str] = None,
         *,
         config: Optional[Dict[str, Any]] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -93,13 +104,19 @@ class TactileEncodingPipelineTorch(nn.Module):
 
         Args:
             config_path: Absolute or workspace-relative path to the baseline
-                pipeline YAML.  Ignored when ``config`` is supplied.
+                pipeline YAML. Defaults to the packaged
+                ``sensoryforge/config/default_config.yml``, resolved via
+                :mod:`importlib.resources` so it works from an installed
+                wheel run outside the repo (F-014), not just the cwd.
+                Ignored when ``config`` is supplied.
             config: In-memory configuration dictionary.  When provided it is
                 deep-copied and used instead of reading ``config_path``.
             overrides: Optional nested dictionary applied on top of whichever
                 configuration was loaded.  Useful for temporary parameter
                 sweeps without mutating the source YAML file.
         """
+        if config_path is None:
+            config_path = _default_config_path()
         if config is None:
             with open(config_path, "r", encoding="utf-8") as file:
                 config = load_yaml(file)
@@ -408,7 +425,7 @@ def create_standard_pipeline(
     grid_size: Optional[int] = None,
     device: Optional[str] = None,
     seed: Optional[int] = None,
-    config_path: str = "sensoryforge/config/default_config.yml",
+    config_path: Optional[str] = None,
     overrides: Optional[Dict[str, Any]] = None,
 ):
     """Factory for the default pipeline configuration used in experiments."""
@@ -438,7 +455,7 @@ def create_small_pipeline(
     grid_size: int = 40,
     device: Optional[str] = None,
     seed: Optional[int] = None,
-    config_path: str = "sensoryforge/config/default_config.yml",
+    config_path: Optional[str] = None,
     overrides: Optional[Dict[str, Any]] = None,
 ):
     """Factory for a reduced pipeline footprint convenient in tests/visuals."""
