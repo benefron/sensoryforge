@@ -51,7 +51,6 @@ class IzhikevichNeuronTorch(nn.Module):
         b=None,
         c=None,
         d=None,
-        preset: str = "RS",
         v_init=-65.0,
         u_init=None,
         dt=0.05,
@@ -64,6 +63,8 @@ class IzhikevichNeuronTorch(nn.Module):
         seed=None,
         noise_std: float = 0.0,
         v_floor: float = -120.0,
+        *,
+        preset: str = "RS",
     ):
         super().__init__()
         if preset not in IZHIKEVICH_PRESETS:
