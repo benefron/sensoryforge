@@ -88,6 +88,26 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-038 · OPEN · finding · - · 2026-09-14
+Seeded innervation fails on MPS/CUDA since fed09be: per-instance CPU torch.Generator used with device tensors raises "Expected a 'mps' device type for generator but found 'cpu'"; SimulationEngine(device="mps") with a seeded population crashes; CI is CPU-only
+→ commit bd13a0b
+
+## F-039 · OPEN · finding · - · 2026-09-14
+_canonical_to_legacy_config reads simulation "dt", which SimulationConfig.to_dict no longer writes (dt_ms since fd73a0e), so texture/moving/timeline/repeated_pattern/custom stimuli in CLI and batch canonical runs use 0.1 ms regardless of dt_ms
+→ commit bd13a0b
+
+## F-040 · OPEN · finding · - · 2026-09-14
+CLI run of a canonical config with dt_ms 1.0 and --duration 100 yields 10450 stimulus bins (trapezoid/gaussian/step/ramp use legacy temporal.dt 0.1 ms; trapezoid ignores --duration), which the engine reads as 1 ms each; pre-existing, on the CLI/batch data-generation path
+→ commit bd13a0b
+
+## F-041 · OPEN · finding · - · 2026-09-14
+GUI export always writes simulation.dt_ms 1.0: SpikingNeuronTab.get_config carries no time step and gui/main.py _gui_to_canonical defaults to 1.0, while the GUI simulates at the stimulus step (0.1 ms default)
+→ commit bd13a0b
+
+## F-042 · OPEN · finding · - · 2026-09-14
+dt_ms that is not a whole multiple of integrate_dt_ms silently rescales neuron time in _run_pop_from_drive (0.12 ms bins integrate 0.10 ms, 0.07 ms bins integrate 0.05 ms); no validation in SimulationConfig or the GUI
+→ commit bd13a0b
+
 ## D-019 · CLOSED · decision · - · 2026-09-14
 default innervation uses analytic Gaussian weights; the stochastic uniform-weight builder is the named control arm
 → commit b1f67a3
