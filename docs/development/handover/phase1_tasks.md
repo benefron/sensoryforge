@@ -10,11 +10,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A and B are done and reviewed (sections 1b
-> and 1c). Start with task B3, then do Wave C (C1, C2, C3). Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Waves A, B and C are done and reviewed (sections 1b-1d). Start with task C4, then do
+> Wave D (D1, D2, D3). Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when Wave C is finished.
+> skip it and continue with the next unblocked task. Stop and report when Wave D is finished.
 
 ---
 
@@ -110,16 +110,38 @@ Two loose ends, recorded in the ledger:
 - **F-033:** setuptools warns that `project.license` as a table and the `License :: OSI Approved :: MIT License` classifier are deprecated; builds stop being supported after 2027-02-18. Task B3.
 - **F-034:** pressure-simulation's `encoding/encode_runner.py` still defaults RA k3 to 1.0 (its comment calls that calibrated for fast-spiking RA at input gain 40), which contradicts D-018 "k3 = 2.0 everywhere" and blocks a zero-tolerance golden parity test (E5). Needs the user to confirm whether "everywhere" includes that runner.
 
+## 1d. Review of B3 and Wave C (2026-09-14, commits `c374052`, `d9eb260`, `874b19a`, `77ef203`)
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| B3 SPDX license | Accepted | verbose wheel build prints 0 `SetuptoolsDeprecationWarning`; wheel metadata has `License-Expression: MIT` and `License-File: LICENSE` |
+| C1 `pytest.ini` and `gui` marker | Accepted | `-m gui` collects 229, `-m "not gui"` 734, together the full 963 |
+| C2 PyQt5 mock leak | Accepted | running `test_stimulus_tab_gui.py` first, then real-Qt files, in one process: 64 `QColor` errors on `874b19a`, 166 passed at HEAD; all Qt files in reverse order also pass |
+| C3 Qt crashes | Accepted, with a tracked follow-up | `pytest -m gui` 228 passed, 1 skipped, exit 0, 571 MB; full `pytest` 956 passed, 7 skipped, exit 0, 1.2 GB. The `gc.disable()` is needed: with the collector on, `pytest -m gui` crashed in 3 of 3 runs and the full suite crashed too. Memory cost is small (non-GUI 1165 MB vs 1094 MB with the collector on) |
+
+**F-035 (follow-up, not blocking CI).** The crash that `gc.disable()` avoids is in GUI code, not test
+teardown. With the collector on, it segfaults inside pyqtgraph's `ScatterPlotItem` render path, called
+from `MechanoreceptorTab._add_receptor_scatter_by_weight` ← `_update_innervation_graphics` ←
+`_create_population_graphics` ← `_regenerate_selected_population_if_instantiated`, via a `ViewBox`
+lambda left over from a previously destroyed tab's plot. The test harness now cannot detect this class
+of crash, and `gc.disable()` also applies to non-GUI sessions, where it is not needed. The GUI app
+keeps one long-lived tab, so user impact is plausible but unproven. Root cause belongs with the Phase 3
+GUI work; task C4 narrows the workaround now.
+
+Other observations: `pytest_unconfigure` imports PyQt5 even in non-GUI sessions (harmless, caught if
+Qt libraries are missing, but unnecessary); the old per-file Qt baseline undercounted
+`test_population_csv.py` (7 instead of 9) because its isolated run aborted at exit.
+
 ---
 
 ## 2. Guardrails (read before any task)
 
 These come directly from what went wrong in Phase 0/1a.
 
-1. **Memory.** Never run the whole test suite in one process, and never run anything that builds a
-   canonical config through `GeneralizedTactileEncodingPipeline` without a watchdog until A1 lands.
-   Use the watchdog script in the appendix. Run Qt test files one file at a time with `-v`; they
-   crash at interpreter exit (F-016), so read the streamed `PASSED`/`FAILED` lines, not the exit code.
+1. **Memory.** Run test suites under the watchdog script in the appendix (the full suite peaks near
+   1.2 GB). Since Wave C, `pytest -m "not gui"` and `pytest -m gui` each run in one process and their
+   exit codes are trustworthy. Do not remove the `gc.disable()` in `tests/conftest.py` for GUI
+   sessions (F-035).
 2. **A default is not changed until every copy is changed.** Before editing any default, grep all
    the places listed in `.claude/rules/engine-parity.md` and change them in the same commit.
 3. **Every behaviour change needs a test that fails on the old code.** Prove it: extract the parent
@@ -261,14 +283,27 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Done when:** `QT_QPA_PLATFORM=offscreen pytest -m gui` exits with status 0 and prints the summary line.
 - **Trailers (C3 commit):** `Closes: F-016`.
 
+#### C4. Scope the GC workaround to GUI sessions (do this first in the next run)
+- **Files:** `tests/conftest.py`.
+- **Do:** remove the module-level `gc.disable()`. In a `pytest_collection_modifyitems(session, config, items)` hook, call `gc.disable()` only if any collected item has the `gui` marker (`item.get_closest_marker("gui")`). In `pytest_unconfigure`, check `sys.modules.get("PyQt5.QtWidgets")` instead of importing PyQt5, and force-exit only if that module is loaded and `QApplication.instance()` is not `None`. Update the comment to point at F-035 and the crash stack in section 1d.
+- **Done when:** `pytest -m gui` exits 0 in one process; full `pytest` exits 0 in one process; `pytest -m "not gui"` passes and a check in that session confirms `gc.isenabled()` is `True` (for example a tiny test in `tests/unit/test_conftest_gc_scope.py` that asserts `gc.isenabled()` and is not marked `gui`); run all three under the watchdog and report peak memory.
+- **Trailers:** none (F-035 stays open for the GUI root cause).
+
 ### Wave D — CI and community files (plan 1d, F-015)
 
 #### D1. Formatting baseline
-- **Do:** add `[tool.black]` (line length 88) and a `.flake8` with `max-line-length = 88` and `extend-ignore = E203,W503`. Run `black sensoryforge tests` once as a formatting-only commit (`style: apply black`), with no logic changes, and verify the non-GUI suite is still green.
+- **Measured before this task:** `black --check` would reformat 117 of 154 files; `flake8` at 88 columns reports 3253 violations (2401 blank-line whitespace, 538 long lines, 141 unused imports, then small counts). Only 1 is in the correctness set `E9,F63,F7,F82`: `sensoryforge/neurons/model_dsl.py:321` uses `BaseSolver` in a string annotation without importing it.
+- **Do:**
+  1. Add `[tool.black]` (line length 88) to `pyproject.toml`.
+  2. Commit `style: apply black to sensoryforge and tests` containing only `black sensoryforge tests` output. Verify `git diff --stat` touches only `.py` files and both `pytest -m "not gui"` and `pytest -m gui` still pass.
+  3. Fix the `BaseSolver` annotation with `from typing import TYPE_CHECKING` and an `if TYPE_CHECKING:` import of `sensoryforge.solvers.base.BaseSolver`.
+  4. Add a `.flake8` that gates CI on the correctness set only: `select = E9,F63,F7,F82`, `max-line-length = 88`, `extend-ignore = E203,W503`, `exclude = .git,build,site,.claude`. Record the remaining style debt with a `Finding:` trailer giving the post-black count by code, so it can be ratcheted later. Do not mass-delete unused imports in this wave.
+  5. `pydocstyle` is not installed in the conda environment; install the dev extra with `pip install -e ".[dev]"` if you need it, and say so in the report. Do not add pydocstyle to CI yet.
+- **Done when:** `black --check sensoryforge tests` exits 0; `flake8 sensoryforge tests` exits 0 with the new config; both test suites pass.
 
 #### D2. GitHub Actions
 - **Files:** `.github/workflows/tests.yml`.
-- **Do:** matrix ubuntu-latest and macos-latest × Python 3.10 and 3.11; install CPU torch (`pip install torch --index-url https://download.pytorch.org/whl/cpu`) then `pip install -e ".[gui,hdf5,dsl,dev]"`; job 1 `pytest -m "not gui"`; job 2 on ubuntu with `QT_QPA_PLATFORM=offscreen` and the Qt system libraries (`libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0`) running `pytest -m gui`; job 3 `black --check`, `flake8`, and `mkdocs build --strict`.
+- **Do:** matrix ubuntu-latest and macos-latest × Python 3.10 and 3.11; install CPU torch (`pip install torch --index-url https://download.pytorch.org/whl/cpu`) then `pip install -e ".[gui,hdf5,dsl,dev]"`; job 1 `pytest -m "not gui"`; job 2 on ubuntu with `QT_QPA_PLATFORM=offscreen` and the Qt system libraries (`libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0`) running `pytest -m gui`; job 3 `black --check sensoryforge tests`, `flake8 sensoryforge tests`, and `mkdocs build` **without** `--strict` (it currently aborts on 8 broken tutorial and user-guide links that task F1 fixes; F1 switches this job to `--strict`). Add a `concurrency` group and `pip` caching.
 - **Done when:** the workflow file passes `python -c "import yaml; yaml.safe_load(open('.github/workflows/tests.yml'))"` and every command in it succeeds locally. Do not push; the user pushes.
 
 #### D3. Community and hygiene files
@@ -309,7 +344,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 
 #### F1. Navigation, links, strict build
 - **Do:** add `developer_guide/*`, `user_guide/units_and_gains.md`, `user_guide/gui_walkthrough.md`, `user_guide/configuration_schema.md` to `mkdocs.yml` nav; fix the 8 broken links listed in `docs/development/reviews/PUBLICATION_READINESS_20260914.md` §5; rewrite `sensoryforge/config/README.md` to describe the files that exist; add `mkdocstrings` and an API reference page; create the docs skeleton from roadmap "Cross-cutting requirement B" with stub pages marked "coming in Phase N".
-- **Done when:** `mkdocs build --strict` passes.
+- **Done when:** `mkdocs build --strict` passes, and the docs job in `.github/workflows/tests.yml` uses `--strict`.
 - **Trailers:** `Closes: F-020`.
 
 #### F2. CLI reads the registries
@@ -336,7 +371,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-033, F-034 closed or explicitly reported as blocked (F-014, F-023, F-025–F-032 closed in Waves A and B).
+- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-034 closed or explicitly reported as blocked; F-035 may stay open for Phase 3 (F-014, F-016, F-023, F-025–F-033 closed in Waves A–C).
 
 ---
 
@@ -370,23 +405,12 @@ echo "peak_rss_mb=$PEAK"
 export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 QT_QPA_PLATFORM=offscreen
 PY=/opt/miniconda3/envs/sensoryforge/bin/python
 
-# Non-GUI suite (until C1 adds markers)
-$PY -m pytest tests/unit tests/integration tests/regression -q -p no:cacheprovider \
-  --deselect tests/unit/test_expert_mode.py --deselect tests/unit/test_gain_defaults.py \
-  --deselect tests/unit/test_grid_population_ux.py --deselect tests/unit/test_gui_agent_d.py \
-  --deselect tests/unit/test_phase3_features.py --deselect tests/unit/test_population_csv.py \
-  --deselect tests/unit/test_stimulus_grid_inmemory.py --deselect tests/unit/test_stimulus_tab_gui.py \
-  --deselect tests/unit/test_stimulus_tab_ux.py --deselect tests/unit/test_unified_workflow.py
-# Baseline at e66f529: 682 passed, 6 skipped
-
-# Qt files, one at a time, streamed (until C2/C3 land)
-for f in test_expert_mode test_gain_defaults test_grid_population_ux test_gui_agent_d \
-         test_phase3_features test_population_csv test_stimulus_grid_inmemory \
-         test_stimulus_tab_ux test_unified_workflow test_stimulus_tab_gui; do
-  <scratch>/memwatch.sh 2500 180 <scratch>/$f.log -- $PY -m pytest tests/unit/$f.py -v -p no:cacheprovider --tb=line
-  echo "$f pass=$(grep -c ' PASSED' <scratch>/$f.log) fail=$(grep -c ' FAILED' <scratch>/$f.log) err=$(grep -c ' ERROR' <scratch>/$f.log)"
-done
-# Baseline at e66f529: 8, 5, 12, 3 (+1 skip), 28, 7, 5, 17, 36, 102 passed; 0 failed
+# Since Wave C (pytest.ini + gui marker + conftest hooks), each suite runs in one process.
+<scratch>/memwatch.sh 3000 600 <scratch>/nongui.log -- $PY -m pytest -m "not gui" -q
+<scratch>/memwatch.sh 3000 600 <scratch>/gui.log    -- $PY -m pytest -m gui -q
+<scratch>/memwatch.sh 4000 900 <scratch>/full.log   -- $PY -m pytest -q
+# Baseline at 77ef203: not gui 728 passed, 6 skipped (~1.2 GB); gui 228 passed, 1 skipped (~0.6 GB);
+# full 956 passed, 7 skipped (~1.2 GB); all exit 0
 ```
 
 ### Old-code check for a new test
