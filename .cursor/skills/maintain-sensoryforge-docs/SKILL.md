@@ -77,7 +77,7 @@ Public documentation for end users:
 Strategic and development docs:
 
 - `STRATEGIC_ROADMAP.md` - Long-term vision
-- `SCIENTIFIC_HYPOTHESIS.md` - Scientific foundation
+- `SCIENTIFIC_HYPOTHESIS.md` - Scope note: forward model only, no decoding/reconstruction (F-009)
 - `SENSORYFORGE_DEVELOPMENT_GUIDE.md` - Developer setup
 
 ### Code Docstrings
@@ -170,7 +170,7 @@ Before marking documentation complete:
 ## Key Resources
 
 - **Standards**: `.github/copilot-instructions.md`
-- **Scientific Foundation**: `docs_root/SCIENTIFIC_HYPOTHESIS.md`
+- **Scope Note**: `docs_root/SCIENTIFIC_HYPOTHESIS.md` (forward model only, no decoding/reconstruction — F-009)
 - **Architecture**: `docs_root/STRATEGIC_ROADMAP.md`
 - **User Guides**: `docs/user_guide/`
 

@@ -43,7 +43,7 @@ For every file in scope, check:
 
 ## Output Format
 
-Write findings to `reviews/REVIEW_AGENT_FINDINGS_<YYYYMMDD>.md` using this structure:
+Write findings to `docs/development/reviews/REVIEW_AGENT_FINDINGS_<YYYYMMDD>.md` using this structure:
 
 ```markdown
 # Review Findings — <date>

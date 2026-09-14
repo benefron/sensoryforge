@@ -3,7 +3,7 @@
 ``update_parameters()`` was squeezing the kernel from 4D to 2D, breaking
 subsequent ``F.conv2d`` calls that expect ``(out_ch, in_ch, kH, kW)``.
 
-Reference: reviews/REVIEW_AGENT_FINDINGS_20260209.md#M7
+Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#M7
 """
 
 import pytest

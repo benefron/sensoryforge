@@ -5,7 +5,7 @@ Verifies that:
 2. compile() accepts both string solver and BaseSolver instances
 3. End-to-end DSL pipeline produces spikes
 
-Reference: reviews/REVIEW_AGENT_FINDINGS_20260209.md#H8
+Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#H8
 """
 
 import pytest

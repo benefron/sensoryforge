@@ -33,7 +33,7 @@ neurons:
         Verifies that GeneralizedTactileEncodingPipeline.from_yaml()
         correctly loads and parses YAML configuration files.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#M2
+        Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#M2
         """
         # Create temporary YAML file
         config_path = tmp_path / "test_config.yml"

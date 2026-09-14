@@ -27,7 +27,7 @@ Full test inventory format: file → feature → key test names → special setu
 | File | Covers | Key tests | Notes |
 |------|--------|-----------|-------|
 | `test_filters.py` | SA/RA filter dynamics | Shape preservation, temporal axis, steady-state | |
-| `test_filters_vs_theory.py` | Filter vs Pierzowski theory | Numerical comparison vs analytical solution | |
+| `test_filters_vs_theory.py` | Filter vs Parvizi-Fard theory | Numerical comparison vs analytical solution | |
 | `test_filter_reset_state.py` | Filter state reset | State cleared between calls | |
 | `test_noise.py` | Noise modules | `MembraneNoiseTorch`, `ReceptorNoiseTorch` output shape and statistics | |
 | `test_gain_defaults.py` | Input gain default (item 9) | `test_gain_50_produces_spikes` (amplitude=3.0), `test_gain_1_produces_silence` (amplitude=5.0), `test_population_config_default_input_gain` (==50.0), `test_spiking_tab_code_sets_gain_spinbox_to_50` (source inspection) | Item 9 guard |

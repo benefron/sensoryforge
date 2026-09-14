@@ -20,7 +20,7 @@ Immediately conduct a comprehensive code review focusing on:
 **Before reviewing, READ:**
 
 1. `.github/copilot-instructions.md` - Project standards
-2. `docs_root/SCIENTIFIC_HYPOTHESIS.md` - Scientific foundation
+2. `docs_root/SCIENTIFIC_HYPOTHESIS.md` - Scope note: forward model only (F-009)
 
 ## Review Process
 

@@ -33,6 +33,6 @@ These belong to the **parent project** or downstream tooling, not SensoryForge.
 
 ## Documentation Context
 
-`docs_root/STRATEGIC_ROADMAP.md` and `docs_root/SCIENTIFIC_HYPOTHESIS.md` describe the broader parent project. They may reference decoding, Kalman filters, and reconstruction — those are **parent-repo scope**, not SensoryForge.
+`docs_root/STRATEGIC_ROADMAP.md` describes the broader parent project and may reference decoding, Kalman filters, and reconstruction — that is **parent-repo scope**, not SensoryForge. `docs_root/SCIENTIFIC_HYPOTHESIS.md` is SensoryForge's own scope note (forward model only, F-009) and should be treated as authoritative for this repo.
 
 When writing reports, docs, or rules for SensoryForge: describe it as an **encoding playground** that produces population activity (spikes, currents) from stimuli. Do not attribute decoding, reconstruction, or Bayesian estimation to this repo.

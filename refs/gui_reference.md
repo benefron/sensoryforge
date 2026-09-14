@@ -133,7 +133,7 @@ SpikingNeuronTab(mechanoreceptor_tab: MechanoreceptorTab,
 |-----------|------|------|
 | `chk_expert_mode` | `QCheckBox` | Basic/Expert toggle (QSettings: `"gui/spiking_tab/expert_mode"`) |
 | `_expert_only_widgets_spiking` | `List[QWidget]` | Widgets hidden in Basic mode |
-| `dbl_input_gain` | `QDoubleSpinBox` | Input gain — default `50.0`; tooltip explains Pierzowski calibration |
+| `dbl_input_gain` | `QDoubleSpinBox` | Input gain — default `50.0`; tooltip explains Parvizi-Fard calibration |
 | `cmb_model` | `QComboBox` | Neuron model selector |
 | `cmb_filter` | `QComboBox` | Filter method (`none` / `SA` / `RA`) |
 | `dbl_dt` | `QDoubleSpinBox` | Integration timestep (ms) |

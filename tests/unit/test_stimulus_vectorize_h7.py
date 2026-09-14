@@ -3,7 +3,7 @@
 Verifies that the vectorized broadcast approach produces correct shapes
 and that each stimulus type returns the expected [1, T, H, W] tensor.
 
-Reference: reviews/REVIEW_AGENT_FINDINGS_20260209.md#H7
+Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#H7
 """
 
 import pytest

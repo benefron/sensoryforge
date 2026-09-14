@@ -3,7 +3,7 @@
 The generalized pipeline used ``gabor_texture`` without importing it,
 causing a ``NameError`` at runtime for texture stimuli.
 
-Reference: reviews/REVIEW_AGENT_FINDINGS_20260209.md#M3
+Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#M3
 """
 
 import pytest

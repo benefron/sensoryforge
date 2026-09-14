@@ -1,6 +1,6 @@
 Systematically implement all findings from a review document, one at a time, with tests and commits.
 
-Read the review findings file specified in $ARGUMENTS (e.g., `reviews/REVIEW_AGENT_FINDINGS_20260408.md`). If no file is given, look for the most recent file matching `reviews/REVIEW_AGENT_FINDINGS_*.md`.
+Read the review findings file specified in $ARGUMENTS (e.g., `docs/development/reviews/REVIEW_AGENT_FINDINGS_20260408.md`). If no file is given, look for the most recent file matching `docs/development/reviews/REVIEW_AGENT_FINDINGS_*.md`.
 
 Also read `.github/copilot-instructions.md` for project standards before touching any code.
 
@@ -43,7 +43,7 @@ Never implement a breaking change without explicit user approval. Propose a depr
 
 ### Phase 3 — Report
 
-After all findings are processed, write `reviews/REMEDIATION_REPORT_<YYYYMMDD>.md`:
+After all findings are processed, write `docs/development/reviews/REMEDIATION_REPORT_<YYYYMMDD>.md`:
 
 ```markdown
 # Remediation Report — <date>

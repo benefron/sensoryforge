@@ -95,7 +95,7 @@ class TestNeuronModuleManifest:
 class TestProtocolRunRecord:
     """Test suite for ProtocolRunRecord serialization.
     
-    Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
+    Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
     """
 
     @pytest.fixture
@@ -212,7 +212,7 @@ class TestSTAAnalysisRecord:
 class TestProjectRegistry:
     """Test suite for ProjectRegistry file operations.
     
-    Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
+    Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#T1
     """
 
     @pytest.fixture

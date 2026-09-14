@@ -96,7 +96,7 @@ class TestBaseFilter:
         Verifies that BaseFilter.from_config with {'dt': value} works
         correctly for subclasses that use the default implementation.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#M1
+        Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#M1
         """
         
         class MinimalFilter(BaseFilter):

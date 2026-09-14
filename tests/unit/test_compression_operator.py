@@ -51,7 +51,7 @@ class TestCompressionOperator:
         Verifies that flat innervation weights [num_neurons, num_receptors]
         are handled correctly and num_receptors is computed without IndexError.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
         
@@ -69,7 +69,7 @@ class TestCompressionOperator:
     def test_flat_innervation_compression_ratio(self, flat_weights):
         """Test compression ratio calculation for flat innervation.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
         
@@ -102,7 +102,7 @@ class TestCompressionOperator:
     def test_build_compression_operator_with_flat_weights(self, flat_weights):
         """Test build_compression_operator detects flat innervation.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
         

@@ -84,4 +84,4 @@ Example config: `examples/batch_config.yml`
 | All tab files | `sensoryforge/gui/tabs/` |
 | Config schema | `sensoryforge/config/schema.py` |
 | Known tech debt | [CLAUDE.md § Known Technical Debt](CLAUDE.md#known-technical-debt) |
-| Dev report / audit | `devo_reports/development_9_april_2026`, `reviews/CODE_REVIEW_20260408.md` |
+| Dev report / audit | `docs_root/archive/development_9_april_2026.txt` (local, gitignored), `docs/development/reviews/PUBLICATION_READINESS_20260914.md` |

@@ -44,7 +44,7 @@ class TestProtocolWorker:
         Verifies that ProtocolWorker can be instantiated with debug=True
         without raising AttributeError for _perform_fit.
         
-        Reference: reviews/REVIEW_AGENT_FINDINGS_20260211.md#C1
+        Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#C1
         """
         worker = ProtocolWorker(
             **minimal_worker_setup,

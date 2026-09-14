@@ -37,7 +37,7 @@ produce firing.
 ## Why the SA/RA Filters Scale Down the Signal
 
 The SA and RA filter parameters (`k1`, `tau_r`, `tau_d`, etc.) were adapted
-from Pierzowski *et al.* (1995), where the input was skin-indentation force
+from Parvizi-Fard *et al.* (2021), where the input was skin-indentation force
 in **N/mm²**.  A physiological indentation of 10 N/mm² through the SA filter
 gives:
 
@@ -116,7 +116,7 @@ To calibrate for your setup:
 populations:
   - name: SA Pop
     filter_method: sa
-    input_gain: 50       # compensates for Pierzowski N/mm² calibration
+    input_gain: 50       # compensates for Parvizi-Fard N/mm² calibration
     model: Izhikevich
     model_params:
       a: 0.02
@@ -138,6 +138,6 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 
 | Parameter | Location | Default | Why |
 |---|---|---|---|
-| `input_gain` | `PopulationConfig`, SpikingNeuronTab spinbox | 50 | Compensates for Pierzowski N/mm² filter calibration vs SensoryForge mA convention |
-| SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Pierzowski (1995) value — do not change |
+| `input_gain` | `PopulationConfig`, SpikingNeuronTab spinbox | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
+| SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
 | Stimulus `amplitude` | GUI Stimulus Designer | 1.0 mA | User-facing; increase to 3–10 for robust spiking at default gain |
