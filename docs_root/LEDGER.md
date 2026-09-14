@@ -88,6 +88,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-017 · CLOSED · decision · - · 2026-09-14
+SensoryForge is the general clean-slate sensory-encoding simulator (sensor channels -> receptive fields -> sensory neurons -> spiking or analog readout -> batch data); pressure-simulation is a use case that supplies the recipe (d, ensemble, MI scoring) and consumes the generated bundle
+→ commit b28acda
+
+## F-025 · OPEN · finding · - · 2026-09-14
+The canonical->legacy adapter still squares neuron counts: it writes neuron_rows*neuron_cols into neurons.sa/ra/sa2_neurons, which InnervationModule treats as per-row (generalized_pipeline.py:404,447,480 -> :640-707). A 4-per-row canonical population builds 256 neurons in the legacy pipeline vs 16 in SimulationEngine; the README 80x80 quick-start still exceeds 3 GB. F-012 fixed only the receptor-grid half.
+→ commit b28acda
+
+## F-026 · OPEN · finding · - · 2026-09-14
+Filter and neuron defaults live in several places and disagree, so GUI and CLI run different models for one config: SpikingNeuronTab uses gui/default_params.json (RA tau_RA 30, k3 100, RS a/b/c/d for all) and exports only overrides; SimulationEngine uses class defaults (tau_RA 8, k3 2.0, FS for RA). 32 vs 4 spikes on the same drive. tau_RA still 30 in generalized_pipeline.py:132,472, default_params.json:80, neuron_explorer.py:113; 15 in examples/*.yml, tests/fixtures/phase2_config.yml, README.md:128, two docs pages. F-002 was closed prematurely.
+→ commit b28acda
+
+## F-027 · OPEN · finding · - · 2026-09-14
+SensoryForgeConfig.from_yaml raises OSError (ENAMETOOLONG) on a one-line YAML/JSON string longer than 255 bytes because it probes Path.is_file() before parsing (schema.py:427).
+→ commit b28acda
+
+## F-028 · OPEN · finding · - · 2026-09-14
+Phase 0/1a behaviour is untested (Izhikevich presets and override precedence, SimulationEngine RA->FS default, from_yaml path branch and from_yaml_file, core/pipeline.py reading filters.sa/ra) and preset was inserted positionally between d and v_init, breaking positional IzhikevichNeuronTorch callers.
+→ commit b28acda
+
+## F-029 · OPEN · finding · - · 2026-09-14
+Moving reviews/ under docs/ added 9 mkdocs warnings (relative code links in REVIEW_AGENT_FINDINGS_20260211.md); mkdocs build --strict would fail.
+→ commit b28acda
+
+## F-030 · OPEN · finding · - · 2026-09-14
+RA filter gain k3 is unresolved across both repos: SensoryForge GUI 100, SensoryForge engine 2.0, pressure-simulation class/config/decoder gain 2.0 but its encode_runner uses 1.0 and notes k3=100 saturates fast-spiking RA near 1000 Hz. Needs a user decision (D-Q1 in the handover).
+→ commit b28acda
+
 ## D-013 · CLOSED · decision · - · 2026-09-14
 filter-calibration citation is Parvizi-Fard et al. (2021, J. Neurophysiol.) + Kandel Ch.21 for tau_RA, not "Pierzowski (1995)"
 → commit 5285378
