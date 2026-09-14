@@ -10,11 +10,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A, B and C are done and reviewed (sections 1b-1d). Start with task C4, then do
-> Wave D (D1, D2, D3). Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Waves A to D are done and reviewed (sections
+> 1b-1e). Start with task D4, then do Wave E in order (E1, E2, E3, E4, E5). Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when Wave D is finished.
+> skip it and continue with the next unblocked task. Stop and report when Wave E is finished.
 
 ---
 
@@ -132,6 +132,23 @@ Other observations: `pytest_unconfigure` imports PyQt5 even in non-GUI sessions 
 Qt libraries are missing, but unnecessary); the old per-file Qt baseline undercounted
 `test_population_csv.py` (7 instead of 9) because its isolated run aborted at exit.
 
+## 1e. Review of C4 and Wave D (2026-09-14, commits `87adf4c..9f13374`)
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| C4 GC scoped to GUI sessions | Accepted | `pytest -m gui` 228 passed, 1 skipped; `pytest -m "not gui"` 729 passed, 6 skipped with the collector on; full `pytest` 957 passed, 7 skipped; all exit 0, peaks 550 MB / 1.3 GB / 1.3 GB. The `trylast=True` ordering fix is correct and covered by `tests/unit/test_conftest_gc_scope.py` |
+| D1 black, `BaseSolver`, `.flake8` | Accepted | black commit touches only `.py` files; after normalizing docstring whitespace no file's syntax tree changed. `black --check` and `flake8` exit 0 |
+| D2 GitHub Actions | Accepted as written, not yet proven | YAML parses and every local command succeeds; the workflow has never run on GitHub. Two likely first-run problems are task D4 |
+| D3 community files | Accepted with two corrections made in review | `CITATION.cff` has all required fields; no dangling references to the deleted files |
+
+Corrections made in the review commit:
+
+- `CHANGELOG.md` claimed default innervation weights are analytic Gaussian. That is task E1 and has not been done (`use_distance_weights` still defaults to `False`). The bullet was removed; E1 re-adds it.
+- `CONTRIBUTING.md` referred to `register_components.py` without its package path.
+- D1's style-debt `Finding:` was written as a wrapped multi-line trailer, which the ledger parser silently drops. It is recorded as F-036. Guardrail 8 now requires single-line trailers.
+
+pressure-simulation: the user decided k3 = 2.0 everywhere. Commit `f7784f9` there sets the RA default in `encoding/encode_runner.py` and `GUIs/ebkf_viewer.py`, and the decoder fallbacks in `decoding/pipeline.py` and the pseudo-inverse reconstructor, to 2.0 (filter, pipeline and decoder tests: 48 passed before and after). F-034 is closed. That commit also records, in pressure-simulation's ledger, that its RA input gains were tuned at k3 = 1.0.
+
 ---
 
 ## 2. Guardrails (read before any task)
@@ -158,7 +175,9 @@ These come directly from what went wrong in Phase 0/1a.
    commits that are already on `origin`. Commit messages follow Conventional Commits and end with the
    attribution lines from your session instructions.
 8. **Ledger trailers.** `Closes: F-0NN` only with evidence. Anything new you discover →
-   `Opens: F-0NN <one line>` on the commit where you found it. Never edit `docs_root/LEDGER.md` by
+   `Opens: F-0NN <one line>` on the commit where you found it. **Every trailer is exactly one line**
+   in the final paragraph of the message; a wrapped trailer is silently dropped by the parser. Put
+   the evidence in the body and a one-line summary in the trailer. Never edit `docs_root/LEDGER.md` by
    hand except to remove a stale `Directive:` line on a closed entry. After committing, run
    `CLAUDE_PROJECT_DIR=$PWD .claude/hooks/ledger-sync.sh` and commit the ledger as
    `chore: ledger sync after <task>`.
@@ -183,8 +202,8 @@ These come directly from what went wrong in Phase 0/1a.
 
 ## 4. Task list
 
-Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line numbers are as of commit
-`e66f529` plus this handover commit; re-grep before editing.
+Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line numbers predate the black
+reformat in `68fc511` and are now approximate; always re-grep before editing.
 
 ### Wave A — repair Phase 0/1a (do first, in order)
 
@@ -310,12 +329,18 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - **Do:** add `CITATION.cff`, `CHANGELOG.md` (an "Unreleased" section that lists every behaviour change users will notice: SA no longer rectified by default, τ_RA 8 ms, RA fast-spiking preset, RA k3 2.0 in the GUI instead of 100 (RA firing on the default ramp stimulus drops from about 314 Hz to 69 Hz), grid and neuron count fixes, defaults resolver, Python 3.10+ and the `gui` extra for PyQt5), `CONTRIBUTING.md` (absorb `DEVELOPMENT.md`, then delete it; include the extension guide pointers and the ledger trailer convention), `CODE_OF_CONDUCT.md`. Delete `test_refactoring.py` at the repo root (superseded by `tests/integration/test_regression_refactoring.py`). Untrack `.github/copilot-instructions.md` with `git rm --cached` (it is already gitignored).
 - **Trailers:** `Closes: F-015`.
 
+#### D4. CI hardening (do this first in the next run)
+- **Files:** `pyproject.toml`, `.github/workflows/tests.yml`.
+- **Do:** pin the formatter and linter majors in the `dev` extra (`black>=26.1,<27`, `flake8>=7,<8`) so a new black stable style cannot fail CI on its own. In the `gui` job's apt step add `libgl1 libglib2.0-0 libfontconfig1 libdbus-1-3` next to the existing libraries (PyQt5's `QtGui` links against `libGL.so.1`, which `libegl1` does not provide).
+- **Done when:** the workflow still parses; `black --check sensoryforge tests` and `flake8 sensoryforge tests` still exit 0 with the pinned versions installed locally; the report tells the user to watch the first GitHub run after pushing, since CI has never executed.
+- **Trailers:** none.
+
 ### Wave E — remaining engine parity (plan 1e)
 
 #### E1. Analytic Gaussian weights by default (F-003)
 - **Files:** `sensoryforge/config/schema.py:148`; the GUI `NeuronPopulation` default in `gui/tabs/mechanoreceptor_tab.py` (dataclass field and `chk_use_distance_weights.setChecked`); legacy `DEFAULT_CONFIG`; the "Gaussian falloff" docstring at `core/innervation.py:131`.
 - **Do:** default `use_distance_weights=True`; keep the stochastic builder reachable and name it in docs as the control arm.
-- **Done when:** a test asserts default-config innervation weights decrease monotonically with distance for one neuron; `CHANGELOG.md` lists the change.
+- **Done when:** a test asserts default-config innervation weights decrease monotonically with distance for one neuron; `CHANGELOG.md` "Changed" lists "Default innervation weights are analytic Gaussian; the stochastic uniform-random builder remains available as the control arm".
 - **Trailers:** `Decision: default innervation uses analytic Gaussian weights; the stochastic uniform-weight builder is the named control arm`; `Closes: F-003`.
 
 #### E2. Per-instance RNG in innervation (F-006)
@@ -331,13 +356,16 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 
 #### E4. Neuron sub-stepping (F-008)
 - **Files:** `sensoryforge/config/schema.py` (`SimulationConfig`), `sensoryforge/core/simulation_engine.py` (`_run_pop_from_drive` `:372`), GUI call site in `spiking_tab.py`.
-- **Do:** add `dt_ms` (record step) and `integrate_dt_ms` (default 0.05); accept legacy `dt` as an alias of `dt_ms` in `from_dict`; integrate the neuron at `integrate_dt_ms` holding the drive constant within a record bin; return spike **counts** per record bin and voltages at bin ends.
+- **Do:** add `dt_ms` (record step) and `integrate_dt_ms` (default 0.05); accept legacy `dt` as an alias of `dt_ms` in `from_dict`. Match pressure-simulation's `encoding/encode_runner.run_encoding` exactly: the filter integrates at `dt_ms`; gain then noise are applied per record bin; the neuron is constructed with `dt=integrate_dt_ms`, gets `n = max(1, round(dt_ms / integrate_dt_ms))` sub-steps per bin with the drive held constant (`repeat_interleave`), and its state carries across bins in one forward pass; drop the initial sample (`spikes[:, 1:, :]`), then return spike **counts** per record bin (pressure-simulation reports `counts > 0`) and voltages at bin ends, both shaped `[batch, T, N]`. Both `SimulationEngine` and the Spiking tab must construct neurons with `integrate_dt_ms`.
 - **Done when:** with `integrate_dt_ms == dt_ms` outputs equal the current behaviour exactly; with sub-stepping the summed counts equal the raw spike count of a direct fine-step run; the GUI and engine produce identical results (extend `tests/integration/test_engine_parity.py`).
 - **Trailers:** `Closes: F-008`.
 
 #### E5. Golden parity test against pressure-simulation
-- **Blocked on:** E4, and the user's answer to F-034 (whether pressure-simulation's `encode_runner.py` k3 default moves from 1.0 to 2.0). Do not edit pressure-simulation for this without that answer.
-- **Do:** write `scripts/dev/export_pressure_sim_golden.py`, run manually in pressure-simulation's environment, that calls its `encoding/encode_runner.run_encoding` with a fixed stimulus and fixed innervation weights and saves `weights`, `stimulus`, per-population filtered response and spikes to `tests/fixtures/pressure_sim_golden/*.npz`. Add `tests/integration/test_pressure_sim_parity.py`, which feeds the same weights and stimulus through `SimulationEngine` and compares (filtered response to 1e-6, spikes exactly).
+- **Blocked on:** E4 only (F-034 is resolved: k3 = 2.0 in both repos).
+- **Do:**
+  1. Write `scripts/dev/export_pressure_sim_golden.py`. Run it from the pressure-simulation repo root with `PYTHONPATH=.` and the `sensoryforge` conda Python (pressure-simulation's tests pass in that environment). Use a small case: 8×8 grid, T = 200 bins, `dt_ms = 1.0`, one SA and one RA population with fixed weights `[N, 8, 8]` (seeded random, saved), a positive trapezoid stimulus, `input_gain` and `noise_std = 0` given explicitly, explicit `filter_params` (SA `tau_r 5, tau_d 30, k1 0.05, k2 3.0`; RA `tau_RA 8, k3 2.0`), and explicit Izhikevich `model_params` (SA regular-spiking, RA fast-spiking a/b/c/d). `run_encoding` does not return the filtered response, so compute drive and filtered response in the script with pressure-simulation's own `SAFilterTorch`/`RAFilterTorch` exactly as the runner does, and take spikes from `run_encoding`. Save stimulus, weights, parameters, drive, filtered response and spikes to `tests/fixtures/pressure_sim_golden/case_small.npz` (keep it under 1 MB).
+  2. Add `tests/integration/test_pressure_sim_parity.py`: build a `SimulationEngine` for the same populations, replace each population's innervation weights with the golden weights, run the stimulus, and compare in stages so a mismatch is localized: drive (1e-6), filtered response after gain (1e-6), then spikes as `counts > 0` (exact).
+  3. SensoryForge clamps Izhikevich voltage at −120 mV (`v_floor`, D-007) and pressure-simulation does not (F-037). Keep the golden stimulus positive so neither side reaches the clamp, and note the limitation in the test docstring.
 - **Trailers:** `Opens:` any mismatch found, with the measured difference.
 
 ### Wave F — docs (plan 1f, F-020, F-018)
@@ -371,7 +399,7 @@ Each task: **Goal**, **Files**, **Do**, **Done when**, **Trailers**. Line number
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-034 closed or explicitly reported as blocked; F-035 may stay open for Phase 3 (F-014, F-016, F-023, F-025–F-033 closed in Waves A–C).
+- Ledger: F-003, F-006, F-007, F-008, F-014, F-015, F-016, F-018, F-020, F-037 closed or explicitly reported as blocked; F-035 and F-036 may stay open for later phases (F-014–F-016, F-023, F-025–F-034 closed in Waves A–D).
 
 ---
 

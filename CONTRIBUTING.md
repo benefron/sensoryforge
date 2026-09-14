@@ -84,7 +84,7 @@ string name in `sensoryforge/register_components.py` and discovered dynamically 
 - `docs/developer_guide/extensibility.md` for the registry pattern itself
 
 Every new component needs: a base-class subclass implementing `forward()`, `reset_state()`,
-`from_config()`, `to_dict()`; a `register_components.py` entry; Google-style docstrings with tensor
+`from_config()`, `to_dict()`; a `sensoryforge/register_components.py` entry; Google-style docstrings with tensor
 shapes and physical units; and a unit test.
 
 ## Commit conventions

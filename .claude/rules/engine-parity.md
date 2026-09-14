@@ -38,10 +38,11 @@ on top -- never drop the other three when only one is overridden (F-031).
 
 - **F-001 closed:** `SAFilterTorch.clip_to_positive` defaults to `False`. Do not re-enable by default.
 - **τ_RA = 8 ms everywhere (D-015, F-026 closed).**
-- **D-Q1 decided: RA filter gain k3 = 2.0 everywhere (F-030 closed).** Resolver-owned. Matches both
-  repos' `RAFilterTorch` class default, pressure-simulation's `config/pipeline_config.yml` and its
-  decoder gain. pressure-simulation's `encode_runner.py` default of 1.0 and any RA input-gain preset
-  retuning are follow-up work, not yet done.
+- **D-Q1 decided: RA filter gain k3 = 2.0 everywhere (F-030, F-034 closed).** Resolver-owned here.
+  pressure-simulation matches since its commit `f7784f9` (runner, viewer and decoder fallbacks).
+  Its RA input gains were tuned at k3 = 1.0 and are tracked in its own ledger, not here.
+- **F-037 open:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007);
+  pressure-simulation's neurons do not, so spikes can differ for strongly negative drive.
 - **F-031 closed:** `resolve_neuron_params` always expands the neuron-type (or explicit) preset
   first, then applies `a`/`b`/`c`/`d` overrides on top -- GUI, engine and the legacy adapter now
   agree for partial overrides too, and the adapter no longer raises `KeyError`.
