@@ -209,7 +209,7 @@ CRITICAL canonical->legacy adapter sets grid_size = rows*cols (generalized_pipel
 Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt is one monolithic pickle; spikes are T+1 while drive/filtered are T (undocumented); HDF5 drops list-valued stimulus params (batch_executor.py:499-592)
 → commit 7a188b6
 
-## F-014 · OPEN · finding · - · 2026-09-14
+## F-014 · CLOSED · finding · - · 2026-09-14
 Installed package does not run: python_requires>=3.8 but neurons/sa.py:49 needs 3.10; no package_data so gui/default_params.json and config/default_config.yml are not installed; core/pipeline.py:86,392,422 open the default config by cwd-relative path; h5py undeclared; docs advertise a nonexistent [full] extra; PyQt5 is a hard dependency
 → commit 7a188b6
 
