@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-036 · OPEN · finding · - · 2026-09-14
+flake8 style debt after black (all default checks, 88 columns): 364 violations, mainly E501 164, F401 141, F541 18, E402 14, F841 11; CI gates only E9,F63,F7,F82 until ratcheted
+→ commit 7da39f9
+
+## F-037 · OPEN · finding · - · 2026-09-14
+SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
+→ commit 7da39f9
+
 ## F-035 · OPEN · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
 → commit fb1441b
@@ -96,7 +104,7 @@ With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside py
 pyproject.toml uses project.license as a TOML table plus the "License :: OSI Approved :: MIT License" classifier; setuptools 81 warns both are deprecated and builds stop being supported after 2027-02-18. Use license = "MIT", license-files = ["LICENSE"], setuptools>=77.
 → commit 5508313
 
-## F-034 · OPEN · finding · - · 2026-09-14
+## F-034 · CLOSED · finding · - · 2026-09-14
 pressure-simulation encoding/encode_runner.py still defaults RA k3 to 1.0 (commented as calibrated for fast-spiking RA at input gain 40), contradicting D-018 "k3 = 2.0 everywhere"; the golden parity test (E5) cannot pass at zero tolerance until one value is used in both repos. Needs user confirmation of scope.
 → commit 5508313
 
