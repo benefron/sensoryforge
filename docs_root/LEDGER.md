@@ -96,7 +96,7 @@ SensoryForge is the general clean-slate sensory-encoding simulator (sensor chann
 The canonical->legacy adapter still squares neuron counts: it writes neuron_rows*neuron_cols into neurons.sa/ra/sa2_neurons, which InnervationModule treats as per-row (generalized_pipeline.py:404,447,480 -> :640-707). A 4-per-row canonical population builds 256 neurons in the legacy pipeline vs 16 in SimulationEngine; the README 80x80 quick-start still exceeds 3 GB. F-012 fixed only the receptor-grid half.
 → commit b28acda
 
-## F-026 · OPEN · finding · - · 2026-09-14
+## F-026 · CLOSED · finding · - · 2026-09-14
 Filter and neuron defaults live in several places and disagree, so GUI and CLI run different models for one config: SpikingNeuronTab uses gui/default_params.json (RA tau_RA 30, k3 100, RS a/b/c/d for all) and exports only overrides; SimulationEngine uses class defaults (tau_RA 8, k3 2.0, FS for RA). 32 vs 4 spikes on the same drive. tau_RA still 30 in generalized_pipeline.py:132,472, default_params.json:80, neuron_explorer.py:113; 15 in examples/*.yml, tests/fixtures/phase2_config.yml, README.md:128, two docs pages. F-002 was closed prematurely.
 → commit b28acda
 
@@ -157,7 +157,7 @@ tau_RA is 30 ms (sa_ra.py:258) / 15 ms (default_config.yml:94) / 30 (CombinedSAR
 Default innervation is the stochastic builder (uniform-random weights; Gaussian only in selection probability, innervation.py:952) that pressure-simulation retired to a control arm; docstring innervation.py:880 says "Gaussian falloff"; use_distance_weights defaults False (schema.py:147); no deterministic K-nearest builder
 → commit 7a188b6
 
-## F-004 · OPEN · finding · - · 2026-09-14
+## F-004 · CLOSED · finding · - · 2026-09-14
 No FS/RS Izhikevich split: RA populations get RS (a=0.02,d=8); pressure-simulation assigns FS (a=0.1,d=2) to RA since Apr 2026
 → commit 7a188b6
 
