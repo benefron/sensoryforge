@@ -178,3 +178,58 @@ def test_filter_run_is_stateless_across_calls():
         "Two identical run() calls should produce identical filtered output. "
         "If they differ, filter state is leaking between runs."
     )
+
+
+# ---------------------------------------------------------------------------
+# F-004/F-028: engine RA -> fast-spiking Izhikevich default, and explicit
+# overrides suppressing it (docs/development/handover/phase1_tasks.md, A5)
+# ---------------------------------------------------------------------------
+
+def _make_pop_config(neuron_type: str, model_params=None, seed: int = 42) -> SensoryForgeConfig:
+    grid = GridConfig(name="test_grid", rows=4, cols=4, spacing=1.0, arrangement="grid")
+    pop = PopulationConfig(
+        name="test_pop",
+        target_grid="test_grid",
+        neuron_type=neuron_type,
+        neurons_per_row=2,
+        innervation_method="gaussian",
+        connections_per_neuron=4,
+        sigma_d_mm=2.0,
+        filter_method="none",
+        neuron_model="Izhikevich",
+        model_params=model_params or {},
+        seed=seed,
+    )
+    sim = SimulationConfig(dt=0.1, device="cpu")
+    return SensoryForgeConfig(grids=[grid], populations=[pop], simulation=sim)
+
+
+def test_ra_population_defaults_to_fast_spiking_izhikevich():
+    """An RA population with no model_params override must resolve to FS (a=0.1, d=2.0)."""
+    engine = SimulationEngine(_make_pop_config("RA"))
+    neuron = engine.populations[0]["neuron"]
+    assert neuron.a == 0.1
+    assert neuron.d == 2.0
+
+
+def test_sa_population_keeps_regular_spiking_izhikevich():
+    """An SA population with no model_params override must stay RS (a=0.02, d=8.0)."""
+    engine = SimulationEngine(_make_pop_config("SA"))
+    neuron = engine.populations[0]["neuron"]
+    assert neuron.a == 0.02
+    assert neuron.d == 8.0
+
+
+def test_ra_population_explicit_preset_override_suppresses_fs_default():
+    """An explicit preset in model_params wins over the RA->FS default."""
+    engine = SimulationEngine(_make_pop_config("RA", model_params={"preset": "RS"}))
+    neuron = engine.populations[0]["neuron"]
+    assert neuron.a == 0.02
+    assert neuron.d == 8.0
+
+
+def test_ra_population_explicit_a_override_suppresses_fs_default():
+    """An explicit `a` in model_params wins over the RA->FS default entirely."""
+    engine = SimulationEngine(_make_pop_config("RA", model_params={"a": 0.5}))
+    neuron = engine.populations[0]["neuron"]
+    assert neuron.a == 0.5
