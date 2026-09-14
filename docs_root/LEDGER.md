@@ -225,7 +225,7 @@ Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt
 Installed package does not run: python_requires>=3.8 but neurons/sa.py:49 needs 3.10; no package_data so gui/default_params.json and config/default_config.yml are not installed; core/pipeline.py:86,392,422 open the default config by cwd-relative path; h5py undeclared; docs advertise a nonexistent [full] extra; PyQt5 is a hard dependency
 → commit 7a188b6
 
-## F-015 · OPEN · finding · - · 2026-09-14
+## F-015 · CLOSED · finding · - · 2026-09-14
 Release scaffolding and hygiene missing: no pyproject.toml, pytest.ini, lint config, .github/workflows, CITATION.cff, CHANGELOG.md, CONTRIBUTING.md; test_refactoring.py at root; devo_reports/ raw notes tracked; .github/copilot-instructions.md tracked despite gitignore; three author strings; dead PyPI link README.md:387
 → commit 7a188b6
 
