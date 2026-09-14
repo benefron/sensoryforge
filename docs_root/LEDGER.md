@@ -88,16 +88,40 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-013 · CLOSED · decision · - · 2026-09-14
+filter-calibration citation is Parvizi-Fard et al. (2021, J. Neurophysiol.) + Kandel Ch.21 for tau_RA, not "Pierzowski (1995)"
+→ commit 5285378
+
+## D-014 · CLOSED · decision · - · 2026-09-14
+SAFilterTorch defaults to clip_to_positive=False (sign-preserving SA, matching pressure-simulation's decoder which recovers velocity sign from SA)
+→ commit be64ab2
+
+## D-015 · CLOSED · decision · - · 2026-09-14
+RAFilterTorch.tau_RA is locked to 8 ms everywhere (Kandel Ch.21), matching pressure-simulation
+→ commit be64ab2
+
+## D-016 · CLOSED · decision · - · 2026-09-14
+Izhikevich neuron presets (RS/FS/IB/CH/LTS, Izhikevich 2003) are available via preset=; RA populations default to FS in SimulationEngine (next commit)
+→ commit be64ab2
+
+## F-023 · OPEN · finding · - · 2026-09-14
+Legacy config keys neurons.sa_neurons/ra_neurons mean neurons-per-row, not a total count -- InnervationModule squares it, so a value that reads as a total (e.g. 100) silently builds a 100x100=10,000-neuron population with a dense [N,H,W] weight tensor. Confirmed via test_gui_cli_parity.py::TestConfigAdapter::test_legacy_config_still_works, which passed sa_neurons=100/ra_neurons=196 (looking like the canonical example's totals) and hit >2.7GB RSS before the test was corrected to use per-row values.
+→ commit 1c93fa6
+
+## F-024 · OPEN · finding · - · 2026-09-14
+GeneralizedTactileEncodingPipeline's gaussian/step/ramp stimulus generators read config["temporal"]["dt"], a separate key from config["neurons"]["dt"] which controls neuron integration. Setting only neurons.dt (the intuitive choice) silently leaves the stimulus time axis at the temporal.dt default (0.1ms), desynchronising the two. Found via test_regression_refactoring.py::test_pipeline_forward_pass_still_works.
+→ commit 1c93fa6
+
 ## D-012 · CLOSED · decision · - · 2026-09-14
 SensoryForge tracks decisions/findings in docs_root/LEDGER.md via commit trailers (living-ledger, same system as pressure-simulation); docs_root/ stays gitignored except the ledger
 · Directive: Before editing sa_ra.py, innervation.py, default_config.yml, schema.py or izhikevich.py read .claude/rules/engine-parity.md and mirror any scientific change in pressure-simulation
 → commit 7931c18
 
-## F-001 · OPEN · finding · - · 2026-09-14
+## F-001 · CLOSED · finding · - · 2026-09-14
 SAFilterTorch rectifies I_SA (clip_to_positive=True, sa_ra.py:53,160); pressure-simulation does not and its decoder recovers velocity sign from SA. Decide once, apply to both repos
 → commit 7a188b6
 
-## F-002 · OPEN · finding · - · 2026-09-14
+## F-002 · CLOSED · finding · - · 2026-09-14
 tau_RA is 30 ms (sa_ra.py:258) / 15 ms (default_config.yml:94) / 30 (CombinedSARAFilter) here; pressure-simulation locked 8 ms (Kandel Ch.21, its 0ee0653). CombinedSARAFilter() is called with no args in core/pipeline.py:145 so YAML filters are dead on that path
 → commit 7a188b6
 
@@ -109,7 +133,7 @@ Default innervation is the stochastic builder (uniform-random weights; Gaussian 
 No FS/RS Izhikevich split: RA populations get RS (a=0.02,d=8); pressure-simulation assigns FS (a=0.1,d=2) to RA since Apr 2026
 → commit 7a188b6
 
-## F-005 · OPEN · finding · - · 2026-09-14
+## F-005 · CLOSED · finding · - · 2026-09-14
 Filter calibration attributed to "Pierzowski (1995)" in CLAUDE.md, docs/user_guide/units_and_gains.md, refs/ (unverifiable) but to Parvizi-Fard 2021 in sa_ra.py and throughout pressure-simulation
 → commit 7a188b6
 
@@ -125,7 +149,7 @@ Two noise topologies: core/pipeline.py:239 applies receptor+membrane noise befor
 No sub-stepping: SimulationConfig.dt=1.0 ms (schema.py:326) is fed straight to the neuron (simulation_engine.py:262); pressure-simulation sub-steps Izhikevich at 0.05 ms inside 1 ms bins
 → commit 7a188b6
 
-## F-009 · OPEN · finding · - · 2026-09-14
+## F-009 · CLOSED · finding · - · 2026-09-14
 docs_root/SCIENTIFIC_HYPOTHESIS.md is pressure-simulation's Oct-2025 draft: headlines the retired "SA/FA sufficient to reconstruct" hypothesis and the retired 4-population plan; CLAUDE.md/Cursor skills still name it as grounding
 → commit 7a188b6
 
@@ -137,10 +161,9 @@ SimulationEngine: composite grids NotImplementedError (:98); poisson/hex/jittere
 SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-index --format hdf5` (batch_executor.py:729-733) but run has neither flag (cli.py:556-578) and writes .pt only; BatchTab progress never emitted
 → commit 7a188b6
 
-## F-012 · OPEN · finding · - · 2026-09-14
+## F-012 · CLOSED · finding · - · 2026-09-14
 CRITICAL canonical->legacy adapter sets grid_size = rows*cols (generalized_pipeline.py:351) and grid.py:32 treats an int as per-side: 20x20 config -> 160k receptors, README 80x80 example -> 41M; test_gui_cli_parity and test_regression_refactoring exceed 5 GB and are OOM-killed; CLI/Batch hit it on every canonical run (cli.py:218, batch_executor.py:98)
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
-→ commit 7a188b6
+→ commit 7a188b6 · closed by commit 1c93fa6 (grid_size now emits (rows, cols))
 
 ## F-013 · OPEN · finding · - · 2026-09-14
 Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt is one monolithic pickle; spikes are T+1 while drive/filtered are T (undocumented); HDF5 drops list-valued stimulus params (batch_executor.py:499-592)
@@ -158,7 +181,7 @@ Release scaffolding and hygiene missing: no pyproject.toml, pytest.ini, lint con
 Qt test suite is order-dependent: tests/unit/test_stimulus_tab_gui.py:86-89 puts MagicMocks into sys.modules["PyQt5*"] and never restores them (86x "QtGui has no attribute QColor" in later files); Qt files segfault at interpreter exit when run alone
 → commit 7a188b6
 
-## F-017 · OPEN · finding · - · 2026-09-14
+## F-017 · CLOSED · finding · - · 2026-09-14
 test_gui_cli_parity.py:70 passes a file path to SensoryForgeConfig.from_yaml, which takes YAML text (schema.py:426-455); simulation_engine.py:16 docstring shows the same wrong call; five integration tests still assert dt=0.5 step counts from before D-005; test_invalid_innervation_method_raises_error no longer raises
 → commit 7a188b6
 
@@ -174,8 +197,8 @@ cli list-components is a hardcoded print block (cli.py:438-478) already out of s
 Public docs: developer_guide/*, units_and_gains.md, gui_walkthrough.md, configuration_schema.md absent from mkdocs nav; 8 broken intra-doc links; "pip install sensoryforge" in 3 pages; sensoryforge/config/README.md describes 4 nonexistent files; docs/api_reference/ is a .gitkeep
 → commit 7a188b6
 
-## F-021 · OPEN · finding · - · 2026-09-14
-Debt lists are stale: CLAUDE.md still lists DSL numpy-only (C-2) and reset_states (M-1) as open, both resolved (R-001, D-011); reviews/CODE_REVIEW_20260408.md tracker says 37/37 open though several are fixed; decide whether reviews/ ships publicly
+## F-021 · CLOSED · finding · - · 2026-09-14
+Debt lists are stale: CLAUDE.md still lists DSL numpy-only (C-2) and reset_states (M-1) as open, both resolved (R-001, D-011); docs/development/reviews/CODE_REVIEW_20260408.md tracker says 37/37 open though several are fixed; decide whether reviews/ ships publicly
 → commit 7a188b6
 
 ## F-022 · OPEN · finding · - · 2026-09-14
@@ -184,10 +207,10 @@ No validation against reference data or pressure-simulation: one analytic filter
 
 ## N-001 · STANDING · note · release · 2026-09-14
 Publication-readiness audit run (engine parity vs pressure-simulation, code state, packaging). Full
-report: reviews/PUBLICATION_READINESS_20260914.md. Open findings F-001…F-022 were opened by that
+report: docs/development/reviews/PUBLICATION_READINESS_20260914.md. Open findings F-001…F-022 were opened by that
 commit's trailers. Live entries below this line are dated live; everything tagged (from <sha>) was
 reconstructed from git history on 2026-09-14.
-→ reviews/PUBLICATION_READINESS_20260914.md
+→ docs/development/reviews/PUBLICATION_READINESS_20260914.md
 
 ## R-001 · STANDING · retired · neurons · 2026-02-08 (from 87f1449)
 "The equation DSL is numpy-only (no CUDA / autograd)" — retired: model_dsl.py lambdifies with torch
