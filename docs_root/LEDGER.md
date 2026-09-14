@@ -95,57 +95,46 @@ SensoryForge tracks decisions/findings in docs_root/LEDGER.md via commit trailer
 
 ## F-001 · OPEN · finding · - · 2026-09-14
 SAFilterTorch rectifies I_SA (clip_to_positive=True, sa_ra.py:53,160); pressure-simulation does not and its decoder recovers velocity sign from SA. Decide once, apply to both repos
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-002 · OPEN · finding · - · 2026-09-14
 tau_RA is 30 ms (sa_ra.py:258) / 15 ms (default_config.yml:94) / 30 (CombinedSARAFilter) here; pressure-simulation locked 8 ms (Kandel Ch.21, its 0ee0653). CombinedSARAFilter() is called with no args in core/pipeline.py:145 so YAML filters are dead on that path
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-003 · OPEN · finding · - · 2026-09-14
 Default innervation is the stochastic builder (uniform-random weights; Gaussian only in selection probability, innervation.py:952) that pressure-simulation retired to a control arm; docstring innervation.py:880 says "Gaussian falloff"; use_distance_weights defaults False (schema.py:147); no deterministic K-nearest builder
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-004 · OPEN · finding · - · 2026-09-14
 No FS/RS Izhikevich split: RA populations get RS (a=0.02,d=8); pressure-simulation assigns FS (a=0.1,d=2) to RA since Apr 2026
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-005 · OPEN · finding · - · 2026-09-14
 Filter calibration attributed to "Pierzowski (1995)" in CLAUDE.md, docs/user_guide/units_and_gains.md, refs/ (unverifiable) but to Parvizi-Fard 2021 in sa_ra.py and throughout pressure-simulation
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-006 · OPEN · finding · - · 2026-09-14
 Same seed gives different wiring across repos: batched torch.multinomial (innervation.py:949) vs per-neuron loop in pressure-simulation; innervation still reseeds the global RNG (innervation.py:897)
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-007 · OPEN · finding · - · 2026-09-14
 Two noise topologies: core/pipeline.py:239 applies receptor+membrane noise before the filter; SimulationEngine:393-404 applies one post-gain randn and no receptor noise
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-008 · OPEN · finding · - · 2026-09-14
 No sub-stepping: SimulationConfig.dt=1.0 ms (schema.py:326) is fed straight to the neuron (simulation_engine.py:262); pressure-simulation sub-steps Izhikevich at 0.05 ms inside 1 ms bins
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-009 · OPEN · finding · - · 2026-09-14
 docs_root/SCIENTIFIC_HYPOTHESIS.md is pressure-simulation's Oct-2025 draft: headlines the retired "SA/FA sufficient to reconstruct" hypothesis and the retired 4-population plan; CLAUDE.md/Cursor skills still name it as grounding
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-010 · OPEN · finding · - · 2026-09-14
 SimulationEngine: composite grids NotImplementedError (:98); poisson/hex/jittered/blue_noise arrangements built then ignored, innervation uses the regular GridManager (:107-125,:224-243); DSL neurons cannot be instantiated (:260-264, dsl_config never read); _stimulus_to_receptors is a passthrough (:425-448)
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-011 · OPEN · finding · - · 2026-09-14
 SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-index --format hdf5` (batch_executor.py:729-733) but run has neither flag (cli.py:556-578) and writes .pt only; BatchTab progress never emitted
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-012 · OPEN · finding · - · 2026-09-14
@@ -155,52 +144,42 @@ CRITICAL canonical->legacy adapter sets grid_size = rows*cols (generalized_pipel
 
 ## F-013 · OPEN · finding · - · 2026-09-14
 Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt is one monolithic pickle; spikes are T+1 while drive/filtered are T (undocumented); HDF5 drops list-valued stimulus params (batch_executor.py:499-592)
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-014 · OPEN · finding · - · 2026-09-14
 Installed package does not run: python_requires>=3.8 but neurons/sa.py:49 needs 3.10; no package_data so gui/default_params.json and config/default_config.yml are not installed; core/pipeline.py:86,392,422 open the default config by cwd-relative path; h5py undeclared; docs advertise a nonexistent [full] extra; PyQt5 is a hard dependency
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-015 · OPEN · finding · - · 2026-09-14
 Release scaffolding and hygiene missing: no pyproject.toml, pytest.ini, lint config, .github/workflows, CITATION.cff, CHANGELOG.md, CONTRIBUTING.md; test_refactoring.py at root; devo_reports/ raw notes tracked; .github/copilot-instructions.md tracked despite gitignore; three author strings; dead PyPI link README.md:387
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-016 · OPEN · finding · - · 2026-09-14
 Qt test suite is order-dependent: tests/unit/test_stimulus_tab_gui.py:86-89 puts MagicMocks into sys.modules["PyQt5*"] and never restores them (86x "QtGui has no attribute QColor" in later files); Qt files segfault at interpreter exit when run alone
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-017 · OPEN · finding · - · 2026-09-14
 test_gui_cli_parity.py:70 passes a file path to SensoryForgeConfig.from_yaml, which takes YAML text (schema.py:426-455); simulation_engine.py:16 docstring shows the same wrong call; five integration tests still assert dt=0.5 step counts from before D-005; test_invalid_innervation_method_raises_error no longer raises
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-018 · OPEN · finding · - · 2026-09-14
 cli list-components is a hardcoded print block (cli.py:438-478) already out of sync with the registries (lists center_surround, omits fa/sa/composite/timeline/repeated_pattern); cli validate forces the legacy pipeline for canonical configs (cli.py:406)
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-019 · OPEN · finding · - · 2026-09-14
 ~3500 lines of unwired GUI code: gui/protocol_suite_tab.py, protocol_backend.py, protocol_execution_controller.py, neuron_explorer.py are imported by no tab, only by two tests
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-020 · OPEN · finding · - · 2026-09-14
 Public docs: developer_guide/*, units_and_gains.md, gui_walkthrough.md, configuration_schema.md absent from mkdocs nav; 8 broken intra-doc links; "pip install sensoryforge" in 3 pages; sensoryforge/config/README.md describes 4 nonexistent files; docs/api_reference/ is a .gitkeep
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-021 · OPEN · finding · - · 2026-09-14
 Debt lists are stale: CLAUDE.md still lists DSL numpy-only (C-2) and reset_states (M-1) as open, both resolved (R-001, D-011); reviews/CODE_REVIEW_20260408.md tracker says 37/37 open though several are fixed; decide whether reviews/ ships publicly
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## F-022 · OPEN · finding · - · 2026-09-14
 No validation against reference data or pressure-simulation: one analytic filter test (test_filters_vs_theory.py), no TouchSim/Saal comparison, notebook unexecuted, no benchmark suite
-· Directive: Fix F-012 before running any canonical config through GeneralizedTactileEncodingPipeline or the README quick-start; it allocates (rows*cols)^2 receptors
 → commit 7a188b6
 
 ## N-001 · STANDING · note · release · 2026-09-14
