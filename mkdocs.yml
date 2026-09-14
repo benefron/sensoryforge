@@ -7,6 +7,14 @@ repo_name: benefron/sensoryforge
 repo_url: https://github.com/benefron/sensoryforge
 edit_uri: edit/main/docs/
 
+# Internal engineering records (reviews, handover notes) stay in the repo
+# under docs/ for discoverability but are not part of the published site
+# (F-029: the reviews move under docs/ added mkdocs build warnings from
+# their relative code links, which --strict would fail on).
+exclude_docs: |
+  development/reviews/
+  development/handover/
+
 theme:
   name: material
   language: en
