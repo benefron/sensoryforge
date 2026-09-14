@@ -205,7 +205,7 @@ Filter calibration attributed to "Pierzowski (1995)" in CLAUDE.md, docs/user_gui
 Same seed gives different wiring across repos: batched torch.multinomial (innervation.py:949) vs per-neuron loop in pressure-simulation; innervation still reseeds the global RNG (innervation.py:897)
 → commit 7a188b6
 
-## F-007 · OPEN · finding · - · 2026-09-14
+## F-007 · CLOSED · finding · - · 2026-09-14
 Two noise topologies: core/pipeline.py:239 applies receptor+membrane noise before the filter; SimulationEngine:393-404 applies one post-gain randn and no receptor noise
 → commit 7a188b6
 
