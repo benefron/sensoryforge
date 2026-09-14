@@ -458,11 +458,17 @@ class SensoryForgeConfig:
             ... '''
             >>> config = SensoryForgeConfig.from_yaml(yaml_str)
         """
-        candidate_path = Path(yaml_str_or_path)
-        if isinstance(yaml_str_or_path, Path) or (
-            "\n" not in str(yaml_str_or_path) and candidate_path.is_file()
-        ):
-            return cls.from_yaml_file(candidate_path)
+        if isinstance(yaml_str_or_path, Path):
+            return cls.from_yaml_file(yaml_str_or_path)
+        if "\n" not in yaml_str_or_path:
+            try:
+                is_path = Path(yaml_str_or_path).is_file()
+            except OSError:
+                # A string too long for a filesystem path (e.g. ENAMETOOLONG)
+                # is never a path — treat it as inline YAML text.
+                is_path = False
+            if is_path:
+                return cls.from_yaml_file(Path(yaml_str_or_path))
         data = yaml.safe_load(yaml_str_or_path)
         if not isinstance(data, dict):
             raise ValueError("YAML did not produce a dict")

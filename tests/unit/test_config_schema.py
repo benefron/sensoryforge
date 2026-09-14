@@ -181,9 +181,54 @@ class TestSensoryForgeConfig:
         
         # Deserialize from YAML
         config2 = SensoryForgeConfig.from_yaml(yaml_str)
-        
+
         # Verify round-trip
         assert len(config2.grids) == len(config.grids)
         assert config2.grids[0].name == config.grids[0].name
         assert len(config2.populations) == len(config.populations)
         assert config2.populations[0].name == config.populations[0].name
+
+
+class TestFromYaml:
+    """Regression for F-027: from_yaml must not raise OSError on long inline text.
+
+    ``from_yaml`` used to probe ``Path(yaml_str_or_path).is_file()`` before
+    parsing. A one-line YAML/JSON string longer than the filesystem's max
+    path length (typically 255 bytes) raised ``OSError: File name too long``
+    instead of being parsed as YAML.
+    """
+
+    def _minimal_yaml(self, padding: int = 0) -> str:
+        # Single line (no "\n") so the old code took the is_file() branch.
+        pad = " " * padding
+        return "{grids: [], populations: [], stimulus: {}, simulation: {}}" + pad
+
+    def test_long_one_line_string_over_255_bytes(self):
+        yaml_str = self._minimal_yaml(padding=300)
+        assert len(yaml_str) > 255
+        assert "\n" not in yaml_str
+        config = SensoryForgeConfig.from_yaml(yaml_str)
+        assert config.grids == []
+
+    def test_multiline_yaml_string(self):
+        yaml_str = "grids: []\npopulations: []\nstimulus: {}\nsimulation: {}\n"
+        config = SensoryForgeConfig.from_yaml(yaml_str)
+        assert config.grids == []
+
+    def test_str_path(self, tmp_path):
+        p = tmp_path / "config.yml"
+        p.write_text("grids: []\npopulations: []\nstimulus: {}\nsimulation: {}\n")
+        config = SensoryForgeConfig.from_yaml(str(p))
+        assert config.grids == []
+
+    def test_path_object(self, tmp_path):
+        p = tmp_path / "config.yml"
+        p.write_text("grids: []\npopulations: []\nstimulus: {}\nsimulation: {}\n")
+        config = SensoryForgeConfig.from_yaml(p)
+        assert config.grids == []
+
+    def test_from_yaml_file(self, tmp_path):
+        p = tmp_path / "config.yml"
+        p.write_text("grids: []\npopulations: []\nstimulus: {}\nsimulation: {}\n")
+        config = SensoryForgeConfig.from_yaml_file(p)
+        assert config.grids == []
