@@ -71,7 +71,9 @@ Every simulation follows this shape-annotated pipeline:
 
 ```
 Stimulus  [batch, time, H, W]
-    ↓  Innervation (Gaussian receptive fields → weighted sum)
+    ↓  flatten row-major → receptor responses [batch, time, H*W]  (receptor k = i*cols + j)
+    ↓  ReceptiveFieldBank (weights [N, M] from a registered builder: gaussian, uniform,
+    ↓  one_to_one, distance_weighted, template, imported, or a plugin's)
     ↓  [batch, time, N_neurons]
     ↓  Filter (SAFilterTorch or RAFilterTorch — temporal dynamics)
     ↓  [batch, time, N_neurons]  in mA
@@ -83,6 +85,11 @@ Spikes    [batch, time, N_neurons]  bool
 - **Spatial unit:** mm throughout
 - **Batch dimension is always first:** `[batch, ...]`
 - **No hand-rolled loops over neurons or spatial dims** — always vectorise with tensor broadcasting
+- **Coordinates are `(x, y)` in mm everywhere inside SensoryForge**; for `ReceptorGrid(grid_size=(rows, cols))` the first meshgrid index is x (`indexing="ij"`), so receptor `k = i * cols + j`. Convert at the boundary when importing pressure-simulation's `[y, x]` centres (the `imported` builder does).
+
+### Receptive fields (Phase 2, Wave I)
+
+Every population's receptive fields are one `ReceptiveFieldBank` (`core/rf_bank.py`: buffers `weights [N, M]`, `neuron_centers [N, 2]`, `receptor_coords [M, 2]`, a `provenance` dict; `save()`/`load()` as `.pt`). Banks are built by registered builders — `BaseInnervation` subclasses in `INNERVATION_REGISTRY` whose `build()` returns a bank — through one function, `innervation.build_population_bank()`, used by `SimulationEngine`, the three legacy pipelines and the GUI. `template` (`core/rf_builders/template.py`, D-020: sigma = d/pi, pitch = d, derived neuron count) and `imported` (`rf_builders/imported.py`) derive their own neuron centres (`DERIVES_NEURON_CENTERS = True`). `PopulationConfig.innervation_params` is merged last into the builder parameters; `BaseInnervation.filter_params()` keeps the keys each builder takes. `SimulationEngine.builder_params()` passes `max_sigma_distance=0` on the grid path (that path never had a cutoff; gaussian weights are bit-identical to earlier releases, pinned by `tests/fixtures/rf_engine_golden_weights.pt`). `InnervationModule`/`FlatInnervationModule` are deprecated wrappers over a bank (removal in Phase 4). See `docs/user_guide/receptive_fields.md` and `docs/developer_guide/add_rf_builder.md`.
 
 ### Execution Engines
 
@@ -185,13 +192,15 @@ The GUI reads/writes `SensoryForgeConfig`. Export to YAML → run via CLI for ba
 
 **Per-column neuron toggle (MechanoreceptorTab):** `chk_square_neurons` checkbox + `spin_neurons_per_col` spinbox in Population Settings. When checked (default), `neuron_cols` is forced equal to `neuron_rows`. When unchecked, `spin_neurons_per_col` becomes visible and `neuron_cols` is set independently. Mirrors the receptor grid's `chk_square_grid` pattern.
 
-**CSV Population Import/Export (MechanoreceptorTab):** The `_CSVPopulationModule` dataclass (`mechanoreceptor_tab.py`) mimics the `FlatInnervationModule` interface (`neuron_centers`, `innervation_weights`, `receptor_coords`, `num_neurons`) so CSV-imported populations work with the existing `_update_innervation_graphics_flat` code path. Export writes `neuron_positions.csv` (x,y mm), `innervation_weights.csv` (N×M), and `manifest.json` to a user-selected folder. Import reads the same folder, validates receptor count against the current grid (falls back to zero-fill if mismatched), and attaches the stub as `pop.flat_module`. The `csv_folder: Optional[str]` field on `NeuronPopulation` marks whether a population uses CSV data and prevents regeneration during `_generate_populations()`.
+**Populations hold banks (MechanoreceptorTab):** `NeuronPopulation.bank` is a `ReceptiveFieldBank` built by `instantiate()` (grid lattice; `grid_shape` set so `innervation_weights` reads as `[N, rows, cols]` for the heatmap) or `instantiate_flat()` (composite / flat coordinates; `grid_shape=None`), with the same builder parameters `SimulationEngine.builder_params()` uses (GUI-engine parity). The method combo offers `template` with a resolvable-distance spinbox; `lbl_population_info` shows the derived neuron count.
+
+**CSV Population Import/Export (MechanoreceptorTab):** `export_population_csv(pop, folder)` writes `neuron_positions.csv` (x,y mm), `innervation_weights.csv` (N×M), `bank.pt` and `manifest.json`; `import_population_csv(pop, folder)` builds the bank with the `imported` builder on the current grid's receptor coordinates (a receptor-count mismatch raises, no zero-fill), marks the population `innervation_method="imported"` with the path in `innervation_params`, and sets `csv_folder`, which prevents regeneration during `_generate_populations()`. The dialog handlers wrap these two methods.
 
 ### Backend / Frontend Contract
 
 When the GUI runs a simulation:
 
-1. `SpikingNeuronTab._simulate_population()` computes innervation-weighted drive from stimulus frames using the local `InnervationModule`.
+1. `SpikingNeuronTab._simulate_population()` computes the drive from stimulus frames with the population's `ReceptiveFieldBank` (frames flattened to `[1, T, H*W]`).
 2. The drive tensor `[1, T, N]` is passed to `SimulationEngine._run_pop_from_drive(drive, filter_module, neuron_model, ...)`.
 3. The static method applies filter → gain → noise → neuron and returns `{"spikes": ..., "drive": ..., "filtered": ..., "voltages": ...}`.
 4. The tab collects per-population results and emits `simulation_finished(sim_results, ...)`.
@@ -208,12 +217,11 @@ audit once listed here (DSL/CUDA support, `reset_states`) were already fixed —
 `D-011`.
 
 - **`SimulationEngine` composite grids** — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet. (F-010)
-- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but innervation still samples from a synthetic regular lattice; DSL neurons cannot be instantiated through the engine yet. (F-010)
+- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but the bank still samples a synthetic regular lattice over the grid bounds (the engine warns naming F-010; real receptor sampling is Wave L); DSL neurons cannot be instantiated through the engine yet. (F-010)
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
-- **Innervation method is ignored on ordinary grids** — `SimulationEngine` builds `InnervationModule` for non-composite grids without the configured `innervation_method`, so `gaussian`, `uniform`, `one_to_one` and `distance_weighted` give identical weights in the engine, CLI and batch runs (only the composite/flat path honours the method). Fixed by Phase 2 task I6. (F-051)
-- **Random receptor layouts are not reproducible** — `ReceptorGrid`/`CompositeReceptorGrid` take no seed and `jittered_grid`/`blue_noise`/`poisson` use the global RNG. Fixed by Phase 2 task I1. (F-050)
+**Resolved 2026-09-15, Phase 2 Wave I:** receptor grids take a `seed` and random arrangements are reproducible (F-050); `innervation_method` is honoured on ordinary grids and every population's receptive fields are a `ReceptiveFieldBank` built by a registered builder (F-051, D-020).
 
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
 decision records): `SAFilterTorch` no longer rectifies by default (F-001); the canonical→legacy

@@ -1,0 +1,42 @@
+# Canonical SensoryForge configuration with designed receptive fields (Phase 2, Wave I)
+#
+# One SA population whose receptive fields come from the `template` builder: a single
+# resolvable distance d = 0.40 mm gives sigma = d/pi (0.1273 mm), a neuron lattice at
+# pitch d, and a derived neuron count (36 on this 16x16 grid at 0.15 mm; any
+# neurons_per_row is ignored). See docs/user_guide/receptive_fields.md.
+#
+# Usage:
+#   sensoryforge validate examples/canonical_template_config.yml
+#   sensoryforge run examples/canonical_template_config.yml --duration 50
+metadata:
+  name: Template receptive fields
+  version: '1.0'
+  description: 'Designed receptive fields from one resolvable distance (d = 0.40 mm).'
+grids:
+- name: Main Grid
+  arrangement: grid
+  rows: 16
+  cols: 16
+  spacing: 0.15
+  center_x: 0.0
+  center_y: 0.0
+populations:
+- name: SA designed
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: template
+  resolvable_distance_mm: 0.40
+  innervation_params:
+    k: 28
+    normalize: l2
+  neuron_model: izhikevich
+  filter_method: sa
+  input_gain: 50.0
+  seed: 42
+stimulus:
+  type: gaussian
+  amplitude: 30.0
+  sigma: 0.5
+simulation:
+  device: cpu
+  dt_ms: 1.0

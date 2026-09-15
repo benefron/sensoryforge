@@ -10,6 +10,20 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
 
 ### Changed (behaviour — re-run any saved results after upgrading)
 
+- **`innervation_method` is now honoured on ordinary grids** (F-051). `SimulationEngine`, the CLI
+  and the batch runner used to build every population with the Gaussian sampler regardless of the
+  configured method, so `uniform`, `one_to_one` and `distance_weighted` gave the same weights as
+  `gaussian`. They now build the configured method (each equal to the builder's own `build()`);
+  `gaussian` weights are unchanged bit for bit for a given seed.
+- **Receptive fields are one component, the `ReceptiveFieldBank`.** The engine, the legacy
+  pipelines and the GUI hold a bank per population (`engine.populations[i]["bank"]`, with
+  `weights [N, M]`, `neuron_centers`, `receptor_coords` and a `provenance` dict) and feed it
+  flattened receptor responses. `InnervationModule` and `FlatInnervationModule` remain as
+  deprecated wrappers (they build a bank internally and emit `DeprecationWarning`; removal in
+  Phase 4). `GeneralizedTactileEncodingPipeline.sa_innervation` etc. are now banks.
+- **GUI CSV import no longer zero-fills on a receptor-count mismatch**; it reports the two
+  counts and leaves the population untouched. Imported populations can now be simulated.
+
 - **SA filter no longer rectifies by default.** `SAFilterTorch.clip_to_positive` now defaults to
   `False` (sign-preserving SA, matching the sign convention used to recover velocity direction from
   SA activity). Pass `clip_to_positive=True` to restore the old rectified behaviour.
@@ -72,6 +86,29 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   neuron time.
 
 ### Added
+
+- **Seeded receptor grids** (F-050): `GridConfig.seed`, `ReceptorGrid(seed=...)`, every registered
+  arrangement class and `CompositeReceptorGrid.add_layer(seed=...)`. The `jittered_grid`,
+  `blue_noise` and `poisson` jitter comes from a per-instance generator, so the same seed gives
+  the same layout on every device, building a grid leaves the global RNG untouched, and
+  `from_config(to_dict())` reproduces the coordinates.
+- **`template` receptive-field builder** (`innervation_method: template`,
+  `resolvable_distance_mm: d`): sigma = d/pi, lattice pitch = d, neuron count derived from the
+  receptor area, `k` nearest receptors with analytic Gaussian weights and unit-L2 rows by
+  default. Deterministic. `PopulationConfig` gains `resolvable_distance_mm` and
+  `innervation_params` (extra builder parameters, merged last).
+- **`imported` receptive-field builder** (`innervation_params: {path: ...}`): the GUI's CSV export
+  folder, a saved bank or pressure-simulation population `.pt`, or a `ConstructedRF`-style `.npz`
+  (centres converted from `[y, x]`, columns re-ordered to SensoryForge's receptor order).
+  Provenance records the source path and a SHA-256.
+- **GUI:** `template` in the innervation-method combo with a resolvable-distance field and a
+  derived neuron-count label; CSV export also writes `bank.pt`; bundle exports write each
+  population's bank with `ReceptiveFieldBank.save`.
+- `BaseInnervation.build()`, `filter_params()`, `builder_config()`; `build_population_bank()`;
+  `ComponentRegistry.name_for()`; `sensoryforge validate` accepts any registered innervation
+  method (plugins included).
+- Docs: `user_guide/receptive_fields.md`, `developer_guide/add_rf_builder.md`, the executed
+  example `docs/examples/rf_builder_plugin.py`, and `examples/canonical_template_config.yml`.
 
 - `pyproject.toml` (PEP 621) replaces `setup.py`; optional extras `gui`, `hdf5`, `solvers`, `dsl`,
   `dev`, `docs`.

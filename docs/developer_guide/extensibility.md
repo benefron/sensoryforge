@@ -128,21 +128,28 @@ class MyFilter(BaseFilter):
         pass
 ```
 
-### BaseInnervation
+### BaseInnervation (receptive-field builders)
 
-All innervation methods inherit from `BaseInnervation`:
+All receptive-field builders inherit from `BaseInnervation`; `build()` (inherited) wraps
+`compute_weights()` in a `ReceptiveFieldBank` with provenance. See
+`add_rf_builder.md` for the full guide and `docs/examples/rf_builder_plugin.py` for a
+runnable example.
 
 ```python
 from sensoryforge.core.innervation import BaseInnervation
 
 class MyInnervation(BaseInnervation):
-    def compute_weights(
-        self,
-        receptor_coords: torch.Tensor,
-        neuron_centers: torch.Tensor,
-    ) -> torch.Tensor:
-        """Return weight matrix [num_neurons, num_receptors]."""
-        pass
+    def __init__(self, receptor_coords, neuron_centers, my_param=1.0, device="cpu"):
+        super().__init__(receptor_coords, neuron_centers, device)
+        self.my_param = my_param
+
+    def compute_weights(self, **kwargs) -> torch.Tensor:
+        """Return weight matrix [num_neurons, num_receptors] from self.receptor_coords
+        and self.neuron_centers."""
+        ...
+
+    def to_dict(self):
+        return {**super().to_dict(), "my_param": self.my_param}
 ```
 
 ## Registry Pattern
@@ -324,7 +331,7 @@ See the following files for reference implementations:
 
 - **Neuron**: `sensoryforge/neurons/izhikevich.py`
 - **Filter**: `sensoryforge/filters/sa_ra.py`
-- **Innervation**: `sensoryforge/core/innervation.py` (GaussianInnervation)
+- **Innervation / receptive-field builders**: `sensoryforge/core/innervation.py` (GaussianInnervation), `sensoryforge/core/rf_builders/template.py` (TemplateRFBuilder)
 - **Stimulus**: `sensoryforge/stimuli/gaussian.py`
 - **Solver**: `sensoryforge/solvers/euler.py`
 

@@ -113,6 +113,7 @@ nav:
     - GUI Walkthrough: user_guide/gui_walkthrough.md
     - Units and Gains: user_guide/units_and_gains.md
     - Composite Grid: user_guide/composite_grid.md
+    - Receptive Fields: user_guide/receptive_fields.md
     - Equation DSL: user_guide/equation_dsl.md
     - Extended Stimuli: user_guide/extended_stimuli.md
     - Solvers: user_guide/solvers.md
@@ -123,6 +124,7 @@ nav:
     - Adding a Neuron: developer_guide/add_neuron.md
     - Adding a Filter: developer_guide/add_filter.md
     - Adding a Stimulus: developer_guide/add_stimulus.md
+    - Adding a Receptive-Field Builder: developer_guide/add_rf_builder.md
     - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md

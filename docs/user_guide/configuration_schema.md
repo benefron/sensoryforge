@@ -78,7 +78,9 @@ Configuration for a single neuron population. Supports N populations with per-po
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `innervation_method` | string | `"gaussian"` | Method: `"gaussian"`, `"one_to_one"`, `"uniform"`, `"distance_weighted"` |
+| `innervation_method` | string | `"gaussian"` | Builder: `"gaussian"`, `"one_to_one"`, `"uniform"`, `"distance_weighted"`, `"template"`, `"imported"`, or a registered plugin's name (see [Receptive Fields](receptive_fields.md)) |
+| `resolvable_distance_mm` | float | `null` | `d` for the `template` builder: sigma = d/π, lattice pitch = d, neuron count derived (`neurons_per_row` ignored) |
+| `innervation_params` | dict | `{}` | Extra builder parameters merged last (`template`: `k`, `normalize`, `weight_scale`, `edge_offset_mm`; `imported`: `path`; plugins: anything) |
 | `connections_per_neuron` | int | `28` | Number of receptor connections per neuron |
 | `sigma_d_mm` | float | `0.3` | Gaussian spread in mm (for gaussian method) |
 | `distance_weight_randomness_pct` | float | `0.0` | Randomness percentage (0-100) for distance weighting |

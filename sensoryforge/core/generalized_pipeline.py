@@ -462,6 +462,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["innervation"]["sa_method"] = sa_pop.get(
                 "innervation_method", "gaussian"
             )
+            # Phase 2 (I6/I8): builder parameters beyond the legacy keys
+            # (template's resolvable_distance_mm, plugin/imported params).
+            sa_builder_params = dict(sa_pop.get("innervation_params") or {})
+            if sa_pop.get("resolvable_distance_mm") is not None:
+                sa_builder_params["resolvable_distance_mm"] = sa_pop[
+                    "resolvable_distance_mm"
+                ]
+            legacy["innervation"]["sa_builder_params"] = sa_builder_params
             legacy["innervation"]["sa_seed"] = sa_pop.get("seed", 33)
             legacy["innervation"]["receptors_per_neuron"] = sa_pop.get(
                 "connections_per_neuron", 28
@@ -517,6 +525,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["innervation"]["ra_method"] = ra_pop.get(
                 "innervation_method", "gaussian"
             )
+            # Phase 2 (I6/I8): builder parameters beyond the legacy keys
+            # (template's resolvable_distance_mm, plugin/imported params).
+            ra_builder_params = dict(ra_pop.get("innervation_params") or {})
+            if ra_pop.get("resolvable_distance_mm") is not None:
+                ra_builder_params["resolvable_distance_mm"] = ra_pop[
+                    "resolvable_distance_mm"
+                ]
+            legacy["innervation"]["ra_builder_params"] = ra_builder_params
             legacy["innervation"]["ra_seed"] = ra_pop.get("seed", 33)
 
             model = ra_pop.get("neuron_model", "Izhikevich")
@@ -557,6 +573,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             legacy["innervation"]["sa2_method"] = sa2_pop.get(
                 "innervation_method", "gaussian"
             )
+            # Phase 2 (I6/I8): builder parameters beyond the legacy keys
+            # (template's resolvable_distance_mm, plugin/imported params).
+            sa2_builder_params = dict(sa2_pop.get("innervation_params") or {})
+            if sa2_pop.get("resolvable_distance_mm") is not None:
+                sa2_builder_params["resolvable_distance_mm"] = sa2_pop[
+                    "resolvable_distance_mm"
+                ]
+            legacy["innervation"]["sa2_builder_params"] = sa2_builder_params
             legacy["innervation"]["sa2_seed"] = sa2_pop.get("seed", 39)
             legacy["innervation"]["sa2_connections"] = sa2_pop.get(
                 "connections_per_neuron", 500
@@ -762,6 +786,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             spread,
             weights,
             seed,
+            extra=None,
         ) -> ReceptiveFieldBank:
             return build_population_bank(
                 receptor_coords=receptor_coords,
@@ -781,6 +806,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 # InnervationModule always used analytic distance weights (D-019).
                 use_distance_weights=True,
                 seed=seed,
+                # extra builder parameters from the canonical adapter
+                # (template's resolvable_distance_mm, innervation_params).
+                **(extra or {}),
             )
 
         self.sa_innervation = _bank(
@@ -794,6 +822,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             innervation_cfg["sa_spread"],
             innervation_cfg["connection_strength"],
             innervation_cfg["sa_seed"],
+            innervation_cfg.get("sa_builder_params"),
         )
         self.ra_innervation = _bank(
             "RA",
@@ -806,6 +835,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             innervation_cfg["ra_spread"],
             innervation_cfg["connection_strength"],
             innervation_cfg["ra_seed"],
+            innervation_cfg.get("ra_builder_params"),
         )
         self.sa2_innervation = _bank(
             "SA2" if (use_flat or sa2_centers is not None) else "SA",
@@ -818,6 +848,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             innervation_cfg["sa2_spread"],
             innervation_cfg["sa2_weights"],
             innervation_cfg["sa2_seed"],
+            innervation_cfg.get("sa2_builder_params"),
         )
 
     def _create_filters(self):
