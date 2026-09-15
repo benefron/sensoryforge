@@ -111,9 +111,10 @@ class TestYAMLPipelineExecution:
         )
 
         assert "sa_spikes" in results
-        assert (
-            results["stimulus_sequence"].shape[1] == 1000
-        )  # 100ms / 0.1ms dt (D-005 default)
+        # F-024 (task E7): setting only neurons.dt now makes temporal.dt
+        # follow it, so the stimulus uses 0.5 ms (not the old, disconnected
+        # temporal.dt default of 0.1 ms) -- 100ms / 0.5ms dt = 200 steps.
+        assert results["stimulus_sequence"].shape[1] == 200
 
     def test_pipeline_produces_spikes_with_sufficient_stimulus(self):
         """Test that pipeline generates spikes with strong stimulus."""

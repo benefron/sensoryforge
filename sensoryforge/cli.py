@@ -211,7 +211,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             stimulus_cfg = config["stimuli"][0]
             stimulus_type = stimulus_cfg.get("type", "trapezoidal")
             stimulus_params = {k: v for k, v in stimulus_cfg.items() if k != "type"}
-        if stimulus_type != "trapezoidal" and args.duration:
+        if args.duration:
+            # F-040: --duration now reaches every stimulus type, including
+            # trapezoidal (it scales the plateau so the total length equals
+            # the requested duration; see _generate_trapezoidal_stimulus).
             stimulus_params["duration"] = args.duration
 
         print(f"Loading pipeline from {args.config}...")

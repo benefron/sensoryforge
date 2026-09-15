@@ -166,3 +166,28 @@ def test_canonical_execute_with_intermediates_includes_drive():
     result = executor._execute_single_stimulus(stim_config, save_intermediates=True)
     drive_keys = [k for k in result.keys() if k.endswith("__drive")]
     assert len(drive_keys) > 0, "save_intermediates=True must include __drive keys"
+
+
+# ---------------------------------------------------------------------------
+# E7 (F-039/F-040/F-024): one resolved record step drives stimulus length
+# ---------------------------------------------------------------------------
+
+
+def test_canonical_dt_ms_half_gets_duration_over_dt_bins():
+    """dt_ms=0.5 must give stimulus length duration / 0.5, not the legacy
+    temporal.dt default of 0.1 ms (F-039).
+    """
+    config = _canonical_batch_config()
+    config["base_config"]["simulation"] = {"dt_ms": 0.5, "device": "cpu"}
+    executor = BatchExecutor(config)
+
+    stim_config = {
+        "type": "gaussian",
+        "amplitude": 10.0,
+        "duration": 50.0,
+        "seed": 42,
+        "stimulus_id": "test_0001",
+    }
+    result = executor._execute_single_stimulus(stim_config, save_intermediates=False)
+    spikes = result["SA Pop__spikes"]
+    assert spikes.shape[1] == int(50.0 / 0.5)

@@ -322,7 +322,33 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 config_dict = self._canonical_to_legacy_config(config_dict)
             config = self._deep_merge_dict(config, config_dict)
 
+        self._reconcile_dt_keys(config)
         return config
+
+    def _reconcile_dt_keys(self, config: dict) -> None:
+        """Resolve the dual neurons.dt / temporal.dt keys to one value (F-024).
+
+        A hand-written legacy config that sets only one of the two keys
+        must have the other follow it, instead of silently leaving the
+        unset key at the ``DEFAULT_CONFIG`` default (0.1 ms) while the set
+        key drives neuron integration -- the exact dead-config bug F-024
+        reported. If both were explicitly customized to different values,
+        ``neurons.dt`` wins (it already drove neuron integration before
+        this fix); mutates ``config`` in place.
+        """
+        default_dt = self.DEFAULT_CONFIG["neurons"]["dt"]
+        n_dt = config.get("neurons", {}).get("dt", default_dt)
+        t_dt = config.get("temporal", {}).get("dt", default_dt)
+        if n_dt == t_dt:
+            return
+        if n_dt != default_dt and t_dt == default_dt:
+            resolved = n_dt
+        elif t_dt != default_dt and n_dt == default_dt:
+            resolved = t_dt
+        else:
+            resolved = n_dt
+        config.setdefault("neurons", {})["dt"] = resolved
+        config.setdefault("temporal", {})["dt"] = resolved
 
     def _is_canonical_config(self, config: dict) -> bool:
         """Check if config is in canonical schema format.
@@ -358,7 +384,12 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         sim_cfg = canonical.get("simulation", {})
         legacy["pipeline"]["device"] = sim_cfg.get("device", "cpu")
         legacy["pipeline"]["seed"] = canonical.get("metadata", {}).get("seed", 42)
-        legacy["neurons"]["dt"] = sim_cfg.get("dt", 0.1)
+        # F-024/F-039: one resolved record step drives both neuron
+        # integration and every stimulus generator's time axis. dt_ms is
+        # the canonical key; dt is accepted as a legacy alias.
+        resolved_dt = sim_cfg.get("dt_ms", sim_cfg.get("dt", 0.1))
+        legacy["neurons"]["dt"] = resolved_dt
+        legacy["temporal"]["dt"] = resolved_dt
 
         # Extract grids
         grids = canonical.get("grids", [])
@@ -1278,6 +1309,23 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         T_POST = temporal_cfg["t_post"]
         DT = temporal_cfg["dt"]
 
+        # F-040: --duration must reach the trapezoid too. Rather than only
+        # scaling the plateau (which cannot shrink the total below the fixed
+        # pre+ramp*2+post overhead, so it would not honor a short requested
+        # duration -- e.g. the 245 ms default overhead alone exceeds a
+        # 100 ms request), scale every segment (t_pre, t_ramp, t_plateau,
+        # t_post) by the same factor. This keeps their relative proportions
+        # and guarantees the total equals the requested duration exactly.
+        duration = params.get("duration")
+        if duration is not None:
+            original_total = T_PRE + 2 * T_RAMP + T_PLATEAU + T_POST
+            if original_total > 0:
+                scale = duration / original_total
+                T_PRE *= scale
+                T_RAMP *= scale
+                T_PLATEAU *= scale
+                T_POST *= scale
+
         T_TOTAL = T_PRE + T_RAMP + T_PLATEAU + T_RAMP + T_POST
 
         # Create time array
@@ -1328,7 +1376,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         """Generate static Gaussian stimulus"""
         # Set defaults
         duration = duration or 100.0  # ms
-        dt = params.get("dt", self.config["temporal"]["dt"])
+        dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
         amplitude = params.get("amplitude", 30.0)
@@ -1363,7 +1411,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Set defaults
         duration = params.get("duration", 200.0)  # ms
         step_time = step_time or duration / 2  # Step occurs at half duration
-        dt = params.get("dt", self.config["temporal"]["dt"])
+        dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
         amplitude = params.get("amplitude", 30.0)
@@ -1398,7 +1446,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         """Generate ramp stimulus"""
         # Set defaults
         duration = params.get("duration", 200.0)  # ms
-        dt = params.get("dt", self.config["temporal"]["dt"])
+        dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
         amplitude = params.get("amplitude", 30.0)
@@ -1440,7 +1488,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         # Create time array if not provided
         if time_array is None:
-            dt = params.get("dt", self.config["temporal"]["dt"])
+            dt = params.get("dt", self.config["neurons"]["dt"])
             n_timesteps = stimulus_tensor.shape[1]
             time_array = (
                 torch.arange(n_timesteps, dtype=torch.float32, device=self.device) * dt
