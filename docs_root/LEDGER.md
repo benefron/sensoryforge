@@ -88,7 +88,7 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-050 · OPEN · finding · - · 2026-09-15
+## F-050 · CLOSED · finding · - · 2026-09-15
 ReceptorGrid and CompositeReceptorGrid take no seed; jittered_grid, blue_noise and poisson draw from the global RNG, so identical builds differ, building changes global RNG state, and from_config(to_dict()) does not reproduce a Poisson grid
 → commit d244faa
 
