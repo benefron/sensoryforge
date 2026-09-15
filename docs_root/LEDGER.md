@@ -277,7 +277,7 @@ cli list-components is a hardcoded print block (cli.py:438-478) already out of s
 ~3500 lines of unwired GUI code: gui/protocol_suite_tab.py, protocol_backend.py, protocol_execution_controller.py, neuron_explorer.py are imported by no tab, only by two tests
 → commit 7a188b6
 
-## F-020 · OPEN · finding · - · 2026-09-14
+## F-020 · CLOSED · finding · - · 2026-09-14
 Public docs: developer_guide/*, units_and_gains.md, gui_walkthrough.md, configuration_schema.md absent from mkdocs nav; 8 broken intra-doc links; "pip install sensoryforge" in 3 pages; sensoryforge/config/README.md describes 4 nonexistent files; docs/api_reference/ is a .gitkeep
 → commit 7a188b6
 
