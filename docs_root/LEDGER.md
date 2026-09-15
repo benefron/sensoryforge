@@ -100,7 +100,7 @@ _canonical_to_legacy_config reads simulation "dt", which SimulationConfig.to_dic
 CLI run of a canonical config with dt_ms 1.0 and --duration 100 yields 10450 stimulus bins (trapezoid/gaussian/step/ramp use legacy temporal.dt 0.1 ms; trapezoid ignores --duration), which the engine reads as 1 ms each; pre-existing, on the CLI/batch data-generation path
 → commit bd13a0b
 
-## F-041 · OPEN · finding · - · 2026-09-14
+## F-041 · CLOSED · finding · - · 2026-09-14
 GUI export always writes simulation.dt_ms 1.0: SpikingNeuronTab.get_config carries no time step and gui/main.py _gui_to_canonical defaults to 1.0, while the GUI simulates at the stimulus step (0.1 ms default)
 → commit bd13a0b
 
