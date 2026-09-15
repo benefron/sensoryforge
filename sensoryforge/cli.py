@@ -23,6 +23,14 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.registry import (
+    NEURON_REGISTRY,
+    FILTER_REGISTRY,
+    INNERVATION_REGISTRY,
+    STIMULUS_REGISTRY,
+    SOLVER_REGISTRY,
+    GRID_REGISTRY,
+)
 
 
 def load_config_file(config_path: str) -> Dict[str, Any]:
@@ -427,18 +435,41 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f"❌ Configuration validation failed: {args.config}", file=sys.stderr)
             return 1
 
-        # Try to instantiate pipeline (catches additional errors)
+        # Detect format (same rule as cmd_run: canonical has grids/populations
+        # lists and no legacy 'pipeline' key).
+        is_canonical = (
+            isinstance(config.get("grids"), list)
+            and isinstance(config.get("populations"), list)
+            and "pipeline" not in config
+        )
+
+        # Try to instantiate the real engine for this format (catches
+        # additional errors that structural validation above can't, e.g.
+        # F-018: canonical configs are validated through SimulationEngine,
+        # not just the legacy pipeline).
         print(f"Validating {args.config}...")
         try:
-            pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-            pipeline_info = pipeline.get_pipeline_info()
+            if is_canonical:
+                sf_config = SensoryForgeConfig.from_dict(config)
+                engine = SimulationEngine(sf_config)
 
-            print(f"✓ Configuration is valid!")
-            print(f"\nPipeline info:")
-            print(f"  Device: {pipeline_info['config']['pipeline']['device']}")
-            print(f"  Grid size: {pipeline_info['grid_properties']['size']}")
-            print(f"  SA neurons: {pipeline_info['neuron_counts']['sa_neurons']}")
-            print(f"  RA neurons: {pipeline_info['neuron_counts']['ra_neurons']}")
+                print(f"✓ Configuration is valid!")
+                print(f"\nPipeline info:")
+                print(f"  Device: {sf_config.simulation.device}")
+                print(f"  Populations: {len(engine.populations)}")
+                for pop in engine.populations:
+                    n_neurons = pop["neuron_centers"].shape[0]
+                    print(f"    {pop['name']}: {n_neurons} neurons")
+            else:
+                pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+                pipeline_info = pipeline.get_pipeline_info()
+
+                print(f"✓ Configuration is valid!")
+                print(f"\nPipeline info:")
+                print(f"  Device: {pipeline_info['config']['pipeline']['device']}")
+                print(f"  Grid size: {pipeline_info['grid_properties']['size']}")
+                print(f"  SA neurons: {pipeline_info['neuron_counts']['sa_neurons']}")
+                print(f"  RA neurons: {pipeline_info['neuron_counts']['ra_neurons']}")
 
             return 0
         except Exception as e:
@@ -456,6 +487,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_list_components(args: argparse.Namespace) -> int:
     """List available components (filters, neurons, stimuli, solvers).
 
+    Reads the live component registries (`sensoryforge.registry`) so this command can never
+    drift out of sync with what's actually registered (F-018) -- any component registered via
+    `ComponentRegistry.register()`, built-in or third-party, shows up here.
+
     Args:
         args: Command-line arguments (unused).
 
@@ -465,42 +500,18 @@ def cmd_list_components(args: argparse.Namespace) -> int:
     print("Available SensoryForge Components:")
     print("=" * 50)
 
-    print("\n📊 Filters:")
-    print("  - SA (Slowly Adapting)")
-    print("  - RA (Rapidly Adapting)")
-    print("  - center_surround (for vision)")
-
-    print("\n🧠 Neuron Models:")
-    print("  - izhikevich (hand-written)")
-    print("  - adex (Adaptive Exponential)")
-    print("  - mqif (Multi-Quadratic Integrate-and-Fire)")
-    print("  - dsl (Equation DSL - custom models)")
-
-    print("\n🎯 Stimuli:")
-    print("  - gaussian (Static Gaussian blob)")
-    print("  - texture (Gabor, edge grating, perlin noise)")
-    print("  - moving (Linear, circular motion)")
-    print("  - trapezoidal (Ramp-plateau-ramp)")
-    print("  - step (Step function)")
-    print("  - ramp (Linear ramp)")
-
-    print("\n⚙️  Solvers:")
-    print("  - euler (Forward Euler - default)")
-    print("  - adaptive (Adaptive stepping - requires torchdiffeq/torchode)")
-
-    print("\n🌐 Grid Types:")
-    print("  - standard (Single population)")
-    print("  - composite (Multi-population mosaic)")
-    print("  - poisson (Poisson disk sampling)")
-    print("  - hex (Hexagonal arrangement)")
-    print("  - jittered_grid (Jittered grid)")
-    print("  - blue_noise (Blue noise sampling)")
-
-    print("\n🔗 Innervation Methods:")
-    print("  - gaussian (Gaussian-weighted random)")
-    print("  - one_to_one (Each neuron gets K nearest)")
-    print("  - uniform (Uniform nearest-neighbor)")
-    print("  - distance_weighted (Distance decay weighting)")
+    sections = [
+        ("📊 Filters", FILTER_REGISTRY),
+        ("🧠 Neuron Models", NEURON_REGISTRY),
+        ("🎯 Stimuli", STIMULUS_REGISTRY),
+        ("⚙️  Solvers", SOLVER_REGISTRY),
+        ("🌐 Grid Types", GRID_REGISTRY),
+        ("🔗 Innervation Methods", INNERVATION_REGISTRY),
+    ]
+    for title, registry in sections:
+        print(f"\n{title}:")
+        for name in registry.list_registered():
+            print(f"  - {name}")
 
     print("\n💡 Use 'sensoryforge run --help' for usage examples")
 
