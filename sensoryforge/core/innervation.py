@@ -10,8 +10,9 @@ to sensory neuron populations:
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, TYPE_CHECKING, Literal
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING, Literal
 
 import torch
 import torch.nn as nn
@@ -108,6 +109,11 @@ class BaseInnervation(ABC):
     # through this per-component dict -- too large to serialise inline, and
     # not a scalar config value (F-049 contract check precedent).
     _TO_DICT_EXCLUDE_PARAMS = ("receptor_coords", "neuron_centers")
+
+    #: ``True`` for builders that derive their own neuron centres (``template``,
+    #: ``imported``); callers then pass ``neuron_centers=None`` and any
+    #: ``neurons_per_row``/``neuron_rows``/``neuron_cols`` layout is ignored.
+    DERIVES_NEURON_CENTERS: bool = False
 
     def __init__(
         self,
@@ -1353,8 +1359,169 @@ def create_innervation_map_tensor(
     return innervation_map
 
 
+_BANK_DEPRECATION = (
+    "{name} is deprecated since Phase 2 (I6) and will be removed in Phase 4: "
+    "the engine and pipelines build receptive fields as a ReceptiveFieldBank "
+    "via build_population_bank() / INNERVATION_REGISTRY. This wrapper builds "
+    "a bank internally and keeps its public attributes."
+)
+
+
+def build_population_bank(
+    *,
+    receptor_coords: torch.Tensor,
+    innervation_method: str = "gaussian",
+    neuron_type: str = "SA",
+    neuron_centers: Optional[torch.Tensor] = None,
+    neurons_per_row: Optional[int] = None,
+    neuron_rows: Optional[int] = None,
+    neuron_cols: Optional[int] = None,
+    neuron_arrangement: str = "grid",
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    edge_offset: Optional[float] = None,
+    neuron_jitter_factor: float = 1.0,
+    device: torch.device | str = "cpu",
+    **builder_params: Any,
+) -> "ReceptiveFieldBank":
+    """Build one population's receptive fields as a bank (Phase 2, I6).
+
+    Looks ``innervation_method`` up in ``INNERVATION_REGISTRY``, lays out the
+    neuron centres when the builder does not derive its own, filters
+    ``builder_params`` down to what that builder's constructor accepts
+    (:meth:`BaseInnervation.filter_params`) and returns ``builder.build()``.
+    This is the one path the engine, the pipelines and the deprecated
+    :class:`InnervationModule`/:class:`FlatInnervationModule` share.
+
+    Args:
+        receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm. For a
+            regular grid, flatten the ``xx``/``yy`` meshgrids row-major so
+            receptor ``k = i * cols + j`` (see ``rf_bank.py``).
+        innervation_method: Registry name (``gaussian``, ``uniform``,
+            ``one_to_one``, ``distance_weighted``, ``template``, ``imported``
+            or a plugin's).
+        neuron_type: ``'SA'``/``'RA'``/... -- sets the default ``sigma_d_mm``
+            (0.3 mm SA, 0.39 mm otherwise) and ``neurons_per_row`` (10 SA,
+            14 otherwise).
+        neuron_centers: ``[N, 2]`` centres in mm. ``None`` lays out a
+            lattice from ``neurons_per_row``/``neuron_rows``/``neuron_cols``
+            inside ``xlim`` x ``ylim`` (default: the receptor bounding box)
+            with :func:`create_neuron_centers`; ignored by builders whose
+            ``DERIVES_NEURON_CENTERS`` is ``True``.
+        neurons_per_row: Neurons along each axis (square layout).
+        neuron_rows: Rows override.
+        neuron_cols: Columns override.
+        neuron_arrangement: Lattice arrangement for the centres.
+        xlim: ``(min, max)`` x bounds for auto-generated centres, in mm.
+        ylim: ``(min, max)`` y bounds for auto-generated centres, in mm.
+        edge_offset: Margin in mm to shrink the neuron lattice from the edges.
+        neuron_jitter_factor: Jitter scale for jittered arrangements.
+        device: Device for the bank.
+        **builder_params: Builder parameters (``sigma_d_mm``, ``seed``,
+            ``connections_per_neuron``, ``max_sigma_distance``,
+            ``resolvable_distance_mm``, ``path``, ...). Keys the builder does
+            not take are dropped.
+
+    Returns:
+        The population's :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`.
+
+    Raises:
+        ValueError: If ``innervation_method`` is not registered.
+    """
+    from sensoryforge.register_components import register_all
+    from sensoryforge.registry import INNERVATION_REGISTRY
+
+    register_all()
+    try:
+        builder_cls = INNERVATION_REGISTRY.get_class(innervation_method)
+    except KeyError:
+        raise ValueError(
+            f"Unknown innervation method: {innervation_method!r}. "
+            f"Registered methods: {sorted(INNERVATION_REGISTRY.list_registered())}"
+        ) from None
+
+    device = torch.device(device) if isinstance(device, str) else device
+    receptor_coords = receptor_coords.to(device)
+    params: Dict[str, Any] = dict(builder_params)
+    sigma_d_mm = params.get("sigma_d_mm") or (0.3 if neuron_type == "SA" else 0.39)
+    params["sigma_d_mm"] = sigma_d_mm
+
+    if neuron_centers is not None:
+        neuron_centers = neuron_centers.to(device)
+    elif not builder_cls.DERIVES_NEURON_CENTERS:
+        if neurons_per_row is None:
+            neurons_per_row = 10 if neuron_type == "SA" else 14
+        n_rows = neuron_rows if neuron_rows is not None else neurons_per_row
+        n_cols = neuron_cols if neuron_cols is not None else neurons_per_row
+        if xlim is None:
+            xlim = (
+                receptor_coords[:, 0].min().item(),
+                receptor_coords[:, 0].max().item(),
+            )
+        if ylim is None:
+            ylim = (
+                receptor_coords[:, 1].min().item(),
+                receptor_coords[:, 1].max().item(),
+            )
+        neuron_centers = create_neuron_centers(
+            neurons_per_row,
+            xlim,
+            ylim,
+            device,
+            edge_offset=edge_offset,
+            sigma=sigma_d_mm,
+            rows=n_rows,
+            cols=n_cols,
+            arrangement=neuron_arrangement,
+            seed=params.get("seed"),
+            jitter_factor=neuron_jitter_factor,
+        )
+
+    builder = builder_cls.from_config(
+        {
+            **builder_cls.filter_params(params),
+            "receptor_coords": receptor_coords,
+            "neuron_centers": neuron_centers,
+            "device": device,
+        }
+    )
+    return builder.build()
+
+
+def _grid_lattice_coords(grid_manager: "GridManager") -> torch.Tensor:
+    """``(grid_h, grid_w, 2)`` receptor lattice of ``grid_manager``.
+
+    Meshgrid arrangements use their own ``xx``/``yy``; the non-meshgrid
+    arrangements (poisson/hex/...) get a synthetic regular lattice over the
+    grid bounds, as before Phase 2 (F-010 -- real receptor sampling is
+    Wave L).
+    """
+    if getattr(grid_manager, "xx", None) is not None:
+        xx, yy = grid_manager.get_coordinates()
+        return torch.stack([xx, yy], dim=-1)
+    grid_props = grid_manager.get_grid_properties()
+    n_x, n_y = grid_manager.grid_size
+    xlim, ylim = grid_props["xlim"], grid_props["ylim"]
+    device = grid_props["device"]
+    x = torch.linspace(xlim[0], xlim[1], n_x, device=device)
+    y = torch.linspace(ylim[0], ylim[1], n_y, device=device)
+    xx, yy = torch.meshgrid(x, y, indexing="ij")
+    return torch.stack([xx, yy], dim=-1)
+
+
 class InnervationModule(nn.Module):
-    """Dense innervation operator for SA/RA neuron populations."""
+    """Deprecated grid-based innervation operator (Phase 2, I6).
+
+    Builds a :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with the
+    ``gaussian`` builder (no sigma cutoff, as this path always sampled) and
+    keeps the historical public surface: ``innervation_weights``
+    ``[N, grid_h, grid_w]``, ``neuron_centers``, ``num_neurons`` and a
+    ``forward`` over ``[batch, grid_h, grid_w]`` / ``[batch, time, grid_h,
+    grid_w]``. Emits ``DeprecationWarning``; use :func:`build_population_bank`.
+
+    Attributes:
+        bank: The underlying :class:`ReceptiveFieldBank`.
+    """
 
     def __init__(
         self,
@@ -1377,20 +1544,12 @@ class InnervationModule(nn.Module):
         neuron_centers: Optional[torch.Tensor] = None,
         neuron_jitter_factor: float = 1.0,
     ) -> None:
-        """Initialise innervation tensors for a tactile neuron population.
-
-        Args:
-            neuron_type: ``'SA'`` or ``'RA'``.
-            grid_manager: Source grid manager supplying coordinates.
-            neurons_per_row: Override for neurons per row (square layout).
-            connections_per_neuron: Target mean connections per neuron.
-            sigma_d_mm: Spatial spread override in millimetres.
-            weight_range: Optional weight range ``(min, max)``.
-            seed: Random seed for deterministic sampling.
-            edge_offset: Optional edge margin to avoid boundary artefacts.
-            neuron_centers: Optional pre-calculated neuron centers. If provided,
-                overrides ``neurons_per_row``.
-        """
+        """Build the bank; see :func:`build_population_bank` for the arguments."""
+        warnings.warn(
+            _BANK_DEPRECATION.format(name="InnervationModule"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__()
 
         self.neuron_type = neuron_type
@@ -1398,135 +1557,86 @@ class InnervationModule(nn.Module):
         self.connections_per_neuron = connections_per_neuron
         self.weight_range = weight_range
         self.seed = seed
-
         self.sigma_d_mm = sigma_d_mm or (0.3 if neuron_type == "SA" else 0.39)
 
-        # Get grid properties
         grid_props = grid_manager.get_grid_properties()
         self.device = grid_props["device"]
         self.grid_spacing_mm = grid_props["spacing"]
 
+        grid_coords = _grid_lattice_coords(grid_manager)
+        grid_h, grid_w, _ = grid_coords.shape
         if neuron_centers is not None:
-            self.neuron_centers = neuron_centers.to(self.device)
-            self.num_neurons = len(neuron_centers)
             self.neurons_per_row = None
         else:
-            if neurons_per_row is None:
-                neurons_per_row = 10 if neuron_type == "SA" else 14
-            n_rows = neuron_rows if neuron_rows is not None else neurons_per_row
-            n_cols = neuron_cols if neuron_cols is not None else neurons_per_row
-            self.neurons_per_row = neurons_per_row
-            self.num_neurons = n_rows * n_cols
-
-            self.neuron_centers = create_neuron_centers(
-                neurons_per_row,
-                grid_props["xlim"],
-                grid_props["ylim"],
-                self.device,
-                edge_offset=edge_offset,
-                sigma=self.sigma_d_mm,
-                rows=n_rows,
-                cols=n_cols,
-                arrangement=neuron_arrangement,
-                seed=seed,
-                jitter_factor=neuron_jitter_factor,
+            self.neurons_per_row = neurons_per_row or (
+                10 if neuron_type == "SA" else 14
             )
 
-        # Create coordinate tensor for grid points
-        if hasattr(grid_manager, "xx") and grid_manager.xx is not None:
-            xx, yy = grid_manager.get_coordinates()
-            grid_coords = torch.stack([xx, yy], dim=-1)  # (grid_h, grid_w, 2)
-        else:
-            # Non-meshgrid arrangements: create regular grid from bounds for innervation
-            grid_props = grid_manager.get_grid_properties()
-            n_x, n_y = grid_manager.grid_size
-            xlim, ylim = grid_props["xlim"], grid_props["ylim"]
-            x = torch.linspace(xlim[0], xlim[1], n_x, device=self.device)
-            y = torch.linspace(ylim[0], ylim[1], n_y, device=self.device)
-            xx, yy = torch.meshgrid(x, y, indexing="ij")
-            grid_coords = torch.stack([xx, yy], dim=-1)  # (grid_h, grid_w, 2)
-
-        # Create innervation map
-        self.innervation_map = create_innervation_map_tensor(
-            grid_coords,
-            self.neuron_centers,
-            connections_per_neuron,
-            self.sigma_d_mm,
-            self.grid_spacing_mm,
-            weight_range,
-            use_distance_weights,
-            far_connection_fraction,
-            far_sigma_factor,
-            distance_weight_randomness_pct,
-            seed,
-            self.device,
+        self.bank = build_population_bank(
+            receptor_coords=grid_coords.reshape(-1, 2),
+            innervation_method="gaussian",
+            neuron_type=neuron_type,
+            neuron_centers=neuron_centers,
+            neurons_per_row=self.neurons_per_row,
+            neuron_rows=neuron_rows,
+            neuron_cols=neuron_cols,
+            neuron_arrangement=neuron_arrangement,
+            xlim=grid_props["xlim"],
+            ylim=grid_props["ylim"],
+            edge_offset=edge_offset,
+            neuron_jitter_factor=neuron_jitter_factor,
+            device=self.device,
+            connections_per_neuron=float(connections_per_neuron or 28),
+            sigma_d_mm=self.sigma_d_mm,
+            # The grid path never applied a sigma cutoff
+            # (create_innervation_map_tensor); keep its weights bit-identical.
+            max_sigma_distance=0.0,
+            weight_range=tuple(weight_range) if weight_range else (0.1, 1.0),
+            use_distance_weights=use_distance_weights,
+            far_connection_fraction=far_connection_fraction,
+            far_sigma_factor=far_sigma_factor,
+            distance_weight_randomness_pct=distance_weight_randomness_pct,
+            seed=seed,
         )
-
-        # Register as buffer so it moves with the module
+        self.neuron_centers = self.bank.neuron_centers
+        self.num_neurons = self.bank.num_neurons
+        self.innervation_map = (
+            self.bank.weights.detach().clone().view(self.num_neurons, grid_h, grid_w)
+        )
         self.register_buffer("innervation_weights", self.innervation_map)
 
     def forward(self, mechanoreceptor_responses):
-        """
-        Apply innervation to mechanoreceptor responses.
+        """Apply innervation to mechanoreceptor responses.
+
         Args:
-            mechanoreceptor_responses: tensor
-                - shape (batch_size, grid_h, grid_w) for static
-                - shape (batch_size, time_steps, grid_h, grid_w) for temporal
+            mechanoreceptor_responses: ``[batch, grid_h, grid_w]`` or
+                ``[batch, time, grid_h, grid_w]``.
+
         Returns:
-            neuron_inputs: tensor
-                - shape (batch_size, num_neurons) for static
-                - shape (batch_size, time_steps, num_neurons) for temporal
+            ``[batch, num_neurons]`` or ``[batch, time, num_neurons]``.
         """
         original_shape = mechanoreceptor_responses.shape
+        innervation_flat = self.innervation_weights.view(self.num_neurons, -1)
 
         if len(original_shape) == 3:
-            # Static: (batch_size, grid_h, grid_w)
-            batch_size, grid_h, grid_w = original_shape
-
-            # Flatten spatial dimensions for matrix multiplication
-            mech_flat = mechanoreceptor_responses.view(batch_size, -1)
-            innervation_flat = self.innervation_weights.view(self.num_neurons, -1)
-
-            # Matrix multiplication: (batch_size, num_neurons)
-            neuron_inputs = torch.matmul(mech_flat, innervation_flat.T)
-
+            batch_size = original_shape[0]
+            mech_flat = mechanoreceptor_responses.reshape(batch_size, -1)
+            return torch.matmul(mech_flat, innervation_flat.T)
         elif len(original_shape) == 4:
-            # Temporal: (batch_size, time_steps, grid_h, grid_w)
-            batch_size, time_steps, grid_h, grid_w = original_shape
-
-            # Reshape for batch processing
-            mech_flat = mechanoreceptor_responses.view(batch_size * time_steps, -1)
-            innervation_flat = self.innervation_weights.view(self.num_neurons, -1)
-
-            # Matrix multiplication
+            batch_size, time_steps = original_shape[:2]
+            mech_flat = mechanoreceptor_responses.reshape(batch_size * time_steps, -1)
             neuron_inputs_flat = torch.matmul(mech_flat, innervation_flat.T)
-
-            # Reshape back: (batch_size, time_steps, num_neurons)
-            neuron_inputs = neuron_inputs_flat.view(
-                batch_size, time_steps, self.num_neurons
-            )
+            return neuron_inputs_flat.view(batch_size, time_steps, self.num_neurons)
         else:
             raise ValueError(f"Unsupported input shape: {original_shape}")
-
-        return neuron_inputs
 
     def get_connection_density(self):
         """Calculate actual connection density."""
         total_connections = (self.innervation_weights > 0).sum().item()
-        total_possible = (
-            self.num_neurons
-            * self.innervation_weights.shape[1]
-            * self.innervation_weights.shape[2]
-        )
-        return total_connections / total_possible
+        return total_connections / self.innervation_weights.numel()
 
     def get_weights_per_neuron(self) -> torch.Tensor:
-        """Count nonzero connections per neuron (vectorised).
-
-        Returns:
-            Tensor of shape ``(num_neurons,)`` with connection counts.
-        """
-        # Vectorised implementation (resolves ReviewFinding#H2)
+        """Count nonzero connections per neuron (vectorised)."""
         return (self.innervation_weights > 0).view(self.num_neurons, -1).sum(dim=1)
 
     def visualize_neuron_connections(self, neuron_idx):
@@ -1545,23 +1655,17 @@ class InnervationModule(nn.Module):
 
 
 class FlatInnervationModule(nn.Module):
-    """Innervation operator using flat receptor coordinate arrays.
+    """Deprecated flat-coordinate innervation operator (Phase 2, I6).
 
-    Unlike :class:`InnervationModule` which requires a :class:`GridManager`
-    (meshgrid-based), this module accepts flat ``[N_receptors, 2]`` coordinate
-    tensors.  It is suitable for composite-grid layers and irregular
-    (poisson / hex) arrangements where a regular meshgrid does not exist.
-
-    The ``forward()`` method applies the weight matrix to a flat receptor
-    response vector ``[batch, N_receptors]`` or temporal
-    ``[batch, time, N_receptors]`` to produce neuron inputs.
+    Builds a :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with the
+    configured ``innervation_method`` and keeps the historical public
+    surface: ``innervation_weights`` ``[N, M]``, ``neuron_centers``,
+    ``num_neurons``, ``num_receptors`` and a ``forward`` over ``[batch, M]`` /
+    ``[batch, time, M]``. Emits ``DeprecationWarning``; use
+    :func:`build_population_bank`.
 
     Attributes:
-        neuron_type: Label for this population (e.g., ``'SA'``, ``'RA'``).
-        num_neurons: Number of sensory neurons.
-        num_receptors: Number of connected receptors.
-        neuron_centers: ``[num_neurons, 2]`` coordinates in mm.
-        innervation_method: Which :class:`BaseInnervation` strategy was used.
+        bank: The underlying :class:`ReceptiveFieldBank`.
     """
 
     def __init__(
@@ -1593,191 +1697,74 @@ class FlatInnervationModule(nn.Module):
         device: torch.device | str = "cpu",
         neuron_jitter_factor: float = 1.0,
     ) -> None:
-        """Build innervation weights from flat receptor coordinates.
-
-        Either ``neuron_centers`` or ``neurons_per_row`` (+ ``xlim`` / ``ylim``)
-        must be supplied.
-
-        Args:
-            neuron_type: ``'SA'``, ``'RA'``, or custom label.
-            receptor_coords: ``[N_receptors, 2]`` receptor positions in mm.
-            neuron_centers: Pre-computed ``[N_neurons, 2]`` centres.  If *None*,
-                centres are generated on a square lattice from ``neurons_per_row``
-                within ``xlim`` × ``ylim``.
-            neurons_per_row: Neurons along each axis (used when ``neuron_centers``
-                is *None*).
-            xlim: ``(min, max)`` spatial bounds for auto-generated centres.
-            ylim: ``(min, max)`` spatial bounds for auto-generated centres.
-            innervation_method: ``'gaussian'``, ``'one_to_one'``, or
-                ``'distance_weighted'``.
-            connections_per_neuron: Target mean connections (Gaussian method).
-            sigma_d_mm: Gaussian spatial spread in mm. Default depends on
-                ``neuron_type``.
-            max_sigma_distance: Hard cutoff in sigma units for Gaussian method.
-            weight_range: ``(min, max)`` for sampled connection weights.
-            max_distance_mm: Max distance for distance_weighted method (mm).
-            decay_function: Decay type for distance_weighted method.
-            decay_rate: Decay rate for distance_weighted method.
-            seed: Random seed for deterministic sampling.
-            edge_offset: Margin in mm to shrink neuron lattice from edges.
-            device: Torch device.
-        """
+        """Build the bank; see :func:`build_population_bank` for the arguments."""
+        warnings.warn(
+            _BANK_DEPRECATION.format(name="FlatInnervationModule"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__()
 
         self.neuron_type = neuron_type
         self.innervation_method = innervation_method
         self.device = torch.device(device) if isinstance(device, str) else device
-
-        receptor_coords = receptor_coords.to(self.device)
-        self.register_buffer("receptor_coords", receptor_coords)
-        self.num_receptors = receptor_coords.shape[0]
-
         self.sigma_d_mm = sigma_d_mm or (0.3 if neuron_type == "SA" else 0.39)
-
-        # Build or accept neuron centres --------------------------------
         if neuron_centers is not None:
-            self.neuron_centers = neuron_centers.to(self.device)
-            self.num_neurons = self.neuron_centers.shape[0]
             self.neurons_per_row = None
         else:
-            if neurons_per_row is None:
-                neurons_per_row = 10 if neuron_type == "SA" else 14
-            n_rows = neuron_rows if neuron_rows is not None else neurons_per_row
-            n_cols = neuron_cols if neuron_cols is not None else neurons_per_row
-            self.neurons_per_row = neurons_per_row
-            self.num_neurons = n_rows * n_cols
-
-            if xlim is None:
-                xlim = (
-                    receptor_coords[:, 0].min().item(),
-                    receptor_coords[:, 0].max().item(),
-                )
-            if ylim is None:
-                ylim = (
-                    receptor_coords[:, 1].min().item(),
-                    receptor_coords[:, 1].max().item(),
-                )
-
-            self.neuron_centers = create_neuron_centers(
-                neurons_per_row,
-                xlim,
-                ylim,
-                self.device,
-                edge_offset=edge_offset,
-                sigma=self.sigma_d_mm,
-                rows=n_rows,
-                cols=n_cols,
-                arrangement=neuron_arrangement,
-                seed=seed,
-                jitter_factor=neuron_jitter_factor,
+            self.neurons_per_row = neurons_per_row or (
+                10 if neuron_type == "SA" else 14
             )
 
-        # Compute weight matrix via BaseInnervation subclass -------------
-        if innervation_method == "gaussian":
-            weights = GaussianInnervation(
-                receptor_coords,
-                self.neuron_centers,
-                connections_per_neuron=connections_per_neuron,
-                sigma_d_mm=self.sigma_d_mm,
-                max_sigma_distance=max_sigma_distance,
-                weight_range=weight_range,
-                use_distance_weights=use_distance_weights,
-                far_connection_fraction=far_connection_fraction,
-                far_sigma_factor=far_sigma_factor,
-                distance_weight_randomness_pct=distance_weight_randomness_pct,
-                seed=seed,
-                device=self.device,
-            ).compute_weights()
-        elif innervation_method == "one_to_one":
-            weights = OneToOneInnervation(
-                receptor_coords,
-                self.neuron_centers,
-                connections_per_neuron=connections_per_neuron,
-                sigma_d_mm=self.sigma_d_mm,
-                weight_range=weight_range,
-                use_distance_weights=use_distance_weights,
-                far_connection_fraction=far_connection_fraction,
-                far_sigma_factor=far_sigma_factor,
-                max_distance_mm=max_distance_mm,
-                decay_function=decay_function,
-                decay_rate=decay_rate,
-                distance_weight_randomness_pct=distance_weight_randomness_pct,
-                seed=seed,
-                device=self.device,
-            ).compute_weights()
-        elif innervation_method == "uniform":
-            weights = UniformInnervation(
-                receptor_coords,
-                self.neuron_centers,
-                sigma_d_mm=self.sigma_d_mm,
-                weight_range=weight_range,
-                use_distance_weights=use_distance_weights,
-                far_connection_fraction=far_connection_fraction,
-                far_sigma_factor=far_sigma_factor,
-                max_distance_mm=max_distance_mm,
-                decay_function=decay_function,
-                decay_rate=decay_rate,
-                distance_weight_randomness_pct=distance_weight_randomness_pct,
-                seed=seed,
-                device=self.device,
-            ).compute_weights()
-        elif innervation_method == "distance_weighted":
-            weights = DistanceWeightedInnervation(
-                receptor_coords,
-                self.neuron_centers,
-                connections_per_neuron=connections_per_neuron,
-                sigma_d_mm=self.sigma_d_mm,
-                max_distance_mm=max_distance_mm,
-                decay_function=decay_function,
-                decay_rate=decay_rate,
-                distance_weight_randomness_pct=distance_weight_randomness_pct,
-                weight_range=weight_range,
-                seed=seed,
-                device=self.device,
-            ).compute_weights()
-        else:
-            raise ValueError(f"Unknown innervation method: {innervation_method}")
-
-        # Store as registered buffer
-        self.register_buffer("innervation_weights", weights)
-
-    # ------------------------------------------------------------------ #
-    # Forward pass
-    # ------------------------------------------------------------------ #
+        self.bank = build_population_bank(
+            receptor_coords=receptor_coords,
+            innervation_method=innervation_method,
+            neuron_type=neuron_type,
+            neuron_centers=neuron_centers,
+            neurons_per_row=self.neurons_per_row,
+            neuron_rows=neuron_rows,
+            neuron_cols=neuron_cols,
+            neuron_arrangement=neuron_arrangement,
+            xlim=xlim,
+            ylim=ylim,
+            edge_offset=edge_offset,
+            neuron_jitter_factor=neuron_jitter_factor,
+            device=self.device,
+            connections_per_neuron=connections_per_neuron,
+            sigma_d_mm=self.sigma_d_mm,
+            max_sigma_distance=max_sigma_distance,
+            weight_range=weight_range,
+            use_distance_weights=use_distance_weights,
+            far_connection_fraction=far_connection_fraction,
+            far_sigma_factor=far_sigma_factor,
+            max_distance_mm=max_distance_mm,
+            decay_function=decay_function,
+            decay_rate=decay_rate,
+            distance_weight_randomness_pct=distance_weight_randomness_pct,
+            seed=seed,
+        )
+        self.register_buffer(
+            "receptor_coords", self.bank.receptor_coords.detach().clone()
+        )
+        self.num_receptors = self.bank.num_receptors
+        self.neuron_centers = self.bank.neuron_centers
+        self.num_neurons = self.bank.num_neurons
+        self.register_buffer("innervation_weights", self.bank.weights.detach().clone())
 
     def forward(self, receptor_responses: torch.Tensor) -> torch.Tensor:
-        """Apply innervation weights to receptor responses.
-
-        Args:
-            receptor_responses: Flat receptor activations.
-                - ``[batch, N_receptors]`` for static input.
-                - ``[batch, time, N_receptors]`` for temporal input.
-
-        Returns:
-            Neuron inputs:
-                - ``[batch, num_neurons]`` for static input.
-                - ``[batch, time, num_neurons]`` for temporal input.
-        """
+        """Apply innervation weights to ``[batch, M]`` / ``[batch, time, M]``."""
         ndim = receptor_responses.ndim
-        W = self.innervation_weights  # [num_neurons, num_receptors]
-
+        W = self.innervation_weights
         if ndim == 2:
-            # [batch, N_receptors] @ [N_receptors, num_neurons]
             return torch.matmul(receptor_responses, W.T)
         elif ndim == 3:
             batch, time, _ = receptor_responses.shape
             flat = receptor_responses.reshape(batch * time, -1)
-            out = torch.matmul(flat, W.T)
-            return out.reshape(batch, time, self.num_neurons)
-        else:
-            raise ValueError(
-                f"Expected 2D or 3D input, got {ndim}D with shape "
-                f"{receptor_responses.shape}"
-            )
-
-    # ------------------------------------------------------------------ #
-    # Utilities
-    # ------------------------------------------------------------------ #
+            return torch.matmul(flat, W.T).reshape(batch, time, self.num_neurons)
+        raise ValueError(
+            f"Expected 2D or 3D input, got {ndim}D with shape "
+            f"{receptor_responses.shape}"
+        )
 
     def get_connection_density(self) -> float:
         """Fraction of nonzero connections."""
@@ -1785,11 +1772,7 @@ class FlatInnervationModule(nn.Module):
         return total / self.innervation_weights.numel()
 
     def get_weights_per_neuron(self) -> torch.Tensor:
-        """Count nonzero connections per neuron.
-
-        Returns:
-            ``[num_neurons]`` tensor of connection counts.
-        """
+        """Count nonzero connections per neuron."""
         return (self.innervation_weights > 0).sum(dim=1)
 
     def to_device(self, device: torch.device | str) -> "FlatInnervationModule":

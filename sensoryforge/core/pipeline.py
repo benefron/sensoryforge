@@ -31,7 +31,7 @@ from .grid import GridManager
 from sensoryforge.stimuli.stimulus import StimulusGenerator
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.config.defaults import resolve_neuron_params
-from .innervation import create_sa_innervation, create_ra_innervation
+from .innervation import build_population_bank, _grid_lattice_coords
 from sensoryforge.filters.sa_ra import CombinedSARAFilter
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.filters.noise import MembraneNoiseTorch, ReceptorNoiseTorch
@@ -152,16 +152,12 @@ class TactileEncodingPipelineTorch(nn.Module):
         # Create stimulus generator
         self.stimulus_generator = StimulusGenerator(self.grid_manager)
 
-        # Create innervation modules matching SA/RA populations
-        sa_config = innervation_config.get("sa", {})
-        self.sa_innervation = create_sa_innervation(
-            self.grid_manager, seed=self.seed, **sa_config
-        )
-
-        ra_config = innervation_config.get("ra", {})
-        self.ra_innervation = create_ra_innervation(
-            self.grid_manager, seed=self.seed, **ra_config
-        )
+        # Receptive-field banks for the SA/RA populations (Phase 2, I6):
+        # gaussian on the regular grid lattice, no sigma cutoff (as the grid
+        # path always sampled), seeded by the pipeline seed.
+        self._grid_shape = tuple(self.grid_manager.grid_size)
+        self.sa_innervation = self._build_bank("SA", innervation_config.get("sa", {}))
+        self.ra_innervation = self._build_bank("RA", innervation_config.get("ra", {}))
 
         # Create SA/RA filters, honouring the YAML `filters:` section when
         # present instead of silently falling back to class defaults
@@ -277,9 +273,10 @@ class TactileEncodingPipelineTorch(nn.Module):
         # Step 1: Mechanoreceptor responses are identical to the stimulus
         mech_responses = stimuli.clone()
 
-        # Step 2: Apply innervation to get SA/RA neuron inputs
-        sa_inputs = self.sa_innervation(mech_responses)
-        ra_inputs = self.ra_innervation(mech_responses)
+        # Step 2: Apply the receptive-field banks to get SA/RA neuron inputs
+        flat_responses = self._flatten_receptors(mech_responses)
+        sa_inputs = self.sa_innervation(flat_responses)
+        ra_inputs = self.ra_innervation(flat_responses)
 
         # Step 3: Apply SA/RA filters with enhanced processing
         if len(stimuli.shape) == 3:  # Single time step
@@ -373,6 +370,43 @@ class TactileEncodingPipelineTorch(nn.Module):
         self.filters.sa_filter.clear_state()
         self.filters.ra_filter.clear_state()
 
+    def _build_bank(self, neuron_type: str, cfg: Dict[str, Any]):
+        """Build one population's bank from a legacy ``innervation.<sa|ra>`` dict.
+
+        Accepted keys (all optional): ``neurons_per_row``,
+        ``connections_per_neuron``, ``sigma_d_mm``, ``weight_range``,
+        ``edge_offset``, ``seed`` (default: the pipeline seed).
+        """
+        grid_props = self.grid_manager.get_grid_properties()
+        weight_range = cfg.get("weight_range")
+        return build_population_bank(
+            receptor_coords=_grid_lattice_coords(self.grid_manager).reshape(-1, 2),
+            innervation_method="gaussian",
+            neuron_type=neuron_type,
+            neurons_per_row=cfg.get("neurons_per_row"),
+            xlim=grid_props["xlim"],
+            ylim=grid_props["ylim"],
+            edge_offset=cfg.get("edge_offset"),
+            device=self.device,
+            connections_per_neuron=float(cfg.get("connections_per_neuron") or 28),
+            sigma_d_mm=cfg.get("sigma_d_mm"),
+            max_sigma_distance=0.0,
+            weight_range=tuple(weight_range) if weight_range else (0.1, 1.0),
+            # InnervationModule always used analytic distance weights (D-019).
+            use_distance_weights=True,
+            seed=cfg.get("seed", self.seed),
+        )
+
+    def _flatten_receptors(self, responses: Tensor) -> Tensor:
+        """``[B, H, W]`` -> ``[B, M]`` and ``[B, T, H, W]`` -> ``[B, T, M]``."""
+        if responses.ndim == 4:
+            b, t, h, w = responses.shape
+            return responses.reshape(b, t, h * w)
+        if responses.ndim == 3:
+            b, h, w = responses.shape
+            return responses.reshape(b, h * w)
+        return responses
+
     def get_neuron_counts(self) -> Dict[str, int]:
         """Return the number of SA and RA neurons encoded in the pipeline."""
         return {
@@ -383,10 +417,10 @@ class TactileEncodingPipelineTorch(nn.Module):
     def get_innervation_info(self) -> Dict[str, Any]:
         """Expose diagnostic statistics about the innervation tensors."""
         return {
-            "sa_density": self.sa_innervation.get_connection_density(),
-            "ra_density": self.ra_innervation.get_connection_density(),
-            "sa_connections_per_neuron": self.sa_innervation.get_weights_per_neuron(),
-            "ra_connections_per_neuron": self.ra_innervation.get_weights_per_neuron(),
+            "sa_density": self.sa_innervation.connection_density(),
+            "ra_density": self.ra_innervation.connection_density(),
+            "sa_connections_per_neuron": self.sa_innervation.connections_per_neuron(),
+            "ra_connections_per_neuron": self.ra_innervation.connections_per_neuron(),
         }
 
     def visualize_neuron_receptive_field(
@@ -396,19 +430,26 @@ class TactileEncodingPipelineTorch(nn.Module):
     ):
         """Return a neuron's receptive field for plotting/debugging."""
         if neuron_type.upper() == "SA":
-            return self.sa_innervation.visualize_neuron_connections(neuron_idx)
+            bank = self.sa_innervation
         elif neuron_type.upper() == "RA":
-            return self.ra_innervation.visualize_neuron_connections(neuron_idx)
+            bank = self.ra_innervation
         else:
             raise ValueError(f"Unknown neuron_type: {neuron_type}")
+        if neuron_idx >= bank.num_neurons:
+            raise ValueError(
+                f"Neuron index {neuron_idx} exceeds {bank.num_neurons - 1}"
+            )
+        return (
+            bank.weights[neuron_idx].reshape(*self._grid_shape).detach().cpu().numpy()
+        )
 
     def to_device(self, device: str) -> nn.Module:
         """Move the pipeline and all child modules to ``device``."""
         self.device = device
         self.grid_manager.to_device(device)
         self.stimulus_generator.to_device(device)
-        self.sa_innervation.to_device(device)
-        self.ra_innervation.to_device(device)
+        self.sa_innervation.to(device)
+        self.ra_innervation.to(device)
         return self.to(device)
 
     def get_pipeline_info(self) -> Dict[str, Any]:

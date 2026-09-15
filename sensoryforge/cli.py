@@ -72,8 +72,12 @@ def validate_config(config: Dict[str, Any]) -> bool:
 
             # Validate innervation method
             innervation_method = pop.get("innervation_method", "gaussian")
-            valid_methods = ["gaussian", "one_to_one", "uniform", "distance_weighted"]
-            if innervation_method not in valid_methods:
+            from sensoryforge.register_components import register_all
+            from sensoryforge.registry import INNERVATION_REGISTRY
+
+            register_all()
+            valid_methods = INNERVATION_REGISTRY.list_registered()
+            if not INNERVATION_REGISTRY.is_registered(innervation_method):
                 errors.append(
                     f"Population '{pop.get('name', i)}': invalid innervation_method "
                     f"'{innervation_method}'. Valid: {valid_methods}"

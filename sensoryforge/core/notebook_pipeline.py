@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from .grid import GridManager
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch
-from .innervation import create_sa_innervation, create_ra_innervation
+from .innervation import build_population_bank, _grid_lattice_coords
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
 from sensoryforge.filters.noise import MembraneNoiseTorch
@@ -57,34 +57,52 @@ class NotebookTactileEncodingPipeline(nn.Module):
         self.to(self.device)
 
     def _create_innervation(self):
-        """Create innervation modules with exact notebook parameters"""
+        """Create the SA/RA/SA2 receptive-field banks with the notebook parameters."""
         innervation_cfg = self.config["innervation"]
+        grid_props = self.grid_manager.get_grid_properties()
+        receptor_coords = _grid_lattice_coords(self.grid_manager).reshape(-1, 2)
 
-        self.sa_innervation = create_sa_innervation(
-            self.grid_manager,
-            neurons_per_row=self.config["neurons"]["sa_neurons"],
-            connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-            sigma_d_mm=innervation_cfg["sa_spread"],
-            weight_range=tuple(innervation_cfg["connection_strength"]),
-            seed=33,  # Same as notebook
+        def _bank(neuron_type, per_row, connections, spread, weights, seed):
+            return build_population_bank(
+                receptor_coords=receptor_coords,
+                innervation_method="gaussian",
+                neuron_type=neuron_type,
+                neurons_per_row=per_row,
+                xlim=grid_props["xlim"],
+                ylim=grid_props["ylim"],
+                device=self.device,
+                connections_per_neuron=float(connections),
+                sigma_d_mm=spread,
+                max_sigma_distance=0.0,
+                weight_range=tuple(weights),
+                # InnervationModule always used analytic distance weights (D-019).
+                use_distance_weights=True,
+                seed=seed,
+            )
+
+        self.sa_innervation = _bank(
+            "SA",
+            self.config["neurons"]["sa_neurons"],
+            innervation_cfg["receptors_per_neuron"],
+            innervation_cfg["sa_spread"],
+            innervation_cfg["connection_strength"],
+            33,  # Same as notebook
         )
-
-        self.ra_innervation = create_ra_innervation(
-            self.grid_manager,
-            neurons_per_row=self.config["neurons"]["ra_neurons"],
-            connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-            sigma_d_mm=innervation_cfg["ra_spread"],
-            weight_range=tuple(innervation_cfg["connection_strength"]),
-            seed=33,  # Same as notebook
+        self.ra_innervation = _bank(
+            "RA",
+            self.config["neurons"]["ra_neurons"],
+            innervation_cfg["receptors_per_neuron"],
+            innervation_cfg["ra_spread"],
+            innervation_cfg["connection_strength"],
+            33,  # Same as notebook
         )
-
-        self.sa2_innervation = create_sa_innervation(
-            self.grid_manager,
-            neurons_per_row=self.config["neurons"]["sa2_neurons"],
-            connections_per_neuron=innervation_cfg["sa2_connections"],
-            sigma_d_mm=innervation_cfg["sa2_spread"],
-            weight_range=tuple(innervation_cfg["sa2_weights"]),
-            seed=39,  # Same as notebook
+        self.sa2_innervation = _bank(
+            "SA",
+            self.config["neurons"]["sa2_neurons"],
+            innervation_cfg["sa2_connections"],
+            innervation_cfg["sa2_spread"],
+            innervation_cfg["sa2_weights"],
+            39,  # Same as notebook
         )
 
     def _create_filters(self):
@@ -240,11 +258,15 @@ class NotebookTactileEncodingPipeline(nn.Module):
         # Step 4: Mechanoreceptor responses (identical to stimulus)
         mechanoreceptor_responses = stimulus_sequence.clone()
 
-        # Step 5: Compute neural inputs through innervation
+        # Step 5: Compute neural inputs through the receptive-field banks
+        # ([B, T, H, W] -> [B, T, H * W], row-major).
+        flat_responses = mechanoreceptor_responses.reshape(
+            *mechanoreceptor_responses.shape[:-2], -1
+        )
         with torch.no_grad():
-            sa_inputs = self.sa_innervation(mechanoreceptor_responses)
-            ra_inputs = self.ra_innervation(mechanoreceptor_responses)
-            sa2_inputs = self.sa2_innervation(mechanoreceptor_responses)
+            sa_inputs = self.sa_innervation(flat_responses)
+            ra_inputs = self.ra_innervation(flat_responses)
+            sa2_inputs = self.sa2_innervation(flat_responses)
 
         # Step 6: Apply SA/RA temporal filters
         with torch.no_grad():

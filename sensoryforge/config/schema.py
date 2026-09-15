@@ -108,6 +108,13 @@ class PopulationConfig:
         neuron_type: Type identifier (SA, RA, SA2, or custom).
         target_grid: Name of the grid layer this population connects to.
         innervation_method: Method (gaussian, one_to_one, uniform,
+            distance_weighted, template, imported, or a plugin's name).
+        resolvable_distance_mm: ``d`` for the ``template`` builder (sigma =
+            d/pi, pitch = d); ``None`` otherwise.
+        innervation_params: Extra builder parameters passed through to the
+            registered builder (``template``: k, normalize, weight_scale,
+            edge_offset_mm, sigma_mm/pitch_mm; ``imported``: path; plugins:
+            anything). Unknown keys for a builder are dropped.
             distance_weighted).
         connections_per_neuron: Number of receptor connections per neuron.
         sigma_d_mm: Gaussian spread in mm (for gaussian method).
@@ -160,6 +167,8 @@ class PopulationConfig:
     decay_rate: float = 2.0
     weight_range: List[float] = field(default_factory=lambda: [0.05, 1.0])
     edge_offset: float = 0.0
+    resolvable_distance_mm: Optional[float] = None
+    innervation_params: Dict[str, Any] = field(default_factory=dict)
 
     # Neuron layout
     neuron_arrangement: str = "grid"  # grid, poisson, hex, etc.

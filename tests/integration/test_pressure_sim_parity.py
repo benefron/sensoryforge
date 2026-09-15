@@ -107,15 +107,17 @@ def engine_result(golden):
 
     engine = SimulationEngine(config)
 
-    # Replace each population's innervation weights with the golden,
-    # fixed-seed weights pressure-simulation used, so both sides drive
-    # the same neurons with the same receptor-to-neuron mapping.
-    sa_module = engine.populations[0]["innervation"]
-    ra_module = engine.populations[1]["innervation"]
+    # Replace each population's receptive-field bank weights with the
+    # golden, fixed-seed weights pressure-simulation used, so both sides
+    # drive the same neurons with the same receptor-to-neuron mapping. The
+    # golden arrays are [N, H, W]; the bank holds [N, H * W] in the same
+    # row-major receptor order (Phase 2, I6).
+    sa_bank = engine.populations[0]["bank"]
+    ra_bank = engine.populations[1]["bank"]
     assert engine.populations[0]["name"] == "SA Pop"
     assert engine.populations[1]["name"] == "RA Pop"
-    sa_module.innervation_weights = torch.from_numpy(golden["sa_weights"]).clone()
-    ra_module.innervation_weights = torch.from_numpy(golden["ra_weights"]).clone()
+    sa_bank.weights = torch.from_numpy(golden["sa_weights"]).reshape(4, -1).clone()
+    ra_bank.weights = torch.from_numpy(golden["ra_weights"]).reshape(4, -1).clone()
 
     stimulus = torch.from_numpy(golden["stimulus"])
     return engine.run(stimulus, return_intermediates=True)

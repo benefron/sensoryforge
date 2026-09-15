@@ -126,6 +126,14 @@ class ReceptiveFieldBank(nn.Module):
         """Number of receptors ``M``."""
         return int(self.weights.shape[1])
 
+    def connection_density(self) -> float:
+        """Fraction of non-zero weights in ``[N, M]``."""
+        return float((self.weights != 0).sum().item()) / float(self.weights.numel())
+
+    def connections_per_neuron(self) -> torch.Tensor:
+        """``[N]`` count of non-zero weights per neuron."""
+        return (self.weights != 0).sum(dim=1)
+
     # ------------------------------------------------------------------ #
     # Forward
     # ------------------------------------------------------------------ #

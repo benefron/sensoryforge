@@ -68,6 +68,7 @@ class ImportedRFBuilder(BaseInnervation):
     """
 
     _TO_DICT_EXCLUDE_PARAMS = ("receptor_coords", "neuron_centers")
+    DERIVES_NEURON_CENTERS = True
 
     def __init__(
         self,

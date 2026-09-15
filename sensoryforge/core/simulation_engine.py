@@ -20,6 +20,7 @@ Example:
 
 from __future__ import annotations
 
+import warnings
 from typing import Dict, List, Any, Optional, Tuple
 import torch
 import numpy as np
@@ -38,10 +39,11 @@ from sensoryforge.registry import (
 from sensoryforge.core.grid import ReceptorGrid, GridManager
 from sensoryforge.core.composite_grid import CompositeReceptorGrid, CompositeGrid
 from sensoryforge.core.innervation import (
-    InnervationModule,
-    FlatInnervationModule,
+    _grid_lattice_coords,
+    build_population_bank,
     create_neuron_centers,
 )
+from sensoryforge.core.rf_bank import ReceptiveFieldBank
 
 # Ensure components are registered
 register_all()
@@ -57,7 +59,9 @@ class SimulationEngine:
         config: Canonical SensoryForgeConfig instance
         device: PyTorch device for computation
         grids: List of ReceptorGrid or CompositeReceptorGrid instances
-        populations: List of population execution contexts (innervation, filters, neurons)
+        populations: List of population execution contexts; each holds the
+            population's ReceptiveFieldBank under "innervation" (and "bank"),
+            its filter, neuron model and neuron centres.
     """
 
     def __init__(
@@ -119,7 +123,7 @@ class SimulationEngine:
                 self.grids.append(grid)
                 self.grid_names[grid_name] = grid
 
-                # Create GridManager for InnervationModule (needs grid_size, not ReceptorGrid)
+                # Regular GridManager: the receptor lattice the bank is built on
                 grid_manager = GridManager(
                     grid_size=grid_size,
                     spacing=grid_cfg.spacing,
@@ -194,91 +198,79 @@ class SimulationEngine:
                     xlim = (-5.0, 5.0)
                     ylim = (-5.0, 5.0)
 
-            # Generate neuron centers using the existing function
-            neuron_centers = create_neuron_centers(
-                neurons_per_row=neuron_rows,  # Used if rows/cols not specified
-                xlim=xlim,
-                ylim=ylim,
-                device=self.device,
-                edge_offset=pop_cfg.edge_offset,
-                sigma=pop_cfg.sigma_d_mm,
-                rows=neuron_rows,
-                cols=neuron_cols,
-                arrangement=neuron_arrangement,
-                seed=pop_cfg.seed,
-                jitter_factor=(
-                    pop_cfg.neuron_jitter_factor
-                    if hasattr(pop_cfg, "neuron_jitter_factor")
-                    else 1.0
-                ),
-            )
-
-            # Create innervation module
+            # Receptive fields: one registered builder per population (I6,
+            # F-051). The builder's own class decides which of the population
+            # parameters it takes (filter_params) and whether it derives the
+            # neuron lattice itself (DERIVES_NEURON_CENTERS).
             innervation_method = pop_cfg.innervation_method or "gaussian"
-            if innervation_method not in INNERVATION_REGISTRY.list_registered():
+            try:
+                builder_cls = INNERVATION_REGISTRY.get_class(innervation_method)
+            except KeyError:
                 raise ValueError(
                     f"Unknown innervation method: {innervation_method!r}. "
                     f"Registered methods: {sorted(INNERVATION_REGISTRY.list_registered())}"
-                )
-            if use_flat:
-                innervation_module = FlatInnervationModule(
-                    neuron_type=pop_cfg.neuron_type,
-                    receptor_coords=receptor_coords,
-                    neuron_centers=neuron_centers,
-                    neurons_per_row=neuron_rows,
-                    xlim=xlim,
-                    ylim=ylim,
-                    innervation_method=innervation_method,
-                    connections_per_neuron=pop_cfg.connections_per_neuron,
-                    sigma_d_mm=pop_cfg.sigma_d_mm,
-                    weight_range=(
-                        tuple(pop_cfg.weight_range)
-                        if pop_cfg.weight_range
-                        else (0.1, 1.0)
-                    ),
-                    seed=pop_cfg.seed,
-                    use_distance_weights=pop_cfg.use_distance_weights,
-                    max_distance_mm=pop_cfg.max_distance_mm,
-                    decay_function=pop_cfg.decay_function,
-                    decay_rate=pop_cfg.decay_rate,
-                    far_connection_fraction=pop_cfg.far_connection_fraction,
-                    far_sigma_factor=pop_cfg.far_sigma_factor,
-                    distance_weight_randomness_pct=pop_cfg.distance_weight_randomness_pct,
-                    device=self.device,
-                )
-            else:
-                # Grid-based innervation needs GridManager
+                ) from None
+
+            if not use_flat:
+                # Ordinary grids: the receptor lattice of the matching
+                # GridManager (meshgrid, row-major -> receptor k = i*cols + j).
+                # Non-grid arrangements are built but their coordinates are
+                # not sampled yet (F-010, Wave L) -- same behaviour as
+                # before, now with a warning.
                 grid_manager = self.grid_managers.get(
                     target_grid_name,
                     self.grid_managers[list(self.grid_managers.keys())[0]],
                 )
-                innervation_module = InnervationModule(
-                    neuron_type=pop_cfg.neuron_type,
-                    grid_manager=grid_manager,
-                    neurons_per_row=neuron_rows,
-                    neuron_rows=neuron_rows,
-                    neuron_cols=neuron_cols,
-                    neuron_arrangement=neuron_arrangement,
-                    connections_per_neuron=pop_cfg.connections_per_neuron,
-                    sigma_d_mm=pop_cfg.sigma_d_mm,
-                    weight_range=(
-                        tuple(pop_cfg.weight_range)
-                        if pop_cfg.weight_range
-                        else (0.1, 1.0)
-                    ),
-                    seed=pop_cfg.seed,
-                    neuron_centers=neuron_centers,
-                    use_distance_weights=pop_cfg.use_distance_weights,
-                    far_connection_fraction=pop_cfg.far_connection_fraction,
-                    far_sigma_factor=pop_cfg.far_sigma_factor,
-                    distance_weight_randomness_pct=pop_cfg.distance_weight_randomness_pct,
+                receptor_coords = _grid_lattice_coords(grid_manager).reshape(-1, 2)
+                if getattr(grid, "arrangement", "grid") != "grid":
+                    warnings.warn(
+                        f"Population {pop_cfg.name!r}: receptor arrangement "
+                        f"{grid.arrangement!r} is built but innervation still "
+                        "samples a regular lattice over the grid bounds (F-010; "
+                        "real receptor sampling arrives with Wave L).",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
+            if builder_cls.DERIVES_NEURON_CENTERS:
+                warnings.warn(
+                    f"Population {pop_cfg.name!r}: innervation_method "
+                    f"{innervation_method!r} derives its own neuron lattice; "
+                    f"neurons_per_row={pop_cfg.neurons_per_row}, "
+                    f"neuron_rows={pop_cfg.neuron_rows}, "
+                    f"neuron_cols={pop_cfg.neuron_cols} are ignored.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                neuron_centers = None
+            else:
+                neuron_centers = create_neuron_centers(
+                    neurons_per_row=neuron_rows,  # Used if rows/cols not specified
+                    xlim=xlim,
+                    ylim=ylim,
+                    device=self.device,
                     edge_offset=pop_cfg.edge_offset,
-                    neuron_jitter_factor=(
+                    sigma=pop_cfg.sigma_d_mm,
+                    rows=neuron_rows,
+                    cols=neuron_cols,
+                    arrangement=neuron_arrangement,
+                    seed=pop_cfg.seed,
+                    jitter_factor=(
                         pop_cfg.neuron_jitter_factor
                         if hasattr(pop_cfg, "neuron_jitter_factor")
                         else 1.0
                     ),
                 )
+
+            bank: ReceptiveFieldBank = build_population_bank(
+                receptor_coords=receptor_coords,
+                innervation_method=innervation_method,
+                neuron_type=pop_cfg.neuron_type,
+                neuron_centers=neuron_centers,
+                device=self.device,
+                **self.builder_params(pop_cfg, grid_path=not use_flat),
+            )
+            neuron_centers = bank.neuron_centers
 
             # Build filter -- parameters resolved from the single shared
             # default table (sensoryforge.config.defaults) so the engine and
@@ -324,12 +316,55 @@ class SimulationEngine:
                     "name": pop_cfg.name,
                     "config": pop_cfg,
                     "grid": grid,
-                    "innervation": innervation_module,
+                    "innervation": bank,
+                    "bank": bank,
                     "filter": filter_module,
                     "neuron": neuron_model,
                     "neuron_centers": neuron_centers,
                 }
             )
+
+    @staticmethod
+    def builder_params(pop_cfg: Any, *, grid_path: bool = True) -> Dict[str, Any]:
+        """Builder parameters a population config supplies (I6).
+
+        The union of every method's parameters; each builder keeps its own
+        subset through :meth:`BaseInnervation.filter_params`.
+        ``resolvable_distance_mm`` is included when set, and
+        ``innervation_params`` is merged last so it can override anything.
+
+        Args:
+            pop_cfg: A :class:`~sensoryforge.config.schema.PopulationConfig`.
+            grid_path: ``True`` for ordinary grids. That path never applied
+                a sigma cutoff (it used ``create_innervation_map_tensor``), so
+                ``max_sigma_distance`` is 0 there to keep gaussian weights
+                bit-identical to earlier releases; the flat/composite path
+                keeps its 3-sigma cutoff.
+
+        Returns:
+            Keyword arguments for :func:`build_population_bank`.
+        """
+        params: Dict[str, Any] = {
+            "connections_per_neuron": pop_cfg.connections_per_neuron,
+            "sigma_d_mm": pop_cfg.sigma_d_mm,
+            "max_sigma_distance": 0.0 if grid_path else 3.0,
+            "weight_range": (
+                tuple(pop_cfg.weight_range) if pop_cfg.weight_range else (0.1, 1.0)
+            ),
+            "use_distance_weights": pop_cfg.use_distance_weights,
+            "far_connection_fraction": pop_cfg.far_connection_fraction,
+            "far_sigma_factor": pop_cfg.far_sigma_factor,
+            "max_distance_mm": pop_cfg.max_distance_mm,
+            "decay_function": pop_cfg.decay_function,
+            "decay_rate": pop_cfg.decay_rate,
+            "distance_weight_randomness_pct": pop_cfg.distance_weight_randomness_pct,
+            "seed": pop_cfg.seed,
+        }
+        resolvable = getattr(pop_cfg, "resolvable_distance_mm", None)
+        if resolvable is not None:
+            params["resolvable_distance_mm"] = resolvable
+        params.update(getattr(pop_cfg, "innervation_params", None) or {})
+        return params
 
     def run(
         self,
@@ -377,19 +412,20 @@ class SimulationEngine:
             # Apply stimulus to receptors
             receptor_input = self._stimulus_to_receptors(stimulus, grid)
 
-            # Apply innervation
-            # InnervationModule expects [batch, time, grid_h, grid_w] for grid-based
-            # FlatInnervationModule expects [batch, time, num_receptors] or [batch, num_receptors]
-            if isinstance(innervation, FlatInnervationModule):
-                # For flat innervation, need to convert [batch, time, h, w] to [batch, time, num_receptors]
-                if receptor_input.ndim == 4:
-                    batch, time, h, w = receptor_input.shape
-                    receptor_input = receptor_input.view(batch, time, h * w)
-                elif receptor_input.ndim == 3:
-                    batch, h, w = receptor_input.shape
-                    receptor_input = receptor_input.view(batch, h * w)
+            # Receptive fields: the bank takes flattened receptor responses
+            # [batch, time, M] (row-major over [grid_h, grid_w], receptor
+            # k = i * cols + j) and raises ValueError naming both shapes when
+            # M does not match its weights.
+            if receptor_input.ndim == 4:
+                batch, time, h, w = receptor_input.shape
+                receptor_input = receptor_input.reshape(batch, time, h * w)
+            elif receptor_input.ndim == 3:
+                batch, h, w = receptor_input.shape
+                receptor_input = receptor_input.reshape(batch, h * w)
 
             drive = innervation(receptor_input)
+            if drive.ndim == 2:
+                drive = drive.unsqueeze(1)
 
             pop_results = self._run_pop_from_drive(
                 drive=drive,
@@ -534,7 +570,7 @@ class SimulationEngine:
         This is a simplified implementation. Full implementation would
         properly sample stimulus at receptor locations.
 
-        InnervationModule expects:
+        The bank expects flattened receptor responses; run() reshapes:
         - Grid-based: [batch, time, grid_h, grid_w] or [batch, grid_h, grid_w]
         - Flat-based: [batch, time, num_receptors] or [batch, num_receptors]
         """

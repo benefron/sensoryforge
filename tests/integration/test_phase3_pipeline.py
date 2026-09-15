@@ -14,7 +14,7 @@ from sensoryforge.core.generalized_pipeline import (
     GeneralizedTactileEncodingPipeline,
     create_generalized_pipeline,
 )
-from sensoryforge.core.innervation import FlatInnervationModule, InnervationModule
+from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.stimuli.builder import StaticStimulus
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ from sensoryforge.stimuli.builder import StaticStimulus
 
 
 class TestCompositeGridPipeline:
-    """Pipeline with composite grid and FlatInnervationModule."""
+    """Pipeline with composite grid and flat (receptor-coordinate) banks."""
 
     @pytest.fixture
     def composite_config(self):
@@ -51,9 +51,13 @@ class TestCompositeGridPipeline:
     def test_composite_pipeline_creates_flat_innervation(self, composite_config):
         """Flat innervation is used when composite grid + method=flat."""
         p = GeneralizedTactileEncodingPipeline(config_dict=composite_config)
-        assert isinstance(p.sa_innervation, FlatInnervationModule)
-        assert isinstance(p.ra_innervation, FlatInnervationModule)
-        assert isinstance(p.sa2_innervation, FlatInnervationModule)
+        # Phase 2 (I6): populations hold ReceptiveFieldBanks built on the
+        # composite grid's receptor coordinates.
+        assert isinstance(p.sa_innervation, ReceptiveFieldBank)
+        assert isinstance(p.ra_innervation, ReceptiveFieldBank)
+        assert isinstance(p.sa2_innervation, ReceptiveFieldBank)
+        n_receptors = p.composite_grid.get_all_coordinates().shape[0]
+        assert p.sa_innervation.num_receptors == n_receptors
 
     def test_composite_pipeline_info_reports_flat(self, composite_config):
         """get_pipeline_info reports innervation_type='flat'."""
@@ -74,7 +78,7 @@ class TestCompositeGridPipeline:
         assert results["stimulus_sequence"].shape[0] == 1
 
     def test_composite_grid_without_flat_uses_grid_innervation(self):
-        """Without method='flat', standard InnervationModule is used."""
+        """Without method='flat', the banks are built on the regular grid lattice."""
         cfg = {
             "grid": {
                 "type": "composite",
@@ -85,7 +89,10 @@ class TestCompositeGridPipeline:
             # No innervation.method = "flat"
         }
         p = GeneralizedTactileEncodingPipeline(config_dict=cfg)
-        assert isinstance(p.sa_innervation, InnervationModule)
+        assert isinstance(p.sa_innervation, ReceptiveFieldBank)
+        assert p.sa_innervation.num_receptors == (
+            p.grid_manager.grid_size[0] * p.grid_manager.grid_size[1]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -278,9 +285,12 @@ class TestBackwardCompatibility:
     """Existing pipeline behaviour is preserved."""
 
     def test_default_pipeline_uses_grid_innervation(self):
-        """Default (no composite grid) uses standard InnervationModule."""
+        """Default (no composite grid) builds banks on the regular grid lattice."""
         p = GeneralizedTactileEncodingPipeline()
-        assert isinstance(p.sa_innervation, InnervationModule)
+        assert isinstance(p.sa_innervation, ReceptiveFieldBank)
+        assert p.sa_innervation.num_receptors == (
+            p.grid_manager.grid_size[0] * p.grid_manager.grid_size[1]
+        )
         info = p.get_pipeline_info()
         assert info["innervation_type"] == "grid"
 

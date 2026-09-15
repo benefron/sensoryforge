@@ -9,7 +9,7 @@ reusing it downstream (e.g., when building analytical decoders).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 import torch
 
@@ -136,6 +136,31 @@ class CompressionOperator:
         return {"sa": self.sa_weights, "ra": self.ra_weights}
 
 
+def _innervation_weights(pipeline: Any, module: Any) -> torch.Tensor:
+    """Weights of a population as the legacy modules exposed them.
+
+    A ``ReceptiveFieldBank`` (Phase 2, I6) holds ``weights [N, M]``; when the
+    pipeline's grid has ``M == H * W`` receptors they are viewed as the
+    grid-shaped ``[N, H, W]`` the legacy ``InnervationModule`` returned, so
+    downstream grid detection is unchanged. Deprecated modules (and mocks)
+    still expose ``innervation_weights`` directly.
+    """
+    weights = getattr(module, "innervation_weights", None)
+    if weights is not None:
+        return weights
+    weights = module.weights
+    grid_manager = getattr(pipeline, "grid_manager", None)
+    grid_size = getattr(grid_manager, "grid_size", None)
+    if (
+        isinstance(grid_size, (tuple, list))
+        and len(grid_size) == 2
+        and all(isinstance(n, int) for n in grid_size)
+        and int(grid_size[0]) * int(grid_size[1]) == weights.shape[1]
+    ):
+        return weights.view(weights.shape[0], int(grid_size[0]), int(grid_size[1]))
+    return weights
+
+
 def build_compression_operator(
     pipeline: "TactileEncodingPipelineTorch",
 ) -> CompressionOperator:
@@ -144,8 +169,8 @@ def build_compression_operator(
     Automatically detects flat innervation [num_neurons, num_receptors] vs.
     grid-shaped innervation [num_neurons, grid_h, grid_w].
     """
-    sa_weights = pipeline.sa_innervation.innervation_weights
-    ra_weights = pipeline.ra_innervation.innervation_weights
+    sa_weights = _innervation_weights(pipeline, pipeline.sa_innervation)
+    ra_weights = _innervation_weights(pipeline, pipeline.ra_innervation)
 
     # Detect flat innervation (resolves ReviewFinding#H1)
     if sa_weights.ndim == 2:

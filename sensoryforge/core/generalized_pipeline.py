@@ -12,12 +12,8 @@ from typing import Optional, Dict, Any, Union, List
 
 from .grid import GridManager
 from .composite_grid import CompositeGrid, CompositeReceptorGrid
-from .innervation import (
-    create_sa_innervation,
-    create_ra_innervation,
-    InnervationModule,
-    FlatInnervationModule,
-)
+from .innervation import build_population_bank, _grid_lattice_coords
+from .rf_bank import ReceptiveFieldBank
 from .processing import ProcessingPipeline
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.config.yaml_utils import load_yaml
@@ -672,15 +668,14 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         return sampled.reshape(B, T, N)
 
     def _create_innervation(self):
-        """Create innervation modules with configuration.
+        """Create the SA/RA/SA2 receptive-field banks.
 
         When a composite grid is configured **and** the ``innervation.method``
-        key is ``"flat"``, :class:`FlatInnervationModule` is used instead of the
-        default :class:`InnervationModule`.  This enables irregular (poisson /
-        hex) receptor arrangements from :class:`CompositeReceptorGrid`.
-
-        The grid-based :class:`InnervationModule` remains the default for
-        backward compatibility.
+        key is ``"flat"``, the banks are built on the composite grid's
+        receptor coordinates (irregular poisson / hex layouts); otherwise on
+        the regular grid lattice. Each population's ``sa_method`` /
+        ``ra_method`` / ``sa2_method`` selects the registered builder
+        (default ``gaussian``); see :func:`build_population_bank`.
         """
         innervation_cfg = self.config["innervation"]
         neuron_cfg = self.config["neurons"]
@@ -717,6 +712,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         use_flat = (
             self.composite_grid is not None and innervation_cfg.get("method") == "flat"
         )
+        self._innervation_is_flat = use_flat
 
         # Handle CompositeGrid inputs
         sa_centers, ra_centers, sa2_centers = None, None, None
@@ -738,102 +734,91 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             if "sa2" in pop_map:
                 sa2_centers = self.composite_grid.get_layer_coordinates(pop_map["sa2"])
 
+        # Every population's receptive fields are a ReceptiveFieldBank built
+        # by the registered method (Phase 2, I6). The flat/composite path
+        # keeps its 3-sigma cutoff; the grid path never had one, so
+        # max_sigma_distance=0 keeps its gaussian weights bit-identical.
         if use_flat:
-            # Phase 3: Flat innervation using composite grid coordinates
-            all_coords = self.composite_grid.get_all_coordinates()
+            receptor_coords = self.composite_grid.get_all_coordinates()
             xlim = self.composite_grid.xlim
             ylim = self.composite_grid.ylim
-
-            self.sa_innervation = FlatInnervationModule(
-                neuron_type="SA",
-                receptor_coords=all_coords,
-                neuron_centers=sa_centers,
-                neurons_per_row=neuron_cfg["sa_neurons"],
-                neuron_rows=sa_rows,
-                neuron_cols=sa_cols,
-                xlim=xlim,
-                ylim=ylim,
-                innervation_method=innervation_cfg.get("sa_method", "gaussian"),
-                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-                sigma_d_mm=innervation_cfg["sa_spread"],
-                weight_range=tuple(innervation_cfg["connection_strength"]),
-                seed=innervation_cfg["sa_seed"],
-                device=self.device,
-            )
-
-            self.ra_innervation = FlatInnervationModule(
-                neuron_type="RA",
-                receptor_coords=all_coords,
-                neuron_centers=ra_centers,
-                neurons_per_row=neuron_cfg["ra_neurons"],
-                neuron_rows=ra_rows,
-                neuron_cols=ra_cols,
-                xlim=xlim,
-                ylim=ylim,
-                innervation_method=innervation_cfg.get("ra_method", "gaussian"),
-                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-                sigma_d_mm=innervation_cfg["ra_spread"],
-                weight_range=tuple(innervation_cfg["connection_strength"]),
-                seed=innervation_cfg["ra_seed"],
-                device=self.device,
-            )
-
-            self.sa2_innervation = FlatInnervationModule(
-                neuron_type="SA2",
-                receptor_coords=all_coords,
-                neuron_centers=sa2_centers,
-                neurons_per_row=neuron_cfg["sa2_neurons"],
-                neuron_rows=sa2_rows,
-                neuron_cols=sa2_cols,
-                xlim=xlim,
-                ylim=ylim,
-                innervation_method=innervation_cfg.get("sa2_method", "gaussian"),
-                connections_per_neuron=innervation_cfg.get("sa2_connections", 500),
-                sigma_d_mm=innervation_cfg["sa2_spread"],
-                weight_range=tuple(innervation_cfg["sa2_weights"]),
-                seed=innervation_cfg["sa2_seed"],
-                device=self.device,
-            )
+            max_sigma_distance = 3.0
         else:
-            # Default: Grid-based innervation (backward compatible)
-            self.sa_innervation = InnervationModule(
-                neuron_type="SA",
-                grid_manager=self.grid_manager,
-                neurons_per_row=neuron_cfg["sa_neurons"],
-                neuron_rows=sa_rows,
-                neuron_cols=sa_cols,
-                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-                sigma_d_mm=innervation_cfg["sa_spread"],
-                weight_range=tuple(innervation_cfg["connection_strength"]),
-                seed=innervation_cfg["sa_seed"],
-                neuron_centers=sa_centers,
+            grid_props = self.grid_manager.get_grid_properties()
+            receptor_coords = _grid_lattice_coords(self.grid_manager).reshape(-1, 2)
+            xlim = grid_props["xlim"]
+            ylim = grid_props["ylim"]
+            max_sigma_distance = 0.0
+        self._grid_shape = tuple(self.grid_manager.grid_size)
+
+        def _bank(
+            neuron_type,
+            centers,
+            per_row,
+            rows,
+            cols,
+            method,
+            connections,
+            spread,
+            weights,
+            seed,
+        ) -> ReceptiveFieldBank:
+            return build_population_bank(
+                receptor_coords=receptor_coords,
+                innervation_method=method,
+                neuron_type=neuron_type,
+                neuron_centers=centers,
+                neurons_per_row=per_row,
+                neuron_rows=rows,
+                neuron_cols=cols,
+                xlim=xlim,
+                ylim=ylim,
+                device=self.device,
+                connections_per_neuron=float(connections),
+                sigma_d_mm=spread,
+                max_sigma_distance=max_sigma_distance,
+                weight_range=tuple(weights),
+                # InnervationModule always used analytic distance weights (D-019).
+                use_distance_weights=True,
+                seed=seed,
             )
 
-            self.ra_innervation = InnervationModule(
-                neuron_type="RA",
-                grid_manager=self.grid_manager,
-                neurons_per_row=neuron_cfg["ra_neurons"],
-                neuron_rows=ra_rows,
-                neuron_cols=ra_cols,
-                connections_per_neuron=innervation_cfg["receptors_per_neuron"],
-                sigma_d_mm=innervation_cfg["ra_spread"],
-                weight_range=tuple(innervation_cfg["connection_strength"]),
-                seed=innervation_cfg["ra_seed"],
-                neuron_centers=ra_centers,
-            )
-
-            self.sa2_innervation = InnervationModule(
-                neuron_type="SA2" if sa2_centers is not None else "SA",
-                grid_manager=self.grid_manager,
-                neurons_per_row=neuron_cfg["sa2_neurons"],
-                neuron_rows=sa2_rows,
-                neuron_cols=sa2_cols,
-                connections_per_neuron=innervation_cfg.get("sa2_connections", 500),
-                sigma_d_mm=innervation_cfg["sa2_spread"],
-                weight_range=tuple(innervation_cfg["sa2_weights"]),
-                seed=innervation_cfg["sa2_seed"],
-                neuron_centers=sa2_centers,
-            )
+        self.sa_innervation = _bank(
+            "SA",
+            sa_centers,
+            neuron_cfg["sa_neurons"],
+            sa_rows,
+            sa_cols,
+            innervation_cfg.get("sa_method", "gaussian"),
+            innervation_cfg["receptors_per_neuron"],
+            innervation_cfg["sa_spread"],
+            innervation_cfg["connection_strength"],
+            innervation_cfg["sa_seed"],
+        )
+        self.ra_innervation = _bank(
+            "RA",
+            ra_centers,
+            neuron_cfg["ra_neurons"],
+            ra_rows,
+            ra_cols,
+            innervation_cfg.get("ra_method", "gaussian"),
+            innervation_cfg["receptors_per_neuron"],
+            innervation_cfg["ra_spread"],
+            innervation_cfg["connection_strength"],
+            innervation_cfg["ra_seed"],
+        )
+        self.sa2_innervation = _bank(
+            "SA2" if (use_flat or sa2_centers is not None) else "SA",
+            sa2_centers,
+            neuron_cfg["sa2_neurons"],
+            sa2_rows,
+            sa2_cols,
+            innervation_cfg.get("sa2_method", "gaussian"),
+            innervation_cfg.get("sa2_connections", 500),
+            innervation_cfg["sa2_spread"],
+            innervation_cfg["sa2_weights"],
+            innervation_cfg["sa2_seed"],
+        )
 
     def _create_filters(self):
         """Create filters with configuration"""
@@ -1545,20 +1530,22 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Step 4.5: Apply processing layers (Phase 3)
         mechanoreceptor_responses = self.processing_pipeline(mechanoreceptor_responses)
 
-        # Step 5: Compute neural inputs through innervation
-        # FlatInnervationModule expects [B, T, N_receptors] not [B, T, H, W].
-        # When using flat innervation + composite grid, sample the grid-based
-        # stimulus at each composite receptor coordinate via bilinear interpolation.
+        # Step 5: Compute neural inputs through the receptive-field banks,
+        # which take [B, T, M]. Flat innervation on a composite grid samples
+        # the grid-based stimulus at each composite receptor coordinate
+        # (bilinear); otherwise M = H * W and the frame is flattened row-major.
         innervation_input = mechanoreceptor_responses
-        if isinstance(self.sa_innervation, FlatInnervationModule):
-            if innervation_input.ndim == 4 and self.composite_grid is not None:
+        if innervation_input.ndim == 4:
+            if self._innervation_is_flat and self.composite_grid is not None:
                 innervation_input = self._sample_stimulus_at_receptors(
                     innervation_input
                 )
-            elif innervation_input.ndim == 4:
-                # Fallback: simple flatten if no composite grid
+            else:
                 B, T, H, W = innervation_input.shape
                 innervation_input = innervation_input.reshape(B, T, H * W)
+        elif innervation_input.ndim == 3:
+            B, H, W = innervation_input.shape
+            innervation_input = innervation_input.reshape(B, H * W)
 
         with torch.no_grad():
             sa_inputs = self.sa_innervation(innervation_input)
@@ -1756,9 +1743,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 ),
             }
         info["processing_layers"] = self.processing_pipeline.to_dict()
-        info["innervation_type"] = (
-            "flat" if isinstance(self.sa_innervation, FlatInnervationModule) else "grid"
-        )
+        info["innervation_type"] = "flat" if self._innervation_is_flat else "grid"
         return info
 
 
