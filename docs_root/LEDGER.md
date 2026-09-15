@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-020 · CLOSED · decision · - · 2026-09-15
+the template receptive-field builder derives sigma = d/pi and pitch = d from one resolvable distance d, truncates to the k nearest receptors with analytic Gaussian weights and unit-L2 rows by default
+→ commit d53c018
+
 ## F-050 · CLOSED · finding · - · 2026-09-15
 ReceptorGrid and CompositeReceptorGrid take no seed; jittered_grid, blue_noise and poisson draw from the global RNG, so identical builds differ, building changes global RNG state, and from_config(to_dict()) does not reproduce a Poisson grid
 → commit d244faa
