@@ -185,6 +185,13 @@ def register_all() -> None:
     GRID_REGISTRY.register("jittered_grid", JitteredGridArrangement)
     GRID_REGISTRY.register("blue_noise", BlueNoiseArrangement)
 
+    # G2: discover third-party components advertised via the
+    # "sensoryforge.components" entry-point group. A plugin that fails to
+    # load produces a warning (see sensoryforge.plugins), never a crash.
+    from sensoryforge.plugins import discover_entry_point_plugins
+
+    discover_entry_point_plugins()
+
 
 # Auto-register on import
 register_all()

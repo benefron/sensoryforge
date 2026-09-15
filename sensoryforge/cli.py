@@ -56,6 +56,12 @@ def load_config_file(config_path: str) -> Dict[str, Any]:
     if not config:
         raise ValueError(f"Empty or invalid config file: {config_path}")
 
+    plugins = config.get("plugins")
+    if plugins:
+        from sensoryforge.plugins import load_plugin_import_paths
+
+        load_plugin_import_paths(plugins)
+
     return config
 
 
