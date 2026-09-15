@@ -525,36 +525,66 @@ def cmd_list_components(args: argparse.Namespace) -> int:
 
 
 def cmd_new_component(args: argparse.Namespace) -> int:
-    """Scaffold a new component class, unit test, and docs stub (G5).
+    """Scaffold a new component (H2/F-047).
+
+    Default mode writes a standalone, installable plugin package under
+    ``--dest`` (current directory by default). ``--in-repo`` preserves the
+    original contributor workflow: it writes directly into the core
+    ``sensoryforge/`` package, locating the repository root from the
+    current working directory (never from the installed package location).
 
     Args:
-        args: Command-line arguments with kind and name.
+        args: Command-line arguments with ``kind``, ``name``, and the
+            optional ``dest``/``in_repo`` flags.
 
     Returns:
         Exit code (0 for success, 1 for error).
     """
-    from sensoryforge.scaffold import generate_component, available_kinds
+    from sensoryforge.scaffold import (
+        available_kinds,
+        find_repo_root,
+        generate_in_repo_component,
+        generate_plugin_package,
+    )
+
+    in_repo = getattr(args, "in_repo", False)
+    dest = getattr(args, "dest", None)
 
     try:
-        paths = generate_component(
-            args.kind, args.name, repo_root=Path(__file__).resolve().parents[1]
-        )
+        if in_repo:
+            repo_root = find_repo_root()
+            paths = generate_in_repo_component(args.kind, args.name, repo_root=repo_root)
+            print(f"✓ Scaffolded new {args.kind} component in {repo_root}:")
+            print(f"  Module: {paths['module']}")
+            print(f"  Test:   {paths['test']}")
+            print(f"  Docs:   {paths['docs']}")
+            print(
+                "\nNext step: register it in sensoryforge/register_components.py "
+                "(see the printed docs stub for the exact lines to add)."
+            )
+        else:
+            dest_dir = Path(dest) if dest else Path.cwd()
+            paths = generate_plugin_package(args.kind, args.name, dest=dest_dir)
+            print(f"✓ Scaffolded new {args.kind} plugin package:")
+            print(f"  Package: {paths['package_root']}")
+            print(f"  Module:  {paths['module']}")
+            print(f"  Test:    {paths['test']}")
+            print(f"  Readme:  {paths['readme']}")
+            print(
+                f"\nNext steps:\n"
+                f"  cd {paths['package_root']}\n"
+                f"  pip install -e .\n"
+                f"  pytest"
+            )
     except ValueError as e:
         print(f"❌ {e}", file=sys.stderr)
-        print(f"Available kinds: {', '.join(available_kinds())}", file=sys.stderr)
+        if "Unknown component kind" in str(e):
+            print(f"Available kinds: {', '.join(available_kinds())}", file=sys.stderr)
         return 1
     except FileExistsError as e:
         print(f"❌ {e}", file=sys.stderr)
         return 1
 
-    print(f"✓ Scaffolded new {args.kind} component:")
-    print(f"  Module: {paths['module']}")
-    print(f"  Test:   {paths['test']}")
-    print(f"  Docs:   {paths['docs']}")
-    print(
-        "\nNext step: register it in sensoryforge/register_components.py "
-        "(see the printed docs stub for the exact lines to add)."
-    )
     return 0
 
 
@@ -697,6 +727,25 @@ def create_parser() -> argparse.ArgumentParser:
     )
     new_component_parser.add_argument(
         "name", help="Component name, e.g. 'Bandpass' or 'my_cool_filter'"
+    )
+    new_component_parser.add_argument(
+        "--dest",
+        default=None,
+        help=(
+            "Directory to write the standalone plugin package under "
+            "(default: current directory). Ignored with --in-repo."
+        ),
+    )
+    new_component_parser.add_argument(
+        "--in-repo",
+        dest="in_repo",
+        action="store_true",
+        help=(
+            "Write directly into this SensoryForge checkout's core package "
+            "(sensoryforge/, tests/, docs/) instead of generating a "
+            "standalone plugin package. Must be run from inside a "
+            "SensoryForge git checkout."
+        ),
     )
 
     return parser

@@ -1,15 +1,30 @@
-"""``sensoryforge new-component`` scaffold generator (G5).
+"""``sensoryforge new-component`` scaffold generator (G5, H2/F-047).
 
-Writes a starter component class, a unit test that exercises the same
-checks as the G4 contract test (``tests/contract/test_component_contracts.py``),
-and a docs stub, for one of the five extensible component kinds: neuron,
-filter, stimulus, solver, grid.
+Writes a starter component class and a contract test for one of the five
+extensible component kinds: neuron, filter, stimulus, solver, grid. Two
+modes:
 
-Registration with the relevant ``*_REGISTRY`` in
-``sensoryforge/register_components.py`` is deliberately left as a manual,
-printed-out step (mirroring ``docs/developer_guide/add_filter.md`` etc.) --
-editing that file's ``register_all()`` body by string manipulation is a
-higher-risk automation than the benefit it would save for a one-line change.
+- **Default (standalone plugin) mode** -- :func:`generate_plugin_package` --
+  writes an installable ``sensoryforge-<name>/`` package with a
+  ``pyproject.toml`` declaring a ``sensoryforge.components`` entry point, a
+  small importable module with a ``register()`` function, a
+  ``tests/test_contract.py`` that calls
+  :func:`sensoryforge.testing.contracts.check_component`, and a
+  ``README.md``. Anyone can ``pip install -e`` the result; it never touches
+  the SensoryForge checkout or its installed package location.
+- **``--in-repo`` mode** -- :func:`generate_in_repo_component` -- preserves
+  the original G5 behaviour for SensoryForge contributors: it writes
+  directly into the core ``sensoryforge/`` package, ``tests/``, and
+  ``docs/``, with registration in ``sensoryforge/register_components.py``
+  left as a manual, printed-out step (editing that file's
+  ``register_all()`` body by string manipulation is a higher-risk
+  automation than the benefit it would save for a one-line change). This
+  mode requires being run from inside an actual SensoryForge git checkout
+  (see :func:`find_repo_root`) -- it refuses otherwise.
+
+Both modes refuse to write anywhere under a ``site-packages`` or
+``dist-packages`` directory (F-047's core safety fix: a wheel install must
+never let this command write into the installed package).
 """
 
 from __future__ import annotations
@@ -17,7 +32,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 def _to_snake(name: str) -> str:
@@ -39,6 +54,7 @@ class _KindSpec:
     base_import: str
     base_class: str
     class_suffix: str
+    registry_const: str
     module_template: str
     test_template: str
     docs_template: str
@@ -180,6 +196,7 @@ NEURON_REGISTRY.register("{{registry_key}}", {{class_name}})
         base_import="sensoryforge.neurons.base",
         base_class="BaseNeuron",
         class_suffix="NeuronTorch",
+        registry_const="NEURON_REGISTRY",
         module_template=module_template,
         test_template=test_template,
         docs_template=docs_template,
@@ -311,6 +328,7 @@ FILTER_REGISTRY.register("{{registry_key}}", {{class_name}})
         base_import="sensoryforge.filters.base",
         base_class="BaseFilter",
         class_suffix="FilterTorch",
+        registry_const="FILTER_REGISTRY",
         module_template=module_template,
         test_template=test_template,
         docs_template=docs_template,
@@ -450,6 +468,7 @@ STIMULUS_REGISTRY.register("{{registry_key}}", {{class_name}})
         base_import="sensoryforge.stimuli.base",
         base_class="BaseStimulus",
         class_suffix="Stimulus",
+        registry_const="STIMULUS_REGISTRY",
         module_template=module_template,
         test_template=test_template,
         docs_template=docs_template,
@@ -569,6 +588,7 @@ SOLVER_REGISTRY.register("{{registry_key}}", {{class_name}})
         base_import="sensoryforge.solvers.base",
         base_class="BaseSolver",
         class_suffix="Solver",
+        registry_const="SOLVER_REGISTRY",
         module_template=module_template,
         test_template=test_template,
         docs_template=docs_template,
@@ -691,6 +711,7 @@ GRID_REGISTRY.register("{{registry_key}}", {{class_name}})
         base_import="sensoryforge.core.grid_base",
         base_class="BaseGrid",
         class_suffix="Arrangement",
+        registry_const="GRID_REGISTRY",
         module_template=module_template,
         test_template=test_template,
         docs_template=docs_template,
@@ -711,12 +732,105 @@ def available_kinds() -> List[str]:
     return sorted(_KINDS)
 
 
-def generate_component(
+# ---------------------------------------------------------------------------
+# Safety: never write under an installed package's site-packages/dist-packages
+# (the core F-047 fix -- both modes below call this before writing anything).
+# ---------------------------------------------------------------------------
+
+
+def ensure_not_installed_path(path: Path) -> None:
+    """Refuse to proceed if ``path`` is under a site-packages/dist-packages dir.
+
+    Args:
+        path: Candidate destination directory (need not exist yet).
+
+    Raises:
+        ValueError: If any path segment (case-insensitively) is
+            ``site-packages`` or ``dist-packages`` -- i.e. ``path`` lies
+            inside an installed Python package's location.
+    """
+    resolved = Path(path).resolve()
+    lowered_parts = {part.lower() for part in resolved.parts}
+    for forbidden in ("site-packages", "dist-packages"):
+        if forbidden in lowered_parts:
+            raise ValueError(
+                f"Refusing to write under an installed-package directory "
+                f"({forbidden!r} found in {resolved}). `sensoryforge "
+                "new-component` must not write into site-packages/"
+                "dist-packages -- run it from a working directory outside "
+                "your Python environment's install location (use --dest to "
+                "choose a destination)."
+            )
+
+
+# ---------------------------------------------------------------------------
+# --in-repo mode: locate the actual SensoryForge git checkout from the
+# current working directory (never from `sensoryforge.__file__`, which would
+# point at the installed location for a wheel install -- F-047).
+# ---------------------------------------------------------------------------
+
+_NAME_RE = re.compile(r'(?m)^\s*name\s*=\s*"sensoryforge"\s*$')
+
+
+def _pyproject_declares_sensoryforge(pyproject_path: Path) -> bool:
+    try:
+        text = pyproject_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return bool(_NAME_RE.search(text))
+
+
+def find_repo_root(start: Optional[Path] = None) -> Path:
+    """Walk upward from ``start`` looking for the SensoryForge repo root.
+
+    A candidate directory qualifies if it contains both a ``.git`` entry
+    (file or directory -- a file is normal for a linked worktree) and a
+    ``pyproject.toml`` whose ``[project]`` table declares
+    ``name = "sensoryforge"``.
+
+    Args:
+        start: Directory to start the search from. Defaults to
+            ``Path.cwd()`` -- deliberately the *actual* current working
+            directory the CLI was invoked in, not ``__file__`` (which would
+            resolve to the installed package location for a wheel install).
+
+    Returns:
+        The repository root directory.
+
+    Raises:
+        ValueError: If no such directory is found walking up to the
+            filesystem root.
+    """
+    start = Path(start if start is not None else Path.cwd()).resolve()
+    current = start
+    while True:
+        if (current / ".git").exists() and _pyproject_declares_sensoryforge(
+            current / "pyproject.toml"
+        ):
+            return current
+        if current.parent == current:
+            break
+        current = current.parent
+    raise ValueError(
+        f"--in-repo requires running from inside a SensoryForge git checkout "
+        f"(no directory with a .git entry and a pyproject.toml declaring "
+        f'[project] name = "sensoryforge" was found above {start}); omit '
+        "--in-repo to scaffold a standalone, installable plugin package "
+        "instead."
+    )
+
+
+def generate_in_repo_component(
     kind: str,
     name: str,
     repo_root: Path,
 ) -> Dict[str, Path]:
-    """Write a scaffolded component's module, unit test, and docs stub.
+    """Write a scaffolded component's module, unit test, and docs stub in-repo.
+
+    This is the ``--in-repo`` mode: for SensoryForge contributors working
+    inside an actual git checkout, writing directly into the core
+    ``sensoryforge/`` package (see :func:`find_repo_root` for how the
+    caller should locate ``repo_root``).
 
     Args:
         kind: One of :func:`available_kinds` (``neuron``, ``filter``,
@@ -732,13 +846,15 @@ def generate_component(
         written file paths.
 
     Raises:
-        ValueError: If ``kind`` is not one of :func:`available_kinds`.
+        ValueError: If ``kind`` is not one of :func:`available_kinds`, or if
+            ``repo_root`` is under a site-packages/dist-packages directory.
         FileExistsError: If the target module file already exists.
     """
     if kind not in _KINDS:
         raise ValueError(
             f"Unknown component kind {kind!r}; choose one of {available_kinds()}"
         )
+    ensure_not_installed_path(repo_root)
     spec = _KINDS[kind]
 
     snake = _to_snake(name)
@@ -776,3 +892,191 @@ def generate_component(
     docs_file.write_text(render(spec.docs_template), encoding="utf-8")
 
     return {"module": module_file, "test": test_file, "docs": docs_file}
+
+
+# ---------------------------------------------------------------------------
+# Default mode: a standalone, installable plugin package
+# (`sensoryforge-<name>/`) discovered via the `sensoryforge.components`
+# entry-point group (see sensoryforge/plugins.py, G2).
+# ---------------------------------------------------------------------------
+
+_REGISTER_FUNCTION_TEMPLATE = '''
+
+def register() -> None:
+    """Entry-point target: register {{class_name}} with the component registry.
+
+    Called with no arguments by :func:`sensoryforge.plugins.discover_entry_point_plugins`
+    when this distribution is installed and its
+    ``[project.entry-points."sensoryforge.components"]`` entry loads.
+    """
+    from sensoryforge.registry import {{registry_const}}
+
+    {{registry_const}}.register("{{registry_key}}", {{class_name}})
+'''
+
+_PYPROJECT_TEMPLATE = '''[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{dist_name}}"
+version = "0.1.0"
+description = "SensoryForge {{kind}} plugin: {{class_name}}"
+requires-python = ">=3.10"
+dependencies = ["sensoryforge"]
+
+[project.entry-points."sensoryforge.components"]
+{{registry_key}} = "{{package_name}}.component:register"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["{{package_name}}*"]
+'''
+
+_PLUGIN_TEST_TEMPLATE = '''"""Contract test for {{class_name}}, generated by `sensoryforge new-component`.
+
+Calls the same three checks as SensoryForge's own in-repo contract sweep
+(`tests/contract/test_component_contracts.py`): a `get_param_spec()` shape
+check, one forward pass with the `{{kind}}` kind's canonical tensor shape,
+and a `from_config(to_dict())` round trip. See
+`sensoryforge.testing.contracts.check_component`.
+"""
+
+from sensoryforge.testing.contracts import check_component
+
+from {{package_name}}.component import {{class_name}}
+
+
+def test_{{snake}}_satisfies_component_contract():
+    check_component("{{kind}}", {{class_name}})
+'''
+
+_PLUGIN_README_TEMPLATE = """# {{dist_name}}
+
+A SensoryForge `{{kind}}` plugin generated by
+`sensoryforge new-component {{kind}} {{name}} --dest .`.
+
+Implements `{{class_name}}` ({{base_class}} subclass, `{{package_name}}/component.py`).
+Edit that file to replace the scaffolded placeholder with your component's
+actual behaviour, then re-run `pytest` -- `tests/test_contract.py` checks it
+still satisfies the SensoryForge component contract
+(`sensoryforge.testing.contracts.check_component`).
+
+## Install
+
+```bash
+pip install -e .
+```
+
+Installing registers `{{class_name}}` as `"{{registry_key}}"` in
+SensoryForge's `{{registry_const}}` via the `sensoryforge.components`
+entry-point group (see `pyproject.toml`) -- no changes to the SensoryForge
+checkout are needed. After installing, `sensoryforge list-components` shows
+`{{registry_key}}` under the matching section, and any canonical config that
+references `"{{registry_key}}"` as its `{{kind}}` picks it up automatically.
+
+## Test
+
+```bash
+pytest
+```
+"""
+
+
+def generate_plugin_package(kind: str, name: str, dest: Path) -> Dict[str, Path]:
+    """Write a standalone, installable SensoryForge plugin package.
+
+    This is the default mode: writes ``dest/sensoryforge-<name>/`` as a
+    self-contained package anyone can ``pip install -e`` -- it declares a
+    ``sensoryforge.components`` entry point (discovered by
+    :func:`sensoryforge.plugins.discover_entry_point_plugins`), ships its
+    own ``tests/test_contract.py``, and never touches the SensoryForge
+    checkout or its installed package location.
+
+    Args:
+        kind: One of :func:`available_kinds` (``neuron``, ``filter``,
+            ``stimulus``, ``solver``, ``grid``).
+        name: A human-readable component name, e.g. ``"my cool filter"`` or
+            ``"MyCoolFilter"`` -- converted to ``PascalCase`` for the class
+            name and ``snake_case`` for the module/package/registry key.
+        dest: Directory the new ``sensoryforge-<name>/`` package directory
+            is created under. Must not resolve into a site-packages/
+            dist-packages directory.
+
+    Returns:
+        Dict with keys ``"package_root"``, ``"pyproject"``, ``"module"``,
+        ``"test"``, ``"readme"`` mapping to the written paths.
+
+    Raises:
+        ValueError: If ``kind`` is not one of :func:`available_kinds`, or if
+            ``dest`` is under a site-packages/dist-packages directory.
+        FileExistsError: If the target package directory already exists.
+    """
+    if kind not in _KINDS:
+        raise ValueError(
+            f"Unknown component kind {kind!r}; choose one of {available_kinds()}"
+        )
+    dest = Path(dest).resolve()
+    ensure_not_installed_path(dest)
+    spec = _KINDS[kind]
+
+    snake = _to_snake(name)
+    pascal = _to_pascal(name)
+    class_name = pascal + spec.class_suffix
+    registry_key = snake
+    package_name = f"sensoryforge_{snake}"
+    dist_name = f"sensoryforge-{snake.replace('_', '-')}"
+
+    package_root = dest / dist_name
+    ensure_not_installed_path(package_root)
+    if package_root.exists():
+        raise FileExistsError(f"{package_root} already exists")
+
+    substitutions = {
+        "class_name": class_name,
+        "name": name,
+        "module_path": f"{package_name}.component",
+        "registry_key": registry_key,
+        "package_name": package_name,
+        "dist_name": dist_name,
+        "kind": kind,
+        "snake": snake,
+        "base_class": spec.base_class,
+        "registry_const": spec.registry_const,
+    }
+
+    def render(template: str) -> str:
+        rendered = template
+        for key, value in substitutions.items():
+            rendered = rendered.replace("{{" + key + "}}", value)
+        return rendered
+
+    package_dir = package_root / package_name
+    tests_dir = package_root / "tests"
+    package_dir.mkdir(parents=True)
+    tests_dir.mkdir(parents=True)
+
+    (package_dir / "__init__.py").write_text("", encoding="utf-8")
+
+    component_file = package_dir / "component.py"
+    component_source = render(spec.module_template) + render(
+        _REGISTER_FUNCTION_TEMPLATE
+    )
+    component_file.write_text(component_source, encoding="utf-8")
+
+    pyproject_file = package_root / "pyproject.toml"
+    pyproject_file.write_text(render(_PYPROJECT_TEMPLATE), encoding="utf-8")
+
+    test_file = tests_dir / "test_contract.py"
+    test_file.write_text(render(_PLUGIN_TEST_TEMPLATE), encoding="utf-8")
+
+    readme_file = package_root / "README.md"
+    readme_file.write_text(render(_PLUGIN_README_TEMPLATE), encoding="utf-8")
+
+    return {
+        "package_root": package_root,
+        "pyproject": pyproject_file,
+        "module": component_file,
+        "test": test_file,
+        "readme": readme_file,
+    }

@@ -1,14 +1,18 @@
-"""Tests for `sensoryforge new-component` scaffolding (G5).
+"""Tests for `sensoryforge new-component --in-repo` scaffolding (G5, H2).
 
 Covers:
-- `generate_component()` writes a module, test, and docs stub for every
-  supported kind, with the right class name / registry key substitutions.
+- `generate_in_repo_component()` writes a module, test, and docs stub for
+  every supported kind, with the right class name / registry key
+  substitutions.
 - The generated module satisfies the same contract as
   `tests/contract/test_component_contracts.py`: `get_param_spec()` returns
   `ParamSpec` objects, `from_config(to_dict())` round-trips, and a forward
   pass succeeds with the kind's canonical tensor shape.
-- `generate_component()` refuses to overwrite an existing module file.
-- The CLI `new-component` subcommand wires through to the scaffold.
+- `generate_in_repo_component()` refuses to overwrite an existing module file.
+- The CLI `new-component --in-repo` subcommand wires through to the scaffold.
+
+The standalone-plugin-package default mode (the H2/F-047 fix) is covered by
+`tests/unit/test_scaffold.py`.
 """
 
 import importlib.util
@@ -17,7 +21,7 @@ import sys
 import pytest
 import torch
 
-from sensoryforge.scaffold import available_kinds, generate_component
+from sensoryforge.scaffold import available_kinds, generate_in_repo_component
 from sensoryforge.stimuli.base import ParamSpec
 
 
@@ -45,7 +49,7 @@ def test_available_kinds():
 
 @pytest.mark.parametrize("kind", available_kinds())
 def test_generate_component_writes_three_files(scaffold_repo, kind):
-    paths = generate_component(kind, "MyScaffoldTest", repo_root=scaffold_repo)
+    paths = generate_in_repo_component(kind, "MyScaffoldTest", repo_root=scaffold_repo)
     assert paths["module"].is_file()
     assert paths["test"].is_file()
     assert paths["docs"].is_file()
@@ -53,18 +57,18 @@ def test_generate_component_writes_three_files(scaffold_repo, kind):
 
 
 def test_generate_component_refuses_overwrite(scaffold_repo):
-    generate_component("filter", "Dup", repo_root=scaffold_repo)
+    generate_in_repo_component("filter", "Dup", repo_root=scaffold_repo)
     with pytest.raises(FileExistsError):
-        generate_component("filter", "Dup", repo_root=scaffold_repo)
+        generate_in_repo_component("filter", "Dup", repo_root=scaffold_repo)
 
 
 def test_generate_component_unknown_kind(scaffold_repo):
     with pytest.raises(ValueError):
-        generate_component("nonsense", "X", repo_root=scaffold_repo)
+        generate_in_repo_component("nonsense", "X", repo_root=scaffold_repo)
 
 
 def test_scaffolded_neuron_satisfies_contract(scaffold_repo):
-    paths = generate_component("neuron", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component("neuron", "ContractCheck", repo_root=scaffold_repo)
     mod = _load_module(paths["module"], "sf_scaffold_test_neuron")
     cls = mod.ContractCheckNeuronTorch
 
@@ -81,7 +85,7 @@ def test_scaffolded_neuron_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_filter_satisfies_contract(scaffold_repo):
-    paths = generate_component("filter", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component("filter", "ContractCheck", repo_root=scaffold_repo)
     mod = _load_module(paths["module"], "sf_scaffold_test_filter")
     cls = mod.ContractCheckFilterTorch
 
@@ -94,7 +98,7 @@ def test_scaffolded_filter_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_stimulus_satisfies_contract(scaffold_repo):
-    paths = generate_component("stimulus", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component("stimulus", "ContractCheck", repo_root=scaffold_repo)
     mod = _load_module(paths["module"], "sf_scaffold_test_stimulus")
     cls = mod.ContractCheckStimulus
 
@@ -110,7 +114,7 @@ def test_scaffolded_stimulus_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_solver_satisfies_contract(scaffold_repo):
-    paths = generate_component("solver", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component("solver", "ContractCheck", repo_root=scaffold_repo)
     mod = _load_module(paths["module"], "sf_scaffold_test_solver")
     cls = mod.ContractCheckSolver
 
@@ -125,7 +129,7 @@ def test_scaffolded_solver_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_grid_satisfies_contract(scaffold_repo):
-    paths = generate_component("grid", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component("grid", "ContractCheck", repo_root=scaffold_repo)
     mod = _load_module(paths["module"], "sf_scaffold_test_grid")
     cls = mod.ContractCheckArrangement
 
@@ -137,13 +141,16 @@ def test_scaffolded_grid_satisfies_contract(scaffold_repo):
     assert isinstance(reconstructed, cls)
 
 
-def test_cli_new_component_writes_files(scaffold_repo, monkeypatch):
+def test_cli_new_component_in_repo_writes_files(scaffold_repo, monkeypatch):
     import sensoryforge.cli as cli_module
     from argparse import Namespace
 
-    args = Namespace(kind="filter", name="CliCheck")
+    args = Namespace(kind="filter", name="CliCheck", dest=None, in_repo=True)
     monkeypatch.setattr(
-        "sensoryforge.scaffold.generate_component",
+        "sensoryforge.scaffold.find_repo_root", lambda: scaffold_repo
+    )
+    monkeypatch.setattr(
+        "sensoryforge.scaffold.generate_in_repo_component",
         lambda kind, name, repo_root: {
             "module": scaffold_repo / "module.py",
             "test": scaffold_repo / "test.py",
@@ -153,14 +160,45 @@ def test_cli_new_component_writes_files(scaffold_repo, monkeypatch):
     assert cli_module.cmd_new_component(args) == 0
 
 
+def test_cli_new_component_default_mode_writes_plugin_package(tmp_path, monkeypatch):
+    import sensoryforge.cli as cli_module
+    from argparse import Namespace
+
+    args = Namespace(kind="filter", name="CliCheck", dest=str(tmp_path), in_repo=False)
+    monkeypatch.setattr(
+        "sensoryforge.scaffold.generate_plugin_package",
+        lambda kind, name, dest: {
+            "package_root": tmp_path / "sensoryforge-clicheck",
+            "pyproject": tmp_path / "sensoryforge-clicheck" / "pyproject.toml",
+            "module": tmp_path / "sensoryforge-clicheck" / "module.py",
+            "test": tmp_path / "sensoryforge-clicheck" / "tests" / "test_contract.py",
+            "readme": tmp_path / "sensoryforge-clicheck" / "README.md",
+        },
+    )
+    assert cli_module.cmd_new_component(args) == 0
+
+
 def test_cli_new_component_reports_unknown_kind_error(monkeypatch):
     import sensoryforge.cli as cli_module
     from argparse import Namespace
 
-    args = Namespace(kind="not-a-kind", name="X")
+    args = Namespace(kind="not-a-kind", name="X", dest=None, in_repo=False)
 
-    def _raise(kind, name, repo_root):
+    def _raise(kind, name, dest):
         raise ValueError(f"Unknown component kind {kind!r}")
 
-    monkeypatch.setattr("sensoryforge.scaffold.generate_component", _raise)
+    monkeypatch.setattr("sensoryforge.scaffold.generate_plugin_package", _raise)
+    assert cli_module.cmd_new_component(args) == 1
+
+
+def test_cli_new_component_in_repo_refuses_outside_checkout(tmp_path, monkeypatch):
+    import sensoryforge.cli as cli_module
+    from argparse import Namespace
+
+    args = Namespace(kind="filter", name="X", dest=None, in_repo=True)
+
+    def _raise():
+        raise ValueError("no SensoryForge git checkout found")
+
+    monkeypatch.setattr("sensoryforge.scaffold.find_repo_root", _raise)
     assert cli_module.cmd_new_component(args) == 1

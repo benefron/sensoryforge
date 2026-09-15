@@ -31,7 +31,6 @@ from sensoryforge.registry import (
     SOLVER_REGISTRY,
     GRID_REGISTRY,
 )
-from sensoryforge.stimuli.base import ParamSpec
 from sensoryforge.stimuli.builder import (
     StaticStimulus,
     MovingStimulus,
@@ -39,6 +38,7 @@ from sensoryforge.stimuli.builder import (
     TimelineStimulus,
     RepeatedPatternStimulus,
 )
+from sensoryforge.testing.contracts import check_component
 
 register_all()
 
@@ -49,12 +49,6 @@ _SKIP: Dict[str, str] = {
     "dsl": "DSL neuron needs equations/.compile() before behaving like a BaseNeuron; covered by test_model_dsl.py",
     "DSL (Custom)": "DSL neuron needs equations/.compile(); covered by test_model_dsl.py",
 }
-
-
-def _assert_param_spec(cls_or_obj: Any) -> None:
-    spec = cls_or_obj.get_param_spec()
-    assert isinstance(spec, list)
-    assert all(isinstance(p, ParamSpec) for p in spec)
 
 
 # ---------------------------------------------------------------------------
@@ -69,16 +63,7 @@ def test_neuron_contract(name):
         pytest.skip(_SKIP[name])
     cls = NEURON_REGISTRY.get_class(name)
     neuron = NEURON_REGISTRY.create(name)
-
-    _assert_param_spec(cls)
-
-    current = torch.randn(1, 5, 3)
-    v_trace, spikes = neuron(current)
-    assert v_trace.shape == (1, 6, 3)
-    assert spikes.shape == (1, 6, 3)
-
-    reconstructed = cls.from_config(neuron.to_dict())
-    assert isinstance(reconstructed, cls)
+    check_component("neuron", cls, instance=neuron)
 
 
 # ---------------------------------------------------------------------------
@@ -92,15 +77,7 @@ def test_filter_contract(name):
         pytest.skip(_SKIP[name])
     cls = FILTER_REGISTRY.get_class(name)
     filt = FILTER_REGISTRY.create(name)
-
-    _assert_param_spec(cls)
-
-    x = torch.randn(1, 5, 3)
-    out = filt(x)
-    assert out.shape == x.shape
-
-    reconstructed = cls.from_config(filt.to_dict())
-    assert isinstance(reconstructed, cls)
+    check_component("filter", cls, instance=filt)
 
 
 # ---------------------------------------------------------------------------
@@ -114,16 +91,7 @@ def test_grid_contract(name):
         pytest.skip(_SKIP[name])
     cls = GRID_REGISTRY.get_class(name)
     grid = GRID_REGISTRY.create(name, grid_size=4, spacing=0.5)
-
-    _assert_param_spec(cls)
-
-    coords = grid.get_all_coordinates()
-    assert coords.ndim == 2
-    assert coords.shape[1] == 2
-
-    reconstructed = cls.from_config(grid.to_dict())
-    assert isinstance(reconstructed, cls)
-    assert reconstructed.get_all_coordinates().shape[1] == 2
+    check_component("grid", cls, instance=grid)
 
 
 # ---------------------------------------------------------------------------
@@ -140,18 +108,7 @@ def test_solver_contract(name):
         solver = SOLVER_REGISTRY.create(name)
     except ImportError as exc:
         pytest.skip(f"{name} backend not installed: {exc}")
-
-    _assert_param_spec(cls)
-
-    def decay(state, t):
-        return -0.1 * state
-
-    state = torch.randn(1, 3)
-    new_state = solver.step(decay, state, t=0.0, dt=solver.dt)
-    assert new_state.shape == state.shape
-
-    reconstructed = cls.from_config(solver.to_dict())
-    assert isinstance(reconstructed, cls)
+    check_component("solver", cls, instance=solver)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +117,8 @@ def test_solver_contract(name):
 # to_dict() deliberately excludes receptor_coords/neuron_centers (too large
 # to serialise, see BaseInnervation.to_dict docstring), so the round-trip
 # merges the same tensors back in rather than expecting to_dict() alone to
-# be sufficient -- documented asymmetry, not a bug.
+# be sufficient -- documented asymmetry, not a bug (see
+# sensoryforge.testing.contracts._check_innervation).
 # ---------------------------------------------------------------------------
 
 
@@ -177,26 +135,7 @@ def test_innervation_contract(name):
         neuron_centers=neuron_centers,
         device="cpu",
     )
-
-    _assert_param_spec(cls)
-
-    weights = innervation.compute_weights()
-    assert weights.shape == (4, 20)
-
-    # to_dict() deliberately drops receptor_coords/neuron_centers (too large
-    # to serialise) and adds derived, non-constructor fields (method,
-    # num_neurons, num_receptors) -- strip those, merge the tensors back in.
-    serialised = innervation.to_dict()
-    for derived_key in ("method", "num_neurons", "num_receptors"):
-        serialised.pop(derived_key, None)
-    reconstructed = cls.from_config(
-        {
-            **serialised,
-            "receptor_coords": receptor_coords,
-            "neuron_centers": neuron_centers,
-        }
-    )
-    assert isinstance(reconstructed, cls)
+    check_component("innervation", cls, instance=innervation)
 
 
 # ---------------------------------------------------------------------------
@@ -247,15 +186,4 @@ def test_stimulus_contract(name):
     else:
         stim = STIMULUS_REGISTRY.create(name)
 
-    _assert_param_spec(cls)
-
-    xx, yy = torch.meshgrid(
-        torch.linspace(-1, 1, 8), torch.linspace(-1, 1, 8), indexing="ij"
-    )
-    out = stim(xx, yy)
-    assert out.shape == xx.shape
-
-    reconstructed = cls.from_config(stim.to_dict())
-    assert isinstance(reconstructed, cls)
-    out2 = reconstructed(xx, yy)
-    assert out2.shape == xx.shape
+    check_component("stimulus", cls, instance=stim)
