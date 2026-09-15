@@ -269,7 +269,7 @@ Qt test suite is order-dependent: tests/unit/test_stimulus_tab_gui.py:86-89 puts
 test_gui_cli_parity.py:70 passes a file path to SensoryForgeConfig.from_yaml, which takes YAML text (schema.py:426-455); simulation_engine.py:16 docstring shows the same wrong call; five integration tests still assert dt=0.5 step counts from before D-005; test_invalid_innervation_method_raises_error no longer raises
 → commit 7a188b6
 
-## F-018 · OPEN · finding · - · 2026-09-14
+## F-018 · CLOSED · finding · - · 2026-09-14
 cli list-components is a hardcoded print block (cli.py:438-478) already out of sync with the registries (lists center_surround, omits fa/sa/composite/timeline/repeated_pattern); cli validate forces the legacy pipeline for canonical configs (cli.py:406)
 → commit 7a188b6
 
