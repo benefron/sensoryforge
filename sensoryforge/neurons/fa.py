@@ -2,8 +2,10 @@ import math
 import torch
 import torch.nn as nn
 
+from sensoryforge.neurons.base import BaseNeuron
 
-class FANeuronTorch(nn.Module):
+
+class FANeuronTorch(BaseNeuron):
     r"""Fast-adapting tactile neuron with explicit amplifier/threshold stages.
 
     For each feature/time step ``t`` the model evaluates:

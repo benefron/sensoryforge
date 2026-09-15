@@ -15,10 +15,10 @@ Example:
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Dict, List
 
 import torch
-from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.stimuli.base import ParamSpec, params_from_spec
 
 
 def gaussian_stimulus(
@@ -226,6 +226,15 @@ class GaussianStimulus(torch.nn.Module):
             sigma=float(self.sigma),
             device=xx.device,
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise parameters to a dict (G4), built from ``get_param_spec()``."""
+        return params_from_spec(self, self.get_param_spec())
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "GaussianStimulus":
+        """Construct from a configuration dictionary (G4)."""
+        return cls(**config)
 
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:

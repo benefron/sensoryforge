@@ -181,6 +181,21 @@ class BaseInnervation(ABC):
             "device": str(self.device),
         }
 
+    @classmethod
+    def get_param_spec(cls) -> list:
+        """Return parameter specifications for UI auto-generation (G1).
+
+        Override in subclasses to expose innervation-method-specific
+        parameters (``receptor_coords``/``neuron_centers`` are excluded --
+        they are runtime tensors, not user-configurable parameters).
+
+        Returns:
+            Ordered list of
+            :class:`~sensoryforge.stimuli.base.ParamSpec` instances. Empty by
+            default.
+        """
+        return []
+
 
 class GaussianInnervation(BaseInnervation):
     """Gaussian-weighted random innervation (existing method).

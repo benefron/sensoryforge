@@ -2,8 +2,10 @@ import math
 import torch
 import torch.nn as nn
 
+from sensoryforge.neurons.base import BaseNeuron
 
-class SANeuronTorch(nn.Module):
+
+class SANeuronTorch(BaseNeuron):
     """
     Simplified Silicon (SA) neuron, faithful to paper eq.8 in normalized form.
 

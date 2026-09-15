@@ -2,6 +2,8 @@ import math
 import torch
 import torch.nn as nn
 
+from sensoryforge.neurons.base import BaseNeuron
+
 #: Named (a, b, c, d) parameter sets from Izhikevich (2003), "Simple Model of
 #: Spiking Neurons", IEEE Trans. Neural Networks 14(6):1569-1572, Fig. 2. Pass
 #: ``preset=...`` to :class:`IzhikevichNeuronTorch` instead of spelling out
@@ -15,7 +17,7 @@ IZHIKEVICH_PRESETS: dict = {
 }
 
 
-class IzhikevichNeuronTorch(nn.Module):
+class IzhikevichNeuronTorch(BaseNeuron):
     r"""Project-compatible Izhikevich neuron with optional parameter noise.
 
     Continuous dynamics per feature ``f`` and time ``t``:

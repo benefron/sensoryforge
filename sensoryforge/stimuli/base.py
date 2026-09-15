@@ -19,7 +19,7 @@ import torch.nn as nn
 
 
 class ParamSpec:
-    """Descriptor for a single stimulus parameter, used for UI auto-generation.
+    """Descriptor for a single component parameter, used for UI auto-generation.
 
     Attributes:
         name: Python attribute name.
@@ -31,6 +31,15 @@ class ParamSpec:
         step: Suggested spin-box step (None → auto).
         unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string = dimensionless.
         tooltip: Optional help text shown as a tooltip in the UI.
+        choices: Optional list of allowed values, for a dropdown/enum widget
+            instead of a numeric spinbox. ``None`` = not an enum.
+        help: Optional longer-form help text (vs. ``tooltip``'s short hover
+            text), e.g. for an expandable docs panel.
+        group: Optional UI grouping label (e.g. ``"Spatial"``, ``"Temporal"``)
+            for organising a component's parameters into sections.
+        advanced: Whether this parameter should be hidden in Basic mode and
+            only shown when Expert mode is enabled (mirrors the GUI tabs'
+            ``chk_expert_mode`` pattern, see CLAUDE.md).
     """
 
     __slots__ = (
@@ -43,6 +52,10 @@ class ParamSpec:
         "step",
         "unit",
         "tooltip",
+        "choices",
+        "help",
+        "group",
+        "advanced",
     )
 
     def __init__(
@@ -56,6 +69,11 @@ class ParamSpec:
         step: Optional[float] = None,
         unit: str = "",
         tooltip: str = "",
+        *,
+        choices: Optional[List[Any]] = None,
+        help: str = "",
+        group: str = "",
+        advanced: bool = False,
     ) -> None:
         self.name = name
         self.label = label or name.replace("_", " ").title()
@@ -66,6 +84,10 @@ class ParamSpec:
         self.step = step
         self.unit = unit
         self.tooltip = tooltip
+        self.choices = choices
+        self.help = help
+        self.group = group
+        self.advanced = advanced
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a plain dictionary."""
@@ -76,6 +98,37 @@ class ParamSpec:
             f"ParamSpec(name={self.name!r}, dtype={self.dtype!r}, "
             f"default={self.default!r}, unit={self.unit!r})"
         )
+
+
+def params_from_spec(obj: Any, spec: List[ParamSpec]) -> Dict[str, Any]:
+    """Read ``obj``'s attributes named in ``spec`` into a plain dict (G4).
+
+    Used by modules that store parameters as ``nn.Module`` buffers/plain
+    attributes (e.g. :class:`~sensoryforge.stimuli.gaussian.GaussianStimulus`)
+    to implement ``to_dict()`` from their existing ``get_param_spec()``
+    without repeating every parameter name a second time.
+
+    Args:
+        obj: Instance to read attributes from.
+        spec: Parameter specs naming the attributes to read.
+
+    Returns:
+        Dict of ``{param.name: python_value}``, converted per ``param.dtype``
+        (tensors/buffers are unwrapped with ``.item()``).
+    """
+    result: Dict[str, Any] = {}
+    for param in spec:
+        value = getattr(obj, param.name)
+        if isinstance(value, torch.Tensor):
+            value = value.item()
+        if param.dtype == "int":
+            value = int(value)
+        elif param.dtype == "bool":
+            value = bool(value)
+        elif param.dtype == "float":
+            value = float(value)
+        result[param.name] = value
+    return result
 
 
 class BaseStimulus(nn.Module, ABC):

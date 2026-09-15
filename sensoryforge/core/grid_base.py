@@ -8,8 +8,10 @@ interfaces and enable registry-based instantiation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 import torch
+
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class BaseGrid(ABC):
@@ -78,3 +80,15 @@ class BaseGrid(ABC):
             "ylim": list(self.ylim),
             "device": str(self.device),
         }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (G1).
+
+        Override in subclasses to expose grid parameters as
+        :class:`~sensoryforge.stimuli.base.ParamSpec` descriptors.
+
+        Returns:
+            Ordered list of :class:`ParamSpec` instances. Empty by default.
+        """
+        return []

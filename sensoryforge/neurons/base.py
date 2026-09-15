@@ -9,10 +9,12 @@ YAML-driven construction, and plugin discovery (resolves ReviewFinding#H1).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
+
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class BaseNeuron(nn.Module, ABC):
@@ -109,3 +111,15 @@ class BaseNeuron(nn.Module, ABC):
             Dictionary suitable for YAML/JSON serialisation.
         """
         return {"dt": self.dt}
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (G1).
+
+        Override in subclasses to expose neuron parameters as
+        :class:`~sensoryforge.stimuli.base.ParamSpec` descriptors.
+
+        Returns:
+            Ordered list of :class:`ParamSpec` instances. Empty by default.
+        """
+        return []

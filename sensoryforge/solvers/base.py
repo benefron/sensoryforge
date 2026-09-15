@@ -6,8 +6,10 @@ and other differential equations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Any, Tuple
+from typing import Callable, Dict, Any, List, Tuple
 import torch
+
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class BaseSolver(ABC):
@@ -140,3 +142,15 @@ class BaseSolver(ABC):
             "type": self.__class__.__name__.lower().replace("solver", ""),
             "dt": self.dt,
         }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (G1).
+
+        Override in subclasses to expose solver parameters as
+        :class:`~sensoryforge.stimuli.base.ParamSpec` descriptors.
+
+        Returns:
+            Ordered list of :class:`ParamSpec` instances. Empty by default.
+        """
+        return []

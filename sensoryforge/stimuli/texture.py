@@ -15,11 +15,11 @@ Example:
 from __future__ import annotations
 
 import math
-from typing import List
+from typing import Any, Dict, List
 
 import torch
 import torch.nn.functional as F
-from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.stimuli.base import ParamSpec, params_from_spec
 
 
 def gabor_texture(
@@ -329,6 +329,15 @@ class GaborTexture(torch.nn.Module):
             device=xx.device,
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise parameters to a dict (G4), built from ``get_param_spec()``."""
+        return params_from_spec(self, self.get_param_spec())
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "GaborTexture":
+        """Construct from a configuration dictionary (G4)."""
+        return cls(**config)
+
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:
         """Return parameter specifications for UI auto-generation."""
@@ -489,6 +498,15 @@ class EdgeGrating(torch.nn.Module):
             normalize=self.normalize,
             device=xx.device,
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise parameters to a dict (G4), built from ``get_param_spec()``."""
+        return params_from_spec(self, self.get_param_spec())
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "EdgeGrating":
+        """Construct from a configuration dictionary (G4)."""
+        return cls(**config)
 
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:

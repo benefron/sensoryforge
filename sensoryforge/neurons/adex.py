@@ -2,8 +2,10 @@ import math
 import torch
 import torch.nn as nn
 
+from sensoryforge.neurons.base import BaseNeuron
 
-class AdExNeuronTorch(nn.Module):
+
+class AdExNeuronTorch(BaseNeuron):
     r"""Adaptive exponential integrate-and-fire neuron (batched PyTorch).
 
     Per feature and time step the model evaluates:

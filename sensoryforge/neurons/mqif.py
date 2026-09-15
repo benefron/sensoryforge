@@ -2,8 +2,10 @@ import math
 import torch
 import torch.nn as nn
 
+from sensoryforge.neurons.base import BaseNeuron
 
-class MQIFNeuronTorch(nn.Module):
+
+class MQIFNeuronTorch(BaseNeuron):
     r"""Modified quadratic integrate-and-fire neuron (batched PyTorch).
 
     Continuous dynamics per feature ``f`` and time ``t``:
