@@ -304,7 +304,7 @@ class SimulationEngine:
             # the regular-spiking default). See resolve_neuron_params.
             neuron_model_name = pop_cfg.neuron_model or "izhikevich"
             try:
-                neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name.lower())
+                neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
                 neuron_params = resolve_neuron_params(
                     neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
                 )

@@ -192,6 +192,9 @@ class TestRegistryErrorHandling:
         assert len(filters) > 0
         assert len(innervations) > 0
 
-        assert "izhikevich" in neurons
-        assert "sa" in filters
-        assert "gaussian" in innervations
+        # F-046: list_registered() shows one display name per component
+        # (the first-registered spelling), and lookups are case-insensitive,
+        # so check case-foldedly rather than requiring a specific casing.
+        assert "izhikevich" in [n.lower() for n in neurons]
+        assert "sa" in [n.lower() for n in filters]
+        assert "gaussian" in [n.lower() for n in innervations]

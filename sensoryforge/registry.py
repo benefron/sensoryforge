@@ -19,7 +19,6 @@ Example:
 from __future__ import annotations
 
 from typing import Any, Dict, List, Type, Optional, Callable
-import warnings
 
 
 class ComponentRegistry:
@@ -39,7 +38,11 @@ class ComponentRegistry:
         Args:
             registry_name: Name for error messages (e.g., "NEURON_REGISTRY").
         """
-        self._registry: Dict[str, tuple[Type, Optional[Callable]]] = {}
+        # Keyed by casefolded name -> (display_name, cls, factory_func). The
+        # display_name is the first spelling a component was registered
+        # under (F-046: lookups are case-insensitive, but list_registered()
+        # still shows one canonical spelling per component).
+        self._registry: Dict[str, tuple[str, Type, Optional[Callable]]] = {}
         self._name = registry_name
 
     def register(
@@ -52,6 +55,9 @@ class ComponentRegistry:
 
         Args:
             name: String identifier for this component (e.g., "izhikevich").
+                Lookups (``get_class``, ``is_registered``, ``create``) are
+                case-insensitive (F-046): ``"Izhikevich"`` and
+                ``"izhikevich"`` refer to the same registration.
             cls: Component class (must have from_config() classmethod).
             factory_func: Optional factory function. If provided, this is called
                 instead of cls(**kwargs). Useful for components that need
@@ -59,23 +65,34 @@ class ComponentRegistry:
 
         Note:
             Registration is idempotent - if the same class is already registered
-            with the same name, this is a no-op (even if factory_func differs).
-            Only warns if overwriting with a different class.
+            under a name that case-folds the same, this is a no-op that keeps
+            the original display spelling (even if factory_func differs).
+            Raises ``ValueError`` if a *different* class is registered under a
+            name that case-folds to an existing registration.
+
+        Raises:
+            ValueError: If ``name`` case-folds to an existing registration
+                for a different class.
         """
-        if name in self._registry:
-            existing_cls, existing_factory = self._registry[name]
-            # If same class, skip silently (idempotent)
+        key = name.casefold()
+        if key in self._registry:
+            existing_name, existing_cls, existing_factory = self._registry[key]
+            # If same class, skip silently (idempotent) -- keep the
+            # original display spelling.
             # Note: We don't compare factory_func because it may be recreated
             # on each call to register_all(), but the class is what matters
             if existing_cls is cls:
                 return
-            # Otherwise warn about overwriting with different class
-            warnings.warn(
-                f"{self._name}: Component '{name}' already registered with "
-                f"{existing_cls.__name__}, overwriting with {cls.__name__}",
-                UserWarning,
+            # Otherwise this is a genuine name collision between two
+            # different classes -- fail loudly rather than silently
+            # shadowing one plugin with another.
+            raise ValueError(
+                f"{self._name}: Component '{name}' already registered as "
+                f"'{existing_name}' with {existing_cls.__name__}; cannot "
+                f"register {cls.__name__} under a name that case-folds the "
+                f"same"
             )
-        self._registry[name] = (cls, factory_func)
+        self._registry[key] = (name, cls, factory_func)
 
     def create(self, name: str, **kwargs) -> Any:
         """Create a component instance by name.
@@ -110,14 +127,15 @@ class ComponentRegistry:
             ...     device="cpu"
             ... )
         """
-        if name not in self._registry:
-            available = ", ".join(sorted(self._registry.keys()))
+        key = name.casefold()
+        if key not in self._registry:
+            available = ", ".join(sorted(n for n, _, _ in self._registry.values()))
             raise KeyError(
                 f"{self._name}: Component '{name}' not registered. "
                 f"Available: {available}"
             )
 
-        cls, factory_func = self._registry[name]
+        _, cls, factory_func = self._registry[key]
 
         if factory_func is not None:
             return factory_func(**kwargs)
@@ -135,27 +153,32 @@ class ComponentRegistry:
     def list_registered(self) -> List[str]:
         """List all registered component names.
 
+        One entry per case-folded key, using the first-registered spelling
+        as the display name (F-046) -- e.g. registering both "Izhikevich"
+        and "izhikevich" for the same class produces a single "Izhikevich"
+        entry, not two.
+
         Returns:
-            Sorted list of registered names.
+            Sorted list of display names, one per component.
         """
-        return sorted(self._registry.keys())
+        return sorted(name for name, _, _ in self._registry.values())
 
     def is_registered(self, name: str) -> bool:
         """Check if a component name is registered.
 
         Args:
-            name: Component name to check.
+            name: Component name to check (case-insensitive).
 
         Returns:
             True if registered, False otherwise.
         """
-        return name in self._registry
+        return name.casefold() in self._registry
 
     def get_class(self, name: str) -> Type:
         """Get the registered class for a component name.
 
         Args:
-            name: Registered component name.
+            name: Registered component name (case-insensitive).
 
         Returns:
             Component class.
@@ -163,13 +186,14 @@ class ComponentRegistry:
         Raises:
             KeyError: If name is not registered.
         """
-        if name not in self._registry:
-            available = ", ".join(sorted(self._registry.keys()))
+        key = name.casefold()
+        if key not in self._registry:
+            available = ", ".join(sorted(n for n, _, _ in self._registry.values()))
             raise KeyError(
                 f"{self._name}: Component '{name}' not registered. "
                 f"Available: {available}"
             )
-        cls, _ = self._registry[name]
+        _, cls, _ = self._registry[key]
         return cls
 
     def get_param_spec(self, name: str) -> list:

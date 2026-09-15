@@ -77,28 +77,25 @@ def register_all() -> None:
     startup to ensure all components are available via registry lookup.
     """
     # Register neurons
-    NEURON_REGISTRY.register("izhikevich", IzhikevichNeuronTorch)
-    NEURON_REGISTRY.register("Izhikevich", IzhikevichNeuronTorch)  # Alias
-    NEURON_REGISTRY.register("adex", AdExNeuronTorch)
-    NEURON_REGISTRY.register("AdEx", AdExNeuronTorch)  # Alias
-    NEURON_REGISTRY.register("mqif", MQIFNeuronTorch)
-    NEURON_REGISTRY.register("MQIF", MQIFNeuronTorch)  # Alias
-    NEURON_REGISTRY.register("fa", FANeuronTorch)
-    NEURON_REGISTRY.register("FA", FANeuronTorch)  # Alias
-    NEURON_REGISTRY.register("sa", SANeuronTorch)
-    NEURON_REGISTRY.register("SA", SANeuronTorch)  # Alias
+    # F-046: the registry itself is case-insensitive (ComponentRegistry
+    # case-folds lookups), so pure case variants of the same name (e.g.
+    # "izhikevich"/"Izhikevich") are no longer registered separately here --
+    # only genuinely distinct names/aliases are.
+    NEURON_REGISTRY.register("Izhikevich", IzhikevichNeuronTorch)
+    NEURON_REGISTRY.register("AdEx", AdExNeuronTorch)
+    NEURON_REGISTRY.register("MQIF", MQIFNeuronTorch)
+    NEURON_REGISTRY.register("FA", FANeuronTorch)
+    NEURON_REGISTRY.register("SA", SANeuronTorch)
     NEURON_REGISTRY.register("dsl", NeuronModel)
-    NEURON_REGISTRY.register("DSL (Custom)", NeuronModel)  # GUI alias
+    NEURON_REGISTRY.register("DSL (Custom)", NeuronModel)  # GUI alias (distinct name)
 
     # Register filters
     # Note: SAFilterTorch and RAFilterTorch don't inherit BaseFilter yet
     # They will be refactored in a future update
-    FILTER_REGISTRY.register("sa", SAFilterTorch)
-    FILTER_REGISTRY.register("SA", SAFilterTorch)  # Alias
-    FILTER_REGISTRY.register("safilter", SAFilterTorch)  # Alias
-    FILTER_REGISTRY.register("ra", RAFilterTorch)
-    FILTER_REGISTRY.register("RA", RAFilterTorch)  # Alias
-    FILTER_REGISTRY.register("rafilter", RAFilterTorch)  # Alias
+    FILTER_REGISTRY.register("SA", SAFilterTorch)
+    FILTER_REGISTRY.register("safilter", SAFilterTorch)  # Alias (distinct name)
+    FILTER_REGISTRY.register("RA", RAFilterTorch)
+    FILTER_REGISTRY.register("rafilter", RAFilterTorch)  # Alias (distinct name)
     FILTER_REGISTRY.register("none", type(None))  # No filter
     FILTER_REGISTRY.register("identity", type(None))  # No filter alias
 
