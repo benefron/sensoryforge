@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
 
+from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
+
 
 @dataclass
 class GridConfig:
@@ -309,6 +311,34 @@ class StimulusConfig:
         return cls(**kwargs)
 
 
+def validate_dt_ms(dt_ms: float, integrate_dt_ms: float) -> None:
+    """Reject a record step that isn't a whole multiple of the integration step.
+
+    Shared by :meth:`SimulationConfig.__post_init__` and
+    :meth:`~sensoryforge.core.simulation_engine.SimulationEngine._run_pop_from_drive`
+    (for direct callers that bypass ``SimulationConfig``) so both raise
+    identically (F-042).
+
+    Args:
+        dt_ms: Record step in ms.
+        integrate_dt_ms: Neuron integration step in ms.
+
+    Raises:
+        ValueError: If ``dt_ms < integrate_dt_ms``, or ``dt_ms`` is not a
+            whole multiple of ``integrate_dt_ms`` within ``1e-6``.
+    """
+    if dt_ms < integrate_dt_ms:
+        raise ValueError(
+            f"dt_ms ({dt_ms}) must be >= integrate_dt_ms ({integrate_dt_ms})"
+        )
+    ratio = dt_ms / integrate_dt_ms
+    if abs(ratio - round(ratio)) > 1e-6:
+        raise ValueError(
+            f"dt_ms ({dt_ms}) must be a whole multiple of integrate_dt_ms "
+            f"({integrate_dt_ms}); got dt_ms / integrate_dt_ms = {ratio}"
+        )
+
+
 @dataclass
 class SimulationConfig:
     """Configuration for simulation execution.
@@ -331,9 +361,21 @@ class SimulationConfig:
 
     device: str = "cpu"
     dt_ms: float = 1.0  # ms
-    integrate_dt_ms: float = 0.05  # ms
+    integrate_dt_ms: float = DEFAULT_INTEGRATE_DT_MS  # ms
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        """Validate dt_ms/integrate_dt_ms (F-042).
+
+        A record step that is not a whole multiple of the integration step
+        silently rescales neuron time in
+        :meth:`SimulationEngine._run_pop_from_drive` (F-008's
+        ``n = round(dt_ms / integrate_dt_ms)`` sub-step count): e.g. 0.12 ms
+        record bins would integrate at 0.10 ms instead of the requested
+        0.12 ms. Catch it at config-construction time instead.
+        """
+        validate_dt_ms(self.dt_ms, self.integrate_dt_ms)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""

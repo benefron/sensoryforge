@@ -44,6 +44,7 @@ from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY  # noqa: E402
 from sensoryforge.config.defaults import (  # noqa: E402
     resolve_filter_params,
     resolve_neuron_params,
+    DEFAULT_INTEGRATE_DT_MS as _DEFAULT_INTEGRATE_DT_MS,
 )
 
 # Ensure components are registered
@@ -60,8 +61,11 @@ DEFAULT_DT_MS = 0.1
 # integrate_dt_ms and pressure-simulation's hard-coded native Izhikevich
 # step. The neuron is always constructed with this dt, not the record
 # step dt_ms; SimulationEngine._run_pop_from_drive sub-steps the drive
-# to match.
-DEFAULT_INTEGRATE_DT_MS = 0.05
+# to match. Sourced from sensoryforge.config.defaults (F-042) so this,
+# SimulationConfig's field default, and stimulus_tab.py's time-step
+# spinbox single-step never drift apart; re-exported here under its
+# historical name since other code imports it from this module.
+DEFAULT_INTEGRATE_DT_MS = _DEFAULT_INTEGRATE_DT_MS
 # Resolved via importlib.resources (F-014) so this works from an installed
 # wheel, not just when the package sits on disk at a fixed __file__-relative
 # path.

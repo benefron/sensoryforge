@@ -20,6 +20,7 @@ from sensoryforge.stimuli.stimulus import (
 from sensoryforge.core.grid import GridManager
 from sensoryforge.gui.widgets.collapsible import CollapsibleGroupBox
 from sensoryforge.stimuli.builder import RepeatedPatternStimulus
+from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
 
 STIMULUS_SCHEMA_VERSION = "1.0.0"
 MIN_TIME_STEP_MS = 0.1
@@ -1031,7 +1032,10 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.spin_dt = QtWidgets.QDoubleSpinBox()
         self.spin_dt.setDecimals(2)
         self.spin_dt.setRange(MIN_TIME_STEP_MS, 100.0)
-        self.spin_dt.setSingleStep(0.05)
+        # F-042: single step is the neuron integration step, so the arrow
+        # buttons can only land on record steps that are a whole multiple
+        # of it (SimulationConfig/SimulationEngine reject anything else).
+        self.spin_dt.setSingleStep(DEFAULT_INTEGRATE_DT_MS)
         self.spin_dt.setValue(0.1)  # 0.1 ms: safe upper bound for Euler stability
         self.spin_dt.setSuffix(" ms")
 

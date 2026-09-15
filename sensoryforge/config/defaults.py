@@ -38,6 +38,14 @@ NEURON_PRESET_BY_TYPE: Dict[str, str] = {"SA": "RS", "RA": "FS", "SA2": "RS"}
 #: Non-preset Izhikevich defaults (unaffected by neuron type).
 _IZHIKEVICH_BASE_DEFAULTS: Dict[str, float] = {"threshold": 30.0, "noise_std": 0.0}
 
+#: Neuron integration step (ms, F-008): pressure-simulation's hard-coded
+#: native Izhikevich step, and SimulationConfig.integrate_dt_ms's default.
+#: Shared by SimulationConfig, SimulationEngine, and the GUI (both
+#: spiking_tab.py's neuron construction and stimulus_tab.py's time-step
+#: spinbox single-step, F-042) so a record step can only be set to a whole
+#: multiple of this value from the GUI.
+DEFAULT_INTEGRATE_DT_MS: float = 0.05
+
 
 def resolve_filter_params(
     method: str, overrides: Optional[Dict[str, Any]] = None

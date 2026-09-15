@@ -24,7 +24,7 @@ from typing import Dict, List, Any, Optional, Tuple
 import torch
 import numpy as np
 
-from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.config.schema import SensoryForgeConfig, validate_dt_ms
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.register_components import register_all
 from sensoryforge.registry import (
@@ -467,6 +467,11 @@ class SimulationEngine:
             ``"filtered"``, and optionally ``"voltages"`` (at bin ends).
         """
         import torch as _torch  # local import to keep signature clean
+
+        # F-042: catch a record step that isn't a whole multiple of the
+        # integration step here too, for callers that build dt_ms/
+        # integrate_dt_ms directly instead of through SimulationConfig.
+        validate_dt_ms(dt_ms, integrate_dt_ms)
 
         # Apply filter (resets state on each call via BaseFilter contract)
         if filter_module is not None:
