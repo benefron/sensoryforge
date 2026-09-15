@@ -757,8 +757,27 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         )
 
 
+def _excepthook(exc_type: type, exc_value: BaseException, exc_tb: object) -> None:
+    """Show unhandled exceptions in a QMessageBox instead of aborting (F-044).
+
+    PyQt5 aborts the process by default when an exception escapes a Qt slot
+    (no Python traceback is printed to a running GUI session, it just dies).
+    Installed as ``sys.excepthook`` so any exception a specific handler
+    didn't already catch is at least visible and recoverable.
+    """
+    import traceback
+
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+    QMessageBox.critical(
+        None,
+        "Unexpected error",
+        f"{exc_type.__name__}: {exc_value}",
+    )
+
+
 def main() -> None:
     """Launch the SensoryForge GUI application."""
+    sys.excepthook = _excepthook
     app = QtWidgets.QApplication(sys.argv)
     window = SensoryForgeWindow()
     window.show()

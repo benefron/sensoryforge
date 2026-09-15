@@ -1267,6 +1267,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self.dbl_orientation.valueChanged.connect(self._handle_preview_request)
         self.dbl_amplitude.valueChanged.connect(self._handle_preview_request)
         self.spin_dt.valueChanged.connect(self._handle_preview_request)
+        self.spin_dt.editingFinished.connect(self._on_dt_editing_finished)
 
         self.spin_speed.valueChanged.connect(
             lambda _: self._update_motion_dependencies(from_speed=True)
@@ -1595,6 +1596,23 @@ class StimulusDesignerTab(QtWidgets.QWidget):
     def _on_position_changed(self, _: float) -> None:
         self._update_motion_dependencies(from_speed=False)
         self._request_preview()
+
+    def _on_dt_editing_finished(self) -> None:
+        """Snap ``spin_dt`` to the nearest multiple of the integration step (F-044).
+
+        A record step that is not a whole multiple of ``DEFAULT_INTEGRATE_DT_MS``
+        is rejected by ``validate_dt_ms`` (raised from ``SimulationConfig`` /
+        ``SimulationEngine``); typing e.g. 0.12 directly into the spinbox bypassed
+        the arrow-button single-step snapping and produced a ``ValueError`` deep
+        inside a simulation run. Snap on ``editingFinished`` so typed values are
+        always simulation-valid, matching what the arrow buttons already produce.
+        """
+        raw = self.spin_dt.value()
+        snapped = round(
+            round(raw / DEFAULT_INTEGRATE_DT_MS) * DEFAULT_INTEGRATE_DT_MS, 2
+        )
+        if snapped != raw:
+            self.spin_dt.setValue(snapped)  # clamped to [MIN_TIME_STEP_MS, 100.0] by Qt
 
     def _handle_preview_request(self, *_: float) -> None:
         if self._active_stack_index is not None:

@@ -2412,7 +2412,12 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                     population, cfg, frames, dt_ms, device
                 )
                 results[cfg.name] = result
-            except RuntimeError as exc:
+            except (RuntimeError, ValueError) as exc:
+                # ValueError alongside RuntimeError (F-044): validate_dt_ms
+                # raises ValueError for a record step that isn't a whole
+                # multiple of the integration step, and it must be reported
+                # through this same errors list instead of escaping the Qt
+                # slot (PyQt5 aborts on an unhandled exception in a slot).
                 errors.append(f"{cfg.name}: {exc}")
         torch.set_grad_enabled(True)
         if results:
