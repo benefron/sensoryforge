@@ -524,6 +524,40 @@ def cmd_list_components(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_new_component(args: argparse.Namespace) -> int:
+    """Scaffold a new component class, unit test, and docs stub (G5).
+
+    Args:
+        args: Command-line arguments with kind and name.
+
+    Returns:
+        Exit code (0 for success, 1 for error).
+    """
+    from sensoryforge.scaffold import generate_component, available_kinds
+
+    try:
+        paths = generate_component(
+            args.kind, args.name, repo_root=Path(__file__).resolve().parents[1]
+        )
+    except ValueError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        print(f"Available kinds: {', '.join(available_kinds())}", file=sys.stderr)
+        return 1
+    except FileExistsError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        return 1
+
+    print(f"✓ Scaffolded new {args.kind} component:")
+    print(f"  Module: {paths['module']}")
+    print(f"  Test:   {paths['test']}")
+    print(f"  Docs:   {paths['docs']}")
+    print(
+        "\nNext step: register it in sensoryforge/register_components.py "
+        "(see the printed docs stub for the exact lines to add)."
+    )
+    return 0
+
+
 def cmd_visualize(args: argparse.Namespace) -> int:
     """Visualize pipeline structure from YAML config.
 
@@ -653,6 +687,18 @@ def create_parser() -> argparse.ArgumentParser:
         "--save", help="Save visualization to file (future: PNG export)"
     )
 
+    # New-component scaffold command (G5)
+    new_component_parser = subparsers.add_parser(
+        "new-component",
+        help="Scaffold a new neuron/filter/stimulus/solver/grid component",
+    )
+    new_component_parser.add_argument(
+        "kind", choices=["neuron", "filter", "stimulus", "solver", "grid"]
+    )
+    new_component_parser.add_argument(
+        "name", help="Component name, e.g. 'Bandpass' or 'my_cool_filter'"
+    )
+
     return parser
 
 
@@ -676,6 +722,7 @@ def main() -> int:
         "validate": cmd_validate,
         "list-components": cmd_list_components,
         "visualize": cmd_visualize,
+        "new-component": cmd_new_component,
     }
 
     handler = commands.get(args.command)
