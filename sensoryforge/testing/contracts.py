@@ -40,7 +40,11 @@ def _init_param_names(cls: type) -> List[str]:
     return names
 
 
-def _assert_to_dict_roundtrip_complete(cls: type, instance: Any) -> None:
+def _assert_to_dict_roundtrip_complete(
+    cls: type,
+    instance: Any,
+    extra_config: Optional[Dict[str, Any]] = None,
+) -> None:
     """Assert ``to_dict()``/``from_config()`` round-trip every constructor
     parameter (F-045).
 
@@ -52,6 +56,16 @@ def _assert_to_dict_roundtrip_complete(cls: type, instance: Any) -> None:
        appears as a key in ``instance.to_dict()``.
     2. ``cls.from_config(instance.to_dict()).to_dict() == instance.to_dict()``
        -- the round trip is a fixed point.
+
+    Args:
+        extra_config: Extra keys merged into ``instance.to_dict()`` before
+            calling ``from_config()`` in check 2 only -- for a constructor
+            parameter that is both required (no default) and listed in
+            ``_TO_DICT_EXCLUDE_PARAMS`` (e.g. innervation's
+            ``receptor_coords``/``neuron_centers`` tensors, which a bundle
+            stores separately rather than through this dict), ``from_config``
+            cannot proceed without it. These keys are never compared -- both
+            ``d1`` and ``d2`` come from ``to_dict()``, which omits them.
     """
     excluded = set(getattr(cls, "_TO_DICT_EXCLUDE_PARAMS", ()))
     d1 = instance.to_dict()
@@ -66,7 +80,7 @@ def _assert_to_dict_roundtrip_complete(cls: type, instance: Any) -> None:
             f"{missing} -- every __init__ parameter must round-trip through "
             f"to_dict()/from_config() (F-045)"
         )
-    reconstructed = cls.from_config(d1)
+    reconstructed = cls.from_config({**d1, **(extra_config or {})})
     d2 = reconstructed.to_dict()
     if d1 != d2:
         raise AssertionError(
@@ -130,6 +144,7 @@ def _check_filter(cls: type, instance: Any) -> None:
             f"{cls.__name__}.from_config(instance.to_dict()) did not return "
             f"a {cls.__name__} instance (got {type(reconstructed)!r})"
         )
+    _assert_to_dict_roundtrip_complete(cls, instance)
 
 
 def _check_grid(cls: type, instance: Any) -> None:
@@ -152,6 +167,7 @@ def _check_grid(cls: type, instance: Any) -> None:
             f"{cls.__name__}: round-tripped instance's get_all_coordinates() "
             "is not [N, 2]"
         )
+    _assert_to_dict_roundtrip_complete(cls, instance)
 
 
 def _check_solver(cls: type, instance: Any) -> None:
@@ -174,6 +190,7 @@ def _check_solver(cls: type, instance: Any) -> None:
             f"{cls.__name__}.from_config(instance.to_dict()) did not return "
             f"a {cls.__name__} instance (got {type(reconstructed)!r})"
         )
+    _assert_to_dict_roundtrip_complete(cls, instance)
 
 
 def _check_innervation(cls: type, instance: Any) -> None:
@@ -204,6 +221,14 @@ def _check_innervation(cls: type, instance: Any) -> None:
             f"{cls.__name__}.from_config(...) did not return a {cls.__name__} "
             f"instance (got {type(reconstructed)!r})"
         )
+    _assert_to_dict_roundtrip_complete(
+        cls,
+        instance,
+        extra_config={
+            "receptor_coords": instance.receptor_coords,
+            "neuron_centers": instance.neuron_centers,
+        },
+    )
 
 
 def _check_stimulus(cls: type, instance: Any) -> None:
@@ -230,6 +255,7 @@ def _check_stimulus(cls: type, instance: Any) -> None:
             f"{cls.__name__}: round-tripped instance's forward() expected "
             f"shape {tuple(xx.shape)}, got {tuple(out2.shape)}"
         )
+    _assert_to_dict_roundtrip_complete(cls, instance)
 
 
 _CHECKS: Dict[str, Callable[[type, Any], None]] = {

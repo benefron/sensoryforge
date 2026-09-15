@@ -203,6 +203,43 @@ class SAFilterTorch(BaseFilter):
         """
         return self.k1 * I_in
 
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "SAFilterTorch":
+        """Construct an SA filter from a configuration dictionary (F-049).
+
+        Args:
+            config: Dictionary of constructor parameters (typically the
+                output of :meth:`to_dict`). Missing keys fall back to the
+                ``__init__`` defaults.
+
+        Returns:
+            Initialised :class:`SAFilterTorch` instance.
+        """
+        return cls(
+            tau_r=config.get("tau_r", 5.0),
+            tau_d=config.get("tau_d", 30.0),
+            k1=config.get("k1", 0.05),
+            k2=config.get("k2", 3.0),
+            dt=config.get("dt", 0.1),
+            clip_to_positive=config.get("clip_to_positive", False),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise SA filter parameters to a dictionary (F-049).
+
+        Returns:
+            Dictionary with every constructor parameter (``tau_r``,
+            ``tau_d``, ``k1``, ``k2``, ``dt``, ``clip_to_positive``).
+        """
+        return {
+            "tau_r": self.tau_r,
+            "tau_d": self.tau_d,
+            "k1": self.k1,
+            "k2": self.k2,
+            "dt": self.dt,
+            "clip_to_positive": self.clip_to_positive,
+        }
+
     def forward_multi_step(
         self,
         I_in: torch.Tensor,
@@ -386,6 +423,37 @@ class RAFilterTorch(BaseFilter):
             )
 
         return outputs
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "RAFilterTorch":
+        """Construct an RA filter from a configuration dictionary (F-049).
+
+        Args:
+            config: Dictionary of constructor parameters (typically the
+                output of :meth:`to_dict`). Missing keys fall back to the
+                ``__init__`` defaults.
+
+        Returns:
+            Initialised :class:`RAFilterTorch` instance.
+        """
+        return cls(
+            tau_RA=config.get("tau_RA", 8.0),
+            k3=config.get("k3", 2.0),
+            dt=config.get("dt", 0.1),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise RA filter parameters to a dictionary (F-049).
+
+        Returns:
+            Dictionary with every constructor parameter (``tau_RA``, ``k3``,
+            ``dt``).
+        """
+        return {
+            "tau_RA": self.tau_RA,
+            "k3": self.k3,
+            "dt": self.dt,
+        }
 
     def forward_edge_response(
         self,

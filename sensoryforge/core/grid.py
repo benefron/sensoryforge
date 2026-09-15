@@ -126,6 +126,11 @@ class ReceptorGrid(BaseGrid):
         self.center = center
         self.arrangement = arrangement
         self.device = torch.device(device) if isinstance(device, str) else device
+        # Store the raw constructor argument (may be None) for round-trip
+        # fidelity (F-049) -- distinct from the local `density` variable
+        # below, which non-grid arrangements overwrite with a *derived*
+        # value for coordinate generation only.
+        self.density = density
 
         # For non-grid arrangements, we need density or defer to explicit sizing
         if arrangement in ["grid", "jittered_grid", "blue_noise"]:
@@ -317,6 +322,7 @@ class ReceptorGrid(BaseGrid):
                 "spacing": self.spacing,
                 "center": list(self.center),
                 "arrangement": self.arrangement,
+                "density": self.density,
             }
         )
         return result

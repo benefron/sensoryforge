@@ -181,15 +181,21 @@ class StaticStimulus(BaseStimulus):
             >>> stim = StaticStimulus.from_config(config)
         """
         return cls(
-            stim_type=config["type"],
+            stim_type=config.get("stim_type", config.get("type")),
             params=config.get("params", {}),
             device=config.get("device", "cpu"),
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Serialize to configuration dictionary."""
+        """Serialize to configuration dictionary.
+
+        ``stim_type`` is the constructor parameter name and ``type`` is kept
+        as an alias for backward-compatible YAML configs (both round-trip
+        through :meth:`from_config`, F-049).
+        """
         return {
             "type": self.stim_type,
+            "stim_type": self.stim_type,
             "params": self.params.copy(),
             "device": str(self.device),
         }

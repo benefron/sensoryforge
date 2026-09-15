@@ -562,6 +562,13 @@ class EdgeGrating(torch.nn.Module):
                 step=0.5,
                 unit="mA",
             ),
+            ParamSpec(
+                "normalize",
+                label="Normalize",
+                dtype="bool",
+                default=True,
+                tooltip="If True, normalize the grating's peak to amplitude.",
+            ),
         ]
 
 

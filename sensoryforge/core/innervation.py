@@ -102,6 +102,12 @@ class BaseInnervation(ABC):
         device: PyTorch device for tensors
     """
 
+    # receptor_coords/neuron_centers are required (no-default) constructor
+    # tensors that a bundle/export mechanism stores separately rather than
+    # through this per-component dict -- too large to serialise inline, and
+    # not a scalar config value (F-049 contract check precedent).
+    _TO_DICT_EXCLUDE_PARAMS = ("receptor_coords", "neuron_centers")
+
     def __init__(
         self,
         receptor_coords: torch.Tensor,
@@ -159,9 +165,14 @@ class BaseInnervation(ABC):
         Returns:
             BaseInnervation instance.
         """
+        config = dict(config)
         receptor_coords = config.pop("receptor_coords")
         neuron_centers = config.pop("neuron_centers")
         device = config.pop("device", "cpu")
+        # "method"/"num_neurons"/"num_receptors" are derived fields added by
+        # to_dict() for introspection, not constructor parameters (F-049).
+        for derived_key in ("method", "num_neurons", "num_receptors"):
+            config.pop(derived_key, None)
         return cls(receptor_coords, neuron_centers, device=device, **config)
 
     def to_dict(self) -> dict:
@@ -379,6 +390,30 @@ class GaussianInnervation(BaseInnervation):
 
         return weights
 
+    def to_dict(self) -> dict:
+        """Serialise Gaussian innervation parameters to dict (F-049).
+
+        Returns:
+            ``BaseInnervation.to_dict()`` plus every constructor parameter
+            (``receptor_coords``/``neuron_centers`` excluded -- see
+            :attr:`BaseInnervation._TO_DICT_EXCLUDE_PARAMS`).
+        """
+        result = super().to_dict()
+        result.update(
+            {
+                "connections_per_neuron": self.connections_per_neuron,
+                "sigma_d_mm": self.sigma_d_mm,
+                "max_sigma_distance": self.max_sigma_distance,
+                "weight_range": self.weight_range,
+                "use_distance_weights": self.use_distance_weights,
+                "far_connection_fraction": self.far_connection_fraction,
+                "far_sigma_factor": self.far_sigma_factor,
+                "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
+                "seed": self.seed,
+            }
+        )
+        return result
+
 
 def _decay_weights_from_distances(
     distances: torch.Tensor,
@@ -514,6 +549,31 @@ class UniformInnervation(BaseInnervation):
                     weights.scatter_add_(1, all_idx, far_vals)
         return weights
 
+    def to_dict(self) -> dict:
+        """Serialise uniform innervation parameters to dict (F-049).
+
+        Returns:
+            ``BaseInnervation.to_dict()`` plus every constructor parameter
+            (``receptor_coords``/``neuron_centers`` excluded -- see
+            :attr:`BaseInnervation._TO_DICT_EXCLUDE_PARAMS`).
+        """
+        result = super().to_dict()
+        result.update(
+            {
+                "sigma_d_mm": self.sigma_d_mm,
+                "weight_range": self.weight_range,
+                "use_distance_weights": self.use_distance_weights,
+                "far_connection_fraction": self.far_connection_fraction,
+                "far_sigma_factor": self.far_sigma_factor,
+                "max_distance_mm": self.max_distance_mm,
+                "decay_function": self.decay_function,
+                "decay_rate": self.decay_rate,
+                "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
+                "seed": self.seed,
+            }
+        )
+        return result
+
 
 class OneToOneInnervation(BaseInnervation):
     """One-to-one: each neuron connects to exactly K nearest receptors.
@@ -645,6 +705,32 @@ class OneToOneInnervation(BaseInnervation):
                 vals = _uniform_cpu((k_actual,), w_min, w_max, generator, self.device)
             weights[i, all_idx] = vals
         return weights
+
+    def to_dict(self) -> dict:
+        """Serialise one-to-one innervation parameters to dict (F-049).
+
+        Returns:
+            ``BaseInnervation.to_dict()`` plus every constructor parameter
+            (``receptor_coords``/``neuron_centers`` excluded -- see
+            :attr:`BaseInnervation._TO_DICT_EXCLUDE_PARAMS`).
+        """
+        result = super().to_dict()
+        result.update(
+            {
+                "connections_per_neuron": self.connections_per_neuron,
+                "sigma_d_mm": self.sigma_d_mm,
+                "weight_range": self.weight_range,
+                "use_distance_weights": self.use_distance_weights,
+                "far_connection_fraction": self.far_connection_fraction,
+                "far_sigma_factor": self.far_sigma_factor,
+                "max_distance_mm": self.max_distance_mm,
+                "decay_function": self.decay_function,
+                "decay_rate": self.decay_rate,
+                "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
+                "seed": self.seed,
+            }
+        )
+        return result
 
 
 class DistanceWeightedInnervation(BaseInnervation):
@@ -783,6 +869,29 @@ class DistanceWeightedInnervation(BaseInnervation):
             weights.scatter_(1, all_idx, all_vals)
 
         return weights
+
+    def to_dict(self) -> dict:
+        """Serialise distance-weighted innervation parameters to dict (F-049).
+
+        Returns:
+            ``BaseInnervation.to_dict()`` plus every constructor parameter
+            (``receptor_coords``/``neuron_centers`` excluded -- see
+            :attr:`BaseInnervation._TO_DICT_EXCLUDE_PARAMS`).
+        """
+        result = super().to_dict()
+        result.update(
+            {
+                "connections_per_neuron": self.connections_per_neuron,
+                "sigma_d_mm": self.sigma_d_mm,
+                "max_distance_mm": self.max_distance_mm,
+                "decay_function": self.decay_function,
+                "decay_rate": self.decay_rate,
+                "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
+                "weight_range": self.weight_range,
+                "seed": self.seed,
+            }
+        )
+        return result
 
 
 # ============================================================================
