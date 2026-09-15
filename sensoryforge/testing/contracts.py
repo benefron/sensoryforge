@@ -13,6 +13,7 @@ depend on nothing but ``sensoryforge`` itself to run its own tests.
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Callable, Dict, List, Optional
 
 import torch
@@ -20,6 +21,59 @@ import torch
 from sensoryforge.stimuli.base import ParamSpec
 
 __all__ = ["check_component", "available_kinds"]
+
+
+def _init_param_names(cls: type) -> List[str]:
+    """Return ``cls.__init__``'s parameter names, excluding ``self`` and
+    ``*args``/``**kwargs`` (F-045)."""
+    sig = inspect.signature(cls.__init__)
+    names = []
+    for name, param in sig.parameters.items():
+        if name == "self":
+            continue
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            continue
+        names.append(name)
+    return names
+
+
+def _assert_to_dict_roundtrip_complete(cls: type, instance: Any) -> None:
+    """Assert ``to_dict()``/``from_config()`` round-trip every constructor
+    parameter (F-045).
+
+    Checks:
+    1. Every ``__init__`` parameter (except ``self``/``*args``/``**kwargs``,
+       and any name listed in the class's ``_TO_DICT_EXCLUDE_PARAMS``, e.g.
+       Izhikevich's ``preset`` -- a resolved-value convenience the class
+       deliberately does not round-trip, see ``IzhikevichNeuronTorch``)
+       appears as a key in ``instance.to_dict()``.
+    2. ``cls.from_config(instance.to_dict()).to_dict() == instance.to_dict()``
+       -- the round trip is a fixed point.
+    """
+    excluded = set(getattr(cls, "_TO_DICT_EXCLUDE_PARAMS", ()))
+    d1 = instance.to_dict()
+    missing = [
+        name
+        for name in _init_param_names(cls)
+        if name not in d1 and name not in excluded
+    ]
+    if missing:
+        raise AssertionError(
+            f"{cls.__name__}.to_dict() is missing constructor parameters: "
+            f"{missing} -- every __init__ parameter must round-trip through "
+            f"to_dict()/from_config() (F-045)"
+        )
+    reconstructed = cls.from_config(d1)
+    d2 = reconstructed.to_dict()
+    if d1 != d2:
+        raise AssertionError(
+            f"{cls.__name__}.from_config(instance.to_dict()).to_dict() != "
+            f"instance.to_dict() -- round trip is not a fixed point "
+            f"(F-045). First: {d1!r} Second: {d2!r}"
+        )
 
 
 def _assert_param_spec(cls: type) -> None:
@@ -57,6 +111,7 @@ def _check_neuron(cls: type, instance: Any) -> None:
             f"{cls.__name__}.from_config(instance.to_dict()) did not return "
             f"a {cls.__name__} instance (got {type(reconstructed)!r})"
         )
+    _assert_to_dict_roundtrip_complete(cls, instance)
 
 
 def _check_filter(cls: type, instance: Any) -> None:

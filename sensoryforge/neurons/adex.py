@@ -1,8 +1,11 @@
 import math
+from typing import Any, Dict, List
+
 import torch
 import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class AdExNeuronTorch(BaseNeuron):
@@ -75,6 +78,79 @@ class AdExNeuronTorch(BaseNeuron):
         satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
         """
         pass
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise every constructor parameter's current value (F-045).
+
+        Returns:
+            Dictionary with every ``__init__`` parameter.
+        """
+        return {
+            "EL": self.EL,
+            "VT": self.VT,
+            "DeltaT": self.DeltaT,
+            "tau_m": self.tau_m,
+            "tau_w": self.tau_w,
+            "a": self.a,
+            "b": self.b,
+            "v_reset": self.v_reset,
+            "v_spike": self.v_spike,
+            "R": self.R,
+            "v_init": self.v_init,
+            "w_init": self.w_init,
+            "dt": self.dt,
+            "noise_std": self.noise_std,
+            "v_floor": self.v_floor,
+        }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (F-045)."""
+        return [
+            ParamSpec("EL", dtype="float", default=-70.0, min_val=-100.0,
+                       max_val=-40.0, step=1.0, unit="mV",
+                       tooltip="Leak reversal potential"),
+            ParamSpec("VT", dtype="float", default=-50.0, min_val=-80.0,
+                       max_val=-20.0, step=1.0, unit="mV",
+                       tooltip="Spike threshold (exponential term)"),
+            ParamSpec("DeltaT", dtype="float", default=2.0, min_val=0.1,
+                       max_val=10.0, step=0.1, unit="mV",
+                       tooltip="Slope factor of the exponential term"),
+            ParamSpec("tau_m", dtype="float", default=20.0, min_val=1.0,
+                       max_val=200.0, step=1.0, unit="ms",
+                       tooltip="Membrane time constant"),
+            ParamSpec("tau_w", dtype="float", default=100.0, min_val=1.0,
+                       max_val=500.0, step=5.0, unit="ms",
+                       tooltip="Adaptation time constant"),
+            ParamSpec("a", dtype="float", default=2.0, min_val=0.0, max_val=20.0,
+                       step=0.5, unit="",
+                       tooltip="Subthreshold adaptation coupling"),
+            ParamSpec("b", dtype="float", default=0.0, min_val=0.0, max_val=20.0,
+                       step=0.5, unit="",
+                       tooltip="Spike-triggered adaptation increment"),
+            ParamSpec("v_reset", dtype="float", default=-58.0, min_val=-100.0,
+                       max_val=0.0, step=1.0, unit="mV",
+                       tooltip="Post-spike reset voltage"),
+            ParamSpec("v_spike", dtype="float", default=20.0, min_val=-20.0,
+                       max_val=60.0, step=1.0, unit="mV",
+                       tooltip="Spike detection voltage"),
+            ParamSpec("R", dtype="float", default=1.0, min_val=0.01, max_val=20.0,
+                       step=0.1, unit="", tooltip="Membrane resistance"),
+            ParamSpec("v_init", dtype="float", default=-70.0, min_val=-100.0,
+                       max_val=50.0, step=1.0, unit="mV",
+                       tooltip="Initial membrane voltage (default: EL)"),
+            ParamSpec("w_init", dtype="float", default=0.0, min_val=-20.0,
+                       max_val=20.0, step=0.5, unit="",
+                       tooltip="Initial adaptation current"),
+            ParamSpec("dt", dtype="float", default=0.05, min_val=0.001, max_val=5.0,
+                       step=0.01, unit="ms", tooltip="Integration time step"),
+            ParamSpec("noise_std", dtype="float", default=0.0, min_val=0.0,
+                       max_val=20.0, step=0.1, unit="mV/sqrt(ms)",
+                       tooltip="Additive Langevin noise intensity on v"),
+            ParamSpec("v_floor", dtype="float", default=-130.0, min_val=-200.0,
+                       max_val=-50.0, step=1.0, unit="mV",
+                       tooltip="Physiological voltage floor (clamp)"),
+        ]
 
     def _dynamics(self, v, w, input_t):
         """Compute AdEx state derivatives (subthreshold dynamics only).

@@ -1,8 +1,11 @@
 import math
+from typing import Any, Dict, List
+
 import torch
 import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
+from sensoryforge.stimuli.base import ParamSpec
 
 #: Named (a, b, c, d) parameter sets from Izhikevich (2003), "Simple Model of
 #: Spiking Neurons", IEEE Trans. Neural Networks 14(6):1569-1572, Fig. 2. Pass
@@ -46,6 +49,14 @@ class IzhikevichNeuronTorch(BaseNeuron):
     voltages for ``steps+1`` samples and ``spikes`` is a boolean tensor of the
     same shape showing threshold crossings.
     """
+
+    #: F-045: ``preset`` is a constructor convenience that expands to
+    #: concrete ``a``/``b``/``c``/``d`` values -- it is intentionally
+    #: excluded from ``to_dict()`` (which stores the *resolved* numbers
+    #: instead, matching ``resolve_neuron_params`` in
+    #: ``sensoryforge/config/defaults.py``) and so from the round-trip
+    #: completeness check in ``sensoryforge.testing.contracts``.
+    _TO_DICT_EXCLUDE_PARAMS = frozenset({"preset"})
 
     def __init__(
         self,
@@ -111,6 +122,92 @@ class IzhikevichNeuronTorch(BaseNeuron):
         satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
         """
         pass
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise every constructor parameter's *resolved* value (F-045).
+
+        ``a``/``b``/``c``/``d`` are the concrete numeric values actually in
+        effect on this instance -- whether they came from an explicit
+        override or from expanding ``preset`` at construction time. The
+        ``preset`` name itself is deliberately not stored: it cannot alone
+        reconstruct an instance that had one parameter overridden on top of
+        a preset (task A8 semantics), so the resolved numbers are the
+        ground truth. ``from_config()`` (inherited ``cls(**config)``)
+        reconstructs an equivalent instance without needing ``preset``.
+
+        Returns:
+            Dictionary with every ``__init__`` parameter except ``preset``.
+        """
+        return {
+            "a": self.a,
+            "b": self.b,
+            "c": self.c,
+            "d": self.d,
+            "v_init": self.v_init,
+            "u_init": self.u_init,
+            "dt": self.dt,
+            "threshold": self.threshold,
+            "a_std": self.a_std,
+            "b_std": self.b_std,
+            "c_std": self.c_std,
+            "d_std": self.d_std,
+            "threshold_std": self.threshold_std,
+            "seed": self.seed,
+            "noise_std": self.noise_std,
+            "v_floor": self.v_floor,
+        }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (F-045)."""
+        return [
+            ParamSpec("a", dtype="float", default=0.02, min_val=0.0, max_val=1.0,
+                       step=0.01, unit="1/ms",
+                       tooltip="Recovery variable time scale"),
+            ParamSpec("b", dtype="float", default=0.20, min_val=0.0, max_val=1.0,
+                       step=0.01, unit="",
+                       tooltip="Recovery variable sensitivity to v"),
+            ParamSpec("c", dtype="float", default=-65.0, min_val=-100.0, max_val=0.0,
+                       step=1.0, unit="mV", tooltip="Post-spike reset voltage"),
+            ParamSpec("d", dtype="float", default=8.0, min_val=0.0, max_val=20.0,
+                       step=0.5, unit="",
+                       tooltip="Post-spike recovery variable increment"),
+            ParamSpec("v_init", dtype="float", default=-65.0, min_val=-100.0,
+                       max_val=50.0, step=1.0, unit="mV",
+                       tooltip="Initial membrane voltage"),
+            ParamSpec("u_init", dtype="float", default=-13.0, min_val=-50.0,
+                       max_val=50.0, step=1.0, unit="",
+                       tooltip="Initial recovery variable (default: b * v_init)"),
+            ParamSpec("dt", dtype="float", default=0.05, min_val=0.001, max_val=5.0,
+                       step=0.01, unit="ms", tooltip="Integration time step"),
+            ParamSpec("threshold", dtype="float", default=30.0, min_val=-20.0,
+                       max_val=60.0, step=1.0, unit="mV",
+                       tooltip="Spike detection voltage"),
+            ParamSpec("a_std", dtype="float", default=0.0, min_val=0.0, max_val=1.0,
+                       step=0.01, unit="1/ms",
+                       tooltip="Per-feature std for a (0 = homogeneous)"),
+            ParamSpec("b_std", dtype="float", default=0.0, min_val=0.0, max_val=1.0,
+                       step=0.01, unit="",
+                       tooltip="Per-feature std for b (0 = homogeneous)"),
+            ParamSpec("c_std", dtype="float", default=0.0, min_val=0.0, max_val=20.0,
+                       step=0.5, unit="mV",
+                       tooltip="Per-feature std for c (0 = homogeneous)"),
+            ParamSpec("d_std", dtype="float", default=0.0, min_val=0.0, max_val=20.0,
+                       step=0.5, unit="",
+                       tooltip="Per-feature std for d (0 = homogeneous)"),
+            ParamSpec("threshold_std", dtype="float", default=0.0, min_val=0.0,
+                       max_val=20.0, step=0.5, unit="mV",
+                       tooltip="Per-feature std for threshold (0 = homogeneous)"),
+            ParamSpec("seed", dtype="int", default=0, min_val=0, max_val=2**31 - 1,
+                       step=1, unit="",
+                       tooltip="Random seed for parameter sampling (None = unseeded)"),
+            ParamSpec("noise_std", dtype="float", default=0.0, min_val=0.0,
+                       max_val=20.0, step=0.1, unit="mV/sqrt(ms)",
+                       tooltip="Additive Langevin noise intensity on v"),
+            ParamSpec("v_floor", dtype="float", default=-120.0, min_val=-200.0,
+                       max_val=-50.0, step=1.0, unit="mV",
+                       tooltip="Physiological voltage floor (clamp)"),
+        ]
 
     def _dynamics(self, v, u, input_t):
         """Compute Izhikevich state derivatives (subthreshold dynamics only).

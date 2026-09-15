@@ -1,8 +1,11 @@
 import math
+from typing import Any, Dict, List
+
 import torch
 import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class SANeuronTorch(BaseNeuron):
@@ -80,7 +83,8 @@ class SANeuronTorch(BaseNeuron):
         # Normalization gain and threshold in normalized coordinates
         self.r = self.I_th / max(self.I_tau, 1e-30)
         # steady-state z* = I_in / (1-a); choose threshold at op point
-        self.z_th = float(I_in_op) / max(1.0 - self.a, 1e-12)
+        self.I_in_op = float(I_in_op)
+        self.z_th = self.I_in_op / max(1.0 - self.a, 1e-12)
         self.z_reset = float(z_reset)
         self.current_scale = float(current_scale)
         self.noise_std = float(noise_std)
@@ -93,6 +97,82 @@ class SANeuronTorch(BaseNeuron):
         satisfy the BaseNeuron contract (resolves ReviewFinding#H6).
         """
         pass
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise every constructor parameter's *resolved* value (F-045).
+
+        ``dt`` stores the resolved milliseconds value actually used for
+        integration (``self.dt_ms``) -- whether it came from an explicit
+        override or was auto-derived from the subthreshold time constant
+        when the constructor's ``dt`` was ``None``. Passing this resolved
+        value back into ``from_config()`` reproduces identical dynamics: an
+        explicit ``dt`` and an auto-derived ``dt`` that happen to match
+        drive ``self.dt_ms``/``self.dt_s`` identically, so the auto-vs-
+        explicit distinction has no further effect on behaviour.
+
+        Returns:
+            Dictionary with every ``__init__`` parameter (renamed to match
+            the constructor's argument names, e.g. ``I_tau_refractory`` for
+            the internally-stored ``self.I_tau_ref``).
+        """
+        return {
+            "I_tau": self.I_tau,
+            "I_th": self.I_th,
+            "I_tau_ahp": self.I_tau_ahp,
+            "I_th_ahp": self.I_th_ahp,
+            "I_tau_refractory": self.I_tau_ref,
+            "C_mem": self.C_mem,
+            "C_adap": self.C_adap,
+            "C_refractory": self.C_ref,
+            "U_T": self.U_T,
+            "kappa": self.kappa,
+            "Ia_frac": self.a,
+            "dt": self.dt_ms,
+            "z_reset": self.z_reset,
+            "I_in_op": self.I_in_op,
+            "current_scale": self.current_scale,
+            "noise_std": self.noise_std,
+        }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (F-045)."""
+        return [
+            ParamSpec("I_tau", dtype="float", default=25e-12, min_val=1e-13,
+                       max_val=1e-8, unit="A", tooltip="Subthreshold leak bias current (I_xi)"),
+            ParamSpec("I_th", dtype="float", default=8.3e-9, min_val=1e-11,
+                       max_val=1e-6, unit="A", tooltip="Threshold-setting bias current"),
+            ParamSpec("I_tau_ahp", dtype="float", default=20e-12, min_val=1e-13,
+                       max_val=1e-8, unit="A", tooltip="AHP decay bias current"),
+            ParamSpec("I_th_ahp", dtype="float", default=16.6e-12, min_val=0.0,
+                       max_val=1e-8, unit="A", tooltip="AHP increment injected on spike"),
+            ParamSpec("I_tau_refractory", dtype="float", default=1.6e-9, min_val=1e-13,
+                       max_val=1e-6, unit="A", tooltip="Refractory decay bias current"),
+            ParamSpec("C_mem", dtype="float", default=100e-15, min_val=1e-16,
+                       max_val=1e-11, unit="F", tooltip="Membrane capacitance"),
+            ParamSpec("C_adap", dtype="float", default=250e-15, min_val=1e-16,
+                       max_val=1e-11, unit="F", tooltip="Adaptation capacitance"),
+            ParamSpec("C_refractory", dtype="float", default=200e-15, min_val=1e-16,
+                       max_val=1e-11, unit="F", tooltip="Refractory capacitance"),
+            ParamSpec("U_T", dtype="float", default=26e-3, min_val=1e-3, max_val=1e-1,
+                       unit="V", tooltip="Thermal voltage"),
+            ParamSpec("kappa", dtype="float", default=0.7, min_val=0.01, max_val=1.0,
+                       unit="", tooltip="Subthreshold slope factor"),
+            ParamSpec("Ia_frac", dtype="float", default=0.8, min_val=0.0, max_val=0.999,
+                       unit="", tooltip="Intrinsic positive feedback fraction a = I_a/I_xi"),
+            ParamSpec("dt", dtype="float", default=None, min_val=1e-6, max_val=10.0,
+                       unit="ms",
+                       tooltip="Integration time step (None = auto from tau/20)"),
+            ParamSpec("z_reset", dtype="float", default=0.0, min_val=-1e-6, max_val=1e-6,
+                       unit="A", tooltip="Reset value for z on spike"),
+            ParamSpec("I_in_op", dtype="float", default=500e-12, min_val=1e-13,
+                       max_val=1e-6, unit="A", tooltip="Operating input current for z_th"),
+            ParamSpec("current_scale", dtype="float", default=1e-12, min_val=1e-15,
+                       max_val=1e-6, unit="",
+                       tooltip="Numeric input -> Amperes scale factor"),
+            ParamSpec("noise_std", dtype="float", default=0.0, min_val=0.0, max_val=1e-6,
+                       unit="A/sqrt(s)", tooltip="Additive Langevin noise on z"),
+        ]
 
     @staticmethod
     def _param_tensor(val, shape, device, dtype):

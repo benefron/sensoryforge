@@ -80,7 +80,15 @@ def test_base_innervation_has_get_param_spec():
 
 def test_concrete_neuron_models_expose_get_param_spec():
     """Concrete neuron classes must actually inherit BaseNeuron (not just
-    plain nn.Module) so get_param_spec()/to_dict()/from_config() resolve."""
+    plain nn.Module) so get_param_spec()/to_dict()/from_config() resolve.
+
+    F-045: as of the round-trip-completeness fix, each of the five neuron
+    models overrides ``get_param_spec()`` (non-empty, one entry per
+    constructor parameter) and ``to_dict()`` (every constructor parameter,
+    not just ``dt`` -- see ``tests/unit/test_neuron_roundtrip.py`` for the
+    full round-trip contract)."""
+    import inspect
+
     from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
     from sensoryforge.neurons.adex import AdExNeuronTorch
     from sensoryforge.neurons.mqif import MQIFNeuronTorch
@@ -96,6 +104,22 @@ def test_concrete_neuron_models_expose_get_param_spec():
         SANeuronTorch,
     ):
         assert issubclass(cls, BaseNeuron)
-        assert cls.get_param_spec() == []
+        spec = cls.get_param_spec()
+        assert spec, f"{cls.__name__}.get_param_spec() must not be empty (F-045)"
+
         instance = cls()
-        assert instance.to_dict() == {"dt": instance.dt}
+        d = instance.to_dict()
+        assert "dt" in d
+        excluded = set(getattr(cls, "_TO_DICT_EXCLUDE_PARAMS", ()))
+        init_params = [
+            name
+            for name, param in inspect.signature(cls.__init__).parameters.items()
+            if name != "self"
+            and param.kind
+            not in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            )
+        ]
+        missing = [p for p in init_params if p not in d and p not in excluded]
+        assert not missing, f"{cls.__name__}.to_dict() missing: {missing}"

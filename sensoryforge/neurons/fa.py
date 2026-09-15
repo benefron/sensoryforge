@@ -1,8 +1,11 @@
 import math
+from typing import Any, Dict, List
+
 import torch
 import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class FANeuronTorch(BaseNeuron):
@@ -82,6 +85,55 @@ class FANeuronTorch(BaseNeuron):
         """
         self._ref_count = None
         self._ema_mean = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise every constructor parameter's current value (F-045).
+
+        Returns:
+            Dictionary with every ``__init__`` parameter. Excludes internal
+            stateful buffers (``_ref_count``/``_ema_mean``), which are not
+            constructor arguments and are re-initialised lazily.
+        """
+        return {
+            "vb": self.vb,
+            "A": self.A,
+            "theta": self.theta,
+            "tau_ref": self.tau_ref,
+            "dt": self.dt,
+            "input_gain": self.input_gain,
+            "baseline_mode": self.baseline_mode,
+            "tau_dc": self.tau_dc,
+            "noise_std": self.noise_std,
+        }
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return parameter specifications for UI auto-generation (F-045)."""
+        return [
+            ParamSpec("vb", dtype="float", default=0.0, min_val=-20.0, max_val=20.0,
+                       step=0.1, unit="mV", tooltip="Baseline amplifier voltage"),
+            ParamSpec("A", dtype="float", default=1.0, min_val=0.0, max_val=50.0,
+                       step=0.5, unit="", tooltip="Amplifier gain"),
+            ParamSpec("theta", dtype="float", default=1.0, min_val=0.0, max_val=50.0,
+                       step=0.1, unit="mV", tooltip="Spike threshold on |v_det - vb|"),
+            ParamSpec("tau_ref", dtype="float", default=2.0, min_val=0.0,
+                       max_val=100.0, step=0.5, unit="ms",
+                       tooltip="Refractory period"),
+            ParamSpec("dt", dtype="float", default=0.05, min_val=0.001, max_val=5.0,
+                       step=0.01, unit="ms", tooltip="Integration time step"),
+            ParamSpec("input_gain", dtype="float", default=1.0, min_val=0.0,
+                       max_val=500.0, step=0.5, unit="",
+                       tooltip="Gain applied to input before baseline removal"),
+            ParamSpec("baseline_mode", dtype="str", default="ema", unit="",
+                       tooltip="Baseline tracking mode: 'sequence' or 'ema'",
+                       choices=["sequence", "ema"]),
+            ParamSpec("tau_dc", dtype="float", default=50.0, min_val=0.1,
+                       max_val=1000.0, step=1.0, unit="ms",
+                       tooltip="EMA baseline time constant (only used for 'ema')"),
+            ParamSpec("noise_std", dtype="float", default=0.0, min_val=0.0,
+                       max_val=20.0, step=0.1, unit="mV/sqrt(ms)",
+                       tooltip="Additive Langevin noise intensity on the amplifier"),
+        ]
 
     def forward(
         self,
