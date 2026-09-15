@@ -44,7 +44,15 @@ SensoryForge uses a **registry-based architecture** for extensibility:
 
 ### 1. Registration
 
-All components are registered in `sensoryforge/register_components.py`:
+Two routes, both ending at the same registries:
+
+- **Plugin package** (recommended for third parties): `sensoryforge
+  new-component <kind> <Name> --dest DIR` scaffolds an installable package
+  that registers itself via a `sensoryforge.components` entry point,
+  discovered automatically at import time — no edits to this checkout.
+  See `plugins.md`.
+- **In-repo** (for contributing to SensoryForge itself): components are
+  registered by hand in `sensoryforge/register_components.py`:
 
 ```python
 from sensoryforge.registry import NEURON_REGISTRY
@@ -53,6 +61,10 @@ from sensoryforge.neurons.my_neuron import MyNeuron
 def register_all():
     NEURON_REGISTRY.register("my_neuron", MyNeuron)
 ```
+
+Registry lookups are case-insensitive (H1, F-046): `"MyNeuron"` and
+`"myneuron"` refer to the same registration; a genuine collision between
+two different classes under the same case-folded name still raises.
 
 ### 2. Instantiation
 
@@ -279,7 +291,15 @@ tensor = torch.zeros(10, 10, device=self.device)
 All components must implement:
 
 - `from_config(config: Dict) -> Self` (classmethod)
-- `to_dict() -> Dict` (instance method)
+- `to_dict() -> Dict` (instance method) — must include every `__init__`
+  parameter so `from_config(instance.to_dict())` round-trips to a fixed
+  point (H3 completeness requirement)
+- `get_param_spec() -> List[ParamSpec]` (classmethod, required on every
+  component since G1 — not just stimuli)
+
+`sensoryforge.testing.contracts.check_component(kind, cls)` runs all three
+checks (plus a forward-pass shape check) in one call, and is what both the
+plugin-package and in-repo scaffolds' generated tests use.
 
 ### 5. Write Tests
 
@@ -301,6 +321,9 @@ See the following files for reference implementations:
 
 ## Getting Help
 
+- See `plugins.md` for the entry-point plugin-package route in full
+- See `add_neuron.md`, `add_filter.md`, `add_stimulus.md` for step-by-step
+  guides per component kind
 - See `.cursor/rules/extensibility-patterns.mdc` for coding patterns
 - See `.cursor/skills/add-new-component/SKILL.md` for step-by-step guide
 - Check existing components for reference implementations

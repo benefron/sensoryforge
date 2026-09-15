@@ -132,20 +132,25 @@ NEURON_REGISTRY.register("my_neuron", MyNeuronClass)
 ### Adding a New Component
 
 Every component must:
-1. Inherit from the appropriate base class (`BaseFilter`, `BaseNeuron`, `BaseStimulus`)
+1. Inherit from the appropriate base class (`BaseFilter`, `BaseNeuron`, `BaseStimulus`, `BaseSolver`, `BaseGrid`, `BaseInnervation`)
 2. Implement `forward()`, `reset_state()`, `from_config()`, `to_dict()`
-3. For stimuli: implement `get_param_spec()` returning a list of `ParamSpec` objects for GUI auto-discovery
-4. Be registered in `register_components.py`
-5. Have Google-style docstrings with tensor shapes (`[batch, time, N]`) and physical units (`mA`, `mV`, `ms`, `mm`)
-6. Have a corresponding unit test
+3. Implement `get_param_spec()` returning a list of `ParamSpec` objects (required on every component since G1, not just stimuli)
+4. Round-trip every `__init__` parameter through `to_dict()`/`from_config()` (H3) — `to_dict()` must include every constructor argument (except any listed in `_TO_DICT_EXCLUDE_PARAMS`), and `from_config(instance.to_dict())` must be a fixed point
+5. Be registered — two routes, pick one:
+   - **Plugin package (default, for third parties):** `sensoryforge new-component <kind> <Name> [--dest DIR]` scaffolds an installable `sensoryforge-<name>/` package with a `pyproject.toml` entry point (`sensoryforge.components` group), discovered automatically at import time — no edits to this checkout at all. See `docs/developer_guide/plugins.md`.
+   - **In-repo (for contributing to SensoryForge itself):** `sensoryforge new-component <kind> <Name> --in-repo` writes into `sensoryforge/`, `tests/`, `docs/` directly; you then add one line to `register_components.py`'s `register_all()` by hand (printed out by the command).
+6. Have Google-style docstrings with tensor shapes (`[batch, time, N]`) and physical units (`mA`, `mV`, `ms`, `mm`)
+7. Have a corresponding unit test — `sensoryforge.testing.contracts.check_component(kind, cls)` runs the shared shape/round-trip/param-spec checks and is what both routes' generated tests call
 
-See `docs/developer_guide/add_stimulus.md`, `add_neuron.md`, `add_filter.md` for step-by-step guides.
+Component names are matched case-insensitively (H1, F-046) — `"MyFilter"` and `"myfilter"` collide as the same registration, so don't rely on case to avoid a name clash with a built-in.
+
+See `docs/developer_guide/add_stimulus.md`, `add_neuron.md`, `add_filter.md`, `plugins.md` for step-by-step guides.
 
 ### ParamSpec and get_param_spec()
 
-`BaseStimulus` defines `get_param_spec() → list[ParamSpec]` (default `[]`).  
+Every base class defines `get_param_spec() → list[ParamSpec]` (default `[]`), required on all components since G1.
 `ComponentRegistry.get_param_spec(name)` delegates to the registered class.  
-The GUI Stimulus Designer uses this for auto-generated parameter spinboxes.
+The GUI Stimulus Designer (and other tabs) use this for auto-generated parameter spinboxes.
 
 ```python
 from sensoryforge.stimuli.base import ParamSpec
@@ -154,9 +159,13 @@ from sensoryforge.stimuli.base import ParamSpec
 def get_param_spec(cls):
     return [
         ParamSpec("amplitude", dtype="float", default=1.0,
-                  min_val=0.0, max_val=500.0, unit="mA"),
+                  min_val=0.0, max_val=500.0, unit="mA",
+                  choices=None, help="Peak stimulus amplitude.",
+                  group="Amplitude", advanced=False),
     ]
 ```
+
+`ParamSpec` also carries `choices` (enum/dropdown values), `help` (longer-form text vs. `tooltip`), `group` (UI section label), and `advanced` (hidden unless Expert mode) — all added in G1.
 
 ### GUI Structure
 

@@ -4,6 +4,24 @@ This guide covers adding a new spiking neuron model to SensoryForge.
 After following it, your model will be available in the registry, the CLI,
 and the Spiking Neurons GUI tab.
 
+There are two ways to ship a new neuron model — pick one before you start:
+
+- **Plugin package** (recommended for most cases, including anyone outside
+  the core project): `sensoryforge new-component neuron MyNeuron --dest DIR`
+  scaffolds an installable package that registers itself via an entry
+  point — no edits to this checkout. See `plugins.md` for the full guide;
+  this page's steps 2 and 4 (the class body and its test) still apply
+  verbatim inside the scaffolded package.
+- **In-repo** (for contributing to SensoryForge itself):
+  `sensoryforge new-component neuron MyNeuron --in-repo` writes directly
+  into `sensoryforge/neurons/`, `tests/`, `docs/`, and step 3 below (manual
+  registration in `register_components.py`) applies.
+
+Component names are matched **case-insensitively** (H1, F-046): `"LIF"`
+and `"lif"` are the same registration, so you don't need to worry about
+exact-case collisions with a built-in neuron's name — though a genuine
+collision (same name, different class) still raises.
+
 ---
 
 ## 1. Understand the API contract
@@ -17,6 +35,13 @@ All neuron models must inherit from `BaseNeuron`
 | `reset_state()` | `→ None` | Reset membrane state between runs |
 | `from_config(config)` | `dict → cls` | Construct from YAML dict |
 | `to_dict()` | `→ dict` | Serialise for YAML round-trip |
+| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component (G1); GUI auto-discovery |
+
+`to_dict()` must include **every** `__init__` parameter, and
+`from_config(instance.to_dict())` must round-trip to an equal `to_dict()`
+(H3's completeness requirement — before H3 several built-in neurons only
+round-tripped `dt`, not `a`/`b`/`c`/`d`/`tau_m`/etc., F-045). Checked by
+`sensoryforge.testing.contracts.check_component("neuron", cls)`.
 
 **Tensor conventions:**
 
@@ -151,6 +176,21 @@ class LIFNeuronTorch(BaseNeuron):
             "dt": self.dt,
             "v_floor": self.v_floor,
         }
+
+    @classmethod
+    def get_param_spec(cls) -> list:
+        from sensoryforge.stimuli.base import ParamSpec
+        return [
+            ParamSpec("tau_m", dtype="float", default=20.0,
+                      min_val=0.1, max_val=200.0, unit="ms"),
+            ParamSpec("v_thresh", dtype="float", default=-50.0,
+                      min_val=-90.0, max_val=0.0, unit="mV"),
+            ParamSpec("v_reset", dtype="float", default=-65.0,
+                      min_val=-90.0, max_val=0.0, unit="mV"),
+            ParamSpec("v_floor", dtype="float", default=-100.0,
+                      min_val=-200.0, max_val=-50.0, unit="mV",
+                      advanced=True),
+        ]
 ```
 
 > **Performance note:** Do not loop over the batch or neuron dimensions —
@@ -160,9 +200,13 @@ class LIFNeuronTorch(BaseNeuron):
 
 ---
 
-## 3. Register the neuron
+## 3. Register the neuron (in-repo route only)
 
-In `sensoryforge/register_components.py`:
+If you scaffolded with `--in-repo` (or are hand-writing a contribution to
+this checkout), add the registration to
+`sensoryforge/register_components.py`. If you are shipping a plugin
+package instead, skip this step — the scaffold's `register()` function
+plus your package's entry point handles it; see `plugins.md`.
 
 ```python
 from sensoryforge.neurons.my_neuron import LIFNeuronTorch  # add import
@@ -262,7 +306,8 @@ populations:
 - [ ] All loops over time steps only; no loops over batch or neuron dims
 - [ ] `v_floor` parameter guards against membrane runaway
 - [ ] `reset_state()` zeros internal hidden state
-- [ ] `from_config()` + `to_dict()` are inverses; default dict in `DEFAULT_CONFIG`
-- [ ] Registered in `register_all()` with a PascalCase key
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3); default dict in `DEFAULT_CONFIG`
+- [ ] `get_param_spec()` implemented (required on every component, G1)
+- [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a PascalCase key (in-repo route)
 - [ ] `dt` stored in ms; convert to seconds for ODE integration
-- [ ] Unit tests cover: shapes, binary spikes, zero drive, state reset, roundtrip
+- [ ] Unit tests cover: shapes, binary spikes, zero drive, state reset, roundtrip, `check_component("neuron", cls)`

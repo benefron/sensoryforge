@@ -82,4 +82,57 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   checks.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`.
 
+### Extensibility (Waves F–H)
+
+- **Docs now build with `mkdocs build --strict` and 0 warnings**; the full nav (developer guide,
+  user guide, tutorials, API reference via `mkdocstrings`) is wired up and internal review/handover
+  records are excluded from the published site (F1).
+- **`sensoryforge list-components` and `validate` read the live registries**, not a hardcoded list,
+  so a registered plugin or in-repo component shows up immediately (F2).
+- **`examples/canonical_config.yml` and `examples/canonical_batch_config.yml`** are schema-valid,
+  runnable canonical examples; the legacy `examples/example_config.yml`/`batch_config.yml` (and the
+  matching docs snippets) were fixed to use per-row neuron counts so they run instead of exhausting
+  memory (F3).
+- **GUI time-step spinboxes can no longer crash the session on an invalid value**: the stimulus Δt
+  spinbox snaps to a multiple of the integration step on `editingFinished`, `SpikingNeuronTab`
+  catches `ValueError` alongside `RuntimeError`, and an installed `sys.excepthook` shows unhandled
+  exceptions in a `QMessageBox` instead of a silent Qt abort (F4).
+- **`get_param_spec()` is required on every component base class**, not just stimuli
+  (`BaseNeuron`, `BaseFilter`, `BaseSolver`, `BaseGrid`, `BaseInnervation`); `ParamSpec` gained
+  `choices`, `help`, `group`, and `advanced` fields for richer GUI auto-discovery (G1).
+- **Third-party plugin discovery**: a distribution can advertise components via a
+  `sensoryforge.components` `importlib.metadata` entry-point group, loaded automatically at import
+  time; a config's `plugins:` YAML list can additionally import modules directly
+  (`sensoryforge/plugins.py`) (G2).
+- **Grid arrangements are real classes**, not string placeholders, so `poisson`/`hex`/`jittered`/
+  `blue_noise` arrangements share the same registry/contract pattern as every other component kind
+  (G3).
+- **Contract tests run over every registered component**: `tests/contract/test_component_contracts.py`
+  sweeps every neuron/filter/stimulus/solver/grid/innervation registration and checks
+  `get_param_spec()` shape, one canonical-shape `forward()` pass, and a `from_config(to_dict())`
+  round trip; the same three checks are exposed as a reusable
+  `sensoryforge.testing.contracts.check_component(kind, cls)` (G4).
+- **`sensoryforge new-component <kind> <name>` scaffold generator**: default mode writes a
+  standalone, installable `sensoryforge-<name>/` plugin package (with a `pyproject.toml` entry
+  point and a generated `tests/test_contract.py`); `--in-repo` preserves the original
+  contributor workflow of writing into `sensoryforge/`, `tests/`, `docs/` directly (G5).
+- **Registry component-name lookups are case-insensitive**: `"Izhikevich"` and `"izhikevich"` refer
+  to the same registration; a genuine collision between two different classes under the same
+  case-folded name still raises `ValueError` (H1, F-046).
+- **`sensoryforge new-component` refuses to write next to an installed package**: it never targets
+  a `site-packages`/`dist-packages` directory, so it is safe to run against a wheel install; the
+  default plugin-package mode is now the primary documented route for third parties (H2, F-047).
+- **Every built-in neuron model round-trips all of its constructor parameters** through
+  `to_dict()`/`from_config()`, not only `dt` — checked by
+  `sensoryforge.testing.contracts.check_component("neuron", cls)` (H3, F-045).
+- **Every YAML config loader honours a config's `plugins:` list identically**: the CLI, the GUI's
+  "Load YAML Configuration" action, `BatchExecutor.from_yaml`, and `SensoryForgeConfig.from_yaml_file`
+  all route through one shared `sensoryforge.config.yaml_utils.load_config_file` (H4, F-048).
+- **Documentation for the extension path**: `docs/developer_guide/plugins.md` documents the
+  entry-point plugin route end to end; `extensibility.md`, `add_neuron.md`, `add_filter.md`, and
+  `add_stimulus.md` describe both the plugin-package and in-repo routes, the `get_param_spec()`
+  requirement, and the `to_dict()`/`from_config()` completeness contract; `docs/examples/plugin_filter.py`
+  is a runnable worked example (define, register, and run a filter), executed by
+  `tests/docs/test_docs_examples.py` (H5).
+
 [Unreleased]: https://github.com/benefron/sensoryforge/commits/main

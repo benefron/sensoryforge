@@ -4,6 +4,24 @@ This guide covers adding a new mechanoreceptor temporal filter to SensoryForge.
 Filters transform the raw spatial drive into a population-specific current
 waveform (e.g. SA = slow-adapting, RA = rapidly-adapting).
 
+There are two ways to ship a new filter — pick one before you start:
+
+- **Plugin package** (recommended for most cases, including anyone outside
+  the core project): `sensoryforge new-component filter MyFilter --dest DIR`
+  scaffolds an installable package that registers itself via an entry
+  point — no edits to this checkout. See `plugins.md` for the full guide;
+  this page's steps 2 and 4 (the class body and its test) still apply
+  verbatim inside the scaffolded package.
+- **In-repo** (for contributing to SensoryForge itself):
+  `sensoryforge new-component filter MyFilter --in-repo` writes directly
+  into `sensoryforge/filters/`, `tests/`, `docs/`, and step 3 below (manual
+  registration in `register_components.py`) applies.
+
+Component names are matched **case-insensitively** (F-046): `"Bandpass"`
+and `"bandpass"` are the same registration, so you don't need to worry
+about exact-case collisions with a built-in filter's name — though a
+genuine collision (same name, different class) still raises.
+
 ---
 
 ## 1. Understand the API contract
@@ -16,6 +34,12 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 | `reset_state()` | `→ None` | Clear filter state between runs |
 | `from_config(config)` | `dict → cls` | Construct from YAML dict |
 | `to_dict()` | `→ dict` | Serialise for YAML round-trip |
+| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component (G1); GUI auto-discovery |
+
+`to_dict()` must include **every** `__init__` parameter, and
+`from_config(instance.to_dict())` must round-trip to an equal `to_dict()`
+(the H3 completeness requirement, checked by
+`sensoryforge.testing.contracts.check_component("filter", cls)`).
 
 > **Polymorphism warning:** The interface uses `reset_state()` (singular).
 > The existing `SAFilterTorch` has `reset_states()` (plural) — this is a
@@ -144,13 +168,29 @@ class BandpassFilterTorch(BaseFilter):
             "dt": self.dt,
             "clip_to_positive": self.clip_to_positive,
         }
+
+    @classmethod
+    def get_param_spec(cls) -> list:
+        from sensoryforge.stimuli.base import ParamSpec
+        return [
+            ParamSpec("tau_on", dtype="float", default=5.0,
+                      min_val=0.1, max_val=200.0, unit="ms"),
+            ParamSpec("tau_off", dtype="float", default=30.0,
+                      min_val=0.1, max_val=500.0, unit="ms"),
+            ParamSpec("clip_to_positive", dtype="bool", default=True,
+                      advanced=True),
+        ]
 ```
 
 ---
 
-## 3. Register the filter
+## 3. Register the filter (in-repo route only)
 
-In `sensoryforge/register_components.py`:
+If you scaffolded with `--in-repo` (or are hand-writing a contribution to
+this checkout), add the registration to
+`sensoryforge/register_components.py`. If you are shipping a plugin
+package instead, skip this step — the scaffold's `register()` function
+plus your package's entry point handles it; see `plugins.md`.
 
 ```python
 from sensoryforge.filters.my_filter import BandpassFilterTorch  # add import
@@ -240,6 +280,7 @@ populations:
 - [ ] `reset_state()` (singular) clears all hidden state tensors
 - [ ] `clip_to_positive=True` default for SA/RA-type physiology (prevents negative drive)
 - [ ] `from_config()` merges with `DEFAULT_CONFIG` before passing to `__init__`
-- [ ] `to_dict()` is a round-trip inverse of `from_config()`
-- [ ] Registered in `register_all()` with a lowercase snake_case key
-- [ ] Unit tests cover: shape, non-negativity, state reset reproducibility, zero input
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3)
+- [ ] `get_param_spec()` implemented (required on every component, G1)
+- [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a lowercase snake_case key (in-repo route)
+- [ ] Unit tests cover: shape, non-negativity, state reset reproducibility, zero input, `check_component("filter", cls)`

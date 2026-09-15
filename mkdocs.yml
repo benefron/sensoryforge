@@ -123,6 +123,7 @@ nav:
     - Adding a Neuron: developer_guide/add_neuron.md
     - Adding a Filter: developer_guide/add_filter.md
     - Adding a Stimulus: developer_guide/add_stimulus.md
+    - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 

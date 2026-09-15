@@ -4,6 +4,24 @@ This guide walks through every step required to add a new stimulus to SensoryFor
 After following it, your stimulus will be available in the CLI, the GUI Stimulus
 Designer tab, and any code that uses the `STIMULUS_REGISTRY`.
 
+There are two ways to ship a new stimulus — pick one before you start:
+
+- **Plugin package** (recommended for most cases, including anyone outside
+  the core project): `sensoryforge new-component stimulus MyStimulus --dest DIR`
+  scaffolds an installable package that registers itself via an entry
+  point — no edits to this checkout. See `plugins.md` for the full guide;
+  this page's steps 2 and 4 (the class body and its test) still apply
+  verbatim inside the scaffolded package.
+- **In-repo** (for contributing to SensoryForge itself):
+  `sensoryforge new-component stimulus MyStimulus --in-repo` writes
+  directly into `sensoryforge/stimuli/`, `tests/`, `docs/`, and step 3
+  below (manual registration in `register_components.py`) applies.
+
+Component names are matched **case-insensitively** (H1, F-046): `"Ring"` and
+`"ring"` are the same registration, so you don't need to worry about
+exact-case collisions with a built-in stimulus's name — though a genuine
+collision (same name, different class) still raises.
+
 ---
 
 ## 1. Understand the API contract
@@ -17,7 +35,12 @@ Every stimulus must satisfy the `BaseStimulus` interface
 | `reset_state()` | ✅ | Clear internal state (noop if stateless) |
 | `from_config(config) → cls` | ✅ | Construct from a YAML dict |
 | `to_dict() → dict` | ✅ | Serialise parameters for round-trip YAML |
-| `get_param_spec() → list[ParamSpec]` | Recommended | GUI auto-discovery |
+| `get_param_spec() → list[ParamSpec]` | ✅ (required on every component, G1) | GUI auto-discovery |
+
+`to_dict()` should include every `__init__` parameter so
+`from_config(instance.to_dict())` round-trips completely (the same H3
+completeness requirement enforced for neurons/filters, checked by
+`sensoryforge.testing.contracts.check_component("stimulus", cls)`).
 
 Tensor shapes and units:
 
@@ -112,10 +135,13 @@ class RingStimulus(BaseStimulus):
 
 ---
 
-## 3. Register the stimulus
+## 3. Register the stimulus (in-repo route only)
 
-Open `sensoryforge/register_components.py` and add two lines inside
-`register_all()`:
+If you scaffolded with `--in-repo` (or are hand-writing a contribution to
+this checkout), open `sensoryforge/register_components.py` and add two
+lines inside `register_all()`. If you are shipping a plugin package
+instead, skip this step — the scaffold's `register()` function plus your
+package's entry point handles it; see `plugins.md`.
 
 ```python
 from sensoryforge.stimuli.my_stimulus import RingStimulus  # add this import
@@ -253,8 +279,8 @@ print([s.name for s in specs])
 - [ ] Class inherits from `BaseStimulus`
 - [ ] `forward()` returns `[H, W]` tensor in mA, on same device as inputs
 - [ ] `reset_state()` implemented (noop if stateless)
-- [ ] `from_config()` + `to_dict()` are round-trip inverses
-- [ ] `get_param_spec()` provides UI-ready descriptors with units and ranges
-- [ ] Registered in `register_all()` with a lowercase snake_case key
-- [ ] Unit tests cover shape, physics, and roundtrip
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3)
+- [ ] `get_param_spec()` provides UI-ready descriptors with units and ranges (required on every component, G1)
+- [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a lowercase snake_case key (in-repo route)
+- [ ] Unit tests cover shape, physics, roundtrip, and `check_component("stimulus", cls)`
 - [ ] Docstring includes tensor shapes and physical units
