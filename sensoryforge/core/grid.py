@@ -8,6 +8,42 @@ import torch
 
 from .grid_base import BaseGrid
 
+
+def _seeded_generator(seed: Optional[int]) -> Optional[torch.Generator]:
+    """Return a fresh CPU ``torch.Generator`` seeded with ``seed`` (F-050).
+
+    Same pattern as :func:`sensoryforge.core.innervation._seeded_generator`:
+    a per-instance generator instead of ``torch.manual_seed``, so building a
+    grid never reads or advances the global RNG. ``None`` returns ``None``
+    and callers fall back to the global generator (unseeded, as before).
+    """
+    if seed is None:
+        return None
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    return generator
+
+
+def _randn_seeded(
+    like: torch.Tensor, generator: Optional[torch.Generator]
+) -> torch.Tensor:
+    """``randn_like(like)`` drawn from ``generator`` on CPU, moved to its device."""
+    if generator is None:
+        return torch.randn_like(like)
+    return torch.randn(like.shape, generator=generator, dtype=like.dtype).to(
+        like.device
+    )
+
+
+def _rand_seeded(
+    like: torch.Tensor, generator: Optional[torch.Generator]
+) -> torch.Tensor:
+    """``rand_like(like)`` drawn from ``generator`` on CPU, moved to its device."""
+    if generator is None:
+        return torch.rand_like(like)
+    return torch.rand(like.shape, generator=generator, dtype=like.dtype).to(like.device)
+
+
 # Type alias for arrangement types
 ArrangementType = Literal["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
 
@@ -88,6 +124,7 @@ class ReceptorGrid(BaseGrid):
         spacing: Distance between adjacent receptors in mm (for grid arrangement).
         center: Spatial center of the grid (x0, y0) in mm.
         arrangement: Spatial arrangement pattern.
+        seed: Seed of the per-instance jitter generator (``None`` = global RNG).
         device: PyTorch device for tensor storage.
         xlim: Spatial bounds along x-axis (min, max).
         ylim: Spatial bounds along y-axis (min, max).
@@ -102,6 +139,8 @@ class ReceptorGrid(BaseGrid):
         arrangement: ArrangementType = "grid",
         density: Optional[float] = None,
         device: torch.device | str = "cpu",
+        *,
+        seed: Optional[int] = None,
     ) -> None:
         """Construct receptor grid with specified arrangement pattern.
 
@@ -116,6 +155,12 @@ class ReceptorGrid(BaseGrid):
                 derived from grid_size and spacing when None. Ignored for grid-based
                 arrangements.
             device: PyTorch device identifier for tensors.
+            seed: Seed for the random jitter of the ``jittered_grid``,
+                ``blue_noise`` and ``poisson`` arrangements (F-050). Drawn from
+                a per-instance CPU generator, so the same seed reproduces the
+                same coordinates on every device and building the grid leaves
+                the global RNG untouched. ``None`` (default) draws from the
+                global RNG, as before. Ignored by ``grid`` and ``hex``.
 
         """
         if isinstance(grid_size, tuple):
@@ -131,6 +176,8 @@ class ReceptorGrid(BaseGrid):
         # below, which non-grid arrangements overwrite with a *derived*
         # value for coordinate generation only.
         self.density = density
+        self.seed = seed
+        self._generator = _seeded_generator(seed)
 
         # For non-grid arrangements, we need density or defer to explicit sizing
         if arrangement in ["grid", "jittered_grid", "blue_noise"]:
@@ -154,7 +201,7 @@ class ReceptorGrid(BaseGrid):
                 base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
                 approximate_spacing = self.spacing
                 jitter_magnitude = 0.25 * approximate_spacing
-                jitter = torch.randn_like(base_coords) * jitter_magnitude
+                jitter = _randn_seeded(base_coords, self._generator) * jitter_magnitude
                 jittered = base_coords + jitter
                 jittered[:, 0] = torch.clamp(jittered[:, 0], self.xlim[0], self.xlim[1])
                 jittered[:, 1] = torch.clamp(jittered[:, 1], self.ylim[0], self.ylim[1])
@@ -167,7 +214,11 @@ class ReceptorGrid(BaseGrid):
                 # Blue noise: jittered grid + Lloyd-like relaxation
                 base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
                 jitter_magnitude = 0.4 * self.spacing
-                jitter = (torch.rand_like(base_coords) - 0.5) * 2 * jitter_magnitude
+                jitter = (
+                    (_rand_seeded(base_coords, self._generator) - 0.5)
+                    * 2
+                    * jitter_magnitude
+                )
                 points = base_coords + jitter
                 for _ in range(3):
                     dists = torch.cdist(points, points)
@@ -296,17 +347,30 @@ class ReceptorGrid(BaseGrid):
         """
         return self.get_receptor_coordinates()
 
+    _CONSTRUCTOR_KEYS = frozenset(
+        {"grid_size", "spacing", "center", "arrangement", "density", "device", "seed"}
+    )
+
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "ReceptorGrid":
         """Create ReceptorGrid from config dict.
 
+        Accepts a constructor-shaped dict or the output of :meth:`to_dict`
+        (whose ``type``/``xlim``/``ylim`` keys are derived, not constructor
+        arguments, and are dropped).
+
         Args:
             config: Dictionary with grid_size, spacing, center, arrangement,
-                density, device.
+                density, device, seed.
 
         Returns:
             ReceptorGrid instance.
         """
+        config = {k: v for k, v in config.items() if k in cls._CONSTRUCTOR_KEYS}
+        if isinstance(config.get("grid_size"), list):
+            config["grid_size"] = tuple(config["grid_size"])
+        if isinstance(config.get("center"), list):
+            config["center"] = tuple(config["center"])
         return cls(**config)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -323,6 +387,7 @@ class ReceptorGrid(BaseGrid):
                 "center": list(self.center),
                 "arrangement": self.arrangement,
                 "density": self.density,
+                "seed": self.seed,
             }
         )
         return result
@@ -338,6 +403,7 @@ class ReceptorGrid(BaseGrid):
             "spacing": self.spacing,
             "center": self.center,
             "arrangement": self.arrangement,
+            "seed": self.seed,
             "xlim": self.xlim,
             "ylim": self.ylim,
             "dx": self.dx,
@@ -382,7 +448,7 @@ class ReceptorGrid(BaseGrid):
         coordinates = torch.stack([xx.flatten(), yy.flatten()], dim=1)
 
         jitter_scale = 0.5 * spacing
-        jitter = (torch.rand_like(coordinates) - 0.5) * jitter_scale
+        jitter = (_rand_seeded(coordinates, self._generator) - 0.5) * jitter_scale
         coordinates = coordinates + jitter
 
         coordinates[:, 0] = torch.clamp(coordinates[:, 0], self.xlim[0], self.xlim[1])

@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Dict, List, Literal, Optional, Tuple, Any
 import torch
 
+from .grid import _rand_seeded, _randn_seeded, _seeded_generator
 from .grid_base import BaseGrid
 
 # Type alias for arrangement types
@@ -95,6 +96,7 @@ class CompositeReceptorGrid(BaseGrid):
         arrangement: ArrangementType = "grid",
         offset: Tuple[float, float] = (0.0, 0.0),
         color: Optional[Tuple[int, int, int, int]] = None,
+        seed: Optional[int] = None,
         **metadata: Any,
     ) -> None:
         """Add a named receptor layer with specified arrangement.
@@ -116,6 +118,11 @@ class CompositeReceptorGrid(BaseGrid):
                 in mm. Useful for shifting layers to avoid exact overlap.
             color: RGBA color tuple (r, g, b, a) with values 0-255 for
                 GUI visualization. Purely metadata; not used in computation.
+            seed: Seed for the random jitter of the ``jittered_grid``,
+                ``blue_noise`` and ``poisson`` arrangements (F-050). Drawn from
+                a per-layer CPU generator, so the same seed reproduces the same
+                coordinates and adding the layer leaves the global RNG
+                untouched. ``None`` (default) draws from the global RNG.
             **metadata: Additional key-value pairs for layer-specific
                 configuration (e.g., sigma, connection_params, etc.).
 
@@ -148,6 +155,7 @@ class CompositeReceptorGrid(BaseGrid):
             arrangement=arrangement,
             expected_count=expected_count,
             density=density,
+            generator=_seeded_generator(seed),
         )
 
         # Apply spatial offset
@@ -163,6 +171,7 @@ class CompositeReceptorGrid(BaseGrid):
                 "arrangement": arrangement,
                 "offset": offset,
                 "color": color,
+                "seed": seed,
                 "metadata": metadata,
             },
             "coordinates": coordinates,
@@ -378,6 +387,7 @@ class CompositeReceptorGrid(BaseGrid):
         arrangement: ArrangementType,
         expected_count: int,
         density: float,
+        generator: Optional[torch.Generator] = None,
     ) -> torch.Tensor:
         """Generate receptor coordinates based on arrangement type.
 
@@ -385,6 +395,8 @@ class CompositeReceptorGrid(BaseGrid):
             arrangement: Type of spatial arrangement.
             expected_count: Target number of receptors.
             density: Receptor density in receptors per mm².
+            generator: CPU ``torch.Generator`` for the random arrangements
+                (``None`` = global RNG).
 
         Returns:
             Tensor of shape (N, 2) with (x, y) coordinates.
@@ -395,13 +407,13 @@ class CompositeReceptorGrid(BaseGrid):
         if arrangement == "grid":
             return self._generate_grid(expected_count)
         elif arrangement == "poisson":
-            return self._generate_poisson(density)
+            return self._generate_poisson(density, generator)
         elif arrangement == "hex":
             return self._generate_hex(density)
         elif arrangement == "jittered_grid":
-            return self._generate_jittered_grid(expected_count)
+            return self._generate_jittered_grid(expected_count, generator)
         elif arrangement == "blue_noise":
-            return self._generate_blue_noise(expected_count)
+            return self._generate_blue_noise(expected_count, generator)
         else:
             raise ValueError(f"Unknown arrangement type: {arrangement}")
 
@@ -441,7 +453,9 @@ class CompositeReceptorGrid(BaseGrid):
 
         return coordinates
 
-    def _generate_poisson(self, density: float) -> torch.Tensor:
+    def _generate_poisson(
+        self, density: float, generator: Optional[torch.Generator] = None
+    ) -> torch.Tensor:
         """Generate approximate Poisson-distributed points via jittered grid.
 
         Creates a random point distribution by starting from a regular grid
@@ -473,7 +487,7 @@ class CompositeReceptorGrid(BaseGrid):
         coordinates = torch.stack([xx.flatten(), yy.flatten()], dim=1)
 
         jitter_scale = 0.5 * spacing
-        jitter = (torch.rand_like(coordinates) - 0.5) * jitter_scale
+        jitter = (_rand_seeded(coordinates, generator) - 0.5) * jitter_scale
         coordinates = coordinates + jitter
 
         coordinates[:, 0] = torch.clamp(coordinates[:, 0], self.xlim[0], self.xlim[1])
@@ -527,7 +541,9 @@ class CompositeReceptorGrid(BaseGrid):
 
         return coords[mask]
 
-    def _generate_jittered_grid(self, expected_count: int) -> torch.Tensor:
+    def _generate_jittered_grid(
+        self, expected_count: int, generator: Optional[torch.Generator] = None
+    ) -> torch.Tensor:
         """Generate regular grid with random spatial jitter.
 
         Creates a uniform grid then applies random displacement to each point,
@@ -553,7 +569,7 @@ class CompositeReceptorGrid(BaseGrid):
 
         # Apply jitter: random displacement up to ±25% of spacing
         jitter_magnitude = 0.25 * approximate_spacing
-        jitter = torch.randn_like(base_grid) * jitter_magnitude
+        jitter = _randn_seeded(base_grid, generator) * jitter_magnitude
 
         jittered = base_grid + jitter
 
@@ -563,7 +579,9 @@ class CompositeReceptorGrid(BaseGrid):
 
         return jittered
 
-    def _generate_blue_noise(self, expected_count: int) -> torch.Tensor:
+    def _generate_blue_noise(
+        self, expected_count: int, generator: Optional[torch.Generator] = None
+    ) -> torch.Tensor:
         """Generate blue noise distribution via jittered grid + Lloyd relaxation.
 
         Creates optimal space-filling distribution by starting with jittered grid
@@ -588,7 +606,7 @@ class CompositeReceptorGrid(BaseGrid):
 
         # Apply larger initial jitter (40% vs 25%)
         jitter_magnitude = 0.4 * approximate_spacing
-        jitter = (torch.rand_like(base_grid) - 0.5) * 2 * jitter_magnitude
+        jitter = (_rand_seeded(base_grid, generator) - 0.5) * 2 * jitter_magnitude
         points = base_grid + jitter
 
         # Lloyd-like relaxation: 3 iterations
@@ -699,10 +717,11 @@ class CompositeReceptorGrid(BaseGrid):
                 arrangement=layer_cfg.get("arrangement", "grid"),
                 offset=tuple(layer_cfg.get("offset", (0.0, 0.0))),
                 color=tuple(layer_cfg["color"]) if layer_cfg.get("color") else None,
+                seed=layer_cfg.get("seed"),
                 **{
                     k: v
                     for k, v in layer_cfg.items()
-                    if k not in ["density", "arrangement", "offset", "color"]
+                    if k not in ["density", "arrangement", "offset", "color", "seed"]
                 },
             )
 

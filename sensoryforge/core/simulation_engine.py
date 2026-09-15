@@ -114,6 +114,7 @@ class SimulationEngine:
                     center=(grid_cfg.center_x, grid_cfg.center_y),
                     density=grid_cfg.density,
                     device=self.device,
+                    seed=grid_cfg.seed,
                 )
                 self.grids.append(grid)
                 self.grid_names[grid_name] = grid

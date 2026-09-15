@@ -55,6 +55,18 @@ def _shared_param_spec() -> List[ParamSpec]:
             unit="mm",
             group="Position",
         ),
+        ParamSpec(
+            "seed",
+            dtype="int",
+            default=None,
+            min_val=0,
+            max_val=2**31 - 1,
+            tooltip=(
+                "Seed for the random jitter of jittered_grid, blue_noise and "
+                "poisson (F-050); None draws from the global RNG."
+            ),
+            advanced=True,
+        ),
     ]
 
 
@@ -70,6 +82,8 @@ class _FixedArrangementGrid(ReceptorGrid):
         center: Tuple[float, float] = (0.0, 0.0),
         density: Optional[float] = None,
         device: torch.device | str = "cpu",
+        *,
+        seed: Optional[int] = None,
     ) -> None:
         super().__init__(
             grid_size=grid_size,
@@ -78,10 +92,11 @@ class _FixedArrangementGrid(ReceptorGrid):
             arrangement=self.ARRANGEMENT,
             density=density,
             device=device,
+            seed=seed,
         )
 
     _CONSTRUCTOR_KEYS = frozenset(
-        {"grid_size", "spacing", "center", "density", "device"}
+        {"grid_size", "spacing", "center", "density", "device", "seed"}
     )
 
     @classmethod
@@ -96,6 +111,8 @@ class _FixedArrangementGrid(ReceptorGrid):
         config = {k: v for k, v in config.items() if k in cls._CONSTRUCTOR_KEYS}
         if "center" in config and isinstance(config["center"], list):
             config["center"] = tuple(config["center"])
+        if isinstance(config.get("grid_size"), list):
+            config["grid_size"] = tuple(config["grid_size"])
         return cls(**config)
 
     @classmethod

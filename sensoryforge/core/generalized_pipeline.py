@@ -277,6 +277,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                     arrangement=pop_cfg.get("arrangement", "poisson"),
                     offset=tuple(pop_cfg.get("offset", [0.0, 0.0])),
                     color=tuple(pop_cfg["color"]) if pop_cfg.get("color") else None,
+                    seed=pop_cfg.get("seed"),
                 )
 
         # Create stimulus generator
@@ -436,6 +437,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                             ]
                         ),
                         "color": g.get("color", [66, 135, 245, 200]),
+                        "seed": g.get("seed"),
                     }
 
         # Extract populations - map to SA/RA/SA2 for legacy format

@@ -43,6 +43,9 @@ class GridConfig:
         center_y: Y-coordinate of grid center in mm.
         color: RGBA color tuple [r, g, b, a] for visualization.
         visible: Whether this grid layer is visible in the GUI.
+        seed: Seed for the random jitter of the ``jittered_grid``,
+            ``blue_noise`` and ``poisson`` arrangements (F-050). ``None``
+            draws from the global RNG (not reproducible).
     """
 
     name: str
@@ -55,6 +58,7 @@ class GridConfig:
     center_y: float = 0.0
     color: List[int] = field(default_factory=lambda: [66, 135, 245, 200])
     visible: bool = True
+    seed: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""
