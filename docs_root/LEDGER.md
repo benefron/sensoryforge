@@ -88,7 +88,7 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-049 · OPEN · finding · - · 2026-09-15
+## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
 
