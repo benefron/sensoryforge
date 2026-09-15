@@ -28,7 +28,7 @@ sensoryforge new-component filter MyBandpass --dest ~/code
   the current directory). `--dest` is ignored if you pass `--in-repo`
   instead (see above) — the two modes are mutually exclusive.
 
-This writes an installable `sensoryforge-mybandpass/` package containing:
+This writes an installable `sensoryforge-my-bandpass/` package containing:
 
 - `pyproject.toml` — declares the package and a
   `[project.entry-points."sensoryforge.components"]` section pointing at
@@ -55,10 +55,16 @@ the kind-specific contract method — `compute_weights()` for innervation,
 every `__init__` argument so `from_config()` round-trips (see H3 in
 `add_neuron.md`/`add_filter.md`/`add_stimulus.md` for the exact contract).
 
+For the `neuron` kind specifically: `SimulationEngine` requires every
+neuron model to accept a `noise_std: float` constructor parameter (it is
+passed unconditionally by `_build_populations`) — the generated neuron
+template already declares it, keep it if you edit the constructor
+signature.
+
 ## 3. Install and test
 
 ```bash
-cd sensoryforge-mybandpass
+cd sensoryforge-my-bandpass
 pip install -e .
 pytest
 ```
@@ -69,7 +75,7 @@ SensoryForge process that imports `sensoryforge.register_components`
 (the CLI, the GUI, `BatchExecutor`, a plain `import sensoryforge`) will
 discover and register your component automatically — no config changes
 needed to make the name available, only to use it (e.g.
-`filter_method: mybandpass` in a population's config).
+`filter_method: my_bandpass` in a population's config).
 
 A broken or missing plugin never crashes the host process: a failed entry
 point produces a `UserWarning` and is skipped

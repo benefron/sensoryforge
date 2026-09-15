@@ -111,6 +111,55 @@ def test_cli_default_mode_writes_installable_plugin_package(tmp_path):
         assert "dist-packages" not in resolved_parts
 
 
+def test_generated_neuron_template_accepts_noise_std(tmp_path):
+    """I1 regression guard: `SimulationEngine` unconditionally injects
+    ``noise_std`` into every neuron's constructor kwargs
+    (`_build_populations` in `core/simulation_engine.py`), so the scaffold's
+    generated neuron template must declare it or a plugin neuron generated
+    by ``sensoryforge new-component neuron`` crashes with ``TypeError`` the
+    first time it is used in a real simulation.
+    """
+    result = _run_cli(
+        ["new-component", "neuron", "DemoScaffoldNeuron", "--dest", "."],
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    package_root = tmp_path / "sensoryforge-demo-scaffold-neuron"
+    module_file = package_root / "sensoryforge_demo_scaffold_neuron" / "component.py"
+    module_text = module_file.read_text()
+    assert "noise_std" in module_text
+
+    # Import the generated module directly (without installing the package)
+    # and instantiate it with noise_std=0.1, exactly as SimulationEngine's
+    # _build_populations would call it.
+    env = dict(os.environ)
+    env["PYTHONPATH"] = (
+        str(_WORKTREE_ROOT)
+        + os.pathsep
+        + str(package_root)
+        + os.pathsep
+        + env.get("PYTHONPATH", "")
+    )
+    check = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from sensoryforge_demo_scaffold_neuron.component import "
+            "DemoScaffoldNeuronNeuronTorch as N; "
+            "n = N(noise_std=0.1); "
+            "assert n.noise_std == 0.1; "
+            "assert n.to_dict()['noise_std'] == 0.1; "
+            "print('OK')",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    assert "OK" in check.stdout
+
+
 def test_cli_in_repo_mode_refuses_outside_checkout(tmp_path):
     result = _run_cli(
         ["new-component", "filter", "ShouldNotWrite", "--in-repo"],

@@ -291,15 +291,24 @@ tensor = torch.zeros(10, 10, device=self.device)
 All components must implement:
 
 - `from_config(config: Dict) -> Self` (classmethod)
-- `to_dict() -> Dict` (instance method) — must include every `__init__`
+- `to_dict() -> Dict` (instance method) — should include every `__init__`
   parameter so `from_config(instance.to_dict())` round-trips to a fixed
-  point (H3 completeness requirement)
+  point
 - `get_param_spec() -> List[ParamSpec]` (classmethod, required on every
   component since G1 — not just stimuli)
 
-`sensoryforge.testing.contracts.check_component(kind, cls)` runs all three
-checks (plus a forward-pass shape check) in one call, and is what both the
-plugin-package and in-repo scaffolds' generated tests use.
+`sensoryforge.testing.contracts.check_component(kind, cls)` runs the basic
+`from_config`/`to_dict` round-trip, `get_param_spec()` presence, and a
+forward-pass shape check for every kind. The **full parameter-completeness
+check** (H3 — every `__init__` argument must appear in `to_dict()`, not
+just a fixed point over whatever it does include) is currently wired up
+for **neurons only**: `_check_neuron` is the only one of the six
+`_check_<kind>` functions in `sensoryforge/testing/contracts.py` that calls
+`_assert_to_dict_roundtrip_complete`. Filters, stimuli, grids, solvers and
+innervation are not yet held to it — several shipped built-ins
+(`SAFilterTorch`, `RAFilterTorch`, the grid arrangement classes,
+`EdgeGrating`) would fail it today. Not yet enforced for other kinds (see
+ledger F-049).
 
 ### 5. Write Tests
 

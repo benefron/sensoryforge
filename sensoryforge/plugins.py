@@ -26,8 +26,10 @@ Two discovery paths, both best-effort: a broken or missing plugin produces a
    components at import time, as ``register_components`` does), optionally
    followed by ``:attr`` to call a specific callable after import, e.g.
    ``my_package.plugin:register``. :func:`load_plugin_import_paths` is
-   called from :func:`sensoryforge.cli.load_config_file` when a config
-   declares ``plugins:``.
+   called from :func:`sensoryforge.config.yaml_utils.load_config_file`
+   (the single shared config loader as of H4; ``sensoryforge.cli`` exposes
+   ``load_config_file`` as a re-exported delegate to that same function)
+   when a config declares ``plugins:``.
 """
 
 from __future__ import annotations

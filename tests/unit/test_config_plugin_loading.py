@@ -140,8 +140,6 @@ def test_schema_from_yaml_path_branch_registers_plugin_component(plugin_config_p
 
 # --- GUI leg -----------------------------------------------------------
 
-pytestmark_gui = pytest.mark.gui
-
 _APP = None
 
 

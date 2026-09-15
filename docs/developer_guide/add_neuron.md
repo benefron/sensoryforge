@@ -53,6 +53,15 @@ round-tripped `dt`, not `a`/`b`/`c`/`d`/`tau_m`/etc., F-045). Checked by
 **Time units:** `dt` is stored in **ms** in the model; the ODE integrator
 converts to seconds internally.
 
+**`noise_std` is required:** `SimulationEngine._build_populations` (in
+`sensoryforge/core/simulation_engine.py`) unconditionally passes
+`noise_std=pop_cfg.noise_std` to every neuron's constructor. Every neuron
+model — built-in or plugin — must therefore accept a `noise_std: float`
+constructor parameter, or it raises `TypeError` the moment it is used in
+an actual `SimulationEngine` simulation (F-046-adjacent gap fixed in the
+`sensoryforge new-component neuron` scaffold template; see
+`plugins.md`).
+
 ---
 
 ## 2. Create the module file
@@ -80,6 +89,12 @@ class LIFNeuronTorch(BaseNeuron):
         r_m: Membrane resistance in MΩ.
         dt: Integration time step in ms.
         v_floor: Hard lower bound on membrane potential (anti-runaway guard).
+        noise_std: Additive noise intensity on the membrane voltage
+            (mV/sqrt(ms)). Required: `SimulationEngine` unconditionally
+            passes `noise_std` to every neuron's constructor
+            (`_build_populations` in `core/simulation_engine.py`), so every
+            neuron model must accept it or a real simulation raises
+            `TypeError`, even if a model chooses not to use it internally.
     """
 
     DEFAULT_CONFIG = {
@@ -90,6 +105,7 @@ class LIFNeuronTorch(BaseNeuron):
         "r_m": 10.0,
         "dt": 0.1,
         "v_floor": -100.0,
+        "noise_std": 0.0,
     }
 
     def __init__(
@@ -101,6 +117,7 @@ class LIFNeuronTorch(BaseNeuron):
         r_m: float = 10.0,
         dt: float = 0.1,
         v_floor: float = -100.0,
+        noise_std: float = 0.0,
     ) -> None:
         super().__init__()
         self.tau_m = tau_m
@@ -110,6 +127,7 @@ class LIFNeuronTorch(BaseNeuron):
         self.r_m = r_m
         self.dt = dt          # ms
         self.v_floor = v_floor
+        self.noise_std = noise_std
         self._v: torch.Tensor | None = None
 
     def reset_state(self) -> None:
@@ -149,6 +167,9 @@ class LIFNeuronTorch(BaseNeuron):
             if self.v_floor is not None:
                 v_next = v_next.clamp(min=self.v_floor)
 
+            if self.noise_std > 0.0:
+                v_next = v_next + torch.randn_like(v_next) * (self.noise_std * (dt_s * 1e3) ** 0.5)
+
             spike = (v_next >= self.v_thresh).float()
             v_next = torch.where(spike.bool(), torch.full_like(v_next, self.v_reset), v_next)
 
@@ -175,6 +196,7 @@ class LIFNeuronTorch(BaseNeuron):
             "r_m": self.r_m,
             "dt": self.dt,
             "v_floor": self.v_floor,
+            "noise_std": self.noise_std,
         }
 
     @classmethod
@@ -190,6 +212,9 @@ class LIFNeuronTorch(BaseNeuron):
             ParamSpec("v_floor", dtype="float", default=-100.0,
                       min_val=-200.0, max_val=-50.0, unit="mV",
                       advanced=True),
+            ParamSpec("noise_std", dtype="float", default=0.0,
+                      min_val=0.0, max_val=20.0, unit="mV/sqrt(ms)",
+                      tooltip="Additive Langevin noise intensity on v"),
         ]
 ```
 
@@ -305,6 +330,7 @@ populations:
 - [ ] `forward()` accepts `[B, T, N]` and returns `(v_trace, spikes)` or `spikes`
 - [ ] All loops over time steps only; no loops over batch or neuron dims
 - [ ] `v_floor` parameter guards against membrane runaway
+- [ ] `noise_std: float` constructor parameter accepted (required by `SimulationEngine`, see above)
 - [ ] `reset_state()` zeros internal hidden state
 - [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3); default dict in `DEFAULT_CONFIG`
 - [ ] `get_param_spec()` implemented (required on every component, G1)

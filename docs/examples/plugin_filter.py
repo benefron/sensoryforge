@@ -84,8 +84,12 @@ class LeakyFilterTorch(BaseFilter):
     def get_param_spec(cls) -> List[ParamSpec]:
         return [
             ParamSpec(
-                "tau", dtype="float", default=10.0,
-                min_val=0.1, max_val=500.0, unit="ms",
+                "tau",
+                dtype="float",
+                default=10.0,
+                min_val=0.1,
+                max_val=500.0,
+                unit="ms",
                 help="Leaky filter time constant.",
             ),
         ]
@@ -109,8 +113,16 @@ def main() -> None:
     print(f"output shape: {tuple(filtered.shape)}")
     print(f"final value:  {filtered[0, -1, 0].item():.4f} mA")
 
-    assert filtered.shape == step_current.shape
-    assert filtered[0, -1, 0].item() > 0.0
+    if filtered.shape != step_current.shape:
+        raise RuntimeError(
+            f"demo produced wrong output shape: expected {tuple(step_current.shape)}, "
+            f"got {tuple(filtered.shape)}"
+        )
+    if not filtered[0, -1, 0].item() > 0.0:
+        raise RuntimeError(
+            f"demo produced wrong output: expected a positive filtered value at "
+            f"the final step, got {filtered[0, -1, 0].item():.4f}"
+        )
 
 
 if __name__ == "__main__":

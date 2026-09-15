@@ -87,6 +87,12 @@ def load_config_file(config_path: Union[str, Path]) -> Dict[str, Any]:
     if not config:
         raise ValueError(f"Empty or invalid config file: {config_path}")
 
+    if not isinstance(config, dict):
+        raise ValueError(
+            f"YAML file {config_path} did not produce a dict "
+            f"(got {type(config).__name__})"
+        )
+
     plugins = config.get("plugins")
     if plugins:
         from sensoryforge.plugins import load_plugin_import_paths
