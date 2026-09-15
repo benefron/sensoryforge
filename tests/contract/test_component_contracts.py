@@ -122,25 +122,45 @@ def test_solver_contract(name):
 # ---------------------------------------------------------------------------
 
 
-# Builders whose constructor needs more than the two coordinate tensors.
-_INNERVATION_KWARGS: Dict[str, Dict[str, Any]] = {
-    # template derives its own lattice; it requires one design parameter
-    # form (Phase 2, I4).
-    "template": {"resolvable_distance_mm": 0.4},
+# Builders whose constructor needs more than the two coordinate tensors
+# (Phase 2, I4/I5): each takes receptor_coords and returns the extra kwargs.
+def _template_kwargs(receptor_coords, tmp_path):
+    # template derives its own lattice; it requires one design parameter form.
+    return {"resolvable_distance_mm": 0.4}
+
+
+def _imported_kwargs(receptor_coords, tmp_path):
+    # imported reads weights from a file; give it a saved bank on this grid.
+    from sensoryforge.core.rf_bank import ReceptiveFieldBank
+
+    path = tmp_path / "bank.pt"
+    ReceptiveFieldBank(
+        torch.rand(4, receptor_coords.shape[0]), torch.rand(4, 2), receptor_coords
+    ).save(path)
+    return {"path": str(path)}
+
+
+_INNERVATION_KWARGS: Dict[str, Callable[..., Dict[str, Any]]] = {
+    "template": _template_kwargs,
+    "imported": _imported_kwargs,
 }
+_DERIVES_OWN_CENTRES = {"template", "imported"}
 
 
 @pytest.mark.parametrize("name", sorted(INNERVATION_REGISTRY.list_registered()))
-def test_innervation_contract(name):
+def test_innervation_contract(name, tmp_path):
     if name in _SKIP:
         pytest.skip(_SKIP[name])
     cls = INNERVATION_REGISTRY.get_class(name)
     receptor_coords = torch.rand(20, 2)
     neuron_centers = torch.rand(4, 2)
-    kwargs = dict(_INNERVATION_KWARGS.get(name, {}))
-    if name == "template":
-        # The lattice is derived; passing centres only warns (tested in
-        # tests/unit/test_rf_template_builder.py).
+    kwargs = (
+        _INNERVATION_KWARGS[name](receptor_coords, tmp_path)
+        if name in _INNERVATION_KWARGS
+        else {}
+    )
+    if name in _DERIVES_OWN_CENTRES:
+        # Passing centres only warns (tested in tests/unit/test_rf_*_builder.py).
         innervation = INNERVATION_REGISTRY.create(
             name, receptor_coords=receptor_coords, device="cpu", **kwargs
         )

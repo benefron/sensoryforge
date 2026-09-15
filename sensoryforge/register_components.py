@@ -40,6 +40,7 @@ from sensoryforge.core.innervation import (
     OneToOneInnervation,
     DistanceWeightedInnervation,
 )
+from sensoryforge.core.rf_builders.imported import ImportedRFBuilder
 from sensoryforge.core.rf_builders.template import TemplateRFBuilder
 
 # Stimuli
@@ -110,6 +111,7 @@ def register_all() -> None:
     INNERVATION_REGISTRY.register("one_to_one", OneToOneInnervation)
     INNERVATION_REGISTRY.register("distance_weighted", DistanceWeightedInnervation)
     INNERVATION_REGISTRY.register("template", TemplateRFBuilder)
+    INNERVATION_REGISTRY.register("imported", ImportedRFBuilder)
 
     # Register stimuli
     STIMULUS_REGISTRY.register("gaussian", GaussianStimulus)

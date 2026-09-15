@@ -13,6 +13,7 @@ See ``docs/user_guide/receptive_fields.md`` and
 ``docs/developer_guide/add_rf_builder.md``.
 """
 
+from sensoryforge.core.rf_builders.imported import ImportedRFBuilder
 from sensoryforge.core.rf_builders.template import TemplateRFBuilder
 
-__all__ = ["TemplateRFBuilder"]
+__all__ = ["ImportedRFBuilder", "TemplateRFBuilder"]
