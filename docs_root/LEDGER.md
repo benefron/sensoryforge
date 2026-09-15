@@ -88,6 +88,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-046 · OPEN · finding · - · 2026-09-15
+SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered
+→ commit 2abdab2
+
+## F-047 · OPEN · finding · - · 2026-09-15
+sensoryforge new-component writes relative to the installed package (parents[1] of cli.py): from a wheel install it creates files under site-packages/sensoryforge, site-packages/tests and site-packages/docs, and instructs editing core register_components.py instead of producing an entry-point plugin package
+→ commit 2abdab2
+
+## F-048 · OPEN · finding · - · 2026-09-15
+YAML plugins: lists are honoured only by cli.load_config_file; the GUI YAML load (gui/main.py), BatchExecutor given a path, and SensoryForgeConfig.from_yaml_file ignore them, so a config using plugin components loads in the CLI but not elsewhere
+→ commit 2abdab2
+
 ## F-045 · OPEN · finding · - · 2026-09-15
 concrete neuron models only round-trip dt via to_dict/from_config, not a/b/c/d/tau_m etc.
 → commit 51eb198
