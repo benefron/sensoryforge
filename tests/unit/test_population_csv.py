@@ -1,13 +1,17 @@
-"""Tests for CSV import/export of neuron populations (item 5).
+"""CSV import/export of neuron populations through the Mechanoreceptor tab.
+
+Phase 2 (I7): a population's receptive fields are a ``ReceptiveFieldBank``;
+CSV import goes through the ``imported`` builder (so the population can be
+simulated) and a receptor-count mismatch raises instead of zero-filling.
+The ``_CSVPopulationModule`` stub is gone.
 
 Covers:
-- _CSVPopulationModule data container attributes and duck typing
-- Export writes neuron_positions.csv, innervation_weights.csv, manifest.json
-- Manifest content correctness
-- Round-trip: export then import preserves positions and weights (allclose)
-- csv_folder field is set on population after import
-- CSV populations are preserved through grid regeneration
-- Receptor mismatch falls back to zero stub coordinates
+- Export writes neuron_positions.csv, innervation_weights.csv, bank.pt,
+  manifest.json with correct content
+- Export -> import gives bit-identical weights and centres
+- Imported population is marked (csv_folder, innervation_method "imported")
+- Receptor mismatch raises ValueError naming both counts
+- CSV populations are preserved through _generate_populations
 """
 
 import json
@@ -21,264 +25,167 @@ import torch
 pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+_APP = None  # keep the QApplication alive for the module (F-016 pattern)
 
 
 def _qt_app():
+    global _APP
     try:
         from PyQt5 import QtWidgets
 
-        app = QtWidgets.QApplication.instance()
-        if app is None:
-            app = QtWidgets.QApplication(sys.argv[:1])
-        return app
+        _APP = QtWidgets.QApplication.instance()
+        if _APP is None:
+            _APP = QtWidgets.QApplication(sys.argv[:1])
+        return _APP
     except ImportError:
         pytest.skip("PyQt5 not available")
 
 
-def _make_csv_module(n_neurons=4, n_receptors=9):
-    """Create a _CSVPopulationModule with deterministic test tensors."""
+def _tab_with_grid(rows=8, cols=8, spacing=0.15):
+    """A MechanoreceptorTab with one generated regular grid and one population."""
     _qt_app()
-    from sensoryforge.gui.tabs.mechanoreceptor_tab import _CSVPopulationModule
-
-    centers = torch.arange(n_neurons * 2, dtype=torch.float32).reshape(n_neurons, 2)
-    weights = torch.ones(n_neurons, n_receptors, dtype=torch.float32) * 0.5
-    rcoords = torch.zeros(n_receptors, 2, dtype=torch.float32)
-    return _CSVPopulationModule(
-        neuron_centers=centers,
-        innervation_weights=weights,
-        receptor_coords=rcoords,
-    )
-
-
-def _write_csv_folder(folder: Path, n_neurons=4, n_receptors=9):
-    """Write a valid CSV folder and return (centers_np, weights_np)."""
-    centers_np = np.arange(n_neurons * 2, dtype=np.float32).reshape(n_neurons, 2)
-    weights_np = np.ones((n_neurons, n_receptors), dtype=np.float32) * 0.5
-    folder.mkdir(parents=True, exist_ok=True)
-    np.savetxt(
-        folder / "neuron_positions.csv",
-        centers_np,
-        delimiter=",",
-        header="x_mm,y_mm",
-        comments="",
-    )
-    np.savetxt(folder / "innervation_weights.csv", weights_np, delimiter=",")
-    manifest = {
-        "version": 1,
-        "num_neurons": n_neurons,
-        "num_receptors": n_receptors,
-        "positions_file": "neuron_positions.csv",
-        "weights_file": "innervation_weights.csv",
-    }
-    with (folder / "manifest.json").open("w") as fp:
-        json.dump(manifest, fp)
-    return centers_np, weights_np
-
-
-# ---------------------------------------------------------------------------
-# _CSVPopulationModule: pure-Python data container tests
-# ---------------------------------------------------------------------------
-
-
-def test_csv_module_attributes():
-    """_CSVPopulationModule stores centers, weights, rcoords and exposes num_neurons."""
-    stub = _make_csv_module(n_neurons=4, n_receptors=9)
-    assert stub.num_neurons == 4
-    assert stub.neuron_centers.shape == (4, 2)
-    assert stub.innervation_weights.shape == (4, 9)
-    assert stub.receptor_coords.shape == (9, 2)
-
-
-def test_csv_module_is_valid_flat_module_duck_type():
-    """Assigning _CSVPopulationModule to flat_module must work via duck typing."""
-    _qt_app()
-    from sensoryforge.gui.tabs.mechanoreceptor_tab import (
-        NeuronPopulation,
-        _CSVPopulationModule,
-    )
     from PyQt5 import QtGui
+    from sensoryforge.gui.tabs.mechanoreceptor_tab import GridEntry, MechanoreceptorTab
 
-    pop = NeuronPopulation(
-        name="Test",
-        neuron_type="SA",
-        color=QtGui.QColor(100, 100, 200),
-        neurons_per_row=4,
-        connections_per_neuron=5.0,
-        sigma_d_mm=0.5,
-        weight_min=0.1,
-        weight_max=1.0,
+    tab = MechanoreceptorTab()
+    entry = GridEntry(
+        name="G", rows=rows, cols=cols, spacing=spacing, color=QtGui.QColor(90, 90, 200)
     )
-    stub = _make_csv_module(n_neurons=4, n_receptors=9)
-    pop.flat_module = stub  # type: ignore[assignment]
-
-    # Access via NeuronPopulation property accessors
-    assert pop.neuron_centers is not None
-    assert pop.neuron_centers.shape == (4, 2)
-    assert pop.innervation_weights is not None
-    assert pop.innervation_weights.shape == (4, 9)
+    tab._add_grid_entry(entry)
+    tab._on_add_population()
+    tab._generate_populations()
+    return tab
 
 
-# ---------------------------------------------------------------------------
-# File I/O tests (use tmp_path fixture)
-# ---------------------------------------------------------------------------
+def test_stub_module_is_gone():
+    _qt_app()
+    import sensoryforge.gui.tabs.mechanoreceptor_tab as mod
+
+    assert not hasattr(mod, "_CSVPopulationModule")
 
 
-def test_export_writes_three_files(tmp_path):
-    """Export logic must produce neuron_positions.csv, innervation_weights.csv, manifest.json."""
-    _write_csv_folder(tmp_path, n_neurons=3, n_receptors=6)
-    assert (tmp_path / "neuron_positions.csv").exists()
-    assert (tmp_path / "innervation_weights.csv").exists()
-    assert (tmp_path / "manifest.json").exists()
-
-
-def test_export_manifest_content_is_correct(tmp_path):
-    """Exported manifest must contain correct num_neurons, num_receptors, and file keys."""
-    n_neurons, n_receptors = 5, 12
-    _write_csv_folder(tmp_path, n_neurons=n_neurons, n_receptors=n_receptors)
-    with (tmp_path / "manifest.json").open() as fp:
-        manifest = json.load(fp)
-    assert manifest["num_neurons"] == n_neurons
-    assert manifest["num_receptors"] == n_receptors
+def test_export_writes_four_files_with_correct_manifest(tmp_path):
+    tab = _tab_with_grid()
+    pop = tab.populations[-1]
+    target = tmp_path / "pop_csv"
+    tab.export_population_csv(pop, target)
+    for name in (
+        "neuron_positions.csv",
+        "innervation_weights.csv",
+        "bank.pt",
+        "manifest.json",
+    ):
+        assert (target / name).exists(), name
+    manifest = json.loads((target / "manifest.json").read_text())
+    assert manifest["num_neurons"] == pop.num_neurons
+    assert manifest["num_receptors"] == 64
     assert manifest["positions_file"] == "neuron_positions.csv"
     assert manifest["weights_file"] == "innervation_weights.csv"
+    assert manifest["bank_file"] == "bank.pt"
+    weights = np.loadtxt(target / "innervation_weights.csv", delimiter=",")
+    assert weights.shape == (pop.num_neurons, 64)
 
 
-def test_import_round_trip_positions_allclose(tmp_path):
-    """Export → import round-trip must recover neuron positions within float32 tolerance."""
-    centers_np, _ = _write_csv_folder(tmp_path, n_neurons=6, n_receptors=4)
-    # Simulate import: load from the folder
-    with (tmp_path / "manifest.json").open() as fp:
-        manifest = json.load(fp)
-    loaded = np.loadtxt(
-        tmp_path / manifest["positions_file"], delimiter=",", skiprows=1
-    )
-    assert np.allclose(
-        loaded, centers_np, atol=1e-5
-    ), f"Round-trip positions differ: max diff={np.abs(loaded - centers_np).max()}"
+def test_export_then_import_is_bit_identical(tmp_path):
+    tab = _tab_with_grid()
+    source = tab.populations[-1]
+    target = tmp_path / "pop_csv"
+    tab.export_population_csv(source, target)
+    original_weights = source.bank.weights.clone()
+    original_centers = source.bank.neuron_centers.clone()
+
+    tab._on_add_population()
+    imported = tab.populations[-1]
+    tab.import_population_csv(imported, target)
+
+    assert torch.equal(imported.bank.weights, original_weights)
+    assert torch.equal(imported.bank.neuron_centers, original_centers)
+    assert torch.equal(imported.bank.receptor_coords, source.bank.receptor_coords)
+    assert imported.csv_folder == str(target)
+    assert imported.innervation_method == "imported"
+    assert imported.innervation_params["path"] == str(target.resolve())
+    assert imported.bank.provenance["builder"] == "imported"
+    assert imported.grid_shape == (8, 8)
+    assert imported.innervation_weights.shape == (imported.num_neurons, 8, 8)
+    assert "imported" in tab.lbl_population_info.text()
 
 
-def test_import_round_trip_weights_allclose(tmp_path):
-    """Export → import round-trip must recover innervation weights within float32 tolerance."""
-    _, weights_np = _write_csv_folder(tmp_path, n_neurons=6, n_receptors=4)
-    with (tmp_path / "manifest.json").open() as fp:
-        manifest = json.load(fp)
-    loaded = np.loadtxt(tmp_path / manifest["weights_file"], delimiter=",")
-    assert np.allclose(
-        loaded, weights_np, atol=1e-5
-    ), f"Round-trip weights differ: max diff={np.abs(loaded - weights_np).max()}"
-
-
-def test_import_sets_csv_folder_on_population(tmp_path):
-    """After import, pop.csv_folder must be set to the imported folder path."""
+def test_export_requires_generated_population(tmp_path):
     _qt_app()
+    from PyQt5 import QtGui
     from sensoryforge.gui.tabs.mechanoreceptor_tab import (
         MechanoreceptorTab,
         NeuronPopulation,
-        _CSVPopulationModule,
     )
-    from PyQt5 import QtGui
 
-    n_neurons, n_receptors = 4, 9
-    _write_csv_folder(tmp_path, n_neurons=n_neurons, n_receptors=n_receptors)
-
-    # Manually load CSV the same way _on_import_population_csv does
-    with (tmp_path / "manifest.json").open() as fp:
-        manifest = json.load(fp)
-    centers_np = np.loadtxt(
-        tmp_path / manifest["positions_file"], delimiter=",", skiprows=1
-    )
-    weights_np = np.loadtxt(tmp_path / manifest["weights_file"], delimiter=",")
-
+    tab = MechanoreceptorTab()
     pop = NeuronPopulation(
-        name="Pop",
+        name="p",
         neuron_type="SA",
-        color=QtGui.QColor(100, 100, 200),
-        neurons_per_row=4,
+        color=QtGui.QColor(1, 2, 3),
+        neurons_per_row=2,
         connections_per_neuron=5.0,
-        sigma_d_mm=0.5,
+        sigma_d_mm=0.3,
         weight_min=0.1,
         weight_max=1.0,
     )
-    receptor_coords = torch.zeros(n_receptors, 2, dtype=torch.float32)
-    stub = _CSVPopulationModule(
-        neuron_centers=torch.tensor(centers_np, dtype=torch.float32),
-        innervation_weights=torch.tensor(weights_np, dtype=torch.float32),
-        receptor_coords=receptor_coords,
-    )
-    pop.flat_module = stub  # type: ignore[assignment]
-    pop.csv_folder = str(tmp_path)
-
-    assert pop.csv_folder == str(tmp_path)
+    with pytest.raises(ValueError, match="Generate"):
+        tab.export_population_csv(pop, tmp_path / "x")
 
 
-# ---------------------------------------------------------------------------
-# Qt integration tests — CSV behaviour through the tab
-# ---------------------------------------------------------------------------
+def test_receptor_mismatch_raises_naming_both_counts(tmp_path):
+    tab = _tab_with_grid(rows=8, cols=8)
+    tab.export_population_csv(tab.populations[-1], tmp_path / "pop_csv")
+
+    other = _tab_with_grid(rows=6, cols=6)
+    pop = other.populations[-1]
+    before = pop.bank.weights.clone()
+    with pytest.raises(ValueError, match=r"64.*36|36.*64"):
+        other.import_population_csv(pop, tmp_path / "pop_csv")
+    # the population is untouched by a failed import
+    assert torch.equal(pop.bank.weights, before)
+    assert pop.csv_folder is None
+
+
+def test_import_requires_a_grid(tmp_path):
+    tab = _tab_with_grid()
+    tab.export_population_csv(tab.populations[-1], tmp_path / "pop_csv")
+    _qt_app()
+    from sensoryforge.gui.tabs.mechanoreceptor_tab import MechanoreceptorTab
+
+    empty = MechanoreceptorTab()
+    empty._on_add_population()
+    with pytest.raises(RuntimeError, match="grid"):
+        empty.import_population_csv(empty.populations[-1], tmp_path / "pop_csv")
 
 
 def test_csv_population_preserved_through_generate(tmp_path):
-    """CSV populations must not have their flat_module cleared by _generate_populations."""
-    _qt_app()
-    from sensoryforge.gui.tabs.mechanoreceptor_tab import (
-        MechanoreceptorTab,
-        _CSVPopulationModule,
-    )
-
-    n_neurons, n_receptors = 4, 1600  # 40×40 default grid
-    _write_csv_folder(tmp_path, n_neurons=n_neurons, n_receptors=n_receptors)
-
-    tab = MechanoreceptorTab()
-    tab._on_add_grid()  # default 40×40 grid
-    tab._on_add_population()  # default SA population
+    tab = _tab_with_grid()
+    tab.export_population_csv(tab.populations[-1], tmp_path / "pop_csv")
+    tab._on_add_population()
     pop = tab.populations[-1]
+    tab.import_population_csv(pop, tmp_path / "pop_csv")
+    bank = pop.bank
 
-    # Simulate having imported a CSV
-    stub = _make_csv_module(n_neurons=n_neurons, n_receptors=n_receptors)
-    pop.flat_module = stub  # type: ignore[assignment]
-    pop.csv_folder = str(tmp_path)
-
-    # Regenerate — should not clear the CSV stub
     tab._generate_populations()
 
-    assert pop.csv_folder == str(
-        tmp_path
-    ), "csv_folder must be preserved after generate"
-    assert isinstance(
-        pop.flat_module, _CSVPopulationModule
-    ), "flat_module must remain a _CSVPopulationModule after generate"
+    assert pop.csv_folder == str(tmp_path / "pop_csv")
+    assert pop.bank is bank, "imported bank must not be rebuilt by generate"
 
 
-def test_receptor_mismatch_uses_zero_stub_coords(tmp_path):
-    """When CSV receptor count mismatches the current grid, receptor_coords must be zero-filled."""
-    from sensoryforge.gui.tabs.mechanoreceptor_tab import _CSVPopulationModule
+def test_get_config_marks_imported_population(tmp_path):
+    tab = _tab_with_grid()
+    tab.export_population_csv(tab.populations[-1], tmp_path / "pop_csv")
+    tab._on_add_population()
+    pop = tab.populations[-1]
+    tab.import_population_csv(pop, tmp_path / "pop_csv")
+    cfg = tab.get_config()["populations"][-1]
+    assert cfg["innervation_method"] == "imported"
+    assert cfg["innervation_params"]["path"] == str((tmp_path / "pop_csv").resolve())
+    # the exported config rebuilds the same bank through the engine
+    from sensoryforge.config.schema import PopulationConfig
+    from sensoryforge.core.simulation_engine import SimulationEngine
 
-    n_neurons = 4
-    n_receptors_csv = 20
-    n_receptors_grid = 30  # deliberately different
-
-    # Simulate the import logic directly (receptor count mismatch → zero coords)
-    centers_np = np.zeros((n_neurons, 2), dtype=np.float32)
-    weights_np = np.ones((n_neurons, n_receptors_csv), dtype=np.float32) * 0.5
-    receptor_coords_grid = torch.zeros(n_receptors_grid, 2, dtype=torch.float32)
-
-    # Replicate the mismatch branch from _on_import_population_csv
-    if n_receptors_csv != n_receptors_grid:
-        receptor_coords = torch.zeros(n_receptors_csv, 2, dtype=torch.float32)
-    else:
-        receptor_coords = receptor_coords_grid
-
-    stub = _CSVPopulationModule(
-        neuron_centers=torch.tensor(centers_np),
-        innervation_weights=torch.tensor(weights_np),
-        receptor_coords=receptor_coords,
-    )
-    assert stub.receptor_coords.shape == (n_receptors_csv, 2), (
-        f"Expected receptor_coords shape ({n_receptors_csv}, 2), "
-        f"got {tuple(stub.receptor_coords.shape)}"
-    )
-    assert (
-        stub.receptor_coords.abs().max().item() == 0.0
-    ), "Mismatch fallback must use zero-filled coords"
+    pc = PopulationConfig.from_dict(cfg)
+    params = SimulationEngine.builder_params(pc)
+    assert params["path"] == cfg["innervation_params"]["path"]

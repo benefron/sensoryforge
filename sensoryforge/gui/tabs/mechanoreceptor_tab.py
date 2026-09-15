@@ -23,11 +23,11 @@ if REPO_ROOT not in sys.path:
 
 from sensoryforge.core.grid import GridManager  # noqa: E402
 from sensoryforge.core.innervation import (  # noqa: E402
-    InnervationModule,
-    FlatInnervationModule,
-    create_innervation,
-    create_neuron_centers,
+    _grid_lattice_coords,
+    build_population_bank,
 )
+from sensoryforge.core.rf_bank import ReceptiveFieldBank  # noqa: E402
+from sensoryforge.core.rf_builders.imported import ImportedRFBuilder  # noqa: E402
 from sensoryforge.core.composite_grid import CompositeReceptorGrid  # noqa: E402
 from sensoryforge.gui.widgets.collapsible import CollapsibleGroupBox  # noqa: E402
 
@@ -130,23 +130,6 @@ class GridEntry:
 
 
 @dataclass
-class _CSVPopulationModule:
-    """Minimal data container for CSV-imported neuron positions and weights.
-
-    Mimics the ``FlatInnervationModule`` interface so that the existing
-    ``_update_innervation_graphics_flat`` code path works without modification.
-    """
-
-    neuron_centers: torch.Tensor  # [N, 2] (x, y) in mm
-    innervation_weights: torch.Tensor  # [N, M] float
-    receptor_coords: torch.Tensor  # [M, 2] (x, y) in mm
-
-    @property
-    def num_neurons(self) -> int:
-        return int(self.neuron_centers.shape[0])
-
-
-@dataclass
 class NeuronPopulation:
     """Configuration and visualization handles for a population layer."""
 
@@ -174,8 +157,13 @@ class NeuronPopulation:
     neuron_jitter_factor: float = 1.0
     target_grid: Optional[str] = None  # Name of target grid layer
     csv_folder: Optional[str] = None  # Set when positions/weights loaded from CSV
-    module: Optional[InnervationModule] = None
-    flat_module: Optional[FlatInnervationModule] = None
+    resolvable_distance_mm: float = 0.40  # template builder: sigma = d/pi, pitch = d
+    innervation_params: dict = field(default_factory=dict)  # extra builder params
+    # Phase 2 (I7): the population's receptive fields are one bank; grid_shape
+    # is (rows, cols) when the bank was built on a regular grid lattice (so
+    # weights can be viewed as [N, rows, cols] for the heatmap), else None.
+    bank: Optional[ReceptiveFieldBank] = None
+    grid_shape: Optional[Tuple[int, int]] = None
     scatter_item: Optional[pg.ScatterPlotItem] = None
     connection_items: List[Tuple[pg.PlotDataItem, QtGui.QColor, float]] = field(
         default_factory=list
@@ -190,79 +178,53 @@ class NeuronPopulation:
     highlight_receptor_shadow_item: Optional[pg.ScatterPlotItem] = None
     visible: bool = True
 
-    def instantiate(self, grid_manager: GridManager) -> None:
-        """Build the PyTorch innervation module for this configuration (grid-based)."""
-        weight_range: Tuple[float, float] = (self.weight_min, self.weight_max)
-        kwargs = {
-            "neuron_type": self.neuron_type,
-            "grid_manager": grid_manager,
-            "neurons_per_row": self.neurons_per_row,
-            "neuron_rows": self.neuron_rows,
-            "neuron_cols": self.neuron_cols,
-            "neuron_arrangement": self.neuron_arrangement,
-            "connections_per_neuron": self.connections_per_neuron,
+    def _builder_params(self, *, grid_path: bool) -> dict:
+        """Builder keyword arguments for :func:`build_population_bank`.
+
+        Mirrors :meth:`SimulationEngine.builder_params` so a config exported
+        from this tab builds the same bank through the engine (GUI-engine
+        parity): the grid path never applied a sigma cutoff, the flat path
+        keeps its 3-sigma cutoff.
+        """
+        params = {
+            "connections_per_neuron": float(self.connections_per_neuron),
             "sigma_d_mm": self.sigma_d_mm,
-            "weight_range": weight_range,
+            "max_sigma_distance": 0.0 if grid_path else 3.0,
+            "weight_range": (self.weight_min, self.weight_max),
             "use_distance_weights": self.use_distance_weights,
             "far_connection_fraction": self.far_connection_fraction,
             "far_sigma_factor": self.far_sigma_factor,
+            "max_distance_mm": self.max_distance_mm,
+            "decay_function": self.decay_function,
+            "decay_rate": self.decay_rate,
             "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
             "seed": self.seed,
-            "edge_offset": self.edge_offset,
-            "neuron_jitter_factor": self.neuron_jitter_factor,
         }
-        self.module = InnervationModule(**kwargs)
-        self.flat_module = None
-        if self.innervation_method != "gaussian":
-            if hasattr(grid_manager, "xx") and grid_manager.xx is not None:
-                xx, yy = grid_manager.get_coordinates()
-                receptor_coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
-            else:
-                receptor_coords = grid_manager.get_receptor_coordinates()
-            neuron_centers = self.module.neuron_centers
+        if self.innervation_method == "template":
+            params["resolvable_distance_mm"] = float(self.resolvable_distance_mm)
+        params.update(self.innervation_params or {})
+        return params
 
-            common_far = {
-                "far_connection_fraction": self.far_connection_fraction,
-                "far_sigma_factor": self.far_sigma_factor,
-            }
-            if self.innervation_method == "one_to_one":
-                method_params = {
-                    "connections_per_neuron": self.connections_per_neuron,
-                    "sigma_d_mm": self.sigma_d_mm,
-                    "weight_range": (self.weight_min, self.weight_max),
-                    "use_distance_weights": self.use_distance_weights,
-                    "max_distance_mm": self.max_distance_mm,
-                    "decay_function": self.decay_function,
-                    "decay_rate": self.decay_rate,
-                    "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
-                    "seed": self.seed,
-                    **common_far,
-                }
-            elif self.innervation_method == "uniform":
-                method_params = {
-                    "sigma_d_mm": self.sigma_d_mm,
-                    "weight_range": (self.weight_min, self.weight_max),
-                    "use_distance_weights": self.use_distance_weights,
-                    "max_distance_mm": self.max_distance_mm,
-                    "decay_function": self.decay_function,
-                    "decay_rate": self.decay_rate,
-                    "distance_weight_randomness_pct": self.distance_weight_randomness_pct,
-                    "seed": self.seed,
-                    **common_far,
-                }
-            else:
-                method_params = {}
-            weights = create_innervation(
-                receptor_coords=receptor_coords,
-                neuron_centers=neuron_centers,
-                method=self.innervation_method,
-                device=grid_manager.get_grid_properties()["device"],
-                **method_params,
-            )
-            grid_h, grid_w = grid_manager.grid_size
-            reshaped = weights.view(neuron_centers.shape[0], grid_h, grid_w)
-            self.module.innervation_map = reshaped
-            self.module.innervation_weights.data.copy_(reshaped)
+    def instantiate(self, grid_manager: GridManager) -> None:
+        """Build this population's bank on a grid manager's receptor lattice."""
+        grid_props = grid_manager.get_grid_properties()
+        receptor_coords = _grid_lattice_coords(grid_manager).reshape(-1, 2)
+        self.bank = build_population_bank(
+            receptor_coords=receptor_coords,
+            innervation_method=self.innervation_method,
+            neuron_type=self.neuron_type,
+            neurons_per_row=self.neurons_per_row,
+            neuron_rows=self.neuron_rows,
+            neuron_cols=self.neuron_cols,
+            neuron_arrangement=self.neuron_arrangement,
+            xlim=grid_props["xlim"],
+            ylim=grid_props["ylim"],
+            edge_offset=self.edge_offset,
+            neuron_jitter_factor=self.neuron_jitter_factor,
+            device=grid_props["device"],
+            **self._builder_params(grid_path=True),
+        )
+        self.grid_shape = tuple(int(n) for n in grid_manager.grid_size)
 
     def instantiate_flat(
         self,
@@ -270,59 +232,53 @@ class NeuronPopulation:
         xlim: Tuple[float, float],
         ylim: Tuple[float, float],
     ) -> None:
-        """Build innervation from flat receptor coordinates (composite grid)."""
-        self.flat_module = FlatInnervationModule(
-            neuron_type=self.neuron_type,
+        """Build this population's bank on flat receptor coordinates (composite grid)."""
+        self.bank = build_population_bank(
             receptor_coords=receptor_coords,
+            innervation_method=self.innervation_method,
+            neuron_type=self.neuron_type,
             neurons_per_row=self.neurons_per_row,
             neuron_rows=self.neuron_rows,
             neuron_cols=self.neuron_cols,
             neuron_arrangement=self.neuron_arrangement,
             xlim=xlim,
             ylim=ylim,
-            innervation_method=self.innervation_method,
-            connections_per_neuron=self.connections_per_neuron,
-            sigma_d_mm=self.sigma_d_mm,
-            max_sigma_distance=3.0,
-            weight_range=(self.weight_min, self.weight_max),
-            use_distance_weights=self.use_distance_weights,
-            far_connection_fraction=self.far_connection_fraction,
-            far_sigma_factor=self.far_sigma_factor,
-            max_distance_mm=self.max_distance_mm,
-            decay_function=self.decay_function,
-            decay_rate=self.decay_rate,
-            distance_weight_randomness_pct=self.distance_weight_randomness_pct,
-            seed=self.seed,
             edge_offset=self.edge_offset,
             neuron_jitter_factor=self.neuron_jitter_factor,
+            device=receptor_coords.device,
+            **self._builder_params(grid_path=False),
         )
-        self.module = None
+        self.grid_shape = None
+
+    @property
+    def is_instantiated(self) -> bool:
+        return self.bank is not None
 
     @property
     def neuron_centers(self) -> Optional[torch.Tensor]:
-        """Get neuron centers from whichever module is active."""
-        if self.module is not None:
-            return self.module.neuron_centers
-        if self.flat_module is not None:
-            return self.flat_module.neuron_centers
-        return None
+        """``[N, 2]`` neuron centres in mm, or ``None`` before instantiation."""
+        return self.bank.neuron_centers if self.bank is not None else None
+
+    @property
+    def receptor_coords(self) -> Optional[torch.Tensor]:
+        """``[M, 2]`` receptor positions the bank was built on."""
+        return self.bank.receptor_coords if self.bank is not None else None
 
     @property
     def innervation_weights(self) -> Optional[torch.Tensor]:
-        """Get innervation weights from whichever module is active."""
-        if self.module is not None:
-            return self.module.innervation_weights
-        if self.flat_module is not None:
-            return self.flat_module.innervation_weights
-        return None
+        """Bank weights: ``[N, rows, cols]`` on a grid lattice, else ``[N, M]``."""
+        if self.bank is None:
+            return None
+        weights = self.bank.weights
+        if self.grid_shape is not None:
+            rows, cols = self.grid_shape
+            if rows * cols == weights.shape[1]:
+                return weights.view(weights.shape[0], rows, cols)
+        return weights
 
     @property
     def num_neurons(self) -> int:
-        if self.module is not None:
-            return self.module.num_neurons
-        if self.flat_module is not None:
-            return self.flat_module.num_neurons
-        return 0
+        return self.bank.num_neurons if self.bank is not None else 0
 
     def delete_graphics(self, plot: pg.PlotItem) -> None:
         if self.scatter_item is not None:
@@ -717,9 +673,26 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.dbl_sigma.setValue(0.3)
         self.dbl_sigma.valueChanged.connect(self._on_population_editor_changed)
         self.cmb_innervation_method = QtWidgets.QComboBox()
-        self.cmb_innervation_method.addItems(["gaussian", "one_to_one", "uniform"])
+        self.cmb_innervation_method.addItems(
+            ["gaussian", "one_to_one", "uniform", "template"]
+        )
         self.cmb_innervation_method.setCurrentText("gaussian")
         self.cmb_innervation_method.currentTextChanged.connect(
+            self._on_population_editor_changed
+        )
+        # template builder (Phase 2, I4/I7): one resolvable distance d gives
+        # sigma = d/pi and pitch = d; the neuron count is derived from it.
+        self.dbl_resolvable_distance = QtWidgets.QDoubleSpinBox()
+        self.dbl_resolvable_distance.setDecimals(4)
+        self.dbl_resolvable_distance.setRange(0.01, 50.0)
+        self.dbl_resolvable_distance.setSingleStep(0.01)
+        self.dbl_resolvable_distance.setValue(0.40)
+        self.dbl_resolvable_distance.setSuffix(" mm")
+        self.dbl_resolvable_distance.setToolTip(
+            "Resolvable distance d for the template builder: sigma = d/pi, "
+            "lattice pitch = d. The neuron count is derived; neurons/row is ignored."
+        )
+        self.dbl_resolvable_distance.valueChanged.connect(
             self._on_population_editor_changed
         )
         self.dbl_max_distance = QtWidgets.QDoubleSpinBox()
@@ -803,6 +776,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         pop_layout.addRow("Sigma d (mm):", self.dbl_sigma)
         self._lbl_sigma = pop_layout.labelForField(self.dbl_sigma)
         pop_layout.addRow("Innervation Method:", self.cmb_innervation_method)
+        pop_layout.addRow("Resolvable distance d:", self.dbl_resolvable_distance)
+        self._lbl_resolvable_distance = pop_layout.labelForField(
+            self.dbl_resolvable_distance
+        )
+        self.lbl_population_info = QtWidgets.QLabel("Not generated yet")
+        self.lbl_population_info.setWordWrap(True)
+        pop_layout.addRow("Neurons:", self.lbl_population_info)
         self.chk_use_distance_weights = QtWidgets.QCheckBox("Use distance weights")
         self.chk_use_distance_weights.setChecked(True)
         self.chk_use_distance_weights.setToolTip(
@@ -1257,6 +1237,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             pop.neuron_cols = self.spin_neuron_cols.value()
         pop.connections_per_neuron = self.dbl_connections.value()
         pop.sigma_d_mm = self.dbl_sigma.value()
+        pop.resolvable_distance_mm = self.dbl_resolvable_distance.value()
         pop.innervation_method = self.cmb_innervation_method.currentText()
         if pop.innervation_method == "distance_weighted":
             pop.innervation_method = "gaussian"
@@ -1299,8 +1280,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if seed_val is not None:
             torch.manual_seed(seed_val)
         if self.grid_manager is not None:
-            pop.module = None
-            pop.flat_module = None
+            pop.bank = None
             if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
                 pop.instantiate(self.grid_manager)
             else:
@@ -1308,8 +1288,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 props = self.grid_manager.get_grid_properties()
                 pop.instantiate_flat(coords, props["xlim"], props["ylim"])
         elif self._composite_grid is not None:
-            pop.module = None
-            pop.flat_module = None
+            pop.bank = None
             target = pop.target_grid
             if target:
                 coords = self._composite_grid.get_population_coordinates(target)
@@ -1321,6 +1300,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             if coords is not None and coords.shape[0] > 0:
                 pop.instantiate_flat(coords, xlim, ylim)
         self._create_population_graphics(pop)
+        self._update_population_info_label(pop)
         self._highlight_population(self._selected_population)
         self._update_layer_visibility()
         self.populations_changed.emit(list(self.populations))
@@ -1659,9 +1639,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         weights = pop.innervation_weights
         if weights is None:
             return
-        # Use actual receptor positions: flat_module (Poisson, composite) or grid (regular)
-        if pop.flat_module is not None:
-            rc = pop.flat_module.receptor_coords.detach().cpu().numpy()
+        # Use the bank's receptor positions (flat / composite / imported) or
+        # the regular grid's lattice
+        if pop.bank is not None and pop.grid_shape is None:
+            rc = pop.bank.receptor_coords.detach().cpu().numpy()
             x_flat = rc[:, 0]
             y_flat = rc[:, 1]
         elif self.grid_manager is not None:
@@ -1803,11 +1784,29 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 scatter_item.setOpacity(dim_opacity)
 
     def _on_innervation_method_changed(self, method: str) -> None:
-        # connections_per_neuron is not used by the uniform method
-        show_connections = method != "uniform"
+        is_template = method == "template"
+        # connections_per_neuron is not used by the uniform/template methods
+        show_connections = method not in ("uniform", "template")
         self.dbl_connections.setVisible(show_connections)
         if hasattr(self, "_lbl_connections") and self._lbl_connections is not None:
             self._lbl_connections.setVisible(show_connections)
+        # sigma and the neuron count are derived from d for the template
+        self.dbl_sigma.setVisible(not is_template)
+        if hasattr(self, "_lbl_sigma") and self._lbl_sigma is not None:
+            self._lbl_sigma.setVisible(not is_template)
+        if hasattr(self, "dbl_resolvable_distance"):
+            self.dbl_resolvable_distance.setVisible(is_template)
+        if (
+            hasattr(self, "_lbl_resolvable_distance")
+            and self._lbl_resolvable_distance is not None
+        ):
+            self._lbl_resolvable_distance.setVisible(is_template)
+        self.spin_neurons_per_row.setEnabled(not is_template)
+        self.spin_neurons_per_row.setToolTip(
+            "Ignored by the template builder: the neuron count is derived from d."
+            if is_template
+            else ""
+        )
 
         # Sigma controls a different quantity depending on the method
         if hasattr(self, "_lbl_sigma") and self._lbl_sigma is not None:
@@ -1817,6 +1816,34 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 self._lbl_sigma.setText("Max dist (mm):")
             else:  # uniform
                 self._lbl_sigma.setText("Spatial scale (mm):")
+
+    def _update_population_info_label(
+        self, population: Optional["NeuronPopulation"]
+    ) -> None:
+        """Show the (derived) neuron count of the selected population."""
+        if not hasattr(self, "lbl_population_info"):
+            return
+        if population is None or population.bank is None:
+            self.lbl_population_info.setText("Not generated yet")
+            return
+        n = population.num_neurons
+        prov = population.bank.provenance
+        if prov.get("builder") == "template":
+            derived = prov.get("derived", {})
+            shape = derived.get("lattice_shape")
+            shape_txt = f" ({shape[0]} x {shape[1]})" if shape else ""
+            self.lbl_population_info.setText(
+                f"{n} neurons{shape_txt}, derived from d = "
+                f"{population.resolvable_distance_mm:g} mm "
+                f"(sigma = {derived.get('sigma_mm', 0.0):.4g} mm); "
+                "neurons/row is ignored"
+            )
+        elif prov.get("builder") == "imported":
+            self.lbl_population_info.setText(
+                f"{n} neurons, imported from {Path(prov.get('source_path', '')).name}"
+            )
+        else:
+            self.lbl_population_info.setText(f"{n} neurons")
 
     def _on_use_distance_weights_changed(self, state: int) -> None:
         if hasattr(self, "_dist_params_group"):
@@ -1971,8 +1998,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     # CSV-loaded population: redraw graphics without recomputing weights
                     self._create_population_graphics(population)
                     continue
-                population.module = None
-                population.flat_module = None
+                population.bank = None
                 if (
                     hasattr(self.grid_manager, "xx")
                     and self.grid_manager.xx is not None
@@ -1988,8 +2014,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 if population.csv_folder is not None:
                     self._create_population_graphics(population)
                     continue
-                population.module = None
-                population.flat_module = None
+                population.bank = None
                 target = population.target_grid
                 if target:
                     coords = self._composite_grid.get_population_coordinates(target)
@@ -2068,6 +2093,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             method = "gaussian"
         if self.cmb_innervation_method.findText(method) >= 0:
             self.cmb_innervation_method.setCurrentText(method)
+        self.dbl_resolvable_distance.setValue(population.resolvable_distance_mm)
+        self._update_population_info_label(population)
         if hasattr(self, "chk_use_distance_weights"):
             self.chk_use_distance_weights.setChecked(population.use_distance_weights)
         self.dbl_weight_min.setValue(population.weight_min)
@@ -2244,9 +2271,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self.plot.addItem(scatter)
         population.scatter_item = scatter
 
-        if population.module is not None and self.grid_manager is not None:
+        if population.bank is None:
+            return
+        if population.grid_shape is not None and self.grid_manager is not None:
             self._update_innervation_graphics(population)
-        elif population.flat_module is not None:
+        else:
             self._update_innervation_graphics_flat(population)
 
         self._highlight_population(self._selected_population or population)
@@ -2270,9 +2299,12 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         """Update heatmap to show single-neuron innervation when selected, else cumulative."""
         pop = self._selected_population
         idx = self._selected_neuron_idx
-        if pop is None or pop.heatmap_item is None or pop.module is None:
+        if pop is None or pop.heatmap_item is None or pop.grid_shape is None:
             return
-        weights = pop.module.innervation_weights.detach().cpu().numpy()
+        weights = pop.innervation_weights
+        if weights is None or weights.ndim != 3:
+            return
+        weights = weights.detach().cpu().numpy()
         if idx is not None:
             weight_map = weights[idx].astype(np.float32)
         else:
@@ -2349,7 +2381,11 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         self,
         population: NeuronPopulation,
     ) -> None:
-        if population.module is None or self.grid_manager is None:
+        if (
+            population.bank is None
+            or population.grid_shape is None
+            or self.grid_manager is None
+        ):
             return
 
         for item, _, _ in population.connection_items:
@@ -2365,8 +2401,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         population.receptor_items.clear()
         population.connection_items.clear()
 
-        weights = population.module.innervation_weights.detach().cpu().numpy()
-        centers = population.module.neuron_centers.detach().cpu().numpy()
+        weights = population.innervation_weights.detach().cpu().numpy()
+        centers = population.neuron_centers.detach().cpu().numpy()
         xx, yy = self.grid_manager.get_coordinates()
         x_flat = xx.detach().cpu().numpy().reshape(-1)
         y_flat = yy.detach().cpu().numpy().reshape(-1)
@@ -2475,7 +2511,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         population: NeuronPopulation,
     ) -> None:
         """Update innervation graphics for flat-coordinate (composite grid) populations."""
-        if population.flat_module is None:
+        if population.bank is None:
             return
 
         for item, _, _ in population.connection_items:
@@ -2491,9 +2527,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         population.receptor_items.clear()
         population.connection_items.clear()
 
-        weights = population.flat_module.innervation_weights.detach().cpu().numpy()
-        centers = population.flat_module.neuron_centers.detach().cpu().numpy()
-        receptor_coords = population.flat_module.receptor_coords.detach().cpu().numpy()
+        weights = population.bank.weights.detach().cpu().numpy()
+        centers = population.bank.neuron_centers.detach().cpu().numpy()
+        receptor_coords = population.bank.receptor_coords.detach().cpu().numpy()
         x_flat = receptor_coords[:, 0]
         y_flat = receptor_coords[:, 1]
 
@@ -2595,11 +2631,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         """Clear population graphics and invalidate modules when grid changes."""
         for population in self.populations:
             population.delete_graphics(self.plot)
-            population.module = None
-            # Preserve CSV-loaded modules; they are still valid until user explicitly
-            # re-imports (the user can also just re-import if the receptor count changes).
+            # Preserve CSV-loaded banks; they are still valid until the user
+            # explicitly re-imports (re-import if the receptor count changes).
             if population.csv_folder is None:
-                population.flat_module = None
+                population.bank = None
 
     def _update_generate_population_button(self) -> None:
         """Enable Generate Population only when a grid exists."""
@@ -2790,7 +2825,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         }
 
         for idx, population in enumerate(self.populations, start=1):
-            if population.module is None and population.flat_module is None:
+            if population.bank is None:
                 if self.grid_manager is not None:
                     if (
                         hasattr(self.grid_manager, "xx")
@@ -2824,11 +2859,9 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             tensor_filename = f"population_{idx:02d}_{pop_slug}.pt"
             tensor_path = config_dir / tensor_filename
             try:
-                payload = {
-                    "innervation_weights": weights.detach().cpu(),
-                    "neuron_centers": centers.detach().cpu(),
-                }
-                torch.save(payload, tensor_path)
+                # ReceptiveFieldBank.save: innervation_weights [N, M],
+                # neuron_centers, receptor_coords, provenance (I7).
+                population.bank.save(tensor_path)
             except OSError as exc:
                 QtWidgets.QMessageBox.critical(
                     self,
@@ -2865,6 +2898,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     "seed": population.seed,
                     "edge_offset": population.edge_offset,
                     "neuron_jitter_factor": population.neuron_jitter_factor,
+                    "resolvable_distance_mm": float(population.resolvable_distance_mm),
+                    "innervation_params": dict(population.innervation_params),
                 },
                 "tensors": tensor_filename,
                 "visible": bool(population.visible),
@@ -3027,6 +3062,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 edge_offset=params.get("edge_offset"),
                 neuron_jitter_factor=float(params.get("neuron_jitter_factor", 1.0)),
                 target_grid=target_grid,
+                resolvable_distance_mm=float(
+                    params.get("resolvable_distance_mm", 0.40)
+                ),
+                innervation_params=dict(params.get("innervation_params", {})),
             )
 
             # Instantiate with appropriate grid type
@@ -3055,34 +3094,34 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             if tensor_file:
                 tensor_path = (manifest_path.parent / tensor_file).resolve()
                 try:
-                    payload = torch.load(tensor_path, map_location="cpu")
+                    payload = torch.load(
+                        tensor_path, map_location="cpu", weights_only=False
+                    )
                     weights_tensor = payload.get("innervation_weights")
                     centers_tensor = payload.get("neuron_centers")
-                    if population.module is not None:
-                        if weights_tensor is not None:
-                            device = population.module.innervation_weights.device
-                            population.module.innervation_map = weights_tensor.to(
-                                device
+                    if population.bank is not None and weights_tensor is not None:
+                        # Saved banks and legacy [N, H, W] payloads both map
+                        # onto the bank's [N, M] weights in receptor order.
+                        n = int(weights_tensor.shape[0])
+                        weights_2d = weights_tensor.reshape(n, -1)
+                        coords = population.bank.receptor_coords
+                        if weights_2d.shape[1] != coords.shape[0]:
+                            raise ValueError(
+                                f"tensor file has {weights_2d.shape[1]} receptors "
+                                f"but the grid has {coords.shape[0]}"
                             )
-                            population.module.innervation_weights.data.copy_(
-                                population.module.innervation_map
-                            )
-                        if centers_tensor is not None:
-                            population.module.neuron_centers = centers_tensor.to(
-                                population.module.neuron_centers.device
-                            )
-                    elif population.flat_module is not None:
-                        if weights_tensor is not None:
-                            population.flat_module.innervation_weights.data.copy_(
-                                weights_tensor.to(
-                                    population.flat_module.innervation_weights.device
-                                )
-                            )
-                        if centers_tensor is not None:
-                            population.flat_module.neuron_centers = centers_tensor.to(
-                                population.flat_module.neuron_centers.device
-                            )
-                except (OSError, RuntimeError) as exc:
+                        centers = (
+                            centers_tensor
+                            if centers_tensor is not None
+                            else population.bank.neuron_centers
+                        )
+                        provenance = dict(payload.get("provenance") or {})
+                        provenance.setdefault("builder", "imported")
+                        provenance["source_path"] = str(tensor_path)
+                        population.bank = ReceptiveFieldBank(
+                            weights_2d, centers, coords, provenance=provenance
+                        ).to(coords.device)
+                except (OSError, RuntimeError, ValueError) as exc:
                     QtWidgets.QMessageBox.critical(
                         self,
                         "Load failed",
@@ -3131,6 +3170,97 @@ class MechanoreceptorTab(QtWidgets.QWidget):
     #  CSV import / export for custom neuron populations (Item 5)          #
     # ------------------------------------------------------------------ #
 
+    def export_population_csv(self, pop: NeuronPopulation, target: Path) -> None:
+        """Write ``pop``'s receptive fields to ``target`` (created if needed).
+
+        Files: ``neuron_positions.csv`` (``x_mm,y_mm``), ``innervation_weights.csv``
+        (``N`` x ``M``, SensoryForge receptor order), ``bank.pt``
+        (:meth:`ReceptiveFieldBank.save`) and ``manifest.json``. The folder is
+        what the ``imported`` builder and :meth:`import_population_csv` read.
+
+        Raises:
+            ValueError: If the population has not been generated.
+            OSError: If a file cannot be written.
+        """
+        if pop.bank is None:
+            raise ValueError("Generate (or import) the population before exporting.")
+        target.mkdir(parents=True, exist_ok=True)
+        centers_np = pop.bank.neuron_centers.detach().cpu().numpy()
+        weights_np = pop.bank.weights.detach().cpu().numpy()
+        np.savetxt(
+            target / "neuron_positions.csv",
+            centers_np,
+            delimiter=",",
+            header="x_mm,y_mm",
+            comments="",
+        )
+        np.savetxt(target / "innervation_weights.csv", weights_np, delimiter=",")
+        pop.bank.save(target / "bank.pt")
+        manifest = {
+            "version": 2,
+            "num_neurons": int(centers_np.shape[0]),
+            "num_receptors": int(weights_np.shape[1]),
+            "positions_file": "neuron_positions.csv",
+            "weights_file": "innervation_weights.csv",
+            "bank_file": "bank.pt",
+        }
+        with (target / "manifest.json").open("w", encoding="utf-8") as fp:
+            json.dump(manifest, fp, indent=2)
+
+    def _current_receptor_coords(
+        self, pop: NeuronPopulation
+    ) -> Tuple[Optional[torch.Tensor], Optional[Tuple[int, int]]]:
+        """Receptor coordinates of the grid ``pop`` targets, and the lattice shape."""
+        if self.grid_manager is not None:
+            coords = _grid_lattice_coords(self.grid_manager).reshape(-1, 2)
+            shape: Optional[Tuple[int, int]] = tuple(
+                int(n) for n in self.grid_manager.grid_size
+            )
+            if not hasattr(self.grid_manager, "xx") or self.grid_manager.xx is None:
+                shape = None
+            return coords, shape
+        if self._composite_grid is not None:
+            target = pop.target_grid
+            coords = (
+                self._composite_grid.get_population_coordinates(target)
+                if target
+                else self._composite_grid.get_all_coordinates()
+            )
+            return coords, None
+        return None, None
+
+    def import_population_csv(self, pop: NeuronPopulation, folder: Path) -> None:
+        """Load ``pop``'s receptive fields from a CSV export folder.
+
+        Uses the ``imported`` builder on the current grid's receptor
+        coordinates, so the population can be simulated. The receptor count
+        must match the grid (no zero-fill).
+
+        Raises:
+            ValueError: If the folder is not a CSV export or its receptor
+                count differs from the current grid.
+            RuntimeError: If no grid has been generated.
+        """
+        receptor_coords, grid_shape = self._current_receptor_coords(pop)
+        if receptor_coords is None:
+            raise RuntimeError("Generate a grid before importing a population.")
+        bank = ImportedRFBuilder(receptor_coords, path=str(folder)).build()
+        pop.delete_graphics(self.plot)
+        pop.bank = bank.to(receptor_coords.device)
+        pop.grid_shape = grid_shape
+        pop.csv_folder = str(folder)
+        pop.innervation_method = "imported"
+        pop.innervation_params = {"path": str(Path(folder).resolve())}
+        n = bank.num_neurons
+        pop.neurons_per_row = max(1, int(round(n**0.5)))
+        pop.neuron_rows = n
+        pop.neuron_cols = 1
+        if hasattr(self, "lbl_csv_folder"):
+            self.lbl_csv_folder.setText(f"CSV: {Path(folder).name}")
+        self._create_population_graphics(pop)
+        self._update_population_info_label(pop)
+        self.populations_changed.emit(list(self.populations))
+
     def _on_export_population_csv(self) -> None:
         """Export the selected population's positions and weights to a CSV folder."""
         pop = self._selected_population
@@ -3139,9 +3269,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 self, "No population selected", "Select a population first."
             )
             return
-        centers = pop.neuron_centers
-        weights = pop.innervation_weights
-        if centers is None or weights is None:
+        if pop.bank is None:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Population not instantiated",
@@ -3162,39 +3290,8 @@ class MechanoreceptorTab(QtWidgets.QWidget):
             return
         target = Path(base_dir) / self._sanitize_name(name)
         try:
-            target.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            QtWidgets.QMessageBox.critical(
-                self, "Export failed", f"Could not create folder:\n{exc}"
-            )
-            return
-
-        centers_np = centers.detach().cpu().numpy()
-        weights_np = weights.detach().cpu().numpy()
-
-        try:
-            np.savetxt(
-                target / "neuron_positions.csv",
-                centers_np,
-                delimiter=",",
-                header="x_mm,y_mm",
-                comments="",
-            )
-            np.savetxt(
-                target / "innervation_weights.csv",
-                weights_np,
-                delimiter=",",
-            )
-            manifest = {
-                "version": 1,
-                "num_neurons": int(centers_np.shape[0]),
-                "num_receptors": int(weights_np.shape[1]),
-                "positions_file": "neuron_positions.csv",
-                "weights_file": "innervation_weights.csv",
-            }
-            with (target / "manifest.json").open("w", encoding="utf-8") as fp:
-                json.dump(manifest, fp, indent=2)
-        except OSError as exc:
+            self.export_population_csv(pop, target)
+        except (OSError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(
                 self, "Export failed", f"Could not write CSV files:\n{exc}"
             )
@@ -3219,94 +3316,29 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         if not folder:
             return
         folder_path = Path(folder)
-        manifest_path = folder_path / "manifest.json"
-        if not manifest_path.exists():
+        if not (folder_path / "manifest.json").exists():
             QtWidgets.QMessageBox.warning(
                 self,
                 "Invalid folder",
-                "No manifest.json found.\nExport a population first to create a valid CSV folder.",
+                "No manifest.json found.\nExport a population first to create a "
+                "valid CSV folder.",
             )
             return
-
         try:
-            with manifest_path.open("r", encoding="utf-8") as fp:
-                manifest = json.load(fp)
-            positions_path = folder_path / manifest["positions_file"]
-            weights_path = folder_path / manifest["weights_file"]
-            centers_np = np.loadtxt(positions_path, delimiter=",", skiprows=1)
-            weights_np = np.loadtxt(weights_path, delimiter=",")
-        except (OSError, KeyError, ValueError) as exc:
+            self.import_population_csv(pop, folder_path)
+        except (OSError, ValueError, RuntimeError) as exc:
             QtWidgets.QMessageBox.critical(
-                self, "Import failed", f"Could not read CSV files:\n{exc}"
+                self, "Import failed", f"Could not import the CSV folder:\n{exc}"
             )
             return
-
-        if centers_np.ndim == 1:
-            centers_np = centers_np.reshape(1, -1)
-        if weights_np.ndim == 1:
-            weights_np = weights_np.reshape(1, -1)
-
-        # Resolve current receptor coordinates for the stub module
-        receptor_coords: Optional[torch.Tensor] = None
-        if self.grid_manager is not None:
-            if hasattr(self.grid_manager, "xx") and self.grid_manager.xx is not None:
-                xx, yy = self.grid_manager.get_coordinates()
-                receptor_coords = torch.stack([xx.flatten(), yy.flatten()], dim=1)
-            else:
-                receptor_coords = self.grid_manager.get_receptor_coordinates()
-        elif self._composite_grid is not None:
-            target = pop.target_grid
-            receptor_coords = (
-                self._composite_grid.get_population_coordinates(target)
-                if target
-                else self._composite_grid.get_all_coordinates()
-            )
-
-        num_receptors_csv = int(weights_np.shape[1])
-        if receptor_coords is not None:
-            num_receptors_grid = int(receptor_coords.shape[0])
-            if num_receptors_csv != num_receptors_grid:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Receptor count mismatch",
-                    f"CSV has {num_receptors_csv} receptors but the current grid has "
-                    f"{num_receptors_grid}. Proceeding with stub coordinates.",
-                )
-                receptor_coords = None
-
-        if receptor_coords is None:
-            receptor_coords = torch.zeros(num_receptors_csv, 2, dtype=torch.float32)
-
-        neuron_centers_t = torch.tensor(centers_np, dtype=torch.float32)
-        weights_t = torch.tensor(weights_np, dtype=torch.float32)
-
-        # Attach the CSV module and redraw
-        pop.delete_graphics(self.plot)
-        pop.module = None
-        stub = _CSVPopulationModule(
-            neuron_centers=neuron_centers_t,
-            innervation_weights=weights_t,
-            receptor_coords=receptor_coords,
-        )
-        pop.flat_module = stub  # type: ignore[assignment]
-        pop.csv_folder = str(folder_path)
-        pop.neurons_per_row = int(centers_np.shape[0]) ** (1 / 2)  # approximate
-        pop.neuron_rows = int(centers_np.shape[0])
-        pop.neuron_cols = 1
-
-        if hasattr(self, "lbl_csv_folder"):
-            self.lbl_csv_folder.setText(f"CSV: {folder_path.name}")
-
-        self._create_population_graphics(pop)
         self._highlight_population(self._selected_population)
         self._update_layer_visibility()
-        self.populations_changed.emit(list(self.populations))
 
         QtWidgets.QMessageBox.information(
             self,
             "Imported",
-            f"Loaded {neuron_centers_t.shape[0]} neurons and "
-            f"{weights_t.shape[1]} receptors from:\n{folder_path}",
+            f"Loaded {pop.num_neurons} neurons and "
+            f"{pop.bank.num_receptors} receptors from:\n{folder_path}",
         )
 
     def current_grid_manager(self) -> Optional[GridManager]:
@@ -3381,6 +3413,10 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 "color": [c.red(), c.green(), c.blue(), c.alpha()],
                 "visible": pop.visible,
             }
+            if pop.innervation_method == "template":
+                pop_dict["resolvable_distance_mm"] = float(pop.resolvable_distance_mm)
+            if pop.innervation_params:
+                pop_dict["innervation_params"] = dict(pop.innervation_params)
             if pop.target_grid is not None:
                 pop_dict["target_grid"] = pop.target_grid
             populations.append(pop_dict)
@@ -3489,7 +3525,13 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                 neuron_jitter_factor=float(pop_cfg.get("neuron_jitter_factor", 1.0)),
                 target_grid=target_grid,
                 visible=pop_cfg.get("visible", True),
+                resolvable_distance_mm=float(
+                    pop_cfg.get("resolvable_distance_mm", 0.40) or 0.40
+                ),
+                innervation_params=dict(pop_cfg.get("innervation_params", {}) or {}),
             )
+            if pop.innervation_method == "imported":
+                pop.csv_folder = pop.innervation_params.get("path")
             if self.grid_manager is not None:
                 try:
                     if (
@@ -3518,7 +3560,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
                     pass
             self.populations.append(pop)
             self._add_population_to_list(pop)
-            if pop.module is not None or pop.flat_module is not None:
+            if pop.bank is not None:
                 self._create_population_graphics(pop)
             if not pop.visible:
                 self._set_population_visibility(pop, False)

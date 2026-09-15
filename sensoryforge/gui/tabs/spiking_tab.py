@@ -1006,20 +1006,16 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             self.spin_neuron_index.setValue(0)
             self.spin_neuron_index.blockSignals(False)
             return
-        # Use module or flat_module (Poisson/composite use flat_module)
-        module = getattr(population, "module", None) or getattr(
-            population, "flat_module", None
-        )
-        if module is None and hasattr(population, "instantiate"):
+        bank = getattr(population, "bank", None)
+        if bank is None and hasattr(population, "instantiate"):
             if self.grid_manager is not None:
                 population.instantiate(self.grid_manager)
-            module = getattr(population, "module", None) or getattr(
-                population, "flat_module", None
-            )
+            bank = getattr(population, "bank", None)
+        module = bank
         if module is None:
             self._active_neuron_centers = None
             self.neuron_scatter.setData([], [])
-            self.lbl_neuron_info.setText("Innervation module unavailable.")
+            self.lbl_neuron_info.setText("Receptive-field bank unavailable.")
             self.spin_neuron_index.blockSignals(True)
             self.spin_neuron_index.setRange(0, 0)
             self.spin_neuron_index.setValue(0)
@@ -2569,19 +2565,17 @@ class SpikingNeuronTab(QtWidgets.QWidget):
                 RuntimeWarning,
                 stacklevel=2,
             )
-        # Use module or flat_module (Poisson/composite use flat_module)
-        module = getattr(population, "module", None) or getattr(
-            population, "flat_module", None
-        )
-        if module is None:
+        # The population's ReceptiveFieldBank (Phase 2, I7) -- built by the
+        # Mechanoreceptor tab, reused here so the GUI and the engine drive the
+        # same neurons with the same receptor-to-neuron mapping.
+        bank = getattr(population, "bank", None)
+        if bank is None:
             if hasattr(population, "instantiate") and self.grid_manager is not None:
                 population.instantiate(self.grid_manager)
-                module = getattr(population, "module", None) or getattr(
-                    population, "flat_module", None
-                )
-        if module is None:
-            raise RuntimeError("Innervation module unavailable.")
-        module = module.to(device)
+                bank = getattr(population, "bank", None)
+        if bank is None:
+            raise RuntimeError("Receptive-field bank unavailable.")
+        bank = bank.to(device)
         if frames.ndim == 3:
             stimuli = frames.unsqueeze(0)
         elif frames.ndim == 4:
@@ -2589,8 +2583,9 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         else:
             raise RuntimeError("Unexpected stimulus dimensions.")
 
-        # ── Innervation (GUI-managed, reuses existing weights) ──────────
-        neuron_drive = module(stimuli)
+        # ── Receptive fields: [B, T, H, W] -> [B, T, H*W] -> [B, T, N] ────
+        batch, time_steps = stimuli.shape[:2]
+        neuron_drive = bank(stimuli.reshape(batch, time_steps, -1))
         if neuron_drive.ndim == 2:
             neuron_drive = neuron_drive.unsqueeze(1)
         raw_drive_np = neuron_drive.detach().cpu().numpy()[0]  # [T, N] before filter

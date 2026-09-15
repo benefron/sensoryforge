@@ -275,19 +275,15 @@ class ProtocolWorker(QtCore.QObject):
             if self._stop_requested:
                 break
             pop_name = str(getattr(population, "name", "Population"))
-            # Use module or flat_module (Poisson/composite use flat_module)
-            module = getattr(population, "module", None) or getattr(
-                population, "flat_module", None
-            )
+            # The population's ReceptiveFieldBank (Phase 2, I7)
+            module = getattr(population, "bank", None)
             if module is None and hasattr(population, "instantiate"):
                 if self._grid_manager is None:
                     raise RuntimeError(
                         "Grid manager unavailable for population instantiation."
                     )
                 population.instantiate(self._grid_manager)
-                module = getattr(population, "module", None) or getattr(
-                    population, "flat_module", None
-                )
+                module = getattr(population, "bank", None)
             if module is None:
                 raise RuntimeError(
                     "Innervation module unavailable for population " f"'{pop_name}'."
@@ -518,7 +514,8 @@ class ProtocolWorker(QtCore.QObject):
                 packet_label=packet_label,
                 dt_ms=dt_ms,
             )
-        neuron_drive = module(stimuli)
+        # bank takes [B, T, H*W] (row-major over the frame)
+        neuron_drive = module(stimuli.reshape(*stimuli.shape[:2], -1))
         if neuron_drive.ndim == 2:
             neuron_drive = neuron_drive.unsqueeze(1)
         raw_drive = neuron_drive
