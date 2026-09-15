@@ -9,14 +9,13 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 
 ## Kickoff prompt (paste to the agent)
 
-> You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A to G are done and reviewed (sections
-> 1b-1h). Before starting, run `git log --oneline -20`, read sections 1h and 2 in full, and recreate
-> the memory watchdog from the appendix in your scratchpad. Then do Wave H in order (H1, H2, H3, H4,
-> H5). Follow the Guardrails exactly. One task = one commit with the ledger trailers the task names,
-> each trailer on a single line. Before you mark a task done, run its "Done when" checks and paste
-> their output into your report. New tests must fail on `04c230b`. List every task you completed
-> with its commit hash. Do not push. Stop and report when Wave H is finished.
+> You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`, on `main`
+> (Wave H has been merged). Your task list is `docs/development/handover/phase1_tasks.md`. Before
+> starting, run `git log --oneline -20`, read sections 1i and 2 in full, and recreate the memory
+> watchdog from the appendix in your scratchpad. Then do task H6 only. Work on `main` directly, not in
+> a worktree. Follow the Guardrails exactly: one commit, a single-line `Closes: F-049` trailer, run the
+> "Done when" checks and paste their output, and confirm the new tests fail on `b3492c5`. Report the
+> commit hash. Do not push.
 
 ---
 
@@ -211,6 +210,37 @@ The implementation report only described Wave F; the Wave E fixes E6–E10 were 
 | Ledger | F-043 and F-044 closed. Open beyond the allowed list: F-045, F-046, F-047, F-048 — all extensibility, handled by Wave H |
 
 Phase 1 is therefore not closed: the extensibility promise (a third party adds a component without editing core files and uses it in a simulation) does not hold yet. Wave H closes it.
+
+## 1i. Review of Wave H (2026-09-15, branch `worktree-wave-h`, commits `a72ff7d..b3492c5`)
+
+Work was done in the worktree `.worktrees/wave-h` on branch `worktree-wave-h`, forked from `main` at `9a24f47`. The branch is 11 commits ahead of `main` and `main` has not moved, so it fast-forwards.
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| H1 case-insensitive names | Accepted | from a branch wheel in a scratch venv, a canonical config using a plugin neuron and filter runs identically as `leaky_demo`/`band_demo` and `Leaky_Demo`/`BAND_DEMO`; registering `SA` to a different class raises; re-registering the same class is idempotent |
+| H2 plugin-package scaffold | Accepted | outside the repo, `new-component neuron LeakyDemo --dest .` and `new-component filter BandDemo --dest .` produced installable packages; after `pip install -e` their generated tests pass, `list-components` shows them, and the simulation above uses them; nothing was written under `site-packages`; `--in-repo` refuses outside a checkout |
+| H3 neuron round trips | Accepted | tuple parameters, `seed`, `noise_std` and an FS preset with a `d` override survive `from_config(to_dict())` exactly; the preset is stored expanded |
+| H4 one plugins-aware loader | Accepted | 5 tests; 4 fail on `main` |
+| H5 extension docs | Accepted | `docs/examples/plugin_filter.py` executed by `tests/docs`; CLAUDE.md now documents both routes and states F-049's limit |
+| Final-review fixes | Accepted | black clean; scaffolded neuron plugins now run in `SimulationEngine`; the hand edit in `b3492c5` only corrects F-049's commit pointer |
+| Old-code checks | Hold | on `main`: registry 14 failed, neuron round trip 12 failed, plugin loading 4 failed, scaffold collection error |
+| Suites | Green | gui 237 passed, 1 skipped; not-gui 911 passed, 11 skipped; full 1,148 passed, 12 skipped, exit 0, 1.4 GB peak; black, flake8, `mkdocs build --strict` (0 warnings), docs example, contract and golden parity tests pass |
+
+**F-049 is a real serialization defect, not only a missing check.** `SAFilterTorch.to_dict()` and `RAFilterTorch.to_dict()` return only `{'dt': ...}`: a filter built with `tau_r=7.0, k1=0.1` is rebuilt by `from_config` with `tau_r=5.0`, and `RAFilterTorch(tau_RA=12, k3=5)` comes back as 8 and 2. The grid arrangement classes drop `density` and `EdgeGrating` drops `normalize`. Phase 2's bundle export records component parameters for reproducibility, so this must be fixed before Phase 2 (task H6).
+
+**Merge hazard.** `main`'s ledger bookmark (`.claude/.ledger-sync`, gitignored, per checkout) is `538b91c`. In a scratch clone, fast-forwarding `main` and then running the sync hook replayed the branch's trailers and added a spurious `F-050` duplicating F-049. Any session started in `main` runs that hook automatically, so the bookmark must be advanced to the merged tip before the next session (steps below).
+
+### Merging Wave H into `main` (user)
+
+```bash
+cd ~/sensoryforge
+git status --short                       # must be clean
+git merge --ff-only worktree-wave-h
+git rev-parse --short HEAD > .claude/.ledger-sync   # stop the hook replaying branch trailers
+CLAUDE_PROJECT_DIR=$PWD .claude/hooks/ledger-sync.sh
+git status --short                       # must still be clean: no new ledger entries
+git worktree remove .worktrees/wave-h && git branch -d worktree-wave-h
+```
 
 ---
 
@@ -537,6 +567,12 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 - **Done when:** `mkdocs build --strict` passes; `pytest tests/docs` runs the example; CLAUDE.md no longer says components "must be registered in `register_components.py`".
 - **Trailers:** none.
 
+#### H6. Every component round-trips its full configuration (F-049, closes Phase 1)
+- **Files:** `sensoryforge/testing/contracts.py` (`_check_filter`, `_check_stimulus`, `_check_grid`, `_check_solver`, `_check_innervation`), `sensoryforge/filters/sa_ra.py`, `sensoryforge/filters/base.py`, `sensoryforge/core/grid_arrangements.py`, `sensoryforge/stimuli/texture.py` (`EdgeGrating`), and any other registered component the strengthened check fails.
+- **Do:** call `_assert_to_dict_roundtrip_complete` from every `_check_<kind>`. Run `pytest tests/contract` and fix each component it fails by making `to_dict()` return every constructor argument and `from_config()` accept it. Keep a component in `_TO_DICT_EXCLUDE_PARAMS` only for a documented reason (for example tensors such as `receptor_coords`, which bundles store separately).
+- **Done when:** `pytest tests/contract` passes with the check applied to all six kinds; a new test builds `SAFilterTorch(tau_r=7.0, tau_d=40.0, k1=0.1, k2=2.0, clip_to_positive=True)` and `RAFilterTorch(tau_RA=12.0, k3=5.0)` and asserts `from_config(to_dict())` reproduces every attribute; both fail on `b3492c5`; all suites, black, flake8 and `mkdocs build --strict` still pass.
+- **Trailers:** `Closes: F-049`.
+
 ## 5. Phase 1 exit criteria (from the roadmap)
 
 - Wheel installed in a clean environment runs `sensoryforge run examples/canonical_config.yml --duration 50` from `/tmp` and the GUI imports offscreen (appendix wheel check).
@@ -544,7 +580,7 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-045 to F-048 closed; F-010, F-011, F-013, F-019, F-022, F-035, F-036 and F-037 may stay open for Phase 2 and later.
+- Ledger: F-045 to F-049 closed; F-010, F-011, F-013, F-019, F-022, F-035, F-036 and F-037 may stay open for Phase 2 and later.
 - A third-party plugin created with `sensoryforge new-component` installs from outside the repo and runs in a simulation (H2 acceptance).
 - CI has run green at least once on GitHub (user pushes).
 
