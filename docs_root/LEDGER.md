@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-050 · OPEN · finding · - · 2026-09-15
+ReceptorGrid and CompositeReceptorGrid take no seed; jittered_grid, blue_noise and poisson draw from the global RNG, so identical builds differ, building changes global RNG state, and from_config(to_dict()) does not reproduce a Poisson grid
+→ commit d244faa
+
+## F-051 · OPEN · finding · - · 2026-09-15
+On non-composite grids SimulationEngine builds InnervationModule without innervation_method, so gaussian, uniform, one_to_one and distance_weighted yield bit-identical weights in the engine, CLI and batch paths; only the flat path honours the method
+→ commit d244faa
+
 ## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
