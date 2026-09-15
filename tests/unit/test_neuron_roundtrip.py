@@ -48,9 +48,9 @@ def _assert_roundtrip(instance, *, excluded=frozenset()):
         for name in _init_param_names(cls)
         if name not in d1 and name not in excluded
     ]
-    assert not missing, (
-        f"{cls.__name__}.to_dict() is missing constructor parameters: {missing}"
-    )
+    assert (
+        not missing
+    ), f"{cls.__name__}.to_dict() is missing constructor parameters: {missing}"
 
     reconstructed = cls.from_config(d1)
     d2 = reconstructed.to_dict()

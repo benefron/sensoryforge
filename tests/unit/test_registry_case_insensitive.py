@@ -99,9 +99,7 @@ class TestPluginRegistrationCaseInsensitive:
         ],
     )
     def test_engine_builds_with_either_casing(self, neuron_spelling, filter_spelling):
-        engine = SimulationEngine(
-            _demo_engine_config(neuron_spelling, filter_spelling)
-        )
+        engine = SimulationEngine(_demo_engine_config(neuron_spelling, filter_spelling))
         neuron = engine.populations[0]["neuron"]
         filt = engine.populations[0]["filter"]
         assert isinstance(neuron, _DemoNeuron)
@@ -119,9 +117,7 @@ class TestPluginRegistrationCaseInsensitive:
         result_exact = engine_exact.run(stim1)
         result_lower = engine_lower.run(stim2)
 
-        assert torch.equal(
-            result_exact["Pop"]["spikes"], result_lower["Pop"]["spikes"]
-        )
+        assert torch.equal(result_exact["Pop"]["spikes"], result_lower["Pop"]["spikes"])
 
     def test_registering_different_class_under_case_variant_raises(self):
         class _OtherNeuron(torch.nn.Module):

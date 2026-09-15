@@ -68,7 +68,9 @@ def test_generate_component_unknown_kind(scaffold_repo):
 
 
 def test_scaffolded_neuron_satisfies_contract(scaffold_repo):
-    paths = generate_in_repo_component("neuron", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component(
+        "neuron", "ContractCheck", repo_root=scaffold_repo
+    )
     mod = _load_module(paths["module"], "sf_scaffold_test_neuron")
     cls = mod.ContractCheckNeuronTorch
 
@@ -85,7 +87,9 @@ def test_scaffolded_neuron_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_filter_satisfies_contract(scaffold_repo):
-    paths = generate_in_repo_component("filter", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component(
+        "filter", "ContractCheck", repo_root=scaffold_repo
+    )
     mod = _load_module(paths["module"], "sf_scaffold_test_filter")
     cls = mod.ContractCheckFilterTorch
 
@@ -98,7 +102,9 @@ def test_scaffolded_filter_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_stimulus_satisfies_contract(scaffold_repo):
-    paths = generate_in_repo_component("stimulus", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component(
+        "stimulus", "ContractCheck", repo_root=scaffold_repo
+    )
     mod = _load_module(paths["module"], "sf_scaffold_test_stimulus")
     cls = mod.ContractCheckStimulus
 
@@ -114,7 +120,9 @@ def test_scaffolded_stimulus_satisfies_contract(scaffold_repo):
 
 
 def test_scaffolded_solver_satisfies_contract(scaffold_repo):
-    paths = generate_in_repo_component("solver", "ContractCheck", repo_root=scaffold_repo)
+    paths = generate_in_repo_component(
+        "solver", "ContractCheck", repo_root=scaffold_repo
+    )
     mod = _load_module(paths["module"], "sf_scaffold_test_solver")
     cls = mod.ContractCheckSolver
 
@@ -146,9 +154,7 @@ def test_cli_new_component_in_repo_writes_files(scaffold_repo, monkeypatch):
     from argparse import Namespace
 
     args = Namespace(kind="filter", name="CliCheck", dest=None, in_repo=True)
-    monkeypatch.setattr(
-        "sensoryforge.scaffold.find_repo_root", lambda: scaffold_repo
-    )
+    monkeypatch.setattr("sensoryforge.scaffold.find_repo_root", lambda: scaffold_repo)
     monkeypatch.setattr(
         "sensoryforge.scaffold.generate_in_repo_component",
         lambda kind, name, repo_root: {

@@ -56,8 +56,7 @@ def plugin_config_path(tmp_path, fake_plugin_module):
     """A canonical-format config file whose plugins: list registers the fake filter."""
     config_file = tmp_path / "plugin_config.yml"
     config_file.write_text(
-        f"plugins:\n  - {PLUGIN_MODULE_NAME}:register\n"
-        "grids: []\npopulations: []\n"
+        f"plugins:\n  - {PLUGIN_MODULE_NAME}:register\n" "grids: []\npopulations: []\n"
     )
     return config_file
 
@@ -67,8 +66,7 @@ def batch_plugin_config_path(tmp_path, fake_plugin_module):
     """A legacy batch config file (base_config/batch) whose plugins: registers the fake filter."""
     config_file = tmp_path / "batch_plugin_config.yml"
     output_dir = tmp_path / "batch_output"
-    config_file.write_text(
-        f"""\
+    config_file.write_text(f"""\
 plugins:
   - {PLUGIN_MODULE_NAME}:register
 metadata:
@@ -98,8 +96,7 @@ batch:
         amplitude: [10.0]
         sigma: [0.5]
       repetitions: 1
-"""
-    )
+""")
     return config_file
 
 

@@ -43,7 +43,9 @@ def test_ensure_not_installed_path_refuses_site_packages(tmp_path):
 
 
 def test_ensure_not_installed_path_refuses_dist_packages(tmp_path):
-    fake_dist_packages = tmp_path / "usr" / "lib" / "python3" / "dist-packages" / "myproj"
+    fake_dist_packages = (
+        tmp_path / "usr" / "lib" / "python3" / "dist-packages" / "myproj"
+    )
     fake_dist_packages.mkdir(parents=True)
     with pytest.raises(ValueError, match="dist-packages"):
         ensure_not_installed_path(fake_dist_packages)
@@ -87,9 +89,7 @@ def test_cli_default_mode_writes_installable_plugin_package(tmp_path):
     assert '[project.entry-points."sensoryforge.components"]' in pyproject_text
     assert "demo_scaffold_filter" in pyproject_text
 
-    module_file = (
-        package_root / "sensoryforge_demo_scaffold_filter" / "component.py"
-    )
+    module_file = package_root / "sensoryforge_demo_scaffold_filter" / "component.py"
     assert module_file.is_file()
     module_text = module_file.read_text()
     assert "class DemoScaffoldFilterFilterTorch" in module_text

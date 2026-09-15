@@ -520,7 +520,9 @@ def cmd_new_component(args: argparse.Namespace) -> int:
     try:
         if in_repo:
             repo_root = find_repo_root()
-            paths = generate_in_repo_component(args.kind, args.name, repo_root=repo_root)
+            paths = generate_in_repo_component(
+                args.kind, args.name, repo_root=repo_root
+            )
             print(f"✓ Scaffolded new {args.kind} component in {repo_root}:")
             print(f"  Module: {paths['module']}")
             print(f"  Test:   {paths['test']}")
