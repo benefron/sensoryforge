@@ -56,8 +56,8 @@ python sensoryforge/gui/main.py
 ### CLI
 
 ```bash
-sensoryforge run examples/example_config.yml --duration 1000
-sensoryforge validate examples/example_config.yml
+sensoryforge run examples/canonical_config.yml --duration 1000
+sensoryforge validate examples/canonical_config.yml
 sensoryforge list-components
 ```
 
@@ -202,7 +202,6 @@ audit once listed here (DSL/CUDA support, `reset_states`) were already fixed —
 - **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but innervation still samples from a synthetic regular lattice; DSL neurons cannot be instantiated through the engine yet. (F-010)
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
-- **The shipped legacy examples do not run** — `examples/example_config.yml` and `examples/batch_config.yml` (and the matching snippets in `docs/user_guide/batch_processing.md`, `cli.md`, `yaml_configuration.md`) set `sa_neurons: 100`, `ra_neurons: 196` as if they were totals. Read per-row, that is 10,000 and 38,416 neurons: `sensoryforge run`, `validate` and `batch --dry-run` on them now fail with the dense-weight cap error (before the cap they exhausted memory). The commands in "Commands → CLI" above fail until task F3 lands. (F-043)
 - **An invalid time step can crash the GUI** — the stimulus Δt spinbox accepts values like 0.12 ms, `validate_dt_ms` then raises `ValueError`, and `SpikingNeuronTab._run_simulation` only catches `RuntimeError`; PyQt5 aborts on exceptions escaping a slot and no exception hook is installed. Use multiples of 0.05 ms until task F4 lands. (F-044)
 
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
@@ -213,7 +212,7 @@ are resolved by `sensoryforge/config/defaults.py` for the GUI, the engine, the c
 overriding a single Izhikevich parameter keeps the neuron-type preset as the base instead of
 dropping it (F-031); D-Q1 is decided -- RA filter gain k3 = 2.0 everywhere, resolver-owned (F-030);
 `from_yaml` accepts long one-line text (F-027); presets are keyword-only and tested (F-028);
-internal records are excluded from the docs build (F-029); seeded innervation runs on MPS/CUDA with CPU-identical wiring (F-038); CLI and batch stimuli honour `dt_ms` and `--duration` for every stimulus type, and the legacy `neurons.dt`/`temporal.dt` keys follow each other (F-024, F-039, F-040); GUI exports write the simulated step (F-041); `dt_ms` must be a whole multiple of `integrate_dt_ms` (F-042). The Phase 1 task list, with the review
+internal records are excluded from the docs build (F-029); seeded innervation runs on MPS/CUDA with CPU-identical wiring (F-038); CLI and batch stimuli honour `dt_ms` and `--duration` for every stimulus type, and the legacy `neurons.dt`/`temporal.dt` keys follow each other (F-024, F-039, F-040); GUI exports write the simulated step (F-041); `dt_ms` must be a whole multiple of `integrate_dt_ms` (F-042); `examples/canonical_config.yml` and `examples/canonical_batch_config.yml` are schema-valid canonical examples, and the legacy `examples/example_config.yml`/`batch_config.yml` (and the matching docs snippets) now use per-row neuron counts and run (F-043). The Phase 1 task list, with the review
 of Wave A, is `docs/development/handover/phase1_tasks.md`.
 
 ---

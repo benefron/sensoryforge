@@ -7,24 +7,24 @@ This directory contains example configurations, scripts, and notebooks demonstra
 ### Using the CLI
 
 ```bash
-# Validate a configuration
-sensoryforge validate example_config.yml
+# Validate a configuration (canonical format — start here)
+sensoryforge validate canonical_config.yml
 
 # Run a simulation
-sensoryforge run example_config.yml --duration 1000
+sensoryforge run canonical_config.yml --duration 1000
 
 # Save results
-sensoryforge run example_config.yml --output results.pt
+sensoryforge run canonical_config.yml --output results.pt
 
 # Run batch execution
-sensoryforge batch batch_config.yml --dry-run
-sensoryforge batch batch_config.yml --device cuda
+sensoryforge batch canonical_batch_config.yml --dry-run
+sensoryforge batch canonical_batch_config.yml --device cuda
 
 # List available components
 sensoryforge list-components
 
 # Visualize pipeline structure
-sensoryforge visualize example_config.yml
+sensoryforge visualize canonical_config.yml
 ```
 
 ### Using Python API
@@ -35,10 +35,10 @@ from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPip
 # Load from YAML file
 pipeline = GeneralizedTactileEncodingPipeline(config_path='example_config.yml')
 
-# Or from config dict
+# Or from config dict ('sa_neurons'/'ra_neurons' are per row: 10x10=100, 14x14=196)
 config = {
     'pipeline': {'device': 'cpu', 'grid_size': 80},
-    'neurons': {'sa_neurons': 100, 'ra_neurons': 196}
+    'neurons': {'sa_neurons': 10, 'ra_neurons': 14}
 }
 pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
 
@@ -52,11 +52,38 @@ print(f"RA spikes: {results['ra_spikes'].sum().item()}")
 
 ## Configuration Files
 
-### `example_config.yml`
+### `canonical_config.yml` (start here)
 
-Basic configuration demonstrating standard pipeline usage with:
+Canonical `SensoryForgeConfig` example — the format both the GUI and `SimulationEngine`
+(the canonical execution path, see `CLAUDE.md`) consume:
+- Standard grid (40x40 receptors)
+- SA and RA neuron populations (`neurons_per_row: 10` / `14`)
+- Trapezoidal stimulus (CLI default)
+- Izhikevich neuron model
+- Euler solver
+
+**Usage:**
+```bash
+sensoryforge run canonical_config.yml --duration 1000 --output results.pt
+```
+
+### `canonical_batch_config.yml`
+
+Canonical-format batch sweep: a 3-value amplitude sweep over the same grid/populations
+as `canonical_config.yml`, run through `SimulationEngine` via `BatchExecutor`.
+
+**Usage:**
+```bash
+sensoryforge batch canonical_batch_config.yml --dry-run
+sensoryforge batch canonical_batch_config.yml
+```
+
+### `example_config.yml` (legacy format)
+
+Basic configuration demonstrating the legacy pipeline format with:
 - Standard grid (80x80 receptors)
-- SA, RA, and SA2 neuron populations
+- SA, RA, and SA2 neuron populations (`sa_neurons`/`ra_neurons`/`sa2_neurons` are
+  **per row**, not totals — see `docs/user_guide/yaml_configuration.md`)
 - Gaussian stimulus
 - Izhikevich neuron model
 - Euler solver
@@ -66,7 +93,7 @@ Basic configuration demonstrating standard pipeline usage with:
 sensoryforge run example_config.yml --duration 1000 --output results.pt
 ```
 
-### `batch_config.yml`
+### `batch_config.yml` (legacy format)
 
 Batch execution configuration for large-scale dataset generation with:
 - Parameter sweeps (Cartesian product expansion)
@@ -197,7 +224,7 @@ All advanced features (CompositeGrid, Equation DSL, extended stimuli, adaptive s
 
 ## Tips
 
-1. **Start simple:** Use `example_config.yml` as a template
+1. **Start simple:** Use `canonical_config.yml` as a template
 2. **Validate first:** Always run `sensoryforge validate` before running
 3. **Save results:** Use `--output` to save simulation results
 4. **Track configs:** Use version control for your configuration files

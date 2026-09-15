@@ -1,0 +1,144 @@
+# Canonical SensoryForge configuration (F-043)
+#
+# This file is generated from `SensoryForgeConfig(...).to_yaml()` (schema.py) so it
+# round-trips exactly through `SensoryForgeConfig.from_yaml_file()` / `.to_dict()`.
+# It is the format both the GUI and `SimulationEngine` (the canonical execution path,
+# see CLAUDE.md "Execution Engines") consume — a top-level `grids:` + `populations:`
+# list with no legacy `pipeline:` key.
+#
+# `neurons_per_row` below is literally per row: a population's neuron grid is
+# `neurons_per_row x neurons_per_row`, so `neurons_per_row: 10` builds 100 neurons and
+# `neurons_per_row: 14` builds 196. This is unlike the legacy `neurons.sa_neurons` /
+# `neurons.ra_neurons` keys used by `examples/example_config.yml`, which are also
+# per-row despite the field name looking like a total (F-023).
+#
+# No top-level `stimuli:` list is given, so `sensoryforge run` falls back to its
+# default trapezoidal stimulus (ramp/plateau/ramp) built from
+# GeneralizedTactileEncodingPipeline's temporal defaults; `--duration` scales it.
+#
+# Usage:
+#   sensoryforge validate examples/canonical_config.yml
+#   sensoryforge run examples/canonical_config.yml --duration 50
+metadata:
+  name: Canonical Example
+  version: '1.0'
+  description: 'Canonical SensoryForgeConfig example: single grid, SA/RA populations,
+    trapezoidal stimulus.'
+grids:
+- name: Main Grid
+  arrangement: grid
+  rows: 40
+  cols: 40
+  spacing: 0.15
+  density: null
+  center_x: 0.0
+  center_y: 0.0
+  color:
+  - 66
+  - 135
+  - 245
+  - 200
+  visible: true
+populations:
+- name: SA Population
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: gaussian
+  connections_per_neuron: 28
+  sigma_d_mm: 0.3
+  distance_weight_randomness_pct: 0.0
+  use_distance_weights: true
+  far_connection_fraction: 0.0
+  far_sigma_factor: 5.0
+  max_distance_mm: 1.0
+  decay_function: exponential
+  decay_rate: 2.0
+  weight_range:
+  - 0.05
+  - 1.0
+  edge_offset: 0.0
+  neuron_arrangement: grid
+  neurons_per_row: 10   # 10x10 = 100 SA neurons (per-row, not a total)
+  neuron_jitter_factor: 0.0
+  neuron_model: Izhikevich
+  model_params: {}
+  filter_method: sa
+  filter_params: {}
+  noise_std: 0.0
+  noise_mean: 0.0
+  color:
+  - 66
+  - 135
+  - 245
+  - 255
+  visible: true
+  enabled: true
+  input_gain: 50.0
+- name: RA Population
+  neuron_type: RA
+  target_grid: Main Grid
+  innervation_method: gaussian
+  connections_per_neuron: 28
+  sigma_d_mm: 0.3
+  distance_weight_randomness_pct: 0.0
+  use_distance_weights: true
+  far_connection_fraction: 0.0
+  far_sigma_factor: 5.0
+  max_distance_mm: 1.0
+  decay_function: exponential
+  decay_rate: 2.0
+  weight_range:
+  - 0.05
+  - 1.0
+  edge_offset: 0.0
+  neuron_arrangement: grid
+  neurons_per_row: 14   # 14x14 = 196 RA neurons (per-row, not a total)
+  neuron_jitter_factor: 0.0
+  neuron_model: Izhikevich
+  model_params: {}
+  filter_method: ra
+  filter_params: {}
+  noise_std: 0.0
+  noise_mean: 0.0
+  color:
+  - 66
+  - 135
+  - 245
+  - 255
+  visible: true
+  enabled: true
+  input_gain: 50.0
+stimulus:
+  name: Stimulus
+  type: gaussian
+  motion: static
+  composition_mode: single
+  stimuli: []
+  start:
+  - 0.0
+  - 0.0
+  end:
+  - 0.0
+  - 0.0
+  spread: 1.0
+  orientation_deg: 0.0
+  amplitude: 30.0
+  speed_mm_s: 10.0
+  ramp_up_ms: 10.0
+  plateau_ms: 800.0
+  ramp_down_ms: 10.0
+  pattern: gabor
+  wavelength: 2.0
+  phase: 0.0
+  sigma: 0.5
+  motion_type: linear
+  center:
+  - 0.0
+  - 0.0
+  radius: 2.0
+simulation:
+  device: cpu
+  dt_ms: 1.0
+  integrate_dt_ms: 0.05
+  solver:
+    type: euler

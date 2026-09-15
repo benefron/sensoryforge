@@ -19,10 +19,12 @@ base_config:
     center: [0.0, 0.0]  # Grid center coordinates
 
   # Neuron populations
+  # NOTE: these are neurons per row (population = N x N), not a total count (F-023).
+  # sa_neurons: 10 -> 10x10 = 100 SA neurons; ra_neurons: 14 -> 14x14 = 196 RA neurons.
   neurons:
-    sa_neurons: 100      # Slowly Adapting neurons
-    ra_neurons: 196      # Rapidly Adapting neurons
-    sa2_neurons: 25      # SA2 neurons
+    sa_neurons: 10       # Slowly Adapting neurons per row
+    ra_neurons: 14       # Rapidly Adapting neurons per row
+    sa2_neurons: 5       # SA2 neurons per row
     dt: 0.5             # Time step in ms
 
   # Innervation parameters

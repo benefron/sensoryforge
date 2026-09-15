@@ -243,8 +243,8 @@ pipeline:
   spacing: 0.15
 
 neurons:
-  sa_neurons: 100
-  ra_neurons: 196
+  sa_neurons: 10    # per row (10x10 = 100 neurons)
+  ra_neurons: 14    # per row (14x14 = 196 neurons)
   dt: 0.5
 
 stimuli:

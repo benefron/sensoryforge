@@ -1,0 +1,124 @@
+# Canonical SensoryForge batch configuration (F-043)
+#
+# `base_config` is a canonical `SensoryForgeConfig` dict (grids: + populations:, no
+# legacy `pipeline:` key) — `BatchExecutor` detects this and runs each stimulus
+# through `SimulationEngine` (see CLAUDE.md "Execution Engines"). The `batch:` section
+# keeps the same shape as the legacy `examples/batch_config.yml`: a Cartesian sweep
+# over `parameters`, repeated `repetitions` times per combination.
+#
+# `neurons_per_row` is per row (see `examples/canonical_config.yml` for detail):
+# `neurons_per_row: 10` builds 100 SA neurons, `neurons_per_row: 14` builds 196 RA.
+#
+# Usage:
+#   sensoryforge batch examples/canonical_batch_config.yml --dry-run
+#   sensoryforge batch examples/canonical_batch_config.yml
+metadata:
+  batch_name: "canonical_amplitude_sweep_v1"
+  version: "1.0"
+  description: "Canonical-config amplitude sweep (3 values) for SA/RA characterization"
+
+base_config:
+  grids:
+  - name: Main Grid
+    arrangement: grid
+    rows: 40
+    cols: 40
+    spacing: 0.15
+    density: null
+    center_x: 0.0
+    center_y: 0.0
+    color: [66, 135, 245, 200]
+    visible: true
+  populations:
+  - name: SA Population
+    neuron_type: SA
+    target_grid: Main Grid
+    innervation_method: gaussian
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+    distance_weight_randomness_pct: 0.0
+    use_distance_weights: true
+    far_connection_fraction: 0.0
+    far_sigma_factor: 5.0
+    max_distance_mm: 1.0
+    decay_function: exponential
+    decay_rate: 2.0
+    weight_range: [0.05, 1.0]
+    edge_offset: 0.0
+    neuron_arrangement: grid
+    neurons_per_row: 10   # 10x10 = 100 SA neurons (per-row, not a total)
+    neuron_jitter_factor: 0.0
+    neuron_model: Izhikevich
+    model_params: {}
+    filter_method: sa
+    filter_params: {}
+    noise_std: 0.0
+    noise_mean: 0.0
+    color: [66, 135, 245, 255]
+    visible: true
+    enabled: true
+    input_gain: 50.0
+  - name: RA Population
+    neuron_type: RA
+    target_grid: Main Grid
+    innervation_method: gaussian
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+    distance_weight_randomness_pct: 0.0
+    use_distance_weights: true
+    far_connection_fraction: 0.0
+    far_sigma_factor: 5.0
+    max_distance_mm: 1.0
+    decay_function: exponential
+    decay_rate: 2.0
+    weight_range: [0.05, 1.0]
+    edge_offset: 0.0
+    neuron_arrangement: grid
+    neurons_per_row: 14   # 14x14 = 196 RA neurons (per-row, not a total)
+    neuron_jitter_factor: 0.0
+    neuron_model: Izhikevich
+    model_params: {}
+    filter_method: ra
+    filter_params: {}
+    noise_std: 0.0
+    noise_mean: 0.0
+    color: [66, 135, 245, 255]
+    visible: true
+    enabled: true
+    input_gain: 50.0
+  simulation:
+    device: cpu
+    dt_ms: 1.0
+    integrate_dt_ms: 0.05
+    solver:
+      type: euler
+
+# Batch execution specification
+batch:
+  output_dir: "./batch_results/canonical_amplitude_sweep_v1"
+  save_format: "pytorch"  # 'pytorch' (default) or 'hdf5'
+  save_intermediates: false
+
+  stimuli:
+    # Amplitude sweep: 3 values x 1 repetition each = 3 executions
+    - type: gaussian_sweep
+      base_seed: 42
+      parameters:
+        amplitude: [10.0, 30.0, 50.0]  # Peak pressure (arbitrary units)
+        sigma: [0.5]                    # Spatial spread (mm)
+        center_x: [0.0]
+        center_y: [0.0]
+      repetitions: 1
+
+# =============================================================================
+# Usage Instructions
+# =============================================================================
+
+# 1. Validate configuration (dry run):
+#    sensoryforge batch examples/canonical_batch_config.yml --dry-run
+
+# 2. Execute batch on CPU:
+#    sensoryforge batch examples/canonical_batch_config.yml
+
+# 3. Override output directory:
+#    sensoryforge batch examples/canonical_batch_config.yml --output ./my_custom_results

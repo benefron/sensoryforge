@@ -29,8 +29,8 @@ base_config:
     device: cpu
     grid_size: 80
   neurons:
-    sa_neurons: 100
-    ra_neurons: 196
+    sa_neurons: 10    # per row (10x10 = 100 neurons)
+    ra_neurons: 14    # per row (14x14 = 196 neurons)
 
 batch:
   output_dir: "./batch_results/my_dataset"
@@ -257,9 +257,9 @@ base_config:
     spacing: 0.15
   
   neurons:
-    sa_neurons: 100
-    ra_neurons: 196
-    sa2_neurons: 25
+    sa_neurons: 10    # per row (10x10 = 100 neurons)
+    ra_neurons: 14    # per row (14x14 = 196 neurons)
+    sa2_neurons: 5    # per row (5x5 = 25 neurons)
     dt: 0.5
   
   # ... (same as single-run config)

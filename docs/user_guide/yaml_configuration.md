@@ -60,8 +60,8 @@ pipeline:
   grid_size: 80
 
 neurons:
-  sa_neurons: 100
-  ra_neurons: 196
+  sa_neurons: 10    # per row (10x10 = 100 neurons)
+  ra_neurons: 14    # per row (14x14 = 196 neurons)
 ```
 
 Run either format:
@@ -209,9 +209,9 @@ Neuron population configuration (legacy format, limited to SA/RA/SA2):
 
 ```yaml
 neurons:
-  sa_neurons: 100   # Number of SA neurons
-  ra_neurons: 196   # Number of RA neurons
-  sa2_neurons: 25   # Number of SA2 neurons (optional)
+  sa_neurons: 10    # SA neurons per row (population = N x N, i.e. 10x10 = 100)
+  ra_neurons: 14    # RA neurons per row (14x14 = 196)
+  sa2_neurons: 5    # SA2 neurons per row, optional (5x5 = 25)
   dt: 0.5          # Time step in ms
 ```
 
@@ -658,12 +658,12 @@ grids:
 
 ### Step 2: Convert Populations
 
-**Legacy:**
+**Legacy** (`sa_neurons`/`ra_neurons`/`sa2_neurons` are already per row, see above):
 ```yaml
 neurons:
-  sa_neurons: 100
-  ra_neurons: 196
-  sa2_neurons: 25
+  sa_neurons: 10
+  ra_neurons: 14
+  sa2_neurons: 5
 ```
 
 **Canonical:**
@@ -674,19 +674,19 @@ populations:
     neuron_model: "izhikevich"
     filter_method: "sa"
     innervation_method: "gaussian"
-    neurons_per_row: 10  # Calculated from sa_neurons
+    neurons_per_row: 10  # Same value as legacy sa_neurons
   - name: "RA Population"
     neuron_type: "RA"
     neuron_model: "izhikevich"
     filter_method: "ra"
     innervation_method: "gaussian"
-    neurons_per_row: 14  # Calculated from ra_neurons
+    neurons_per_row: 14  # Same value as legacy ra_neurons
   - name: "SA2 Population"
     neuron_type: "SA2"
     neuron_model: "izhikevich"
     filter_method: "none"
     innervation_method: "gaussian"
-    neurons_per_row: 5  # Calculated from sa2_neurons
+    neurons_per_row: 5  # Same value as legacy sa2_neurons
 ```
 
 ### Step 3: Convert Stimulus
