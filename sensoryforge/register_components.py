@@ -99,62 +99,15 @@ def register_all() -> None:
     FILTER_REGISTRY.register("none", type(None))  # No filter
     FILTER_REGISTRY.register("identity", type(None))  # No filter alias
 
-    # Register innervation methods
-    # These use factory functions since they're instantiated via create_innervation()
-    def create_gaussian_innervation(**kwargs):
-        from sensoryforge.core.innervation import GaussianInnervation
-
-        receptor_coords = kwargs.pop("receptor_coords")
-        neuron_centers = kwargs.pop("neuron_centers")
-        device = kwargs.pop("device", "cpu")
-        return GaussianInnervation(
-            receptor_coords, neuron_centers, device=device, **kwargs
-        )
-
-    def create_uniform_innervation(**kwargs):
-        from sensoryforge.core.innervation import UniformInnervation
-
-        receptor_coords = kwargs.pop("receptor_coords")
-        neuron_centers = kwargs.pop("neuron_centers")
-        device = kwargs.pop("device", "cpu")
-        return UniformInnervation(
-            receptor_coords, neuron_centers, device=device, **kwargs
-        )
-
-    def create_one_to_one_innervation(**kwargs):
-        from sensoryforge.core.innervation import OneToOneInnervation
-
-        receptor_coords = kwargs.pop("receptor_coords")
-        neuron_centers = kwargs.pop("neuron_centers")
-        device = kwargs.pop("device", "cpu")
-        return OneToOneInnervation(
-            receptor_coords, neuron_centers, device=device, **kwargs
-        )
-
-    def create_distance_weighted_innervation(**kwargs):
-        from sensoryforge.core.innervation import DistanceWeightedInnervation
-
-        receptor_coords = kwargs.pop("receptor_coords")
-        neuron_centers = kwargs.pop("neuron_centers")
-        device = kwargs.pop("device", "cpu")
-        return DistanceWeightedInnervation(
-            receptor_coords, neuron_centers, device=device, **kwargs
-        )
-
-    INNERVATION_REGISTRY.register(
-        "gaussian", GaussianInnervation, create_gaussian_innervation
-    )
-    INNERVATION_REGISTRY.register(
-        "uniform", UniformInnervation, create_uniform_innervation
-    )
-    INNERVATION_REGISTRY.register(
-        "one_to_one", OneToOneInnervation, create_one_to_one_innervation
-    )
-    INNERVATION_REGISTRY.register(
-        "distance_weighted",
-        DistanceWeightedInnervation,
-        create_distance_weighted_innervation,
-    )
+    # Register innervation methods (receptive-field builders). The classes
+    # are registered directly -- their keyword-only-friendly constructors and
+    # from_config() take receptor_coords/neuron_centers, so no factory
+    # closure is needed and the registry key maps to a contract-checked class
+    # whose build() returns a ReceptiveFieldBank (Phase 2, I3).
+    INNERVATION_REGISTRY.register("gaussian", GaussianInnervation)
+    INNERVATION_REGISTRY.register("uniform", UniformInnervation)
+    INNERVATION_REGISTRY.register("one_to_one", OneToOneInnervation)
+    INNERVATION_REGISTRY.register("distance_weighted", DistanceWeightedInnervation)
 
     # Register stimuli
     STIMULUS_REGISTRY.register("gaussian", GaussianStimulus)

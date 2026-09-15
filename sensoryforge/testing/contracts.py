@@ -229,6 +229,42 @@ def _check_innervation(cls: type, instance: Any) -> None:
             "neuron_centers": instance.neuron_centers,
         },
     )
+    # Phase 2 (I3): every builder produces a ReceptiveFieldBank via build().
+    from sensoryforge.core.rf_bank import ReceptiveFieldBank
+
+    bank = instance.build()
+    if not isinstance(bank, ReceptiveFieldBank):
+        raise AssertionError(
+            f"{cls.__name__}.build() must return a ReceptiveFieldBank, got "
+            f"{type(bank)!r}"
+        )
+    if tuple(bank.weights.shape) != (bank.num_neurons, instance.num_receptors):
+        raise AssertionError(
+            f"{cls.__name__}.build(): bank weights must be "
+            f"[N={bank.num_neurons}, M={instance.num_receptors}], got "
+            f"{tuple(bank.weights.shape)}"
+        )
+    if tuple(bank.neuron_centers.shape) != (bank.num_neurons, 2):
+        raise AssertionError(
+            f"{cls.__name__}.build(): bank neuron_centers must be [N, 2], got "
+            f"{tuple(bank.neuron_centers.shape)}"
+        )
+    if tuple(bank.receptor_coords.shape) != (instance.num_receptors, 2):
+        raise AssertionError(
+            f"{cls.__name__}.build(): bank receptor_coords must be [M, 2], got "
+            f"{tuple(bank.receptor_coords.shape)}"
+        )
+    for key in ("builder", "builder_config", "sensoryforge_version"):
+        if key not in bank.provenance:
+            raise AssertionError(
+                f"{cls.__name__}.build(): bank provenance is missing {key!r} "
+                f"(has {sorted(bank.provenance)})"
+            )
+    if not isinstance(bank.provenance["builder_config"], dict):
+        raise AssertionError(
+            f"{cls.__name__}.build(): provenance['builder_config'] must be a "
+            f"dict, got {type(bank.provenance['builder_config'])!r}"
+        )
 
 
 def _check_stimulus(cls: type, instance: Any) -> None:
@@ -281,6 +317,10 @@ def check_component(kind: str, cls: type, instance: Optional[Any] = None) -> Non
     1. ``cls.get_param_spec()`` returns a list of ``ParamSpec`` instances.
     2. One forward pass succeeds with ``kind``'s canonical tensor shape.
     3. ``cls.from_config(instance.to_dict())`` round-trips to a ``cls`` instance.
+    4. For ``"innervation"``: ``instance.build()`` returns a
+       :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with
+       ``[N, M]`` weights, ``[N, 2]``/``[M, 2]`` coordinates and a provenance
+       naming the builder (Phase 2, I3).
 
     Args:
         kind: One of ``"neuron"``, ``"filter"``, ``"grid"``, ``"solver"``,

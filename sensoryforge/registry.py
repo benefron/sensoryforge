@@ -196,6 +196,17 @@ class ComponentRegistry:
         _, cls, _ = self._registry[key]
         return cls
 
+    def name_for(self, cls: Type) -> Optional[str]:
+        """Return the display name ``cls`` is registered under, or ``None``.
+
+        The first registration whose class is exactly ``cls`` wins (aliases
+        registered later map to the same class but do not override it).
+        """
+        for display_name, registered_cls, _ in self._registry.values():
+            if registered_cls is cls:
+                return display_name
+        return None
+
     def get_param_spec(self, name: str) -> list:
         """Return the ``get_param_spec()`` list for a registered component.
 

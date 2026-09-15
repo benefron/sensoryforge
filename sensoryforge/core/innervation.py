@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 
 if TYPE_CHECKING:
+    from sensoryforge.core.rf_bank import ReceptiveFieldBank
     from .grid import GridManager, ReceptorGrid
 
 # Type alias for innervation methods (distance_weighted removed; use use_distance_weights option)
@@ -206,6 +207,116 @@ class BaseInnervation(ABC):
             default.
         """
         return []
+
+    # ------------------------------------------------------------------ #
+    # Receptive-field bank construction (Phase 2, I3)
+    # ------------------------------------------------------------------ #
+
+    _DERIVED_DICT_KEYS = ("method", "num_neurons", "num_receptors")
+
+    @classmethod
+    def filter_params(cls, params: dict) -> dict:
+        """Keep only the keys of ``params`` that this builder's constructor takes.
+
+        Population configs carry the union of every method's parameters
+        (``sigma_d_mm``, ``max_distance_mm``, ``decay_rate``, ...); each
+        builder accepts its own subset. ``receptor_coords``,
+        ``neuron_centers`` and ``device`` are always kept.
+
+        Args:
+            params: Candidate keyword arguments.
+
+        Returns:
+            The subset ``cls(**subset)`` accepts.
+        """
+        import inspect
+
+        accepted = set(inspect.signature(cls.__init__).parameters) - {"self"}
+        return {k: v for k, v in params.items() if k in accepted}
+
+    def builder_name(self) -> str:
+        """Registry name of this builder.
+
+        The name this class is registered under in ``INNERVATION_REGISTRY``
+        (``"one_to_one"``, a plugin's chosen name, ...); for an unregistered
+        class, the class-name-derived ``to_dict()["method"]``.
+        """
+        from sensoryforge.registry import INNERVATION_REGISTRY
+
+        return INNERVATION_REGISTRY.name_for(type(self)) or self.to_dict()["method"]
+
+    def builder_config(self) -> dict:
+        """``to_dict()`` without the derived ``method``/``num_*`` keys.
+
+        This is the dict that, merged with ``receptor_coords`` and
+        ``neuron_centers``, rebuilds the same builder through
+        :meth:`from_config`; banks store it as ``provenance["builder_config"]``.
+        """
+        config = self.to_dict()
+        for key in self._DERIVED_DICT_KEYS:
+            config.pop(key, None)
+        return config
+
+    def build(
+        self,
+        receptor_coords: Optional[torch.Tensor] = None,
+        neuron_centers: Optional[torch.Tensor] = None,
+        device: Optional[torch.device | str] = None,
+    ) -> "ReceptiveFieldBank":
+        """Build this population's receptive fields as a bank.
+
+        The default wraps :meth:`compute_weights` with provenance. Builders
+        that derive their own neuron centres (``template``) override this
+        and ignore ``neuron_centers``.
+
+        Args:
+            receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm.
+                ``None`` uses the tensor given to the constructor.
+            neuron_centers: ``[N, 2]`` neuron centres in mm. ``None`` uses
+                the constructor's.
+            device: Device for the bank. ``None`` uses the builder's.
+
+        Returns:
+            A :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with
+            ``weights [N, M]`` and ``provenance`` ``{"builder", "builder_config",
+            "seed", "sensoryforge_version"}``.
+        """
+        from sensoryforge.core.rf_bank import ReceptiveFieldBank
+
+        if (
+            receptor_coords is not None
+            or neuron_centers is not None
+            or (device is not None and torch.device(device) != self.device)
+        ):
+            builder = type(self).from_config(
+                {
+                    **self.builder_config(),
+                    "receptor_coords": (
+                        receptor_coords
+                        if receptor_coords is not None
+                        else self.receptor_coords
+                    ),
+                    "neuron_centers": (
+                        neuron_centers
+                        if neuron_centers is not None
+                        else self.neuron_centers
+                    ),
+                    "device": device if device is not None else self.device,
+                }
+            )
+            return builder.build()
+
+        weights = self.compute_weights()
+        return ReceptiveFieldBank(
+            weights,
+            self.neuron_centers,
+            self.receptor_coords,
+            provenance={
+                "builder": self.builder_name(),
+                "builder_config": self.builder_config(),
+                "seed": getattr(self, "seed", None),
+            },
+        )
 
 
 class GaussianInnervation(BaseInnervation):
