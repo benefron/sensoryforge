@@ -630,6 +630,38 @@ Common validation errors:
 - Missing required DSL fields (equations, threshold, reset, parameters)
 - Invalid arrangement type for composite grid
 
+## Plugins
+
+A config file may declare a top-level `plugins:` list to load third-party
+components before the rest of the file is interpreted:
+
+```yaml
+plugins:
+  - my_package.my_module              # imported for its side effects
+  - my_package.my_module:register     # imported, then `register()` is called
+```
+
+Each entry is a dotted import path to an installed Python module, optionally
+suffixed with `:attr` to call a specific callable (e.g. `register`) after the
+module is imported. Bare entries (no `:attr`) rely on the module registering
+its components as an import side effect — the same convention used by
+`sensoryforge/register_components.py` for built-in components. A broken or
+missing plugin entry produces a `UserWarning` and is skipped rather than
+aborting the load.
+
+This is the same mechanism used for entry-point plugin discovery (see the
+developer docs on extensibility); `plugins:` is the config-scoped alternative
+for a component you don't want to ship as an installable distribution.
+
+**Loading is identical no matter which loader reads the config.** All four
+config-loading paths in SensoryForge — the CLI (`sensoryforge run` /
+`validate` / etc.), `BatchExecutor.from_yaml`,
+`SensoryForgeConfig.from_yaml_file` (and the path branch of
+`SensoryForgeConfig.from_yaml`), and the GUI's `File → Load Config (YAML)` —
+route through the same shared `sensoryforge.config.yaml_utils.load_config_file`
+function, so a config's `plugins:` list is honoured the same way everywhere.
+Each successfully loaded plugin is logged at `INFO` level.
+
 ## Migration Guide: Legacy → Canonical
 
 To migrate from legacy format to canonical format:

@@ -14,14 +14,13 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
-import yaml
 
 import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
-from sensoryforge.config.yaml_utils import load_yaml
+from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.registry import (
     NEURON_REGISTRY,
@@ -31,38 +30,6 @@ from sensoryforge.registry import (
     SOLVER_REGISTRY,
     GRID_REGISTRY,
 )
-
-
-def load_config_file(config_path: str) -> Dict[str, Any]:
-    """Load and parse YAML configuration file.
-
-    Args:
-        config_path: Path to YAML configuration file.
-
-    Returns:
-        Parsed configuration dictionary.
-
-    Raises:
-        FileNotFoundError: If config file doesn't exist.
-        yaml.YAMLError: If YAML parsing fails.
-    """
-    path = Path(config_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    with open(path, "r", encoding="utf-8") as f:
-        config = load_yaml(f)
-
-    if not config:
-        raise ValueError(f"Empty or invalid config file: {config_path}")
-
-    plugins = config.get("plugins")
-    if plugins:
-        from sensoryforge.plugins import load_plugin_import_paths
-
-        load_plugin_import_paths(plugins)
-
-    return config
 
 
 def validate_config(config: Dict[str, Any]) -> bool:

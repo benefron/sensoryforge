@@ -11,7 +11,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import yaml
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
@@ -271,8 +270,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             return
 
         try:
-            with open(filename, "r") as f:
-                config = yaml.safe_load(f)
+            from sensoryforge.config.yaml_utils import load_config_file
+
+            config = load_config_file(filename)
             if not isinstance(config, dict):
                 raise ValueError("YAML did not produce a dict")
         except Exception as e:

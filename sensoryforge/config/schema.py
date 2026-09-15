@@ -565,8 +565,9 @@ class SensoryForgeConfig:
         Example:
             >>> config = SensoryForgeConfig.from_yaml_file('config.yml')
         """
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        from sensoryforge.config.yaml_utils import load_config_file
+
+        data = load_config_file(path)
         if not isinstance(data, dict):
             raise ValueError(f"YAML file {path} did not produce a dict")
         return cls.from_dict(data)

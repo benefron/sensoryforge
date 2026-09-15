@@ -643,10 +643,9 @@ class BatchExecutor:
             >>> executor = BatchExecutor.from_yaml('batch_config.yml')
             >>> results = executor.execute()
         """
-        from sensoryforge.config.yaml_utils import load_yaml
+        from sensoryforge.config.yaml_utils import load_config_file
 
-        with open(yaml_path, "r") as f:
-            config = load_yaml(f)
+        config = load_config_file(yaml_path)
 
         return cls(config)
 
