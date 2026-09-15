@@ -104,7 +104,7 @@ CLI run of a canonical config with dt_ms 1.0 and --duration 100 yields 10450 sti
 GUI export always writes simulation.dt_ms 1.0: SpikingNeuronTab.get_config carries no time step and gui/main.py _gui_to_canonical defaults to 1.0, while the GUI simulates at the stimulus step (0.1 ms default)
 → commit bd13a0b
 
-## F-042 · OPEN · finding · - · 2026-09-14
+## F-042 · CLOSED · finding · - · 2026-09-14
 dt_ms that is not a whole multiple of integrate_dt_ms silently rescales neuron time in _run_pop_from_drive (0.12 ms bins integrate 0.10 ms, 0.07 ms bins integrate 0.05 ms); no validation in SimulationConfig or the GUI
 → commit bd13a0b
 
