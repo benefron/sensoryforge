@@ -7,15 +7,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 
 ---
 
-## Kickoff prompt (paste to the agent)
+## Kickoff prompt
 
-> You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`, on `main`
-> (Wave H has been merged). Your task list is `docs/development/handover/phase1_tasks.md`. Before
-> starting, run `git log --oneline -20`, read sections 1i and 2 in full, and recreate the memory
-> watchdog from the appendix in your scratchpad. Then do task H6 only. Work on `main` directly, not in
-> a worktree. Follow the Guardrails exactly: one commit, a single-line `Closes: F-049` trailer, run the
-> "Done when" checks and paste their output, and confirm the new tests fail on `b3492c5`. Report the
-> commit hash. Do not push.
+Phase 1 is complete (section 1j). The current task list is
+`docs/development/handover/phase2_tasks.md`; use the kickoff prompt at the top of that file. Sections 2
+(Guardrails) and the appendix of this file still apply to Phase 2.
 
 ---
 
@@ -241,6 +237,25 @@ CLAUDE_PROJECT_DIR=$PWD .claude/hooks/ledger-sync.sh
 git status --short                       # must still be clean: no new ledger entries
 git worktree remove .worktrees/wave-h && git branch -d worktree-wave-h
 ```
+
+## 1j. Review of H6 and Phase 1 close-out (2026-09-15, commits `e2f5783`, `a513dfc`)
+
+| Check | Result |
+|---|---|
+| H6 scope | 9 components across filters, grids, stimuli and innervation now serialize every constructor parameter; the checker's `extra_config` only supplies the excluded coordinate tensors and never compares them; the innervation loader only drops fields `to_dict` derives |
+| Behaviour after reload | a reloaded `SAFilterTorch(tau_r=7, tau_d=40, k1=0.1, k2=2, clip_to_positive=True)` and `RAFilterTorch(tau_RA=12, k3=5)` produce bit-identical outputs; all four innervation methods rebuilt with the same seed give identical weights; a reloaded hex grid gives identical coordinates |
+| Old-code check | `tests/unit/test_filter_roundtrip.py`: 4 failed on `b3492c5` |
+| Suites | gui 237 passed; not-gui 915 passed; full 1,152 passed, 12 skipped, exit 0; black, flake8, `mkdocs build --strict` pass |
+| Ledger | F-045 to F-049 closed; no duplicate entries; bookmark current |
+
+Two new findings, both scheduled at the start of Phase 2:
+
+- **F-050:** receptor grids take no seed; `jittered_grid`, `blue_noise` and `poisson` draw from the global RNG, so two identical builds differ, a build changes global RNG state, and a reloaded Poisson grid has different coordinates.
+- **F-051:** on ordinary grids (the default engine, CLI and batch path) `SimulationEngine` builds `InnervationModule` without the configured method, so `gaussian`, `uniform`, `one_to_one` and `distance_weighted` produce bit-identical weights.
+
+**Phase 1 status: complete**, except that CI has never run on GitHub; the user pushes to trigger it.
+Every other exit criterion in section 5 is met. Phase 2 continues in
+`docs/development/handover/phase2_tasks.md`.
 
 ---
 

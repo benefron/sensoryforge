@@ -212,6 +212,9 @@ audit once listed here (DSL/CUDA support, `reset_states`) were already fixed —
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
+- **Innervation method is ignored on ordinary grids** — `SimulationEngine` builds `InnervationModule` for non-composite grids without the configured `innervation_method`, so `gaussian`, `uniform`, `one_to_one` and `distance_weighted` give identical weights in the engine, CLI and batch runs (only the composite/flat path honours the method). Fixed by Phase 2 task I6. (F-051)
+- **Random receptor layouts are not reproducible** — `ReceptorGrid`/`CompositeReceptorGrid` take no seed and `jittered_grid`/`blue_noise`/`poisson` use the global RNG. Fixed by Phase 2 task I1. (F-050)
+
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
 decision records): `SAFilterTorch` no longer rectifies by default (F-001); the canonical→legacy
 adapter no longer squares grid size or neuron counts (F-012, F-025); filter and Izhikevich defaults
