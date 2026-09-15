@@ -125,3 +125,70 @@ def test_simulate_population_constructs_neuron_at_integrate_dt_not_record_dt():
         "_simulate_population must construct the neuron with "
         "DEFAULT_INTEGRATE_DT_MS, not the record step dt_ms"
     )
+
+
+# ---------------------------------------------------------------------------
+# E8 (F-041): GUI export writes the step it actually simulated
+# ---------------------------------------------------------------------------
+
+
+def test_get_config_exports_the_active_stimulus_dt_ms(spiking_tab):
+    """get_config()'s dt_ms must reflect the active stimulus step (here set
+    to 0.1 ms), not a hard-coded default unrelated to what was simulated.
+    """
+    from sensoryforge.gui.tabs.spiking_tab import DEFAULT_INTEGRATE_DT_MS
+
+    spiking_tab._stimulus_dt_ms = 0.1
+    config = spiking_tab.get_config()
+    assert config["dt_ms"] == 0.1
+    assert config["integrate_dt_ms"] == DEFAULT_INTEGRATE_DT_MS
+
+
+def test_set_config_restores_dt_ms(spiking_tab):
+    spiking_tab._stimulus_dt_ms = 0.1
+    exported = spiking_tab.get_config()
+
+    spiking_tab._stimulus_dt_ms = 999.0  # perturb before restoring
+    spiking_tab.set_config(exported)
+    assert spiking_tab.current_dt_ms() == 0.1
+
+
+def test_gui_config_to_canonical_carries_dt_ms_into_simulation_config():
+    """SensoryForgeWindow._gui_config_to_canonical must put the Spiking
+    tab's exported dt_ms into simulation.dt_ms -- not a hard-coded 1.0
+    regardless of what the GUI simulated at (F-041).
+    """
+    from sensoryforge.gui.main import SensoryForgeWindow
+
+    window = SensoryForgeWindow.__new__(SensoryForgeWindow)
+    canonical = window._gui_config_to_canonical(
+        mechano={"grids": [], "populations": []},
+        stimulus={},
+        simulation={
+            "device": "cpu",
+            "dt_ms": 0.1,
+            "integrate_dt_ms": 0.05,
+            "population_configs": {},
+            "solver": {"type": "euler"},
+        },
+    )
+    assert canonical.simulation.dt_ms == 0.1
+    assert canonical.simulation.integrate_dt_ms == 0.05
+
+
+def test_canonical_to_gui_config_restores_dt_ms():
+    """Loading a canonical dict with simulation.dt_ms=0.1 must restore
+    0.1 ms in the GUI config's simulation section (F-041).
+    """
+    from sensoryforge.gui.main import SensoryForgeWindow
+
+    window = SensoryForgeWindow.__new__(SensoryForgeWindow)
+    canonical_dict = {
+        "grids": [],
+        "populations": [],
+        "stimulus": {},
+        "simulation": {"device": "cpu", "dt_ms": 0.1, "integrate_dt_ms": 0.05},
+    }
+    gui_config = window._canonical_to_gui_config(canonical_dict)
+    assert gui_config["simulation"]["dt_ms"] == 0.1
+    assert gui_config["simulation"]["integrate_dt_ms"] == 0.05

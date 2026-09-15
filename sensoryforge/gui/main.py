@@ -582,7 +582,12 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
             simulation=SimulationConfig.from_dict(
                 {
                     "device": simulation.get("device", "cpu"),
-                    "dt": simulation.get("dt", 1.0),
+                    # F-041: export the step SpikingNeuronTab actually
+                    # simulated at (its get_config()'s "dt_ms"), not a
+                    # hard-coded 1.0 regardless of what the GUI used. "dt"
+                    # stays as a fallback for configs saved before this fix.
+                    "dt_ms": simulation.get("dt_ms", simulation.get("dt", 1.0)),
+                    "integrate_dt_ms": simulation.get("integrate_dt_ms", 0.05),
                     "solver": solver_cfg,
                 }
             ),
@@ -645,6 +650,11 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
             simulation = {
                 "device": sim_cfg.get("device", "cpu"),
+                # F-041: read dt_ms back (accepting the legacy "dt" key for
+                # configs saved before this fix) so SpikingNeuronTab.
+                # set_config() restores the step this config was simulated at.
+                "dt_ms": sim_cfg.get("dt_ms", sim_cfg.get("dt", 1.0)),
+                "integrate_dt_ms": sim_cfg.get("integrate_dt_ms", 0.05),
                 "solver": sim_cfg.get("solver", {"type": "euler"}),
                 "population_configs": pop_configs,
                 "dsl": config.get("dsl", {}),  # Preserve global DSL if present

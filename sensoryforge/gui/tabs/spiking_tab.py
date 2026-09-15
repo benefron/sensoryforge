@@ -3127,6 +3127,13 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         return {
             "device": self.cmb_device.currentText(),
             "solver": solver,
+            # F-041: the record step this tab actually simulated at (the
+            # active stimulus step), and the fixed neuron sub-step -- so a
+            # GUI-exported config runs with the same filter integration and
+            # neuron sub-steps in the CLI, instead of always the
+            # simulation.dt_ms default of 1.0 regardless of what the GUI used.
+            "dt_ms": self.current_dt_ms(),
+            "integrate_dt_ms": DEFAULT_INTEGRATE_DT_MS,
             "population_configs": pop_configs,
             "dsl": dsl,
         }
@@ -3147,6 +3154,10 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         idx = self.cmb_device.findText(str(device))
         if idx >= 0:
             self.cmb_device.setCurrentIndex(idx)
+
+        # --- Record step (F-041) ---
+        if "dt_ms" in config:
+            self._stimulus_dt_ms = max(float(config["dt_ms"]), MIN_TIME_STEP_MS)
 
         # --- Solver ---
         solver_cfg = config.get("solver", {})
