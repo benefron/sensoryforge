@@ -54,10 +54,10 @@ class _KindSpec:
     base_import: str
     base_class: str
     class_suffix: str
-    registry_const: str
     module_template: str
     test_template: str
     docs_template: str
+    registry_const: str
 
 
 def _neuron_kind() -> _KindSpec:
