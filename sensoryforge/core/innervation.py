@@ -40,6 +40,47 @@ def _seeded_generator(seed: Optional[int]) -> Optional[torch.Generator]:
     return generator
 
 
+def _multinomial_cpu(
+    prob_weights: torch.Tensor,
+    num_samples: int,
+    replacement: bool,
+    generator: Optional[torch.Generator],
+) -> torch.Tensor:
+    """``torch.multinomial`` drawn on CPU, moved back to ``prob_weights``'s device.
+
+    ``_seeded_generator`` returns a CPU-only ``torch.Generator`` (matching
+    :mod:`sensoryforge.filters.noise`'s pattern), which PyTorch refuses to
+    pair with a non-CPU tensor. Drawing on a CPU copy and moving the result
+    back keeps a given seed's wiring identical across CPU, MPS and CUDA
+    (F-038) instead of crashing on the accelerator.
+    """
+    device = prob_weights.device
+    idx = torch.multinomial(
+        prob_weights.cpu(), num_samples, replacement=replacement, generator=generator
+    )
+    return idx.to(device)
+
+
+def _uniform_cpu(
+    shape: Tuple[int, ...],
+    low: float,
+    high: float,
+    generator: Optional[torch.Generator],
+    device: torch.device | str,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    """``torch.empty(shape).uniform_(low, high)`` drawn on CPU, moved to ``device``.
+
+    Same rationale as :func:`_multinomial_cpu` (F-038): a CPU generator
+    cannot fill a non-CPU tensor in place.
+    """
+    return (
+        torch.empty(shape, dtype=dtype)
+        .uniform_(low, high, generator=generator)
+        .to(device)
+    )
+
+
 # ============================================================================
 # Base Innervation Classes (Phase 1.3)
 # ============================================================================
@@ -289,7 +330,7 @@ class GaussianInnervation(BaseInnervation):
 
         if max_K > 0:
             # Batched multinomial sampling
-            all_idx = torch.multinomial(
+            all_idx = _multinomial_cpu(
                 prob_weights, max_K, replacement=False, generator=generator
             )
             w_min, w_max = self.weight_range
@@ -304,14 +345,14 @@ class GaussianInnervation(BaseInnervation):
                 all_vals = w_min + norm * (w_max - w_min)
                 if self.distance_weight_randomness_pct > 0:
                     pct = self.distance_weight_randomness_pct / 100.0
-                    rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(
-                        w_min, w_max, generator=generator
+                    rand_vals = _uniform_cpu(
+                        all_vals.shape, w_min, w_max, generator, self.device
                     )
                     all_vals = (1.0 - pct) * all_vals + pct * rand_vals
             else:
-                all_vals = torch.empty(
-                    self.num_neurons, max_K, device=self.device
-                ).uniform_(w_min, w_max, generator=generator)
+                all_vals = _uniform_cpu(
+                    (self.num_neurons, max_K), w_min, w_max, generator, self.device
+                )
 
             # Mask out excess samples
             arange = torch.arange(max_K, device=self.device).unsqueeze(0)
@@ -404,8 +445,8 @@ class UniformInnervation(BaseInnervation):
             vals = w_min + norm * (w_max - w_min)
             if self.distance_weight_randomness_pct > 0:
                 pct = self.distance_weight_randomness_pct / 100.0
-                rand_vals = torch.empty_like(vals, device=self.device).uniform_(
-                    w_min, w_max, generator=generator
+                rand_vals = _uniform_cpu(
+                    vals.shape, w_min, w_max, generator, self.device
                 )
                 vals = (1.0 - pct) * vals + pct * rand_vals
         else:
@@ -439,15 +480,19 @@ class UniformInnervation(BaseInnervation):
                 n_far_per_neuron = torch.clamp(n_far_per_neuron, min=0)
                 max_far = n_far_per_neuron.max().item()
                 if max_far > 0:
-                    all_idx = torch.multinomial(
+                    all_idx = _multinomial_cpu(
                         far_prob + 1e-12,
                         max_far,
                         replacement=False,
                         generator=generator,
                     )
-                    far_vals = torch.empty(
-                        self.num_neurons, max_far, device=self.device
-                    ).uniform_(w_min, w_max, generator=generator)
+                    far_vals = _uniform_cpu(
+                        (self.num_neurons, max_far),
+                        w_min,
+                        w_max,
+                        generator,
+                        self.device,
+                    )
                     arange = torch.arange(max_far, device=self.device).unsqueeze(0)
                     mask = arange < n_far_per_neuron.unsqueeze(1)
                     far_vals[~mask] = 0.0
@@ -530,7 +575,7 @@ class OneToOneInnervation(BaseInnervation):
                 local_probs = decay_weights[i, local_idx] + 1e-12
                 local_probs = local_probs / local_probs.sum()
                 k_local = min(n_local, len(local_idx))
-                chosen_local = torch.multinomial(
+                chosen_local = _multinomial_cpu(
                     local_probs.unsqueeze(0),
                     k_local,
                     replacement=False,
@@ -543,7 +588,7 @@ class OneToOneInnervation(BaseInnervation):
             if n_far > 0 and len(far_idx) > 0:
                 far_probs = torch.ones(len(far_idx), device=self.device) / len(far_idx)
                 k_far = min(n_far, len(far_idx))
-                chosen_far = torch.multinomial(
+                chosen_far = _multinomial_cpu(
                     far_probs.unsqueeze(0),
                     k_far,
                     replacement=False,
@@ -577,14 +622,12 @@ class OneToOneInnervation(BaseInnervation):
                 vals = w_min + norm * (w_max - w_min)
                 if self.distance_weight_randomness_pct > 0:
                     pct = self.distance_weight_randomness_pct / 100.0
-                    rand_vals = torch.empty(k_actual, device=self.device).uniform_(
-                        w_min, w_max, generator=generator
+                    rand_vals = _uniform_cpu(
+                        (k_actual,), w_min, w_max, generator, self.device
                     )
                     vals = (1.0 - pct) * vals + pct * rand_vals
             else:
-                vals = torch.empty(k_actual, device=self.device).uniform_(
-                    w_min, w_max, generator=generator
-                )
+                vals = _uniform_cpu((k_actual,), w_min, w_max, generator, self.device)
             weights[i, all_idx] = vals
         return weights
 
@@ -703,7 +746,7 @@ class DistanceWeightedInnervation(BaseInnervation):
         weights = torch.zeros(self.num_neurons, self.num_receptors, device=self.device)
 
         if max_K > 0:
-            all_idx = torch.multinomial(
+            all_idx = _multinomial_cpu(
                 prob_weights, max_K, replacement=False, generator=generator
             )
             dist_sampled = torch.gather(distances, 1, all_idx)
@@ -714,8 +757,8 @@ class DistanceWeightedInnervation(BaseInnervation):
             all_vals = w_min + norm * (w_max - w_min)
             if self.distance_weight_randomness_pct > 0:
                 pct = self.distance_weight_randomness_pct / 100.0
-                rand_vals = torch.empty_like(all_vals, device=self.device).uniform_(
-                    w_min, w_max, generator=generator
+                rand_vals = _uniform_cpu(
+                    all_vals.shape, w_min, w_max, generator, self.device
                 )
                 all_vals = (1.0 - pct) * all_vals + pct * rand_vals
 
@@ -898,11 +941,8 @@ def create_neuron_centers(
         jitter_mag = 0.25 * spacing * jitter_factor
         jitter = (
             torch.randn(
-                base_coords.shape,
-                generator=generator,
-                dtype=base_coords.dtype,
-                device=device,
-            )
+                base_coords.shape, generator=generator, dtype=base_coords.dtype
+            ).to(device)
             * jitter_mag
         )
         coords = base_coords + jitter
@@ -911,11 +951,8 @@ def create_neuron_centers(
         jitter = (
             (
                 torch.rand(
-                    base_coords.shape,
-                    generator=generator,
-                    dtype=base_coords.dtype,
-                    device=device,
-                )
+                    base_coords.shape, generator=generator, dtype=base_coords.dtype
+                ).to(device)
                 - 0.5
             )
             * 2
@@ -936,11 +973,8 @@ def create_neuron_centers(
         jitter_mag = 0.5 * spacing * jitter_factor
         jitter = (
             torch.randn(
-                base_coords.shape,
-                generator=generator,
-                dtype=base_coords.dtype,
-                device=device,
-            )
+                base_coords.shape, generator=generator, dtype=base_coords.dtype
+            ).to(device)
             * jitter_mag
         )
         coords = base_coords + jitter
@@ -1052,7 +1086,7 @@ def create_innervation_map_tensor(
     rand_weights = torch.zeros_like(flat_weights)
 
     if max_K > 0:
-        all_idx = torch.multinomial(
+        all_idx = _multinomial_cpu(
             prob_weights, max_K, replacement=False, generator=generator
         )
         if use_distance_weights:
@@ -1064,13 +1098,13 @@ def create_innervation_map_tensor(
             all_vals = weight_min + norm * (weight_max - weight_min)
             if distance_weight_randomness_pct > 0:
                 pct = distance_weight_randomness_pct / 100.0
-                rand_vals = torch.empty(num_neurons, max_K, device=device).uniform_(
-                    weight_min, weight_max, generator=generator
+                rand_vals = _uniform_cpu(
+                    (num_neurons, max_K), weight_min, weight_max, generator, device
                 )
                 all_vals = (1.0 - pct) * all_vals + pct * rand_vals
         else:
-            all_vals = torch.empty(num_neurons, max_K, device=device).uniform_(
-                weight_min, weight_max, generator=generator
+            all_vals = _uniform_cpu(
+                (num_neurons, max_K), weight_min, weight_max, generator, device
             )
 
         arange = torch.arange(max_K, device=device).unsqueeze(0)
