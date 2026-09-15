@@ -58,3 +58,36 @@ def test_run_pop_from_drive_rejects_invalid_dt_ms_for_direct_callers():
             dt_ms=0.12,
             integrate_dt_ms=0.05,
         )
+
+
+# ---------------------------------------------------------------------------
+# E10: SimulationConfig(dt=...) deprecated alias
+# ---------------------------------------------------------------------------
+
+
+def test_simulation_config_dt_keyword_is_deprecated_alias_for_dt_ms():
+    with pytest.warns(DeprecationWarning, match="dt_ms"):
+        config = SimulationConfig(dt=0.5)
+    assert config.dt_ms == 0.5
+
+
+def test_simulation_config_rejects_dt_and_dt_ms_with_different_values():
+    with pytest.raises(ValueError, match="both"):
+        SimulationConfig(dt_ms=0.5, dt=0.25)
+
+
+def test_simulation_config_dt_and_dt_ms_same_value_is_allowed():
+    with pytest.warns(DeprecationWarning):
+        config = SimulationConfig(dt_ms=0.5, dt=0.5)
+    assert config.dt_ms == 0.5
+
+
+def test_to_dict_does_not_leak_the_deprecated_dt_key():
+    config = SimulationConfig(dt_ms=1.0)
+    assert "dt" not in config.to_dict()
+
+
+def test_from_dict_legacy_dt_key_warns_and_sets_dt_ms():
+    with pytest.warns(DeprecationWarning):
+        config = SimulationConfig.from_dict({"dt": 0.25, "device": "cpu"})
+    assert config.dt_ms == 0.25

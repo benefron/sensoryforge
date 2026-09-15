@@ -30,6 +30,21 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   remains available as the control arm.** Pass `use_distance_weights=False` to restore it.
 - **`requires-python` is now `>=3.10`** (a neuron module already used 3.10-only syntax). The PyQt5
   GUI is now an optional extra: `pip install -e ".[gui]"`.
+- **Noise is applied after the filter and gain**, not before, in `TactileEncodingPipelineTorch`
+  (matching `SimulationEngine._run_pop_from_drive` and pressure-simulation's runner).
+- **`simulation.dt` is now `simulation.dt_ms`.** The old `dt` key (YAML/`from_dict`) and the
+  `SimulationConfig(dt=...)` constructor keyword are still accepted as a deprecated alias (emits
+  `DeprecationWarning`; passing both `dt` and a different `dt_ms` raises `ValueError`).
+- **Neurons integrate at `integrate_dt_ms` (0.05 ms by default), not at the record step.** The
+  drive is held constant across `dt_ms / integrate_dt_ms` sub-steps per record bin (matching
+  pressure-simulation's runner exactly), which multiplies neuron-stage runtime by that factor --
+  20x at the default `dt_ms = 1.0`.
+- **`SimulationEngine` results' `"spikes"` are integer sub-step counts per record bin** (use
+  `> 0` for a binary raster), of length `T` matching `drive`/`filtered`/`voltages` -- not booleans
+  of length `T+1` as before.
+- **Innervation no longer touches the global RNG**, drawing every seeded random tensor on CPU via
+  a per-instance `torch.Generator`, then moving the result to the target device -- this also means
+  wiring for a given seed is now identical across CPU/MPS/CUDA (previously it crashed on MPS/CUDA).
 
 ### Fixed
 
@@ -46,6 +61,15 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
 - Package config/GUI parameter files are located via `importlib.resources`, so the package now
   works correctly when installed as a wheel and run outside the source checkout (previously several
   code paths assumed the current working directory was the repository root).
+- `sensoryforge run --duration` now reaches every stimulus type, including the default
+  "trapezoidal" (previously excluded); the canonical adapter resolves one `dt_ms` for both neuron
+  integration and every stimulus generator (previously stimuli silently used a disconnected
+  0.1 ms default regardless of `simulation.dt_ms`).
+- A GUI-exported config now records the time step the GUI actually simulated at, instead of always
+  writing `simulation.dt_ms: 1.0`.
+- `SimulationConfig`/`SimulationEngine` now reject a record step (`dt_ms`) that isn't a whole
+  multiple of the neuron integration step (`integrate_dt_ms`), instead of silently rescaling
+  neuron time.
 
 ### Added
 

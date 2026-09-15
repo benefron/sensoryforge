@@ -18,6 +18,7 @@ Example:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -347,7 +348,8 @@ class SimulationConfig:
         device: Device to run on (cpu, cuda, mps).
         dt_ms: Record step in ms -- the time resolution of the filter,
             stimulus, and returned spike/voltage arrays. Was named ``dt``;
-            ``from_dict`` still accepts the legacy ``dt`` key as an alias.
+            ``dt`` is still accepted, as a deprecated constructor keyword
+            and as a ``from_dict``/YAML key alias.
         integrate_dt_ms: Neuron integration step in ms (F-008). The neuron
             model is stepped at this (generally finer) resolution, holding
             the drive constant across ``round(dt_ms / integrate_dt_ms)``
@@ -357,6 +359,9 @@ class SimulationConfig:
         solver: Global solver config (type, method, rtol, atol).
         duration_ms: Simulation duration in ms (optional, can be inferred
             from stimulus).
+        dt: Deprecated alias for ``dt_ms`` (F-008/E10). Emits
+            ``DeprecationWarning`` when used; raises ``ValueError`` if both
+            ``dt`` and a non-default, different ``dt_ms`` are given.
     """
 
     device: str = "cpu"
@@ -364,9 +369,10 @@ class SimulationConfig:
     integrate_dt_ms: float = DEFAULT_INTEGRATE_DT_MS  # ms
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
+    dt: Optional[float] = None  # deprecated alias for dt_ms
 
     def __post_init__(self) -> None:
-        """Validate dt_ms/integrate_dt_ms (F-042).
+        """Resolve the deprecated ``dt`` alias, then validate (F-042).
 
         A record step that is not a whole multiple of the integration step
         silently rescales neuron time in
@@ -375,26 +381,40 @@ class SimulationConfig:
         record bins would integrate at 0.10 ms instead of the requested
         0.12 ms. Catch it at config-construction time instead.
         """
+        if self.dt is not None:
+            if self.dt_ms != 1.0 and self.dt_ms != self.dt:
+                raise ValueError(
+                    f"SimulationConfig got both dt_ms={self.dt_ms!r} and the "
+                    f"deprecated dt={self.dt!r} with different values; pass "
+                    "only dt_ms"
+                )
+            warnings.warn(
+                "SimulationConfig(dt=...) is deprecated; use dt_ms=... instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.dt_ms = self.dt
         validate_dt_ms(self.dt_ms, self.integrate_dt_ms)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""
         result = asdict(self)
+        result.pop("dt", None)  # deprecated alias; never round-tripped
         return {k: v for k, v in result.items() if v is not None}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> SimulationConfig:
         """Create from dict (e.g., from YAML).
 
-        Accepts the legacy ``dt`` key as an alias for ``dt_ms`` (F-008): if
-        ``dt`` is present and ``dt_ms`` is not, ``dt`` becomes ``dt_ms``.
+        Accepts the legacy ``dt`` key as an alias for ``dt_ms``: routed
+        through the (deprecated) ``dt`` constructor keyword, so loading a
+        config that still uses ``dt`` emits the same ``DeprecationWarning``
+        as calling ``SimulationConfig(dt=...)`` directly.
         """
         kwargs = {}
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
-        if "dt_ms" not in kwargs and "dt" in data:
-            kwargs["dt_ms"] = data["dt"]
         return cls(**kwargs)
 
 
