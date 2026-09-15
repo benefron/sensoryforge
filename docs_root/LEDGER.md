@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-045 · OPEN · finding · - · 2026-09-15
+concrete neuron models only round-trip dt via to_dict/from_config, not a/b/c/d/tau_m etc.
+→ commit 51eb198
+
 ## F-043 · CLOSED · finding · - · 2026-09-15
 examples/example_config.yml and batch_config.yml (and docs batch_processing.md, cli.md, yaml_configuration.md) set sa_neurons 100 / ra_neurons 196 as totals; legacy configs read them per row (10,000 and 38,416 neurons), so run/validate/batch --dry-run fail with the dense-weight cap (killed above 3 GB before the cap); no canonical example exists
 → commit 42f5758
