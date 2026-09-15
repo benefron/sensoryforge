@@ -60,8 +60,14 @@ from sensoryforge.solvers.adaptive import AdaptiveSolver
 # Processing
 from sensoryforge.core.processing import IdentityLayer
 
-# Grid arrangements (these are string identifiers, not classes)
-# Grid creation is handled via ReceptorGrid with arrangement parameter
+# Grid arrangements (G3): thin ReceptorGrid subclasses, one per arrangement
+from sensoryforge.core.grid_arrangements import (
+    GridArrangement,
+    PoissonArrangement,
+    HexArrangement,
+    JitteredGridArrangement,
+    BlueNoiseArrangement,
+)
 
 
 def register_all() -> None:
@@ -171,15 +177,13 @@ def register_all() -> None:
     # Register processing layers
     PROCESSING_REGISTRY.register("identity", IdentityLayer)
 
-    # Register grid arrangements (as string identifiers)
-    # These are used by ReceptorGrid, not instantiated directly
-    GRID_REGISTRY.register(
-        "grid", str
-    )  # Placeholder - grid creation handled differently
-    GRID_REGISTRY.register("poisson", str)
-    GRID_REGISTRY.register("hex", str)
-    GRID_REGISTRY.register("jittered_grid", str)
-    GRID_REGISTRY.register("blue_noise", str)
+    # Register grid arrangements (G3): real ReceptorGrid subclasses, one per
+    # arrangement, each constructible via from_config()/GRID_REGISTRY.create().
+    GRID_REGISTRY.register("grid", GridArrangement)
+    GRID_REGISTRY.register("poisson", PoissonArrangement)
+    GRID_REGISTRY.register("hex", HexArrangement)
+    GRID_REGISTRY.register("jittered_grid", JitteredGridArrangement)
+    GRID_REGISTRY.register("blue_noise", BlueNoiseArrangement)
 
 
 # Auto-register on import
