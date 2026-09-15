@@ -10,11 +10,11 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A to E are done and reviewed (sections
-> 1b-1f). Do the Wave E fixes in order (E6, E7, E8, E9, E10), then Wave F (F1, F2). Read the "Guardrails" section first and follow it exactly. One task = one commit
+> list is `docs/development/handover/phase1_tasks.md`. Waves A to F are done and reviewed (sections
+> 1b-1g). Do F3 and F4, then Wave G (G1 to G5). In your report, list every task you completed. Read the "Guardrails" section first and follow it exactly. One task = one commit
 > with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
 > and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when Wave F is finished.
+> skip it and continue with the next unblocked task. Stop and report when Wave G is finished.
 
 ---
 
@@ -165,6 +165,24 @@ Two older problems became more consequential once `dt_ms` started driving filter
 
 - **F-040:** a CLI run of a canonical config with `dt_ms: 1.0 --duration 100` produces 10,450 bins, because trapezoid, gaussian, step and ramp stimuli use the legacy `temporal.dt` (0.1 ms, F-024) and the trapezoid ignores `--duration`. The engine then reads every bin as 1 ms, so the simulated timeline is about 100× longer than requested. The pre-Wave-E tree gives 10,451 bins, so this predates Wave E. It is on the CLI/batch data-generation path.
 - **F-041:** a GUI export always writes `simulation.dt_ms: 1.0`, because `SpikingNeuronTab.get_config()` carries no time step and `gui/main.py` `_gui_to_canonical` defaults to 1.0. The GUI simulates at the stimulus step (0.1 ms by default), so a GUI-exported config runs with different filter integration and sub-steps from the CLI.
+
+## 1g. Review of the Wave E fixes and Wave F (2026-09-15, commits `a59f385..8084d28`)
+
+The implementation report only described Wave F; the Wave E fixes E6–E10 were also done and are reviewed here.
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| E6 CPU draws, then device | Accepted | the three accelerator tests run (not skipped) on this machine's MPS and pass; seeded MPS weights equal CPU weights |
+| E7 one record step for CLI/batch | Accepted | `sensoryforge run` on a `dt_ms: 1.0` canonical config with `--duration 100` now gives 100 bins for both gaussian and trapezoid stimuli (was 1,000 and 10,450). Design note: the trapezoid now scales all four segments, so a 100 ms trapezoid has ~1 ms ramps instead of 10 ms, which sharply increases RA drive for short durations. `_reconcile_dt_keys` decides by comparing values with the 0.1 ms default, so a config that deliberately sets `neurons.dt: 0.1` and `temporal.dt: 0.5` resolves to 0.5 |
+| E8 GUI exports the simulated step | Accepted | 4 new tests; GUI suite passes |
+| E9 record-step validation | Accepted, with a GUI gap (F-044) | 0.12 and 0.01 rejected with clear messages; but the stimulus Δt spinbox still accepts 0.12 and the Spiking tab only catches `RuntimeError`, so the `ValueError` escapes a Qt slot (PyQt5 aborts by default; no exception hook installed) |
+| E10 `dt` keyword alias and changelog | Accepted | changelog now covers E2–E9 |
+| F1 docs navigation and strict build | Accepted | `mkdocs build --strict` exits 0 with 0 warnings |
+| F2 CLI reads the registries | Accepted | `list-components` lists registered names (including aliases, e.g. `RA`, `ra`, `rafilter`); `validate` builds `SimulationEngine` for canonical configs |
+| Old-code checks | Hold | the new E7, E9 and F2 test files all fail or error on `6c02331` |
+| Suites | Green | gui 234 passed, 1 skipped; not-gui 780 passed, 6 skipped; full 1,014 passed, 7 skipped; exit 0; black, flake8 and golden parity pass |
+
+**F-043 (new, blocks the Phase 1 exit criteria).** The shipped `examples/example_config.yml` and `examples/batch_config.yml` set `sa_neurons: 100`, `ra_neurons: 196`, `sa2_neurons: 25`, commented as neuron counts; legacy configs read them per row. `sensoryforge run`, `validate` and `batch --dry-run` on them fail at HEAD with the dense-weight cap error; on `4342b8b`, before the cap, `validate` was killed above 3 GB. The same values appear in `docs/user_guide/batch_processing.md`, `cli.md` and `yaml_configuration.md`, and `CLAUDE.md` tells users to run the first example. No canonical-format example exists, which the exit criteria require.
 
 ---
 
@@ -428,6 +446,22 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 - **Done when:** a test registers a dummy neuron and sees it in `list-components` output.
 - **Trailers:** `Closes: F-018`.
 
+#### F3. Working examples, canonical first (do this first in the next run)
+- **Files:** new `examples/canonical_config.yml` and `examples/canonical_batch_config.yml`; `examples/example_config.yml`; `examples/batch_config.yml`; `examples/README.md`; `docs/user_guide/batch_processing.md`, `docs/user_guide/cli.md`, `docs/user_guide/yaml_configuration.md`; `CLAUDE.md` "Commands → CLI"; `README.md` if it references example files; new `tests/integration/test_examples_smoke.py`.
+- **Do:**
+  1. Write `examples/canonical_config.yml` with `SensoryForgeConfig` (one 40×40 grid, SA 10 per row and RA 14 per row, SA/RA filters, trapezoid stimulus, `dt_ms: 1.0`) and `examples/canonical_batch_config.yml` sweeping amplitude over 3 values. Generate them from dataclasses with `to_yaml()` so they are schema-valid, then add comments.
+  2. In the legacy examples and the three docs pages, change the neuron counts to per-row values (`sa_neurons: 10`, `ra_neurons: 14`, `sa2_neurons: 5`) and fix the comments to say "neurons per row (population = N×N)".
+  3. Point `CLAUDE.md` and `examples/README.md` at the canonical example first.
+  4. `tests/integration/test_examples_smoke.py` parametrised over every `examples/*.yml`: run `sensoryforge validate`; for non-batch configs run `sensoryforge run --duration 20 --output <tmp>`; for batch configs run `sensoryforge batch --dry-run`. Assert exit code 0.
+- **Done when:** the smoke test passes and fails on `8084d28` for the two legacy examples; the phase-exit wheel check below runs `sensoryforge run examples/canonical_config.yml --duration 50` from `/tmp` successfully.
+- **Trailers:** `Closes: F-043`.
+
+#### F4. Invalid time steps cannot crash the GUI (F-044)
+- **Files:** `sensoryforge/gui/tabs/stimulus_tab.py` (`spin_dt`), `sensoryforge/gui/tabs/spiking_tab.py` (`_run_simulation`), `sensoryforge/gui/main.py`.
+- **Do:** snap `spin_dt` to the nearest multiple of `DEFAULT_INTEGRATE_DT_MS` on `editingFinished`; catch `ValueError` alongside `RuntimeError` in `_run_simulation` and report it through the existing `errors` list; install a `sys.excepthook` in `gui/main.py` that shows unhandled exceptions in a `QMessageBox` instead of aborting.
+- **Done when:** a `gui`-marked test types 0.12 into `spin_dt`, finishes editing, and reads 0.10; a second test makes `_simulate_population` raise `ValueError` and asserts `_run_simulation` returns normally with the message recorded; both fail on `8084d28`.
+- **Trailers:** `Closes: F-044`.
+
 ### Wave G — extensibility baseline (plan 1g)
 
 - **G1.** `get_param_spec()` on every base class (default `[]`); `ParamSpec` gains optional `choices`, `help`, `group`, `advanced` without breaking existing call sites.
@@ -441,12 +475,12 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 
 ## 5. Phase 1 exit criteria (from the roadmap)
 
-- Wheel installed in a clean environment runs `sensoryforge run` on a canonical example and the GUI imports offscreen.
+- Wheel installed in a clean environment runs `sensoryforge run examples/canonical_config.yml --duration 50` from `/tmp` and the GUI imports offscreen (appendix wheel check).
 - `pytest -m "not gui"` and `pytest -m gui` both exit 0 in one process each.
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-018, F-020, F-024, F-038, F-039, F-040, F-041, F-042 closed; F-013, F-035, F-036 and F-037 may stay open for later phases (F-003, F-006–F-008, F-014–F-016, F-023, F-025–F-034 closed in Waves A–E).
+- Ledger: F-043 and F-044 closed; F-010, F-011, F-013, F-019, F-022, F-035, F-036 and F-037 may stay open for Phase 2 and later (everything else from F-001 to F-042 is closed).
 
 ---
 
