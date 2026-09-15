@@ -451,7 +451,7 @@ neurons:
 - Parameters are substituted from `parameters` dict
 - Support for standard math functions: `sin`, `cos`, `exp`, `log`, `sqrt`, etc.
 
-**Note:** Requires `sympy` package: `pip install sensoryforge[dsl]`
+**Note:** Requires `sympy` package: `pip install -e ".[dsl]"` (not yet on PyPI; install from source, see `CONTRIBUTING.md`)
 
 ## Solvers
 
@@ -490,7 +490,7 @@ solver:
 
 **Requirements:** 
 - `pip install torchdiffeq` or `pip install torchode`
-- Or: `pip install sensoryforge[solvers]`
+- Or: `pip install -e ".[solvers]"` (not yet on PyPI; install from source, see `CONTRIBUTING.md`)
 
 ## Temporal Profile
 

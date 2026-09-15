@@ -348,17 +348,13 @@ class SimulationEngine:
             return_intermediates: If True, return intermediate activations (drive, filtered, voltages)
 
         Returns:
-            Dictionary with results for each population, keyed by population name:
-            {
-                "population_name": {
-                    "spikes": torch.Tensor,  # Shape: [batch, time, num_neurons], sub-step spike count per record bin (F-008); use > 0 for a binary raster
-                    "drive": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
-                    "filtered": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mA (if return_intermediates)
-                    "voltages": torch.Tensor,  # Shape: [batch, time, num_neurons], units: mV (if return_intermediates)
-                }
-            }
+            Dictionary with results for each population, keyed by population name. Each value is
+            itself a dict of tensors shaped `[batch, time, num_neurons]` -- the sub-step spike
+            count per record bin under the key spikes (F-008; use greater-than-zero for a binary
+            raster), and, only when return_intermediates is True, drive and filtered (both mA)
+            and voltages (mV).
 
-        Example:
+        Examples:
             >>> from sensoryforge.config.schema import SensoryForgeConfig
             >>> from sensoryforge.core.simulation_engine import SimulationEngine
             >>> config = SensoryForgeConfig.from_yaml('config.yml')

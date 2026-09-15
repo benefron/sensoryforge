@@ -52,6 +52,14 @@ theme:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            merge_init_into_class: true
 
 markdown_extensions:
   - admonition
@@ -93,17 +101,36 @@ nav:
     - Interactive Quickstart: tutorials/quickstart_tutorial.md
     - Batch Processing: tutorials/batch_processing_tutorial.md
     - Custom Neuron Models: tutorials/custom_neurons.md
+    - Building a Custom Pipeline: tutorials/custom_pipeline.md
+    - Parameter Sweeps: tutorials/parameter_sweeps.md
     
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
     - YAML Configuration: user_guide/yaml_configuration.md
+    - Configuration Schema: user_guide/configuration_schema.md
     - GUI Workflow: user_guide/gui_phase2_access.md
+    - GUI Walkthrough: user_guide/gui_walkthrough.md
+    - Units and Gains: user_guide/units_and_gains.md
     - Composite Grid: user_guide/composite_grid.md
     - Equation DSL: user_guide/equation_dsl.md
     - Extended Stimuli: user_guide/extended_stimuli.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
+
+  - Developer Guide:
+    - Extensibility Overview: developer_guide/extensibility.md
+    - Adding a Neuron: developer_guide/add_neuron.md
+    - Adding a Filter: developer_guide/add_filter.md
+    - Adding a Stimulus: developer_guide/add_stimulus.md
+    - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
+    - Roadmap: developer_guide/roadmap_v1.md
+
+  - API Reference:
+    - Pipeline: api_reference/pipeline.md
+    - Neurons: api_reference/neurons.md
+
+  - Contributing: contributing.md
 
 extra:
   social:

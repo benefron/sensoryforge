@@ -421,5 +421,5 @@ results = pipeline.forward(stimulus_type='gaussian')
 
 - [YAML Configuration Guide](yaml_configuration.md) - Complete configuration reference
 - [Pipeline Documentation](../api_reference/pipeline.md) - Python API reference
-- [Tutorial: Your First Simulation](../tutorials/first_simulation.md) - Step-by-step guide
+- [Tutorial: Your First Simulation](../getting_started/first_simulation.md) - Step-by-step guide
 - [Phase 2 Features](overview.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers

@@ -99,7 +99,5 @@ jobs:
       - name: flake8
         run: flake8 sensoryforge tests
 
-      - name: mkdocs build
-        # Not --strict yet: task F1 fixes the 8 broken tutorial/user-guide
-        # links this currently aborts on, then switches this to --strict.
-        run: mkdocs build
+      - name: mkdocs build --strict
+        run: mkdocs build --strict
