@@ -92,11 +92,11 @@ when there are real new entries.
 Seeded innervation fails on MPS/CUDA since fed09be: per-instance CPU torch.Generator used with device tensors raises "Expected a 'mps' device type for generator but found 'cpu'"; SimulationEngine(device="mps") with a seeded population crashes; CI is CPU-only
 → commit bd13a0b
 
-## F-039 · OPEN · finding · - · 2026-09-14
+## F-039 · CLOSED · finding · - · 2026-09-14
 _canonical_to_legacy_config reads simulation "dt", which SimulationConfig.to_dict no longer writes (dt_ms since fd73a0e), so texture/moving/timeline/repeated_pattern/custom stimuli in CLI and batch canonical runs use 0.1 ms regardless of dt_ms
 → commit bd13a0b
 
-## F-040 · OPEN · finding · - · 2026-09-14
+## F-040 · CLOSED · finding · - · 2026-09-14
 CLI run of a canonical config with dt_ms 1.0 and --duration 100 yields 10450 stimulus bins (trapezoid/gaussian/step/ramp use legacy temporal.dt 0.1 ms; trapezoid ignores --duration), which the engine reads as 1 ms each; pre-existing, on the CLI/batch data-generation path
 → commit bd13a0b
 
@@ -192,7 +192,7 @@ Izhikevich neuron presets (RS/FS/IB/CH/LTS, Izhikevich 2003) are available via p
 Legacy config keys neurons.sa_neurons/ra_neurons mean neurons-per-row, not a total count -- InnervationModule squares it, so a value that reads as a total (e.g. 100) silently builds a 100x100=10,000-neuron population with a dense [N,H,W] weight tensor. Confirmed via test_gui_cli_parity.py::TestConfigAdapter::test_legacy_config_still_works, which passed sa_neurons=100/ra_neurons=196 (looking like the canonical example's totals) and hit >2.7GB RSS before the test was corrected to use per-row values.
 → commit 1c93fa6
 
-## F-024 · OPEN · finding · - · 2026-09-14
+## F-024 · CLOSED · finding · - · 2026-09-14
 GeneralizedTactileEncodingPipeline's gaussian/step/ramp stimulus generators read config["temporal"]["dt"], a separate key from config["neurons"]["dt"] which controls neuron integration. Setting only neurons.dt (the intuitive choice) silently leaves the stimulus time axis at the temporal.dt default (0.1ms), desynchronising the two. Found via test_regression_refactoring.py::test_pipeline_forward_pass_still_works.
 → commit 1c93fa6
 
