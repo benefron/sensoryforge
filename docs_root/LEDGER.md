@@ -88,7 +88,7 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-038 · OPEN · finding · - · 2026-09-14
+## F-038 · CLOSED · finding · - · 2026-09-14
 Seeded innervation fails on MPS/CUDA since fed09be: per-instance CPU torch.Generator used with device tensors raises "Expected a 'mps' device type for generator but found 'cpu'"; SimulationEngine(device="mps") with a seeded population crashes; CI is CPU-only
 → commit bd13a0b
 
