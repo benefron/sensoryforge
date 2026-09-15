@@ -122,6 +122,14 @@ def test_solver_contract(name):
 # ---------------------------------------------------------------------------
 
 
+# Builders whose constructor needs more than the two coordinate tensors.
+_INNERVATION_KWARGS: Dict[str, Dict[str, Any]] = {
+    # template derives its own lattice; it requires one design parameter
+    # form (Phase 2, I4).
+    "template": {"resolvable_distance_mm": 0.4},
+}
+
+
 @pytest.mark.parametrize("name", sorted(INNERVATION_REGISTRY.list_registered()))
 def test_innervation_contract(name):
     if name in _SKIP:
@@ -129,12 +137,21 @@ def test_innervation_contract(name):
     cls = INNERVATION_REGISTRY.get_class(name)
     receptor_coords = torch.rand(20, 2)
     neuron_centers = torch.rand(4, 2)
-    innervation = INNERVATION_REGISTRY.create(
-        name,
-        receptor_coords=receptor_coords,
-        neuron_centers=neuron_centers,
-        device="cpu",
-    )
+    kwargs = dict(_INNERVATION_KWARGS.get(name, {}))
+    if name == "template":
+        # The lattice is derived; passing centres only warns (tested in
+        # tests/unit/test_rf_template_builder.py).
+        innervation = INNERVATION_REGISTRY.create(
+            name, receptor_coords=receptor_coords, device="cpu", **kwargs
+        )
+    else:
+        innervation = INNERVATION_REGISTRY.create(
+            name,
+            receptor_coords=receptor_coords,
+            neuron_centers=neuron_centers,
+            device="cpu",
+            **kwargs,
+        )
     check_component("innervation", cls, instance=innervation)
 
 

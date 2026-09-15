@@ -33,13 +33,14 @@ from sensoryforge.neurons.model_dsl import NeuronModel
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.filters.base import BaseFilter
 
-# Innervation
+# Innervation / receptive-field builders
 from sensoryforge.core.innervation import (
     GaussianInnervation,
     UniformInnervation,
     OneToOneInnervation,
     DistanceWeightedInnervation,
 )
+from sensoryforge.core.rf_builders.template import TemplateRFBuilder
 
 # Stimuli
 from sensoryforge.stimuli.builder import (
@@ -108,6 +109,7 @@ def register_all() -> None:
     INNERVATION_REGISTRY.register("uniform", UniformInnervation)
     INNERVATION_REGISTRY.register("one_to_one", OneToOneInnervation)
     INNERVATION_REGISTRY.register("distance_weighted", DistanceWeightedInnervation)
+    INNERVATION_REGISTRY.register("template", TemplateRFBuilder)
 
     # Register stimuli
     STIMULUS_REGISTRY.register("gaussian", GaussianStimulus)
