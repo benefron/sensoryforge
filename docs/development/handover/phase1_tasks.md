@@ -10,11 +10,13 @@ the repairs that the review of Phase 0/1a found necessary. Open findings are in
 ## Kickoff prompt (paste to the agent)
 
 > You are implementing Phase 1 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`. Your task
-> list is `docs/development/handover/phase1_tasks.md`. Waves A to F are done and reviewed (sections
-> 1b-1g). Do F3 and F4, then Wave G (G1 to G5). In your report, list every task you completed. Read the "Guardrails" section first and follow it exactly. One task = one commit
-> with the ledger trailers the task names. Before you mark a task done, run its "Done when" checks
-> and paste their output into your final summary. If a task says it is blocked on a user decision,
-> skip it and continue with the next unblocked task. Stop and report when Wave G is finished.
+> list is `docs/development/handover/phase1_tasks.md`. Waves A to G are done and reviewed (sections
+> 1b-1h). Before starting, run `git log --oneline -20`, read sections 1h and 2 in full, and recreate
+> the memory watchdog from the appendix in your scratchpad. Then do Wave H in order (H1, H2, H3, H4,
+> H5). Follow the Guardrails exactly. One task = one commit with the ledger trailers the task names,
+> each trailer on a single line. Before you mark a task done, run its "Done when" checks and paste
+> their output into your report. New tests must fail on `04c230b`. List every task you completed
+> with its commit hash. Do not push. Stop and report when Wave H is finished.
 
 ---
 
@@ -183,6 +185,32 @@ The implementation report only described Wave F; the Wave E fixes E6–E10 were 
 | Suites | Green | gui 234 passed, 1 skipped; not-gui 780 passed, 6 skipped; full 1,014 passed, 7 skipped; exit 0; black, flake8 and golden parity pass |
 
 **F-043 (new, blocks the Phase 1 exit criteria).** The shipped `examples/example_config.yml` and `examples/batch_config.yml` set `sa_neurons: 100`, `ra_neurons: 196`, `sa2_neurons: 25`, commented as neuron counts; legacy configs read them per row. `sensoryforge run`, `validate` and `batch --dry-run` on them fail at HEAD with the dense-weight cap error; on `4342b8b`, before the cap, `validate` was killed above 3 GB. The same values appear in `docs/user_guide/batch_processing.md`, `cli.md` and `yaml_configuration.md`, and `CLAUDE.md` tells users to run the first example. No canonical-format example exists, which the exit criteria require.
+
+## 1h. Review of F3, F4 and Wave G, and Phase 1 exit check (2026-09-15, commits `d9e83f8..04c230b`)
+
+| Task | Verdict | Evidence |
+|---|---|---|
+| F3 canonical examples | Accepted | from a wheel installed in a scratch venv and run outside the repo: `validate` and `run --duration 50` on `examples/canonical_config.yml` succeed (100 SA, 196 RA neurons), `batch --dry-run` on `canonical_batch_config.yml` succeeds |
+| F4 GUI time-step safety | Accepted | spinbox snaps, `ValueError` caught, `sys.excepthook` installed; 2 new GUI tests |
+| G1 `get_param_spec` everywhere | Accepted, follow-up F-045 | the five neuron models now inherit `BaseNeuron`; their `to_dict` round-trips only `dt` |
+| G3 grid arrangement classes | Accepted | registry introspection only; F-010 (engine ignores arrangement for innervation) stays open |
+| G2 plugin discovery | Accepted, with defects F-046 and F-048 | an external package installed with `pip install -e` registered a filter and a neuron through the entry point, and both appear in `list-components`. But the neuron registered as `DemoNeuron` fails in `SimulationEngine` ("Unknown neuron model: DemoNeuron", the engine lowercases neuron names) while `demo_neuron` works; filters are looked up exactly, so `DemoGain` works and `demogain` fails. YAML `plugins:` is honoured only by CLI config loading, not the GUI's YAML load |
+| G4 contract tests | Accepted | 35 passed, 5 documented skips |
+| G5 scaffold | Accepted for source checkouts, defect F-047 | from a wheel install it wrote `site-packages/sensoryforge/filters/bandpass.py`, `site-packages/tests/unit/test_bandpass_filter.py` and `site-packages/docs/...`, and tells the user to edit core `register_components.py`; it does not produce an installable entry-point plugin |
+| Commit hashes in the report | Correct | all seven exist on `main` and their subjects match the tasks; ledger-sync commits are omitted from the list, which is fine. G2–G5 carry no trailers, so no sync was needed |
+
+**Phase 1 exit criteria**
+
+| Criterion | Status |
+|---|---|
+| Wheel from outside the repo runs the canonical example; GUI imports offscreen | Pass |
+| `pytest -m "not gui"` and `pytest -m gui` exit 0 in one process each | Pass (867 passed / 11 skipped; 236 passed / 1 skipped). Full suite 1,103 passed, exit 0, 1.4 GB peak |
+| CI commands succeed locally | Pass (black, flake8, `mkdocs build --strict` with 0 warnings). CI has still never run on GitHub |
+| Parity | Pass (resolver parity tests; golden parity against pressure-simulation) |
+| `mkdocs build --strict` | Pass |
+| Ledger | F-043 and F-044 closed. Open beyond the allowed list: F-045, F-046, F-047, F-048 — all extensibility, handled by Wave H |
+
+Phase 1 is therefore not closed: the extensibility promise (a third party adds a component without editing core files and uses it in a simulation) does not hold yet. Wave H closes it.
 
 ---
 
@@ -473,6 +501,42 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 
 ---
 
+### Wave H — Phase 1 close-out: extensibility that works for third parties
+
+#### H1. Case-insensitive component names (F-046, do this first)
+- **Files:** `sensoryforge/registry.py` (`ComponentRegistry`), `sensoryforge/core/simulation_engine.py` (remove the `.lower()` on the neuron lookup), `sensoryforge/register_components.py` (drop pure case-variant aliases such as `"Izhikevich"`/`"izhikevich"`, `"SA"`/`"sa"`; keep genuine aliases like `safilter`), `sensoryforge/cli.py` (`list-components`).
+- **Do:** normalise names on `register`, `get_class`, `is_registered` and `create` (case-fold for lookup, keep the first registered spelling for display). Registering two spellings of the same name to *different* classes raises `ValueError`; registering the same class again stays idempotent. `list_registered()` returns one display name per component.
+- **Done when:** a test registers a neuron `DemoNeuron` and a filter `DemoGain` from outside `register_components.py`, and `SimulationEngine` runs configs that spell them `DemoNeuron`/`demoneuron` and `DemoGain`/`demogain`; a collision test raises; `list-components` shows no case duplicates; existing configs using `Izhikevich`, `izhikevich`, `SA`, `sa`, `DSL (Custom)` still load; the plugin test fails on `04c230b`.
+- **Trailers:** `Closes: F-046`.
+
+#### H2. Scaffold produces an installable plugin package (F-047)
+- **Files:** `sensoryforge/scaffold.py`, `sensoryforge/cli.py` (`new-component`), new `sensoryforge/testing/contracts.py`, `tests/contract/test_component_contracts.py`.
+- **Do:**
+  1. Move the contract checks from `tests/contract/test_component_contracts.py` into an importable `sensoryforge.testing.contracts` module (`check_component(kind, cls)`), and have the in-repo contract test call it.
+  2. Default mode: `sensoryforge new-component <kind> <Name> [--dest DIR]` (default: current directory) writes a standalone package `DIR/sensoryforge-<name>/` with `pyproject.toml` declaring `[project.entry-points."sensoryforge.components"]`, the component module, a `register()` function, `tests/test_contract.py` that calls `sensoryforge.testing.contracts.check_component`, and a `README.md`.
+  3. `--in-repo` mode keeps today's behaviour for contributors, but finds the repository root from the current directory (a `.git` directory plus `pyproject.toml` naming `sensoryforge`) instead of the installed package location, and refuses to run otherwise.
+  4. Refuse to write anywhere under a `site-packages` or `dist-packages` directory.
+- **Done when:** from a wheel installed in a scratch venv and a working directory outside the repo, `sensoryforge new-component filter Bandpass --dest .`, then `pip install -e ./sensoryforge-bandpass`, then its generated tests pass, `list-components` shows it, and a canonical config using it runs; nothing is written under `site-packages`. Paste the commands and output.
+- **Trailers:** `Closes: F-047`.
+
+#### H3. Neuron models round-trip all their parameters (F-045)
+- **Files:** `sensoryforge/neurons/izhikevich.py`, `adex.py`, `mqif.py`, `fa.py`, `sa.py`; `sensoryforge/testing/contracts.py`.
+- **Do:** give each model a `to_dict()` returning every constructor argument (Izhikevich stores resolved `a`/`b`/`c`/`d`, not `preset`), `from_config()` accepting that dict, and a `get_param_spec()` listing each parameter with units, default and a sensible range.
+- **Done when:** the contract check asserts `cls.from_config(m.to_dict()).to_dict() == m.to_dict()` and that every `__init__` parameter except `self` appears in `to_dict()`; it fails on `04c230b` for all five models.
+- **Trailers:** `Closes: F-045`.
+
+#### H4. Config plugins load the same way everywhere (F-048)
+- **Files:** `sensoryforge/config/yaml_utils.py` (one `load_config_file(path)` that reads YAML and honours `plugins:`), `sensoryforge/cli.py`, `sensoryforge/core/batch_executor.py`, `sensoryforge/gui/main.py` (YAML load), `sensoryforge/config/schema.py` (`from_yaml_file`).
+- **Do:** route every YAML config load through that one function; log each imported plugin module at INFO level; document in the user guide that a config's `plugins:` list imports installed modules and calls the named callables.
+- **Done when:** a test writes a config whose `plugins:` entry registers a component and loads it through the CLI loader, `BatchExecutor`, `SensoryForgeConfig.from_yaml_file` and the GUI loader (gui-marked), and the component is registered in each case.
+- **Trailers:** `Closes: F-048`.
+
+#### H5. Document the extension path
+- **Files:** `CLAUDE.md` ("Adding a New Component" and "ParamSpec" sections), `docs/developer_guide/extensibility.md`, `add_neuron.md`, `add_filter.md`, `add_stimulus.md`, new `docs/developer_guide/plugins.md`, new `docs/examples/plugin_filter.py`, `CHANGELOG.md`, `mkdocs.yml`.
+- **Do:** describe the two supported routes (entry-point plugin via `new-component`, or an in-repo contribution) and the contract checks; add one worked example under `docs/examples/` that defines, registers and simulates a filter, executed by a new test (`tests/docs/test_docs_examples.py` running each file in `docs/examples/`); add Wave F–H items to the changelog.
+- **Done when:** `mkdocs build --strict` passes; `pytest tests/docs` runs the example; CLAUDE.md no longer says components "must be registered in `register_components.py`".
+- **Trailers:** none.
+
 ## 5. Phase 1 exit criteria (from the roadmap)
 
 - Wheel installed in a clean environment runs `sensoryforge run examples/canonical_config.yml --duration 50` from `/tmp` and the GUI imports offscreen (appendix wheel check).
@@ -480,7 +544,9 @@ reformat in `68fc511` and are now approximate; always re-grep before editing.
 - CI workflow commands all succeed locally.
 - Parity: GUI and engine resolve identical parameters (A4); golden parity test green (E5) or its blocker reported.
 - `mkdocs build --strict` passes.
-- Ledger: F-043 and F-044 closed; F-010, F-011, F-013, F-019, F-022, F-035, F-036 and F-037 may stay open for Phase 2 and later (everything else from F-001 to F-042 is closed).
+- Ledger: F-045 to F-048 closed; F-010, F-011, F-013, F-019, F-022, F-035, F-036 and F-037 may stay open for Phase 2 and later.
+- A third-party plugin created with `sensoryforge new-component` installs from outside the repo and runs in a simulation (H2 acceptance).
+- CI has run green at least once on GitHub (user pushes).
 
 ---
 
