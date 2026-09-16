@@ -19,8 +19,9 @@ stays at the end of Phase 1 until Phase 2 is complete and reviewed.
   `docs/development/handover/phase1_tasks.md`, recreates the memory watchdog from that file's appendix,
   commits one task per commit with single-line ledger trailers, never pushes, and reports each task's
   commit hash with its "Done when" output.
-- **Waves J and N run in parallel** (disjoint files); K follows J; L then M follow; Phase 3 and 4 follow
-  Phase 2's exit check.
+- **Waves J and N run in parallel** (disjoint files). K follows J. L follows N, because both
+  rewrite `SimulationEngine`. M follows L. Phase 3 and Phase 4 follow Phase 2's exit check.
+- **All six waves are fully specified** in sections 4 and 5; there is no further outline stage.
 ---
 
 ## 1. Why Phase 2, and in what order
@@ -229,7 +230,7 @@ All suites pass in one process each; golden parity and contract tests pass; F-05
 
 ---
 
-## 5. Waves J to N (outline; detailed after Wave I's review)
+## 5. Waves J to N
 
 ### Wave J — the data bundle (F-013, F-011)
 
@@ -449,15 +450,178 @@ proofs recorded; `examples/pressure_simulation_recipe.py --quick` writes four bu
 `Closes: F-052` on the K1 commit.
 
 ### Wave L — sensor channels and receptor sampling (F-010, part)
-`GridConfig.channels`, stimulus tensors with an optional channel axis, `StimulusConfig.channel`, bilinear
-sampling of each channel at `receptor_coords` (`torch.nn.functional.grid_sample`) so hex, Poisson and
-imported layouts are correct, and composite grids in `SimulationEngine` (remove its
-`NotImplementedError`).
+
+Wave L is where SensoryForge stops being a tactile-pressure simulator and becomes a general sensor
+substrate. It closes the "silently wrong" half of F-010. It touches `SimulationEngine`, so it must
+start from the commit where Wave N is merged, to avoid a three-way conflict in that file.
+
+**Fact L-a (verified 2026-09-16).** `SimulationEngine.run` flattens the stimulus row-major to
+`h * w` and feeds it straight to the receptive-field bank (`simulation_engine.py:412-424`).
+`_stimulus_to_receptors` (`:563-586`) only adds a batch dimension; its own docstring calls itself "a
+simplified implementation". So the engine assumes receptor index equals stimulus pixel index. For a
+hex, Poisson, jittered or blue-noise arrangement, or for imported coordinates, the receptors are not
+on the pixel lattice: the run either raises a shape error or, when the counts happen to agree,
+produces a wrong answer with no warning. That is the bug.
+
+**Fact L-b (verified 2026-09-16).** `SimulationEngine._build_grids` raises `NotImplementedError` for
+`arrangement == "composite"` (`:98-105`), while `_build_populations` already has a
+`CompositeReceptorGrid` branch that calls `get_all_coordinates()` and sets `use_flat = True`
+(`:155-161`). The population half is written; only the grid half is missing.
+
+**Fact L-c (verified 2026-09-16).** `CompositeReceptorGrid.add_layer_with_coords(name, coordinates,
+color=None, **metadata)` registers a layer from coordinates that are already computed
+(`composite_grid.py:181`), and `get_all_coordinates()` concatenates layers in insertion order
+(`:339-352`). Layer order is therefore the contract for which receptor is which index; it must be
+written into the bundle and into the bank provenance.
+
+#### L1. Channels on the sensor array
+
+`GridConfig` gains `channels: list[str] = field(default_factory=lambda: ["value"])` and
+`coords_file: Optional[str] = None`. Round-trip through `to_dict`/`from_dict`/YAML, with the
+single-channel default omitted from `to_dict` output so existing configs are unchanged byte for
+byte. `coords_file` reads an `[M, 2]` CSV or `.pt` of receptor coordinates in mm and builds the grid
+from them, using `add_layer_with_coords`.
+
+Validation: channel names must be non-empty, unique, and valid identifiers. A duplicate or empty
+name raises `ValueError` naming the grid and the offending entry.
+
+#### L2. Stimulus tensors with a channel axis
+
+A stimulus is `[batch, time, H, W]` today. It becomes `[batch, time, C, H, W]` when `C > 1`;
+`C == 1` keeps the four-dimensional form so nothing existing changes shape. `StimulusConfig` gains
+`channel: Optional[str]`, naming which plane of the target grid a stimulus drives. Several stimuli
+with different `channel` values compose into one multi-channel tensor, each filling its own plane;
+planes with no stimulus are zero.
+
+`render_stimulus` from Wave K1 grows a `channels: list[str] | None` argument and returns the
+channel axis when asked. Document the shape rule in one place (`docs/concepts/units_and_shapes.md`)
+and reference it from the base classes rather than repeating it.
+
+#### L3. Real receptor sampling (the F-010 fix)
+
+Rewrite `SimulationEngine._stimulus_to_receptors` so it samples the stimulus **at receptor
+coordinates** instead of assuming an index correspondence:
+
+- Build normalised sampling coordinates from `receptor_coords [M, 2]` in mm and the grid's `xlim`,
+  `ylim`, mapping to `[-1, 1]` in the order `grid_sample` expects (its last axis is `(x, y)` with x
+  indexing the **width** axis, which is the second frame axis here — Fact K-a says frame `[i, j]` is
+  at `(x[i], y[j])`, so the mapping is not the naive one; write the index algebra out in the
+  docstring and test it against a known Gaussian).
+- Call `torch.nn.functional.grid_sample(frames, coords, mode="bilinear", align_corners=True,
+  padding_mode="zeros")` once for the whole `[batch, time, C, H, W]` tensor, folding time into the
+  batch axis, and return `[batch, time, C, M]`.
+- Keep the fast path: when the arrangement is a regular grid whose receptor count equals `H * W` and
+  whose coordinates match the lattice, skip `grid_sample` and reshape, so the Wave E and Wave K
+  golden parity tests stay bit-identical. Assert that equivalence in a test rather than assuming it.
+
+Tests: a hex layout recovers a known analytic Gaussian to better than 1% RMS; a regular grid gives
+results bit-identical to the reshape path; a receptor outside the stimulus bounds samples zero, not
+an edge-clamped value; the golden parity fixture from Wave E is unchanged.
+
+#### L4. Composite grids in the engine
+
+Delete the `NotImplementedError` at `simulation_engine.py:98-105`. A `GridConfig` with
+`arrangement == "composite"` builds a `CompositeReceptorGrid` whose layers come from the grid's
+`layers:` list (each entry a name plus density or explicit coordinates plus an arrangement), in
+declaration order. Record the layer order and per-layer receptor counts in the grid's provenance so
+a bundle reader can slice `get_all_coordinates()` back into layers.
+
+A population targeting a composite grid innervates across all layers by default, or a named subset
+via `target_layers: list[str]`. Test: a two-layer composite grid runs end to end through
+`SimulationEngine.run`, and a bank built on layer A only is unaffected by changing layer B's density.
+
+#### L5. Documentation and tests
+
+- `docs/concepts/sensor_arrays.md` — geometry and channels, the four arrangements, imported
+  coordinates, composite layers, and why receptor index is not pixel index.
+- `docs/extending/add_grid_arrangement.md` — the worked example is a new arrangement plugin (a
+  spiral or a fovea-style radial layout), executed in CI like the other extending guides.
+- `docs/concepts/units_and_shapes.md` updated with the channel axis.
+- `CLAUDE.md` technical-debt entry for composite grids removed, since it is no longer true.
+
+#### Wave L exit
+
+`Closes: F-010` only if Wave N has already closed its half; otherwise the commit carries the partial
+note and F-010 stays open until Wave M. Both suites green under the watchdog, `black --check`,
+the CI flake8 subset and `mkdocs build --strict` clean, and every Wave E and Wave K golden test
+unchanged.
 
 ### Wave M — multi-input populations and processing layers
-`PopulationConfig.inputs: list[{grid, channel, rf, gain}]` with the current single-input fields as sugar,
-`combine: "sum" | "concat"`, one bank per input, and `ProcessingPipeline` wired as a per-input stage with
-an `on_off` centre-surround layer as the first non-trivial processing plugin.
+
+Wave M is the last structural wave: a sensory neuron may read from more than one channel or grid,
+and an optional transduction stage sits between the sensor and the receptive field. It depends on
+Wave L.
+
+#### M1. `PopulationInput` and the sugar that expands to it
+
+New dataclass in `sensoryforge/config/schema.py`:
+
+```python
+@dataclass
+class PopulationInput:
+    grid: str                       # grid name
+    channel: str = "value"          # channel within that grid
+    rf: RFBuilderConfig = ...       # builder name + params (Wave I)
+    gain: float = 1.0
+```
+
+`PopulationConfig` gains `inputs: list[PopulationInput]` and `combine: str = "sum"`. The existing
+single-input fields (`target_grid`, `innervation_method`, `sigma_d_mm`, `connections_per_neuron`,
+`use_distance_weights`, `resolvable_distance_mm`, `innervation_params`) stay and are **sugar**:
+`from_dict` expands them into exactly one `PopulationInput`, and `to_dict` writes the short form
+back when there is exactly one input whose fields fit it. Every existing config must round-trip to
+byte-identical YAML. Test that explicitly over `examples/*.yml` and the Wave K presets.
+
+Setting both the sugar fields and `inputs` in one population raises `ValueError` naming the
+population, the same way the Wave I template builder rejects both parameter forms.
+
+#### M2. The engine builds and combines one bank per input
+
+`_build_populations` builds a `ReceptiveFieldBank` per `PopulationInput`, each on its own grid and
+channel. `run` computes one drive per input, scales by that input's `gain`, and combines:
+
+- `"sum"` — element-wise sum, all inputs must agree on `N`.
+- `"concat"` — concatenate along the neuron axis, giving `N * len(inputs)` neurons; the population's
+  neuron count and the bundle's `neuron_centers` must reflect that, with each block's provenance
+  naming its input.
+
+`_run_pop_from_drive` is untouched. Tests: two channels summed give the same answer as one channel
+whose stimulus is the sum, when both banks are identical; `concat` produces the expected shape and
+its blocks match the single-input runs exactly.
+
+#### M3. Processing layers as a per-input stage
+
+`ProcessingPipeline` (`sensoryforge/core/processing.py:129`) is wired between receptor sampling and
+the receptive-field bank, per input, configured by `PopulationInput.processing: list[dict]` and
+defaulting to nothing at all (not an `IdentityLayer` instance, so the default path allocates
+nothing and the golden tests stay bit-identical).
+
+Add `OnOffLayer` as the first non-trivial layer and the worked example for the docs: a
+centre-surround difference of Gaussians over receptor coordinates, emitting an ON plane and an OFF
+plane. It is registered in a `PROCESSING_REGISTRY` that follows the same contract as the others, and
+it is what makes the vision demo in M4 meaningful.
+
+#### M4. The vision demo
+
+`sensoryforge/presets/vision_onoff_rgb.yml`: one grid with channels `["R", "G", "B"]`, three
+stimuli each driving one channel, one population reading R and G through `OnOffLayer` and combining
+with `sum`, and one reading all three with `concat`. `examples/vision_rgb_onoff.py` runs it and
+writes a bundle, mirroring the pressure-simulation recipe script from Wave K5. This is the concrete
+proof that the simulator is no longer tactile-only, and it is the figure for the paper's
+generality claim.
+
+#### M5. Documentation
+
+- `docs/concepts/populations_and_inputs.md` — one neuron, several inputs; sum versus concat; where
+  processing sits in the spine.
+- `docs/extending/add_processing_layer.md` — `OnOffLayer` as the worked, CI-executed example.
+- `docs/user_guide/configuration_schema.md` regenerated for the new fields.
+
+#### Wave M exit
+
+`Closes: F-010` (with Wave L and Wave N, the three halves of it are then all done). Both suites
+green under the watchdog, lint and strict docs clean, every existing config round-tripping
+byte-identically, and all golden parity tests unchanged.
 
 ### Wave N — analog readouts and DSL neurons in the engine (F-010, part)
 
