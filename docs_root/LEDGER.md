@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-060 · CLOSED · finding · - · 2026-09-16
+F-060 sensoryforge run raised KeyError 'spikes' for any config with an analog population because the CLI summary loop read pop_results["spikes"] unconditionally, after the run had succeeded and the bundle had been written; neither Wave J nor Wave N could test the other's half of that seam
+→ commit 577f2dd
+
 ## F-058 · OPEN · finding · - · 2026-09-16
 F-058 the processing-layer kind is not wired into sensoryforge.testing.contracts.check_component, so OnOffLayer and any third-party processing plugin are checked only by hand-written tests while every other component kind goes through the shared contract harness a plugin author is told to run
 → commit 8a6c816
