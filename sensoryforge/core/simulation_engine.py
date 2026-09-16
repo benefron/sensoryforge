@@ -417,6 +417,11 @@ class SimulationEngine:
         self,
         stimulus: torch.Tensor,
         return_intermediates: bool = False,
+        *,
+        bundle_dir: Optional[Any] = None,
+        stimulus_config: Optional[Dict[str, Any]] = None,
+        seed: Optional[int] = None,
+        bundle_overwrite: bool = False,
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -429,6 +434,15 @@ class SimulationEngine:
                 - Units: Pressure/activation values (dimensionless or N/mm²)
                 - Batch dimension is added automatically if missing
             return_intermediates: If True, return intermediate activations (drive, filtered, voltages)
+            bundle_dir: If given, write a data bundle (J2, F-013) to this directory via
+                :func:`sensoryforge.io.bundle.write_bundle` after the run. Internally forces
+                intermediates on for every population (the bundle needs ``drive``/``filtered``)
+                regardless of *return_intermediates*; the returned dict still only carries
+                intermediates when *return_intermediates* is ``True``.
+            stimulus_config: The stimulus's own config dict, written into the bundle's
+                ``stimuli/stimulus.json`` (ignored unless *bundle_dir* is given).
+            seed: The run's seed, recorded in the bundle (ignored unless *bundle_dir* is given).
+            bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
 
         Returns:
             Dictionary with results for each population, keyed by population name. Each value is
@@ -449,6 +463,7 @@ class SimulationEngine:
             >>> sa_spikes = results['SA Population']['spikes']  # [batch, time, num_neurons]
             >>> print(f"Total spikes: {sa_spikes.sum().item()}")
         """
+        want_intermediates = return_intermediates or bundle_dir is not None
         results = {}
 
         for pop in self.populations:
@@ -482,11 +497,33 @@ class SimulationEngine:
                 neuron_model=neuron_model,
                 input_gain=pop["config"].input_gain,
                 noise_std=pop["config"].noise_std,
-                return_intermediates=return_intermediates,
+                return_intermediates=want_intermediates,
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
             )
             results[pop_name] = pop_results
+
+        if bundle_dir is not None:
+            from sensoryforge.io.bundle import write_bundle
+
+            write_bundle(
+                bundle_dir,
+                self.config,
+                self,
+                results,
+                stimulus,
+                stimulus_config=stimulus_config,
+                seed=seed,
+                overwrite=bundle_overwrite,
+            )
+
+        if not return_intermediates and bundle_dir is not None:
+            # The bundle needed intermediates internally; the public return
+            # value still honours the caller's own return_intermediates.
+            results = {
+                pop_name: {"spikes": pop_results["spikes"]}
+                for pop_name, pop_results in results.items()
+            }
 
         return results
 

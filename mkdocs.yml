@@ -114,6 +114,7 @@ nav:
     - Units and Gains: user_guide/units_and_gains.md
     - Composite Grid: user_guide/composite_grid.md
     - Receptive Fields: user_guide/receptive_fields.md
+    - Data Bundles: user_guide/bundles.md
     - Equation DSL: user_guide/equation_dsl.md
     - Analog Readouts: user_guide/analog_readouts.md
     - Extended Stimuli: user_guide/extended_stimuli.md
