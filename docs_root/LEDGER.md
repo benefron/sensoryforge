@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-061 · CLOSED · finding · - · 2026-09-16
+F-061 the Circuit tab discovered which stimulus parameters a class accepts by retrying and deleting whatever the constructor rejected, so a field the user had deliberately set was dropped with no message and the graph then described a run that did not happen
+→ commit 7a5ec87
+
+## F-062 · OPEN · finding · - · 2026-09-16
+F-062 the Circuit tab's GraphValidationError covers dangling terminals, a readout with no filter and a drive with neither receptive-field bank nor combine, but not a combine whose inputs disagree on neuron count, because that needs building receptor coordinates from the registries to know the counts; a sum-combined graph with mismatched inputs therefore fails at run time rather than at validation
+→ commit e356451
+
 ## F-060 · CLOSED · finding · - · 2026-09-16
 F-060 sensoryforge run raised KeyError 'spikes' for any config with an analog population because the CLI summary loop read pop_results["spikes"] unconditionally, after the run had succeeded and the bundle had been written; neither Wave J nor Wave N could test the other's half of that seam
 → commit 577f2dd
