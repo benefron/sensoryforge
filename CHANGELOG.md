@@ -87,6 +87,33 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
 
 ### Added
 
+- **The pressure-simulation recipe** (Phase 2, Wave K; F-052): `sensoryforge/stimuli/render.py`'s
+  `render_stimulus()` is now the CLI's and `BatchExecutor`'s single stimulus-dispatch point (K1) —
+  it checks `STIMULUS_REGISTRY` before falling back to `GeneralizedTactileEncodingPipeline`'s
+  legacy chain, so `composite`, `edge_grating`, `gabor` and any plugin-registered stimulus are now
+  runnable from a config file, not just from code. Two disclosed behaviour changes come with this:
+  a registered stimulus's time axis is now the same half-step-guarded
+  `arange(0, duration_ms + 0.5*dt_ms, dt_ms)` pressure-simulation uses (one more sample than
+  `duration_ms/dt_ms` at the default `dt_ms=1.0`), and `"gaussian"` now uses the registered
+  `GaussianStimulus` class's own defaults (`amplitude=1.0, sigma=0.2`) rather than the legacy
+  pipeline's (`amplitude=30, sigma=1.0`, held constant for the whole duration) when a config
+  doesn't set them explicitly.
+  Four pressure-simulation stimuli are ported (K2, `sensoryforge/stimuli/tactile.py`,
+  registered as `ramp_gaussian`, `moving_edge`, `braille`, `drifting_grating`), each a
+  transcription (not a reimplementation) of the corresponding pressure-simulation generator,
+  verified bit-for-bit against a fixture exported by importing that repository directly (K3,
+  `scripts/regenerate_stimulus_golden.py`, `tests/integration/test_stimulus_parity.py`).
+  A new `sensoryforge/presets/` package ships two canonical-config presets as plain YAML data
+  (K4): `tactile_sa1_ra1` (80x80 grid at 0.15 mm, `template` receptive fields at
+  `resolvable_distance_mm=0.40`, 900 neurons/population) and `tactile_stochastic_control` (D-019's
+  named control arm: `gaussian`/`use_distance_weights=false` instead of `template`).
+  `sensoryforge list-presets` lists them; `sensoryforge run --preset NAME [config.yml]` runs one,
+  optionally overridden by a config file. `examples/pressure_simulation_recipe.py` (K5) runs the
+  whole recipe end to end (preset + all four stimuli) and writes one Wave J bundle per stimulus
+  under `examples/output/pressure_simulation_recipe/` (`--quick` shortens durations for a fast
+  smoke run; the real recipe runs in under 10s on CPU). See
+  `docs/concepts/pressure_simulation_use_case.md`, `docs/user_guide/presets.md`, and
+  `docs/developer_guide/add_stimulus.md`.
 - **Analog (non-spiking) DSL readouts** (Phase 2, Wave N; F-010 DSL half): `NeuronModel`'s
   `threshold`/`reset` are now optional — with no threshold, `compile()` integrates the equations
   every step and returns `(state_trace, None)` instead of `(v_trace, spikes)` (N1). The shared
