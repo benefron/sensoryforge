@@ -44,6 +44,7 @@ from sensoryforge.core.innervation import (
     create_neuron_centers,
 )
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
+from sensoryforge.core.processing import ProcessingPipeline
 from sensoryforge.neurons.model_dsl import NeuronModel
 
 # Ensure components are registered
@@ -83,6 +84,9 @@ class SimulationEngine:
         self.grids: List[Any] = []
         self.grid_names: Dict[str, Any] = {}  # Map grid name to grid object
         self.grid_managers: Dict[str, Any] = {}  # Map grid name to GridManager
+        # Wave M2: grid configs by name, so run() can resolve a
+        # PopulationInput's channel name against that grid's GridConfig.channels.
+        self.grid_configs: Dict[str, Any] = {g.name: g for g in config.grids}
         self._build_grids()
 
         # Build populations (innervation, filters, neurons)
@@ -237,151 +241,338 @@ class SimulationEngine:
         composite.add_layer_with_coords(layer_name, coords)
         return composite
 
+    def _resolve_input_grid(self, pop_cfg: Any, pop_input: Any) -> Any:
+        """Resolve a :class:`~sensoryforge.config.schema.PopulationInput`'s
+        grid object, falling back to the first configured grid (M2)."""
+        target_grid_name = pop_input.grid or (
+            self.config.grids[0].name if self.config.grids else None
+        )
+        if target_grid_name is None:
+            raise ValueError(f"Population {pop_cfg.name} has no target grid")
+        grid = self.grid_names.get(target_grid_name)
+        if grid is None:
+            grid = self.grids[0] if self.grids else None
+            if grid is None:
+                raise ValueError(f"No grid available for population {pop_cfg.name}")
+        return target_grid_name, grid
+
+    def _build_input_bank(
+        self,
+        pop_cfg: Any,
+        pop_input: Any,
+        shared_neuron_centers: Optional[torch.Tensor],
+    ) -> Dict[str, Any]:
+        """Build one :class:`ReceptiveFieldBank` for one
+        :class:`~sensoryforge.config.schema.PopulationInput` (Wave M2).
+
+        Mirrors the single-input logic ``_build_populations`` used before
+        Wave M exactly (same grid/neuron-lattice/builder-parameter
+        resolution), so the sugar path (``effective_inputs()``'s one
+        implicit input) is bit-identical to the pre-M behaviour.
+
+        Args:
+            pop_cfg: The population's config.
+            pop_input: The input being built.
+            shared_neuron_centers: Neuron centres already laid out for an
+                earlier input in this population (``None`` for the first),
+                reused so every non-deriving input shares one lattice.
+
+        Returns:
+            A dict with ``bank``, ``target_grid_name``, ``grid``,
+            ``grid_manager``, ``receptor_coords`` (the *raw*, pre-processing
+            receptor coordinates used at run time to sample the stimulus)
+            and ``neuron_centers`` (the lattice actually used, for callers
+            that want to cache it as ``shared_neuron_centers``).
+        """
+        target_grid_name, grid = self._resolve_input_grid(pop_cfg, pop_input)
+
+        # Get receptor coordinates
+        if isinstance(grid, CompositeReceptorGrid):
+            # L4: a population may innervate a named subset of a
+            # composite grid's layers instead of all of them. Layer
+            # order (and therefore receptor index) is the contract --
+            # get_all_coordinates() concatenates in insertion order, and
+            # pop_input.layers preserves whatever order it's given in.
+            if pop_input.layers:
+                receptor_coords = torch.cat(
+                    [grid.get_layer_coordinates(name) for name in pop_input.layers],
+                    dim=0,
+                )
+            else:
+                receptor_coords = grid.get_all_coordinates()
+            use_flat = True
+        else:
+            receptor_coords = grid.get_receptor_coordinates()
+            use_flat = False
+
+        # Build neuron arrangement first (needed for innervation)
+        # Use neuron_rows/neuron_cols if specified, otherwise use neurons_per_row for square layout
+        neuron_rows = (
+            pop_cfg.neuron_rows
+            if pop_cfg.neuron_rows is not None
+            else pop_cfg.neurons_per_row
+        )
+        neuron_cols = (
+            pop_cfg.neuron_cols
+            if pop_cfg.neuron_cols is not None
+            else pop_cfg.neurons_per_row
+        )
+        neuron_arrangement = pop_cfg.neuron_arrangement or "grid"
+
+        # Get grid bounds
+        if isinstance(grid, CompositeReceptorGrid):
+            xlim = grid.xlim
+            ylim = grid.ylim
+        elif hasattr(grid, "xlim") and hasattr(grid, "ylim"):
+            xlim = grid.xlim
+            ylim = grid.ylim
+        else:
+            # Fallback: compute from grid properties
+            if hasattr(grid, "spacing") and hasattr(grid, "grid_size"):
+                spacing = grid.spacing
+                if isinstance(grid.grid_size, tuple):
+                    n_x, n_y = grid.grid_size
+                else:
+                    n_x = n_y = grid.grid_size
+                total_x = (n_x - 1) * spacing
+                total_y = (n_y - 1) * spacing
+                center = grid.center if hasattr(grid, "center") else (0.0, 0.0)
+                xlim = (center[0] - total_x / 2, center[0] + total_x / 2)
+                ylim = (center[1] - total_y / 2, center[1] + total_y / 2)
+            else:
+                xlim = (-5.0, 5.0)
+                ylim = (-5.0, 5.0)
+
+        # Receptive fields: one registered builder per input (I6, F-051,
+        # extended to per-input in M2). The builder's own class decides
+        # which of the population parameters it takes (filter_params) and
+        # whether it derives the neuron lattice itself
+        # (DERIVES_NEURON_CENTERS).
+        innervation_method = pop_input.rf.method or "gaussian"
+        try:
+            builder_cls = INNERVATION_REGISTRY.get_class(innervation_method)
+        except KeyError:
+            raise ValueError(
+                f"Unknown innervation method: {innervation_method!r}. "
+                f"Registered methods: {sorted(INNERVATION_REGISTRY.list_registered())}"
+            ) from None
+
+        if not use_flat:
+            # Ordinary grids: the population's receptive-field bank is
+            # built on the grid's *real* receptor coordinates --
+            # get_receptor_coordinates() -- for every arrangement,
+            # closing the build-time half of F-010 (Wave L). For a
+            # "grid" arrangement this is bit-identical to the previous
+            # `_grid_lattice_coords(grid_manager)` (same construction
+            # args), since it was the same meshgrid either way; for
+            # hex/poisson/jittered_grid/blue_noise it is now the actual
+            # scattered positions instead of a synthetic regular
+            # lattice standing in for them.
+            receptor_coords = grid.get_receptor_coordinates()
+
+        if builder_cls.DERIVES_NEURON_CENTERS:
+            warnings.warn(
+                f"Population {pop_cfg.name!r}: innervation_method "
+                f"{innervation_method!r} derives its own neuron lattice; "
+                f"neurons_per_row={pop_cfg.neurons_per_row}, "
+                f"neuron_rows={pop_cfg.neuron_rows}, "
+                f"neuron_cols={pop_cfg.neuron_cols} are ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
+            neuron_centers = None
+        elif shared_neuron_centers is not None:
+            # M2: every input that lays out its own lattice (i.e. does not
+            # derive one) shares the *same* lattice, computed once from the
+            # population's first such input -- required for "sum" (every
+            # input's drive must land on the same N neurons) and harmless
+            # for "concat" (each block still gets its own bank/provenance).
+            neuron_centers = shared_neuron_centers.to(self.device)
+        else:
+            neuron_centers = create_neuron_centers(
+                neurons_per_row=neuron_rows,  # Used if rows/cols not specified
+                xlim=xlim,
+                ylim=ylim,
+                device=self.device,
+                edge_offset=pop_cfg.edge_offset,
+                sigma=pop_cfg.sigma_d_mm,
+                rows=neuron_rows,
+                cols=neuron_cols,
+                arrangement=neuron_arrangement,
+                seed=pop_cfg.seed,
+                jitter_factor=(
+                    pop_cfg.neuron_jitter_factor
+                    if hasattr(pop_cfg, "neuron_jitter_factor")
+                    else 1.0
+                ),
+            )
+
+        builder_params = self.builder_params(pop_cfg, grid_path=not use_flat)
+        builder_params.update(pop_input.rf.params)
+
+        # M3: a non-empty processing pipeline changes the receptor axis the
+        # bank is built on (e.g. OnOffLayer's ON+OFF planes double it); the
+        # *raw* receptor_coords (returned below) are what run() samples the
+        # stimulus at, before the pipeline runs.
+        bank_receptor_coords = receptor_coords
+        if pop_input.processing:
+            bank_receptor_coords = ProcessingPipeline.expand_receptor_coords(
+                pop_input.processing, receptor_coords
+            )
+
+        bank: ReceptiveFieldBank = build_population_bank(
+            receptor_coords=bank_receptor_coords,
+            innervation_method=innervation_method,
+            neuron_type=pop_cfg.neuron_type,
+            neuron_centers=neuron_centers,
+            device=self.device,
+            **builder_params,
+        )
+        return {
+            "bank": bank,
+            "target_grid_name": target_grid_name,
+            "grid": grid,
+            "grid_manager": self.grid_managers.get(target_grid_name),
+            "receptor_coords": receptor_coords,
+            "processing": list(pop_input.processing),
+            "channel": pop_input.channel,
+            "gain": pop_input.gain,
+            "neuron_centers": bank.neuron_centers,
+            "derives_neuron_centers": builder_cls.DERIVES_NEURON_CENTERS,
+        }
+
+    @staticmethod
+    def _combine_banks(
+        banks: List["ReceptiveFieldBank"],
+        gains: List[float],
+        combine: str,
+        input_names: List[str],
+    ) -> "ReceptiveFieldBank":
+        """Combine one bank per input into the population's single bank (M2).
+
+        The combined bank's ``forward()`` on the *concatenation* (along the
+        receptor axis, same order as ``banks``) of each input's own
+        (post-processing) receptor response reproduces the per-input
+        combination exactly:
+
+        - ``"sum"``: every input must have the same neuron count ``N``.
+          The combined weights are ``hstack(gain_i * weights_i)`` (receptor
+          axis concatenated, neuron axis shared) so one matmul against the
+          concatenated receptor responses equals
+          ``sum_i gain_i * bank_i(response_i)``.
+        - ``"concat"``: the combined weights are block-diagonal (each
+          input's ``[N_i, M_i]`` block placed at its own offset, zero
+          elsewhere), so one matmul reproduces
+          ``cat([gain_i * bank_i(response_i) for i], dim=-1)`` -- the
+          neuron axis grows to ``sum_i N_i``.
+
+        A single input needs no combination beyond its own gain.
+
+        Raises:
+            ValueError: If ``combine`` is unknown, or ``"sum"`` inputs
+                disagree on neuron count.
+        """
+        if len(banks) == 1:
+            bank = banks[0]
+            gain = gains[0]
+            if gain == 1.0:
+                return bank
+            weights = bank.weights * gain
+            return ReceptiveFieldBank(
+                weights,
+                bank.neuron_centers,
+                bank.receptor_coords,
+                provenance=dict(bank.provenance),
+            )
+
+        if combine == "sum":
+            n_counts = [b.num_neurons for b in banks]
+            if len(set(n_counts)) != 1:
+                raise ValueError(
+                    "combine='sum' requires every input to produce the same "
+                    f"neuron count N; got {n_counts} for inputs {input_names}"
+                )
+            weights = torch.cat([g * b.weights for g, b in zip(gains, banks)], dim=1)
+            receptor_coords = torch.cat([b.receptor_coords for b in banks], dim=0)
+            neuron_centers = banks[0].neuron_centers
+            provenance = {
+                "builder": "combine_sum",
+                "inputs": [
+                    {**dict(b.provenance), "input": name, "gain": g}
+                    for b, name, g in zip(banks, input_names, gains)
+                ],
+            }
+            return ReceptiveFieldBank(
+                weights, neuron_centers, receptor_coords, provenance=provenance
+            )
+
+        if combine == "concat":
+            n_total = sum(b.num_neurons for b in banks)
+            m_total = sum(b.num_receptors for b in banks)
+            weights = torch.zeros(
+                n_total,
+                m_total,
+                dtype=banks[0].weights.dtype,
+                device=banks[0].weights.device,
+            )
+            neuron_centers_list = []
+            receptor_coords_list = []
+            provenance_blocks = []
+            n_off = 0
+            m_off = 0
+            for gain, bank, name in zip(gains, banks, input_names):
+                n, m = bank.num_neurons, bank.num_receptors
+                weights[n_off : n_off + n, m_off : m_off + m] = gain * bank.weights
+                neuron_centers_list.append(bank.neuron_centers)
+                receptor_coords_list.append(bank.receptor_coords)
+                provenance_blocks.append(
+                    {
+                        **dict(bank.provenance),
+                        "input": name,
+                        "gain": gain,
+                        "neuron_slice": [n_off, n_off + n],
+                    }
+                )
+                n_off += n
+                m_off += m
+            neuron_centers = torch.cat(neuron_centers_list, dim=0)
+            receptor_coords = torch.cat(receptor_coords_list, dim=0)
+            provenance = {"builder": "combine_concat", "inputs": provenance_blocks}
+            return ReceptiveFieldBank(
+                weights, neuron_centers, receptor_coords, provenance=provenance
+            )
+
+        raise ValueError(
+            f"Unknown combine mode: {combine!r}; expected 'sum' or 'concat'"
+        )
+
     def _build_populations(self) -> None:
         """Build population execution contexts (innervation, filters, neurons)."""
         for pop_cfg in self.config.populations:
             if not pop_cfg.enabled:
                 continue
 
-            # Find target grid
-            target_grid_name = pop_cfg.target_grid or (
-                self.config.grids[0].name if self.config.grids else None
-            )
-            if target_grid_name is None:
-                raise ValueError(f"Population {pop_cfg.name} has no target grid")
+            effective_inputs = pop_cfg.effective_inputs()
+            input_ctxs: List[Dict[str, Any]] = []
+            shared_neuron_centers: Optional[torch.Tensor] = None
+            for pop_input in effective_inputs:
+                ctx = self._build_input_bank(pop_cfg, pop_input, shared_neuron_centers)
+                if shared_neuron_centers is None and not ctx["derives_neuron_centers"]:
+                    shared_neuron_centers = ctx["neuron_centers"]
+                input_ctxs.append(ctx)
 
-            grid = self.grid_names.get(target_grid_name)
-            if grid is None:
-                # Use first grid as fallback
-                grid = self.grids[0] if self.grids else None
-                if grid is None:
-                    raise ValueError(f"No grid available for population {pop_cfg.name}")
-
-            # Get receptor coordinates
-            if isinstance(grid, CompositeReceptorGrid):
-                # L4: a population may innervate a named subset of a
-                # composite grid's layers instead of all of them. Layer
-                # order (and therefore receptor index) is the contract --
-                # get_all_coordinates() concatenates in insertion order, and
-                # target_layers preserves whatever order it's given in.
-                if pop_cfg.target_layers:
-                    receptor_coords = torch.cat(
-                        [
-                            grid.get_layer_coordinates(name)
-                            for name in pop_cfg.target_layers
-                        ],
-                        dim=0,
-                    )
-                else:
-                    receptor_coords = grid.get_all_coordinates()
-                use_flat = True
-            else:
-                receptor_coords = grid.get_receptor_coordinates()
-                use_flat = False
-
-            # Build neuron arrangement first (needed for innervation)
-            # Use neuron_rows/neuron_cols if specified, otherwise use neurons_per_row for square layout
-            neuron_rows = (
-                pop_cfg.neuron_rows
-                if pop_cfg.neuron_rows is not None
-                else pop_cfg.neurons_per_row
-            )
-            neuron_cols = (
-                pop_cfg.neuron_cols
-                if pop_cfg.neuron_cols is not None
-                else pop_cfg.neurons_per_row
-            )
-            neuron_arrangement = pop_cfg.neuron_arrangement or "grid"
-
-            # Get grid bounds
-            if isinstance(grid, CompositeReceptorGrid):
-                xlim = grid.xlim
-                ylim = grid.ylim
-            elif hasattr(grid, "xlim") and hasattr(grid, "ylim"):
-                xlim = grid.xlim
-                ylim = grid.ylim
-            else:
-                # Fallback: compute from grid properties
-                if hasattr(grid, "spacing") and hasattr(grid, "grid_size"):
-                    spacing = grid.spacing
-                    if isinstance(grid.grid_size, tuple):
-                        n_x, n_y = grid.grid_size
-                    else:
-                        n_x = n_y = grid.grid_size
-                    total_x = (n_x - 1) * spacing
-                    total_y = (n_y - 1) * spacing
-                    center = grid.center if hasattr(grid, "center") else (0.0, 0.0)
-                    xlim = (center[0] - total_x / 2, center[0] + total_x / 2)
-                    ylim = (center[1] - total_y / 2, center[1] + total_y / 2)
-                else:
-                    xlim = (-5.0, 5.0)
-                    ylim = (-5.0, 5.0)
-
-            # Receptive fields: one registered builder per population (I6,
-            # F-051). The builder's own class decides which of the population
-            # parameters it takes (filter_params) and whether it derives the
-            # neuron lattice itself (DERIVES_NEURON_CENTERS).
-            innervation_method = pop_cfg.innervation_method or "gaussian"
-            try:
-                builder_cls = INNERVATION_REGISTRY.get_class(innervation_method)
-            except KeyError:
-                raise ValueError(
-                    f"Unknown innervation method: {innervation_method!r}. "
-                    f"Registered methods: {sorted(INNERVATION_REGISTRY.list_registered())}"
-                ) from None
-
-            if not use_flat:
-                # Ordinary grids: the population's receptive-field bank is
-                # built on the grid's *real* receptor coordinates --
-                # get_receptor_coordinates() -- for every arrangement,
-                # closing the build-time half of F-010 (Wave L). For a
-                # "grid" arrangement this is bit-identical to the previous
-                # `_grid_lattice_coords(grid_manager)` (same construction
-                # args), since it was the same meshgrid either way; for
-                # hex/poisson/jittered_grid/blue_noise it is now the actual
-                # scattered positions instead of a synthetic regular
-                # lattice standing in for them.
-                receptor_coords = grid.get_receptor_coordinates()
-
-            if builder_cls.DERIVES_NEURON_CENTERS:
-                warnings.warn(
-                    f"Population {pop_cfg.name!r}: innervation_method "
-                    f"{innervation_method!r} derives its own neuron lattice; "
-                    f"neurons_per_row={pop_cfg.neurons_per_row}, "
-                    f"neuron_rows={pop_cfg.neuron_rows}, "
-                    f"neuron_cols={pop_cfg.neuron_cols} are ignored.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-                neuron_centers = None
-            else:
-                neuron_centers = create_neuron_centers(
-                    neurons_per_row=neuron_rows,  # Used if rows/cols not specified
-                    xlim=xlim,
-                    ylim=ylim,
-                    device=self.device,
-                    edge_offset=pop_cfg.edge_offset,
-                    sigma=pop_cfg.sigma_d_mm,
-                    rows=neuron_rows,
-                    cols=neuron_cols,
-                    arrangement=neuron_arrangement,
-                    seed=pop_cfg.seed,
-                    jitter_factor=(
-                        pop_cfg.neuron_jitter_factor
-                        if hasattr(pop_cfg, "neuron_jitter_factor")
-                        else 1.0
-                    ),
-                )
-
-            bank: ReceptiveFieldBank = build_population_bank(
-                receptor_coords=receptor_coords,
-                innervation_method=innervation_method,
-                neuron_type=pop_cfg.neuron_type,
-                neuron_centers=neuron_centers,
-                device=self.device,
-                **self.builder_params(pop_cfg, grid_path=not use_flat),
+            combine = pop_cfg.combine or "sum"
+            gains = [ctx["gain"] for ctx in input_ctxs]
+            input_names = [
+                f"{ctx['target_grid_name']}:{ctx['channel']}" for ctx in input_ctxs
+            ]
+            bank = self._combine_banks(
+                [ctx["bank"] for ctx in input_ctxs], gains, combine, input_names
             )
             neuron_centers = bank.neuron_centers
+
+            grid = input_ctxs[0]["grid"]
+            target_grid_name = input_ctxs[0]["target_grid_name"]
 
             # Build filter -- parameters resolved from the single shared
             # default table (sensoryforge.config.defaults) so the engine and
@@ -467,13 +658,21 @@ class SimulationEngine:
                 neuron_params["noise_std"] = pop_cfg.noise_std
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
 
-            # Store population context
+            # Store population context. "inputs" carries the per-input build
+            # contexts (M2) run() needs to sample each input's own
+            # grid/channel/processing at run time; "bank"/"innervation" is
+            # the single combined bank (bit-identical to the pre-M bank for
+            # a one-input population) that a concatenation of the inputs'
+            # (post-processing) receptor responses, in the same order, is
+            # matmul'd against.
             self.populations.append(
                 {
                     "name": pop_cfg.name,
                     "config": pop_cfg,
                     "grid": grid,
                     "target_grid_name": target_grid_name,
+                    "inputs": input_ctxs,
+                    "combine": combine,
                     "innervation": bank,
                     "bank": bank,
                     "filter": filter_module,
@@ -582,16 +781,43 @@ class SimulationEngine:
             innervation = pop["innervation"]
             filter_module = pop["filter"]
             neuron_model = pop["neuron"]
-            grid = pop["grid"]
-            grid_manager = self.grid_managers.get(pop["target_grid_name"])
 
-            # Map stimulus frames to receptor responses [batch, time, M]
-            # (Wave L3, F-010): sample the stimulus at each receptor's own
-            # (x, y) coordinate -- not "receptor index == pixel index" --
-            # except on the fast path (a regular lattice whose resolution
-            # matches the frame), which stays a bit-identical reshape.
-            receptor_input = self._stimulus_to_receptors(
-                stimulus, grid, innervation.receptor_coords, grid_manager
+            # M2: sample each input's own grid/channel, run it through that
+            # input's processing pipeline (if any), then concatenate along
+            # the receptor axis in the same order the combined bank's
+            # weights were built (_combine_banks) -- one matmul against
+            # `innervation` then reproduces the population's sum/concat
+            # combination exactly.
+            input_responses = []
+            for ctx in pop["inputs"]:
+                grid_cfg = self.grid_configs.get(ctx["target_grid_name"])
+                channels = (
+                    list(grid_cfg.channels) if grid_cfg is not None else ["value"]
+                )
+                channel_stimulus = self._select_stimulus_channel(
+                    stimulus, channels, ctx["channel"]
+                )
+                receptor_response = self._stimulus_to_receptors(
+                    channel_stimulus,
+                    ctx["grid"],
+                    ctx["receptor_coords"],
+                    ctx["grid_manager"],
+                )
+                # M3: an input's processing pipeline (empty by default --
+                # no allocation at all on the sugar/no-processing path)
+                # sits between receptor sampling and the receptive-field
+                # bank.
+                if ctx["processing"]:
+                    pipeline = ProcessingPipeline.from_config(
+                        ctx["processing"], receptor_coords=ctx["receptor_coords"]
+                    )
+                    receptor_response = pipeline(receptor_response)
+                input_responses.append(receptor_response)
+
+            receptor_input = (
+                input_responses[0]
+                if len(input_responses) == 1
+                else torch.cat(input_responses, dim=-1)
             )
 
             drive = innervation(receptor_input)
@@ -780,6 +1006,46 @@ class SimulationEngine:
                 pop_results["voltages"] = v_trace
 
         return pop_results
+
+    @staticmethod
+    def _select_stimulus_channel(
+        stimulus: torch.Tensor,
+        channels: List[str],
+        channel_name: str,
+    ) -> torch.Tensor:
+        """Select one named channel plane from a multi-channel stimulus (M2).
+
+        Mirrors :func:`sensoryforge.stimuli.render.render_stimulus`'s own
+        channel convention: a stimulus with no channel axis (``[H, W]``,
+        ``[T, H, W]`` or ``[batch, T, H, W]``) is returned unchanged --
+        single/implicit channel, whatever ``channel_name`` is. A stimulus
+        that *does* carry a channel axis is always 5-D,
+        ``[batch, T, C, H, W]`` (see ``_stimulus_to_receptors``); its
+        ``channel_name`` plane is selected by index into ``channels``
+        (``GridConfig.channels``), defaulting to ``channels[0]``.
+
+        Args:
+            stimulus: The full simulation stimulus tensor.
+            channels: The target grid's channel names.
+            channel_name: The requesting input's channel
+                (``PopulationInput.channel``).
+
+        Returns:
+            A tensor with the same shape as *stimulus* but no channel axis.
+
+        Raises:
+            ValueError: If *stimulus* is 5-D and ``channel_name`` is not one
+                of *channels*.
+        """
+        if stimulus.ndim != 5:
+            return stimulus
+        if not channels or len(channels) <= 1:
+            return stimulus[:, :, 0]
+        target = channel_name if channel_name is not None else channels[0]
+        if target not in channels:
+            raise ValueError(f"stimulus channel {target!r} is not one of {channels}")
+        index = channels.index(target)
+        return stimulus[:, :, index]
 
     def _stimulus_to_receptors(
         self,

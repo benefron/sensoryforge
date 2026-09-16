@@ -76,6 +76,35 @@ class BaseProcessingLayer(nn.Module):
         pass
 
     @classmethod
+    def expand_receptor_coords(cls, receptor_coords: "torch.Tensor") -> "torch.Tensor":
+        """Coordinate-space image of this layer's receptor-axis transform.
+
+        The receptive-field bank for a population input with processing
+        must be built on the *post-processing* receptor axis (Wave M3): if
+        a layer changes the receptor count ``M`` (e.g. :class:`OnOffLayer`
+        emitting ON and OFF planes, doubling it), the bank's
+        ``receptor_coords`` must double the same way, in the same order,
+        so the bank's weight columns line up with
+        :meth:`ProcessingPipeline.forward`'s output.
+
+        Default: identity (the layer does not change ``M``).
+
+        Args:
+            receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm.
+
+        Returns:
+            ``[M', 2]`` receptor positions in the post-processing axis.
+        """
+        return receptor_coords
+
+    #: Whether this layer's :meth:`from_config` needs the population
+    #: input's own receptor coordinates (Wave M3) -- e.g. a centre-surround
+    #: layer computing distances between receptors. ``ProcessingPipeline
+    #: .from_config`` passes ``receptor_coords`` to a layer's
+    #: ``from_config`` only when this is ``True``.
+    REQUIRES_RECEPTOR_COORDS: bool = False
+
+    @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "BaseProcessingLayer":
         """Construct from a YAML-compatible configuration dict.
 
@@ -175,34 +204,94 @@ class ProcessingPipeline(nn.Module):
             layer.reset_state()
 
     @classmethod
-    def from_config(cls, configs: List[Dict[str, Any]]) -> "ProcessingPipeline":
+    def from_config(
+        cls,
+        configs: List[Dict[str, Any]],
+        *,
+        receptor_coords: Optional["torch.Tensor"] = None,
+    ) -> "ProcessingPipeline":
         """Build pipeline from a list of layer configs.
 
-        Each config dict must have a ``'type'`` key.  Currently only
-        ``'identity'`` is supported; future types will be registered
-        here.
+        Each config dict names its layer with either ``'type'`` (the
+        original key, still accepted for
+        :class:`~sensoryforge.core.generalized_pipeline.GeneralizedTactileEncodingPipeline`
+        configs) or ``'method'`` (``PopulationInput.processing``'s key,
+        Wave M3, matching :class:`~sensoryforge.config.schema.RFBuilderConfig`'s
+        convention) -- looked up in ``PROCESSING_REGISTRY`` (Wave M3; every
+        built-in and plugin processing layer, not just ``identity``).
+        Remaining keys plus a nested ``'params'`` dict (if present) are
+        passed to the layer's own ``from_config``.
 
         Args:
             configs: List of layer configuration dicts.
+            receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm,
+                required only by a layer whose class sets
+                ``REQUIRES_RECEPTOR_COORDS = True`` (e.g. ``OnOffLayer``).
 
         Returns:
             ProcessingPipeline instance.
+
+        Raises:
+            ValueError: If a layer's ``type``/``method`` is not registered,
+                or it requires ``receptor_coords`` and none was given.
         """
-        _registry = {
-            "identity": IdentityLayer,
-        }
+        from sensoryforge.registry import PROCESSING_REGISTRY
+
         layers: List[BaseProcessingLayer] = []
         for cfg in configs:
-            layer_type = cfg.get("type", "identity")
-            layer_cls = _registry.get(layer_type)
-            if layer_cls is None:
+            layer_type = cfg.get("type") or cfg.get("method", "identity")
+            try:
+                layer_cls = PROCESSING_REGISTRY.get_class(layer_type)
+            except KeyError:
                 raise ValueError(
                     f"Unknown processing layer type: '{layer_type}'. "
-                    f"Available: {list(_registry.keys())}"
+                    f"Available: {sorted(PROCESSING_REGISTRY.list_registered())}"
+                ) from None
+            layer_config = {**cfg, **dict(cfg.get("params") or {})}
+            if layer_cls.REQUIRES_RECEPTOR_COORDS:
+                if receptor_coords is None:
+                    raise ValueError(
+                        f"Processing layer '{layer_type}' requires "
+                        "receptor_coords, none was given"
+                    )
+                layers.append(
+                    layer_cls.from_config(layer_config, receptor_coords=receptor_coords)
                 )
-            layers.append(layer_cls.from_config(cfg))
+            else:
+                layers.append(layer_cls.from_config(layer_config))
         return cls(layers)
 
     def to_dict(self) -> List[Dict[str, Any]]:
         """Serialize all layers."""
         return [layer.to_dict() for layer in self.layers]
+
+    @staticmethod
+    def expand_receptor_coords(
+        configs: List[Dict[str, Any]], receptor_coords: "torch.Tensor"
+    ) -> "torch.Tensor":
+        """Apply every layer spec's :meth:`BaseProcessingLayer.expand_receptor_coords`
+        in order (Wave M3), without constructing the layers themselves --
+        used at bank-build time, before a layer requiring
+        ``receptor_coords`` (e.g. ``OnOffLayer``) can even be built.
+
+        Args:
+            configs: Same layer-spec list :meth:`from_config` takes.
+            receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm.
+
+        Returns:
+            ``[M', 2]`` receptor positions after every layer's expansion.
+        """
+        from sensoryforge.registry import PROCESSING_REGISTRY
+
+        coords = receptor_coords
+        for cfg in configs:
+            layer_type = cfg.get("type") or cfg.get("method", "identity")
+            try:
+                layer_cls = PROCESSING_REGISTRY.get_class(layer_type)
+            except KeyError:
+                raise ValueError(
+                    f"Unknown processing layer type: '{layer_type}'. "
+                    f"Available: {sorted(PROCESSING_REGISTRY.list_registered())}"
+                ) from None
+            coords = layer_cls.expand_receptor_coords(coords)
+        return coords
