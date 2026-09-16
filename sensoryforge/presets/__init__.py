@@ -4,7 +4,7 @@ A preset is a YAML fragment under this package -- data, not code -- read
 through :mod:`importlib.resources` so it works from an installed wheel run
 outside the repository, never a cwd-relative path (Phase 1b, F-014).
 
-Two presets ship with SensoryForge:
+Three presets ship with SensoryForge:
 
 - ``tactile_sa1_ra1``: the pressure-simulation recipe -- an 80x80 grid at
   0.15 mm, an SA population (regular-spiking preset, ``sa`` filter) and an
@@ -20,11 +20,15 @@ Two presets ship with SensoryForge:
   ``INNERVATION_REGISTRY`` -- D-019 (``docs_root/LEDGER.md``) settles the
   control arm as ``gaussian`` with ``use_distance_weights: false``, which
   ``GaussianInnervation`` already implements.
+- ``vision_onoff_rgb`` (Phase 2, Wave M4): a 3-channel (R, G, B) grid with
+  one population reading two channels through :class:`~sensoryforge.core.processing.OnOffLayer`
+  and summing, and one reading all three channels and concatenating -- the
+  generality demo for multi-input populations (Wave M).
 
 Example:
     >>> from sensoryforge.presets import list_presets, load_preset
     >>> list_presets()
-    ['tactile_sa1_ra1', 'tactile_stochastic_control']
+    ['tactile_sa1_ra1', 'tactile_stochastic_control', 'vision_onoff_rgb']
     >>> config = load_preset("tactile_sa1_ra1")
     >>> config["grids"][0]["rows"]
     80
@@ -50,6 +54,11 @@ _DESCRIPTIONS: Dict[str, str] = {
         "Named control arm (D-019): identical to tactile_sa1_ra1 but with "
         "gaussian/use_distance_weights=false (stochastic, uniform-random "
         "weight) receptive fields instead of the designed template."
+    ),
+    "vision_onoff_rgb": (
+        "Wave M4 generality demo: one 3-channel (R, G, B) grid; one "
+        "population reads R and G through OnOffLayer and sums, one reads "
+        "all three and concatenates."
     ),
 }
 
