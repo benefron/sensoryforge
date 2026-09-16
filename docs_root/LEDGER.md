@@ -88,7 +88,7 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-064 · OPEN · finding · - · 2026-09-16
+## F-064 · CLOSED · finding · - · 2026-09-16
 StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
 → commit fcf0c4a
 
