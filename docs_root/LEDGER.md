@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-065 · CLOSED · finding · - · 2026-09-16
+F-065 Wave O specified saving Circuit node positions to a sibling <config>.layout.json via Flowchart.saveState() but no part of it was implemented, so a graph's arrangement was lost on every reload and grep for saveState across sensoryforge/ returned nothing
+→ commit d9e93e7
+
 ## F-064 · CLOSED · finding · - · 2026-09-16
 StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
 → commit fcf0c4a
