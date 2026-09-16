@@ -49,7 +49,9 @@ V1_REQUIRED_FIELDS = [
 
 def _small_config():
     return SensoryForgeConfig(
-        grids=[GridConfig(name="Main", arrangement="grid", rows=6, cols=6, spacing=0.2)],
+        grids=[
+            GridConfig(name="Main", arrangement="grid", rows=6, cols=6, spacing=0.2)
+        ],
         populations=[
             PopulationConfig(
                 name="SA #6",
@@ -154,7 +156,9 @@ class TestOptionalFieldFallsBack:
 
 
 class TestDroppedFieldBreaksCompat:
-    @pytest.mark.parametrize("field_path", V1_REQUIRED_FIELDS, ids=lambda p: ".".join(map(str, p)))
+    @pytest.mark.parametrize(
+        "field_path", V1_REQUIRED_FIELDS, ids=lambda p: ".".join(map(str, p))
+    )
     def test_dropping_a_v1_field_breaks_the_loader(self, tmp_path, field_path):
         bundle_dir, _, _ = _write_test_bundle(tmp_path)
         cfg_path = bundle_dir / "config.json"

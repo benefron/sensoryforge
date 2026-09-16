@@ -18,7 +18,9 @@ from sensoryforge.io.bundle import load_bundle, write_bundle
 
 def _small_config():
     return SensoryForgeConfig(
-        grids=[GridConfig(name="Main", arrangement="grid", rows=8, cols=8, spacing=0.15)],
+        grids=[
+            GridConfig(name="Main", arrangement="grid", rows=8, cols=8, spacing=0.15)
+        ],
         populations=[
             PopulationConfig(
                 name="SA Population",
@@ -66,7 +68,9 @@ class TestWriteBundleLayout:
     def test_config_json_fields(self, tmp_path):
         config = _small_config()
         engine, stimulus, results = _run(config)
-        bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
+        bundle_dir = write_bundle(
+            tmp_path / "bundle", config, engine, results, stimulus
+        )
         with open(bundle_dir / "config.json") as f:
             cfg = json.load(f)
         assert cfg["schema_version"] == "2.0.0"
@@ -97,7 +101,9 @@ class TestWriteBundleLayout:
     def test_h5_dataset_names_shapes_dtypes(self, tmp_path):
         config = _small_config()
         engine, stimulus, results = _run(config, T=15)
-        bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
+        bundle_dir = write_bundle(
+            tmp_path / "bundle", config, engine, results, stimulus
+        )
         with h5py.File(bundle_dir / "data.h5", "r") as f:
             assert f["stimulus"]["frames"].shape == (15, 8, 8)
             assert f["time_ms"].shape == (15,)
@@ -162,7 +168,9 @@ class TestSchemaVersionValidation:
     def test_missing_schema_version_raises(self, tmp_path):
         config = _small_config()
         engine, stimulus, results = _run(config)
-        bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
+        bundle_dir = write_bundle(
+            tmp_path / "bundle", config, engine, results, stimulus
+        )
         cfg_path = bundle_dir / "config.json"
         with open(cfg_path) as f:
             cfg = json.load(f)
@@ -175,7 +183,9 @@ class TestSchemaVersionValidation:
     def test_incompatible_major_version_raises(self, tmp_path):
         config = _small_config()
         engine, stimulus, results = _run(config)
-        bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
+        bundle_dir = write_bundle(
+            tmp_path / "bundle", config, engine, results, stimulus
+        )
         cfg_path = bundle_dir / "config.json"
         with open(cfg_path) as f:
             cfg = json.load(f)

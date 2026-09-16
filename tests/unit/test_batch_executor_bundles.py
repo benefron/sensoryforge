@@ -83,9 +83,7 @@ class TestOneBundlePerStimulus:
 
         # Distinct amplitudes -> not all three spike arrays identical.
         arrays = list(spikes_by_idx.values())
-        all_equal = all(
-            torch.equal(arrays[0], a) for a in arrays[1:]
-        )
+        all_equal = all(torch.equal(arrays[0], a) for a in arrays[1:])
         assert not all_equal, "Different amplitudes produced identical spikes"
 
         assert (executor.batch_root / "batch_metadata.json").exists()
@@ -101,7 +99,9 @@ class TestOneBundlePerStimulus:
         # Fresh executor (same batch_name -> same batch_id only if run in the
         # same second; instead compare against a fresh single-task executor
         # writing under its own root, using stim_config directly).
-        executor_task = BatchExecutor(_canonical_batch_config(tmp_path / "out2", n_amplitudes=3))
+        executor_task = BatchExecutor(
+            _canonical_batch_config(tmp_path / "out2", n_amplitudes=3)
+        )
         result = executor_task.execute(task_index=1)
         assert result["num_stimuli"] == 1
         task_bundle_dir = executor_task.batch_root / "stim_0001"
@@ -130,7 +130,9 @@ class TestSlurmScriptFlagsExist:
 
         # Find the (possibly line-continued) `sensoryforge batch ...` call.
         lines = script.splitlines()
-        start = next(i for i, l in enumerate(lines) if l.strip().startswith("sensoryforge"))
+        start = next(
+            i for i, l in enumerate(lines) if l.strip().startswith("sensoryforge")
+        )
         call_lines = [lines[start]]
         i = start
         while call_lines[-1].rstrip().endswith("\\"):
@@ -139,7 +141,9 @@ class TestSlurmScriptFlagsExist:
         joined = " ".join(l.rstrip(" \\") for l in call_lines)
 
         # Substitute the shell variables the array job would have set.
-        joined = joined.replace("$STIM_IDX", "0").replace('"$OUTPUT_DIR"', str(tmp_path / "out"))
+        joined = joined.replace("$STIM_IDX", "0").replace(
+            '"$OUTPUT_DIR"', str(tmp_path / "out")
+        )
         argv = shlex.split(joined)
         assert argv[0] == "sensoryforge"
         argv = argv[1:]
