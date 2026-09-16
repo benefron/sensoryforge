@@ -20,6 +20,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from pyqtgraph.flowchart import Flowchart
 
+from sensoryforge.gui.circuit.inspector import build_node_inspector
 from sensoryforge.gui.circuit.nodes import NODE_CLASSES, build_node_library
 
 
@@ -126,6 +127,27 @@ class CircuitTab(QtWidgets.QWidget):
         self.btn_add_node.clicked.connect(self._on_add_node_clicked)
         palette_layout.addWidget(self.btn_add_node)
 
+        # --- Left (cont'd): registry-driven component palette (P3) --------
+        # A second, separate widget from node_palette above -- node_palette
+        # stays exactly as Wave O built it (its own existing test asserts
+        # its contents are exactly NODE_CLASSES) and this tree adds the
+        # per-registry component listing P3 asks for alongside it, so
+        # nothing hard-codes which builders/filters/neurons/stimuli/
+        # processing layers/grid arrangements exist -- a plugin that
+        # registers a new one appears here automatically.
+        palette_layout.addWidget(QtWidgets.QLabel("Registry components"))
+        self.component_palette = QtWidgets.QTreeWidget()
+        self.component_palette.setHeaderHidden(True)
+        self.component_palette.itemDoubleClicked.connect(
+            self._on_component_double_click
+        )
+        palette_layout.addWidget(self.component_palette)
+        self.refresh_component_palette()
+
+        self.chk_expert_mode = QtWidgets.QCheckBox("Expert mode")
+        self.chk_expert_mode.toggled.connect(self._on_expert_mode_toggled)
+        palette_layout.addWidget(self.chk_expert_mode)
+
         self.btn_run = QtWidgets.QPushButton("Run")
         self.btn_run.clicked.connect(self.run_graph)
         palette_layout.addWidget(self.btn_run)
@@ -135,8 +157,11 @@ class CircuitTab(QtWidgets.QWidget):
         # --- Middle: canvas -------------------------------------------------
         ctrl_widget = self.flowchart.widget()
         splitter.addWidget(ctrl_widget.chartWidget)
+        ctrl_widget.chartWidget.scene().selectionChanged.connect(
+            self._on_scene_selection_changed
+        )
 
-        # --- Right: inspector (filled in Wave P) -----------------------------
+        # --- Right: inspector (Wave P) ---------------------------------------
         self.inspector_panel = QtWidgets.QWidget()
         inspector_layout = QtWidgets.QVBoxLayout(self.inspector_panel)
         inspector_layout.addWidget(QtWidgets.QLabel("Inspector"))
@@ -146,6 +171,126 @@ class CircuitTab(QtWidgets.QWidget):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
+
+        self._selected_node = None
+
+    # ------------------------------------------------------------------
+    # Registry-driven component palette (P3)
+    # ------------------------------------------------------------------
+
+    #: Structural node type -> the registry it selects a component from.
+    #: ``Combine`` and ``Record`` have no registered component and are
+    #: intentionally absent (they are still placeable via node_palette).
+    REGISTRY_NODE_TYPES = (
+        "SensorArray",
+        "Stimulus",
+        "RFBank",
+        "Processing",
+        "Filter",
+        "Readout",
+    )
+
+    @staticmethod
+    def _registry_for_node_type(node_type: str):
+        from sensoryforge.registry import (
+            FILTER_REGISTRY,
+            GRID_REGISTRY,
+            INNERVATION_REGISTRY,
+            NEURON_REGISTRY,
+            PROCESSING_REGISTRY,
+            STIMULUS_REGISTRY,
+        )
+
+        return {
+            "SensorArray": GRID_REGISTRY,
+            "Stimulus": STIMULUS_REGISTRY,
+            "RFBank": INNERVATION_REGISTRY,
+            "Processing": PROCESSING_REGISTRY,
+            "Filter": FILTER_REGISTRY,
+            "Readout": NEURON_REGISTRY,
+        }[node_type]
+
+    def refresh_component_palette(self) -> None:
+        """Rebuild the registry-component tree from the live registries.
+
+        Called at construction and safe to call again (e.g. after a plugin
+        registers a new component at runtime) -- nothing here is cached
+        beyond the tree widget's own items.
+        """
+        self.component_palette.clear()
+        for node_type in self.REGISTRY_NODE_TYPES:
+            registry = self._registry_for_node_type(node_type)
+            category = QtWidgets.QTreeWidgetItem([node_type])
+            for component_name in registry.list_registered():
+                leaf = QtWidgets.QTreeWidgetItem([component_name])
+                leaf.setData(0, QtCore.Qt.UserRole, (node_type, component_name))
+                category.addChild(leaf)
+            self.component_palette.addTopLevelItem(category)
+
+    def _on_component_double_click(
+        self, item: QtWidgets.QTreeWidgetItem, _column: int
+    ) -> None:
+        payload = item.data(0, QtCore.Qt.UserRole)
+        if payload is None:
+            return  # a category header, not a leaf
+        node_type, component_name = payload
+        node = self.add_node(node_type)
+        self._apply_component_selection(node, node_type, component_name)
+        self.select_node(node)
+
+    @staticmethod
+    def _apply_component_selection(node, node_type: str, component_name: str) -> None:
+        """Set the newly-placed node's registry selection to ``component_name``."""
+        if node_type == "SensorArray":
+            node.grid.arrangement = component_name
+        elif node_type == "Stimulus":
+            node.stimulus.type = component_name
+        elif node_type == "RFBank":
+            node.pop_input.rf.method = component_name
+        elif node_type == "Processing":
+            node.spec["method"] = component_name
+        elif node_type == "Filter":
+            node.filter_method = component_name
+        elif node_type == "Readout":
+            node.fields["neuron_model"] = component_name
+
+    # ------------------------------------------------------------------
+    # Inspector (Wave P: P1/P2)
+    # ------------------------------------------------------------------
+    def select_node(self, node) -> None:
+        """Show ``node``'s inspector panel (params rendered from its
+        component's ``get_param_spec()``, plus its P2 visualisation)."""
+        self._selected_node = node
+        self._rebuild_inspector()
+
+    def _rebuild_inspector(self) -> None:
+        old_layout = self.inspector_panel.layout()
+        if old_layout is not None:
+            while old_layout.count():
+                child = old_layout.takeAt(0)
+                widget = child.widget()
+                if widget is not None:
+                    widget.setParent(None)
+            QtWidgets.QWidget().setLayout(old_layout)  # detach old layout
+        layout = QtWidgets.QVBoxLayout(self.inspector_panel)
+        if self._selected_node is None:
+            layout.addWidget(QtWidgets.QLabel("Inspector"))
+            layout.addStretch(1)
+            return
+        content = build_node_inspector(
+            self._selected_node, expert_mode=self.chk_expert_mode.isChecked()
+        )
+        layout.addWidget(content)
+
+    def _on_expert_mode_toggled(self, _checked: bool) -> None:
+        if self._selected_node is not None:
+            self._rebuild_inspector()
+
+    def _on_scene_selection_changed(self) -> None:
+        scene = self.flowchart.widget().chartWidget.scene()
+        selected = [item for item in scene.selectedItems() if hasattr(item, "node")]
+        if selected:
+            self.select_node(selected[0].node)
 
     # ------------------------------------------------------------------
     # Node management
