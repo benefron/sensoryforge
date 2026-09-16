@@ -336,9 +336,7 @@ def write_bundle(
                 )
             pop_grp = pops_grp.create_group(name)
             drive = _squeeze_batch(pop_results["drive"], what=f"{name} drive")
-            filtered = _squeeze_batch(
-                pop_results["filtered"], what=f"{name} filtered"
-            )
+            filtered = _squeeze_batch(pop_results["filtered"], what=f"{name} filtered")
             pop_grp.create_dataset(
                 "drive",
                 data=drive.detach().cpu().numpy(),
@@ -352,9 +350,7 @@ def write_bundle(
                 compression_opts=4,
             )
             if "spikes" in pop_results:
-                spikes = _squeeze_batch(
-                    pop_results["spikes"], what=f"{name} spikes"
-                )
+                spikes = _squeeze_batch(pop_results["spikes"], what=f"{name} spikes")
                 pop_grp.create_dataset(
                     "spikes",
                     data=spikes.detach().cpu().to(torch.int16).numpy(),

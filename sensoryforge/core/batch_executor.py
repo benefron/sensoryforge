@@ -366,11 +366,15 @@ class BatchExecutor:
             >>> print(f"Saved to {results['output_path']}")
         """
         indices = (
-            [task_index] if task_index is not None else range(len(self.stimulus_configs))
+            [task_index]
+            if task_index is not None
+            else range(len(self.stimulus_configs))
         )
 
         print(f"Starting batch execution: {self.batch_id}")
-        print(f"Total stimuli: {len(list(indices)) if task_index is not None else len(self.stimulus_configs)}")
+        print(
+            f"Total stimuli: {len(list(indices)) if task_index is not None else len(self.stimulus_configs)}"
+        )
         print(f"Output directory: {self.output_dir}")
         if self._is_canonical:
             print(f"Bundle root: {self.batch_root}")
@@ -413,8 +417,7 @@ class BatchExecutor:
 
             try:
                 print(
-                    f"[{idx+1}/{n_total}] Executing "
-                    f"{stim_config['stimulus_id']}..."
+                    f"[{idx+1}/{n_total}] Executing " f"{stim_config['stimulus_id']}..."
                 )
 
                 if self._is_canonical:
@@ -445,7 +448,9 @@ class BatchExecutor:
         if self._is_canonical:
             metadata_dir = self.batch_root
             output_path = (
-                bundle_dirs[0] if task_index is not None and bundle_dirs else self.batch_root
+                bundle_dirs[0]
+                if task_index is not None and bundle_dirs
+                else self.batch_root
             )
         else:
             print(f"\nSaving results to {output_file}...")
