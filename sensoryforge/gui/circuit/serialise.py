@@ -23,7 +23,9 @@ equivalent but differently-shaped ``inputs=[...]`` list.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pyqtgraph.flowchart import Flowchart, Node
 
@@ -353,3 +355,99 @@ def config_to_graph(config: SensoryForgeConfig, flowchart: Flowchart) -> None:
             "metadata": record_metadata,
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# View state (F-065)
+#
+# Node positions are not configuration: two people can arrange the same
+# experiment differently and it is still the same experiment. They live in a
+# sibling file so the config stays exactly what the CLI would run, and they
+# are advisory -- a missing, stale or malformed layout must never stop a
+# config from loading, because losing your arrangement is an annoyance and
+# failing to open your experiment is not.
+# ---------------------------------------------------------------------------
+
+LAYOUT_SUFFIX = ".layout.json"
+
+
+def layout_path_for(config_path: Union[str, Path]) -> Path:
+    """The layout file that sits beside *config_path*.
+
+    Args:
+        config_path: Path to the config file, with or without its suffix.
+
+    Returns:
+        ``<config>.layout.json`` next to it.
+    """
+    config_path = Path(config_path)
+    return config_path.with_suffix(config_path.suffix + LAYOUT_SUFFIX)
+
+
+def save_layout(flowchart: Flowchart, config_path: Union[str, Path]) -> Path:
+    """Write the graph's node positions beside *config_path*.
+
+    Args:
+        flowchart: The flowchart whose arrangement to record.
+        config_path: The config file these positions belong to.
+
+    Returns:
+        The layout file written.
+    """
+    positions: Dict[str, List[float]] = {}
+    for entry in flowchart.saveState().get("nodes", []):
+        name = entry.get("name")
+        pos = entry.get("pos")
+        if name is None or pos is None:
+            continue
+        positions[str(name)] = [float(pos[0]), float(pos[1])]
+
+    path = layout_path_for(config_path)
+    path.write_text(
+        json.dumps({"version": 1, "positions": positions}, indent=2, sort_keys=True)
+    )
+    return path
+
+
+def apply_layout(flowchart: Flowchart, config_path: Union[str, Path]) -> int:
+    """Restore node positions recorded beside *config_path*, if any.
+
+    Advisory by contract: a missing file, unreadable JSON, an unexpected
+    shape or a name that is no longer in the graph are all no-ops rather
+    than errors. Nodes without a recorded position keep the deterministic
+    placement :func:`config_to_graph` gave them.
+
+    Args:
+        flowchart: The flowchart to rearrange, already populated.
+        config_path: The config file whose layout to look for.
+
+    Returns:
+        How many nodes were moved.
+    """
+    path = layout_path_for(config_path)
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+    positions = payload.get("positions")
+    if not isinstance(positions, dict):
+        return 0
+
+    nodes = flowchart.nodes()
+    moved = 0
+    for name, pos in positions.items():
+        node = nodes.get(name)
+        if node is None:
+            continue
+        try:
+            x, y = float(pos[0]), float(pos[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        item = node.graphicsItem()
+        if item is None:
+            continue
+        item.setPos(x, y)
+        moved += 1
+    return moved
