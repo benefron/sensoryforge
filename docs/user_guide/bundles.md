@@ -84,6 +84,21 @@ its plateau mask is a strict `t < ramp_up + plateau`, so a plateau of exactly `t
 leaves the final frame at zero. When a stimulus declares no ramps of its own, `plateau_ms`
 is therefore written as `n_frames * dt_ms`.
 
+## What pressure-simulation can and cannot do with a bundle
+
+Its viewer loads any bundle this repository writes, and its encoder runs the
+single-grid populations in one. Verified end to end, not assumed: a bundle written by
+`sensoryforge run` was opened with that repository's own `_on_load_bundle` and
+`run_encoding`, and produced real spiking from our receptive fields.
+
+One boundary is worth knowing before you rely on it. A population built from several
+inputs and combined with `concat` has a weight matrix whose receptor axis is the sum of
+its inputs' receptor counts, because each input carries its own grid or channel.
+pressure-simulation has a single receptor grid, so its encoder flattens one grid's frames
+and the two widths disagree. The bundle still loads there and its weights are still
+readable; it is the encoding step that cannot consume such a population. Single-input
+populations, which is everything the pressure-simulation recipe builds, are unaffected.
+
 ## `neuron_modules/sensoryforge.json`
 
 Without this file, pressure-simulation's viewer loads and displays a bundle but can
