@@ -159,8 +159,16 @@ class ProcessingNode(Node):
         )
 
     def to_config(self) -> Dict[str, Any]:
-        """Return the processing-layer spec dict this node represents."""
-        return dict(self.spec)
+        """Return the processing-layer spec dict this node represents.
+
+        ``params`` is omitted when empty, matching how a processing spec
+        loaded from YAML (``{"method": "onoff"}``, no ``params`` key) looks,
+        so a round trip does not introduce a spurious ``"params": {}``.
+        """
+        result: Dict[str, Any] = {"method": self.spec["method"]}
+        if self.spec.get("params"):
+            result["params"] = dict(self.spec["params"])
+        return result
 
     def from_config(self, spec: Dict[str, Any]) -> None:
         """Load this node's state from a processing-layer spec dict."""
@@ -232,10 +240,24 @@ class FilterNode(Node):
 
 
 # Fields of PopulationConfig owned by ReadoutNode -- every field NOT owned by
-# an RFBankNode/ProcessingNode (rf inputs), a CombineNode (combine) or a
-# FilterNode (filter_method/filter_params). Kept as an explicit tuple so a
-# schema change that adds a field is a loud KeyError here, not silent data
-# loss in serialise.py.
+# an RFBankNode/ProcessingNode (rf.method/rf.params, gain, an input's own
+# layers), a CombineNode (combine) or a FilterNode (filter_method/
+# filter_params). Kept as an explicit tuple so a schema change that adds a
+# field is a loud KeyError here, not silent data loss in serialise.py.
+#
+# This includes the legacy single-input "sugar" builder knobs
+# (connections_per_neuron, sigma_d_mm, use_distance_weights,
+# resolvable_distance_mm, innervation_params) and the non-sugar builder
+# knobs that still live on PopulationConfig itself, not on
+# PopulationInput/RFBuilderConfig (distance_weight_randomness_pct,
+# far_connection_fraction, far_sigma_factor, max_distance_mm,
+# decay_function, decay_rate, weight_range, edge_offset) --
+# SimulationEngine.builder_params() reads all of these off the population,
+# not the input. serialise.graph_to_config handles the sugar knobs'
+# PopulationConfig.__post_init__ exclusivity with ``inputs`` (see its
+# docstring); target_grid/target_layers/innervation_method are NOT here --
+# they are derived from the graph's RFBankNode/SensorArrayNode connection,
+# not stored on the readout.
 READOUT_FIELDS = (
     "name",
     "neuron_type",
@@ -257,7 +279,31 @@ READOUT_FIELDS = (
     "enabled",
     "input_gain",
     "seed",
-    "target_layers",
+    "connections_per_neuron",
+    "sigma_d_mm",
+    "distance_weight_randomness_pct",
+    "use_distance_weights",
+    "far_connection_fraction",
+    "far_sigma_factor",
+    "max_distance_mm",
+    "decay_function",
+    "decay_rate",
+    "weight_range",
+    "edge_offset",
+    "resolvable_distance_mm",
+    "innervation_params",
+)
+
+#: Subset of READOUT_FIELDS that PopulationConfig.__post_init__ forbids
+#: setting away from default at the same time as a non-empty ``inputs`` list
+#: (schema.py's _POPULATION_INPUT_SUGAR_DEFAULTS, minus target_grid/
+#: target_layers/innervation_method, which are not ReadoutNode fields).
+SUGAR_CHECKED_READOUT_FIELDS = (
+    "connections_per_neuron",
+    "sigma_d_mm",
+    "use_distance_weights",
+    "resolvable_distance_mm",
+    "innervation_params",
 )
 
 
@@ -290,24 +336,39 @@ class ReadoutNode(Node):
 
 
 class RecordNode(Node):
-    """A bundle destination. Round-trips through
-    ``SensoryForgeConfig.metadata["record_output_dir"]`` since the schema
-    has no dedicated field for it.
+    """A bundle destination -- and, since no node in the Wave O table owns
+    ``SensoryForgeConfig.simulation``/``metadata``, the carrier for those too
+    (O3, disclosed in the Wave O report: a lossless graph<->config round trip
+    is impossible without *some* node holding them, and ``RecordNode`` is the
+    one node the spec already describes only loosely, as "bundle
+    destination"). ``output_dir`` round-trips through
+    ``SensoryForgeConfig.metadata["record_output_dir"]``; ``simulation``
+    round-trips through ``SensoryForgeConfig.simulation``; ``metadata`` is
+    the rest of ``SensoryForgeConfig.metadata`` (``record_output_dir``
+    excluded, since that is ``output_dir`` above).
     """
 
     nodeName = "Record"
 
     def __init__(self, name: str) -> None:
         self.output_dir: Optional[str] = None
+        self.simulation: Dict[str, Any] = {}
+        self.metadata: Dict[str, Any] = {}
         super().__init__(name, terminals={"In": {"io": "in", "multi": True}})
 
     def to_config(self) -> Dict[str, Any]:
-        """Return ``{"output_dir": ...}``."""
-        return {"output_dir": self.output_dir}
+        """Return ``{"output_dir": ..., "simulation": ..., "metadata": ...}``."""
+        return {
+            "output_dir": self.output_dir,
+            "simulation": dict(self.simulation),
+            "metadata": dict(self.metadata),
+        }
 
     def from_config(self, data: Dict[str, Any]) -> None:
-        """Load this node's state from ``{"output_dir": ...}``."""
+        """Load this node's state from the dict ``to_config`` produces."""
         self.output_dir = data.get("output_dir")
+        self.simulation = dict(data.get("simulation") or {})
+        self.metadata = dict(data.get("metadata") or {})
 
     def process(self, **kwargs):  # pragma: no cover - flowchart runtime hook
         return {}

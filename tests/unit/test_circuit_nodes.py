@@ -146,12 +146,20 @@ def test_readout_node_round_trips_population_fields():
 
 
 def test_record_node_round_trips():
+    """RecordNode also carries simulation/metadata (O3, disclosed): no node in
+    the Wave O table owns SensoryForgeConfig.simulation or .metadata, and a
+    lossless graph<->config round trip needs *some* node to hold them."""
     _ensure_app()
     from sensoryforge.gui.circuit.nodes import RecordNode
 
     node = RecordNode("record1")
-    node.from_config({"output_dir": "/tmp/bundle"})
-    assert node.to_config() == {"output_dir": "/tmp/bundle"}
+    data = {
+        "output_dir": "/tmp/bundle",
+        "simulation": {"device": "cpu", "dt_ms": 2.0},
+        "metadata": {"version": "1.0"},
+    }
+    node.from_config(data)
+    assert node.to_config() == data
 
 
 def test_build_node_library_registers_every_node():
