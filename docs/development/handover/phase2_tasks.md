@@ -103,12 +103,19 @@ Verified on `a513dfc` during the Phase 1 close-out.
 5. **Keep deprecated wrappers for one phase.** When a public class is replaced (for example
    `InnervationModule`), keep a thin wrapper that emits `DeprecationWarning` and delegates, so user
    scripts keep working until Phase 4.
-6. **`Finding:` opens a numbered ledger entry; it is not a progress note.** Use it only to record a
+6. **Peak resident memory is a smoke alarm, not a gauge** (F-056). The watchdog samples once a
+   second and sums the process and its children, so the same code measures anywhere from roughly
+   800 MB to 1,500 MB run to run. Measured on 2026-09-16: commit 83b735d gave 873 MB on one run and
+   1,517 MB on another, while the Wave L merge above it gave 1,415 MB. Report the number, but do not
+   read a regression into anything short of the guardrail's doubling, and never compare a number
+   from your run against one from someone else's. Wave T of Phase 4 builds the harness that can
+   actually answer this.
+7. **`Finding:` opens a numbered ledger entry; it is not a progress note.** Use it only to record a
    *new* problem, with a self-contained one-line description someone can act on a year from now.
    Annotating which part of an existing finding a commit addresses belongs in the commit body, not a
    trailer. Wave L wrote `Finding: F-010 (part 1 of 4)` on three commits and opened three empty
    findings that had to be deleted by hand at the merge.
-7. **Never run `pip install -e .` from a worktree** (F-053). The conda environment is shared by every
+8. **Never run `pip install -e .` from a worktree** (F-053). The conda environment is shared by every
    worktree, and an editable install rewrites one global pointer. A parallel wave that reinstalls
    repoints every other checkout at its own code, and the damage is invisible: in-process pytest keeps
    working because the working directory is on `sys.path`, while anything launched as a subprocess
