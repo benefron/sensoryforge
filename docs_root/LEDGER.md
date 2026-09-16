@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-053 · OPEN · finding · - · 2026-09-16
+F-053 docs examples run as subprocesses resolve `import sensoryforge` through the environment's editable install rather than the checkout under test, so with git worktrees a `pip install -e .` from one worktree makes every other checkout's docs-example tests silently exercise that worktree's code while still reporting green; fixed by setting cwd and PYTHONPATH in tests/docs/test_docs_examples.py
+→ commit ad7162d
+
 ## F-052 · OPEN · finding · - · 2026-09-16
 GeneralizedTactileEncodingPipeline.generate_stimulus dispatches stimulus names through a hard-coded if/elif chain (generalized_pipeline.py:1030-1073) that the CLI calls even for canonical configs (cli.py:222), so registered stimuli composite/edge_grating/gabor/static cannot be run from a config file and a third-party stimulus plugin can be registered but never executed
 → commit 09a14e7
