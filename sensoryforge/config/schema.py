@@ -46,6 +46,22 @@ class GridConfig:
         seed: Seed for the random jitter of the ``jittered_grid``,
             ``blue_noise`` and ``poisson`` arrangements (F-050). ``None``
             draws from the global RNG (not reproducible).
+        channels: Named sensor channels/planes carried by this grid (Phase 2,
+            Wave L1). ``["value"]`` (the default) means a single, unnamed
+            channel and is omitted from :meth:`to_dict` output so existing
+            single-channel configs are unchanged byte for byte. Names must
+            be non-empty, unique, valid Python identifiers.
+        coords_file: Optional path to an ``[M, 2]`` CSV or ``.pt`` file of
+            receptor coordinates in mm (Wave L1). When set, the grid is
+            built from these coordinates (via
+            ``CompositeReceptorGrid.add_layer_with_coords``) instead of
+            ``rows``/``cols``/``spacing``.
+        layers: For ``arrangement == "composite"`` (Wave L4), the ordered
+            list of layer specs building a :class:`CompositeReceptorGrid`.
+            Each entry is a dict with a required ``name`` and either
+            ``density`` (+ optional ``arrangement``, ``offset``, ``seed``,
+            ``color``) or ``coordinates`` (an ``[n, 2]`` list) or
+            ``coords_file``. Layer order is the receptor-index contract.
     """
 
     name: str
@@ -59,10 +75,50 @@ class GridConfig:
     color: List[int] = field(default_factory=lambda: [66, 135, 245, 200])
     visible: bool = True
     seed: Optional[int] = None
+    channels: List[str] = field(default_factory=lambda: ["value"])
+    coords_file: Optional[str] = None
+    layers: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Validate channel names (Wave L1).
+
+        Raises:
+            ValueError: If a channel name is empty, not a valid identifier,
+                or repeated -- named with the grid and the offending entry.
+        """
+        seen: set = set()
+        for entry in self.channels:
+            if not isinstance(entry, str) or not entry:
+                raise ValueError(
+                    f"Grid {self.name!r}: channel names must be non-empty "
+                    f"strings, got {entry!r}"
+                )
+            if not entry.isidentifier():
+                raise ValueError(
+                    f"Grid {self.name!r}: channel name {entry!r} is not a "
+                    "valid identifier"
+                )
+            if entry in seen:
+                raise ValueError(
+                    f"Grid {self.name!r}: duplicate channel name {entry!r}"
+                )
+            seen.add(entry)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict for YAML serialization."""
-        return asdict(self)
+        """Convert to plain dict for YAML serialization.
+
+        ``channels == ["value"]`` (the single-channel default) and
+        ``coords_file is None`` and ``layers == []`` are omitted so
+        pre-Wave-L configs round-trip byte for byte (Wave L1).
+        """
+        result = asdict(self)
+        if result.get("channels") == ["value"]:
+            del result["channels"]
+        if result.get("coords_file") is None:
+            del result["coords_file"]
+        if result.get("layers") == []:
+            del result["layers"]
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> GridConfig:
@@ -175,6 +231,7 @@ class PopulationConfig:
     edge_offset: float = 0.0
     resolvable_distance_mm: Optional[float] = None
     innervation_params: Dict[str, Any] = field(default_factory=dict)
+    target_layers: Optional[List[str]] = None
 
     # Neuron layout
     neuron_arrangement: str = "grid"  # grid, poisson, hex, etc.
@@ -316,6 +373,13 @@ class StimulusConfig:
     motion_type: str = "linear"  # linear, circular
     center: List[float] = field(default_factory=lambda: [0.0, 0.0])
     radius: float = 2.0
+
+    # Sensor channel (Phase 2, Wave L2): which named plane of the target
+    # grid's `channels` this stimulus drives. `None` (default) means the
+    # single/first channel -- existing single-channel configs are
+    # unaffected. Several stimuli with different `channel` values compose
+    # into one multi-channel tensor; planes with no stimulus are zero.
+    channel: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""
