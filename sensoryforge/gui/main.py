@@ -21,6 +21,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from sensoryforge.gui.tabs import (  # noqa: E402
+    CircuitTab,
     MechanoreceptorTab,
     StimulusDesignerTab,
     SpikingNeuronTab,
@@ -66,6 +67,9 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         tabs = QtWidgets.QTabWidget()
         self.setCentralWidget(tabs)
 
+        self.circuit_tab = CircuitTab()
+        tabs.addTab(self.circuit_tab, "Circuit")
+
         self.mechanoreceptor_tab = MechanoreceptorTab()
         tabs.addTab(
             self.mechanoreceptor_tab,
@@ -89,6 +93,11 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
         # Wire simulation results → visualization tab
         self.spiking_tab.simulation_finished.connect(
+            self.visualization_tab.set_simulation_results
+        )
+        # Circuit tab runs emit the same payload shape (O4) -- no changes
+        # needed in VisualizationTab to receive them.
+        self.circuit_tab.simulation_finished.connect(
             self.visualization_tab.set_simulation_results
         )
         # Wire auto-saved results notification → visualization tab past-runs refresh
