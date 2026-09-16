@@ -364,15 +364,17 @@ def cmd_batch(args: argparse.Namespace) -> int:
         print(f"Loading batch configuration from {args.config}...")
         executor = BatchExecutor(config)
 
-        # Determine save format
-        save_format = config.get("batch", {}).get("save_format", "pytorch")
+        # Determine save format (legacy configs only; canonical configs
+        # always write bundles -- see BatchExecutor.execute, J3)
+        save_format = config.get("batch", {}).get("save_format", "hdf5")
         save_intermediates = config.get("batch", {}).get("save_intermediates", False)
 
-        # Execute batch
+        # Execute batch (or a single SLURM array task, J3/F-011)
         results = executor.execute(
             save_format=save_format,
             save_intermediates=save_intermediates,
             resume_from=args.resume if args.resume else None,
+            task_index=args.task_index if args.task_index is not None else None,
         )
 
         # Print summary
@@ -684,6 +686,17 @@ def create_parser() -> argparse.ArgumentParser:
     )
     batch_parser.add_argument(
         "--resume", help="Resume from checkpoint file (path to checkpoint.json)"
+    )
+    batch_parser.add_argument(
+        "--task-index",
+        type=int,
+        default=None,
+        help=(
+            "Execute only this one stimulus index instead of the whole "
+            "sweep (for a SLURM array task, e.g. $SLURM_ARRAY_TASK_ID; J3, "
+            "F-011). Canonical configs write it as "
+            "<output>/<batch_id>/stim_%%04d/."
+        ),
     )
 
     # Validate command
