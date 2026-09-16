@@ -221,3 +221,6 @@ _test_seeds.py
 # GUI auto-created experiment workspace
 workspace/
 .worktrees/
+
+# Bundles written by example scripts (Phase 2, Wave K, K5)
+examples/output/
