@@ -88,10 +88,20 @@ class TestCompositeGridBuilds:
         cfg = _two_layer_config()
         engine = SimulationEngine(cfg)
         grid = engine.grid_names["composite_g"]
-        m = grid.get_all_coordinates().shape[0]
-        stim = torch.ones(1, 5, m)  # already flat: [batch, time, M]
+        bank = engine.populations[0]["bank"]
+        # A composite grid has no fixed pixel raster of its own -- the
+        # stimulus is a spatial field over the grid's bounding box, sampled
+        # at each receptor's (x, y) position (Wave L3), same as any other
+        # non-"grid" arrangement. Any resolution works; 25x25 here.
+        h, w = 25, 25
+        stim = torch.ones(1, 5, h, w)  # [batch, time, H, W]
         out = engine.run(stim, return_intermediates=True)["P"]
         assert torch.isfinite(out["drive"]).all()
+        assert out["drive"].shape == (1, 5, bank.num_neurons)
+        # A constant field of 1.0 sampled anywhere gives a constant drive
+        # equal to each neuron's row sum of weights.
+        expected = bank.weights.sum(dim=1)  # [N]
+        assert torch.allclose(out["drive"][0, 0], expected, atol=1e-5)
 
     def test_layer_a_bank_unaffected_by_layer_b_density_change(self):
         engine1 = SimulationEngine(_two_layer_config(density_b=30.0))
