@@ -62,3 +62,38 @@ class TestGridConfigChannels:
             "seed",
         }
         assert set(d.keys()) == expected_keys
+
+
+class TestStimulusConfigChannel:
+    def test_default_channel_is_none_and_omitted(self):
+        from sensoryforge.config.schema import StimulusConfig
+
+        cfg = StimulusConfig()
+        assert cfg.channel is None
+        assert "channel" not in cfg.to_dict()
+
+    def test_named_channel_round_trips(self):
+        from sensoryforge.config.schema import StimulusConfig
+
+        cfg = StimulusConfig(channel="pressure")
+        d = cfg.to_dict()
+        assert d["channel"] == "pressure"
+        cfg2 = StimulusConfig.from_dict(d)
+        assert cfg2.channel == "pressure"
+
+
+class TestPopulationConfigTargetLayers:
+    def test_default_none_omitted(self):
+        from sensoryforge.config.schema import PopulationConfig
+
+        cfg = PopulationConfig(name="p")
+        assert cfg.target_layers is None
+        assert "target_layers" not in cfg.to_dict()
+
+    def test_round_trips(self):
+        from sensoryforge.config.schema import PopulationConfig
+
+        cfg = PopulationConfig(name="p", target_layers=["a", "b"])
+        d = cfg.to_dict()
+        cfg2 = PopulationConfig.from_dict(d)
+        assert cfg2.target_layers == ["a", "b"]

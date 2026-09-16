@@ -104,6 +104,9 @@ nav:
     - Building a Custom Pipeline: tutorials/custom_pipeline.md
     - Parameter Sweeps: tutorials/parameter_sweeps.md
     
+  - Concepts:
+    - Units and Shapes: concepts/units_and_shapes.md
+
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
