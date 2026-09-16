@@ -498,5 +498,59 @@ class ReceptorGrid(BaseGrid):
         return coords[mask]
 
 
+def load_receptor_coords_file(
+    path: str, device: torch.device | str = "cpu"
+) -> torch.Tensor:
+    """Load an ``[M, 2]`` receptor coordinate tensor in mm from a file.
+
+    Accepts a CSV (two columns, ``x,y``, optional header row) or a ``.pt``
+    file holding an ``[M, 2]`` tensor. Used by ``GridConfig.coords_file``
+    (Phase 2, Wave L1) and by composite-grid layer specs (Wave L4) that give
+    ``coords_file`` instead of ``coordinates``/``density``.
+
+    Args:
+        path: Path to the ``.csv`` or ``.pt`` file.
+        device: Target device for the returned tensor.
+
+    Returns:
+        ``[M, 2]`` float32 tensor of ``(x, y)`` coordinates in mm.
+
+    Raises:
+        ValueError: If the file extension is unsupported or the parsed data
+            is not ``[M, 2]``.
+    """
+    from pathlib import Path as _Path
+
+    p = _Path(path)
+    if p.suffix.lower() == ".pt":
+        coords = torch.as_tensor(torch.load(p, map_location="cpu", weights_only=False))
+    elif p.suffix.lower() == ".csv":
+        import csv as _csv
+
+        rows: list = []
+        with open(p, newline="") as f:
+            reader = _csv.reader(f)
+            for row in reader:
+                if not row:
+                    continue
+                try:
+                    rows.append([float(row[0]), float(row[1])])
+                except ValueError:
+                    # Header row (non-numeric first cell) -- skip.
+                    continue
+        coords = torch.tensor(rows, dtype=torch.float32)
+    else:
+        raise ValueError(
+            f"Unsupported receptor coordinate file extension {p.suffix!r} "
+            f"for {path!r}; use .csv or .pt"
+        )
+    if coords.ndim != 2 or coords.shape[1] != 2:
+        raise ValueError(
+            f"{path}: expected an [M, 2] (x, y) coordinate tensor, got shape "
+            f"{list(coords.shape)}"
+        )
+    return coords.to(device=device, dtype=torch.float32)
+
+
 # Backward compatibility alias
 GridManager = ReceptorGrid

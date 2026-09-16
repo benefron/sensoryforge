@@ -70,8 +70,10 @@ sensoryforge list-components
 Every simulation follows this shape-annotated pipeline:
 
 ```
-Stimulus  [batch, time, H, W]
-    ↓  flatten row-major → receptor responses [batch, time, H*W]  (receptor k = i*cols + j)
+Stimulus  [batch, time, H, W]  (or [batch, time, C, H, W] with C > 1 channels, Wave L2)
+    ↓  sampled at each receptor's own (x, y) mm position → responses [batch, time, M]
+    ↓  (a regular grid whose resolution matches the frame takes a bit-identical reshape
+    ↓   fast path instead; every other arrangement is truly sampled, Wave L3 / F-010)
     ↓  ReceptiveFieldBank (weights [N, M] from a registered builder: gaussian, uniform,
     ↓  one_to_one, distance_weighted, template, imported, or a plugin's)
     ↓  [batch, time, N_neurons]
@@ -116,8 +118,6 @@ There are two pipeline classes. **`SimulationEngine` is the canonical path** for
 **Routing in the CLI and Batch executor:** canonical configs (has `grids` list + `populations` list, no `pipeline` key) are automatically routed through `SimulationEngine`. Legacy configs use `GeneralizedTactileEncodingPipeline`.
 
 **GUI tabs** call `SimulationEngine._run_pop_from_drive()` (a shared static backend method) directly, after computing innervation-weighted drive locally.
-
-`SimulationEngine.composite grids` — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet.
 
 ### Configuration: Canonical vs Legacy
 
@@ -229,12 +229,22 @@ The items below are the ones still open as of 2026-09-14 (ledger `F-0NN` IDs); s
 audit once listed here (DSL/CUDA support, `reset_states`) were already fixed — see ledger `R-001`,
 `D-011`.
 
-- **`SimulationEngine` composite grids** — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet. (F-010)
-- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but the bank still samples a synthetic regular lattice over the grid bounds (the engine warns naming F-010; real receptor sampling is Wave L). (F-010; the DSL half of F-010 -- the engine could not build DSL neurons at all -- is resolved, Phase 2 Wave N.)
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
 **Resolved 2026-09-15, Phase 2 Wave I:** receptor grids take a `seed` and random arrangements are reproducible (F-050); `innervation_method` is honoured on ordinary grids and every population's receptive fields are a `ReceptiveFieldBank` built by a registered builder (F-051, D-020).
+
+**Resolved 2026-09-16, Phase 2 Wave L:** `SimulationEngine` samples the stimulus at every
+receptor's real `(x, y)` coordinate (bilinear interpolation via `torch.nn.functional.grid_sample`)
+instead of assuming receptor index equals stimulus pixel index; a regular `"grid"` arrangement
+whose resolution matches the frame stays on a bit-identical reshape fast path. Every population's
+receptive-field bank is now built on the target grid's real receptor coordinates for every
+arrangement, not only `"grid"` (hex/poisson/jittered/blue-noise no longer fall back to a synthetic
+lattice). `SimulationEngine._build_grids()` builds `arrangement == "composite"` grids from
+`GridConfig.layers`, and `GridConfig.coords_file` imports an `[M, 2]` CSV/`.pt` of receptor
+coordinates directly. `GridConfig.channels` names a grid's sensor planes (single-channel default
+unchanged) and `StimulusConfig.channel` names which plane a stimulus drives; see
+`docs/concepts/units_and_shapes.md`, `docs/concepts/sensor_arrays.md`. Closes F-010.
 
 **Resolved 2026-09-16, Phase 2 Wave N:** a DSL model's `threshold`/`reset` are optional, giving an analog (non-spiking) readout (`(state_trace, None)`); the shared backend labels this `"state"` instead of `"spikes"`; `SimulationEngine` builds DSL populations from `dsl_config` (previously `TypeError`/`ValueError: Unknown neuron model`); the Spiking tab plots the state trace for such a population. See "Analog readouts" above and `docs/user_guide/analog_readouts.md`.
 

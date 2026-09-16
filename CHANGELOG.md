@@ -98,6 +98,25 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   The Spiking tab's raster panel plots the state trace, labelled with the state variable's name,
   in place of the spike scatter for an analog population (N4). Spiking populations are bit-for-bit
   unaffected. See `docs/user_guide/analog_readouts.md` and `docs/examples/analog_dsl.py`.
+- **Real receptor sampling and composite grids in `SimulationEngine`** (Phase 2, Wave L; closes
+  F-010): `SimulationEngine` no longer assumes receptor index equals stimulus pixel index. It now
+  samples the stimulus at each receptor's own `(x, y)` mm position with bilinear interpolation
+  (`torch.nn.functional.grid_sample`), taking the old row-major reshape only as a fast path when
+  the receptor arrangement is a regular `"grid"` whose resolution matches the stimulus frame
+  exactly (bit-identical to earlier releases; the Wave E golden parity test and the Wave I golden
+  weights fixture are unaffected). Every population's receptive-field bank is now built on the
+  target grid's real receptor coordinates for every arrangement (`hex`/`poisson`/`jittered_grid`/
+  `blue_noise` no longer fall back to a synthetic regular lattice with a warning). `SimulationEngine`
+  can now build `arrangement: composite` grids from `GridConfig.layers` (each layer density-driven
+  or given explicit/imported coordinates, in declaration order -- the receptor-index contract,
+  recorded in the grid's `provenance`); `GridConfig.coords_file` imports an `[M, 2]` CSV/`.pt` of
+  receptor coordinates directly; `PopulationConfig.target_layers` restricts a population to a named
+  subset of a composite grid's layers. `GridConfig.channels` names a grid's sensor planes
+  (single-channel default unaffected) and `StimulusConfig.channel` names which plane a stimulus
+  drives -- the schema-side half of the `[batch, time, C, H, W]` channel axis Wave K's
+  `render_stimulus` produces. See `docs/concepts/sensor_arrays.md`,
+  `docs/concepts/units_and_shapes.md`, `docs/extending/add_grid_arrangement.md` and the executed
+  example `docs/examples/grid_arrangement_plugin.py`.
 - **Seeded receptor grids** (F-050): `GridConfig.seed`, `ReceptorGrid(seed=...)`, every registered
   arrangement class and `CompositeReceptorGrid.add_layer(seed=...)`. The `jittered_grid`,
   `blue_noise` and `poisson` jitter comes from a per-instance generator, so the same seed gives

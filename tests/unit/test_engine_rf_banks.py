@@ -125,10 +125,26 @@ def test_single_pixel_drives_exactly_the_wired_neurons(i, j):
     assert torch.allclose(drive, column)
 
 
-def test_receptor_count_mismatch_names_shapes():
+def test_mismatched_stimulus_resolution_is_resampled_not_rejected():
+    """Superseded by Wave L3 (F-010): this test used to assert that a
+    stimulus whose H*W did not equal the receptor count raised ValueError
+    naming both shapes -- that was exactly the "receptor index == pixel
+    index" bug Wave L3 removes. ``SimulationEngine`` now samples the
+    stimulus at each receptor's own (x, y) coordinate via
+    ``_sample_stimulus_at_receptors``, so a stimulus at any resolution is
+    valid input and no longer raises; see
+    ``tests/unit/test_receptor_sampling.py`` for the sampling correctness
+    tests themselves.
+    """
     engine = SimulationEngine(_config("gaussian"))
-    with pytest.raises(ValueError, match=r"144"):
-        engine.run(torch.zeros(1, 10, 10))
+    out = engine.run(torch.ones(1, 10, 10), return_intermediates=True)["SA"]
+    assert out["drive"].shape[-1] == engine.populations[0]["bank"].num_neurons
+
+
+def test_malformed_stimulus_ndim_still_raises():
+    engine = SimulationEngine(_config("gaussian"))
+    with pytest.raises(ValueError):
+        engine.run(torch.zeros(1, 2, 3, 4, 5, 6))
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +257,14 @@ def test_population_config_new_fields_round_trip():
     assert PopulationConfig.from_dict({"name": "q"}).resolvable_distance_mm is None
 
 
-def test_non_grid_arrangement_warns_naming_f010():
+def test_non_grid_arrangement_builds_on_its_own_coordinates():
+    """Superseded by Wave L3 (F-010): building a population on a non-"grid"
+    arrangement (poisson here) used to warn that the bank was still wired
+    on a synthetic regular lattice standing in for the real receptor
+    positions. It now builds directly on the grid's own
+    ``get_receptor_coordinates()`` -- the real, scattered positions -- so
+    there is nothing to warn about and this asserts equality instead.
+    """
     cfg = SensoryForgeConfig(
         grids=[
             GridConfig(
@@ -252,5 +275,9 @@ def test_non_grid_arrangement_warns_naming_f010():
             PopulationConfig(name="SA", neurons_per_row=2, seed=1, filter_method="none")
         ],
     )
-    with pytest.warns(UserWarning, match="F-010"):
-        SimulationEngine(cfg)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        engine = SimulationEngine(cfg)
+    bank = engine.populations[0]["bank"]
+    grid = engine.grids[0]
+    assert torch.equal(bank.receptor_coords, grid.get_receptor_coordinates())
