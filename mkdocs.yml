@@ -103,10 +103,11 @@ nav:
     - Custom Neuron Models: tutorials/custom_neurons.md
     - Building a Custom Pipeline: tutorials/custom_pipeline.md
     - Parameter Sweeps: tutorials/parameter_sweeps.md
-    
+
   - Concepts:
     - Units and Shapes: concepts/units_and_shapes.md
     - Sensor Arrays: concepts/sensor_arrays.md
+    - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
 
   - User Guide:
     - Overview: user_guide/overview.md
@@ -122,6 +123,7 @@ nav:
     - Equation DSL: user_guide/equation_dsl.md
     - Analog Readouts: user_guide/analog_readouts.md
     - Extended Stimuli: user_guide/extended_stimuli.md
+    - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
 

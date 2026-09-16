@@ -65,6 +65,17 @@ def _run_cli(tmp_path, config: dict, duration: int):
 
 
 def test_gaussian_stimulus_gets_requested_bin_count(tmp_path):
+    """ "gaussian" is a registered stimulus, so since Wave K (K1, F-052) the
+    CLI renders it through ``render_stimulus``. ``render_stimulus``'s
+    ``duration_ms`` means a *duration* (K9), giving
+    ``round(duration_ms / dt_ms)`` bins on ``arange(n) * dt_ms`` -- the same
+    convention the legacy pipeline's own generator and ``--duration`` use,
+    matching "trapezoidal" below (which goes through the legacy pipeline
+    unchanged, not being a registered stimulus). An earlier version of
+    render_stimulus used pressure-simulation's half-step-guarded last-sample
+    convention here too, which is correct for a ``total_ms`` field
+    (encode_runner.py, Fact K-a) but wrong for a duration -- it gave 101
+    bins for this same config, silently pinning the wrong behaviour."""
     config = _canonical_config(
         stimuli=[{"type": "gaussian", "amplitude": 10.0, "sigma": 1.0}]
     )

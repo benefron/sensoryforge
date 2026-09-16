@@ -272,18 +272,37 @@ def _check_innervation(cls: type, instance: Any) -> None:
         )
 
 
+def _assert_stimulus_forward_shape(cls: type, out: Any, xx_shape: tuple) -> None:
+    """Assert a stimulus ``forward()`` result is ``[H, W]`` or ``[T, H, W]``.
+
+    Both are valid stimulus outputs (Phase 2, Wave K, Fact K-c): a
+    single-frame stimulus returns the spatial shape alone, ``xx.shape``;
+    a stimulus with its own internal motion or dynamics (``MovingStimulus``,
+    the ported pressure-simulation stimuli in
+    ``sensoryforge/stimuli/tactile.py``) returns a whole sequence with a
+    leading time axis, ``[T, *xx.shape]``. Anything else is rejected.
+    """
+    out_shape = tuple(out.shape)
+    if out_shape == xx_shape:
+        return
+    if len(out_shape) == len(xx_shape) + 1 and out_shape[1:] == xx_shape:
+        return
+    raise AssertionError(
+        f"{cls.__name__} forward(): expected shape {xx_shape} or "
+        f"[T, {', '.join(str(d) for d in xx_shape)}], got {out_shape}"
+    )
+
+
 def _check_stimulus(cls: type, instance: Any) -> None:
-    """Canonical stimulus forward shape: [H, W] -> [H, W]."""
+    """Canonical stimulus forward shape: ``[H, W] -> [H, W]`` or
+    ``[H, W] -> [T, H, W]`` (Fact K-c; see
+    :func:`_assert_stimulus_forward_shape`)."""
     _assert_param_spec(cls)
     xx, yy = torch.meshgrid(
         torch.linspace(-1, 1, 8), torch.linspace(-1, 1, 8), indexing="ij"
     )
     out = instance(xx, yy)
-    if tuple(out.shape) != tuple(xx.shape):
-        raise AssertionError(
-            f"{cls.__name__} forward(): expected shape {tuple(xx.shape)}, "
-            f"got {tuple(out.shape)}"
-        )
+    _assert_stimulus_forward_shape(cls, out, tuple(xx.shape))
     reconstructed = cls.from_config(instance.to_dict())
     if not isinstance(reconstructed, cls):
         raise AssertionError(
@@ -291,11 +310,7 @@ def _check_stimulus(cls: type, instance: Any) -> None:
             f"a {cls.__name__} instance (got {type(reconstructed)!r})"
         )
     out2 = reconstructed(xx, yy)
-    if tuple(out2.shape) != tuple(xx.shape):
-        raise AssertionError(
-            f"{cls.__name__}: round-tripped instance's forward() expected "
-            f"shape {tuple(xx.shape)}, got {tuple(out2.shape)}"
-        )
+    _assert_stimulus_forward_shape(cls, out2, tuple(xx.shape))
     _assert_to_dict_roundtrip_complete(cls, instance)
 
 

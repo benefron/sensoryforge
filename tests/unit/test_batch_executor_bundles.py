@@ -49,7 +49,7 @@ def _canonical_batch_config(output_dir, n_amplitudes=3):
                 {
                     "type": "gaussian",
                     "parameters": {
-                        "amplitude": [float(i) for i in range(10, 10 + n_amplitudes)]
+                        "amplitude": [float(i) for i in range(10, 10 + n_amplitudes)],
                     },
                     "repetitions": 1,
                 }
