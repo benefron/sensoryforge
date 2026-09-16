@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-055 · CLOSED · finding · - · 2026-09-16
+the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when none was given, and pressure-simulation's generate_stimulus_from_json defaults every field, so a bundle could be read there as a static Gaussian blob at the origin and encoded and plotted with no error anywhere; fixed by tagging every payload with schema_version and kind and emitting pressure-simulation's schema only for the types proven to regenerate exactly
+→ commit e722c0a
+
 ## F-054 · CLOSED · finding · - · 2026-09-16
 the bundle lacked neuron_modules/, so pressure-simulation's viewer could load it but never run it; fixed by writing neuron_modules/sensoryforge.json with one population_configs entry per population, matched by raw population name. (Recorded as F-052 on branch wave-j, which forked before F-052 was taken; renumbered to F-054 at the merge.)
 → commit 6382319
