@@ -34,6 +34,34 @@ from sensoryforge.registry import (
 )
 
 
+def _deep_merge_preset(
+    base: Dict[str, Any], overrides: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Recursively merge ``overrides`` onto a (deep-copied) ``base`` (K4).
+
+    Nested dicts are merged key by key; lists and scalars in ``overrides``
+    replace ``base``'s value outright (a config's ``grids``/``populations``
+    list is not merged element-by-element -- the override file's list wins
+    whole).
+
+    Args:
+        base: The preset's config dict (not mutated).
+        overrides: The user's config file dict, applied on top.
+
+    Returns:
+        A new merged dict.
+    """
+    import copy as _copy
+
+    result = _copy.deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge_preset(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def validate_config(config: Dict[str, Any]) -> bool:
     """Validate configuration structure and required fields.
 
@@ -172,8 +200,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         Exit code (0 for success, 1 for error).
     """
     try:
-        # Load configuration
-        config = load_config_file(args.config)
+        # Load configuration -- a preset (K4), a config file, or both (the
+        # preset as the base, the file's values overriding it).
+        preset_name = getattr(args, "preset", None)
+        if preset_name:
+            from sensoryforge.presets import load_preset
+
+            config = load_preset(preset_name)
+            if args.config:
+                config = _deep_merge_preset(config, load_config_file(args.config))
+        elif args.config:
+            config = load_config_file(args.config)
+        else:
+            print(
+                "Error running simulation: no config file and no --preset given",
+                file=sys.stderr,
+            )
+            return 1
 
         # Validate
         if not validate_config(config):
@@ -204,7 +247,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             # the requested duration; see _generate_trapezoidal_stimulus).
             stimulus_params["duration"] = args.duration
 
-        print(f"Loading pipeline from {args.config}...")
+        source_desc = args.config or f"--preset {preset_name}"
+        print(f"Loading pipeline from {source_desc}...")
 
         if is_canonical:
             # ---------------------------------------------------------------
@@ -541,6 +585,30 @@ def cmd_list_components(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_list_presets(args: argparse.Namespace) -> int:
+    """List shipped canonical-config presets (K4).
+
+    Args:
+        args: Command-line arguments (unused).
+
+    Returns:
+        Exit code (0 for success).
+    """
+    from sensoryforge.presets import list_presets, preset_description
+
+    print("Available SensoryForge Presets:")
+    print("=" * 50)
+    for name in list_presets():
+        desc = preset_description(name)
+        print(f"  - {name}: {desc}" if desc else f"  - {name}")
+
+    print(
+        "\n💡 Use 'sensoryforge run --preset <name>' to run one, or "
+        "'sensoryforge run --preset <name> config.yml' to override it"
+    )
+    return 0
+
+
 def cmd_new_component(args: argparse.Namespace) -> int:
     """Scaffold a new component (H2/F-047).
 
@@ -684,7 +752,23 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Run command
     run_parser = subparsers.add_parser("run", help="Run simulation from YAML config")
-    run_parser.add_argument("config", help="Path to YAML configuration file")
+    run_parser.add_argument(
+        "config",
+        nargs="?",
+        default=None,
+        help=(
+            "Path to YAML configuration file. Optional when --preset is "
+            "given: the preset alone is the full config, or (with a config "
+            "file too) the file's values override the preset (K4)."
+        ),
+    )
+    run_parser.add_argument(
+        "--preset",
+        help=(
+            "Name of a shipped preset (see 'sensoryforge list-presets') to "
+            "use as the base config, optionally overridden by 'config'."
+        ),
+    )
     run_parser.add_argument(
         "--duration",
         type=float,
@@ -745,6 +829,9 @@ def create_parser() -> argparse.ArgumentParser:
     list_parser = subparsers.add_parser(
         "list-components", help="List available filters, neurons, stimuli, and solvers"
     )
+
+    # List presets command (K4)
+    subparsers.add_parser("list-presets", help="List shipped canonical-config presets")
 
     # Visualize command
     viz_parser = subparsers.add_parser(
@@ -808,6 +895,7 @@ def main() -> int:
         "batch": cmd_batch,
         "validate": cmd_validate,
         "list-components": cmd_list_components,
+        "list-presets": cmd_list_presets,
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
     }
