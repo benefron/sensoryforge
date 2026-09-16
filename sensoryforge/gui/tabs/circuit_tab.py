@@ -12,8 +12,6 @@ placeholder so the layout is stable across waves.
 
 from __future__ import annotations
 
-import warnings
-
 from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets
@@ -23,62 +21,15 @@ from pyqtgraph.flowchart import Flowchart
 from sensoryforge.gui.circuit.inspector import build_node_inspector
 from sensoryforge.gui.circuit.nodes import NODE_CLASSES, build_node_library
 
-
-def _dropped_params_warning(stimulus_type: str, dropped) -> Optional[str]:
-    """The warning text for discarded stimulus settings, or ``None``.
-
-    Args:
-        stimulus_type: The stimulus's registered name, for the message.
-        dropped: ``(field_name, value)`` pairs the constructor rejected.
-
-    Returns:
-        A message naming only the fields whose value the user had changed
-        from the schema default, or ``None`` when every discarded field was
-        untouched and there is nothing worth saying.
-    """
-    deliberate = [
-        f"{key}={value!r}"
-        for key, value in dropped
-        if not _is_schema_default(key, value)
-    ]
-    if not deliberate:
-        return None
-    return (
-        f"Stimulus {stimulus_type!r} does not accept {', '.join(deliberate)}; "
-        "the value(s) you set were ignored and the stimulus ran without them."
-    )
-
-
-def _is_schema_default(field_name: str, value) -> bool:
-    """Whether *value* is what ``StimulusConfig`` would hold untouched.
-
-    ``StimulusConfig.to_dict()`` carries every field the schema defines,
-    most of which a given stimulus class knows nothing about. Discarding
-    those is housekeeping. Discarding one the user actually set is a
-    changed stimulus, so the two cases are told apart here rather than
-    warning about all of them and training the reader to ignore it.
-
-    Args:
-        field_name: The dropped keyword.
-        value: The value it held.
-
-    Returns:
-        ``True`` when the field is unknown to the schema or still at its
-        declared default.
-    """
-    import dataclasses
-
-    from sensoryforge.config.schema import StimulusConfig
-
-    for field in dataclasses.fields(StimulusConfig):
-        if field.name != field_name:
-            continue
-        if field.default is not dataclasses.MISSING:
-            return value == field.default
-        if field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-            return value == field.default_factory()  # type: ignore[misc]
-        return False
-    return True
+# Re-exported for backward compatibility: these were defined in this module
+# until Wave Q (Q1) pulled the whole config-build/render/run sequence out
+# into sensoryforge.gui.circuit.run (run_graph_once) so the batch sweep
+# (gui/circuit/sweep.py) could reuse it. tests/unit/test_circuit_dropped_params.py
+# imports both names from here.
+from sensoryforge.gui.circuit.run import (  # noqa: F401
+    _dropped_params_warning,
+    _is_schema_default,
+)
 
 
 class CircuitTab(QtWidgets.QWidget):
@@ -343,88 +294,15 @@ class CircuitTab(QtWidgets.QWidget):
             The ``sim_results`` dict (population name -> ``SimulationResult``)
             emitted on ``simulation_finished``.
         """
-        import re
-
         import numpy as np
-        import torch
 
-        from sensoryforge.core.grid import ReceptorGrid
-        from sensoryforge.core.simulation_engine import SimulationEngine
-        from sensoryforge.gui.circuit.serialise import graph_to_config
+        from sensoryforge.gui.circuit.run import run_graph_once
         from sensoryforge.gui.tabs.spiking_tab import SimulationResult
-        from sensoryforge.stimuli.render import render_stimulus
 
-        config = graph_to_config(self.flowchart)
-
-        if config.grids:
-            grid_cfg = config.grids[0]
-            stim_grid = ReceptorGrid(
-                grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
-                spacing=grid_cfg.spacing,
-                arrangement=grid_cfg.arrangement,
-                center=(grid_cfg.center_x, grid_cfg.center_y),
-                density=grid_cfg.density,
-                device=config.simulation.device,
-                seed=grid_cfg.seed,
-            )
-            xx, yy = stim_grid.get_coordinates()
-        else:
-            xx, yy = torch.meshgrid(
-                torch.linspace(-1, 1, 40),
-                torch.linspace(-1, 1, 40),
-                indexing="ij",
-            )
-
-        stim = config.stimulus
-        # StimulusConfig.to_dict() carries every field the schema has
-        # (administrative ones like motion/composition_mode/channel
-        # included); a given registered stimulus class's constructor only
-        # accepts its own subset. Retry dropping whichever keyword the
-        # constructor just rejected, the same way render.py's own envelope-
-        # key retry works, rather than hard-coding a per-type field list here.
-        stimulus_params = {
-            k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
-        }
-        dropped: list = []
-        while True:
-            try:
-                frames, _ = render_stimulus(
-                    stim.type,
-                    stimulus_params,
-                    xx,
-                    yy,
-                    dt_ms=config.simulation.dt_ms,
-                    duration_ms=duration_ms,
-                    device=config.simulation.device,
-                )
-                break
-            except TypeError as exc:
-                match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
-                if match is None or match.group(1) not in stimulus_params:
-                    raise
-                key = match.group(1)
-                dropped.append((key, stimulus_params.pop(key)))
-
-        # Dropping a field the user never set is housekeeping; dropping one
-        # they did set changes the stimulus they asked for, and doing that
-        # silently is how a graph ends up describing a run that did not
-        # happen. Warn for the second case only, so the message means
-        # something when it appears.
-        message = _dropped_params_warning(stim.type, dropped)
-        if message is not None:
-            warnings.warn(message, UserWarning, stacklevel=2)
-        stimulus_tensor = frames.unsqueeze(0)
-
-        engine = SimulationEngine(config)
-        bundle_dir = config.metadata.get("record_output_dir")
-        raw_results = engine.run(
-            stimulus_tensor,
-            return_intermediates=True,
-            bundle_dir=bundle_dir,
-            stimulus_config=stim.to_dict(),
+        config, raw_results, frames, dt_ms = run_graph_once(
+            self.flowchart, duration_ms=duration_ms
         )
 
-        dt_ms = config.simulation.dt_ms
         sim_results: dict = {}
         for pop_name, pop_results in raw_results.items():
             is_analog = "state" in pop_results

@@ -168,9 +168,10 @@ class TestDefaultParamsJsonDoesNotDrift:
             self.json_defaults = json.load(f)
 
     def test_json_izhikevich_matches_rs_resolver_default(self):
-        """The JSON's flat 'Izhikevich' entry (used by the standalone
-        neuron_explorer, which has no per-population neuron_type) must equal
-        the RS preset the resolver would produce.
+        """The JSON's flat 'Izhikevich' entry (had no per-population
+        neuron_type; formerly read by the standalone neuron explorer tool
+        deleted in Wave Q, Q3/F-019) must equal the RS preset the resolver
+        would produce.
         """
         json_model = self.json_defaults["models"]["Izhikevich"]
         resolved_rs = resolve_neuron_params("Izhikevich", "SA", {})

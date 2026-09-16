@@ -344,6 +344,9 @@ class _Toolbar(QtWidgets.QWidget):
 
     preset_selected = QtCore.pyqtSignal(str)
     add_panel_requested = QtCore.pyqtSignal(str)  # panel display name
+    #: Wave Q, Q2 -- index into VisData.channel_names of the newly selected
+    #: channel, emitted when the channel combo changes.
+    channel_selected = QtCore.pyqtSignal(int)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -432,6 +435,20 @@ class _Toolbar(QtWidgets.QWidget):
         )
         layout.addWidget(add_btn)
 
+        # Channel selector (Wave Q, Q2) -- hidden until a multi-channel run
+        # arrives (VisData.channel_names non-empty).
+        self._channel_lbl = QtWidgets.QLabel("Channel:")
+        self._channel_lbl.setStyleSheet(
+            "font-size: 11px; color: #999; background: transparent; border: none;"
+        )
+        self._channel_lbl.setVisible(False)
+        layout.addWidget(self._channel_lbl)
+        self._channel_cmb = QtWidgets.QComboBox()
+        self._channel_cmb.setFixedWidth(120)
+        self._channel_cmb.setVisible(False)
+        self._channel_cmb.currentIndexChanged.connect(self.channel_selected)
+        layout.addWidget(self._channel_cmb)
+
         layout.addStretch()
 
         # Data status
@@ -443,6 +460,18 @@ class _Toolbar(QtWidgets.QWidget):
 
     def set_status(self, msg: str) -> None:
         self._status_lbl.setText(msg)
+
+    def set_channel_options(self, channel_names: List[str]) -> None:
+        """Show/populate the channel combo (Q2), or hide it for a
+        single-channel run (``channel_names`` empty or length 1)."""
+        self._channel_cmb.blockSignals(True)
+        self._channel_cmb.clear()
+        show = len(channel_names) > 1
+        if show:
+            self._channel_cmb.addItems(list(channel_names))
+        self._channel_lbl.setVisible(show)
+        self._channel_cmb.setVisible(show)
+        self._channel_cmb.blockSignals(False)
 
 
 # ---------------------------------------------------------------------------
@@ -466,8 +495,15 @@ class VisualizationTab(QtWidgets.QWidget):
         self._data: Optional[VisData] = None
         self._panels: List[VisualizationPanel] = []
         self._results_dir: Optional[Path] = None
+        # Wave Q, Q2: the raw [T, C, H, W] stimulus for a multi-channel run,
+        # kept so switching channels re-slices without a re-run. None for a
+        # single-channel run ([T, H, W] stays in VisData.stimulus_frames
+        # directly, as before).
+        self._all_channel_frames: Optional[np.ndarray] = None
+        self._current_channel_index: int = 0
 
         self._build_ui()
+        self._toolbar.channel_selected.connect(self._on_channel_selected)
 
     # ------------------------------------------------------------------
     # Public API
@@ -481,17 +517,43 @@ class VisualizationTab(QtWidgets.QWidget):
         dt_ms: float,
         stimulus_xlim: tuple = (-5.0, 5.0),
         stimulus_ylim: tuple = (-5.0, 5.0),
+        channel_names: Optional[List[str]] = None,
     ) -> None:
         """Receive simulation results from the Spiking Neurons tab.
 
         Args:
             sim_results: Dict[str, SimulationResult] keyed by population name.
-            stimulus_frames: [T, H, W] ndarray or None.
+            stimulus_frames: ``[T, H, W]`` ndarray for a single-channel run,
+                or ``[T, C, H, W]`` for a multi-channel one (Wave Q, Q2) --
+                or ``None``.
             time_ms: [T] time axis in ms.
             dt_ms: Simulation time step in ms.
             stimulus_xlim: (x_min, x_max) spatial extent in mm.
             stimulus_ylim: (y_min, y_max) spatial extent in mm.
+            channel_names: Names of the channel axis of a ``[T, C, H, W]``
+                ``stimulus_frames`` (``GridConfig.channels``), in order.
+                Defaults to ``["channel 0", ..., "channel C-1"]`` when
+                ``stimulus_frames`` is 4-D and this is omitted. Ignored for
+                a 3-D ``stimulus_frames``.
         """
+        if stimulus_frames is not None and stimulus_frames.ndim == 4:
+            self._all_channel_frames = stimulus_frames
+            n_channels = stimulus_frames.shape[1]
+            names = (
+                list(channel_names)
+                if channel_names
+                else [f"channel {i}" for i in range(n_channels)]
+            )
+            self._current_channel_index = min(
+                self._current_channel_index, n_channels - 1
+            )
+            self._toolbar.set_channel_options(names)
+            stimulus_frames = stimulus_frames[:, self._current_channel_index]
+        else:
+            self._all_channel_frames = None
+            names = []
+            self._toolbar.set_channel_options(names)
+
         population_results: Dict[str, Dict[str, np.ndarray]] = {}
         population_colors: Dict[str, QtGui.QColor] = {}
 
@@ -529,6 +591,7 @@ class VisualizationTab(QtWidgets.QWidget):
             receptor_positions=receptor_positions,
             population_colors=population_colors,
             innervation_weights=innervation_weights,
+            channel_names=names,
         )
 
         n_pops = len(population_results)
@@ -819,6 +882,15 @@ class VisualizationTab(QtWidgets.QWidget):
         self._panels = self._canvas.apply_preset(preset, self._data)
         if self._data is not None:
             self._empty_label.hide()
+
+    def _on_channel_selected(self, index: int) -> None:
+        """Re-slice the stored raw multi-channel stimulus for channel
+        ``index`` (Q2) and re-push, with no re-run."""
+        if self._all_channel_frames is None or self._data is None or index < 0:
+            return
+        self._current_channel_index = index
+        self._data.stimulus_frames = self._all_channel_frames[:, index]
+        self._push_data_to_panels()
 
     def _push_data_to_panels(self) -> None:
         """Push current VisData to all active panels."""

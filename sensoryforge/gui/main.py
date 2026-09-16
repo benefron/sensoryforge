@@ -90,6 +90,8 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
 
         self.batch_tab = BatchTab()
         tabs.addTab(self.batch_tab, "Batch")
+        # Q1: the Batch tab sweeps the Circuit tab's live graph.
+        self.batch_tab.set_circuit_tab(self.circuit_tab)
 
         # Wire simulation results → visualization tab
         self.spiking_tab.simulation_finished.connect(

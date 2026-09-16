@@ -527,6 +527,26 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._preview_grid_widget.setVisible(False)
         self.control_layout.addWidget(self._preview_grid_widget)
 
+        # Channel selector (Wave Q, Q2) — visible only when the target
+        # grid/config declares more than one named channel
+        # (GridConfig.channels). Authors this StimulusConfig for a named
+        # channel of a named grid (StimulusConfig.channel, Phase 2 Wave L2).
+        self._channel_widget = QtWidgets.QWidget()
+        channel_row = QtWidgets.QHBoxLayout(self._channel_widget)
+        channel_row.setContentsMargins(0, 2, 0, 2)
+        channel_row.setSpacing(4)
+        channel_row.addWidget(QtWidgets.QLabel("Channel:"))
+        self.cmb_channel = QtWidgets.QComboBox()
+        self.cmb_channel.setToolTip(
+            "Select which named sensor channel of the target grid this "
+            "stimulus drives"
+        )
+        self.cmb_channel.currentTextChanged.connect(self._on_channel_changed)
+        channel_row.addWidget(self.cmb_channel, stretch=1)
+        self._channel_widget.setVisible(False)
+        self.control_layout.addWidget(self._channel_widget)
+        self._channel_name: Optional[str] = None
+
     def _build_stack_section(self) -> None:
         group = CollapsibleGroupBox("Stimulus Set", start_expanded=True)
         container = QtWidgets.QWidget()
@@ -1904,6 +1924,42 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 old, target_grid=stored
             )
         self._request_preview()
+
+    def _on_channel_changed(self, channel_name: str) -> None:
+        """Update ``self._channel_name`` when the user picks a channel (Q2).
+
+        ``""`` (the default single-channel item) means "no channel set" --
+        ``StimulusConfig.channel`` stays ``None``, matching the schema's
+        single-channel default (module docstring, Phase 2 Wave L2).
+        """
+        self._channel_name = channel_name or None
+
+    def set_channel_options(self, channel_names: Sequence[str]) -> None:
+        """Populate the channel combo (Q2) from a grid's named channels.
+
+        Args:
+            channel_names: ``GridConfig.channels`` for the stimulus's
+                target grid. Fewer than two names hides the selector
+                entirely (a single/default channel needs no widget), same
+                as the existing "Apply to grid" selector's convention for
+                a single-grid config.
+        """
+        self.cmb_channel.blockSignals(True)
+        self.cmb_channel.clear()
+        names = [str(n) for n in channel_names]
+        if len(names) < 2:
+            self._channel_widget.setVisible(False)
+            self.cmb_channel.blockSignals(False)
+            return
+        self.cmb_channel.addItem("")  # "no channel set" / default
+        for name in names:
+            self.cmb_channel.addItem(name)
+        if self._channel_name and self._channel_name in names:
+            self.cmb_channel.setCurrentText(self._channel_name)
+        else:
+            self.cmb_channel.setCurrentText("")
+        self._channel_widget.setVisible(True)
+        self.cmb_channel.blockSignals(False)
 
     def _set_target_layer_options(self, payload: Optional[Dict[str, object]]) -> None:
         self.cmb_preview_grid.blockSignals(True)
@@ -3681,6 +3737,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
             "motion": "moving" if self.radio_moving.isChecked() else "static",
             "composition_mode": self._composition_mode,
             "target_layer": self._target_layer_name or "all",
+            "channel": self._channel_name,
             "stimuli": [config.as_dict() for config in self._stimulus_stack],
             "start": [self.spin_start_x.value(), self.spin_start_y.value()],
             "end": [self.spin_end_x.value(), self.spin_end_y.value()],
@@ -3777,6 +3834,12 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         self._target_layer_name = (
             None if (not raw_target or raw_target == "all") else str(raw_target)
         )
+        raw_channel = config.get("channel")
+        self._channel_name = str(raw_channel) if raw_channel else None
+        if self._channel_name:
+            idx = self.cmb_channel.findText(self._channel_name)
+            if idx >= 0:
+                self.cmb_channel.setCurrentText(self._channel_name)
         self._stimulus_stack = []
         for item in config.get("stimuli", []):
             if not isinstance(item, dict):
