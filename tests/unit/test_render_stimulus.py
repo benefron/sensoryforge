@@ -118,12 +118,13 @@ class TestSequenceStimulusTruncationAndPadding:
     def test_sequence_stimulus_truncated_to_duration(self, coords8):
         xx, yy = coords8
         STIMULUS_REGISTRY.register("_fixed_length_probe", _FixedLengthStimulus)
-        # dt_ms=1.0, duration_ms=5.0 -> half-step-guarded axis has 6 samples,
-        # well under the stimulus's native 20 -> truncated, not resampled.
+        # dt_ms=1.0, duration_ms=5.0 -> round(5.0/1.0) = 5 samples (K9: a
+        # duration, not a last-sample field), well under the stimulus's
+        # native 20 -> truncated, not resampled.
         frames, time_ms = render_stimulus(
             "_fixed_length_probe", {}, xx, yy, dt_ms=1.0, duration_ms=5.0
         )
-        assert frames.shape[0] == time_ms.numel() == 6
+        assert frames.shape[0] == time_ms.numel() == 5
         assert torch.all(frames == 1.0)
 
     def test_sequence_stimulus_zero_padded_when_duration_longer(self, coords8):
@@ -132,7 +133,7 @@ class TestSequenceStimulusTruncationAndPadding:
         frames, time_ms = render_stimulus(
             "_fixed_length_probe", {}, xx, yy, dt_ms=1.0, duration_ms=30.0
         )
-        assert frames.shape[0] == time_ms.numel() == 31
+        assert frames.shape[0] == time_ms.numel() == 30
         assert torch.all(frames[:20] == 1.0)
         assert torch.all(frames[20:] == 0.0)
 

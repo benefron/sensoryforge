@@ -93,12 +93,21 @@ def render_stimulus(
         yy: Y-coordinate meshgrid ``[H, W]`` in mm.
         dt_ms: Time step in ms, used to build the time axis for a registered
             stimulus (the legacy path builds its own).
-        duration_ms: Total duration in ms. For a registered stimulus this
-            sets ``T = len(time_ms)`` via the half-step-guarded ``arange``
-            below; a stimulus that itself returns ``[T, H, W]`` is truncated
-            or zero-padded to that length. ``None`` lets the stimulus (or,
-            for a single-frame stimulus, the temporal-envelope parameters)
-            determine the length.
+        duration_ms: Total duration in ms, meaning a *duration*: for a
+            registered stimulus this sets ``T = round(duration_ms / dt_ms)``
+            frames on ``time_ms = arange(T) * dt_ms`` (K9) -- the same
+            convention the legacy pipeline and ``--duration`` use, so a
+            registered and a legacy stimulus given the same duration/dt_ms
+            produce the same frame count. A stimulus that itself returns
+            ``[T, H, W]`` is truncated or zero-padded to that length. When
+            ``duration_ms`` is ``None``, a single-frame stimulus instead
+            falls back to its own ``total_ms``/``ramp_up_ms``/``plateau_ms``/
+            ``ramp_down_ms`` envelope parameters -- there, ``total_ms`` is a
+            *last-sample* field (pressure-simulation's own convention,
+            ``encode_runner.py``, Fact K-a) and keeps the half-step-guarded
+            ``arange(0, total_ms + 0.5*dt_ms, dt_ms)`` axis. These are two
+            different fields with two different conventions; do not conflate
+            them.
         device: Torch device string for the returned tensors.
         channels: The target grid's channel names (``GridConfig.channels``,
             Phase 2 Wave L), or ``None``/a single name for the ordinary
@@ -164,11 +173,34 @@ def render_stimulus(
     return multi, time_ms
 
 
-def _time_axis(dt_ms: float, duration_ms: float, device: str) -> torch.Tensor:
-    """Pressure-simulation's half-step-guarded time axis (Fact K-a/K1)."""
+def _time_axis(dt_ms: float, total_ms: float, device: str) -> torch.Tensor:
+    """Pressure-simulation's half-step-guarded, *last-sample* time axis.
+
+    Use only when the field being consumed is a last-sample field like
+    pressure-simulation's own ``total_ms`` (``encode_runner.py:45-64``,
+    Fact K-a) -- **not** for ``render_stimulus``'s own ``duration_ms``
+    argument, which means a duration (K9); see :func:`_duration_axis`.
+    """
     return torch.arange(
-        0.0, float(duration_ms) + 0.5 * float(dt_ms), float(dt_ms), device=device
+        0.0, float(total_ms) + 0.5 * float(dt_ms), float(dt_ms), device=device
     )
+
+
+def _duration_axis(dt_ms: float, duration_ms: float, device: str) -> torch.Tensor:
+    """``round(duration_ms / dt_ms)`` frames on ``arange(n) * dt_ms`` (K9).
+
+    This is ``render_stimulus``'s own ``duration_ms`` convention -- a
+    duration, not a last-sample field -- matching the legacy pipeline's
+    ``n_timesteps = int(duration / dt)`` and the CLI's ``--duration``. It is
+    deliberately *not* the half-step-guarded axis :func:`_time_axis` uses
+    for a ``total_ms`` last-sample field: the two fields mean different
+    things and must not share a convention (see the K9 finding in the Wave
+    K report -- an earlier version of this module conflated them, giving a
+    registered stimulus one more frame than a legacy one for the same
+    duration/dt_ms).
+    """
+    n = max(int(round(float(duration_ms) / float(dt_ms))), 0)
+    return torch.arange(n, dtype=torch.float32, device=device) * float(dt_ms)
 
 
 def _render_registered(
@@ -207,10 +239,16 @@ def _render_registered(
 
     if frame.dim() == 2:
         # Single-frame stimulus: expand with the temporal envelope.
-        envelope_ms = (
-            duration_ms
-            if duration_ms is not None
-            else float(
+        if duration_ms is not None:
+            # Caller-specified duration (K9): a duration, not a last-sample
+            # field -- round(duration_ms / dt_ms) frames, no half-step guard.
+            time_ms = _duration_axis(dt_ms, duration_ms, device)
+            plateau_default = float(duration_ms)
+        else:
+            # No duration_ms given: fall back to the stimulus's own envelope
+            # parameters. total_ms there is pressure-simulation's own
+            # last-sample field (Fact K-a) -- keep the half-step guard.
+            envelope_ms = float(
                 params.get(
                     "total_ms",
                     params.get("ramp_up_ms", 0.0)
@@ -219,12 +257,12 @@ def _render_registered(
                 )
                 or 1.0
             )
-        )
-        time_ms = _time_axis(dt_ms, envelope_ms, device)
+            time_ms = _time_axis(dt_ms, envelope_ms, device)
+            plateau_default = envelope_ms
         amp = _temporal_envelope(
             time_ms,
             ramp_up_ms=params.get("ramp_up_ms", 0.0),
-            plateau_ms=params.get("plateau_ms", envelope_ms),
+            plateau_ms=params.get("plateau_ms", plateau_default),
             ramp_down_ms=params.get("ramp_down_ms", 0.0),
             amplitude=1.0,
         )
@@ -234,7 +272,10 @@ def _render_registered(
     if frame.dim() == 3:
         t = frame.shape[0]
         if duration_ms is not None:
-            time_ms = _time_axis(dt_ms, duration_ms, device)
+            # K9: duration_ms means a duration here too, not a last-sample
+            # field -- the stimulus's own internal total_ms (if any) already
+            # used the half-step guard correctly inside its own forward().
+            time_ms = _duration_axis(dt_ms, duration_ms, device)
             target_t = time_ms.numel()
             if t > target_t:
                 frame = frame[:target_t]
