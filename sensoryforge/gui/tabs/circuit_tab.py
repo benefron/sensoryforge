@@ -12,6 +12,8 @@ placeholder so the layout is stable across waves.
 
 from __future__ import annotations
 
+import warnings
+
 from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets
@@ -19,6 +21,63 @@ from PyQt5 import QtCore, QtWidgets
 from pyqtgraph.flowchart import Flowchart
 
 from sensoryforge.gui.circuit.nodes import NODE_CLASSES, build_node_library
+
+
+def _dropped_params_warning(stimulus_type: str, dropped) -> Optional[str]:
+    """The warning text for discarded stimulus settings, or ``None``.
+
+    Args:
+        stimulus_type: The stimulus's registered name, for the message.
+        dropped: ``(field_name, value)`` pairs the constructor rejected.
+
+    Returns:
+        A message naming only the fields whose value the user had changed
+        from the schema default, or ``None`` when every discarded field was
+        untouched and there is nothing worth saying.
+    """
+    deliberate = [
+        f"{key}={value!r}"
+        for key, value in dropped
+        if not _is_schema_default(key, value)
+    ]
+    if not deliberate:
+        return None
+    return (
+        f"Stimulus {stimulus_type!r} does not accept {', '.join(deliberate)}; "
+        "the value(s) you set were ignored and the stimulus ran without them."
+    )
+
+
+def _is_schema_default(field_name: str, value) -> bool:
+    """Whether *value* is what ``StimulusConfig`` would hold untouched.
+
+    ``StimulusConfig.to_dict()`` carries every field the schema defines,
+    most of which a given stimulus class knows nothing about. Discarding
+    those is housekeeping. Discarding one the user actually set is a
+    changed stimulus, so the two cases are told apart here rather than
+    warning about all of them and training the reader to ignore it.
+
+    Args:
+        field_name: The dropped keyword.
+        value: The value it held.
+
+    Returns:
+        ``True`` when the field is unknown to the schema or still at its
+        declared default.
+    """
+    import dataclasses
+
+    from sensoryforge.config.schema import StimulusConfig
+
+    for field in dataclasses.fields(StimulusConfig):
+        if field.name != field_name:
+            continue
+        if field.default is not dataclasses.MISSING:
+            return value == field.default
+        if field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+            return value == field.default_factory()  # type: ignore[misc]
+        return False
+    return True
 
 
 class CircuitTab(QtWidgets.QWidget):
@@ -181,6 +240,7 @@ class CircuitTab(QtWidgets.QWidget):
         stimulus_params = {
             k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
         }
+        dropped: list = []
         while True:
             try:
                 frames, _ = render_stimulus(
@@ -197,7 +257,17 @@ class CircuitTab(QtWidgets.QWidget):
                 match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
                 if match is None or match.group(1) not in stimulus_params:
                     raise
-                del stimulus_params[match.group(1)]
+                key = match.group(1)
+                dropped.append((key, stimulus_params.pop(key)))
+
+        # Dropping a field the user never set is housekeeping; dropping one
+        # they did set changes the stimulus they asked for, and doing that
+        # silently is how a graph ends up describing a run that did not
+        # happen. Warn for the second case only, so the message means
+        # something when it appears.
+        message = _dropped_params_warning(stim.type, dropped)
+        if message is not None:
+            warnings.warn(message, UserWarning, stacklevel=2)
         stimulus_tensor = frames.unsqueeze(0)
 
         engine = SimulationEngine(config)
