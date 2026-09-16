@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-058 · OPEN · finding · - · 2026-09-16
+F-058 the processing-layer kind is not wired into sensoryforge.testing.contracts.check_component, so OnOffLayer and any third-party processing plugin are checked only by hand-written tests while every other component kind goes through the shared contract harness a plugin author is told to run
+→ commit 8a6c816
+
+## F-059 · OPEN · finding · - · 2026-09-16
+F-059 docs/user_guide/configuration_schema.md documents the Wave M config fields but not the Wave L ones -- GridConfig.channels, coords_file and layers, PopulationConfig.target_layers and readout, StimulusConfig.channel and dsl_config are all absent, so the published schema reference understates what a config may contain
+→ commit 8a6c816
+
 ## F-057 · CLOSED · finding · - · 2026-09-16
 render_stimulus never advances a stateful registered stimulus's .step(), so "moving" (and any stepped stimulus) renders as a static repeated frame instead of animating
 → commit 1d4d210
