@@ -99,7 +99,8 @@ Both directions are tested against every canonical config this repository ships 
   connection set — not merely an equivalent-looking picture.
 
 `tests/unit/test_circuit_roundtrip.py` (Wave O) and
-`tests/gui/test_circuit_roundtrip.py` (Wave R) both exercise this; see the latter for
+`tests/gui/test_circuit_graph_end_to_end.py` (Wave R) both exercise this; see the
+latter for
 the additional GUI-export-through-the-CLI-and-back chain described in the
 walkthrough.
 

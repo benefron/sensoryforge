@@ -173,7 +173,7 @@ Re-imported graph equals original exported config: True
 
 — which is the Phase 3 exit criterion "a graph built in the GUI, exported to YAML,
 run by the CLI, and re-imported gives the same graph and the same results."
-`tests/gui/test_circuit_roundtrip.py::test_graph_export_runs_through_the_cli_and_reimports_identically`
+`tests/gui/test_circuit_graph_end_to_end.py::test_graph_export_runs_through_the_cli_and_reimports_identically`
 runs this same chain as an assertion, not a one-off script (Wave R, R3).
 
 ## Regenerating the screenshots
