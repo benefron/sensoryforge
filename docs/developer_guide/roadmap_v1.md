@@ -10,8 +10,8 @@ the verified facts, the file paths and the proof each task owes.
 |---|---|---|---|
 | 0 and 1 | `docs/development/handover/phase1_tasks.md` | A to H | Closed, except one CI run on GitHub |
 | 2 | `docs/development/handover/phase2_tasks.md` | I to N | Complete; all six waves merged and exit criteria verified |
-| 3 | `docs/development/handover/phase3_tasks.md` | O to R | Specified |
-| 4 | `docs/development/handover/phase4_tasks.md` | S to V | Specified |
+| 3 | `docs/development/handover/phase3_tasks.md` | O to R | Complete; all four waves merged, exit criteria assessed |
+| 4 | `docs/development/handover/phase4_tasks.md` | S to V | In progress; S and T dispatched in parallel |
 
 Phase 2 onwards is orchestrated: waves are developed on their own branches in git worktrees, reviewed,
 then merged into the integration branch `phase2`. `main` stays at the end of Phase 1 until Phase 2 is
