@@ -54,6 +54,12 @@ from sensoryforge.stimuli.builder import (
 from sensoryforge.stimuli.gaussian import GaussianStimulus
 from sensoryforge.stimuli.texture import GaborTexture, EdgeGrating
 from sensoryforge.stimuli.moving import MovingStimulus as MovingStimulusLegacy
+from sensoryforge.stimuli.tactile import (
+    RampGaussianStimulus,
+    MovingEdgeStimulus,
+    BrailleStimulus,
+    DriftingGratingStimulus,
+)
 
 # Solvers
 from sensoryforge.solvers.euler import EulerSolver
@@ -123,6 +129,12 @@ def register_all() -> None:
     STIMULUS_REGISTRY.register("texture", GaborTexture)  # Default texture type
     STIMULUS_REGISTRY.register("gabor", GaborTexture)
     STIMULUS_REGISTRY.register("edge_grating", EdgeGrating)
+
+    # Pressure-simulation's four ported stimuli (Phase 2, K2)
+    STIMULUS_REGISTRY.register("ramp_gaussian", RampGaussianStimulus)
+    STIMULUS_REGISTRY.register("moving_edge", MovingEdgeStimulus)
+    STIMULUS_REGISTRY.register("braille", BrailleStimulus)
+    STIMULUS_REGISTRY.register("drifting_grating", DriftingGratingStimulus)
 
     # Register solvers
     SOLVER_REGISTRY.register("euler", EulerSolver)
