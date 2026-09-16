@@ -1,8 +1,10 @@
 """Tests for dt consistency between GUI pipeline and neuron models (item 8).
 
-The GUI protocol_backend defaults to DEFAULT_DT_MS=1.0 while neuron models
-default to dt=0.05. This 20x mismatch causes Forward Euler instability in
-the subthreshold regime, producing spurious oscillations and bursting.
+The GUI's now-deleted protocol_backend module (Wave Q, Q3/F-019) defaulted
+to DEFAULT_DT_MS=1.0 while neuron models default to dt=0.05. This 20x
+mismatch causes Forward Euler instability in the subthreshold regime,
+producing spurious oscillations and bursting -- the instability itself is
+independent of that module and is still exercised by the tests below.
 """
 
 import pytest
@@ -29,25 +31,6 @@ def test_neuron_model_dt_defaults():
             f"{type(model).__name__}.dt={model.dt} ms — default should be "
             "< 0.5 ms for Forward Euler stability with typical parameters"
         )
-
-
-def test_gui_default_dt_documented():
-    """Document that GUI protocol_backend uses DEFAULT_DT_MS=1.0.
-
-    This test imports the constant so that any change to the GUI default
-    appears clearly in test failures and git history.
-    """
-    from sensoryforge.gui import protocol_backend
-
-    assert hasattr(protocol_backend, "DEFAULT_DT_MS"), (
-        "protocol_backend must export DEFAULT_DT_MS so the GUI dt default "
-        "is explicit and trackable"
-    )
-    # Fixed from 1.0 → 0.1 ms (item 8): 1.0 ms caused Forward Euler instability.
-    assert protocol_backend.DEFAULT_DT_MS == 0.1, (
-        f"GUI DEFAULT_DT_MS={protocol_backend.DEFAULT_DT_MS}; "
-        "expected 0.1 ms (safe Euler bound). Update this test if changed intentionally."
-    )
 
 
 # ---------------------------------------------------------------------------
