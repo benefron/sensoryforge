@@ -4,7 +4,6 @@ This module defines the ``BaseProcessingLayer`` interface for inserting
 composable transformations between the receptor grid and the innervation /
 neuron stages.  Future layers include:
 
-- ON/OFF centre-surround fields
 - Lateral inhibition
 - Cross-grid fusion
 
@@ -12,6 +11,9 @@ Current implementations:
 
 - ``IdentityLayer``: Pass-through (no-op) — used as the default when no
   processing layers are specified.
+- ``OnOffLayer`` (Wave M3): a centre-surround difference-of-Gaussians over
+  receptor coordinates, splitting the receptor response into an ON plane
+  and an OFF plane.
 
 All layers are ``nn.Module`` subclasses so they participate in PyTorch's
 parameter/buffer tracking, device management, and backpropagation graph.
@@ -19,11 +21,14 @@ parameter/buffer tracking, device management, and backpropagation graph.
 
 from __future__ import annotations
 
+import math
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
+
+from sensoryforge.stimuli.base import ParamSpec
 
 
 class BaseProcessingLayer(nn.Module):
@@ -127,6 +132,16 @@ class BaseProcessingLayer(nn.Module):
         """
         return {"type": "identity"}
 
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """Return this layer's configurable parameters (Wave M3, G1 contract).
+
+        Default: none. Override in a subclass that takes constructor
+        parameters (e.g. ``OnOffLayer``'s ``sigma_center_mm``/
+        ``sigma_surround_mm``).
+        """
+        return []
+
 
 class IdentityLayer(BaseProcessingLayer):
     """Pass-through layer — returns input unchanged.
@@ -153,6 +168,181 @@ class IdentityLayer(BaseProcessingLayer):
 
     def to_dict(self) -> Dict[str, Any]:
         return {"type": "identity"}
+
+
+class OnOffLayer(BaseProcessingLayer):
+    """Centre-surround ON/OFF split over receptor coordinates (Wave M3).
+
+    A difference-of-Gaussians (DoG) centre-surround filter is computed
+    directly over the *receptor coordinate* space (not spatial grid
+    indices, so it works for any arrangement -- grid, hex, Poisson,
+    imported): ``dog[j, k] = g(d_jk; sigma_center) - g(d_jk; sigma_surround)``
+    where ``d_jk`` is the mm distance between receptors ``j`` and ``k`` and
+    ``g`` is a normalised 2-D Gaussian. ``forward()`` applies this kernel to
+    the receptor responses, then splits the result into a rectified ON
+    plane (positive part) and a rectified OFF plane (negative part,
+    sign-flipped to be non-negative), concatenated along the receptor axis:
+    output ``[..., 2M]`` is ``[on (M), off (M)]``, same receptor order both
+    halves. :meth:`expand_receptor_coords` mirrors this in coordinate space
+    (``[receptor_coords; receptor_coords]``) so a receptive-field bank built
+    on the doubled coordinates lines up column-for-column with this output.
+
+    This is the worked example for ``docs/extending/add_processing_layer.md``
+    and the vision demo (M4): with ``sigma_center_mm < sigma_surround_mm``,
+    a bright spot on the stimulus drives the ON plane and a dark spot
+    drives the OFF plane, never both at the same receptor.
+    """
+
+    REQUIRES_RECEPTOR_COORDS = True
+
+    def __init__(
+        self,
+        receptor_coords: torch.Tensor,
+        *,
+        sigma_center_mm: float = 0.15,
+        sigma_surround_mm: float = 0.45,
+    ) -> None:
+        """Precompute the DoG kernel over one set of receptor coordinates.
+
+        Args:
+            receptor_coords: ``[M, 2]`` receptor positions ``(x, y)`` in mm.
+            sigma_center_mm: Centre Gaussian's standard deviation, mm.
+            sigma_surround_mm: Surround Gaussian's standard deviation, mm.
+                Must exceed ``sigma_center_mm`` for a conventional (excitatory
+                centre, inhibitory surround) receptive field.
+
+        Raises:
+            ValueError: If ``receptor_coords`` is not ``[M, 2]``, or either
+                sigma is not positive.
+        """
+        super().__init__()
+        if receptor_coords.ndim != 2 or receptor_coords.shape[1] != 2:
+            raise ValueError(
+                "receptor_coords must be [M, 2] (x, y) in mm, got shape "
+                f"{list(receptor_coords.shape)}"
+            )
+        if sigma_center_mm <= 0 or sigma_surround_mm <= 0:
+            raise ValueError(
+                "sigma_center_mm and sigma_surround_mm must be positive, got "
+                f"{sigma_center_mm}, {sigma_surround_mm}"
+            )
+        self.sigma_center_mm = float(sigma_center_mm)
+        self.sigma_surround_mm = float(sigma_surround_mm)
+        coords = receptor_coords.detach().to(torch.float32)
+        d2 = ((coords[:, None, :] - coords[None, :, :]) ** 2).sum(dim=-1)  # [M, M]
+
+        def _gaussian(d2: torch.Tensor, sigma: float) -> torch.Tensor:
+            return torch.exp(-d2 / (2.0 * sigma * sigma)) / (
+                2.0 * math.pi * sigma * sigma
+            )
+
+        dog = _gaussian(d2, self.sigma_center_mm) - _gaussian(
+            d2, self.sigma_surround_mm
+        )
+        self.register_buffer("dog_kernel", dog.contiguous())
+
+    def forward(
+        self,
+        receptor_responses: torch.Tensor,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> torch.Tensor:
+        """Apply the DoG kernel and split into rectified ON/OFF planes.
+
+        Args:
+            receptor_responses: ``[..., M]`` receptor activations, ``M``
+                matching the receptor coordinates this layer was built with.
+            metadata: Ignored.
+
+        Returns:
+            ``[..., 2 * M]``: the ON plane (``[..., :M]``) then the OFF
+            plane (``[..., M:]``), both ``>= 0``.
+
+        Raises:
+            ValueError: If the last dimension is not ``M``.
+        """
+        m = self.dog_kernel.shape[0]
+        if receptor_responses.shape[-1] != m:
+            raise ValueError(
+                f"OnOffLayer built for M={m} receptors, got input with last "
+                f"dimension {receptor_responses.shape[-1]}"
+            )
+        center_surround = torch.matmul(receptor_responses, self.dog_kernel.T)
+        on = torch.clamp(center_surround, min=0.0)
+        off = torch.clamp(-center_surround, min=0.0)
+        return torch.cat([on, off], dim=-1)
+
+    @classmethod
+    def expand_receptor_coords(cls, receptor_coords: torch.Tensor) -> torch.Tensor:
+        """``[receptor_coords; receptor_coords]`` -- ON plane then OFF plane."""
+        return torch.cat([receptor_coords, receptor_coords], dim=0)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to ``{"method": "onoff", "params": {...}}``."""
+        return {
+            "method": "onoff",
+            "params": {
+                "sigma_center_mm": self.sigma_center_mm,
+                "sigma_surround_mm": self.sigma_surround_mm,
+            },
+        }
+
+    @classmethod
+    def from_config(
+        cls, config: Dict[str, Any], *, receptor_coords: Optional[torch.Tensor] = None
+    ) -> "OnOffLayer":
+        """Construct from a config dict plus the receptor coordinates it
+        needs (``REQUIRES_RECEPTOR_COORDS``).
+
+        Args:
+            config: May carry ``sigma_center_mm``/``sigma_surround_mm``
+                directly, or nested under ``params`` (``to_dict()``'s shape).
+            receptor_coords: ``[M, 2]`` receptor positions; required.
+
+        Raises:
+            ValueError: If ``receptor_coords`` is not given.
+        """
+        if receptor_coords is None:
+            raise ValueError("OnOffLayer.from_config requires receptor_coords")
+        params = dict(config.get("params") or {})
+        return cls(
+            receptor_coords,
+            sigma_center_mm=config.get(
+                "sigma_center_mm", params.get("sigma_center_mm", 0.15)
+            ),
+            sigma_surround_mm=config.get(
+                "sigma_surround_mm", params.get("sigma_surround_mm", 0.45)
+            ),
+        )
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        """This layer's configurable parameters (G1 contract)."""
+        return [
+            ParamSpec(
+                "sigma_center_mm",
+                dtype="float",
+                default=0.15,
+                min_val=0.001,
+                max_val=10.0,
+                unit="mm",
+                choices=None,
+                help="Centre Gaussian standard deviation of the DoG kernel.",
+                group="OnOff",
+                advanced=False,
+            ),
+            ParamSpec(
+                "sigma_surround_mm",
+                dtype="float",
+                default=0.45,
+                min_val=0.001,
+                max_val=20.0,
+                unit="mm",
+                choices=None,
+                help="Surround Gaussian standard deviation of the DoG kernel.",
+                group="OnOff",
+                advanced=False,
+            ),
+        ]
 
 
 class ProcessingPipeline(nn.Module):

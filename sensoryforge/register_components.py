@@ -66,7 +66,7 @@ from sensoryforge.solvers.euler import EulerSolver
 from sensoryforge.solvers.adaptive import AdaptiveSolver
 
 # Processing
-from sensoryforge.core.processing import IdentityLayer
+from sensoryforge.core.processing import IdentityLayer, OnOffLayer
 
 # Grid arrangements (G3): thin ReceptorGrid subclasses, one per arrangement
 from sensoryforge.core.grid_arrangements import (
@@ -142,6 +142,7 @@ def register_all() -> None:
 
     # Register processing layers
     PROCESSING_REGISTRY.register("identity", IdentityLayer)
+    PROCESSING_REGISTRY.register("onoff", OnOffLayer)  # Wave M3
 
     # Register grid arrangements (G3): real ReceptorGrid subclasses, one per
     # arrangement, each constructible via from_config()/GRID_REGISTRY.create().
