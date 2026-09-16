@@ -281,7 +281,7 @@ docs_root/SCIENTIFIC_HYPOTHESIS.md is pressure-simulation's Oct-2025 draft: head
 SimulationEngine: composite grids NotImplementedError (:98); poisson/hex/jittered/blue_noise arrangements built then ignored, innervation uses the regular GridManager (:107-125,:224-243); DSL neurons cannot be instantiated (:260-264, dsl_config never read); _stimulus_to_receptors is a passthrough (:425-448)
 → commit 7a188b6
 
-## F-011 · OPEN · finding · - · 2026-09-14
+## F-011 · CLOSED · finding · - · 2026-09-14
 SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-index --format hdf5` (batch_executor.py:729-733) but run has neither flag (cli.py:556-578) and writes .pt only; BatchTab progress never emitted
 → commit 7a188b6
 
@@ -289,7 +289,7 @@ SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-i
 CRITICAL canonical->legacy adapter sets grid_size = rows*cols (generalized_pipeline.py:351) and grid.py:32 treats an int as per-side: 20x20 config -> 160k receptors, README 80x80 example -> 41M; test_gui_cli_parity and test_regression_refactoring exceed 5 GB and are OOM-killed; CLI/Batch hit it on every canonical run (cli.py:218, batch_executor.py:98)
 → commit 7a188b6 · closed by commit 1c93fa6 (grid_size now emits (rows, cols))
 
-## F-013 · OPEN · finding · - · 2026-09-14
+## F-013 · CLOSED · finding · - · 2026-09-14
 Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt is one monolithic pickle; spikes are T+1 while drive/filtered are T (undocumented); HDF5 drops list-valued stimulus params (batch_executor.py:499-592)
 → commit 7a188b6
 
