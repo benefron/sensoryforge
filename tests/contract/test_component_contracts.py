@@ -48,17 +48,6 @@ _SKIP: Dict[str, str] = {
     "identity": "placeholder 'no filter' alias (type(None)), not a component",
     "dsl": "DSL neuron needs equations/.compile() before behaving like a BaseNeuron; covered by test_model_dsl.py",
     "DSL (Custom)": "DSL neuron needs equations/.compile(); covered by test_model_dsl.py",
-    # Phase 2, Wave K (K2): the four ported pressure-simulation stimuli
-    # always return [T, H, W] (Fact K-c), never [H, W] -- the generic
-    # stimulus check's forward-shape assertion assumes a single-frame
-    # [H, W] -> [H, W] stimulus (as static/moving/composite do when built
-    # minimally above). Round-trip completeness, get_param_spec() and
-    # forward shape are covered by tests/unit/test_tactile_stimuli.py, and
-    # exact numerical parity by tests/integration/test_stimulus_parity.py.
-    "ramp_gaussian": "returns [T, H, W] (Fact K-c); see test_tactile_stimuli.py",
-    "moving_edge": "returns [T, H, W] (Fact K-c); see test_tactile_stimuli.py",
-    "braille": "returns [T, H, W] (Fact K-c); see test_tactile_stimuli.py",
-    "drifting_grating": "returns [T, H, W] (Fact K-c); see test_tactile_stimuli.py",
 }
 
 
