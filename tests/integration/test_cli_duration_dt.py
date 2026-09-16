@@ -65,12 +65,21 @@ def _run_cli(tmp_path, config: dict, duration: int):
 
 
 def test_gaussian_stimulus_gets_requested_bin_count(tmp_path):
+    """ "gaussian" is a registered stimulus, so since Wave K (K1, F-052) the
+    CLI renders it through ``render_stimulus``, whose time axis is
+    pressure-simulation's half-step-guarded
+    ``arange(0, duration_ms + 0.5*dt_ms, dt_ms)`` (matching K3's golden
+    fixture exactly) -- one more sample than ``duration_ms`` at dt_ms=1.0,
+    not the ``duration_ms`` bin count the legacy pipeline's own generator
+    gave. "trapezoidal" (below) still goes through the legacy pipeline
+    unchanged (it is not a registered stimulus), so its bin count is
+    unaffected."""
     config = _canonical_config(
         stimuli=[{"type": "gaussian", "amplitude": 10.0, "sigma": 1.0}]
     )
     results = _run_cli(tmp_path, config, duration=100)
     spikes = results["results"]["SA Pop__spikes"]
-    assert spikes.shape[1] == 100
+    assert spikes.shape[1] == 101
 
 
 def test_trapezoidal_stimulus_gets_requested_bin_count(tmp_path):

@@ -43,7 +43,9 @@ import numpy as np
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
+from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.render import render_stimulus
 
 
 class BatchExecutor:
@@ -101,9 +103,25 @@ class BatchExecutor:
         if self._is_canonical:
             self._sf_config = SensoryForgeConfig.from_dict(self.base_config)
             self.engine: Optional[SimulationEngine] = SimulationEngine(self._sf_config)
+            # Stimulus grid for render_stimulus (K1, F-052): same geometry
+            # SimulationEngine._build_grids uses for the first grid.
+            grid_cfg = self._sf_config.grids[0] if self._sf_config.grids else None
+            if grid_cfg is not None:
+                self._stim_grid = ReceptorGrid(
+                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
+                    spacing=grid_cfg.spacing,
+                    arrangement=grid_cfg.arrangement,
+                    center=(grid_cfg.center_x, grid_cfg.center_y),
+                    density=grid_cfg.density,
+                    device=self._sf_config.simulation.device,
+                    seed=grid_cfg.seed,
+                )
+            else:
+                self._stim_grid = None
         else:
             self._sf_config = None
             self.engine = None
+            self._stim_grid = None
 
         # Setup output directory
         output_dir = self.batch_config.get("output_dir", "./batch_results")
@@ -296,9 +314,32 @@ class BatchExecutor:
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-        stimulus_tensor, _, _ = self.pipeline.generate_stimulus(
-            stimulus_type=stim_config["type"], **stimulus_params
+        # render_stimulus (K1, F-052) dispatches through STIMULUS_REGISTRY
+        # first, so a canonical batch config can use any registered stimulus
+        # (composite, edge_grating, gabor, the ported pressure-simulation
+        # stimuli, or a plugin's), falling back to the legacy pipeline's
+        # chain only for its unregistered names.
+        render_params = {k: v for k, v in stimulus_params.items() if k != "duration"}
+        xx, yy = self._stim_grid.get_coordinates()
+        # A batch sweep entry need not name "duration" explicitly (e.g. an
+        # amplitude sweep over "gaussian"). Before Wave K, every stimulus
+        # here went through GeneralizedTactileEncodingPipeline.generate_
+        # stimulus, whose single-frame generators (_generate_gaussian_
+        # stimulus, etc.) default an absent duration to 100.0 ms held at
+        # full amplitude. render_stimulus has no such implicit default (a
+        # duration_ms of None gives a near-instantaneous one-off frame), so
+        # preserve the batch path's prior behaviour explicitly here.
+        duration_ms = stimulus_params.get("duration", 100.0)
+        frames, _ = render_stimulus(
+            stim_config["type"],
+            render_params,
+            xx,
+            yy,
+            dt_ms=self._sf_config.simulation.dt_ms,
+            duration_ms=duration_ms,
+            device=self._sf_config.simulation.device,
         )
+        stimulus_tensor = frames.unsqueeze(0)
         grid_cfg = self._sf_config.grids[0]
         target_h = grid_cfg.rows or 40
         target_w = grid_cfg.cols or 40

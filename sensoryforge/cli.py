@@ -20,8 +20,10 @@ import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
+from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.render import render_stimulus
 from sensoryforge.registry import (
     NEURON_REGISTRY,
     FILTER_REGISTRY,
@@ -216,12 +218,46 @@ def cmd_run(args: argparse.Namespace) -> int:
 
             sf_config = SensoryForgeConfig.from_dict(config)
 
-            # Stimulus generation: reuse GeneralizedTactileEncodingPipeline for now
-            # (SimulationEngine does not yet have its own stimulus module)
-            pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-            stimulus_tensor, _, _ = pipeline.generate_stimulus(
-                stimulus_type=stimulus_type, **stimulus_params
+            # Stimulus generation: render_stimulus (K1, F-052) dispatches
+            # through STIMULUS_REGISTRY first, so any registered or
+            # plugin-registered stimulus (including composite, edge_grating,
+            # gabor, and the four ported pressure-simulation stimuli) is
+            # reachable from a config file, falling back to the legacy
+            # pipeline's chain only for its unregistered names.
+            if sf_config.grids:
+                grid_cfg = sf_config.grids[0]
+                stim_grid = ReceptorGrid(
+                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
+                    spacing=grid_cfg.spacing,
+                    arrangement=grid_cfg.arrangement,
+                    center=(grid_cfg.center_x, grid_cfg.center_y),
+                    density=grid_cfg.density,
+                    device=sf_config.simulation.device,
+                    seed=grid_cfg.seed,
+                )
+                xx, yy = stim_grid.get_coordinates()
+            else:
+                xx, yy = torch.meshgrid(
+                    torch.linspace(-1, 1, 40),
+                    torch.linspace(-1, 1, 40),
+                    indexing="ij",
+                )
+            # "duration" (set above for the legacy pipeline's **kwargs
+            # signature) is not a stimulus constructor parameter for a
+            # registered component; render_stimulus takes it as duration_ms.
+            render_params = {
+                k: v for k, v in stimulus_params.items() if k != "duration"
+            }
+            frames, _ = render_stimulus(
+                stimulus_type,
+                render_params,
+                xx,
+                yy,
+                dt_ms=sf_config.simulation.dt_ms,
+                duration_ms=args.duration,
+                device=sf_config.simulation.device,
             )
+            stimulus_tensor = frames.unsqueeze(0)
 
             print(f"Running simulation (duration: {args.duration}ms)...")
             engine = SimulationEngine(sf_config)
