@@ -103,6 +103,12 @@ Verified on `a513dfc` during the Phase 1 close-out.
 5. **Keep deprecated wrappers for one phase.** When a public class is replaced (for example
    `InnervationModule`), keep a thin wrapper that emits `DeprecationWarning` and delegates, so user
    scripts keep working until Phase 4.
+6. **Never run `pip install -e .` from a worktree** (F-053). The conda environment is shared by every
+   worktree, and an editable install rewrites one global pointer. A parallel wave that reinstalls
+   repoints every other checkout at its own code, and the damage is invisible: in-process pytest keeps
+   working because the working directory is on `sys.path`, while anything launched as a subprocess
+   from another directory silently imports the wrong tree and still reports green. If you believe you
+   need a reinstall, say so in your report instead and let the orchestrating session do it.
 
 ---
 

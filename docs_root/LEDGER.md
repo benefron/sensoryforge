@@ -96,7 +96,7 @@ the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when no
 the bundle lacked neuron_modules/, so pressure-simulation's viewer could load it but never run it; fixed by writing neuron_modules/sensoryforge.json with one population_configs entry per population, matched by raw population name. (Recorded as F-052 on branch wave-j, which forked before F-052 was taken; renumbered to F-054 at the merge.)
 → commit 6382319
 
-## F-053 · OPEN · finding · - · 2026-09-16
+## F-053 · CLOSED · finding · - · 2026-09-16
 F-053 docs examples run as subprocesses resolve `import sensoryforge` through the environment's editable install rather than the checkout under test, so with git worktrees a `pip install -e .` from one worktree makes every other checkout's docs-example tests silently exercise that worktree's code while still reporting green; fixed by setting cwd and PYTHONPATH in tests/docs/test_docs_examples.py
 → commit ad7162d
 
