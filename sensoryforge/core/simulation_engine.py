@@ -44,6 +44,7 @@ from sensoryforge.core.innervation import (
     create_neuron_centers,
 )
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
+from sensoryforge.neurons.model_dsl import NeuronModel
 
 # Ensure components are registered
 register_all()
@@ -298,6 +299,54 @@ class SimulationEngine:
             neuron_model_name = pop_cfg.neuron_model or "izhikevich"
             try:
                 neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
+            except KeyError:
+                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
+
+            if neuron_cls is NeuronModel:
+                # DSL model (F-010, N3): NeuronModel's constructor takes
+                # equations/threshold/reset/..., not dt=/noise_std=, so it
+                # is built from dsl_config and compiled instead of
+                # constructed like the other neuron classes below.
+                if not pop_cfg.dsl_config:
+                    raise ValueError(
+                        f"Population {pop_cfg.name!r} has neuron_model="
+                        f"{neuron_model_name!r} (DSL) but no dsl_config. "
+                        "Provide dsl_config with at least 'equations'."
+                    )
+                dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
+                has_threshold = dsl_model.threshold_str is not None
+                readout = (pop_cfg.readout or "auto").lower()
+                if readout == "auto":
+                    pass  # readout follows the model itself (N1/N2)
+                elif readout == "analog":
+                    if has_threshold:
+                        raise ValueError(
+                            f"Population {pop_cfg.name!r} readout='analog' "
+                            "but its dsl_config defines a threshold; remove "
+                            "the threshold or use readout='spiking'."
+                        )
+                elif readout == "spiking":
+                    if not has_threshold:
+                        raise ValueError(
+                            f"Population {pop_cfg.name!r} readout='spiking' "
+                            "but its dsl_config has no threshold; add one "
+                            "or use readout='analog'."
+                        )
+                else:
+                    raise ValueError(
+                        f"Population {pop_cfg.name!r}: unknown readout "
+                        f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
+                        "or 'analog'."
+                    )
+                # F-008: the neuron integrates at integrate_dt_ms (finer,
+                # default 0.05 ms), not the record step dt_ms; sub-stepping
+                # happens in _run_pop_from_drive.
+                neuron_model = dsl_model.compile(
+                    dt=self.config.simulation.integrate_dt_ms,
+                    device=str(self.device),
+                    noise_std=pop_cfg.noise_std,
+                )
+            else:
                 neuron_params = resolve_neuron_params(
                     neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
                 )
@@ -307,8 +356,6 @@ class SimulationEngine:
                 neuron_params["dt"] = self.config.simulation.integrate_dt_ms
                 neuron_params["noise_std"] = pop_cfg.noise_std
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
-            except KeyError:
-                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
 
             # Store population context
             self.populations.append(
@@ -388,7 +435,9 @@ class SimulationEngine:
             itself a dict of tensors shaped `[batch, time, num_neurons]` -- the sub-step spike
             count per record bin under the key spikes (F-008; use greater-than-zero for a binary
             raster), and, only when return_intermediates is True, drive and filtered (both mA)
-            and voltages (mV).
+            and voltages (mV). A population whose neuron model has no spike condition (an analog
+            DSL model with no threshold, N1/N2) carries state (its readout trace) instead of
+            spikes, and has no spikes key at all -- see `_run_pop_from_drive`.
 
         Examples:
             >>> from sensoryforge.config.schema import SensoryForgeConfig
@@ -498,6 +547,11 @@ class SimulationEngine:
             counts per record bin, ``[batch, time, num_neurons]``) and, if
             *return_intermediates* is ``True``, also ``"drive"``,
             ``"filtered"``, and optionally ``"voltages"`` (at bin ends).
+            When ``neuron_model`` has no spike condition (N1/N2 -- an analog
+            DSL model with no threshold, ``forward()`` returns
+            ``(state_trace, None)``), the dictionary carries ``"state"``
+            (bin-end samples, ``[batch, time, num_neurons]``) instead, and
+            has no ``"spikes"`` key at all.
         """
         import torch as _torch  # local import to keep signature clean
 
@@ -537,6 +591,29 @@ class SimulationEngine:
 
         batch, _, num_neurons = filtered.shape
         time_steps = filtered.shape[1]
+
+        if spikes_sub is None:
+            # Analog readout (N2): the neuron model has no spike condition
+            # (e.g. a thresholdless DSL model, N1) and returned only a state
+            # trace. Reduce it the same way "voltages" already is -- the
+            # bin-end sample of each bin's n_substeps sub-steps -- and carry
+            # it as "state" instead of "spikes"; no "spikes" key at all.
+            if v_trace_sub is None:
+                raise ValueError(
+                    "neuron_model returned no spikes and no state trace; "
+                    "expected forward() to return (state_trace, None) for "
+                    "an analog readout."
+                )
+            v_trace_sub = v_trace_sub[:, 1:, :]
+            state = v_trace_sub.view(batch, time_steps, n_substeps, num_neurons)[
+                :, :, -1, :
+            ]
+
+            pop_results: Dict[str, Any] = {"state": state}
+            if return_intermediates:
+                pop_results["drive"] = drive
+                pop_results["filtered"] = filtered
+            return pop_results
 
         # Drop the initial sample (index 0), then collapse each bin's
         # n_substeps sub-steps: sum -> integer spike count per bin.

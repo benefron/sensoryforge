@@ -375,16 +375,35 @@ class TestConfigSerialization:
         np.testing.assert_allclose(v_orig.numpy(), v_rest.numpy(), rtol=1e-6, atol=1e-6)
         np.testing.assert_array_equal(spikes_orig.numpy(), spikes_rest.numpy())
 
-    def test_from_config_missing_keys_error(self):
-        """Test that from_config() raises error for missing required keys."""
+    def test_from_config_missing_equations_error(self):
+        """Test that from_config() raises when 'equations' is missing.
+
+        Phase 2 (N1): 'threshold' and 'reset' are now optional (an analog
+        model has neither), so only 'equations' is required -- unlike
+        before N1, a config with 'equations' and 'threshold' but no 'reset'
+        is now valid (a thresholded model with no reset rule just keeps its
+        state across a spike).
+        """
         incomplete_config = {
-            "equations": "dv/dt = -v + I",
             "threshold": "v >= 1.0",
-            # Missing 'reset' key
+            "reset": "v = 0.0",
+            # Missing 'equations' key
         }
 
         with pytest.raises(ValueError, match="Missing required keys"):
             NeuronModel.from_config(incomplete_config)
+
+    def test_from_config_threshold_without_reset_is_valid(self):
+        """Phase 2 (N1): reset is optional even when threshold is given."""
+        config = {
+            "equations": "dv/dt = -v + I",
+            "threshold": "v >= 1.0",
+            # No 'reset' key -- valid since N1.
+        }
+        model = NeuronModel.from_config(config)
+        assert model.threshold_str == "v >= 1.0"
+        assert model.reset_str is None
+        assert model.reset_rules == {}
 
 
 class TestDifferentThresholdOperators:

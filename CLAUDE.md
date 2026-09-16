@@ -78,7 +78,8 @@ Stimulus  [batch, time, H, W]
     ↓  Filter (SAFilterTorch or RAFilterTorch — temporal dynamics)
     ↓  [batch, time, N_neurons]  in mA
     ↓  Neuron (Izhikevich / AdEx / MQIF / DSL-compiled)
-Spikes    [batch, time, N_neurons]  bool
+Spikes [batch, time, N_neurons] bool   — or, for a DSL model with no threshold (Phase 2, Wave N):
+State  [batch, time, N_neurons] float  — an analog (non-spiking) readout, see below
 ```
 
 - **Time unit:** ms at user-facing APIs; seconds in internal ODE integration
@@ -86,6 +87,18 @@ Spikes    [batch, time, N_neurons]  bool
 - **Batch dimension is always first:** `[batch, ...]`
 - **No hand-rolled loops over neurons or spatial dims** — always vectorise with tensor broadcasting
 - **Coordinates are `(x, y)` in mm everywhere inside SensoryForge**; for `ReceptorGrid(grid_size=(rows, cols))` the first meshgrid index is x (`indexing="ij"`), so receptor `k = i * cols + j`. Convert at the boundary when importing pressure-simulation's `[y, x]` centres (the `imported` builder does).
+
+### Analog readouts (Phase 2, Wave N)
+
+A DSL neuron model (`NeuronModel`, `neurons/model_dsl.py`) may omit `threshold`/`reset`: with no
+threshold, `compile()` integrates the equations every step and `forward()` returns `(state_trace,
+None)` instead of `(v_trace, spikes)`. `SimulationEngine._run_pop_from_drive` then labels the
+result `"state"` instead of `"spikes"` (bin-end samples, same reduction as `"voltages"`), and
+`_build_populations` builds a DSL population from `PopulationConfig.dsl_config`;
+`PopulationConfig.readout` (`"auto"`/`"spiking"`/`"analog"`) can force the interpretation, raising
+when incompatible with the `dsl_config`. The Spiking tab plots the state trace (labelled with the
+state variable's name) in place of the spike raster for such a population. Spiking populations
+(models with a threshold) are unaffected. See `docs/user_guide/analog_readouts.md`.
 
 ### Receptive fields (Phase 2, Wave I)
 
@@ -217,11 +230,13 @@ audit once listed here (DSL/CUDA support, `reset_states`) were already fixed —
 `D-011`.
 
 - **`SimulationEngine` composite grids** — `_build_grids()` raises `NotImplementedError` for `arrangement == "composite"`. Do not rely on `SimulationEngine` for composite configs yet. (F-010)
-- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but the bank still samples a synthetic regular lattice over the grid bounds (the engine warns naming F-010; real receptor sampling is Wave L); DSL neurons cannot be instantiated through the engine yet. (F-010)
+- **`SimulationEngine` ignores non-grid receptor arrangements for innervation** — `poisson`/`hex`/`jittered`/`blue_noise` grids are built but the bank still samples a synthetic regular lattice over the grid bounds (the engine warns naming F-010; real receptor sampling is Wave L). (F-010; the DSL half of F-010 -- the engine could not build DSL neurons at all -- is resolved, Phase 2 Wave N.)
 - **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
 **Resolved 2026-09-15, Phase 2 Wave I:** receptor grids take a `seed` and random arrangements are reproducible (F-050); `innervation_method` is honoured on ordinary grids and every population's receptive fields are a `ReceptiveFieldBank` built by a registered builder (F-051, D-020).
+
+**Resolved 2026-09-16, Phase 2 Wave N:** a DSL model's `threshold`/`reset` are optional, giving an analog (non-spiking) readout (`(state_trace, None)`); the shared backend labels this `"state"` instead of `"spikes"`; `SimulationEngine` builds DSL populations from `dsl_config` (previously `TypeError`/`ValueError: Unknown neuron model`); the Spiking tab plots the state trace for such a population. See "Analog readouts" above and `docs/user_guide/analog_readouts.md`.
 
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
 decision records): `SAFilterTorch` no longer rectifies by default (F-001); the canonical→legacy

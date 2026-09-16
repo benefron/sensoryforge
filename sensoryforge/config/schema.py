@@ -137,6 +137,12 @@ class PopulationConfig:
         model_params: Model-specific parameters dict.
         dsl_config: DSL configuration dict (equations, threshold, reset,
             parameters).
+        readout: How to read out a DSL population (Phase 2, N3): "auto"
+            (default) infers analog when dsl_config has no threshold, else
+            spiking; "spiking" or "analog" force it, raising a ValueError
+            when the dsl_config is incompatible (e.g. "analog" with a
+            threshold present, or "spiking" with none). Ignored for
+            non-DSL neuron models.
         filter_method: Filter type (SA, RA, none/identity).
         filter_params: Filter-specific parameters dict.
         solver_config: Solver configuration dict (type, method, rtol, atol).
@@ -181,6 +187,7 @@ class PopulationConfig:
     neuron_model: str = "Izhikevich"  # Izhikevich, AdEx, MQIF, FA, SA, DSL
     model_params: Dict[str, Any] = field(default_factory=dict)
     dsl_config: Optional[Dict[str, Any]] = None
+    readout: str = "auto"  # auto, spiking, analog -- DSL populations only
 
     # Filter
     filter_method: str = "none"  # SA, RA, none

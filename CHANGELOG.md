@@ -87,6 +87,17 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
 
 ### Added
 
+- **Analog (non-spiking) DSL readouts** (Phase 2, Wave N; F-010 DSL half): `NeuronModel`'s
+  `threshold`/`reset` are now optional — with no threshold, `compile()` integrates the equations
+  every step and returns `(state_trace, None)` instead of `(v_trace, spikes)` (N1). The shared
+  backend kernel (`SimulationEngine._run_pop_from_drive`) labels this case `"state"` instead of
+  `"spikes"` in its result dict (N2). `SimulationEngine._build_populations` builds a DSL neuron
+  (`neuron_model: dsl`) from `PopulationConfig.dsl_config` and compiles it, instead of raising
+  `TypeError`/`ValueError: Unknown neuron model`; the new `PopulationConfig.readout` (`"auto"` by
+  default) can force `"spiking"`/`"analog"`, raising when the `dsl_config` can't support it (N3).
+  The Spiking tab's raster panel plots the state trace, labelled with the state variable's name,
+  in place of the spike scatter for an analog population (N4). Spiking populations are bit-for-bit
+  unaffected. See `docs/user_guide/analog_readouts.md` and `docs/examples/analog_dsl.py`.
 - **Seeded receptor grids** (F-050): `GridConfig.seed`, `ReceptorGrid(seed=...)`, every registered
   arrangement class and `CompositeReceptorGrid.add_layer(seed=...)`. The `jittered_grid`,
   `blue_noise` and `poisson` jitter comes from a per-instance generator, so the same seed gives

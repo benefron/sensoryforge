@@ -115,6 +115,7 @@ nav:
     - Composite Grid: user_guide/composite_grid.md
     - Receptive Fields: user_guide/receptive_fields.md
     - Equation DSL: user_guide/equation_dsl.md
+    - Analog Readouts: user_guide/analog_readouts.md
     - Extended Stimuli: user_guide/extended_stimuli.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
