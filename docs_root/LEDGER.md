@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-052 · OPEN · finding · - · 2026-09-16
+GeneralizedTactileEncodingPipeline.generate_stimulus dispatches stimulus names through a hard-coded if/elif chain (generalized_pipeline.py:1030-1073) that the CLI calls even for canonical configs (cli.py:222), so registered stimuli composite/edge_grating/gabor/static cannot be run from a config file and a third-party stimulus plugin can be registered but never executed
+→ commit 09a14e7
+
 ## D-020 · CLOSED · decision · - · 2026-09-15
 the template receptive-field builder derives sigma = d/pi and pitch = d from one resolvable distance d, truncates to the k nearest receptors with analytic Gaussian weights and unit-L2 rows by default
 → commit d53c018
