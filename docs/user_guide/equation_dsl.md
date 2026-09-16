@@ -56,8 +56,8 @@ neuron = model.compile(dt=0.05)
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `equations` | Yes | Differential equations in `dx/dt = expression` format |
-| `threshold` | Yes | Spike condition, e.g. `v >= 30` |
-| `reset` | Yes | State assignments when threshold crossed |
+| `threshold` | No | Spike condition, e.g. `v >= 30`. Omit for an analog (non-spiking) model — see [Analog Readouts](analog_readouts.md) |
+| `reset` | No | State assignments when threshold crossed. Must be omitted when `threshold` is omitted |
 | `parameters` | No | Constants used in equations |
 | `state_vars` | No | Initial values; auto-inferred if omitted |
 
@@ -95,6 +95,7 @@ neuron = model.compile(solver='dopri5', dt=0.05)
 
 ## See Also
 
+- [Analog Readouts](analog_readouts.md) — omit `threshold` for a continuous, non-spiking readout
 - [Solvers](solvers.md) — ODE solver selection
 - [Extended Stimuli](extended_stimuli.md) — Stimulus types
 - [EQUATION_DSL_IMPLEMENTATION.md](../EQUATION_DSL_IMPLEMENTATION.md) — Full implementation details
