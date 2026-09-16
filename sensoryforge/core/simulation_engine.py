@@ -44,6 +44,7 @@ from sensoryforge.core.innervation import (
     create_neuron_centers,
 )
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
+from sensoryforge.neurons.model_dsl import NeuronModel
 
 # Ensure components are registered
 register_all()
@@ -298,6 +299,54 @@ class SimulationEngine:
             neuron_model_name = pop_cfg.neuron_model or "izhikevich"
             try:
                 neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
+            except KeyError:
+                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
+
+            if neuron_cls is NeuronModel:
+                # DSL model (F-010, N3): NeuronModel's constructor takes
+                # equations/threshold/reset/..., not dt=/noise_std=, so it
+                # is built from dsl_config and compiled instead of
+                # constructed like the other neuron classes below.
+                if not pop_cfg.dsl_config:
+                    raise ValueError(
+                        f"Population {pop_cfg.name!r} has neuron_model="
+                        f"{neuron_model_name!r} (DSL) but no dsl_config. "
+                        "Provide dsl_config with at least 'equations'."
+                    )
+                dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
+                has_threshold = dsl_model.threshold_str is not None
+                readout = (pop_cfg.readout or "auto").lower()
+                if readout == "auto":
+                    pass  # readout follows the model itself (N1/N2)
+                elif readout == "analog":
+                    if has_threshold:
+                        raise ValueError(
+                            f"Population {pop_cfg.name!r} readout='analog' "
+                            "but its dsl_config defines a threshold; remove "
+                            "the threshold or use readout='spiking'."
+                        )
+                elif readout == "spiking":
+                    if not has_threshold:
+                        raise ValueError(
+                            f"Population {pop_cfg.name!r} readout='spiking' "
+                            "but its dsl_config has no threshold; add one "
+                            "or use readout='analog'."
+                        )
+                else:
+                    raise ValueError(
+                        f"Population {pop_cfg.name!r}: unknown readout "
+                        f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
+                        "or 'analog'."
+                    )
+                # F-008: the neuron integrates at integrate_dt_ms (finer,
+                # default 0.05 ms), not the record step dt_ms; sub-stepping
+                # happens in _run_pop_from_drive.
+                neuron_model = dsl_model.compile(
+                    dt=self.config.simulation.integrate_dt_ms,
+                    device=str(self.device),
+                    noise_std=pop_cfg.noise_std,
+                )
+            else:
                 neuron_params = resolve_neuron_params(
                     neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
                 )
@@ -307,8 +356,6 @@ class SimulationEngine:
                 neuron_params["dt"] = self.config.simulation.integrate_dt_ms
                 neuron_params["noise_std"] = pop_cfg.noise_std
                 neuron_model = neuron_cls(**neuron_params).to(self.device)
-            except KeyError:
-                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
 
             # Store population context
             self.populations.append(
