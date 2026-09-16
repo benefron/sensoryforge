@@ -4011,9 +4011,23 @@ class StimulusDesignerTab(QtWidgets.QWidget):
 
     @staticmethod
     def _set_spin(widget, value) -> None:
-        """Set a spinbox value with signals blocked."""
+        """Set a spinbox value with signals blocked (F-064).
+
+        ``QSpinBox`` holds an int and ``QDoubleSpinBox`` a float, and PyQt
+        rejects the wrong one with a ``TypeError`` rather than coercing it.
+        Casting everything to float therefore broke every integer spinbox
+        this passed through, which is why the tab could not load its own
+        ``get_config()`` output.
+
+        Args:
+            widget: A ``QSpinBox`` or ``QDoubleSpinBox``.
+            value: The value to set; cast to match the widget.
+        """
         widget.blockSignals(True)
-        widget.setValue(float(value))
+        if isinstance(widget, QtWidgets.QSpinBox):
+            widget.setValue(int(round(float(value))))
+        else:
+            widget.setValue(float(value))
         widget.blockSignals(False)
 
 
