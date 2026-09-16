@@ -692,6 +692,30 @@ from a wheel installed outside the repo; spiking results are unchanged from the 
 
 ---
 
+## 5b. Verified interoperability with pressure-simulation (2026-09-16)
+
+After Waves J and N were merged, the bundle contract was checked against pressure-simulation
+itself, not against a re-implementation of it. The procedure, worth repeating whenever the
+bundle format changes:
+
+1. `sensoryforge run examples/canonical_config.yml --duration 50 --bundle <dir>` writes a bundle.
+2. Transcribe nothing: import `encoding.grid_torch.GridManager`, `encoding.encode_runner.PopConfig`
+   and `run_encoding` from `~/Documents/pressure simulation`, and run the exact sequence
+   `GUIs/ebkf_viewer.py::_on_load_bundle` performs, then the `population_configs` half of `_on_run`.
+3. Drive it with a ramped Gaussian and an input gain large enough to spike (70 for SA, 700 for RA,
+   per that repository's own calibration).
+
+Result: a 40x40 grid and two populations loaded, one stimulus file and one neuron-module file found
+so its Run button would be enabled, both populations matched by name, and its encoder produced
+339 spikes across 48 SA neurons and 1,983 across 155 RA neurons from our receptive fields.
+
+Two failures this caught that the in-repo tests did not, both fixed in Wave J: the bundle wrote no
+`neuron_modules/` directory, so the viewer could load a bundle but its Run button never enabled
+(F-054); and `stimuli/stimulus.json` was an untagged dict that its stimulus generator would have
+read as a default static blob without raising (F-055).
+
+---
+
 ## 6. Phase 2 exit criteria
 
 - Waves I to N complete with their exit checks.
