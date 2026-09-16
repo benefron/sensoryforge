@@ -22,6 +22,124 @@ import torch
 
 from sensoryforge.registry import STIMULUS_REGISTRY
 
+# ---------------------------------------------------------------------------
+# Legacy-default compatibility (K8).
+#
+# Five registered names also exist in GeneralizedTactileEncodingPipeline's
+# own hard-coded chain: gaussian, moving, repeated_pattern, texture,
+# timeline. Before K1, every one of these went through that legacy chain
+# only, whose generators (_generate_gaussian_stimulus etc.,
+# core/generalized_pipeline.py) have their OWN default parameter values,
+# independent of the registered class's own constructor defaults (which
+# exist for direct, non-CLI use and are not changed here -- other callers
+# rely on them, e.g. GaussianStimulus's amplitude=1.0/sigma=0.2 default is
+# correct for a hand-built config that means to use a narrow, unit-peak
+# blob). Since K1 routes these five through STIMULUS_REGISTRY first, a
+# config that omits a parameter the legacy generator defaulted now silently
+# got the *registered class's* default instead -- for "gaussian" specifically,
+# amplitude 1.0 vs. the legacy 30.0 and sigma 0.2 mm vs. 1.0 mm, a stimulus
+# 20x narrower and 25x weaker for the same config text (measured on a
+# 40x40/0.15mm grid, amplitude=10, no sigma: 32 receptors above 10% of peak
+# and frame energy 111.7 with the registered default, vs. 648 receptors and
+# 2777.6 energy with the legacy one).
+#
+# _LEGACY_DEFAULTS applies each name's own legacy default values into
+# params before construction, but only for keys the caller did not already
+# supply -- so a config with an explicit amplitude/sigma is unaffected, and
+# the *registered class's own* default (used when a name is NOT in this
+# map, or accessed directly rather than through render_stimulus) is never
+# touched.
+#
+# Three of the five (moving, repeated_pattern, timeline) wrap an arbitrary
+# constituent BaseStimulus (base_stimulus/sub_stimuli) that has no sensible
+# bare default -- the legacy generator does not wrap a component at all, it
+# calls a formula function (gaussian_pressure_torch) directly, so there is
+# no single value to default a missing key to for those three. The default
+# values here reconstruct the *equivalent* nested config that produces the
+# legacy generator's own default probe (a StaticStimulus wrapping the same
+# gaussian_pressure_torch formula with the legacy's default amplitude/
+# sigma/center), which is sufficient for repeated_pattern (a static,
+# state-free tiling of that probe). It is not sufficient for moving or
+# timeline: MovingStimulus.forward()/TimelineStimulus.forward() each
+# return exactly ONE frame per call, advanced by a separate .step() the
+# generic single-frame envelope-expansion path below never calls -- so
+# render_stimulus("moving", ...) currently returns the SAME static frame
+# repeated across every time sample, not a moving one, regardless of any
+# default map. This is a distinct, more serious bug than default drift
+# (Finding, see the K8 commit trailer) and is not fixed by this map; the
+# "moving" and "timeline" entries below make construction succeed with the
+# legacy-equivalent starting frame, but the comparison test for both
+# documents (with numbers) that later frames diverge, rather than
+# asserting a false bit-identical claim.
+_LEGACY_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "gaussian": {
+        "amplitude": 30.0,
+        "sigma": 1.0,
+        "center_x": 0.0,
+        "center_y": 0.0,
+    },
+    "texture": {
+        "amplitude": 30.0,
+        "wavelength": 2.0,
+        "orientation": 0.0,
+        "phase": 0.0,
+        "sigma": 2.0,
+        "center_x": 0.0,
+        "center_y": 0.0,
+    },
+    "repeated_pattern": {
+        "base_stimulus": {
+            "class": "StaticStimulus",
+            "stim_type": "gaussian",
+            "params": {
+                "amplitude": 30.0,
+                "sigma": 0.5,
+                "center_x": 0.0,
+                "center_y": 0.0,
+            },
+        },
+        "copies_x": 3,
+        "copies_y": 2,
+        "spacing_x": 0.5,
+        "spacing_y": 0.5,
+    },
+    "moving": {
+        "base_stimulus": {
+            "class": "StaticStimulus",
+            "stim_type": "gaussian",
+            "params": {
+                "amplitude": 30.0,
+                "sigma": 1.0,
+                "center_x": 0.0,
+                "center_y": 0.0,
+            },
+        },
+        "motion_type": "linear",
+        "motion_params": {"start": (-2.0, 0.0), "end": (2.0, 0.0)},
+    },
+}
+
+
+def _apply_legacy_defaults(
+    stimulus_type: str, params: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Fill in legacy-generator defaults for keys *params* does not set.
+
+    Args:
+        stimulus_type: The registered name.
+        params: Caller-supplied parameters (not mutated).
+
+    Returns:
+        A new dict: *params* with any missing legacy-default key added.
+    """
+    defaults = _LEGACY_DEFAULTS.get(stimulus_type)
+    if not defaults:
+        return params
+    merged = dict(params)
+    for key, value in defaults.items():
+        merged.setdefault(key, value)
+    return merged
+
 
 def _temporal_envelope(
     time_ms: torch.Tensor,
@@ -213,6 +331,7 @@ def _render_registered(
     device: str,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     cls = STIMULUS_REGISTRY.get_class(stimulus_type)
+    params = _apply_legacy_defaults(stimulus_type, params)
 
     # The temporal-envelope keys (ramp_up_ms/plateau_ms/ramp_down_ms/
     # total_ms) are render_stimulus's own vocabulary for expanding a

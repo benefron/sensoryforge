@@ -50,15 +50,6 @@ def _canonical_batch_config(output_dir, n_amplitudes=3):
                     "type": "gaussian",
                     "parameters": {
                         "amplitude": [float(i) for i in range(10, 10 + n_amplitudes)],
-                        # Explicit sigma (Wave K, K1/F-052): "gaussian" is now
-                        # rendered by the registered GaussianStimulus class
-                        # (via render_stimulus), whose own default sigma is
-                        # 0.2 mm -- far narrower than this 6x6 grid's 1.0 mm
-                        # spacing, which would drive no receptor at all
-                        # regardless of amplitude. An explicit sigma keeps
-                        # the test's own intent (distinct amplitudes) in
-                        # control, independent of that class default.
-                        "sigma": 3.0,
                     },
                     "repetitions": 1,
                 }
