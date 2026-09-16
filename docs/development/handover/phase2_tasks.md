@@ -572,14 +572,26 @@ class PopulationInput:
 ```
 
 `PopulationConfig` gains `inputs: list[PopulationInput]` and `combine: str = "sum"`. The existing
-single-input fields (`target_grid`, `innervation_method`, `sigma_d_mm`, `connections_per_neuron`,
-`use_distance_weights`, `resolvable_distance_mm`, `innervation_params`) stay and are **sugar**:
+single-input fields stay and are **sugar**. As of Wave L that set is `target_grid`, `target_layers`,
+`innervation_method`, `sigma_d_mm`, `connections_per_neuron`, `use_distance_weights`,
+`resolvable_distance_mm` and `innervation_params`. Read the dataclass rather than trusting this list:
+Wave L added `target_layers` to `PopulationConfig` and `channel` to `StimulusConfig`, and a field
+added after this was written must not be silently dropped by the expansion.
+
+The sugar works like this:
 `from_dict` expands them into exactly one `PopulationInput`, and `to_dict` writes the short form
 back when there is exactly one input whose fields fit it. Every existing config must round-trip to
 byte-identical YAML. Test that explicitly over `examples/*.yml` and the Wave K presets.
 
 Setting both the sugar fields and `inputs` in one population raises `ValueError` naming the
 population, the same way the Wave I template builder rejects both parameter forms.
+
+**Wave L's `to_dict` contract must survive.** `GridConfig.to_dict` now omits `channels` when it is
+the single-channel default, and omits `coords_file` and `layers` when empty, precisely so existing
+configs serialise byte for byte. Apply the same discipline to `inputs` and `combine`: a population
+that has exactly one input expressible as sugar must write the sugar and nothing else. The
+round-trip test over `examples/*.yml` and the Wave K presets is what proves it, and it is not
+optional.
 
 #### M2. The engine builds and combines one bank per input
 
