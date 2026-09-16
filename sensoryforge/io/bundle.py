@@ -10,6 +10,8 @@ bundle_dir/
     population_02_<NAME>.pt
     stimuli/
         stimulus.json
+    neuron_modules/
+        sensoryforge.json     # schema_version "1.0.0", kind "neuron_module" (J6)
     data.h5                   # /stimulus/frames, /time_ms, /populations/<name>/...
 ```
 
@@ -252,6 +254,48 @@ def write_bundle(
     # ------------------------------------------------------------------ #
     with open(bundle_dir / "stimuli" / "stimulus.json", "w") as f:
         json.dump(stimulus_config or {}, f, indent=2)
+
+    # ------------------------------------------------------------------ #
+    # neuron_modules/sensoryforge.json (J6)
+    #
+    # Without this, pressure-simulation's viewer (GUIs/ebkf_viewer.py
+    # _on_load_bundle) loads config.json and the population tensors fine,
+    # but its "neuron module" combo box stays empty (it globs
+    # neuron_modules/*.json) and its Run button never enables -- the
+    # bundle displays but can never be encoded. _on_run only reads
+    # "enabled", "name", "neuron_type", "filter_method", "noise_std",
+    # "model_params" and "filter_params" from each population_configs
+    # entry (it never reads "model" -- kept here as metadata only -- and
+    # always overrides "input_gain" with its own spinboxes); it matches
+    # entries to populations by exact "name" against config.json's
+    # populations[*].name, so this uses the *raw* population name (not
+    # the filesystem-safe one the .pt filenames use).
+    # ------------------------------------------------------------------ #
+    (bundle_dir / "neuron_modules").mkdir(exist_ok=True)
+    neuron_module = {
+        "schema_version": "1.0.0",
+        "kind": "neuron_module",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "stimulus": "stimulus.json",
+        "device": str(engine.device),
+        "population_configs": [
+            {
+                "name": name,
+                "neuron_type": pop_by_name[name]["config"].neuron_type,
+                "model": pop_by_name[name]["config"].neuron_model,
+                "filter_method": pop_by_name[name]["config"].filter_method,
+                "enabled": pop_by_name[name]["config"].enabled,
+                "input_gain": pop_by_name[name]["config"].input_gain,
+                "noise_std": pop_by_name[name]["config"].noise_std,
+                "model_params": dict(pop_by_name[name]["config"].model_params or {}),
+                "filter_params": dict(pop_by_name[name]["config"].filter_params or {}),
+                "selected_neuron": 0,
+            }
+            for name in results
+        ],
+    }
+    with open(bundle_dir / "neuron_modules" / "sensoryforge.json", "w") as f:
+        json.dump(neuron_module, f, indent=2)
 
     # ------------------------------------------------------------------ #
     # data.h5

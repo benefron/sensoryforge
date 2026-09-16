@@ -12,6 +12,8 @@ bundle_dir/
     population_02_<NAME>.pt   # one file per population
     stimuli/
         stimulus.json         # the stimulus's own config dict
+    neuron_modules/
+        sensoryforge.json     # schema_version "1.0.0", kind "neuron_module"
     data.h5                   # frames, time axis, per-population drive/filtered/spikes
 ```
 
@@ -55,6 +57,46 @@ hood for every population's `bank`.
 
 The stimulus's own config dict (type and parameters), or `{}` if the caller didn't
 provide one.
+
+## `neuron_modules/sensoryforge.json`
+
+Without this file, pressure-simulation's viewer loads and displays a bundle but can
+never run it: `_on_load_bundle` populates its "Neuron Module" combo box from
+`sorted((bundle_dir / "neuron_modules").glob("*.json"))`, and its Run button is only
+enabled once both that combo and the stimulus combo are non-empty. One file,
+`sensoryforge.json`, carries every population's neuron/filter configuration:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "kind": "neuron_module",
+  "created_at": "2026-09-16T12:00:00+00:00",
+  "stimulus": "stimulus.json",
+  "device": "cpu",
+  "population_configs": [
+    {
+      "name": "SA Population",
+      "neuron_type": "SA",
+      "model": "izhikevich",
+      "filter_method": "sa",
+      "enabled": true,
+      "input_gain": 50.0,
+      "noise_std": 0.0,
+      "model_params": {},
+      "filter_params": {},
+      "selected_neuron": 0
+    }
+  ]
+}
+```
+
+`_on_run` (the viewer's encode step) reads only `enabled`, `name`, `neuron_type`,
+`filter_method`, `noise_std`, `model_params` and `filter_params` from each entry --
+`model` is metadata (never read there) and `input_gain` is always overridden by the
+viewer's own gain spinboxes. It matches an entry to a population by exact `name`
+against `config.json`'s `populations[*].name` and silently drops any entry that
+doesn't match, so `name` here is the *raw* population name, not the filesystem-safe
+form `population_NN_<NAME>.pt` uses.
 
 ## `data.h5`
 

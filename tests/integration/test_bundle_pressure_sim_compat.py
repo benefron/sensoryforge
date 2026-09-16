@@ -173,3 +173,107 @@ class TestDroppedFieldBreaksCompat:
 
         with pytest.raises((KeyError, TypeError, AttributeError)):
             _load_like_pressure_sim(bundle_dir)
+
+
+class TestRunButtonWouldEnable:
+    """`_on_load_bundle` ends with::
+
+        self.btn_run.setEnabled(
+            self.combo_stimulus.count() > 0 and self.combo_neuron.count() > 0
+        )
+
+    where ``combo_stimulus`` is populated from ``sorted(stim_dir.glob("*.json"))``
+    (``stim_dir = bundle_dir / "stimuli"``) and ``combo_neuron`` from
+    ``sorted(nm_dir.glob("*.json"))`` (``nm_dir = bundle_dir / "neuron_modules"``).
+    A bundle with no ``neuron_modules/*.json`` loads and displays in the viewer
+    but its Run button never enables, so it can never be encoded (J6).
+    """
+
+    def test_both_combo_globs_are_non_empty(self, tmp_path):
+        bundle_dir, _, _ = _write_test_bundle(tmp_path)
+        stim_dir = bundle_dir / "stimuli"
+        nm_dir = bundle_dir / "neuron_modules"
+
+        combo_stimulus_items = sorted(stim_dir.glob("*.json"))
+        combo_neuron_items = sorted(nm_dir.glob("*.json"))
+
+        run_button_would_enable = (
+            len(combo_stimulus_items) > 0 and len(combo_neuron_items) > 0
+        )
+        assert run_button_would_enable, (
+            f"stimuli/*.json: {combo_stimulus_items}, "
+            f"neuron_modules/*.json: {combo_neuron_items}"
+        )
+
+
+class TestNeuronModuleContent:
+    """``_on_run`` (``GUIs/ebkf_viewer.py`` lines 738-758) reads only
+    ``enabled``, ``name``, ``neuron_type``, ``filter_method``, ``noise_std``,
+    ``model_params`` and ``filter_params`` from each ``population_configs``
+    entry (``model`` is metadata only -- never read; ``input_gain`` is always
+    overridden by the viewer's own spinboxes). It matches an entry to a
+    population by exact ``name`` against ``config.json``'s
+    ``populations[*].name`` (``if name not in self._innervation: continue`` --
+    a non-matching entry is silently dropped, not an error), so the name must
+    be the *raw* population name, not the filesystem-safe one the ``.pt``
+    filenames use.
+    """
+
+    REQUIRED_KEYS = {
+        "enabled",
+        "name",
+        "neuron_type",
+        "filter_method",
+        "noise_std",
+        "model_params",
+        "filter_params",
+    }
+
+    def test_neuron_module_json_parses_with_schema_tag(self, tmp_path):
+        bundle_dir, _, _ = _write_test_bundle(tmp_path)
+        nm_files = sorted((bundle_dir / "neuron_modules").glob("*.json"))
+        assert len(nm_files) == 1
+        with open(nm_files[0]) as f:
+            nm = json.load(f)
+        assert nm["schema_version"] == "1.0.0"
+        assert nm["kind"] == "neuron_module"
+        assert "population_configs" in nm
+
+    def test_one_entry_per_population_with_required_keys(self, tmp_path):
+        bundle_dir, _, _ = _write_test_bundle(tmp_path)
+        with open(bundle_dir / "config.json") as f:
+            cfg = json.load(f)
+        pop_names_in_config = [p["name"] for p in cfg["populations"]]
+
+        nm_path = next((bundle_dir / "neuron_modules").glob("*.json"))
+        with open(nm_path) as f:
+            nm = json.load(f)
+        pop_configs = nm["population_configs"]
+
+        assert len(pop_configs) == len(pop_names_in_config)
+        for pc in pop_configs:
+            assert self.REQUIRED_KEYS <= set(pc), pc
+
+    def test_names_match_config_json_population_names_exactly(self, tmp_path):
+        """The viewer drops any population_configs entry whose name does not
+        exactly match a config.json population name -- prove ours do (not
+        the `_safe_name`-mangled .pt filename form).
+        """
+        bundle_dir, _, _ = _write_test_bundle(tmp_path)
+        with open(bundle_dir / "config.json") as f:
+            cfg = json.load(f)
+        pop_names_in_config = {p["name"] for p in cfg["populations"]}
+
+        nm_path = next((bundle_dir / "neuron_modules").glob("*.json"))
+        with open(nm_path) as f:
+            nm = json.load(f)
+
+        # Loader semantics: `if name not in self._innervation: continue`.
+        matched = [
+            pc for pc in nm["population_configs"] if pc["name"] in pop_names_in_config
+        ]
+        assert len(matched) == len(nm["population_configs"]), (
+            "some neuron_module population_configs entries would be silently "
+            f"dropped by the viewer: {nm['population_configs']} vs. config.json "
+            f"names {pop_names_in_config}"
+        )
