@@ -293,7 +293,7 @@ No sub-stepping: SimulationConfig.dt=1.0 ms (schema.py:326) is fed straight to t
 docs_root/SCIENTIFIC_HYPOTHESIS.md is pressure-simulation's Oct-2025 draft: headlines the retired "SA/FA sufficient to reconstruct" hypothesis and the retired 4-population plan; CLAUDE.md/Cursor skills still name it as grounding
 → commit 7a188b6
 
-## F-010 · OPEN · finding · - · 2026-09-14
+## F-010 · CLOSED · finding · - · 2026-09-14
 SimulationEngine: composite grids NotImplementedError (:98); poisson/hex/jittered/blue_noise arrangements built then ignored, innervation uses the regular GridManager (:107-125,:224-243); DSL neurons cannot be instantiated (:260-264, dsl_config never read); _stimulus_to_receptors is a passthrough (:425-448)
 → commit 7a188b6
 

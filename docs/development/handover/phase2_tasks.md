@@ -103,7 +103,12 @@ Verified on `a513dfc` during the Phase 1 close-out.
 5. **Keep deprecated wrappers for one phase.** When a public class is replaced (for example
    `InnervationModule`), keep a thin wrapper that emits `DeprecationWarning` and delegates, so user
    scripts keep working until Phase 4.
-6. **Never run `pip install -e .` from a worktree** (F-053). The conda environment is shared by every
+6. **`Finding:` opens a numbered ledger entry; it is not a progress note.** Use it only to record a
+   *new* problem, with a self-contained one-line description someone can act on a year from now.
+   Annotating which part of an existing finding a commit addresses belongs in the commit body, not a
+   trailer. Wave L wrote `Finding: F-010 (part 1 of 4)` on three commits and opened three empty
+   findings that had to be deleted by hand at the merge.
+7. **Never run `pip install -e .` from a worktree** (F-053). The conda environment is shared by every
    worktree, and an editable install rewrites one global pointer. A parallel wave that reinstalls
    repoints every other checkout at its own code, and the damage is invisible: in-process pytest keeps
    working because the working directory is on `sys.path`, while anything launched as a subprocess
