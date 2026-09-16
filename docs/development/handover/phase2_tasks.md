@@ -231,19 +231,53 @@ All suites pass in one process each; golden parity and contract tests pass; F-05
 ## 5. Waves J to N (outline; detailed after Wave I's review)
 
 ### Wave J — the data bundle (F-013, F-011)
-- `sensoryforge/io/bundle.py` with `write_bundle(run_dir, config, engine, results, stimulus)` and
-  `load_bundle(run_dir)`.
-- Layout, a superset of pressure-simulation's format: `config.json` (`schema_version "2.0.0"`, `kind
-  "sensoryforge_bundle"`, plus the 1.0.0 fields its viewer reads), `population_NN_<name>.pt`
-  (`ReceptiveFieldBank.save` output), `stimuli/*.json`, and `data.h5` (`/stimulus/frames [T, C, H, W]`,
-  `/time_ms [T]`, attributes `dt_ms`, `integrate_dt_ms`; `/populations/<name>/{drive, filtered, spikes
-  (int counts) | state}` `[T, N]`; `/meta` with the full config YAML, seed and versions).
-- Writers: `SimulationEngine.run(..., bundle_dir=...)`, GUI auto-save, and `BatchExecutor` (one bundle
-  per stimulus; HDF5 becomes the default; the monolithic `.pt` is removed). `sensoryforge export-bundle`.
-- SLURM: `generate_slurm_script` emits `sensoryforge batch --task-index $SLURM_ARRAY_TASK_ID` and that
-  flag exists (F-011).
-- Acceptance includes a test that runs pressure-simulation's viewer loader logic on a SensoryForge bundle.
-  `h5py` becomes required for this wave (`pip install -e ".[hdf5]"` in the environment and in CI).
+
+The bundle is the contract with pressure-simulation and with any learning pipeline. Section 2 of this
+file records the format its viewer reads and the receptor ordering that weights follow.
+
+#### J1. `sensoryforge/io/bundle.py` — writer and reader
+- **Files:** new `sensoryforge/io/__init__.py`, `sensoryforge/io/bundle.py`, `tests/unit/test_bundle_io.py`.
+- **Do:** `write_bundle(bundle_dir, config, engine, results, stimulus, *, stimulus_config=None, seed=None, overwrite=False) -> Path` writing:
+
+  | Path | Contents |
+  |---|---|
+  | `config.json` | `schema_version "2.0.0"`, `kind "sensoryforge_bundle"`, plus every field pressure-simulation's 1.0.0 loader reads: `grid {rows, cols, spacing_mm, center_mm, device}` and `populations [{name, neuron_type, color, parameters{neurons_per_row, connections_per_neuron, sigma_d_mm, weight_min, weight_max, seed, edge_offset}, tensors: "population_01_<NAME>.pt", visible}]`; plus `sensoryforge_version`, the full canonical config, and `bundle_created` (ISO-8601 UTC) |
+  | `population_NN_<NAME>.pt` | exactly `ReceptiveFieldBank.save()` output: `innervation_weights [N, M]`, `neuron_centers [N, 2]`, `receptor_coords [M, 2]`, `provenance`, plus `grid_shape [rows, cols]` so a consumer can reshape to `[N, rows, cols]` |
+  | `stimuli/stimulus.json` | the stimulus config dict (empty dict if unknown) |
+  | `data.h5` | `/stimulus/frames` `[T, H, W]` or `[T, C, H, W]` float32 gzip-4; `/time_ms [T]`; `/populations/<name>/{drive, filtered, spikes|state}` `[T, N]` (spikes as int16 counts, gzip-4); root attributes `dt_ms`, `integrate_dt_ms`, `seed`, `sensoryforge_version`; `/meta` attributes `config_yaml` and `provenance_json` |
+
+  `load_bundle(bundle_dir) -> Bundle` returns a dataclass with `config` (`SensoryForgeConfig`), `banks` (name → `ReceptiveFieldBank`), `stimulus`, `time_ms`, `populations` (name → dict of arrays), `meta`. Both functions take `str | Path`. Raise `ValueError` naming the file when `schema_version` is missing or its major version is not 2.
+- **Done when:** a round-trip test writes a two-population run and reads it back with tensors bit-identical and config equal; `h5py` datasets have the documented names, shapes, dtypes and attributes; `[T, C, H, W]` stimuli round-trip; a missing/incompatible `schema_version` raises; the test fails on the wave's base commit.
+- **Trailers:** none.
+
+#### J2. The engine and CLI write bundles
+- **Files:** `sensoryforge/core/simulation_engine.py` (`run`), `sensoryforge/cli.py` (`cmd_run`), `tests/integration/test_bundle_cli.py`.
+- **Do:** `SimulationEngine.run(..., bundle_dir=None)` writes a bundle when given (it already has the config, banks and results; it must pass `return_intermediates=True` internally when a bundle is requested so `drive` and `filtered` exist). Add `sensoryforge run --bundle DIR`. Keep `--output` working.
+- **Done when:** a CLI test runs a canonical config with `--bundle`, then `load_bundle` reads it and the spike array matches the `--output` `.pt` from the same seed; fails on the base commit.
+- **Trailers:** none.
+
+#### J3. Batch writes one bundle per stimulus, and SLURM works (F-011, F-013)
+- **Files:** `sensoryforge/core/batch_executor.py`, `sensoryforge/cli.py` (`cmd_batch`, `create_parser`), `tests/unit/test_batch_executor_bundles.py`.
+- **Do:** `BatchExecutor` writes `<output_dir>/<batch_id>/stim_%04d/` bundles, with `batch_metadata.json` and `stimulus_index.json` at the batch root; HDF5 becomes the default output format and the monolithic consolidated `.pt` is removed (`format: pytorch` now means per-bundle `.pt` payloads only). Add `sensoryforge batch --task-index N` running exactly one stimulus index, and make `generate_slurm_script` emit an array job that calls it (with `--output`), so every flag it emits exists.
+- **Done when:** a batch of three stimuli produces three readable bundles with distinct spike arrays; `--task-index 1` reproduces bundle 1 exactly; a test asserts every flag in the generated SLURM script is accepted by `create_parser()` (parse the script's `sensoryforge ...` line and feed it to the parser); fails on the base commit.
+- **Trailers:** `Closes: F-011`, `Closes: F-013`.
+
+#### J4. pressure-simulation can read our bundles
+- **Files:** `tests/integration/test_bundle_pressure_sim_compat.py`.
+- **Do:** re-implement pressure-simulation's loader steps in the test (do not import that repo): read `config.json`, for each population entry load its `tensors` file, accept `innervation_weights`/`weights`/`W`, reshape `[N, M]` to `[N, rows, cols]` using `grid_shape`, and check `neuron_centers` shape; then rebuild the drive as that repo does (`stimulus.view(T, H*W) @ W.T`) and assert it equals the bundle's stored `drive` to 1e-6.
+- **Done when:** the test passes on a freshly written bundle and fails if `config.json` drops any 1.0.0 field (parametrise one deletion).
+- **Trailers:** none.
+
+#### J5. Document the bundle
+- **Files:** new `docs/user_guide/bundles.md`, new `docs/examples/read_bundle.py`, `mkdocs.yml`, `CHANGELOG.md`.
+- **Do:** document the layout table, units and dtypes, how to load in torch/numpy/pandas, how spikes-as-counts differ from a binary raster, and how pressure-simulation reads it. The executed example writes a small bundle and reads it back.
+- **Done when:** `mkdocs build --strict` passes and `pytest tests/docs` executes the example.
+- **Trailers:** none.
+
+#### Wave J exit
+All suites pass in one process each; golden parity and contract tests pass; F-011 and F-013 closed;
+from a wheel installed outside the repo, `sensoryforge run --bundle` and `sensoryforge batch` produce
+bundles that `load_bundle` reads.
 
 ### Wave K — the pressure-simulation recipe
 - Presets under `sensoryforge/presets/`: `tactile_sa1_ra1.yml` (SA regular-spiking, RA fast-spiking,
@@ -266,9 +300,65 @@ imported layouts are correct, and composite grids in `SimulationEngine` (remove 
 an `on_off` centre-surround layer as the first non-trivial processing plugin.
 
 ### Wave N — analog readouts and DSL neurons in the engine (F-010, part)
-Optional `threshold`/`reset` in `neurons/model_dsl.py`, outputs labelled `state` when there are no spikes,
-the engine instantiating DSL models (`from_config` then `compile`), and GUI trace plots for analog
-populations.
+
+A population may read out a continuous state instead of spikes. This is the "or not spiking, if we go
+the DSL path" half of the project's purpose, and it is independent of Waves J to M.
+
+#### N1. DSL models without a spike condition
+- **Files:** `sensoryforge/neurons/model_dsl.py`, `tests/unit/test_dsl_analog.py`.
+- **Do:** make `threshold` and `reset` optional in `NeuronModel.__init__`, `_validate_model` and
+  `from_config` (today all three require them). With no threshold the compiled module integrates the
+  equations and returns `(state_trace, None)`; `get_param_spec()` and `to_dict()` round-trip the optional
+  fields. Keep the Euler-only restriction and its error message.
+- **Done when:** a leaky-integrator DSL model (`dv/dt = (-(v - v_rest) + R*I) / tau_m`, no threshold)
+  compiles and returns a state trace of shape `[batch, steps+1, features]` with `spikes is None`, its
+  values match a hand-written Euler integration to 1e-6, a model *with* a threshold still spikes exactly
+  as before (compare against a recorded array), and `to_dict()/from_config()` round-trip both; fails on
+  the base commit.
+- **Trailers:** none.
+
+#### N2. The shared backend labels analog output
+- **Files:** `sensoryforge/core/simulation_engine.py` (`_run_pop_from_drive`), `sensoryforge/neurons/base.py`
+  (docstring: `spikes` may be `None`), `sensoryforge/testing/contracts.py`, `tests/unit/test_analog_readout.py`.
+- **Do:** when a neuron returns `None` spikes, the result dict carries `"state"` `[batch, T, N]` (bin-end
+  samples, the same reduction voltages already use) and no `"spikes"` key; spiking models are unchanged.
+  `SimulationEngine.run` propagates whichever key exists.
+- **Done when:** a spiking population still returns `spikes` with identical values to the base commit for a
+  fixed seed, an analog population returns `state` and no `spikes`, and both shapes are `[1, T, N]`.
+- **Trailers:** none.
+
+#### N3. The engine builds DSL neurons (F-010, DSL half)
+- **Files:** `sensoryforge/core/simulation_engine.py` (`_build_populations`), `sensoryforge/config/schema.py`
+  (`PopulationConfig.readout`), `tests/integration/test_engine_dsl.py`.
+- **Do:** when `neuron_model` resolves to the DSL model, build it as `NeuronModel.from_config(pop_cfg.dsl_config)`
+  then `.compile(dt=integrate_dt_ms, device=...)`, instead of calling the class with `dt=`/`noise_std=`
+  (which raises today). Add `PopulationConfig.readout: str = "auto"` (`"auto"` infers analog when the DSL
+  config has no threshold; `"spiking"`/`"analog"` force it, raising if impossible). Give a clear `ValueError`
+  when `neuron_model` is DSL and `dsl_config` is missing.
+- **Done when:** a canonical config with a DSL leaky integrator runs end to end through `SimulationEngine`
+  and returns `state`; a DSL model with a threshold returns `spikes`; the missing-`dsl_config` error is
+  tested; every case fails on the base commit (today it raises `TypeError`/`ValueError: Unknown neuron model`).
+- **Trailers:** `Opens:` a finding for whatever of F-010 remains (composite grids and non-grid receptor
+  sampling are Wave L) if you touch that code; otherwise none.
+
+#### N4. The GUI shows analog populations
+- **Files:** `sensoryforge/gui/tabs/spiking_tab.py`, `tests/unit/test_gui_analog.py` (gui-marked).
+- **Do:** when a population's result has `state` instead of `spikes`, plot the state trace in place of the
+  raster and label the axis with the state variable's name; the raster panel stays for spiking populations.
+  Do not redesign the tab.
+- **Done when:** a gui test builds an analog population, simulates, and asserts the trace panel has data and
+  no raster points; the GUI suite passes in one process.
+- **Trailers:** none.
+
+#### N5. Document analog readouts
+- **Files:** new `docs/user_guide/analog_readouts.md`, new `docs/examples/analog_dsl.py`, `mkdocs.yml`,
+  `CHANGELOG.md`, `CLAUDE.md` (Data Flow shows spiking or analog readout).
+- **Done when:** `mkdocs build --strict` passes; `pytest tests/docs` executes the example.
+- **Trailers:** none.
+
+#### Wave N exit
+All suites pass in one process each; a canonical config with one spiking and one analog population runs
+from a wheel installed outside the repo; spiking results are unchanged from the base commit.
 
 ---
 
