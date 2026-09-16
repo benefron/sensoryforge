@@ -105,7 +105,12 @@ def _assert_param_spec(cls: type) -> None:
 
 
 def _check_neuron(cls: type, instance: Any) -> None:
-    """Canonical neuron shape: [batch, steps, features] -> v/spikes [batch, steps+1, features]."""
+    """Canonical neuron shape: [batch, steps, features] -> v/spikes [batch, steps+1, features].
+
+    ``spikes`` may be ``None`` (Phase 2, N2) for an analog (non-spiking)
+    readout -- e.g. a DSL-compiled model with no threshold (N1); only
+    ``v_trace``'s shape is then checked.
+    """
     _assert_param_spec(cls)
     current = torch.randn(1, 5, 3)
     v_trace, spikes = instance(current)
@@ -114,7 +119,7 @@ def _check_neuron(cls: type, instance: Any) -> None:
             f"{cls.__name__} forward(): expected v_trace shape (1, 6, 3), "
             f"got {tuple(v_trace.shape)}"
         )
-    if tuple(spikes.shape) != (1, 6, 3):
+    if spikes is not None and tuple(spikes.shape) != (1, 6, 3):
         raise AssertionError(
             f"{cls.__name__} forward(): expected spikes shape (1, 6, 3), "
             f"got {tuple(spikes.shape)}"

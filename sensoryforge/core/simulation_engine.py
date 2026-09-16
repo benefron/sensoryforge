@@ -388,7 +388,9 @@ class SimulationEngine:
             itself a dict of tensors shaped `[batch, time, num_neurons]` -- the sub-step spike
             count per record bin under the key spikes (F-008; use greater-than-zero for a binary
             raster), and, only when return_intermediates is True, drive and filtered (both mA)
-            and voltages (mV).
+            and voltages (mV). A population whose neuron model has no spike condition (an analog
+            DSL model with no threshold, N1/N2) carries state (its readout trace) instead of
+            spikes, and has no spikes key at all -- see `_run_pop_from_drive`.
 
         Examples:
             >>> from sensoryforge.config.schema import SensoryForgeConfig
@@ -498,6 +500,11 @@ class SimulationEngine:
             counts per record bin, ``[batch, time, num_neurons]``) and, if
             *return_intermediates* is ``True``, also ``"drive"``,
             ``"filtered"``, and optionally ``"voltages"`` (at bin ends).
+            When ``neuron_model`` has no spike condition (N1/N2 -- an analog
+            DSL model with no threshold, ``forward()`` returns
+            ``(state_trace, None)``), the dictionary carries ``"state"``
+            (bin-end samples, ``[batch, time, num_neurons]``) instead, and
+            has no ``"spikes"`` key at all.
         """
         import torch as _torch  # local import to keep signature clean
 
@@ -537,6 +544,29 @@ class SimulationEngine:
 
         batch, _, num_neurons = filtered.shape
         time_steps = filtered.shape[1]
+
+        if spikes_sub is None:
+            # Analog readout (N2): the neuron model has no spike condition
+            # (e.g. a thresholdless DSL model, N1) and returned only a state
+            # trace. Reduce it the same way "voltages" already is -- the
+            # bin-end sample of each bin's n_substeps sub-steps -- and carry
+            # it as "state" instead of "spikes"; no "spikes" key at all.
+            if v_trace_sub is None:
+                raise ValueError(
+                    "neuron_model returned no spikes and no state trace; "
+                    "expected forward() to return (state_trace, None) for "
+                    "an analog readout."
+                )
+            v_trace_sub = v_trace_sub[:, 1:, :]
+            state = v_trace_sub.view(batch, time_steps, n_substeps, num_neurons)[
+                :, :, -1, :
+            ]
+
+            pop_results: Dict[str, Any] = {"state": state}
+            if return_intermediates:
+                pop_results["drive"] = drive
+                pop_results["filtered"] = filtered
+            return pop_results
 
         # Drop the initial sample (index 0), then collapse each bin's
         # n_substeps sub-steps: sum -> integer spike count per bin.
