@@ -16,7 +16,7 @@ components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
@@ -73,8 +73,9 @@ def render_stimulus(
     dt_ms: float,
     duration_ms: Optional[float] = None,
     device: str = "cpu",
+    channels: Optional[List[str]] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Render a named stimulus to ``[T, H, W]`` frames on a fixed time axis.
+    """Render a named stimulus to frames on a fixed time axis.
 
     Args:
         stimulus_type: A name in ``STIMULUS_REGISTRY`` (any built-in or
@@ -83,7 +84,11 @@ def render_stimulus(
             knows (``trapezoidal``, ``step``, ``ramp``, ``custom``).
         params: Stimulus-specific parameters, passed to
             ``cls.from_config(params)`` for a registered stimulus, or as
-            ``**stimulus_params`` to the legacy pipeline's generator.
+            ``**stimulus_params`` to the legacy pipeline's generator. May
+            include ``"channel"`` (from ``StimulusConfig.channel``, Phase 2
+            Wave L), naming which of *channels* this stimulus fills; that
+            key is stripped before construction, never passed to the
+            stimulus class itself.
         xx: X-coordinate meshgrid ``[H, W]`` in mm.
         yy: Y-coordinate meshgrid ``[H, W]`` in mm.
         dt_ms: Time step in ms, used to build the time axis for a registered
@@ -95,29 +100,68 @@ def render_stimulus(
             for a single-frame stimulus, the temporal-envelope parameters)
             determine the length.
         device: Torch device string for the returned tensors.
+        channels: The target grid's channel names (``GridConfig.channels``,
+            Phase 2 Wave L), or ``None``/a single name for the ordinary
+            single-channel case. With more than one channel, the rendered
+            stimulus fills the plane named by ``params["channel"]``
+            (default: ``channels[0]``) of a ``[T, C, H, W]`` tensor whose
+            other planes are zero -- composing several stimulus configs
+            with different ``channel`` values (each its own
+            :func:`render_stimulus` call) into one multi-channel tensor is
+            the caller's job (they are summed elementwise: each call's
+              non-target planes are already zero). See
+            ``docs/concepts/units_and_shapes.md``.
 
     Returns:
-        ``(frames, time_ms)``: frames ``[T, H, W]`` float32, time_ms ``[T]``.
+        ``(frames, time_ms)``: frames ``[T, H, W]`` float32 when *channels*
+        has at most one entry, else ``[T, C, H, W]``; ``time_ms`` is
+        ``[T]`` either way.
 
     Raises:
         ValueError: If ``stimulus_type`` is not registered and not one of
-            the legacy pipeline's names, listing the registered names.
+            the legacy pipeline's names, listing the registered names; or
+            if ``params["channel"]`` names a channel not in *channels*.
     """
+    params = dict(params)
+    channel_name = params.pop("channel", None)
+
     if STIMULUS_REGISTRY.is_registered(stimulus_type):
-        return _render_registered(
+        frames, time_ms = _render_registered(
+            stimulus_type, params, xx, yy, dt_ms, duration_ms, device
+        )
+    else:
+        # Fall back to the legacy pipeline's chain for names that are not
+        # (and may never be) registered components: trapezoidal, step,
+        # ramp, custom.
+        legacy_names = {"trapezoidal", "step", "ramp", "custom"}
+        if stimulus_type not in legacy_names:
+            raise ValueError(
+                f"Unknown stimulus type {stimulus_type!r}. Registered "
+                f"stimuli: {STIMULUS_REGISTRY.list_registered()}. Legacy "
+                f"pipeline names: {sorted(legacy_names)}."
+            )
+        frames, time_ms = _render_legacy(
             stimulus_type, params, xx, yy, dt_ms, duration_ms, device
         )
 
-    # Fall back to the legacy pipeline's chain for names that are not (and
-    # may never be) registered components: trapezoidal, step, ramp, custom.
-    legacy_names = {"trapezoidal", "step", "ramp", "custom"}
-    if stimulus_type not in legacy_names:
+    if channels is None or len(channels) <= 1:
+        return frames, time_ms
+
+    target = channel_name if channel_name is not None else channels[0]
+    if target not in channels:
         raise ValueError(
-            f"Unknown stimulus type {stimulus_type!r}. Registered stimuli: "
-            f"{STIMULUS_REGISTRY.list_registered()}. Legacy pipeline names: "
-            f"{sorted(legacy_names)}."
+            f"render_stimulus: channel {target!r} is not one of {channels}"
         )
-    return _render_legacy(stimulus_type, params, xx, yy, dt_ms, duration_ms, device)
+    index = channels.index(target)
+    multi = torch.zeros(
+        frames.shape[0],
+        len(channels),
+        *frames.shape[1:],
+        dtype=frames.dtype,
+        device=device,
+    )
+    multi[:, index] = frames
+    return multi, time_ms
 
 
 def _time_axis(dt_ms: float, duration_ms: float, device: str) -> torch.Tensor:

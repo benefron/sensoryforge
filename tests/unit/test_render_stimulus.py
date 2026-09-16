@@ -142,3 +142,98 @@ class TestSequenceStimulusTruncationAndPadding:
         frames, time_ms = render_stimulus("_fixed_length_probe", {}, xx, yy, dt_ms=1.0)
         assert frames.shape[0] == 20
         assert time_ms.numel() == 20
+
+
+class TestChannelAxis:
+    """GridConfig.channels / StimulusConfig.channel (Phase 2, Wave L; added to
+    render_stimulus after K6, docs/concepts/units_and_shapes.md)."""
+
+    def test_none_or_single_channel_keeps_three_d_shape(self, coords8):
+        xx, yy = coords8
+        frames, _ = render_stimulus(
+            "gaussian", {"amplitude": 1.0}, xx, yy, dt_ms=1.0, duration_ms=3.0
+        )
+        assert frames.dim() == 3
+
+        frames, _ = render_stimulus(
+            "gaussian",
+            {"amplitude": 1.0},
+            xx,
+            yy,
+            dt_ms=1.0,
+            duration_ms=3.0,
+            channels=["value"],
+        )
+        assert frames.dim() == 3
+
+    def test_two_channels_fills_only_the_named_plane(self, coords8):
+        xx, yy = coords8
+        frames, time_ms = render_stimulus(
+            "gaussian",
+            {"amplitude": 5.0, "sigma": 0.3, "channel": "R"},
+            xx,
+            yy,
+            dt_ms=1.0,
+            duration_ms=3.0,
+            channels=["R", "G"],
+        )
+        assert tuple(frames.shape) == (time_ms.numel(), 2, *xx.shape)
+        assert frames[:, 0].abs().sum() > 0  # R plane has the stimulus
+        assert torch.all(frames[:, 1] == 0.0)  # G plane stays zero
+
+    def test_two_channels_default_targets_first_channel(self, coords8):
+        xx, yy = coords8
+        frames, _ = render_stimulus(
+            "gaussian",
+            {"amplitude": 5.0, "sigma": 0.3},  # no "channel" key
+            xx,
+            yy,
+            dt_ms=1.0,
+            duration_ms=3.0,
+            channels=["R", "G"],
+        )
+        assert frames[:, 0].abs().sum() > 0
+        assert torch.all(frames[:, 1] == 0.0)
+
+    def test_unknown_channel_name_raises(self, coords8):
+        xx, yy = coords8
+        with pytest.raises(ValueError, match="not one of"):
+            render_stimulus(
+                "gaussian",
+                {"amplitude": 1.0, "channel": "B"},
+                xx,
+                yy,
+                dt_ms=1.0,
+                duration_ms=3.0,
+                channels=["R", "G"],
+            )
+
+    def test_two_calls_with_different_channels_compose_by_summing(self, coords8):
+        """The caller's job (per docs/concepts/units_and_shapes.md): summing
+        two render_stimulus calls, each targeting a different channel,
+        composes into one multi-channel tensor since each call's
+        non-target planes are zero."""
+        xx, yy = coords8
+        frames_r, _ = render_stimulus(
+            "gaussian",
+            {"amplitude": 5.0, "sigma": 0.3, "channel": "R"},
+            xx,
+            yy,
+            dt_ms=1.0,
+            duration_ms=3.0,
+            channels=["R", "G"],
+        )
+        frames_g, _ = render_stimulus(
+            "gaussian",
+            {"amplitude": 7.0, "sigma": 0.3, "center_x": 0.1, "channel": "G"},
+            xx,
+            yy,
+            dt_ms=1.0,
+            duration_ms=3.0,
+            channels=["R", "G"],
+        )
+        composed = frames_r + frames_g
+        assert torch.equal(composed[:, 0], frames_r[:, 0])
+        assert torch.equal(composed[:, 1], frames_g[:, 1])
+        assert composed[:, 0].abs().sum() > 0
+        assert composed[:, 1].abs().sum() > 0
