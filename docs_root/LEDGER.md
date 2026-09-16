@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-064 · OPEN · finding · - · 2026-09-16
+StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
+→ commit fcf0c4a
+
 ## F-063 · OPEN · finding · - · 2026-09-16
 F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field previews with its own small widgets rather than reusing the Mechanoreceptor and Stimulus Designer plot widgets, because those share one plot item driving mouse-based population placement inside two 3,500-line tabs and could not be extracted safely in Wave P; the two drawing paths can now drift apart without any test noticing
 → commit 2f399c9
@@ -361,7 +365,7 @@ test_gui_cli_parity.py:70 passes a file path to SensoryForgeConfig.from_yaml, wh
 cli list-components is a hardcoded print block (cli.py:438-478) already out of sync with the registries (lists center_surround, omits fa/sa/composite/timeline/repeated_pattern); cli validate forces the legacy pipeline for canonical configs (cli.py:406)
 → commit 7a188b6
 
-## F-019 · OPEN · finding · - · 2026-09-14
+## F-019 · CLOSED · finding · - · 2026-09-14
 ~3500 lines of unwired GUI code: gui/protocol_suite_tab.py, protocol_backend.py, protocol_execution_controller.py, neuron_explorer.py are imported by no tab, only by two tests
 → commit 7a188b6
 
