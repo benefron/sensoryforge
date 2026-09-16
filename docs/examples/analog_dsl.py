@@ -18,17 +18,6 @@ executed by ``tests/docs/test_docs_examples.py``.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Run as a plain script (python docs/examples/analog_dsl.py), sys.path[0] is
-# this file's directory, not the repository root -- an editable install
-# pointing at a different checkout (e.g. a sibling worktree) could then take
-# precedence over the sensoryforge package this example ships next to.
-# Prepending the repo root makes the local checkout win, matching `python -m`
-# / `pytest` invocation (both put the repo root on sys.path).
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
 import torch
 
 from sensoryforge.config.schema import (
