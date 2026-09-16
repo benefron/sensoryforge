@@ -55,11 +55,12 @@ def _make_widget_for_spec(
     on_change: Callable[[str, Any], None],
 ) -> QtWidgets.QWidget:
     """Build the one control ``spec`` maps to, wired to call ``on_change``."""
+    resolved = value if value is not None else spec.default
     if spec.choices is not None:
         combo = QtWidgets.QComboBox()
         for choice in spec.choices:
             combo.addItem(str(choice), choice)
-        idx = combo.findData(value if value is not None else spec.default)
+        idx = combo.findData(resolved)
         combo.setCurrentIndex(idx if idx >= 0 else 0)
         combo.currentIndexChanged.connect(
             lambda _i, c=combo, n=spec.name: on_change(n, c.currentData())
@@ -67,10 +68,15 @@ def _make_widget_for_spec(
         widget: QtWidgets.QWidget = combo
     elif spec.dtype == "bool":
         check = QtWidgets.QCheckBox()
-        check.setChecked(bool(value if value is not None else spec.default))
+        check.setChecked(bool(resolved) if resolved is not None else False)
         check.toggled.connect(lambda v, n=spec.name: on_change(n, v))
         widget = check
     elif spec.dtype == "int":
+        # Some specs are nullable (e.g. a grid's "seed": None means "draw
+        # from the global RNG"). A QSpinBox cannot hold None, so an unset
+        # value renders as 0 -- a real widget limitation, not silently
+        # dropped state: the underlying field stays None until the user
+        # actually edits the spin box (on_change only fires on a change).
         spin = QtWidgets.QSpinBox()
         spin.setRange(
             int(spec.min_val) if spec.min_val is not None else -(2**31),
@@ -80,7 +86,7 @@ def _make_widget_for_spec(
             spin.setSingleStep(int(spec.step))
         if spec.unit:
             spin.setSuffix(f" {spec.unit}")
-        spin.setValue(int(value if value is not None else spec.default))
+        spin.setValue(int(resolved) if resolved is not None else 0)
         spin.valueChanged.connect(lambda v, n=spec.name: on_change(n, v))
         widget = spin
     else:  # "float" and anything else numeric-shaped
@@ -94,7 +100,7 @@ def _make_widget_for_spec(
             spin.setSingleStep(float(spec.step))
         if spec.unit:
             spin.setSuffix(f" {spec.unit}")
-        spin.setValue(float(value if value is not None else spec.default))
+        spin.setValue(float(resolved) if resolved is not None else 0.0)
         spin.valueChanged.connect(lambda v, n=spec.name: on_change(n, v))
         widget = spin
 
@@ -466,6 +472,8 @@ def _stimulus_preview(node, pg) -> QtWidgets.QWidget:
     image_view = pg.PlotWidget()
     image_view.setMaximumHeight(220)
     try:
+        import re
+
         import torch
 
         from sensoryforge.stimuli.render import render_stimulus
@@ -474,10 +482,21 @@ def _stimulus_preview(node, pg) -> QtWidgets.QWidget:
         xx, yy = torch.meshgrid(
             torch.linspace(-5, 5, 40), torch.linspace(-5, 5, 40), indexing="ij"
         )
+        # StimulusConfig.to_dict() carries every schema field; a given
+        # registered stimulus class only accepts its own subset. Same
+        # unknown-keyword retry CircuitTab.run_graph() uses.
         params = {k: v for k, v in stim.to_dict().items() if k not in ("name", "type")}
-        frames, _ = render_stimulus(
-            stim.type, params, xx, yy, dt_ms=1.0, duration_ms=1.0, device="cpu"
-        )
+        while True:
+            try:
+                frames, _ = render_stimulus(
+                    stim.type, params, xx, yy, dt_ms=1.0, duration_ms=1.0, device="cpu"
+                )
+                break
+            except TypeError as exc:
+                match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
+                if match is None or match.group(1) not in params:
+                    raise
+                params.pop(match.group(1))
         frame = frames[0].detach().cpu().numpy()
         img_item = pg.ImageItem(frame)
         image_view.addItem(img_item)
