@@ -153,6 +153,12 @@ class SimulationResult:
     raw_drive: Optional[np.ndarray] = (
         None  # drive before filter (None if filter disabled)
     )
+    # Analog readout (Phase 2, N4): True when the backend returned "state"
+    # instead of "spikes" (a DSL neuron model with no threshold, N1/N2) --
+    # v_trace then holds the state trace and spikes is an all-zero stand-in
+    # so existing shape-based code keeps working.
+    is_analog: bool = False
+    state_var_name: str = "v"
 
     @property
     def neuron_count(self) -> int:
@@ -2614,28 +2620,49 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         )
 
         drive = backend["filtered"]  # gain + noise applied
-        spikes = backend["spikes"]
-        v_trace = backend.get("voltages")
+        # Analog readout (Phase 2, N4): the backend carries "state" instead
+        # of "spikes" when neuron_model has no spike condition (a DSL model
+        # with no threshold, N1/N2).
+        is_analog = "spikes" not in backend
+        state_var_name = "v"
+        if is_analog:
+            v_trace = backend["state"]
+            compiled_model = getattr(neuron_model, "model", None)
+            state_var_list = getattr(compiled_model, "state_var_list", None)
+            if state_var_list:
+                state_var_name = state_var_list[0]
+        else:
+            spikes = backend["spikes"]
+            v_trace = backend.get("voltages")
 
         # ── Align time axes ─────────────────────────────────────────────
         drive_np = drive.detach().cpu().numpy()[0]
         steps = drive_np.shape[0]
-        spikes_np = spikes.detach().cpu().numpy()[0]
-        if spikes_np.shape[0] > steps:
-            spikes_np = spikes_np[:steps]
-        elif spikes_np.shape[0] < steps:
-            steps = spikes_np.shape[0]
-            drive_np = drive_np[:steps]
-        if v_trace is not None:
+        if is_analog:
             v_np = v_trace.detach().cpu().numpy()[0]
             if v_np.shape[0] > steps:
                 v_np = v_np[:steps]
             elif v_np.shape[0] < steps:
                 steps = v_np.shape[0]
                 drive_np = drive_np[:steps]
-                spikes_np = spikes_np[:steps]
+            spikes_np = np.zeros_like(v_np)
         else:
-            v_np = np.zeros((steps, drive_np.shape[1] if drive_np.ndim > 1 else 1))
+            spikes_np = spikes.detach().cpu().numpy()[0]
+            if spikes_np.shape[0] > steps:
+                spikes_np = spikes_np[:steps]
+            elif spikes_np.shape[0] < steps:
+                steps = spikes_np.shape[0]
+                drive_np = drive_np[:steps]
+            if v_trace is not None:
+                v_np = v_trace.detach().cpu().numpy()[0]
+                if v_np.shape[0] > steps:
+                    v_np = v_np[:steps]
+                elif v_np.shape[0] < steps:
+                    steps = v_np.shape[0]
+                    drive_np = drive_np[:steps]
+                    spikes_np = spikes_np[:steps]
+            else:
+                v_np = np.zeros((steps, drive_np.shape[1] if drive_np.ndim > 1 else 1))
         raw_drive_np = (
             raw_drive_np[:steps] if raw_drive_np.shape[0] > steps else raw_drive_np
         )
@@ -2648,6 +2675,8 @@ class SpikingNeuronTab(QtWidgets.QWidget):
             spikes=spikes_np,
             drive=drive_np,
             raw_drive=raw_drive_np,
+            is_analog=is_analog,
+            state_var_name=state_var_name,
         )
 
     def _build_filter_module(
@@ -2850,6 +2879,23 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         result = self.sim_results.get(name)
         if result is None:
             return
+        if result.is_analog:
+            # Analog readout (Phase 2, N4): plot the state trace in place of
+            # the raster -- no spikes to scatter.
+            self.raster_plot.setLabel("left", result.state_var_name)
+            trace = result.v_trace
+            if trace.ndim != 2:
+                return
+            n_neurons = trace.shape[1]
+            for idx in range(n_neurons):
+                pen = pg.mkPen(pg.intColor(idx, hues=max(n_neurons, 1)), width=1.5)
+                self.raster_plot.plot(result.time_ms, trace[:, idx], pen=pen)
+            self.raster_plot.setTitle(
+                f"{name} — Analog Readout ({result.state_var_name})"
+            )
+            return
+
+        self.raster_plot.setLabel("left", "Neuron")
         spikes = result.spikes
         if spikes.ndim != 2:
             return
