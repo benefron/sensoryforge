@@ -281,13 +281,172 @@ from a wheel installed outside the repo, `sensoryforge run --bundle` and `sensor
 bundles that `load_bundle` reads.
 
 ### Wave K — the pressure-simulation recipe
-- Presets under `sensoryforge/presets/`: `tactile_sa1_ra1.yml` (SA regular-spiking, RA fast-spiking,
-  τ values, `template` builder with `resolvable_distance_mm: 0.40`) and `tactile_stochastic_control.yml`.
-- Port pressure-simulation's run stimuli as registered stimuli: `ramp_gaussian`, `moving_edge`,
-  `braille_H`, `drifting_grating` (`experiments/ncn2026/_harness.py`, `scripts/ebkf/_ebkf_pres_movies.py`),
-  with a golden test against arrays exported from pressure-simulation, like E5.
-- `examples/pressure_simulation_recipe.py`: build the grid and receptive fields from `d`, run the four
-  stimuli, write bundles; the Wave J loader test opens them.
+
+Wave K makes SensoryForge able to reproduce, on its own, the exact stimulus ensemble that
+pressure-simulation runs its decoder on, and to ship that whole run as a preset plus one example
+script. It depends on Wave J (bundles) and must start from the commit where Wave J is merged.
+
+**Fact K-a (verified 2026-09-16).** Both repositories build coordinate meshgrids with
+`torch.meshgrid(x, y, indexing="ij")` (`sensoryforge/core/grid.py:80`, pressure-simulation
+`encoding/grid_torch.py:39`). Frame element `[i, j]` is at `(x[i], y[j])` in both: the first frame
+axis is x, the second is y. There is no transpose to undo. A port that swaps the axes will fail K3.
+
+**Fact K-b (verified 2026-09-16, opened as F-052).** `GeneralizedTactileEncodingPipeline.generate_stimulus`
+(`sensoryforge/core/generalized_pipeline.py:1030-1073`) dispatches stimulus names through a
+hard-coded if/elif chain that knows nine names. `STIMULUS_REGISTRY` holds `gaussian`, `static`,
+`moving`, `composite`, `timeline`, `repeated_pattern`, `texture`, `gabor`, `edge_grating`. The CLI
+calls that chain even for canonical configs (`sensoryforge/cli.py:222`), so `composite`,
+`edge_grating`, `gabor` and `static` cannot be run from a config file at all, and a third-party
+stimulus plugin can be registered but never executed. Fixing this is K1 and is a prerequisite for
+the four ported stimuli being reachable.
+
+**Fact K-c (verified 2026-09-16).** A stimulus class may return either one frame `[H, W]`
+(`GaussianStimulus`) or a whole sequence `[T, H, W]` (`MovingStimulus.forward`,
+`sensoryforge/stimuli/moving.py:324-333`). Both are valid; the renderer in K1 normalises them.
+
+#### K1. One stimulus renderer, dispatching through the registry (F-052)
+
+New module `sensoryforge/stimuli/render.py`:
+
+```python
+def render_stimulus(
+    stimulus_type: str,
+    params: dict,
+    xx: torch.Tensor,          # [H, W] mm
+    yy: torch.Tensor,          # [H, W] mm
+    dt_ms: float,
+    duration_ms: float | None = None,
+    device: str = "cpu",
+) -> tuple[torch.Tensor, torch.Tensor]:   # frames [T, H, W], time_ms [T]
+```
+
+Rules:
+
+- If `stimulus_type` is in `STIMULUS_REGISTRY`, build it with `from_config(params)` and call
+  `forward(xx, yy)`. A `[H, W]` result is expanded to `[T, H, W]` with the temporal envelope below;
+  a `[T, H, W]` result is returned as is, and `duration_ms` (when given) truncates it or right-pads
+  with zeros. Never silently resample.
+- Otherwise fall back to `GeneralizedTactileEncodingPipeline.generate_stimulus` so every legacy name
+  (`trapezoidal`, `step`, `ramp`, `custom`) keeps working unchanged.
+- The temporal envelope for single-frame stimuli is pressure-simulation's
+  (`encoding/encode_runner.py:45-64`): `ramp_up_ms` linear rise, `plateau_ms` hold at 1.0,
+  `ramp_down_ms` linear fall, zero after `ramp_up + plateau + ramp_down`, scaled by `amplitude`.
+  Defaults must reproduce today's behaviour for existing configs.
+- `time_ms = torch.arange(0.0, duration_ms + 0.5 * dt_ms, dt_ms)` — the same half-step guard
+  pressure-simulation uses, so the sample count agrees.
+- An unknown name raises `ValueError` listing the registered names, never a bare `KeyError`.
+
+The CLI (`sensoryforge/cli.py:220-228`) and `BatchExecutor` call `render_stimulus` instead of
+reaching into the pipeline. Tests: a stimulus registered only at test time (a two-line subclass)
+runs end to end through `sensoryforge run`; `edge_grating` and `gabor` become runnable from a config
+file. Both must fail on the Wave J merge commit.
+
+#### K2. The four pressure-simulation stimuli
+
+New module `sensoryforge/stimuli/tactile.py`, four `BaseStimulus` subclasses, each with
+`get_param_spec()`, `from_config`, `to_dict`, `reset_state`, Google docstrings carrying shapes and
+units, and registration in `register_components.py`. `forward(xx, yy)` returns `[T, H, W]`. The
+formulas are transcribed from pressure-simulation and must not be "improved".
+
+`ramp_gaussian` — from `experiments/ncn2026/_harness.py::gen_ramp_gaussian`.
+`blob = exp(-(xx**2 + yy**2) / (2 * sigma_mm**2))`, multiplied by an amplitude vector that is
+`torch.linspace(0, 1, ramp_ms)` over the first `ramp_ms` samples and 1.0 after.
+Defaults `total_ms=1100, ramp_ms=50, sigma_mm=1.0`.
+
+`moving_edge` — from `encoding/encode_runner.py::generate_stimulus_from_json` with `type="edge"`,
+`motion="moving"`. Envelope as in K1. Centre interpolates `c = start + alpha * (end - start)` with
+`alpha = 0` for `t <= ramp_up`, `alpha = 1` for `t >= ramp_up + plateau`, else
+`(t - ramp_up) / plateau`. Frame is `exp(-p**2 / (2 * spread**2))` with
+`p = (xx - cx) * sin(theta) + (yy - cy) * cos(theta)` and `theta = radians(orientation_deg)`.
+Defaults come from the shipped payload: `start=(-7.11, 0.0)`, `end=(7.0, 0.0)`, `spread=1.0`,
+`orientation_deg=50.0`, `amplitude=1.0`, `ramp_up_ms=20`, `plateau_ms=300`, `ramp_down_ms=10`,
+`total_ms=330`, `dt_ms=1.0`.
+
+`braille` — from `scripts/ebkf/_ebkf_pres_movies.py::gen_braille_H`. Dots at offsets
+`[(-1.5, -1.5), (+1.5, -1.5), (+1.5, +1.5)]` in (row, col), the letter H, exposed as the default of
+a `dot_offsets` parameter so other letters are expressible. The cell centre
+`cy = -7.0 + v_mms * t_s` moves along the **second** axis (`yy`); dot rows are fixed. Sum over dots
+of `exp(-((xx - dot_row)**2 + (yy - dot_col)**2) / (2 * sigma_dot**2))`, then a symmetric linear
+ramp in and out over `ramp_n = min(ramp_ms, T // 2)` samples, then `clamp(0, n_dots)`.
+Defaults `total_ms=900, ramp_ms=75, v_mms=20.0, sigma_dot=0.40`.
+
+`drifting_grating` — from `scripts/ebkf/_ebkf_pres_movies.py::gen_drifting_grating`.
+`phase = 2 * pi * spatial_freq * (xx + v_mms * t_s)`, `frame = 0.5 * (1 + cos(phase))`, the same
+symmetric ramp, then `clamp(0, 1)`. Defaults `total_ms=1000, ramp_ms=100, spatial_freq=0.25`
+cycles/mm, `v_mms=15.0`.
+
+In all four, `t_s = arange(T) * dt_ms / 1000`, with `dt_ms` a constructor parameter defaulting to
+1.0 (the source scripts hard-code `DT = 1.0`).
+
+The existing `edge_grating` stimulus is a *static* stack of lobes and is not a substitute for
+`drifting_grating`. Do not merge them.
+
+#### K3. Golden test against pressure-simulation
+
+`tests/integration/test_stimulus_parity.py`, built like the Wave E filter parity test.
+
+- `scripts/regenerate_stimulus_golden.py` imports pressure-simulation (root from the
+  `PRESSURE_SIM_ROOT` environment variable, default `~/Documents/pressure simulation`), builds
+  `GridManager(grid_size=80, spacing=0.15, center=(0.0, 0.0))`, generates the four stimuli with the
+  defaults above, and writes `tests/fixtures/stimulus_golden.npz`: one float32 array per stimulus,
+  subsampled to every 10th time sample to keep the fixture small, plus a `meta` JSON string
+  recording source file, function, parameters and the time stride. The script skips with a clear
+  message when pressure-simulation is absent.
+- The test loads the fixture, renders the same four stimuli through `render_stimulus` on a
+  SensoryForge grid of the same geometry, applies the same stride, and asserts **exact** equality at
+  zero tolerance, as `tests/integration/test_pressure_sim_parity.py` does.
+- Prove the test bites: four separate mutations (swap the braille axes, drop the grating ramp, flip
+  the edge orientation sign, change a sigma) each make it fail. Record all four in the report.
+
+#### K4. Presets
+
+New package `sensoryforge/presets/` with `__init__.py` exposing `list_presets() -> list[str]`,
+`load_preset(name) -> dict` and `PRESET_DIR`, reading YAML fragments through `importlib.resources`,
+never a cwd-relative path (Phase 1b). Add the directory to `package_data` and verify it survives a
+wheel install, the way Wave G did for the other data files.
+
+- `tactile_sa1_ra1.yml` — the pressure-simulation recipe: 80x80 grid at 0.15 mm, an SA population
+  (regular-spiking preset, `sa` filter) and an RA population (fast-spiking preset, `ra` filter,
+  k3 = 2.0), both using the `template` receptive-field builder with
+  `resolvable_distance_mm: 0.40`, `dt_ms: 1.0`.
+- `tactile_stochastic_control.yml` — identical except the builder is `gaussian_stochastic`, the
+  named control arm (D-019).
+
+CLI: `sensoryforge list-presets` prints each name with a one-line description;
+`sensoryforge run --preset tactile_sa1_ra1` runs with no config file; `--preset X config.yml` uses
+the preset as the base that the file overrides. A test loads every preset and constructs a
+`SensoryForgeConfig` from it, so a broken preset fails CI.
+
+#### K5. `examples/pressure_simulation_recipe.py`
+
+One script, runnable from a clean checkout with no arguments, that loads the `tactile_sa1_ra1`
+preset, builds the grid and both receptive-field banks from `d = 0.40` mm, renders the four K2
+stimuli, runs each through `SimulationEngine`, writes one Wave J bundle per stimulus under
+`examples/output/pressure_simulation_recipe/`, and prints per-population spike counts and mean
+rates.
+
+It must finish in under two minutes on CPU. Shorten durations behind a `--quick` flag rather than
+shrinking the grid, so the default run is the real recipe. A test runs it with `--quick` and asserts
+the four bundles exist and reload through the Wave J loader.
+
+#### K6. Documentation
+
+- `docs/concepts/pressure_simulation_use_case.md` — the spine end to end for this recipe: what
+  pressure-simulation supplies (the resolvable distance `d`, the stimulus ensemble, the mutual
+  information scoring) and what SensoryForge supplies (grid, receptive fields, filters, neurons, the
+  bundle). Cross-link the receptive-field concepts page from Wave I8 and the bundle page from Wave J.
+- `docs/user_guide/presets.md` — what a preset is, the two shipped ones, how to override one, how to
+  add one. A preset is data, not code, so this is the cheapest extension point.
+- `docs/extending/add_stimulus.md` updated for the registry dispatch: a registered stimulus is now
+  runnable from a config file, with the two-line plugin from K1 as the worked example.
+- All four ported stimuli appear in `sensoryforge list-components`.
+
+#### Wave K exit
+
+`pytest -m "not gui"` and `pytest -m gui` green under the watchdog; `black --check`, the CI flake8
+subset and `mkdocs build --strict` clean; the stimulus golden test passes with its four mutation
+proofs recorded; `examples/pressure_simulation_recipe.py --quick` writes four bundles that reload;
+`Closes: F-052` on the K1 commit.
 
 ### Wave L — sensor channels and receptor sampling (F-010, part)
 `GridConfig.channels`, stimulus tensors with an optional channel axis, `StimulusConfig.channel`, bilinear
