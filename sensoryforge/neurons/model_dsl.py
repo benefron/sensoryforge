@@ -95,10 +95,15 @@ class NeuronModel:
             separated by newlines. The special variable 'I' represents
             input current.
         threshold: String representing the spike threshold condition,
-            e.g., 'v >= 30' or 'v > threshold_value'.
+            e.g., 'v >= 30' or 'v > threshold_value'. Optional (Phase 2,
+            N1): when ``None``, the model has no spike condition and
+            :meth:`compile` produces a module that integrates the
+            equations and returns an analog state trace with ``spikes is
+            None`` -- a continuous (non-spiking) readout.
         reset: String containing reset rules when threshold is crossed,
             e.g., 'v = c' or 'v = c\\nu = u + d'. Multiple rules can be
-            separated by newlines.
+            separated by newlines. Optional; must be ``None`` when
+            ``threshold`` is ``None`` (there is no spike event to reset on).
         parameters: Dictionary of model parameters and their values,
             e.g., {'a': 0.02, 'b': 0.2, 'c': -65.0, 'd': 8.0}.
         state_vars: Dictionary of state variable names and their initial
@@ -107,7 +112,8 @@ class NeuronModel:
 
     Raises:
         ImportError: If SymPy is not installed.
-        ValueError: If equations are malformed or inconsistent.
+        ValueError: If equations are malformed or inconsistent, or if
+            ``reset`` is given without ``threshold``.
 
     Example:
         >>> # Define a simple integrate-and-fire neuron
@@ -118,13 +124,24 @@ class NeuronModel:
         ...     state_vars={'v': 0.0}
         ... )
         >>> neuron = model.compile(dt=0.1)
+
+        >>> # Define an analog (non-spiking) leaky integrator (N1)
+        >>> analog_model = NeuronModel(
+        ...     equations='dv/dt = (-(v - v_rest) + R*I) / tau_m',
+        ...     parameters={'v_rest': -65.0, 'R': 1.0, 'tau_m': 10.0},
+        ...     state_vars={'v': -65.0},
+        ... )
+        >>> neuron = analog_model.compile(dt=0.1)
+        >>> state_trace, spikes = neuron(input_current)
+        >>> spikes is None
+        True
     """
 
     def __init__(
         self,
         equations: str,
-        threshold: str,
-        reset: str,
+        threshold: Optional[str] = None,
+        reset: Optional[str] = None,
         parameters: Optional[Dict[str, float]] = None,
         state_vars: Optional[Dict[str, float]] = None,
     ):
@@ -132,20 +149,30 @@ class NeuronModel:
 
         Args:
             equations: Differential equations defining the model dynamics.
-            threshold: Condition for spike generation.
-            reset: Rules to apply when threshold is crossed.
+            threshold: Condition for spike generation. ``None`` for an
+                analog (non-spiking) model (Phase 2, N1).
+            reset: Rules to apply when threshold is crossed. Must be
+                ``None`` when ``threshold`` is ``None``.
             parameters: Model parameters (constants).
             state_vars: State variables and their initial values.
 
         Raises:
             ImportError: If SymPy is not installed.
+            ValueError: If ``reset`` is given without ``threshold``.
         """
         if not SYMPY_AVAILABLE:
             raise ImportError(_SYMPY_ERROR_MSG)
 
+        if reset is not None and threshold is None:
+            raise ValueError(
+                "'reset' was given without 'threshold' -- there is no spike "
+                "condition for the reset rules to trigger on. Provide a "
+                "'threshold' or omit 'reset' for an analog model."
+            )
+
         self.equations_str = equations.strip()
-        self.threshold_str = threshold.strip()
-        self.reset_str = reset.strip()
+        self.threshold_str = threshold.strip() if threshold is not None else None
+        self.reset_str = reset.strip() if reset is not None else None
         self.parameters = parameters or {}
         self.state_vars = state_vars or {}
 
@@ -212,9 +239,18 @@ class NeuronModel:
         Parses conditions like 'v >= 30' or 'x > threshold_val' and
         extracts the comparison operator and threshold value.
 
+        When ``threshold_str`` is ``None`` (analog model, N1), leaves
+        ``threshold_var``/``threshold_op``/``threshold_expr`` as ``None``.
+
         Raises:
             ValueError: If threshold format is invalid.
         """
+        if self.threshold_str is None:
+            self.threshold_var = None
+            self.threshold_op = None
+            self.threshold_expr = None
+            return
+
         # Match pattern: <var> <operator> <value>
         # Supported operators: >=, >, <=, <, ==
         match = re.match(r"(\w+)\s*(>=|>|<=|<|==)\s*(.+)", self.threshold_str)
@@ -249,6 +285,9 @@ class NeuronModel:
             ValueError: If reset rule format is invalid.
         """
         self.reset_rules: Dict[str, sympy.Expr] = {}
+
+        if self.reset_str is None:
+            return
 
         # Split reset rules by newline
         lines = [line.strip() for line in self.reset_str.split("\n") if line.strip()]
@@ -289,8 +328,9 @@ class NeuronModel:
         Raises:
             ValueError: If model is inconsistent.
         """
-        # Check threshold variable exists
-        if self.threshold_var not in self.state_var_list:
+        # Check threshold variable exists (skipped for an analog model with
+        # no threshold, N1).
+        if self.threshold_var is not None and self.threshold_var not in self.state_var_list:
             raise ValueError(
                 f"Threshold variable '{self.threshold_var}' is not a state variable. "
                 f"Available state variables: {self.state_var_list}"
@@ -310,7 +350,8 @@ class NeuronModel:
             all_symbols.update(str(s) for s in expr.free_symbols)
         for expr in self.reset_rules.values():
             all_symbols.update(str(s) for s in expr.free_symbols)
-        all_symbols.update(str(s) for s in self.threshold_expr.free_symbols)
+        if self.threshold_expr is not None:
+            all_symbols.update(str(s) for s in self.threshold_expr.free_symbols)
 
         # Check all symbols are defined (excluding 'I' which is input current)
         undefined = (
@@ -347,7 +388,8 @@ class NeuronModel:
             - forward(input_current) -> (v_trace, spikes)
             - input_current: [batch, steps, features]
             - v_trace: [batch, steps+1, features]
-            - spikes: [batch, steps+1, features] (bool)
+            - spikes: [batch, steps+1, features] (bool), or ``None`` when the
+              model has no threshold (N1) -- an analog (non-spiking) readout
 
         Raises:
             ValueError: If solver string is not supported.
@@ -414,7 +456,7 @@ class NeuronModel:
             ... }
             >>> model = NeuronModel.from_config(config)
         """
-        required_keys = ["equations", "threshold", "reset"]
+        required_keys = ["equations"]
         missing = [k for k in required_keys if k not in config]
         if missing:
             raise ValueError(
@@ -424,8 +466,8 @@ class NeuronModel:
 
         return cls(
             equations=config["equations"],
-            threshold=config["threshold"],
-            reset=config["reset"],
+            threshold=config.get("threshold"),
+            reset=config.get("reset"),
             parameters=config.get("parameters"),
             state_vars=config.get("state_vars"),
         )
@@ -493,12 +535,16 @@ class _CompiledNeuronModule(nn.Module):
                 modules=[_TORCH_LAMBDIFY_MODULES],
             )
 
-        # Lambdify threshold expression
-        self.threshold_func = sympy.lambdify(
-            all_syms,
-            self.model.threshold_expr,
-            modules=[_TORCH_LAMBDIFY_MODULES],
-        )
+        # Lambdify threshold expression (skipped for an analog model with
+        # no threshold, N1).
+        if self.model.threshold_expr is not None:
+            self.threshold_func = sympy.lambdify(
+                all_syms,
+                self.model.threshold_expr,
+                modules=[_TORCH_LAMBDIFY_MODULES],
+            )
+        else:
+            self.threshold_func = None
 
         # Lambdify reset rules
         self.reset_funcs = {}
@@ -521,9 +567,13 @@ class _CompiledNeuronModule(nn.Module):
 
         Returns:
             Tuple of (v_trace, spikes) where:
-            - v_trace: Membrane potential trajectory [batch, steps+1, features]
-                in mV. The first state variable is used for visualization.
-            - spikes: Boolean spike events [batch, steps+1, features].
+            - v_trace: Membrane potential (or, for an analog model with no
+                threshold, the first state variable's) trajectory
+                [batch, steps+1, features] in mV. The first state variable
+                is used for visualization.
+            - spikes: Boolean spike events [batch, steps+1, features], or
+                ``None`` when the model has no threshold (N1) -- an analog
+                readout with no spike condition.
 
         Example:
             >>> neuron = model.compile()
@@ -593,6 +643,28 @@ class _CompiledNeuronModule(nn.Module):
                 + [params[name] for name in self.model.parameters.keys()]
                 + [input_current[:, current_timestep, :]]
             )
+
+        # Analog (non-spiking) model: no threshold, so no spike detection or
+        # reset -- integrate every step and return (state_trace, None). The
+        # spiking path below is untouched (N1: behaviour preservation).
+        if self.model.threshold_var is None:
+            for t in range(steps):
+                args = prepare_eval_args(t)
+                state_next = {}
+                for var_name in self.model.state_var_list:
+                    dvar = ensure_real(self.derivative_funcs[var_name](*args))
+                    if var_name == v_var_name and self.noise_std != 0.0:
+                        sqrt_dt = math.sqrt(max(self.dt, 1e-6))
+                        eta = torch.randn_like(state[var_name]) * (
+                            self.noise_std * sqrt_dt
+                        )
+                        integrated = state[var_name] + self.dt * dvar + eta
+                    else:
+                        integrated = state[var_name] + self.dt * dvar
+                    state_next[var_name] = integrated
+                state = state_next
+                v_trace[:, t + 1, :] = state[v_var_name]
+            return v_trace, None
 
         # Time integration loop (Forward Euler)
         for t in range(steps):
