@@ -120,9 +120,137 @@ class CircuitTab(QtWidgets.QWidget):
         return self.flowchart.nodes()
 
     # ------------------------------------------------------------------
-    # Run (O4 -- wired up in the O4 commit, once serialise.graph_to_config
-    # exists)
+    # Run (O4)
     # ------------------------------------------------------------------
     def run_graph(self, *, duration_ms: float = 200.0) -> dict:
-        """Build a config from the current graph, run it, and emit ``simulation_finished``."""
-        raise NotImplementedError("run_graph is implemented in Wave O's O4 task")
+        """Build a config from the current graph, run it, and emit ``simulation_finished``.
+
+        Mirrors the CLI's ``run`` command (``sensoryforge/cli.py``): a stimulus
+        tensor is rendered on the first grid's receptor coordinates via
+        :func:`sensoryforge.stimuli.render.render_stimulus`, then
+        :class:`~sensoryforge.core.simulation_engine.SimulationEngine` runs it.
+        A ``RecordNode`` in the graph (``output_dir``, via
+        ``config.metadata["record_output_dir"]``) makes the run also write a
+        bundle via :func:`sensoryforge.io.bundle.write_bundle` (through
+        ``SimulationEngine.run(bundle_dir=...)``), exactly as ``--bundle``
+        does for the CLI (the Wave J writer).
+
+        Returns:
+            The ``sim_results`` dict (population name -> ``SimulationResult``)
+            emitted on ``simulation_finished``.
+        """
+        import re
+
+        import numpy as np
+        import torch
+
+        from sensoryforge.core.grid import ReceptorGrid
+        from sensoryforge.core.simulation_engine import SimulationEngine
+        from sensoryforge.gui.circuit.serialise import graph_to_config
+        from sensoryforge.gui.tabs.spiking_tab import SimulationResult
+        from sensoryforge.stimuli.render import render_stimulus
+
+        config = graph_to_config(self.flowchart)
+
+        if config.grids:
+            grid_cfg = config.grids[0]
+            stim_grid = ReceptorGrid(
+                grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
+                spacing=grid_cfg.spacing,
+                arrangement=grid_cfg.arrangement,
+                center=(grid_cfg.center_x, grid_cfg.center_y),
+                density=grid_cfg.density,
+                device=config.simulation.device,
+                seed=grid_cfg.seed,
+            )
+            xx, yy = stim_grid.get_coordinates()
+        else:
+            xx, yy = torch.meshgrid(
+                torch.linspace(-1, 1, 40),
+                torch.linspace(-1, 1, 40),
+                indexing="ij",
+            )
+
+        stim = config.stimulus
+        # StimulusConfig.to_dict() carries every field the schema has
+        # (administrative ones like motion/composition_mode/channel
+        # included); a given registered stimulus class's constructor only
+        # accepts its own subset. Retry dropping whichever keyword the
+        # constructor just rejected, the same way render.py's own envelope-
+        # key retry works, rather than hard-coding a per-type field list here.
+        stimulus_params = {
+            k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
+        }
+        while True:
+            try:
+                frames, _ = render_stimulus(
+                    stim.type,
+                    stimulus_params,
+                    xx,
+                    yy,
+                    dt_ms=config.simulation.dt_ms,
+                    duration_ms=duration_ms,
+                    device=config.simulation.device,
+                )
+                break
+            except TypeError as exc:
+                match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
+                if match is None or match.group(1) not in stimulus_params:
+                    raise
+                del stimulus_params[match.group(1)]
+        stimulus_tensor = frames.unsqueeze(0)
+
+        engine = SimulationEngine(config)
+        bundle_dir = config.metadata.get("record_output_dir")
+        raw_results = engine.run(
+            stimulus_tensor,
+            return_intermediates=True,
+            bundle_dir=bundle_dir,
+            stimulus_config=stim.to_dict(),
+        )
+
+        dt_ms = config.simulation.dt_ms
+        sim_results: dict = {}
+        for pop_name, pop_results in raw_results.items():
+            is_analog = "state" in pop_results
+            spikes_or_state = pop_results.get("spikes", pop_results.get("state"))
+            spikes_np = spikes_or_state[0].detach().cpu().numpy()
+            filtered = pop_results.get("filtered")
+            drive = pop_results.get("drive")
+            filtered_np = (
+                filtered[0].detach().cpu().numpy()
+                if filtered is not None
+                else spikes_np
+            )
+            raw_drive_np = (
+                drive[0].detach().cpu().numpy() if drive is not None else None
+            )
+            voltages = pop_results.get("voltages")
+            v_trace_np = (
+                voltages[0].detach().cpu().numpy()
+                if voltages is not None
+                else np.zeros_like(spikes_np, dtype=float)
+            )
+            time_ms = np.arange(spikes_np.shape[0], dtype=float) * dt_ms
+            sim_results[pop_name] = SimulationResult(
+                population_name=pop_name,
+                dt_ms=dt_ms,
+                time_ms=time_ms,
+                v_trace=v_trace_np,
+                spikes=(np.zeros_like(spikes_np) if is_analog else spikes_np),
+                drive=filtered_np,
+                raw_drive=raw_drive_np,
+                is_analog=is_analog,
+            )
+
+        frames_np = frames.detach().cpu().float().numpy()
+        time_ms_axis = (
+            next(iter(sim_results.values())).time_ms if sim_results else np.zeros(0)
+        )
+        xlim = (-5.0, 5.0)
+        ylim = (-5.0, 5.0)
+
+        self.simulation_finished.emit(
+            sim_results, frames_np, time_ms_axis, dt_ms, xlim, ylim
+        )
+        return sim_results
