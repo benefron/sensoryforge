@@ -37,7 +37,11 @@ from sensoryforge.io.bundle import load_bundle
 
 def main() -> None:
     config = SensoryForgeConfig(
-        grids=[GridConfig(name="Main Grid", arrangement="grid", rows=8, cols=8, spacing=0.15)],
+        grids=[
+            GridConfig(
+                name="Main Grid", arrangement="grid", rows=8, cols=8, spacing=0.15
+            )
+        ],
         populations=[
             PopulationConfig(
                 name="SA Population",
