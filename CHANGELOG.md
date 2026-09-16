@@ -109,6 +109,23 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   method (plugins included).
 - Docs: `user_guide/receptive_fields.md`, `developer_guide/add_rf_builder.md`, the executed
   example `docs/examples/rf_builder_plugin.py`, and `examples/canonical_template_config.yml`.
+- **The data bundle** (Phase 2, Wave J; F-011, F-013): `sensoryforge.io.bundle.write_bundle()` /
+  `load_bundle()` write a self-contained run directory (`config.json` -- a superset of
+  pressure-simulation's `1.0.0` "mechanoreceptor bundle" format its viewer reads unchanged --
+  one `population_NN_<NAME>.pt` per population, `stimuli/stimulus.json`, and `data.h5` with
+  `/stimulus/frames`, `/time_ms`, and per-population `/populations/<name>/{drive, filtered,
+  spikes}`). `sensoryforge run` gains `--bundle DIR`; `SimulationEngine.run()` gains a
+  keyword-only `bundle_dir` (and `stimulus_config`/`seed`) to write one directly.
+  `BatchExecutor` now writes one bundle per stimulus, under
+  `<output_dir>/<batch_id>/stim_%04d/`, for canonical configs (replacing the old monolithic
+  consolidated `.pt`/`.h5`, which lacked neuron/receptor coordinates and `dt` and dropped
+  list-valued stimulus params, F-013); `save_format` now defaults to `"hdf5"`. `sensoryforge
+  batch` gains `--task-index N` to run exactly one stimulus (for a SLURM array task), and
+  `generate_slurm_script()` now emits a working `sensoryforge batch ... --task-index
+  $SLURM_ARRAY_TASK_ID --output ...` call (it used to emit `sensoryforge run --stimulus-index
+  --format`, three flags that didn't exist anywhere, F-011). `h5py` is now required for this
+  (`pip install -e '.[hdf5]'`). See `docs/user_guide/bundles.md` and the executed example
+  `docs/examples/read_bundle.py`.
 
 - `pyproject.toml` (PEP 621) replaces `setup.py`; optional extras `gui`, `hdf5`, `solvers`, `dsl`,
   `dev`, `docs`.

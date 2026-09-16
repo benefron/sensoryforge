@@ -1,0 +1,133 @@
+# Data Bundles
+
+A **data bundle** is a self-contained directory holding one completed run: the config,
+each population's receptive fields, the stimulus, and every population's drive/filtered/
+spikes arrays. It is the contract SensoryForge, pressure-simulation, and downstream
+learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
+
+```
+bundle_dir/
+    config.json               # schema_version "2.0.0", kind "sensoryforge_bundle"
+    population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
+    population_02_<NAME>.pt   # one file per population
+    stimuli/
+        stimulus.json         # the stimulus's own config dict
+    data.h5                   # frames, time axis, per-population drive/filtered/spikes
+```
+
+Write one with `sensoryforge run --bundle DIR` (see [CLI Reference](cli.md)), with
+`sensoryforge batch` (every stimulus in a sweep gets its own bundle -- see
+[Batch Processing](batch_processing.md)), or from Python with
+[`SimulationEngine.run(bundle_dir=...)`][sensoryforge.core.simulation_engine.SimulationEngine.run].
+Read one with `sensoryforge.io.bundle.load_bundle()`.
+
+## `config.json`
+
+A superset of pressure-simulation's `1.0.0` "mechanoreceptor bundle" format, so its
+viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only reads
+`grid` and `populations[*].tensors`/`name`.
+
+| Field | Meaning |
+|---|---|
+| `schema_version` | `"2.0.0"`. `load_bundle` raises `ValueError` if the major version isn't `2`. |
+| `kind` | `"sensoryforge_bundle"`. |
+| `grid` | `{rows, cols, spacing_mm, center_mm, device}` of the run's primary grid. |
+| `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`. |
+| `config` | The full canonical config (`SensoryForgeConfig.to_dict()`). |
+| `sensoryforge_version`, `created_at`, `bundle_created` | Provenance. |
+
+## `population_NN_<NAME>.pt`
+
+Exactly `ReceptiveFieldBank.save()` output, plus `grid_shape`:
+
+| Key | Shape | Units |
+|---|---|---|
+| `innervation_weights` | `[N, M]` | dimensionless |
+| `neuron_centers` | `[N, 2]` | mm, `(x, y)` |
+| `receptor_coords` | `[M, 2]` | mm, `(x, y)` |
+| `grid_shape` | `[rows, cols]` | -- lets a consumer reshape `[N, M]` to `[N, rows, cols]` |
+| `provenance` | dict | builder name, its `to_dict()`, seed, source path (imported banks) |
+
+`ReceptiveFieldBank.load(path)` reads this file directly; `load_bundle` uses it under the
+hood for every population's `bank`.
+
+## `stimuli/stimulus.json`
+
+The stimulus's own config dict (type and parameters), or `{}` if the caller didn't
+provide one.
+
+## `data.h5`
+
+| Path | Shape | Dtype | Notes |
+|---|---|---|---|
+| `/stimulus/frames` | `[T, H, W]` or `[T, C, H, W]` | float32 | gzip-4 compressed |
+| `/time_ms` | `[T]` | float32 | `t = i * dt_ms` |
+| `/populations/<name>/drive` | `[T, N]` | float32 | mA, before the neuron model |
+| `/populations/<name>/filtered` | `[T, N]` | float32 | mA, after filter/gain/noise |
+| `/populations/<name>/spikes` | `[T, N]` | int16 | **counts**, see below |
+| `/populations/<name>/state` | `[T, N]` | float32 | analog readouts (Wave N; not yet populated) |
+
+Root attributes: `dt_ms`, `integrate_dt_ms`, `seed` (`-1` if none was given),
+`sensoryforge_version`. The `/meta` group carries `config_yaml` (the full config as
+YAML text) and `provenance_json` (every population's bank provenance, JSON-encoded).
+
+### Spikes are per-bin counts, not a binary raster
+
+`spikes[t, n]` is the number of sub-steps within record bin `t` that neuron `n` fired
+in (F-008: the neuron integrates at `integrate_dt_ms`, finer than the record step
+`dt_ms`, and each bin sums however many sub-step spikes landed in it). It can be
+greater than 1. To recover a conventional binary raster:
+
+```python
+binary_raster = spikes > 0
+```
+
+## Reading a bundle
+
+### With `load_bundle` (recommended)
+
+```python
+from sensoryforge.io.bundle import load_bundle
+
+bundle = load_bundle("path/to/bundle")
+bundle.config              # SensoryForgeConfig
+bundle.banks["SA Population"].weights        # [N, M] torch.Tensor
+bundle.stimulus                                # [T, H, W] or [T, C, H, W]
+bundle.populations["SA Population"]["spikes"]  # [T, N] int16 counts
+bundle.meta["dt_ms"], bundle.meta["seed"]
+```
+
+### With `h5py` directly (no SensoryForge import needed)
+
+```python
+import h5py
+
+with h5py.File("path/to/bundle/data.h5", "r") as f:
+    dt_ms = f.attrs["dt_ms"]
+    spikes = f["populations"]["SA Population"]["spikes"][()]  # numpy array
+```
+
+### As a `pandas.DataFrame`
+
+```python
+import pandas as pd
+
+df = pd.DataFrame(spikes, columns=[f"neuron_{i}" for i in range(spikes.shape[1])])
+df.insert(0, "time_ms", time_ms)
+```
+
+### From pressure-simulation
+
+Its viewer reads `config.json`'s `grid` and `populations[*].tensors` unchanged (it
+predates the `.h5` payload and never looks for it), and rebuilds a population's drive
+as `stimulus.view(T, H*W) @ W.T` using the receptor ordering documented in
+[Receptive Fields](receptive_fields.md#coordinates-and-ordering). See
+`tests/integration/test_bundle_pressure_sim_compat.py` for a re-implementation of that
+loader used to verify this.
+
+## The executed example
+
+[`docs/examples/read_bundle.py`](https://github.com/benefron/sensoryforge/blob/main/docs/examples/read_bundle.py)
+writes a small bundle and reads it back through every path above (`load_bundle`, raw
+`h5py`, and `pandas`, when installed); `tests/docs/test_docs_examples.py` runs it as
+part of the test suite.
