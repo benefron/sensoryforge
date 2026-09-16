@@ -1,5 +1,22 @@
 # SensoryForge v1 roadmap — general sensory-encoding simulator, pressure-simulation as the first use case
 
+## How this roadmap is executed
+
+Each phase is broken into waves, and each wave is specified in a handover document that an
+implementation agent works from. The roadmap says what and why; the handovers say exactly how, with
+the verified facts, the file paths and the proof each task owes.
+
+| Phase | Handover | Waves | State as of 2026-09-16 |
+|---|---|---|---|
+| 0 and 1 | `docs/development/handover/phase1_tasks.md` | A to H | Closed, except one CI run on GitHub |
+| 2 | `docs/development/handover/phase2_tasks.md` | I to N | I merged; J and N in progress; K, L, M specified |
+| 3 | `docs/development/handover/phase3_tasks.md` | O to R | Specified |
+| 4 | `docs/development/handover/phase4_tasks.md` | S to V | Specified |
+
+Phase 2 onwards is orchestrated: waves are developed on their own branches in git worktrees, reviewed,
+then merged into the integration branch `phase2`. `main` stays at the end of Phase 1 until Phase 2 is
+complete and reviewed.
+
 ## Context
 
 SensoryForge (`~/sensoryforge`) becomes the general, clean-slate simulator: **sensor arrays with
