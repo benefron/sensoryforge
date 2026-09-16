@@ -334,8 +334,27 @@ def cmd_run(args: argparse.Namespace) -> int:
             else:
                 print("\nSimulation completed successfully!")
                 for pop_name, pop_results in results.items():
-                    total = int(pop_results["spikes"].sum().item())
-                    print(f"{pop_name} spikes: {total}")
+                    # An analog readout (a DSL neuron with no spike
+                    # condition, Wave N) carries "state" and has no
+                    # "spikes" key at all. Summarising it as spikes used
+                    # to raise KeyError here, after the bundle had
+                    # already been written.
+                    if "spikes" in pop_results:
+                        total = int(pop_results["spikes"].sum().item())
+                        print(f"{pop_name} spikes: {total}")
+                    elif "state" in pop_results:
+                        state = pop_results["state"]
+                        print(
+                            f"{pop_name} analog state: "
+                            f"min {float(state.min()):.3f}, "
+                            f"max {float(state.max()):.3f}, "
+                            f"mean {float(state.mean()):.3f}"
+                        )
+                    else:
+                        print(
+                            f"{pop_name}: no spikes or state in results "
+                            f"(keys: {sorted(pop_results)})"
+                        )
 
         else:
             # ---------------------------------------------------------------
