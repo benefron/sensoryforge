@@ -351,8 +351,22 @@ Rules:
   (`encoding/encode_runner.py:45-64`): `ramp_up_ms` linear rise, `plateau_ms` hold at 1.0,
   `ramp_down_ms` linear fall, zero after `ramp_up + plateau + ramp_down`, scaled by `amplitude`.
   Defaults must reproduce today's behaviour for existing configs.
-- `time_ms = torch.arange(0.0, duration_ms + 0.5 * dt_ms, dt_ms)` — the same half-step guard
-  pressure-simulation uses, so the sample count agrees.
+- **Corrected 2026-09-16.** An earlier version of this line said to build the axis as
+  `arange(0.0, duration_ms + 0.5 * dt_ms, dt_ms)`, borrowing pressure-simulation's half-step guard.
+  That was wrong here and it shipped a real inconsistency: `--duration 100 --dt 1.0` gave 101 frames
+  for a registered stimulus and 100 for a legacy one. The guard is correct only where the field means
+  *the time of the last sample*, which is what pressure-simulation's `total_ms` means and how the
+  bundle payload uses it. `duration_ms` means a duration. So:
+  `n_frames = round(duration_ms / dt_ms)` and `time_ms = arange(n_frames) * dt_ms`, matching the
+  legacy path. Say in the docstring which convention a given field follows.
+- **Defaults must be preserved for names the legacy chain also knows.** Five registered names overlap
+  it — `gaussian`, `moving`, `repeated_pattern`, `texture`, `timeline` — and their component defaults
+  are not the legacy generator's. `GaussianStimulus` defaults sigma to 0.2 mm where the legacy
+  generator used 1.0 mm, which on a 40x40 grid at 0.15 mm is 20 times narrower and 25 times weaker,
+  silently, for every shipped config that says `type: gaussian` with no sigma. Keep an explicit,
+  commented compatibility map of the legacy defaults in `render.py`, applied only where the caller
+  supplied nothing, and pin each overlapping name with a test asserting the two paths are
+  bit-identical. Do not change the component classes' own defaults.
 - An unknown name raises `ValueError` listing the registered names, never a bare `KeyError`.
 
 The CLI (`sensoryforge/cli.py:220-228`) and `BatchExecutor` call `render_stimulus` instead of
