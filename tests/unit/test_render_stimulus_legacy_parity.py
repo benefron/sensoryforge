@@ -106,49 +106,42 @@ class TestTimelineFailsIdenticallyBothPaths:
             raise AssertionError("expected render_stimulus to raise too")
 
 
-class TestMovingDivergesBeyondDefaults:
-    """moving: NOT reproducible by a default-value map alone, and this is a
-    more serious, pre-existing gap in render_stimulus itself (not new in
-    this commit): MovingStimulus.forward(xx, yy) returns exactly ONE frame
-    per call, advanced only by a separate .step() -- render_stimulus's
-    generic "call forward() once, multiply by a temporal envelope" path
-    (correct for a stateless stimulus) never calls .step(), so today it
-    silently returns the SAME static frame repeated over every time sample
-    instead of a moving one, regardless of _LEGACY_DEFAULTS.
+class TestMovingMatchesTheLegacyGenerator:
+    """moving: fixed (F-057), and this class records what changed.
 
-    Measured on this 40x40/0.15mm grid, duration 50 ms, dt_ms 1.0, legacy
-    defaults (linear motion, start=(-2,0), end=(2,0), amplitude=30,
-    sigma=1.0): frame 0 matches the legacy generator's frame 0 exactly (the
-    static starting frame happens to be right); every later frame does not
-    -- mean absolute difference over all 50 frames is 5.51, max absolute
-    difference 29.90 (essentially the full peak amplitude, since by the
-    final frame the legacy blob has moved to a different pixel entirely
-    while the registered one has not moved at all). A single-line Finding
-    is opened on the K8 commit for this (distinct from the default-value
-    finding this file otherwise closes): render_stimulus needs a stepped-
-    stimulus code path (detect .step(), iterate frames) before "moving" (or
-    any other per-step-stateful registered stimulus) can be trusted through
-    the CLI/BatchExecutor.
+    This used to be ``TestMovingDivergesBeyondDefaults``, pinning the
+    defect rather than the behaviour. The registered ``MovingStimulus``
+    (``stimuli/builder.py``) returns the frame at its *current* step and
+    advances on ``step()``, so ``render_stimulus``'s generic
+    "call forward() once, multiply by a temporal envelope" path -- correct
+    for a stateless stimulus -- returned the same static frame repeated
+    over every time sample. Measured then, on this grid at 50 ms: frame 0
+    matched the legacy generator exactly, mean absolute difference over all
+    50 frames was 5.51 and the maximum 29.90, essentially the full peak
+    amplitude.
+
+    Two things fixed it. ``render_stimulus`` now drives a stepped stimulus
+    frame by frame, and a caller using the legacy flat vocabulary
+    (amplitude/sigma/start/end) is routed to the legacy generator, because
+    the registered class takes a nested ``base_stimulus``/``motion_params``
+    that a default-value map cannot translate into. See
+    ``tests/unit/test_render_moving.py`` for the motion tests themselves.
     """
 
-    def test_frame_zero_matches(self):
+    def test_frames_match_the_legacy_generator(self):
         legacy = _legacy_frames("moving")
         registered = _registered_frames("moving")
-        assert torch.equal(legacy[0], registered[0])
+        assert legacy.shape == registered.shape
+        # Not bit-identical: the legacy render path rebuilds a GridManager
+        # from the xx/yy it is handed, so the reconstructed coordinates
+        # differ by float32 rounding -- about 1e-5 on values near 30.
+        assert torch.allclose(
+            legacy, registered, atol=1e-4, rtol=0
+        ), f"max abs diff {float((legacy - registered).abs().max()):.3e}"
 
-    def test_later_frames_diverge_with_measured_magnitude(self):
-        legacy = _legacy_frames("moving")
+    def test_the_output_is_no_longer_a_repeated_static_frame(self):
+        """The exact shape of the old defect, asserted to be gone."""
         registered = _registered_frames("moving")
-        assert not torch.equal(legacy[1], registered[1])
-        assert not torch.equal(legacy, registered)
-
-        diff = (legacy - registered).abs()
-        # Pin the measured magnitude so a silent change (in either
-        # direction -- an accidental fix or a worse regression) is caught.
-        assert diff.mean().item() > 5.0
-        assert diff.max().item() > 25.0
-
-        # render_stimulus's "moving" output today is a static frame
-        # repeated T times -- confirms the mechanism, not just the size,
-        # of the divergence.
-        assert torch.equal(registered, registered[0].expand_as(registered))
+        assert not torch.equal(
+            registered, registered[0].expand_as(registered)
+        ), "moving is still returning one frame repeated over the time axis"

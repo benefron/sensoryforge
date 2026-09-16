@@ -141,6 +141,77 @@ def _apply_legacy_defaults(
     return merged
 
 
+# Names whose registered component takes a different parameter vocabulary
+# from the legacy generator it replaced, mapped to the keys that say the
+# caller is speaking the component's vocabulary rather than the legacy one.
+#
+# `moving` is the case (F-057). The legacy generator took a flat
+# amplitude/sigma/start/end/motion_type; the registered MovingStimulus takes
+# a nested base_stimulus{...} plus motion_params{...}. A defaults map cannot
+# bridge that, because the values have to be *translated*, not filled in, so
+# a caller using the legacy vocabulary is routed to the legacy generator and
+# gets exactly the frames they got before. A caller who passes the
+# component's own keys gets the component, driven properly by
+# _render_stepped. Writing that translation is the real fix and is tracked,
+# not attempted here.
+_PREFER_LEGACY_WITHOUT: Dict[str, frozenset] = {
+    "moving": frozenset({"base_stimulus", "motion_params"}),
+}
+
+
+def _prefers_legacy(stimulus_type: str, params: Dict[str, Any]) -> bool:
+    """Whether to route a registered name to the legacy generator instead.
+
+    Args:
+        stimulus_type: The registered name.
+        params: Caller-supplied parameters, before any defaults are applied.
+
+    Returns:
+        ``True`` when this name needs translation the registry path cannot
+        do and the caller supplied none of the component's own keys.
+    """
+    signals = _PREFER_LEGACY_WITHOUT.get(stimulus_type)
+    if signals is None:
+        return False
+    return not (signals & set(params))
+
+
+def _scale_trajectory_to_duration(
+    params: Dict[str, Any],
+    dt_ms: float,
+    duration_ms: Optional[float],
+) -> Dict[str, Any]:
+    """Make a motion trajectory span the requested duration (F-057).
+
+    The legacy generator built its trajectory with exactly
+    ``duration / dt`` steps, so the blob traversed the whole path in the
+    time asked for. The registered ``MovingStimulus`` instead defaults to a
+    fixed 100-step trajectory, so at any other duration it covers the wrong
+    fraction of the path -- half of it at 50 ms and dt 1 ms, for instance.
+
+    Injecting ``num_steps`` keeps the two paths agreeing. A caller who sets
+    ``num_steps`` explicitly means it, and is left alone.
+
+    Args:
+        params: Parameters after legacy defaults (not mutated).
+        dt_ms: Record step, ms.
+        duration_ms: Requested duration, or ``None`` to leave the
+            trajectory at whatever length it declares.
+
+    Returns:
+        A new dict, with ``motion_params["num_steps"]`` set when it applies.
+    """
+    if duration_ms is None:
+        return params
+    motion_params = params.get("motion_params")
+    if not isinstance(motion_params, dict) or "num_steps" in motion_params:
+        return params
+    n_steps = max(int(round(float(duration_ms) / float(dt_ms))), 1)
+    merged = dict(params)
+    merged["motion_params"] = {**motion_params, "num_steps": n_steps}
+    return merged
+
+
 def _temporal_envelope(
     time_ms: torch.Tensor,
     *,
@@ -252,7 +323,9 @@ def render_stimulus(
     params = dict(params)
     channel_name = params.pop("channel", None)
 
-    if STIMULUS_REGISTRY.is_registered(stimulus_type):
+    if STIMULUS_REGISTRY.is_registered(stimulus_type) and not _prefers_legacy(
+        stimulus_type, params
+    ):
         frames, time_ms = _render_registered(
             stimulus_type, params, xx, yy, dt_ms, duration_ms, device
         )
@@ -261,7 +334,10 @@ def render_stimulus(
         # (and may never be) registered components: trapezoidal, step,
         # ramp, custom.
         legacy_names = {"trapezoidal", "step", "ramp", "custom"}
-        if stimulus_type not in legacy_names:
+        # Names routed here deliberately by _prefers_legacy are valid too.
+        if stimulus_type not in legacy_names and stimulus_type not in (
+            _PREFER_LEGACY_WITHOUT
+        ):
             raise ValueError(
                 f"Unknown stimulus type {stimulus_type!r}. Registered "
                 f"stimuli: {STIMULUS_REGISTRY.list_registered()}. Legacy "
@@ -332,6 +408,7 @@ def _render_registered(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     cls = STIMULUS_REGISTRY.get_class(stimulus_type)
     params = _apply_legacy_defaults(stimulus_type, params)
+    params = _scale_trajectory_to_duration(params, dt_ms, duration_ms)
 
     # The temporal-envelope keys (ramp_up_ms/plateau_ms/ramp_down_ms/
     # total_ms) are render_stimulus's own vocabulary for expanding a
@@ -355,6 +432,18 @@ def _render_registered(
     xx = xx.to(device)
     yy = yy.to(device)
     frame = instance(xx, yy)
+
+    if frame.dim() == 2 and _is_stepped(instance):
+        # Stepped stimulus (F-057): forward() returns the frame at the
+        # instance's *current* step and step() advances it, so calling
+        # forward() once and broadcasting it over time yields a stimulus
+        # that never moves. Iterate instead.
+        #
+        # This is why `moving` has to be handled here rather than by a
+        # defaults map: the registered MovingStimulus
+        # (stimuli/builder.py, not the same-named class in stimuli/moving.py,
+        # which returns a whole [T, H, W] sequence) is stateful by design.
+        return _render_stepped(instance, xx, yy, dt_ms, duration_ms, device, params)
 
     if frame.dim() == 2:
         # Single-frame stimulus: expand with the temporal envelope.
@@ -411,6 +500,72 @@ def _render_registered(
         f"{cls.__name__}.forward() must return a [H, W] or [T, H, W] tensor, "
         f"got shape {list(frame.shape)}"
     )
+
+
+def _is_stepped(instance: Any) -> bool:
+    """Whether *instance* advances through time via ``step()``.
+
+    A stimulus may express time in one of two ways: return the whole
+    ``[T, H, W]`` sequence from ``forward()``, or return the current frame
+    and advance on ``step()``. Both are legitimate (Fact K-c), but the
+    second needs driving, and a stimulus that is genuinely static also
+    inherits a no-op ``step()`` from :class:`BaseStimulus`. Treat an
+    instance as stepped only when it has both a ``step`` and a trajectory
+    to step along, so a static stimulus is not needlessly re-rendered.
+    """
+    return (
+        callable(getattr(instance, "step", None))
+        and getattr(instance, "trajectory", None) is not None
+        and len(getattr(instance, "trajectory")) > 1
+    )
+
+
+def _render_stepped(
+    instance: Any,
+    xx: torch.Tensor,
+    yy: torch.Tensor,
+    dt_ms: float,
+    duration_ms: Optional[float],
+    device: str,
+    params: Dict[str, Any],
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Drive a stepped stimulus to build its ``[T, H, W]`` sequence.
+
+    Frames come from ``duration_ms`` when the caller gave one, otherwise
+    from the trajectory's own length. ``step()`` saturates at the last
+    trajectory entry rather than raising, so a duration longer than the
+    trajectory holds the final position -- the same thing the instance
+    would do if driven by hand.
+
+    The instance is reset before and after, so rendering twice gives the
+    same answer and leaves no state behind for the next caller.
+    """
+    n_traj = len(instance.trajectory)
+    if duration_ms is not None:
+        time_ms = _duration_axis(dt_ms, duration_ms, device)
+        n_frames = time_ms.numel()
+    else:
+        n_frames = n_traj
+        time_ms = torch.arange(n_frames, dtype=torch.float32, device=device) * float(
+            dt_ms
+        )
+
+    instance.reset_state()
+    frames = []
+    for _ in range(n_frames):
+        frames.append(instance(xx, yy))
+        instance.step()
+    instance.reset_state()
+    stacked = torch.stack(frames, dim=0)
+
+    amp = _temporal_envelope(
+        time_ms,
+        ramp_up_ms=params.get("ramp_up_ms", 0.0),
+        plateau_ms=params.get("plateau_ms", float(time_ms[-1]) + float(dt_ms)),
+        ramp_down_ms=params.get("ramp_down_ms", 0.0),
+        amplitude=1.0,
+    )
+    return stacked * amp.view(-1, 1, 1), time_ms
 
 
 def _render_legacy(
