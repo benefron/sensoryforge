@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-056 · OPEN · finding · - · 2026-09-16
+F-056 the memory watchdog's peak RSS varies from about 800 MB to 1500 MB run to run for identical code (83b735d measured 873 MB and 1517 MB on two runs), so it cannot detect a regression below roughly a factor of two and its numbers must never be compared across runs or across machines
+→ commit 0c13d47
+
 ## F-055 · CLOSED · finding · - · 2026-09-16
 the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when none was given, and pressure-simulation's generate_stimulus_from_json defaults every field, so a bundle could be read there as a static Gaussian blob at the origin and encoded and plotted with no error anywhere; fixed by tagging every payload with schema_version and kind and emitting pressure-simulation's schema only for the types proven to regenerate exactly
 → commit e722c0a
