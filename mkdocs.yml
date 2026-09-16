@@ -107,6 +107,7 @@ nav:
   - Concepts:
     - Units and Shapes: concepts/units_and_shapes.md
     - Sensor Arrays: concepts/sensor_arrays.md
+    - Populations and Inputs: concepts/populations_and_inputs.md
     - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
 
   - User Guide:
@@ -134,6 +135,7 @@ nav:
     - Adding a Stimulus: developer_guide/add_stimulus.md
     - Adding a Receptive-Field Builder: developer_guide/add_rf_builder.md
     - Adding a Grid Arrangement: extending/add_grid_arrangement.md
+    - Adding a Processing Layer: extending/add_processing_layer.md
     - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md

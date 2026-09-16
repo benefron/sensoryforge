@@ -84,7 +84,7 @@ Configuration for a single neuron population. Supports N populations with per-po
 | `connections_per_neuron` | int | `28` | Number of receptor connections per neuron |
 | `sigma_d_mm` | float | `0.3` | Gaussian spread in mm (for gaussian method) |
 | `distance_weight_randomness_pct` | float | `0.0` | Randomness percentage (0-100) for distance weighting |
-| `use_distance_weights` | bool | `False` | Whether to use distance-based weighting (checkbox option) |
+| `use_distance_weights` | bool | `True` | Whether to use distance-based weighting |
 | `far_connection_fraction` | float | `0.0` | Fraction of "far" connections (0-1) |
 | `far_sigma_factor` | float | `5.0` | Sigma multiplier for far connections |
 | `max_distance_mm` | float | `1.0` | Maximum connection distance in mm |
@@ -92,6 +92,58 @@ Configuration for a single neuron population. Supports N populations with per-po
 | `decay_rate` | float | `2.0` | Decay rate parameter |
 | `weight_range` | list[float] | `[0.05, 1.0]` | [min, max] weight range |
 | `edge_offset` | float | `0.0` | Edge offset in mm (auto-set to spacing by default) |
+| `target_layers` | list[string] | `None` | For a `"composite"` grid, the named layer subset this population/input reads (`None` = every layer) |
+
+#### Multi-Input Populations (Phase 2, Wave M1/M2)
+
+A population may read from more than one grid/channel, with an optional processing stage per
+input. `target_grid`, `target_layers`, `innervation_method`, `sigma_d_mm`,
+`connections_per_neuron`, `use_distance_weights`, `resolvable_distance_mm` and
+`innervation_params` (the fields above) are **sugar** for the common single-input case:
+`PopulationConfig.effective_inputs()` expands them into one implicit `PopulationInput`, and
+`to_dict()` collapses a single sugar-shaped input back to those same fields, so an existing
+single-input config is unaffected byte for byte. Setting `inputs` *and* any of the sugar fields
+on the same population raises `ValueError`. See [Populations and Inputs](../concepts/populations_and_inputs.md).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `inputs` | list[`PopulationInput`] | `[]` | Explicit multi-input form; each entry is its own grid/channel/receptive-field builder/processing stage |
+| `combine` | string | `"sum"` | How the per-input drives become one population drive: `"sum"` (element-wise, every input must produce the same neuron count `N`) or `"concat"` (neuron axis grows to `sum(N_i)`, one block per input) |
+
+**`PopulationInput` fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grid` | string | **Required** | Name of the grid this input samples |
+| `channel` | string | `"value"` | Named channel/plane within that grid (`GridConfig.channels`) |
+| `rf` | `RFBuilderConfig` | `{method: "gaussian"}` | Receptive-field builder for this input |
+| `gain` | float | `1.0` | Multiplier applied to this input's drive before combining |
+| `layers` | list[string] | `None` | For a composite grid, the named layer subset this input samples |
+| `processing` | list[dict] | `[]` | Ordered processing-layer specs, `{method: <PROCESSING_REGISTRY name>, params: {...}}`, applied before the receptive-field bank (empty = no processing stage at all, see [Adding a Processing Layer](../extending/add_processing_layer.md)) |
+
+**`RFBuilderConfig` fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `method` | string | `"gaussian"` | Registered innervation/RF builder name |
+| `params` | dict | `{}` | Builder parameters, merged the same way `innervation_params` is |
+
+```yaml
+populations:
+  - name: "RG OnOff Population"
+    neuron_type: SA
+    neurons_per_row: 8
+    inputs:
+      - grid: "RGB Grid"
+        channel: "R"
+        processing:
+          - method: onoff
+      - grid: "RGB Grid"
+        channel: "G"
+        processing:
+          - method: onoff
+    combine: sum
+```
 
 #### Neuron Layout
 
