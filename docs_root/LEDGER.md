@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-052 · CLOSED · finding · - · 2026-09-16
+the bundle lacked neuron_modules/, so pressure-simulation's viewer could load it but never run it; fixed by writing neuron_modules/sensoryforge.json with one population_configs entry per population, matched by raw population name.
+→ commit 6382319
+
 ## D-020 · CLOSED · decision · - · 2026-09-15
 the template receptive-field builder derives sigma = d/pi and pitch = d from one resolvable distance d, truncates to the k nearest receptors with analytic Gaussian weights and unit-L2 rows by default
 → commit d53c018
