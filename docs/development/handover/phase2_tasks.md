@@ -7,19 +7,20 @@ the session-start hook injects a digest.
 
 ---
 
-## Kickoff prompt (paste to the agent)
+## How Phase 2 is run
 
-> You are implementing Phase 2 of `docs/developer_guide/roadmap_v1.md` in `~/sensoryforge`, on `main`.
-> Work on `main` directly, not in a worktree. Your task list is
-> `docs/development/handover/phase2_tasks.md`. Before starting, run `git log --oneline -20`, read
-> sections 1 to 3 of that file and section 2 ("Guardrails") of
-> `docs/development/handover/phase1_tasks.md` in full, and recreate the memory watchdog from the
-> appendix of `phase1_tasks.md` in your scratchpad. Then do Wave I in order (I1 to I8). One task = one
-> commit with the ledger trailers the task names, each trailer on a single line. Before you mark a
-> task done, run its "Done when" checks and paste their output into your report. New tests must fail
-> on `a513dfc`. List every task you completed with its commit hash. Do not push. Stop and report when
-> Wave I is finished.
+Phase 2 is orchestrated: an overseeing session dispatches each wave to an implementation agent working
+in its own git worktree, reviews the result, and merges it into the integration branch `phase2`. `main`
+stays at the end of Phase 1 until Phase 2 is complete and reviewed.
 
+- **Integration branch:** `phase2` (forked from `main` at `060363a`).
+- **Each wave** is developed on its own branch in a worktree, then merged into `phase2` after review.
+- **Every agent** reads sections 1 to 3 of this file and section 2 ("Guardrails") of
+  `docs/development/handover/phase1_tasks.md`, recreates the memory watchdog from that file's appendix,
+  commits one task per commit with single-line ledger trailers, never pushes, and reports each task's
+  commit hash with its "Done when" output.
+- **Waves J and N run in parallel** (disjoint files); K follows J; L then M follow; Phase 3 and 4 follow
+  Phase 2's exit check.
 ---
 
 ## 1. Why Phase 2, and in what order
