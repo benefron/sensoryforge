@@ -23,6 +23,7 @@ from __future__ import annotations
 import warnings
 from typing import Dict, List, Any, Optional, Tuple
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 from sensoryforge.config.schema import SensoryForgeConfig, validate_dt_ms
@@ -39,7 +40,6 @@ from sensoryforge.registry import (
 from sensoryforge.core.grid import ReceptorGrid, GridManager
 from sensoryforge.core.composite_grid import CompositeReceptorGrid, CompositeGrid
 from sensoryforge.core.innervation import (
-    _grid_lattice_coords,
     build_population_bank,
     create_neuron_centers,
 )
@@ -155,7 +155,21 @@ class SimulationEngine:
 
             # Get receptor coordinates
             if isinstance(grid, CompositeReceptorGrid):
-                receptor_coords = grid.get_all_coordinates()
+                # L4: a population may innervate a named subset of a
+                # composite grid's layers instead of all of them. Layer
+                # order (and therefore receptor index) is the contract --
+                # get_all_coordinates() concatenates in insertion order, and
+                # target_layers preserves whatever order it's given in.
+                if pop_cfg.target_layers:
+                    receptor_coords = torch.cat(
+                        [
+                            grid.get_layer_coordinates(name)
+                            for name in pop_cfg.target_layers
+                        ],
+                        dim=0,
+                    )
+                else:
+                    receptor_coords = grid.get_all_coordinates()
                 use_flat = True
             else:
                 receptor_coords = grid.get_receptor_coordinates()
@@ -213,25 +227,17 @@ class SimulationEngine:
                 ) from None
 
             if not use_flat:
-                # Ordinary grids: the receptor lattice of the matching
-                # GridManager (meshgrid, row-major -> receptor k = i*cols + j).
-                # Non-grid arrangements are built but their coordinates are
-                # not sampled yet (F-010, Wave L) -- same behaviour as
-                # before, now with a warning.
-                grid_manager = self.grid_managers.get(
-                    target_grid_name,
-                    self.grid_managers[list(self.grid_managers.keys())[0]],
-                )
-                receptor_coords = _grid_lattice_coords(grid_manager).reshape(-1, 2)
-                if getattr(grid, "arrangement", "grid") != "grid":
-                    warnings.warn(
-                        f"Population {pop_cfg.name!r}: receptor arrangement "
-                        f"{grid.arrangement!r} is built but innervation still "
-                        "samples a regular lattice over the grid bounds (F-010; "
-                        "real receptor sampling arrives with Wave L).",
-                        UserWarning,
-                        stacklevel=2,
-                    )
+                # Ordinary grids: the population's receptive-field bank is
+                # built on the grid's *real* receptor coordinates --
+                # get_receptor_coordinates() -- for every arrangement,
+                # closing the build-time half of F-010 (Wave L). For a
+                # "grid" arrangement this is bit-identical to the previous
+                # `_grid_lattice_coords(grid_manager)` (same construction
+                # args), since it was the same meshgrid either way; for
+                # hex/poisson/jittered_grid/blue_noise it is now the actual
+                # scattered positions instead of a synthetic regular
+                # lattice standing in for them.
+                receptor_coords = grid.get_receptor_coordinates()
 
             if builder_cls.DERIVES_NEURON_CENTERS:
                 warnings.warn(
@@ -363,6 +369,7 @@ class SimulationEngine:
                     "name": pop_cfg.name,
                     "config": pop_cfg,
                     "grid": grid,
+                    "target_grid_name": target_grid_name,
                     "innervation": bank,
                     "bank": bank,
                     "filter": filter_module,
@@ -472,20 +479,16 @@ class SimulationEngine:
             filter_module = pop["filter"]
             neuron_model = pop["neuron"]
             grid = pop["grid"]
+            grid_manager = self.grid_managers.get(pop["target_grid_name"])
 
-            # Apply stimulus to receptors
-            receptor_input = self._stimulus_to_receptors(stimulus, grid)
-
-            # Receptive fields: the bank takes flattened receptor responses
-            # [batch, time, M] (row-major over [grid_h, grid_w], receptor
-            # k = i * cols + j) and raises ValueError naming both shapes when
-            # M does not match its weights.
-            if receptor_input.ndim == 4:
-                batch, time, h, w = receptor_input.shape
-                receptor_input = receptor_input.reshape(batch, time, h * w)
-            elif receptor_input.ndim == 3:
-                batch, h, w = receptor_input.shape
-                receptor_input = receptor_input.reshape(batch, h * w)
+            # Map stimulus frames to receptor responses [batch, time, M]
+            # (Wave L3, F-010): sample the stimulus at each receptor's own
+            # (x, y) coordinate -- not "receptor index == pixel index" --
+            # except on the fast path (a regular lattice whose resolution
+            # matches the frame), which stays a bit-identical reshape.
+            receptor_input = self._stimulus_to_receptors(
+                stimulus, grid, innervation.receptor_coords, grid_manager
+            )
 
             drive = innervation(receptor_input)
             if drive.ndim == 2:
@@ -678,23 +681,178 @@ class SimulationEngine:
         self,
         stimulus: torch.Tensor,
         grid: Any,
+        receptor_coords: torch.Tensor,
+        grid_manager: Optional[Any],
     ) -> torch.Tensor:
-        """Map stimulus to receptor activations.
+        """Map stimulus frames to receptor responses ``[batch, time, M]``.
 
-        This is a simplified implementation. Full implementation would
-        properly sample stimulus at receptor locations.
+        Wave L3 (F-010): earlier releases assumed receptor index equals
+        stimulus pixel index (a bare reshape); that is only true for a
+        regular ``"grid"`` receptor lattice whose resolution matches the
+        stimulus frame. Every other arrangement -- hex, Poisson, jittered,
+        blue-noise, imported or composite coordinates -- needs the stimulus
+        *sampled* at each receptor's own ``(x, y)`` position. This method
+        picks the fast, bit-identical reshape when it is provably correct,
+        and otherwise samples via
+        :meth:`_sample_stimulus_at_receptors`.
 
-        The bank expects flattened receptor responses; run() reshapes:
-        - Grid-based: [batch, time, grid_h, grid_w] or [batch, grid_h, grid_w]
-        - Flat-based: [batch, time, num_receptors] or [batch, num_receptors]
+        Args:
+            stimulus: ``[height, width]``, ``[time, height, width]`` or
+                ``[batch, time, height, width]`` (a missing batch/time axis
+                is added).
+            grid: The population's target grid (:class:`ReceptorGrid` or
+                :class:`CompositeReceptorGrid`).
+            receptor_coords: ``[M, 2]`` ``(x, y)`` mm -- the bank's own
+                receptor coordinates, i.e. ``innervation.receptor_coords``.
+            grid_manager: The :class:`GridManager` (alias of
+                :class:`ReceptorGrid`) built alongside ``grid`` for the same
+                config entry, or ``None`` when unavailable (composite/flat
+                paths). Supplies ``grid_size`` and ``xlim``/``ylim`` for the
+                fast-path check and the sampling bounds.
+
+        Returns:
+            ``[batch, time, M]`` receptor responses, same dtype/device as
+            ``stimulus``.
         """
-        # Add batch dimension if missing
-        if stimulus.ndim == 3:
-            # [time, height, width] -> [1, time, height, width]
-            stimulus = stimulus.unsqueeze(0)
-        elif stimulus.ndim == 2:
+        # Add batch/time dimensions if missing, same as before Wave L.
+        if stimulus.ndim == 2:
             # [height, width] -> [1, 1, height, width]
             stimulus = stimulus.unsqueeze(0).unsqueeze(0)
+        elif stimulus.ndim == 3:
+            # [time, height, width] -> [1, time, height, width]
+            stimulus = stimulus.unsqueeze(0)
+        elif stimulus.ndim not in (4, 5):
+            raise ValueError(
+                "stimulus must be [H, W], [T, H, W], [batch, T, H, W] or "
+                f"[batch, T, C, H, W], got shape {list(stimulus.shape)}"
+            )
 
-        # Now stimulus is [batch, time, height, width] or [batch, height, width]
-        return stimulus
+        num_receptors = receptor_coords.shape[0]
+        spatial = stimulus.shape[-2:]
+
+        fast_path = (
+            grid_manager is not None
+            and getattr(grid, "arrangement", None) == "grid"
+            and stimulus.ndim == 4
+            and tuple(spatial) == tuple(grid_manager.grid_size)
+            and num_receptors == spatial[0] * spatial[1]
+        )
+        if fast_path:
+            batch, time, h, w = stimulus.shape
+            return stimulus.reshape(batch, time, h * w)
+
+        if grid_manager is not None:
+            xlim, ylim = grid_manager.xlim, grid_manager.ylim
+        else:
+            xlim, ylim = grid.xlim, grid.ylim
+        return self._sample_stimulus_at_receptors(stimulus, receptor_coords, xlim, ylim)
+
+    @staticmethod
+    def _sample_stimulus_at_receptors(
+        frames: torch.Tensor,
+        receptor_coords: torch.Tensor,
+        xlim: Tuple[float, float],
+        ylim: Tuple[float, float],
+    ) -> torch.Tensor:
+        """Sample stimulus frames at arbitrary receptor ``(x, y)`` positions.
+
+        Wave L3 (F-010): the receptive-field bank must receive the actual
+        stimulus value under each receptor, not the value at the pixel that
+        happens to share the receptor's index. This uses
+        ``torch.nn.functional.grid_sample`` for bilinear interpolation.
+
+        **The index algebra (read this before touching the axis order).**
+        SensoryForge builds every meshgrid with ``indexing="ij"``
+        (``core/grid.py:create_grid_torch``), so a frame tensor ``[..., H,
+        W]`` has element ``frame[..., i, j]`` at physical position
+        ``(x[i], y[j])``: **the frame's second-to-last axis (size H) is x,
+        and its last axis (size W) is y.**
+
+        ``grid_sample`` reads its sampling grid as ``grid[..., 0]`` /
+        ``grid[..., 1]`` = normalised coordinates along the input's *last*
+        axis / *second-to-last* axis respectively (its own docs call these
+        "x" and "y", meaning "the width axis" and "the height axis" of the
+        image tensor it was written for -- nothing about our physical x/y).
+        Put in terms of our tensor axes: ``grid[..., 0]`` addresses the
+        frame's last axis (W, which is our **y**), and ``grid[..., 1]``
+        addresses the frame's second-to-last axis (H, which is our **x**).
+
+        So the mapping is the swap, not the identity:
+
+        ``grid[..., 0] = normalise(receptor_y, ylim)``
+        ``grid[..., 1] = normalise(receptor_x, xlim)``
+
+        A naive ``grid[..., 0] = normalise(receptor_x, ...)`` produces a
+        smooth, plausible, **transposed** result -- correct on any
+        symmetric test stimulus and wrong on an asymmetric one (see
+        ``tests/unit/test_receptor_sampling.py``, which uses a Gaussian
+        with different sigma in x and y specifically so a swap fails it).
+
+        Normalisation uses ``align_corners=True`` (``v -> 2*(v-lo)/(hi-lo)
+        - 1``), matching ``xlim``/``ylim`` being the coordinates of the
+        first and last pixel centres (``torch.linspace`` bounds, not a
+        half-pixel-padded extent). ``padding_mode="zeros"`` makes a
+        receptor outside ``[xlim, ylim]`` sample exactly zero rather than
+        the clamped edge value.
+
+        Args:
+            frames: ``[batch, time, H, W]`` or ``[batch, time, C, H, W]``.
+            receptor_coords: ``[M, 2]`` ``(x, y)`` in mm.
+            xlim: ``(x_min, x_max)`` mm spanned by the frame's H axis.
+            ylim: ``(y_min, y_max)`` mm spanned by the frame's W axis.
+
+        Returns:
+            ``[batch, time, M]`` (input was 4-D) or ``[batch, time, C, M]``
+            (input was 5-D).
+
+        Raises:
+            ValueError: If ``frames`` is not 4-D or 5-D.
+        """
+        if frames.ndim == 4:
+            frames5 = frames.unsqueeze(2)
+            had_channel = False
+        elif frames.ndim == 5:
+            frames5 = frames
+            had_channel = True
+        else:
+            raise ValueError(
+                "frames must be [batch, time, H, W] or [batch, time, C, H, W], "
+                f"got shape {list(frames.shape)}"
+            )
+
+        batch, time, channels, h, w = frames5.shape
+        device = frames5.device
+        dtype = frames5.dtype
+
+        coords = receptor_coords.to(device=device, dtype=dtype)
+        num_receptors = coords.shape[0]
+        recept_x = coords[:, 0]
+        recept_y = coords[:, 1]
+
+        def _normalize(v: torch.Tensor, lo: float, hi: float) -> torch.Tensor:
+            if hi == lo:
+                return torch.zeros_like(v)
+            return 2.0 * (v - lo) / (hi - lo) - 1.0
+
+        norm_x = _normalize(recept_x, xlim[0], xlim[1])
+        norm_y = _normalize(recept_y, ylim[0], ylim[1])
+
+        # See the docstring: grid_sample's last axis is (along-W, along-H),
+        # i.e. (our y, our x) here -- the swap, not the naive (x, y).
+        sample_grid = torch.stack([norm_y, norm_x], dim=-1)  # [M, 2]
+        sample_grid = sample_grid.view(1, 1, num_receptors, 2).expand(
+            batch * time, 1, num_receptors, 2
+        )
+
+        frames_flat = frames5.reshape(batch * time, channels, h, w)
+        sampled = F.grid_sample(
+            frames_flat,
+            sample_grid,
+            mode="bilinear",
+            align_corners=True,
+            padding_mode="zeros",
+        )  # [batch*time, C, 1, M]
+        sampled = sampled.squeeze(2).view(batch, time, channels, num_receptors)
+        if not had_channel:
+            sampled = sampled.squeeze(2)
+        return sampled
