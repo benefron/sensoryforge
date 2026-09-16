@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-063 · OPEN · finding · - · 2026-09-16
+F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field previews with its own small widgets rather than reusing the Mechanoreceptor and Stimulus Designer plot widgets, because those share one plot item driving mouse-based population placement inside two 3,500-line tabs and could not be extracted safely in Wave P; the two drawing paths can now drift apart without any test noticing
+→ commit 2f399c9
+
 ## F-061 · CLOSED · finding · - · 2026-09-16
 F-061 the Circuit tab discovered which stimulus parameters a class accepts by retrying and deleting whatever the constructor rejected, so a field the user had deliberately set was dropped with no message and the graph then described a run that did not happen
 → commit 7a5ec87
