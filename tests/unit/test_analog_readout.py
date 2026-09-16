@@ -122,6 +122,4 @@ class TestSpikingUnchanged:
         assert tuple(result["spikes"].shape) == (1, 20, 2)
 
         recorded_spike_counts = torch.tensor([[3.0, 3.0]])
-        torch.testing.assert_close(
-            result["spikes"].sum(dim=1), recorded_spike_counts
-        )
+        torch.testing.assert_close(result["spikes"].sum(dim=1), recorded_spike_counts)

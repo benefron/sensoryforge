@@ -330,7 +330,10 @@ class NeuronModel:
         """
         # Check threshold variable exists (skipped for an analog model with
         # no threshold, N1).
-        if self.threshold_var is not None and self.threshold_var not in self.state_var_list:
+        if (
+            self.threshold_var is not None
+            and self.threshold_var not in self.state_var_list
+        ):
             raise ValueError(
                 f"Threshold variable '{self.threshold_var}' is not a state variable. "
                 f"Available state variables: {self.state_var_list}"
