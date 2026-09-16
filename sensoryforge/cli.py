@@ -225,7 +225,15 @@ def cmd_run(args: argparse.Namespace) -> int:
 
             print(f"Running simulation (duration: {args.duration}ms)...")
             engine = SimulationEngine(sf_config)
-            results = engine.run(stimulus_tensor, return_intermediates=True)
+            bundle_dir = getattr(args, "bundle", None)
+            results = engine.run(
+                stimulus_tensor,
+                return_intermediates=True,
+                bundle_dir=bundle_dir,
+                stimulus_config={"type": stimulus_type, **stimulus_params},
+            )
+            if bundle_dir:
+                print(f"Bundle written to {bundle_dir}")
 
             if args.output:
                 output_path = Path(args.output)
@@ -647,6 +655,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--output", help="Output file path (PyTorch checkpoint .pt or .pth)"
+    )
+    run_parser.add_argument(
+        "--bundle",
+        help=(
+            "Write a data bundle (config.json, population .pt files, "
+            "stimuli/, data.h5) to this directory (canonical configs only; "
+            "see sensoryforge.io.bundle)"
+        ),
     )
     run_parser.add_argument(
         "--device", choices=["cpu", "cuda", "mps"], help="Override device from config"
