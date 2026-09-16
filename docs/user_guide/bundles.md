@@ -11,7 +11,7 @@ bundle_dir/
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt   # one file per population
     stimuli/
-        stimulus.json         # the stimulus's own config dict
+        stimulus.json         # tagged payload; pressure-simulation's schema where it maps
     neuron_modules/
         sensoryforge.json     # schema_version "1.0.0", kind "neuron_module"
     data.h5                   # frames, time axis, per-population drive/filtered/spikes
@@ -55,8 +55,34 @@ hood for every population's `bank`.
 
 ## `stimuli/stimulus.json`
 
-The stimulus's own config dict (type and parameters), or `{}` if the caller didn't
-provide one.
+Always tagged with a `schema_version` and a `kind`, so a reader can tell which schema
+it is holding rather than guessing. This matters more than it looks: pressure-simulation's
+`generate_stimulus_from_json` reads every field with a `.get` default, so handed an empty
+or foreign payload it does not raise. It silently returns a static Gaussian blob at the
+origin, and its viewer will encode that and draw entirely plausible plots of a stimulus
+you never ran.
+
+Two kinds are written.
+
+`kind: "stimulus"`, `schema_version: "1.0.0"` is pressure-simulation's own schema. It is
+used only for the stimulus types that regenerate there exactly: `gaussian`, `point` and
+`edge`. That claim is not asserted on trust. `tests/integration/test_bundle_stimulus_payload.py`
+regenerates the frames from the written payload and compares them to the bundle's own
+`/stimulus/frames` at zero tolerance.
+
+`kind: "sensoryforge_stimulus"` is used for everything else, including a run whose caller
+passed no stimulus config at all. It carries `reconstructible_by_pressure_simulation: false`,
+so nothing downstream mistakes it for a payload that can be replayed there.
+
+Both kinds keep the caller's original dict verbatim under a `sensoryforge` key, so no
+information is lost in translation.
+
+Two details of the translation are worth knowing if you write a payload by hand. The field
+`total_ms` is the time of the **last sample**, `(n_frames - 1) * dt_ms`, not the duration,
+because pressure-simulation builds its time axis as `arange(0, total_ms + dt/2, dt)`. And
+its plateau mask is a strict `t < ramp_up + plateau`, so a plateau of exactly `total_ms`
+leaves the final frame at zero. When a stimulus declares no ramps of its own, `plateau_ms`
+is therefore written as `n_frames * dt_ms`.
 
 ## `neuron_modules/sensoryforge.json`
 

@@ -113,6 +113,107 @@ def _pop_grid_cfg(config: SensoryForgeConfig, pop_cfg: Any):
     return None
 
 
+_PRESSURE_SIM_STIMULUS_TYPES = frozenset({"gaussian", "point", "edge"})
+PRESSURE_SIM_STIMULUS_SCHEMA = "1.0.0"
+
+
+def build_stimulus_payload(
+    stimulus_config: Optional[Dict[str, Any]],
+    *,
+    dt_ms: float,
+    n_frames: int,
+    grid_section: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build the tagged payload written to ``stimuli/stimulus.json`` (J7).
+
+    Every payload carries ``schema_version`` and ``kind`` so a reader can tell
+    which schema it is holding. This matters because pressure-simulation's
+    ``generate_stimulus_from_json`` reads every field with a ``.get`` default:
+    handed an empty or foreign dict it does not raise, it silently yields a
+    static Gaussian blob at the origin, and the viewer will encode that and
+    draw plausible plots of the wrong stimulus.
+
+    Two kinds are emitted:
+
+    * ``"stimulus"`` at schema ``1.0.0`` -- pressure-simulation's own schema,
+      used only for the stimulus types that regenerate there exactly
+      (``gaussian``, ``point``, ``edge``). ``tests/integration/``
+      ``test_bundle_stimulus_payload.py`` pins that claim by regenerating the
+      frames and comparing them to the bundle's own, at zero tolerance.
+    * ``"sensoryforge_stimulus"`` at this bundle's schema for everything else,
+      with ``reconstructible_by_pressure_simulation`` set to ``False``.
+
+    The envelope needs one correction to round-trip. pressure-simulation
+    builds its time axis as ``arange(0, total_ms + dt/2, dt)``, so
+    ``total_ms`` is the time of the **last** sample, ``(n_frames - 1) * dt``,
+    not the duration. And its plateau mask is ``t < ramp_up + plateau``, a
+    strict inequality, so a plateau of exactly ``total_ms`` leaves the final
+    sample at zero. ``plateau_ms`` is therefore ``n_frames * dt_ms`` when the
+    stimulus declares no ramps of its own.
+
+    Args:
+        stimulus_config: The stimulus's own config dict, or ``None``.
+        dt_ms: The run's record step, in ms.
+        n_frames: Number of stimulus frames actually written.
+        grid_section: The grid block from ``config.json``.
+
+    Returns:
+        The payload dict, always tagged, never empty.
+    """
+    cfg = dict(stimulus_config or {})
+    dt_ms = float(dt_ms)
+    total_ms = float(max(n_frames - 1, 0)) * dt_ms
+    grid = {
+        "rows": grid_section.get("rows"),
+        "cols": grid_section.get("cols"),
+        "spacing": grid_section.get("spacing_mm"),
+        "center_x": (grid_section.get("center_mm") or [0.0, 0.0])[0],
+        "center_y": (grid_section.get("center_mm") or [0.0, 0.0])[1],
+    }
+    stim_type = str(cfg.get("type", "")).strip().lower()
+
+    if stim_type in _PRESSURE_SIM_STIMULUS_TYPES:
+        start = list(cfg.get("start", [0.0, 0.0]))
+        ramp_up = float(cfg.get("ramp_up_ms", 0.0))
+        ramp_down = float(cfg.get("ramp_down_ms", 0.0))
+        # No declared ramps -> a flat envelope over every frame, including the
+        # last one (see the docstring's note on the strict plateau mask).
+        plateau = float(cfg.get("plateau_ms", float(n_frames) * dt_ms))
+        return {
+            "schema_version": PRESSURE_SIM_STIMULUS_SCHEMA,
+            "kind": "stimulus",
+            "name": str(cfg.get("name", "stimulus")),
+            "type": stim_type,
+            "motion": str(cfg.get("motion", "static")),
+            "start": start,
+            "end": list(cfg.get("end", start)),
+            "spread": float(cfg.get("spread", cfg.get("sigma", 1.0))),
+            "orientation_deg": float(cfg.get("orientation_deg", 0.0)),
+            "amplitude": float(cfg.get("amplitude", 1.0)),
+            "ramp_up_ms": ramp_up,
+            "plateau_ms": plateau,
+            "ramp_down_ms": ramp_down,
+            "total_ms": total_ms,
+            "dt_ms": dt_ms,
+            "speed_mm_s": float(cfg.get("speed_mm_s", 0.0)),
+            "grid": grid,
+            "sensoryforge": cfg,
+        }
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "sensoryforge_stimulus",
+        "name": str(cfg.get("name", "stimulus")),
+        "type": cfg.get("type") or "unspecified",
+        "dt_ms": dt_ms,
+        "total_ms": total_ms,
+        "n_frames": int(n_frames),
+        "grid": grid,
+        "reconstructible_by_pressure_simulation": False,
+        "sensoryforge": cfg,
+    }
+
+
 def write_bundle(
     bundle_dir: Union[str, Path],
     config: SensoryForgeConfig,
@@ -252,8 +353,17 @@ def write_bundle(
     # ------------------------------------------------------------------ #
     # stimuli/stimulus.json
     # ------------------------------------------------------------------ #
+    # Frame count, after any leading batch dim: [T,H,W] / [T,C,H,W] keep
+    # axis 0; the batched forms drop it first, as the data.h5 block does.
+    n_frames = int(stimulus.shape[1] if stimulus.ndim in (4, 5) else stimulus.shape[0])
+    stimulus_payload = build_stimulus_payload(
+        stimulus_config,
+        dt_ms=config.simulation.dt_ms,
+        n_frames=n_frames,
+        grid_section=grid_section,
+    )
     with open(bundle_dir / "stimuli" / "stimulus.json", "w") as f:
-        json.dump(stimulus_config or {}, f, indent=2)
+        json.dump(stimulus_payload, f, indent=2)
 
     # ------------------------------------------------------------------ #
     # neuron_modules/sensoryforge.json (J6)
