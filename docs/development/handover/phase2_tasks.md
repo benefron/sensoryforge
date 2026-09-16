@@ -693,4 +693,6 @@ from a wheel installed outside the repo; spiking results are unchanged from the 
   population, an analog DSL readout, and a spiking population runs from a wheel installed outside the repo
   and writes a bundle that `load_bundle` reads and pressure-simulation's viewer logic opens.
 - Golden parity with pressure-simulation passes; all suites, black, flake8 and `mkdocs build --strict` pass.
-- Ledger: F-010, F-011, F-013, F-050, F-051 closed.
+- Ledger: F-010, F-011, F-013, F-050, F-051, F-052 closed.
+- `sensoryforge list-components` lists every built-in component, and a stimulus registered by a
+  plugin package runs from a config file (the F-052 proof).
