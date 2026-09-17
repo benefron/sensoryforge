@@ -172,6 +172,107 @@ def test_different_noise_seeds_give_different_noise():
     assert not torch.equal(result3["pop_0"]["filtered"], result4["pop_0"]["filtered"])
 
 
+def _two_pop_config(first_noise_seed):
+    """Two populations sharing one run seed; only the first gets `noise_seed`."""
+    grid = GridConfig(name="test_grid", rows=8, cols=8, spacing=1.0, arrangement="grid")
+
+    def _pop(name, noise_seed):
+        return PopulationConfig(
+            name=name,
+            target_grid="test_grid",
+            neuron_type="SA",
+            neurons_per_row=2,
+            innervation_method="gaussian",
+            connections_per_neuron=4,
+            sigma_d_mm=2.0,
+            filter_method="none",
+            neuron_model="Izhikevich",
+            input_gain=1.0,
+            noise_std=0.5,
+            noise_seed=noise_seed,
+            seed=1,
+        )
+
+    pops = [_pop("pop_0", first_noise_seed), _pop("pop_1", None)]
+    sim = SimulationConfig(dt_ms=0.5, device="cpu", seed=11)
+    return SensoryForgeConfig(grids=[grid], populations=pops, simulation=sim)
+
+
+def test_first_populations_noise_seed_does_not_leak_into_second():
+    """A per-population noise_seed on population 1 must not perturb population
+    2's noise stream (F-075 follow-up): the global-RNG reseed+restore done
+    around population 1's neuron call must leave the global RNG exactly as it
+    would have been had population 1 never touched it, so population 2 (which
+    has no noise_seed of its own and draws from the global RNG) is unaffected
+    by *which* seed population 1 used.
+
+    This is checked by varying population 1's own `noise_seed` (3 vs 4,
+    holding population 2's config and the run seed fixed) and asserting
+    population 2's output does not change -- with a leak (no restore, the old
+    bug), population 2's draw would differ across the two runs, because the
+    leftover global RNG state after population 1 would differ depending on
+    which seed it reseeded to. A direct "with noise_seed vs no noise_seed at
+    all" comparison is not usable here: population 1 legitimately consumes a
+    *different amount* of global-RNG entropy in those two cases (with a
+    generator, its own filtered-noise draw does not touch the global RNG at
+    all; without one, both its filtered noise and its neuron's internal
+    Langevin noise do) -- that is a correct, expected difference, not a leak,
+    and comparing across it would not isolate the leak this test is for.
+    """
+    stim = _make_stimulus()
+
+    config_seed_3 = _two_pop_config(first_noise_seed=3)
+    result_seed_3 = SimulationEngine(config_seed_3).run(stim, return_intermediates=True)
+
+    config_seed_4 = _two_pop_config(first_noise_seed=4)
+    result_seed_4 = SimulationEngine(config_seed_4).run(stim, return_intermediates=True)
+
+    # Population 1 (pop_0) legitimately differs -- different noise_seed.
+    assert not torch.equal(
+        result_seed_3["pop_0"]["filtered"], result_seed_4["pop_0"]["filtered"]
+    )
+    # Population 2 (pop_1) must be identical: pop_0's noise_seed must not
+    # leak into the global RNG state pop_1 draws from.
+    assert torch.equal(
+        result_seed_3["pop_1"]["filtered"], result_seed_4["pop_1"]["filtered"]
+    )
+    assert torch.equal(
+        result_seed_3["pop_1"]["spikes"], result_seed_4["pop_1"]["spikes"]
+    )
+
+
+def test_noise_generator_reseed_saves_and_restores_global_rng_state():
+    """Direct proof of the save/restore mechanism itself: calling
+    `_run_pop_from_drive` with a `noise_generator` leaves `torch.get_rng_state()`
+    bit-identical to what it was immediately before the call -- the internal
+    reseed-for-the-neuron-call is fully undone, not just "restored to
+    something else reasonable."
+    """
+    from sensoryforge.filters.sa_ra import SAFilterTorch
+    from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+
+    torch.manual_seed(42)
+    filt = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=0.5)
+    neuron = IzhikevichNeuronTorch(dt=0.05)
+    drive = torch.ones(1, 20, 4) * 5.0
+    gen = torch.Generator(device="cpu").manual_seed(7)
+
+    state_before = torch.get_rng_state().clone()
+    SimulationEngine._run_pop_from_drive(
+        drive=drive,
+        filter_module=filt,
+        neuron_model=neuron,
+        noise_std=0.5,
+        return_intermediates=True,
+        dt_ms=0.5,
+        integrate_dt_ms=0.05,
+        noise_generator=gen,
+    )
+    state_after = torch.get_rng_state()
+
+    assert torch.equal(state_before, state_after)
+
+
 # ---------------------------------------------------------------------------
 # progress_cb
 # ---------------------------------------------------------------------------

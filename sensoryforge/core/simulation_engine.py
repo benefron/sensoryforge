@@ -997,7 +997,13 @@ class SimulationEngine:
                 the generator's own device and moved to ``drive``'s device if
                 they differ. ``None`` (default) draws from the global RNG via
                 ``torch.randn_like``, exactly as before this parameter existed
-                -- bit-identical to the pre-F-075 behaviour.
+                -- bit-identical to the pre-F-075 behaviour. When given, the
+                global RNG is also reseeded from the generator's own seed for
+                the neuron call (see the neuron-model note below), but its
+                prior state is saved and restored around that call, so this
+                does not leak into anything that draws from the global RNG
+                afterwards -- e.g. a later population in the same ``run()``
+                that has no ``noise_seed`` of its own.
 
         Returns:
             Dictionary with at minimum ``"spikes"`` (integer sub-step spike
@@ -1053,19 +1059,34 @@ class SimulationEngine:
         n_substeps = max(1, round(dt_ms / integrate_dt_ms))
         filtered_sub = filtered.repeat_interleave(n_substeps, dim=1)
 
-        if noise_generator is not None:
+        if noise_generator is None:
+            neuron_output = neuron_model(filtered_sub)
+        else:
             # F-075: the built-in neuron models (Izhikevich/AdEx/MQIF/FA)
             # draw their own membrane (Langevin) noise from the *global* RNG
             # inside forward(), using this same noise_std -- there is no
             # generator parameter threaded into neuron_model. Reseed the
             # global RNG from noise_generator's own seed immediately before
             # the neuron call so that noise is reproducible too, matching
-            # this population's noise_seed end to end. Only happens when a
-            # generator is given; the noise_generator=None path never
-            # touches the global RNG.
-            _torch.manual_seed(noise_generator.initial_seed())
+            # this population's noise_seed end to end -- but save/restore
+            # the global RNG state around it so this population's seed does
+            # not leak into whatever draws from the global RNG afterwards
+            # (a later population with no noise_seed of its own, or
+            # anything else in the process). Only happens when a generator
+            # is given; the noise_generator=None branch above never touches
+            # the global RNG.
+            cpu_state = _torch.get_rng_state()
+            cuda_state = None
+            if filtered_sub.is_cuda:
+                cuda_state = _torch.cuda.get_rng_state(filtered_sub.device)
+            try:
+                _torch.manual_seed(noise_generator.initial_seed())
+                neuron_output = neuron_model(filtered_sub)
+            finally:
+                _torch.set_rng_state(cpu_state)
+                if cuda_state is not None:
+                    _torch.cuda.set_rng_state(cuda_state, filtered_sub.device)
 
-        neuron_output = neuron_model(filtered_sub)
         if isinstance(neuron_output, tuple):
             v_trace_sub, spikes_sub = neuron_output
         else:
