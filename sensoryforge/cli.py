@@ -20,9 +20,9 @@ import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
-from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.canvas import stimulus_canvas
 from sensoryforge.stimuli.render import render_stimulus
 from sensoryforge.registry import (
     NEURON_REGISTRY,
@@ -271,16 +271,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             # pipeline's chain only for its unregistered names.
             if sf_config.grids:
                 grid_cfg = sf_config.grids[0]
-                stim_grid = ReceptorGrid(
-                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
-                    spacing=grid_cfg.spacing,
-                    arrangement=grid_cfg.arrangement,
-                    center=(grid_cfg.center_x, grid_cfg.center_y),
-                    density=grid_cfg.density,
-                    device=sf_config.simulation.device,
-                    seed=grid_cfg.seed,
-                )
-                xx, yy = stim_grid.get_coordinates()
+                canvas = stimulus_canvas(grid_cfg, device=sf_config.simulation.device)
+                xx, yy = canvas.xx, canvas.yy
             else:
                 xx, yy = torch.meshgrid(
                     torch.linspace(-1, 1, 40),
