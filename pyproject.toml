@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sensoryforge"
-version = "0.2.0"
+version = "1.0.0"
 description = "Modular, extensible framework for simulating sensory encoding across modalities"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,7 @@ keywords = [
     "pytorch",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",

@@ -6,7 +6,17 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ## [Unreleased]
 
-Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
+Nothing yet.
+
+## [1.0.0] - 2026-09-17
+
+Not yet published to PyPI or tagged in git; install from source (see
+`CONTRIBUTING.md`). This is the first version-1.0.0 changelog entry,
+covering everything below back through the project's Phase 0 start,
+compiled from the git history and the wave handover records
+(`docs/development/handover/`) rather than summarised from memory. See
+"Known limitations" at the end of this entry for what is honestly still
+open going into this release.
 
 ### Changed (behaviour — re-run any saved results after upgrading)
 
@@ -253,4 +263,125 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
   is a runnable worked example (define, register, and run a filter), executed by
   `tests/docs/test_docs_examples.py` (H5).
 
-[Unreleased]: https://github.com/benefron/sensoryforge/commits/main
+### Added (Phase 2, Wave I — receptive fields as one component)
+
+- **`ReceptiveFieldBank`** (`sensoryforge/core/rf_bank.py`): the single object every population's
+  receptive fields are, replacing per-method ad hoc weight tensors -- buffers `weights [N, M]`,
+  `neuron_centers [N, 2]`, `receptor_coords [M, 2]` and a `provenance` dict; `save()`/`load()` as a
+  `.pt` file, including pressure-simulation's own population-file layout.
+- **`BaseInnervation.build()`** on all four existing innervation methods (`gaussian`, `uniform`,
+  `one_to_one`, `distance_weighted`) returns a bank through one shared function,
+  `build_population_bank()`, used by `SimulationEngine`, all three legacy pipelines and the GUI.
+- **The `template` and `imported` receptive-field builders** (documented above under "Added") and
+  **seeded receptor grids** (`GridConfig.seed`, F-050) are this wave's other two deliverables.
+
+### Added (Phase 3 — the Circuit graph GUI)
+
+- **The Circuit tab and graph-config serialisation** (Wave O): a node-graph editor tab that builds
+  and edits a `SensoryForgeConfig` as a graph of grid/population/readout nodes and edges, with a
+  lossless graph-to-config-to-graph round trip proved against five canonical example files and all
+  three shipped presets (`tests/` graph round-trip suite; two node types intentionally carry more
+  state than the original spec so the round trip stays lossless given the schema's single-stimulus,
+  no-owner-of-simulation-settings shape). The graph validator catches dangling terminals, a readout
+  with no filter, and a drive with neither a receptive-field bank nor a combine, but not yet a
+  combine whose inputs disagree on neuron count (ledger F-062).
+- **The inspector and the plugin palette** (Wave P): every node's parameters are rendered from
+  `get_param_spec()` alone, including for a plugin component this checkout has never imported --
+  proved by writing a real on-disk `*.dist-info`/`entry_points.txt` next to a real importable
+  package and letting the unmodified `importlib.metadata` entry-point scan find it (no in-process
+  registry call), the same technique `examples/plugin_template/tests/test_entry_point_discovery.py`
+  uses in this release (see V1 below). A component with an empty parameter spec now shows a visible
+  "no configurable parameters" notice instead of a blank panel. The Circuit tab draws its own small
+  sensor-array/stimulus/receptive-field previews rather than reusing the Mechanoreceptor and
+  Stimulus Designer tabs' plot widgets, a known duplication (ledger F-063).
+- **Graph parameter sweeps and multi-channel selectors** (Wave Q), plus **3,819 lines of dead code
+  removed**: four unused modules (including the whole neuron-explorer test file) deleted after a
+  full-repository grep across docs, examples, scripts, packaging and the mkdocs nav. A sweep now
+  reads its swept value back out of each run's own `config.json` and raises if a value was not
+  varied, rather than only checking that the expected number of bundles exist. Sweep targets are
+  chosen from combo boxes, not by clicking a node on the canvas (the Batch tab does not share a live
+  selection with the Circuit tab); the Visualization tab's multi-channel selector is complete and
+  tested as a capability, but nothing in the repository yet feeds it a real multi-channel tensor.
+- **The interactive walkthrough, the concepts pages, and the Phase 3 close-out** (Wave R): a
+  tutorial executed end to end (build a graph, export it, run it from the command line, re-import
+  and get the same graph back) rather than written from reading the code, with real, regeneratable
+  offscreen screenshots. Node classes and the inspector's preview dispatch remain hard-coded tables,
+  so a plugin gets a settings form for free but a new node *type* or custom preview still needs an
+  in-repo change (documented plainly in the extending guide rather than implied otherwise).
+
+### Added (Phase 4 — validation, benchmarks, documentation, release)
+
+- **Validation against closed-form and published references** (Wave S, F-022 first half;
+  `tests/validation/`): SA/RA filter step and ramp responses checked against their analytic
+  solutions across three time steps; the `template` builder's weights checked against the Gaussian
+  evaluated at the same distances and its resolvable-distance arithmetic; the `grid_sample`
+  stimulus-sampling path checked against an analytic Gaussian recovered at hex receptor positions;
+  Izhikevich RS/FS rate-vs-current behaviour checked against Izhikevich (2003)'s published claims.
+  Every test's docstring records a perturbation that makes it fail. A genuine TouchSim comparison
+  could not be produced (`touchsim` is not installed and Wave S is forbidden from adding it, F-053)
+  -- `tests/validation/test_touchsim_sanity.py` and `docs/examples/validation_touchsim.ipynb`
+  instead check the correct qualitative SA-sustains/RA-adapts adaptation class against a committed,
+  cited-literature reference (`tests/fixtures/reference/README.md` records exactly what this is and
+  is not; ledger F-070 records this as an accepted, open limitation). `scripts/reproduce_figure.py`
+  / `scripts/reproduce_env.sh` reproduce the pressure-simulation recipe's summary statistics from a
+  fresh install, exactly on spike counts and within a stated tolerance on mean rates, checked
+  in-process by `tests/validation/test_reproducibility.py`; this proof and its committed reference
+  are exact-match on this machine only, not yet across platforms (ledger F-071 records the same
+  macOS-arm64-only caveat for the pre-existing golden-parity tests).
+- **The benchmark harness, the published table, and a CI performance guard** (Wave T, F-022 second
+  half; see "A benchmark harness" above under Phase 4 F-022) -- also documented in
+  `docs/reference/benchmarks.md`, generated by `benchmarks/generate_table.py`, never hand-edited.
+- **The complete documentation tree, with every example executed** (Wave U): concepts,
+  getting-started, user-guide, developer-guide and API-reference sections with no remaining
+  "coming in Phase N" stubs; `pytest docs/examples` runs every `docs/examples/*.py` script; the
+  quick-start and validation notebooks execute under `nbmake` in CI
+  (`.github/workflows/tests.yml`); a GitHub Pages deploy workflow
+  (`.github/workflows/deploy-docs.yml`) publishes the strict build on pushes to the default branch
+  (unverified as of this release -- continuous integration has never executed on GitHub for this
+  repository). This wave also found and fixed real documentation-vs-code drift beyond its own
+  brief: a schema reference page naming fields that never existed on the dataclasses it described,
+  a quickstart notebook calling a function that no longer exists, and a shared contract-test skip
+  entry that was silently skipping the real `IdentityLayer` processing component as a side effect of
+  a filter-registry placeholder skip (closing F-058).
+- **The plugin template package and the JOSS paper draft** (Wave V, V1/V2): `examples/plugin_template/`
+  is a complete, standalone, installable plugin adding one receptive-field builder
+  (`radial_falloff`) and one processing layer (`gain_threshold`), verified through the real
+  `importlib.metadata` entry-point mechanism and a genuine `pip install` of its built wheel into a
+  disposable virtual environment, with its components then visible in `sensoryforge list-components`
+  (which, until this release, never listed `PROCESSING_REGISTRY` at all -- a processing-layer plugin
+  was invisible to that command even once correctly registered). `paper/paper.md` and
+  `paper/paper.bib` are a Journal of Open Source Software draft, scoped to the forward-model tool
+  this repository actually is (decoding stays out of SensoryForge; pressure-simulation consumes its
+  export bundle contract), with every claim citing the test, benchmark or executed example that
+  proves it.
+
+### Known limitations (going into 1.0.0)
+
+These are open findings in `docs_root/LEDGER.md`, listed here rather than left implicit, per this
+project's own validation guardrail ("a validation that cannot fail is not a validation" applies
+equally to a changelog that hides what still fails):
+
+- **No quantitative comparison against a published afferent model exists** (F-070): the TouchSim
+  comparison above is qualitative only.
+- **Golden-parity fixtures (`tests/integration/test_pressure_sim_parity.py`,
+  `test_stimulus_parity.py`, `tests/fixtures/rf_engine_golden_weights.pt`) have only ever run on
+  macOS arm64** (F-071); a failure on another platform needs diagnosis, not an assumption of
+  regression.
+- **The memory watchdog cannot detect a regression below roughly a factor of two** and its numbers
+  are never comparable run to run or machine to machine (F-056).
+- **The CI performance guard's 3.0x regression factor is calibrated from local experiments, not
+  from a run on GitHub's own runners** -- continuous integration has never executed on GitHub for
+  this repository as of this release.
+- **364 flake8 style violations exist beyond the CI-gated subset** (E9/F63/F7/F82 only; F-036).
+- **SensoryForge's neurons clamp voltage at a floor where pressure-simulation's do not** (F-037),
+  which unrectified SA (resolved separately, see above) makes reachable for strongly negative
+  drive.
+- **`pytest -m gui` segfaults under Python's cyclic garbage collector** in a `pyqtgraph`
+  callback chain (F-035); `tests/conftest.py` disables GC for every session to avoid it, which also
+  means the harness can no longer detect this crash class if it recurs.
+- **The Circuit tab's graph validator does not catch a combine whose inputs disagree on neuron
+  count** (F-062), and **draws its own preview widgets rather than reusing the Mechanoreceptor and
+  Stimulus Designer tabs'** (F-063), so the two can drift.
+
+[Unreleased]: https://github.com/benefron/sensoryforge/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/benefron/sensoryforge/releases/tag/v1.0.0

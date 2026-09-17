@@ -686,7 +686,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         QMessageBox.about(
             self,
             "About SensoryForge",
-            "<h2>SensoryForge v0.2.0</h2>"
+            "<h2>SensoryForge v1.0.0</h2>"
             "<p>An extensible playground for generating population activity "
             "in response to multiple stimuli and modalities.</p>"
             "<p><b>Core Features:</b></p>"
