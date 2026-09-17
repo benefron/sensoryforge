@@ -98,6 +98,32 @@ assert off[0, 0, 3] > 0 and on[0, 0, 3] == 0   # dark -> OFF only
 `to_dict`/`from_config` round trip, and an engine-level check that a population input with
 `processing: [{method: onoff}]` builds its bank on the doubled receptor axis).
 
+### Also run the shared contract check (F-058)
+
+`sensoryforge.testing.contracts.check_component("processing", cls, instance=...)` covers the
+generic part of the contract above -- `get_param_spec()` shape, `forward()` preserving or growing
+the receptor axis, and a `to_dict()`/`from_config()` round trip -- the same way it does for every
+other component kind. It does **not** replace the sign-logic check in section 3: shape and
+round-trip checks pass on a layer with its ON/OFF planes silently swapped, so write that assertion
+yourself for any layer whose correctness depends on more than shape.
+
+```python
+from sensoryforge.testing.contracts import check_component
+from sensoryforge.core.processing import OnOffLayer
+import torch
+
+check_component(
+    "processing", OnOffLayer, instance=OnOffLayer(receptor_coords=torch.rand(8, 2))
+)
+```
+
+A layer with no required constructor arguments (like `IdentityLayer`, or a plain-gain layer with
+only keyword defaults) can omit `instance=` and let `check_component` construct it with `cls()`.
+One whose `__init__` needs something positional (`OnOffLayer`'s `receptor_coords`) must pass an
+`instance=` built the same way `_PROCESSING_BUILDERS` does in
+`tests/contract/test_component_contracts.py`, which already runs this check over every name
+registered in `PROCESSING_REGISTRY`.
+
 ## 4. Using it from a config
 
 ```yaml

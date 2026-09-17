@@ -1,7 +1,8 @@
 """Contract tests over every registered component (G4).
 
 For each name registered in NEURON_REGISTRY, FILTER_REGISTRY, GRID_REGISTRY,
-SOLVER_REGISTRY, INNERVATION_REGISTRY and STIMULUS_REGISTRY, this checks the
+SOLVER_REGISTRY, INNERVATION_REGISTRY, STIMULUS_REGISTRY and
+PROCESSING_REGISTRY, this checks the
 extensibility baseline every component is expected to satisfy (G1-G3):
 
 1. ``from_config(instance.to_dict())`` round-trips without raising.
@@ -30,6 +31,7 @@ from sensoryforge.registry import (
     STIMULUS_REGISTRY,
     SOLVER_REGISTRY,
     GRID_REGISTRY,
+    PROCESSING_REGISTRY,
 )
 from sensoryforge.stimuli.builder import (
     StaticStimulus,
@@ -224,3 +226,36 @@ def test_stimulus_contract(name):
         stim = STIMULUS_REGISTRY.create(name)
 
     check_component("stimulus", cls, instance=stim)
+
+
+# ---------------------------------------------------------------------------
+# Processing layers (Wave M3): forward(receptor_responses) -> receptor axis
+# unchanged or grown; to_dict()/from_config() round trip the pipeline's
+# {"method": ..., "params": {...}} config shape (F-058).
+# ---------------------------------------------------------------------------
+
+# A layer whose __init__ needs something check_component's cls() fallback
+# can't supply (e.g. OnOffLayer's positional receptor_coords) needs its own
+# builder here, the same way _STIMULUS_BUILDERS covers composite stimuli.
+_PROCESSING_BUILDERS: Dict[str, Callable[[], Any]] = {
+    "onoff": lambda: PROCESSING_REGISTRY.get_class("onoff")(
+        receptor_coords=torch.rand(8, 2)
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(PROCESSING_REGISTRY.list_registered()))
+def test_processing_contract(name):
+    # Deliberately does not consult _SKIP: those entries are keyed only by
+    # name and were written for the filter/neuron placeholder aliases (a
+    # registered "identity" filter is a `type(None)` placeholder; the
+    # registered "identity" *processing* layer, IdentityLayer, is a real,
+    # fully-behaved component and must be checked).
+    cls = PROCESSING_REGISTRY.get_class(name)
+
+    if name in _PROCESSING_BUILDERS:
+        layer = _PROCESSING_BUILDERS[name]()
+    else:
+        layer = PROCESSING_REGISTRY.create(name)
+
+    check_component("processing", cls, instance=layer)
