@@ -88,6 +88,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-068 · CLOSED · finding · - · 2026-09-17
+F-068 the reproducibility test compared spike counts recorded on macOS arm64 exactly against runs on the Linux CI matrix, with no record of the reference's platform, and its docstring justified exact counts by the very cross-platform rounding differences that can flip a threshold-edge spike
+→ commit 2eeac0e
+
+## F-069 · CLOSED · finding · - · 2026-09-17
+F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols were ignored whenever a lattice-deriving receptive-field builder was used, even when the user had set none of them, so every run of the shipped tactile_sa1_ra1 preset printed a warning about a value nobody chose
+→ commit 2ce266f
+
+## F-070 · OPEN · finding · - · 2026-09-17
+F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
+→ commit 992e6ca
+
+## F-071 · OPEN · finding · - · 2026-09-17
+F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
+→ commit 992e6ca
+
 ## F-067 · CLOSED · finding · - · 2026-09-17
 F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
 → commit 98a7593
@@ -389,7 +405,7 @@ Public docs: developer_guide/*, units_and_gains.md, gui_walkthrough.md, configur
 Debt lists are stale: CLAUDE.md still lists DSL numpy-only (C-2) and reset_states (M-1) as open, both resolved (R-001, D-011); docs/development/reviews/CODE_REVIEW_20260408.md tracker says 37/37 open though several are fixed; decide whether reviews/ ships publicly
 → commit 7a188b6
 
-## F-022 · OPEN · finding · - · 2026-09-14
+## F-022 · CLOSED · finding · - · 2026-09-14
 No validation against reference data or pressure-simulation: one analytic filter test (test_filters_vs_theory.py), no TouchSim/Saal comparison, notebook unexecuted, no benchmark suite
 → commit 7a188b6
 
