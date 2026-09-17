@@ -260,6 +260,10 @@ def cmd_run(args: argparse.Namespace) -> int:
                 if "simulation" not in config:
                     config["simulation"] = {}
                 config["simulation"]["device"] = args.device
+            if args.seed is not None:
+                if "simulation" not in config:
+                    config["simulation"] = {}
+                config["simulation"]["seed"] = args.seed
 
             sf_config = SensoryForgeConfig.from_dict(config)
 
@@ -334,6 +338,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 print("Results saved successfully")
             else:
                 print("\nSimulation completed successfully!")
+                if sf_config.simulation.seed is not None:
+                    print(f"Seed: {sf_config.simulation.seed}")
                 for pop_name, pop_results in results.items():
                     # An analog readout (a DSL neuron with no spike
                     # condition, Wave N) carries "state" and has no
@@ -809,6 +815,15 @@ def create_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--device", choices=["cpu", "cuda", "mps"], help="Override device from config"
+    )
+    run_parser.add_argument(
+        "--seed",
+        type=int,
+        help=(
+            "Run-level seed (F-075): sets config.simulation.seed before the "
+            "run, so torch/numpy/random are seeded at the start of "
+            "SimulationEngine.run(). Canonical configs only."
+        ),
     )
 
     # Batch command

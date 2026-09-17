@@ -350,6 +350,7 @@ Configuration for simulation settings.
 | `solver` | dict | `{"type": "euler"}` | Global solver config (`type`, `method`, `rtol`, `atol`) |
 | `duration_ms` | float | `None` | Simulation duration in ms (optional; inferred from the stimulus when omitted) |
 | `dt` | float | `None` | Deprecated alias for `dt_ms` (F-008/E10); emits `DeprecationWarning`; raises `ValueError` if both `dt` and a differing, non-default `dt_ms` are given |
+| `seed` | int | `None` | Run-level seed (F-075). When set, `SimulationEngine.run()` seeds `torch`/`numpy`/`random` at the start of the run, before stimulus sampling and the population loop. `None` (default) leaves the ambient RNG state untouched. `sensoryforge run --seed` sets this field before running. Distinct from a population's own `noise_seed` (per-population membrane noise) and `seed` (innervation wiring, F-006 open) — see [Reproducibility](units_and_gains.md#reproducibility-seeds) |
 
 ### Example
 
@@ -359,6 +360,7 @@ simulation:
   dt_ms: 1.0
   integrate_dt_ms: 0.05
   duration_ms: 1000.0
+  seed: 7
 ```
 
 ## Complete Example

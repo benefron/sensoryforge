@@ -20,8 +20,9 @@ Example:
 
 from __future__ import annotations
 
+import random
 import warnings
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Callable, Dict, List, Any, Optional, Tuple
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -768,6 +769,7 @@ class SimulationEngine:
         stimulus_config: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
         bundle_overwrite: bool = False,
+        progress_cb: Optional[Callable[[int, int, str], None]] = None,
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -787,8 +789,19 @@ class SimulationEngine:
                 intermediates when *return_intermediates* is ``True``.
             stimulus_config: The stimulus's own config dict, written into the bundle's
                 ``stimuli/stimulus.json`` (ignored unless *bundle_dir* is given).
-            seed: The run's seed, recorded in the bundle (ignored unless *bundle_dir* is given).
+            seed: The run's seed (F-075). This is the single run-seed: when given, it is
+                used as-is; when ``None``, it falls back to ``self.config.simulation.seed``.
+                The value that resolves (either one, or ``None`` if both are unset) is used to
+                seed ``torch``/``numpy``/``random`` at the start of the run, before stimulus
+                sampling and the population loop, and is also what gets recorded in the bundle
+                (ignored unless *bundle_dir* is given). Distinct from a population's own
+                ``noise_seed`` (per-population membrane noise) and ``seed`` (innervation wiring,
+                F-006 open).
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
+            progress_cb: If given, called once per population as
+                ``progress_cb(index, n_populations, population_name)``, immediately before that
+                population's filter/neuron pass (so at call time ``results`` does not yet hold
+                that population's entry). ``None`` (default) leaves behaviour unchanged.
 
         Returns:
             Dictionary with results for each population, keyed by population name. Each value is
@@ -809,14 +822,27 @@ class SimulationEngine:
             >>> sa_spikes = results['SA Population']['spikes']  # [batch, time, num_neurons]
             >>> print(f"Total spikes: {sa_spikes.sum().item()}")
         """
+        # F-075: `seed` resolves against `self.config.simulation.seed` and, once
+        # resolved, is the single value used both to seed the RNGs below and to
+        # record into the bundle -- see the docstring's precedence note.
+        seed = seed if seed is not None else self.config.simulation.seed
+        if seed is not None:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
+
         want_intermediates = return_intermediates or bundle_dir is not None
         results = {}
+        n_populations = len(self.populations)
 
-        for pop in self.populations:
+        for index, pop in enumerate(self.populations):
             pop_name = pop["name"]
             innervation = pop["innervation"]
             filter_module = pop["filter"]
             neuron_model = pop["neuron"]
+
+            if progress_cb is not None:
+                progress_cb(index, n_populations, pop_name)
 
             # M2: sample each input's own grid/channel, run it through that
             # input's processing pipeline (if any), then concatenate along
@@ -860,15 +886,33 @@ class SimulationEngine:
             if drive.ndim == 2:
                 drive = drive.unsqueeze(1)
 
+            pop_cfg = pop["config"]
+            noise_generator = None
+            if pop_cfg.noise_seed is not None and pop_cfg.noise_std > 0:
+                # F-075: a per-population torch.Generator, seeded independently
+                # of the run seed, drives that population's membrane noise.
+                # Not every device supports torch.Generator(device=...)
+                # (e.g. an unsupported backend); fall back to a CPU generator
+                # and let _run_pop_from_drive move the draw to drive's device.
+                try:
+                    noise_generator = torch.Generator(device=self.device).manual_seed(
+                        pop_cfg.noise_seed
+                    )
+                except (RuntimeError, TypeError):
+                    noise_generator = torch.Generator(device="cpu").manual_seed(
+                        pop_cfg.noise_seed
+                    )
+
             pop_results = self._run_pop_from_drive(
                 drive=drive,
                 filter_module=filter_module,
                 neuron_model=neuron_model,
-                input_gain=pop["config"].input_gain,
-                noise_std=pop["config"].noise_std,
+                input_gain=pop_cfg.input_gain,
+                noise_std=pop_cfg.noise_std,
                 return_intermediates=want_intermediates,
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
+                noise_generator=noise_generator,
             )
             results[pop_name] = pop_results
 
@@ -906,6 +950,7 @@ class SimulationEngine:
         return_intermediates: bool = False,
         dt_ms: float = 1.0,
         integrate_dt_ms: float = 0.05,
+        noise_generator: Optional[torch.Generator] = None,
     ) -> Dict[str, Any]:
         """Run filter → gain → noise → sub-stepped neuron on a drive tensor.
 
@@ -947,6 +992,12 @@ class SimulationEngine:
                 the returned ``"spikes"``/``"filtered"``/``"voltages"``.
             integrate_dt_ms: Neuron integration step (ms); must match the dt
                 ``neuron_model`` was constructed with.
+            noise_generator: If given, the membrane noise draw uses this
+                ``torch.Generator`` instead of the global RNG (F-075), drawn on
+                the generator's own device and moved to ``drive``'s device if
+                they differ. ``None`` (default) draws from the global RNG via
+                ``torch.randn_like``, exactly as before this parameter existed
+                -- bit-identical to the pre-F-075 behaviour.
 
         Returns:
             Dictionary with at minimum ``"spikes"`` (integer sub-step spike
@@ -978,7 +1029,21 @@ class SimulationEngine:
 
         # Additive Gaussian noise
         if noise_std > 0.0:
-            filtered = filtered + _torch.randn_like(filtered) * noise_std
+            if noise_generator is None:
+                noise = _torch.randn_like(filtered)
+            else:
+                # F-075: draw on the generator's own device; a generator
+                # built on a device the drive isn't on (e.g. a CPU fallback
+                # generator feeding an MPS/CUDA drive) still works.
+                noise = _torch.randn(
+                    filtered.shape,
+                    generator=noise_generator,
+                    device=noise_generator.device,
+                    dtype=filtered.dtype,
+                )
+                if noise.device != filtered.device:
+                    noise = noise.to(filtered.device)
+            filtered = filtered + noise * noise_std
 
         filtered = filtered.float()
 
@@ -987,6 +1052,18 @@ class SimulationEngine:
         # sequence so its state carries continuously across bins.
         n_substeps = max(1, round(dt_ms / integrate_dt_ms))
         filtered_sub = filtered.repeat_interleave(n_substeps, dim=1)
+
+        if noise_generator is not None:
+            # F-075: the built-in neuron models (Izhikevich/AdEx/MQIF/FA)
+            # draw their own membrane (Langevin) noise from the *global* RNG
+            # inside forward(), using this same noise_std -- there is no
+            # generator parameter threaded into neuron_model. Reseed the
+            # global RNG from noise_generator's own seed immediately before
+            # the neuron call so that noise is reproducible too, matching
+            # this population's noise_seed end to end. Only happens when a
+            # generator is given; the noise_generator=None path never
+            # touches the global RNG.
+            _torch.manual_seed(noise_generator.initial_seed())
 
         neuron_output = neuron_model(filtered_sub)
         if isinstance(neuron_output, tuple):
