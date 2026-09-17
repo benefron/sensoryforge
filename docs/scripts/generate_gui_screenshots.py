@@ -11,12 +11,16 @@ the walkthrough silently going stale.
 
 Usage:
     QT_QPA_PLATFORM=offscreen python docs/scripts/generate_gui_screenshots.py
+    python docs/scripts/generate_gui_screenshots.py --output-dir /tmp/shots
 
-Writes PNGs to ``docs/assets/gui/``.
+Writes PNGs to ``docs/assets/gui/`` by default. ``--output-dir`` sends them
+elsewhere, which is what the test does so that running the suite never
+rewrites the committed images.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import tempfile
@@ -37,7 +41,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-def main() -> None:
+def main(output_dir: Path = ASSETS_DIR) -> None:
     from PyQt5 import QtWidgets
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
@@ -46,7 +50,8 @@ def main() -> None:
     from sensoryforge.gui.circuit.serialise import config_to_graph
     from sensoryforge.gui.tabs.circuit_tab import CircuitTab
 
-    ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     config = SensoryForgeConfig.from_yaml(
         str(REPO_ROOT / "sensoryforge" / "presets" / "tactile_sa1_ra1.yml")
@@ -60,7 +65,7 @@ def main() -> None:
     # 1. The graph right after loading the pressure-simulation preset.
     config_to_graph(config, tab.flowchart)
     app.processEvents()
-    _grab(tab, "circuit_loaded_preset.png")
+    _grab(tab, "circuit_loaded_preset.png", output_dir)
 
     # 2. A node selected, showing the inspector (P1/P2: params from
     #    get_param_spec() plus the reused Mechanoreceptor-tab-style preview).
@@ -68,13 +73,13 @@ def main() -> None:
     if grid_node is not None:
         tab.select_node(grid_node)
         app.processEvents()
-        _grab(tab, "circuit_inspector_sensor_array.png")
+        _grab(tab, "circuit_inspector_sensor_array.png", output_dir)
 
     filter_node = tab.nodes().get("SA Population__filter")
     if filter_node is not None:
         tab.select_node(filter_node)
         app.processEvents()
-        _grab(tab, "circuit_inspector_filter.png")
+        _grab(tab, "circuit_inspector_filter.png", output_dir)
 
     # 3. Exercise a run (point the Record node at a temp bundle dir) as part
     #    of what this script proves still works -- but do not grab a fourth
@@ -95,12 +100,12 @@ def main() -> None:
             )
         tab.run_graph(duration_ms=20.0)
 
-    print(f"Wrote screenshots to {ASSETS_DIR}")
+    print(f"Wrote screenshots to {output_dir}")
 
 
-def _grab(widget, filename: str) -> None:
+def _grab(widget, filename: str, output_dir: Path) -> None:
     pixmap = widget.grab()
-    out_path = ASSETS_DIR / filename
+    out_path = Path(output_dir) / filename
     ok = pixmap.save(str(out_path))
     if not ok or pixmap.width() == 0 or pixmap.height() == 0:
         raise RuntimeError(
@@ -108,8 +113,19 @@ def _grab(widget, filename: str) -> None:
             f"{filename} ({pixmap.width()}x{pixmap.height()}, saved={ok}). "
             "Ship the walkthrough without screenshots rather than a placeholder."
         )
-    print(f"  {out_path.relative_to(REPO_ROOT)}  ({pixmap.width()}x{pixmap.height()})")
+    print(f"  {out_path}  ({pixmap.width()}x{pixmap.height()})")
+
+
+def _parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ASSETS_DIR,
+        help="Where to write the PNGs (default: docs/assets/gui/).",
+    )
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
-    main()
+    main(_parse_args().output_dir)

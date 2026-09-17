@@ -162,47 +162,59 @@ def test_graph_export_runs_through_the_cli_and_reimports_identically():
         assert reexported.to_yaml() == exported.to_yaml()
 
 
-def test_screenshot_script_produces_real_images():
+def test_screenshot_script_produces_real_images(tmp_path):
     """`docs/scripts/generate_gui_screenshots.py` (Wave R, R1) runs offscreen
     and writes non-trivial PNGs, so the walkthrough's screenshots are
     regenerable by one command rather than going stale (Wave R exit).
 
-    This is a real subprocess run of the actual script, the same way a
-    maintainer would regenerate the images -- not a call into its internals.
-    Genuinely new: the script does not exist on 1d6ee15, so this test fails
-    there (`FileNotFoundError`/non-zero exit), and passes here.
+    A real subprocess run of the actual script, the way a maintainer would
+    regenerate the images, not a call into its internals.
+
+    It writes into ``tmp_path`` via ``--output-dir`` and asserts on what it
+    wrote there. An earlier version let the script write into the committed
+    ``docs/assets/gui/`` and then checked that directory, which had two
+    faults: every suite run rewrote tracked files, and the check could not
+    fail, because the images already committed there satisfy it even if the
+    script writes nothing at all.
     """
     script = REPO_ROOT / "docs" / "scripts" / "generate_gui_screenshots.py"
     assert script.is_file(), f"{script} is missing"
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        env = dict(os.environ)
-        env["QT_QPA_PLATFORM"] = "offscreen"
-        # Redirect the script's own ASSETS_DIR by running it against a copy
-        # of the repo's docs/scripts dir would be excessive; instead let it
-        # write to the real docs/assets/gui/ (already tracked, committed
-        # images) and just verify the outputs it reports look real -- this
-        # mirrors exactly how a maintainer re-runs it before a release.
-        result = subprocess.run(
-            [sys.executable, str(script)],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            cwd=str(REPO_ROOT),
-            env=env,
-        )
-        assert result.returncode == 0, (
-            f"screenshot script failed:\n--- stdout ---\n{result.stdout}\n"
-            f"--- stderr ---\n{result.stderr}"
+    committed_dir = REPO_ROOT / "docs" / "assets" / "gui"
+    committed_before = {
+        png.name: png.read_bytes() for png in sorted(committed_dir.glob("*.png"))
+    }
+
+    out_dir = tmp_path / "shots"
+    env = dict(os.environ)
+    env["QT_QPA_PLATFORM"] = "offscreen"
+    result = subprocess.run(
+        [sys.executable, str(script), "--output-dir", str(out_dir)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(REPO_ROOT),
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"screenshot script failed:\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}"
+    )
+
+    pngs = sorted(out_dir.glob("*.png"))
+    assert len(pngs) >= 3, f"expected at least 3 screenshots in {out_dir}, found {pngs}"
+    for png_path in pngs:
+        # A blank grab is still a valid PNG but tiny; a real grab of the
+        # Circuit tab is comfortably larger than 1 KB.
+        assert png_path.stat().st_size > 1024, (
+            f"{png_path} looks too small ({png_path.stat().st_size} bytes) "
+            "to be a real screenshot"
         )
 
-        assets_dir = REPO_ROOT / "docs" / "assets" / "gui"
-        pngs = sorted(assets_dir.glob("*.png"))
-        assert len(pngs) >= 3, f"expected at least 3 screenshots, found {pngs}"
-        for png_path in pngs:
-            # A blank/placeholder grab would still be a valid PNG but tiny;
-            # a real 1400x900 RGB screenshot is comfortably larger than 1KB.
-            assert png_path.stat().st_size > 1024, (
-                f"{png_path} looks too small ({png_path.stat().st_size} bytes) "
-                "to be a real screenshot"
-            )
+    committed_after = {
+        png.name: png.read_bytes() for png in sorted(committed_dir.glob("*.png"))
+    }
+    assert committed_after == committed_before, (
+        "running the screenshot test modified the committed images in "
+        f"{committed_dir}; it must write only to its own output directory"
+    )
