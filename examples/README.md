@@ -249,4 +249,4 @@ Have a useful configuration or example? Please contribute!
 ---
 
 **SensoryForge** – Extensible sensory encoding playground  
-Version 0.2.0 | [GitHub](https://github.com/benefron/sensoryforge)
+Version 1.0.0 | [GitHub](https://github.com/benefron/sensoryforge)
