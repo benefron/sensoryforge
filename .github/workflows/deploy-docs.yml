@@ -1,0 +1,69 @@
+name: deploy-docs
+
+# Publishes the strict mkdocs build to GitHub Pages on every push to main.
+# Unverified (U4): CI has never run on GitHub for this repository (see
+# docs/development/handover/phase4_tasks.md, Wave U). This workflow was written by
+# reading the actions it uses (actions/configure-pages, actions/upload-pages-artifact,
+# actions/deploy-pages -- the standard, non-branch, GitHub Pages deployment flow) and
+# has not been run for real; its first push to main is the first time it is exercised.
+# The one-time repository-settings step it depends on -- Settings -> Pages -> Source =
+# "GitHub Actions" -- also has to be done by a repository admin before this can deploy.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Needed by actions/deploy-pages to publish to the environment below.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one concurrent deployment; a new push cancels an in-flight deployment rather
+# than queuing behind it (the standard Pages recommendation), but never cancels a
+# deployment that is already applying the artifact.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install CPU torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install sensoryforge
+        run: pip install -e ".[gui,hdf5,dsl,dev,docs]"
+
+      - name: mkdocs build --strict
+        run: mkdocs build --strict
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -22,6 +22,11 @@ Component names are matched **case-insensitively** (H1, F-046): `"Ring"` and
 exact-case collisions with a built-in stimulus's name — though a genuine
 collision (same name, different class) still raises.
 
+The complete runnable example is `docs/examples/plugin_stimulus.py` (a smaller ring stimulus,
+`AnnulusStimulus`, than this page's `RingStimulus` walkthrough, but the same steps and shape): it
+defines the class, registers it, runs the shared contract check, and generates one frame directly.
+It is executed by `tests/docs/test_docs_examples.py`.
+
 ---
 
 ## 1. Understand the API contract

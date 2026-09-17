@@ -147,12 +147,17 @@ ra_spikes = ra_neurons(ra_filtered)[1]
 
 ## 📖 Documentation
 
-- **[Installation Guide](docs/getting_started/installation.md)** - Set up your environment
-- **[Quick Start](docs/getting_started/quickstart.md)** - Run your first simulation
-- **[User Guide](docs/user_guide/)** - Detailed documentation
-- **[Tutorials](docs/tutorials/)** - Step-by-step guides
-- **[API Reference](docs/api_reference/)** - Complete API documentation
-- **[Extending SensoryForge](docs/developer_guide/)** - Create custom components
+**Published site: [benefron.github.io/sensoryforge](https://benefron.github.io/sensoryforge)**
+(built and deployed by `.github/workflows/deploy-docs.yml` on every push to `main`).
+
+- **[Installation Guide](https://benefron.github.io/sensoryforge/getting_started/installation/)** - Set up your environment
+- **[Quick Start](https://benefron.github.io/sensoryforge/getting_started/quickstart/)** - Run your first simulation
+- **[User Guide](https://benefron.github.io/sensoryforge/user_guide/overview/)** - Detailed documentation
+- **[Tutorials](https://benefron.github.io/sensoryforge/tutorials/quickstart_tutorial/)** - Step-by-step guides
+- **[API Reference](https://benefron.github.io/sensoryforge/api_reference/pipeline/)** - Complete API documentation
+- **[Extending SensoryForge](https://benefron.github.io/sensoryforge/developer_guide/extensibility/)** - Create custom components
+
+(The same pages also live under [`docs/`](docs/) in this repository, as Markdown source.)
 
 ---
 
@@ -382,7 +387,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- **Documentation:** [`docs/`](docs/) in this repository (MkDocs source; site not yet published)
+- **Documentation:** [benefron.github.io/sensoryforge](https://benefron.github.io/sensoryforge) (published from [`docs/`](docs/) by `.github/workflows/deploy-docs.yml`)
 - **GitHub:** https://github.com/benefron/sensoryforge
 - **Issue Tracker:** https://github.com/benefron/sensoryforge/issues
 

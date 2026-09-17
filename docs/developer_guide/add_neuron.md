@@ -22,6 +22,16 @@ and `"lif"` are the same registration, so you don't need to worry about
 exact-case collisions with a built-in neuron's name — though a genuine
 collision (same name, different class) still raises.
 
+The complete runnable example is `docs/examples/plugin_neuron.py`: the `LIFNeuronTorch` class
+below is excerpted from it, so what you can copy from this page is what actually runs. It defines
+the class, registers it, runs the shared contract check, and drives it with a synthetic step
+current. It is executed by `tests/docs/test_docs_examples.py`.
+
+A neuron model with no `threshold`/`reset` is read out as a continuous state trace instead of
+spikes (an **analog readout** -- not a separate plugin kind, since it is the DSL neuron model
+taking that branch rather than a new registry): see `docs/user_guide/analog_readouts.md` and its
+executed example, `docs/examples/analog_dsl.py`.
+
 ---
 
 ## 1. Understand the API contract

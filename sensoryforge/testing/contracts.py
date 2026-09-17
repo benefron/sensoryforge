@@ -314,6 +314,103 @@ def _check_stimulus(cls: type, instance: Any) -> None:
     _assert_to_dict_roundtrip_complete(cls, instance)
 
 
+def _infer_receptor_count(instance: Any) -> int:
+    """Guess the receptor count a processing-layer instance was built for.
+
+    Layers with no receptor-count dependence (``IdentityLayer``) don't care
+    what ``M`` is, so any value works. Layers that precompute a receptor x
+    receptor kernel (``OnOffLayer``'s ``dog_kernel``, and by the same shape
+    convention any future centre-surround-style layer) fix ``M`` at
+    construction time via a square buffer; find it generically instead of
+    hard-coding ``OnOffLayer``'s attribute name, so a plugin layer with its
+    own square kernel buffer is picked up the same way.
+    """
+    for _, buf in instance.named_buffers():
+        if buf.ndim == 2 and buf.shape[0] == buf.shape[1] and buf.shape[0] > 0:
+            return int(buf.shape[0])
+    return 8
+
+
+def _check_processing(cls: type, instance: Any) -> None:
+    """Canonical processing-layer contract (Wave M3 shape, F-058).
+
+    A processing layer's ``forward``/``to_dict``/``from_config`` shapes are
+    deliberately not the same as the other five kinds (F-058): ``forward``
+    takes ``(receptor_responses, metadata=None)`` rather than one positional
+    tensor, ``to_dict()`` returns the ``{"method": ..., "params": {...}}``
+    shape :class:`~sensoryforge.core.processing.ProcessingPipeline` reads
+    rather than a flat kwargs dict, and a layer whose
+    ``REQUIRES_RECEPTOR_COORDS`` is set needs ``receptor_coords`` passed to
+    ``from_config`` explicitly (it cannot be recovered from ``to_dict()``,
+    which never serialises the receptor axis). So this check is written
+    against that actual contract instead of reusing
+    :func:`_assert_to_dict_roundtrip_complete`, which assumes the flat shape.
+
+    Checks:
+    1. ``cls.get_param_spec()`` returns a list of ``ParamSpec``.
+    2. ``forward(receptor_responses)`` on a ``[batch, time, M]`` input
+       returns a tensor with the same leading (batch, time) shape and a
+       receptor axis ``>= M`` (a layer may only grow it, e.g. ON/OFF
+       splitting -- never silently shrink it).
+    3. ``to_dict()`` includes a ``"method"`` or ``"type"`` key (either is
+       ``ProcessingPipeline.from_config()``'s dispatch key into
+       ``PROCESSING_REGISTRY``).
+    4. ``cls.from_config(instance.to_dict(), receptor_coords=...)`` (the
+       coordinates passed unconditionally; only a class with
+       ``REQUIRES_RECEPTOR_COORDS`` uses them) round-trips to the same
+       ``to_dict()``.
+
+    Args:
+        cls: The processing-layer class under test; must subclass
+            ``BaseProcessingLayer``.
+        instance: A constructed instance. Required (not optional) for any
+            layer whose ``__init__`` needs ``receptor_coords`` positionally
+            (e.g. ``OnOffLayer``) -- ``check_component`` falls back to
+            ``cls()`` only when no instance is given, which fails for such
+            layers, matching how the ``"innervation"`` kind already works.
+    """
+    _assert_param_spec(cls)
+    m = _infer_receptor_count(instance)
+    x = torch.randn(1, 5, m)
+    out = instance(x)
+    if tuple(out.shape[:-1]) != tuple(x.shape[:-1]):
+        raise AssertionError(
+            f"{cls.__name__} forward(): expected leading shape "
+            f"{tuple(x.shape[:-1])}, got {tuple(out.shape[:-1])}"
+        )
+    if out.shape[-1] < m:
+        raise AssertionError(
+            f"{cls.__name__} forward(): receptor axis shrank from {m} to "
+            f"{out.shape[-1]} -- a processing layer may only grow or "
+            "preserve the receptor axis, per expand_receptor_coords()"
+        )
+    d1 = instance.to_dict()
+    if "method" not in d1 and "type" not in d1:
+        raise AssertionError(
+            f"{cls.__name__}.to_dict() must include a 'method' or 'type' key "
+            "-- ProcessingPipeline.from_config() dispatches on either "
+            "(BaseProcessingLayer; 'type' is IdentityLayer's original key, "
+            "'method' is PopulationInput.processing's, Wave M3)"
+        )
+    receptor_coords = torch.zeros(m, 2)
+    if getattr(cls, "REQUIRES_RECEPTOR_COORDS", False):
+        reconstructed = cls.from_config(d1, receptor_coords=receptor_coords)
+    else:
+        reconstructed = cls.from_config(d1)
+    if not isinstance(reconstructed, cls):
+        raise AssertionError(
+            f"{cls.__name__}.from_config(instance.to_dict()) did not return "
+            f"a {cls.__name__} instance (got {type(reconstructed)!r})"
+        )
+    d2 = reconstructed.to_dict()
+    if d1 != d2:
+        raise AssertionError(
+            f"{cls.__name__}.from_config(instance.to_dict()).to_dict() != "
+            f"instance.to_dict() -- round trip is not a fixed point "
+            f"(F-058). First: {d1!r} Second: {d2!r}"
+        )
+
+
 _CHECKS: Dict[str, Callable[[type, Any], None]] = {
     "neuron": _check_neuron,
     "filter": _check_filter,
@@ -321,6 +418,7 @@ _CHECKS: Dict[str, Callable[[type, Any], None]] = {
     "solver": _check_solver,
     "innervation": _check_innervation,
     "stimulus": _check_stimulus,
+    "processing": _check_processing,
 }
 
 
@@ -344,17 +442,19 @@ def check_component(kind: str, cls: type, instance: Optional[Any] = None) -> Non
 
     Args:
         kind: One of ``"neuron"``, ``"filter"``, ``"grid"``, ``"solver"``,
-            ``"innervation"``, ``"stimulus"``.
+            ``"innervation"``, ``"stimulus"``, ``"processing"``.
         cls: The component class under test. Must be (or subclass) the
             matching base class -- ``BaseNeuron``, ``BaseFilter``,
-            ``BaseGrid``, ``BaseSolver``, ``BaseInnervation``, or
-            ``BaseStimulus``.
+            ``BaseGrid``, ``BaseSolver``, ``BaseInnervation``,
+            ``BaseStimulus``, or ``BaseProcessingLayer``.
         instance: An already-constructed instance to check against. Required
             for kinds without a parameter-free default constructor (e.g.
             ``innervation``, which always needs ``receptor_coords``/
-            ``neuron_centers``) or when the default-constructed instance
-            would not exercise the case under test (e.g. a composite
-            stimulus needing a sub-stimulus). If omitted, ``cls()`` is used.
+            ``neuron_centers``; or a ``"processing"`` layer such as
+            ``OnOffLayer`` that needs ``receptor_coords`` positionally) or
+            when the default-constructed instance would not exercise the
+            case under test (e.g. a composite stimulus needing a
+            sub-stimulus). If omitted, ``cls()`` is used.
 
     Raises:
         ValueError: If ``kind`` is not one of :func:`available_kinds`.
