@@ -1,4 +1,9 @@
 {
+  "platform": {
+    "machine": "arm64",
+    "system": "Darwin",
+    "torch": "2.5.1"
+  },
   "quick": true,
   "stimuli": {
     "braille": {

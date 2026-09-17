@@ -54,5 +54,85 @@ def test_pressure_simulation_recipe_reproduces_committed_reference():
     with open(reproduce_figure.STATS_PATH) as f:
         reference = json.load(f)
 
-    problems = reproduce_figure._compare(actual, reference)
-    assert not problems, "reproducibility check failed:\n" + "\n".join(problems)
+    exact = reproduce_figure.same_platform(reference)
+    problems = reproduce_figure._compare(actual, reference, exact=exact)
+    mode = "exact (same platform)" if exact else "cross-platform tolerance"
+    assert not problems, f"reproducibility check failed [{mode}]:\n" + "\n".join(
+        problems
+    )
+
+
+# ---------------------------------------------------------------------------
+# The comparison itself, as a pure function (F-068). These run without the
+# recipe, so they pin the rules independently of any particular reference.
+# ---------------------------------------------------------------------------
+
+
+def _stats(counts):
+    return {
+        "quick": True,
+        "stimuli": {
+            "stim": {
+                pop: {"spikes": n, "mean_rate_hz": float(n)}
+                for pop, n in counts.items()
+            }
+        },
+    }
+
+
+class TestComparisonRules:
+    def test_same_platform_requires_exact_counts(self):
+        ref = _stats({"SA": 15})
+        assert reproduce_figure._compare(_stats({"SA": 15}), ref, exact=True) == []
+        assert reproduce_figure._compare(_stats({"SA": 16}), ref, exact=True)
+
+    def test_cross_platform_absorbs_a_few_threshold_edge_spikes(self):
+        ref = _stats({"SA": 15, "RA": 6601})
+        near = _stats({"SA": 18, "RA": 6601 + 130})
+        assert reproduce_figure._compare(near, ref, exact=False) == []
+
+    def test_cross_platform_still_catches_a_real_regression(self):
+        """A wrong gain or preset moves counts by factors, not a handful."""
+        ref = _stats({"SA": 15, "RA": 6601})
+        assert reproduce_figure._compare(
+            _stats({"SA": 999, "RA": 6601}), ref, exact=False
+        )
+        assert reproduce_figure._compare(
+            _stats({"SA": 15, "RA": 3300}), ref, exact=False
+        )
+        just_over = 6601 + reproduce_figure.spike_tolerance(6601) + 1
+        assert reproduce_figure._compare(
+            _stats({"SA": 15, "RA": just_over}), ref, exact=False
+        )
+
+    def test_small_counts_get_an_absolute_floor(self):
+        assert (
+            reproduce_figure.spike_tolerance(15)
+            == reproduce_figure.CROSS_PLATFORM_SPIKE_ABS
+        )
+        assert reproduce_figure.spike_tolerance(6601) == 132
+
+
+class TestPlatformDetection:
+    def test_a_matching_signature_is_the_same_platform(self):
+        ref = {"platform": reproduce_figure.platform_signature()}
+        assert reproduce_figure.same_platform(ref) is True
+
+    def test_a_different_machine_is_foreign(self):
+        sig = dict(reproduce_figure.platform_signature())
+        sig["machine"] = "a-different-architecture"
+        assert reproduce_figure.same_platform({"platform": sig}) is False
+
+    def test_a_reference_without_a_platform_is_treated_as_foreign(self):
+        """No evidence it matches, so exact agreement is not demanded."""
+        assert reproduce_figure.same_platform({}) is False
+
+    def test_the_committed_reference_records_its_platform(self):
+        import json
+
+        with open(reproduce_figure.STATS_PATH) as f:
+            reference = json.load(f)
+        assert isinstance(reference.get("platform"), dict), (
+            "the committed reference must record the platform it was made on, "
+            "or every run is compared under the looser cross-platform rule"
+        )

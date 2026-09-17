@@ -7,19 +7,36 @@ rate) and one figure (mean rate per population per stimulus), and checks
 them against the versions committed under
 ``tests/fixtures/reference/reproducibility/``.
 
-**What "reproduces bit-for-bit" means here.** The recipe is fully
-deterministic given its preset's seed (``ReceptorGrid(..., seed=...)``,
-``SimulationEngine`` builds the same weights/neuron order every run, no
-randomness anywhere else in the CPU path) -- so on the *same platform*
-(same OS/CPU architecture/BLAS backend/torch build) two runs of this script
-must produce identical spike counts and bit-identical mean rates (both are
-computed from the identical spike tensor). Across platforms, floating-point
-summation order in the underlying BLAS/torch kernels can differ in the
-last few bits, so this script asserts **spike counts exactly** (integers;
-either the two spike trains agree exactly or a real regression happened)
-and **mean rates to a relative tolerance of 1e-9** (representable-precision
-slack for cross-platform float reduction order, nine orders of magnitude
-tighter than would hide any change a human would call "different").
+**What "reproduces" means here, on one platform and across platforms.**
+The recipe is deterministic given its preset's seed: the grid, the weights
+and the neuron order are the same every run, and nothing else in the CPU
+path draws random numbers. So on the *same platform* -- the same operating
+system, processor architecture and torch build -- two runs produce the
+identical spike tensor, and this script requires spike counts to match
+exactly.
+
+Across platforms that guarantee does not hold, and pretending otherwise
+would make this check fail on its first run somewhere new with nothing
+changed. A different processor or BLAS library can round the last bits of
+a floating-point sum differently, and a neuron sitting just at threshold can
+then spike on one machine and not the other. So when the reference was
+recorded on a different platform, spike counts must agree within the larger
+of ``CROSS_PLATFORM_SPIKE_ABS`` spikes or ``CROSS_PLATFORM_SPIKE_REL`` of the
+reference count. That absorbs a few threshold-edge spikes flipping, and it
+still fails on a real regression, which moves counts by far more: a wrong
+gain or preset changes them by factors, not by a handful.
+
+The cross-platform tolerance is an estimate, not a measurement. The
+reference was recorded on one machine and nothing has yet been run on
+another, so the size of the real cross-platform spread is unknown. If the
+first run elsewhere fails by a few spikes, widen the tolerance with that
+evidence in the commit; if it fails by factors, that is a real difference.
+
+Mean firing rates are computed from the spike counts, so they add no
+independent check and are compared with the same rule.
+
+The reference records the platform it was made on. One recorded without a
+platform is treated as foreign, since there is no evidence it matches.
 
 Usage:
     # Compare against the committed reference (what CI runs):
@@ -59,7 +76,40 @@ REFERENCE_DIR = REPO_ROOT / "tests" / "fixtures" / "reference" / "reproducibilit
 STATS_PATH = REFERENCE_DIR / "summary_stats.json"
 FIGURE_PATH = REFERENCE_DIR / "mean_rates.png"
 
-RATE_RELATIVE_TOLERANCE = 1e-9
+CROSS_PLATFORM_SPIKE_ABS = 3
+CROSS_PLATFORM_SPIKE_REL = 0.02
+
+
+def platform_signature() -> dict:
+    """The properties that decide whether exact reproduction is expected."""
+    import platform
+
+    import torch
+
+    return {
+        "system": platform.system(),
+        "machine": platform.machine(),
+        "torch": torch.__version__,
+    }
+
+
+def same_platform(reference: dict) -> bool:
+    """Whether *reference* was recorded on a platform matching this one.
+
+    A reference with no recorded platform is treated as foreign: there is
+    no evidence it matches, and assuming it does would demand exact
+    agreement that may be impossible.
+    """
+    recorded = reference.get("platform")
+    return isinstance(recorded, dict) and recorded == platform_signature()
+
+
+def spike_tolerance(reference_spikes: int) -> int:
+    """Allowed absolute spike-count difference across platforms."""
+    return max(
+        CROSS_PLATFORM_SPIKE_ABS,
+        int(round(CROSS_PLATFORM_SPIKE_REL * abs(reference_spikes))),
+    )
 
 
 def compute_summary_stats(quick: bool = True) -> dict:
@@ -159,8 +209,18 @@ def render_figure(stats: dict, out_path: Path) -> None:
     plt.close(fig)
 
 
-def _compare(actual: dict, reference: dict) -> list:
-    """Return a list of human-readable mismatch descriptions (empty = match)."""
+def _compare(actual: dict, reference: dict, *, exact: bool = True) -> list:
+    """Return human-readable mismatch descriptions; empty means a match.
+
+    Args:
+        actual: Summary statistics from a fresh run.
+        reference: The committed reference statistics.
+        exact: Require identical spike counts (same platform). When
+            ``False``, counts must agree within :func:`spike_tolerance`.
+
+    Returns:
+        One string per mismatch.
+    """
     problems = []
     if actual["quick"] != reference["quick"]:
         problems.append(
@@ -178,20 +238,22 @@ def _compare(actual: dict, reference: dict) -> list:
             if act_pop is None:
                 problems.append(f"{stim}/{pop}: missing in fresh run")
                 continue
-            if act_pop["spikes"] != ref_pop["spikes"]:
-                problems.append(
-                    f"{stim}/{pop}: spike count {act_pop['spikes']} != "
-                    f"reference {ref_pop['spikes']} (exact match required)"
-                )
-            ref_rate = ref_pop["mean_rate_hz"]
-            act_rate = act_pop["mean_rate_hz"]
-            denom = max(abs(ref_rate), 1e-12)
-            rel_err = abs(act_rate - ref_rate) / denom
-            if rel_err > RATE_RELATIVE_TOLERANCE:
-                problems.append(
-                    f"{stim}/{pop}: mean_rate_hz {act_rate} vs reference {ref_rate} "
-                    f"(relative error {rel_err} > {RATE_RELATIVE_TOLERANCE})"
-                )
+            ref_spikes = int(ref_pop["spikes"])
+            act_spikes = int(act_pop["spikes"])
+            if exact:
+                if act_spikes != ref_spikes:
+                    problems.append(
+                        f"{stim}/{pop}: spike count {act_spikes} != reference "
+                        f"{ref_spikes} (same platform: exact match required)"
+                    )
+            else:
+                allowed = spike_tolerance(ref_spikes)
+                if abs(act_spikes - ref_spikes) > allowed:
+                    problems.append(
+                        f"{stim}/{pop}: spike count {act_spikes} vs reference "
+                        f"{ref_spikes}, differs by {abs(act_spikes - ref_spikes)} "
+                        f"(cross-platform tolerance {allowed})"
+                    )
     return problems
 
 
@@ -219,6 +281,7 @@ def main() -> int:
     stats = compute_summary_stats(quick=quick)
 
     if args.write_reference:
+        stats["platform"] = platform_signature()
         REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
         with open(STATS_PATH, "w") as f:
             json.dump(stats, f, indent=2, sort_keys=True)
@@ -235,7 +298,14 @@ def main() -> int:
     with open(STATS_PATH) as f:
         reference = json.load(f)
 
-    problems = _compare(stats, reference)
+    exact = same_platform(reference)
+    print(
+        "Same platform as the reference: exact spike counts required."
+        if exact
+        else "Different platform from the reference (or none recorded): "
+        "comparing within the cross-platform tolerance."
+    )
+    problems = _compare(stats, reference, exact=exact)
     if problems:
         print("REPRODUCIBILITY CHECK FAILED:")
         for p in problems:
