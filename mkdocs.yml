@@ -145,6 +145,7 @@ nav:
   - API Reference:
     - Pipeline: api_reference/pipeline.md
     - Neurons: api_reference/neurons.md
+    - Benchmarks: reference/benchmarks.md
 
   - Contributing: contributing.md
 
