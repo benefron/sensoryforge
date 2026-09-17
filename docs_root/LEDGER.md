@@ -112,7 +112,7 @@ F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols 
 F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
 → commit 992e6ca
 
-## F-071 · OPEN · finding · - · 2026-09-17
+## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
 → commit 992e6ca
 
