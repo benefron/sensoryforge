@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-072 · OPEN · finding · - · 2026-09-17
+sensoryforge list-components never listed PROCESSING_REGISTRY, so a processing-layer plugin (or any processing layer) was invisible to that command even once correctly registered
+→ commit 92d8ad0
+
 ## D-021 · CLOSED · decision · - · 2026-09-17
 SensoryForge and pressure-simulation engines are held in parity by SensoryForge tests/integration/test_pressure_sim_parity.py (drive and filtered response to 1e-6, spikes exact, 8x8 grid, one SA and one RA population, non-negative stimulus) and test_stimulus_parity.py (four benchmark stimuli, zero tolerance); known exceptions are the -120 mV voltage clamp under strongly negative drive (SensoryForge F-037) and that parity has only been verified on macOS arm64 (SensoryForge F-071)
 → commit 52642b7
