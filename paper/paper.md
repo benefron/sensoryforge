@@ -27,7 +27,7 @@ PLACEHOLDERS LEFT FOR THE USER (also listed in the V2 report):
 
 # Summary
 
-SensoryForge is a PyTorch-based, GPU-capable simulator that turns a spatial
+SensoryForge is a PyTorch-based simulator that turns a spatial
 stimulus (a pressure map, an image, or another sampled sensory signal) into
 simulated afferent population activity through an explicit, shape-annotated
 pipeline: a stimulus is sampled at a population of receptor coordinates,
@@ -35,7 +35,7 @@ passed through a receptive-field bank that maps receptors onto neurons,
 filtered by a temporal adaptation model (slowly- or rapidly-adapting SA/RA
 dynamics, or a user-defined filter), and driven through a spiking or analog
 neuron model. Every stage -- grid arrangement, receptive-field builder,
-filter, neuron, solver, processing layer, and analog readout -- is a
+filter, neuron, solver, and processing layer -- is a
 registered, contract-checked component
 (`sensoryforge/registry.py`, `sensoryforge/testing/contracts.py`), so a
 third party can add a new component as a standalone, installable Python
@@ -44,12 +44,18 @@ package with no changes to the SensoryForge checkout
 complete, tested, installable worked example, verified in this release
 through the real Python entry-point discovery mechanism rather than an
 in-process registry call --
-`examples/plugin_template/tests/test_entry_point_discovery.py`). A
+`examples/plugin_template/tests/test_entry_point_discovery.py`). An
+analog readout is not a separate component kind: it is a neuron model
+defined through the equation DSL without a spike condition
+(`docs/user_guide/analog_readouts.md`). A
 canonical YAML configuration format (`sensoryforge/config/schema.py`)
 drives both a command-line interface and an interactive PyQt5 GUI from the
 same execution engine (`sensoryforge/core/simulation_engine.py`), so an
-experiment designed interactively reproduces exactly when scaled to a batch
-run from the command line.
+experiment designed interactively runs as the same configuration through
+the same engine when scaled to a batch run from the command line; the
+round trip from a graph built in the GUI, through the command line and back
+to an identical configuration, is checked by
+`tests/gui/test_circuit_graph_end_to_end.py`.
 
 SensoryForge is a **forward-model tool**, not a decoding or inference
 package: it simulates afferent responses to a stimulus, and stops there. A
@@ -117,34 +123,22 @@ rather than take it on faith.
   this comparison does and does not show; this is recorded as an open,
   known limitation in the project's own living ledger,
   `docs_root/LEDGER.md`, finding F-070).
-- **Bit-for-bit reproducibility.** `scripts/reproduce_figure.py` and
-  `scripts/reproduce_env.sh` install the package into a fresh environment,
-  run the pressure-simulation demo recipe
-  (`examples/pressure_simulation_recipe.py`), and reproduce a committed set
-  of summary statistics exactly (spike counts) and within a stated relative
-  tolerance (mean rates) against
-  `tests/fixtures/reference/reproducibility/summary_stats.json`;
-  `tests/validation/test_reproducibility.py` runs this check in CI and its
-  docstring records a deliberate perturbation of the reference (a single
-  spike count changed) that makes the check fail, confirming it actually
-  discriminates a wrong result from a right one.
-- **A reproducible, headless demo.** The same recipe
-  (`examples/pressure_simulation_recipe.py`) builds an 80x80-receptor grid,
-  designs SA and RA receptive fields from a single resolvable distance, runs
-  four stimuli (a ramp-and-hold Gaussian indentation, a moving edge, a
-  simulated Braille pattern, and a drifting grating), and writes one export
-  bundle per stimulus -- runnable with no display (`--quick` for a fast
-  smoke pass) and requiring no GUI dependency.
-- **Cross-platform floating-point caveat.** Three zero-tolerance golden
-  tests (`tests/integration/test_pressure_sim_parity.py`,
-  `tests/integration/test_stimulus_parity.py`, and the receptive-field
-  golden weights in `tests/fixtures/rf_engine_golden_weights.pt`) compare
-  against fixtures generated on macOS arm64 and have not, as of this
-  release, been exercised on another platform; a failure on a different
-  architecture may be floating-point rounding rather than a regression, and
-  should be diagnosed rather than assumed (ledger finding F-071). No
-  quantitative cross-platform equivalence claim is made here beyond that
-  caveat.
+- **Reproducibility.** `scripts/reproduce_figure.py` runs the
+  pressure-simulation demo recipe (`examples/pressure_simulation_recipe.py`)
+  and compares per-stimulus, per-population spike counts against
+  `tests/fixtures/reference/reproducibility/summary_stats.json`, which
+  records the platform it was produced on. On that platform the counts must
+  match exactly; on a different platform they must agree within the larger
+  of 3 spikes or 2 percent, because floating-point rounding can
+  legitimately flip a neuron sitting at threshold. That cross-platform
+  tolerance is an estimate: nothing has yet been run on a second platform.
+  It still fails on a real regression, and this was checked rather than
+  assumed: a 10 percent change to the RA filter gain moved every affected
+  count by between 3.3 and 5.3 times the tolerance. The comparison and
+  platform-detection rules themselves are tested in
+  `tests/validation/test_reproducibility.py`. A wrapper,
+  `scripts/reproduce_env.sh`, performs the fresh-environment install, but it
+  has not itself been executed for this release.
 - **Performance.** `docs/reference/benchmarks.md` (generated from
   `benchmarks/results/latest.json` by `benchmarks/generate_table.py` --
   regenerate with `python -m benchmarks.run_benchmarks`) reports wall-clock
@@ -152,7 +146,11 @@ rather than take it on faith.
   sizes on the machine that produced the committed numbers (an Apple M3
   Pro, macOS-15.7.1-arm64), including an 80x80-receptor grid with both SA
   and RA populations run for one simulated second (1945.99 ms median run
-  time) and a 10x10 smoke-test cell (37.70 ms median run time). No
+  time) and a 10x10 smoke-test cell (37.70 ms median run time). The same
+  smoke-test cell also runs on an
+  Apple-silicon GPU through PyTorch's MPS backend, at 1153.07 ms median, about
+  thirty times slower than on the CPU at this size; CUDA has not been tested
+  for this release. No
   performance number appears in this paper that is not drawn from that
   file. A continuous-integration performance guard
   (`.github/workflows/benchmarks.yml`, `benchmarks/check_regression.py`)
@@ -180,7 +178,9 @@ covers concepts, getting-started, user-guide, developer-guide and
 API-reference sections, plus executable guides for adding most plugin kinds
 (`docs/developer_guide/add_filter.md`, `add_neuron.md`, `add_rf_builder.md`,
 `add_stimulus.md`; `docs/extending/add_grid_arrangement.md`,
-`add_gui_node.md`, `add_processing_layer.md`, `add_solver.md`), every
+`add_processing_layer.md`, `add_solver.md`; `add_gui_node.md` covers GUI
+nodes, which today are an in-repository change rather than a plugin
+hook), every
 `docs/examples/*.py` script executed by `pytest docs/examples`
 (`tests/docs/test_docs_examples.py`), and the quick-start and validation
 notebooks executed with `nbmake`
