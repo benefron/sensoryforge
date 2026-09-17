@@ -177,6 +177,43 @@ CI_GUARD_CELL = Cell(
 # ---------------------------------------------------------------------------
 
 
+REFERENCE_KERNEL_STEPS = 800
+
+
+def _reference_kernel(seed: int) -> None:
+    """A fixed workload shaped like the engine's inner loop.
+
+    The CI guard divides the engine's run time by this kernel's run time,
+    both measured in the same process, so that a machine that is simply
+    slower overall (a CI runner rather than the laptop the baseline came
+    from) cancels out and only a change in the engine's own cost remains.
+
+    It has to resemble the engine's work for that to hold. On a cell this
+    small the engine's time goes mostly to many tiny tensor operations in a
+    Python loop -- an Izhikevich-style update per integration sub-step --
+    rather than to one large matrix product, so the kernel is the same
+    shape: a drive computation and a few elementwise updates, repeated. A
+    single big matmul would instead measure the BLAS library, which differs
+    between Apple's Accelerate and the x86 builds a CI runner uses.
+
+    Args:
+        seed: Seeds the kernel's inputs so every call does identical work.
+    """
+    import torch
+
+    gen = torch.Generator().manual_seed(seed)
+    weights = torch.rand(64, 100, generator=gen)
+    stimulus = torch.rand(1, 100, generator=gen)
+    v = torch.full((1, 64), -65.0)
+    u = torch.zeros(1, 64)
+    reset = torch.full((1, 64), -65.0)
+    for _ in range(REFERENCE_KERNEL_STEPS):
+        drive = stimulus @ weights.T
+        v = v + 0.5 * (0.04 * v * v + 5.0 * v + 140.0 - u + drive)
+        u = u + 0.02 * (0.2 * v - u)
+        v = torch.where(v > 30.0, reset, v).clamp(-120.0, 60.0)
+
+
 def _run_cell_worker(cell: Cell, seed: int) -> Dict[str, Any]:
     """Build+run `cell` (warm-up + timed repeats) in the current process.
 
@@ -248,12 +285,24 @@ def _run_cell_worker(cell: Cell, seed: int) -> Dict[str, Any]:
     # any device-specific first-call cost (kernel compilation on MPS/CUDA).
     for _ in range(WARMUP_REPEATS):
         one_iteration()
+        _reference_kernel(seed)
 
-    samples = [one_iteration() for _ in range(cell.repeats)]
+    # The reference kernel is interleaved with the engine repeats rather
+    # than run as a block before or after them, so a slow drift in machine
+    # state during the cell (thermal throttling, a neighbour on a shared CI
+    # runner) affects both series alike instead of biasing their ratio.
+    samples = []
+    reference_s = []
+    for _ in range(cell.repeats):
+        samples.append(one_iteration())
+        r0 = time.perf_counter()
+        _reference_kernel(seed)
+        reference_s.append(time.perf_counter() - r0)
     return {
         "cell": asdict(cell),
         "build_s": [s["build_s"] for s in samples],
         "run_s": [s["run_s"] for s in samples],
+        "reference_s": reference_s,
     }
 
 
@@ -358,6 +407,14 @@ def summarize(raw: Dict[str, Any]) -> Dict[str, Any]:
         "finished_at": raw["finished_at"],
         "raw_build_s": raw["build_s"],
         "raw_run_s": raw["run_s"],
+        **(
+            {
+                "reference": _stats(raw["reference_s"]),
+                "raw_reference_s": raw["reference_s"],
+            }
+            if raw.get("reference_s")
+            else {}
+        ),
     }
 
 

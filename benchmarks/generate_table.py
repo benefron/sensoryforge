@@ -29,9 +29,7 @@ def generate(data: Dict[str, Any], out_path: Path) -> None:
     lines.append("")
     lines.append("```bash")
     lines.append("export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 QT_QPA_PLATFORM=offscreen")
-    lines.append(
-        "/opt/miniconda3/envs/sensoryforge/bin/python -m benchmarks.run_benchmarks"
-    )
+    lines.append("python -m benchmarks.run_benchmarks")
     lines.append("```")
     lines.append("")
     lines.append(
@@ -151,15 +149,41 @@ def generate(data: Dict[str, Any], out_path: Path) -> None:
     lines.append("")
     lines.append(
         "`.github/workflows/benchmarks.yml` runs the `ci_guard` cell (same shape as "
-        "`smoke_10x10`) on every push/PR via `python -m benchmarks.check_regression`, "
-        "and fails if its run-phase median exceeds **3.0x** the baseline recorded in "
-        "`benchmarks/results/ci_baseline.json` (38.07 ms measured on this machine across "
-        "six back-to-back runs, a 3.85% run-to-run spread -- 3.0x sits far above that "
-        "local noise floor to tolerate a noisier shared CI runner). This catches a 3x or "
-        "worse regression (the spec's own example of a ten-times-slower engine trips it "
-        "with more than 3x headroom, confirmed by deliberately slowing `SimulationEngine.run` "
-        "and watching the guard fail) but **will not** catch a smaller regression -- a change "
-        "that makes this cell 50-100% slower passes the CI guard silently. See "
+        "`smoke_10x10`) on every push and pull request via "
+        "`python -m benchmarks.check_regression`, and fails if the engine has become "
+        "more than **3.0x** slower than the baseline in "
+        "`benchmarks/results/ci_baseline.json`."
+    )
+    lines.append("")
+    lines.append(
+        "**What is compared.** Not raw milliseconds. The baseline was measured on an "
+        "Apple M3 Pro laptop and the guard runs on a GitHub Linux runner, and those "
+        "machines take different times for the same code; that difference is a fixed "
+        "offset, not noise, so a raw comparison would pass or fail on hardware alone. "
+        "Each run therefore also times a fixed reference kernel, interleaved with the "
+        "engine in the same process, and the guard compares engine time divided by "
+        "reference time, now against then. A uniformly slower machine cancels out; a "
+        "slower engine does not."
+    )
+    lines.append("")
+    lines.append(
+        "**Evidence that it works, on real hardware.** Pinning the run to this chip's "
+        "slower efficiency cores (`taskpolicy -b`) raised the engine's raw time 4.56x, "
+        "from 40.08 ms to 182.68 ms, which would fail an uncalibrated 3.0x guard with "
+        "no code changed. The calibrated factor was 1.05x and the guard passed. With a "
+        "150 ms sleep injected into `SimulationEngine.run`, the calibrated factor was "
+        "5.30x and the guard failed. Across six baseline runs the ratio varied 3.5%, "
+        "tighter than the engine's 8.0% or the reference's 8.6% alone, because a run "
+        "slowed by machine state slows both."
+    )
+    lines.append("")
+    lines.append(
+        "**What it will not catch.** A regression smaller than about 3x on this cell "
+        "passes: an engine made 50% or 100% slower gets through. And efficiency and "
+        "performance cores share an architecture and a BLAS library, so moving to x86 "
+        "CI hardware can shift the ratio more than the experiment above did; the 3.0x "
+        "factor is generous partly for that reason. Until the guard has run on the CI "
+        "runner itself, that residual is estimated, not measured. See "
         "`benchmarks/check_regression.py`'s docstring for the full reasoning."
     )
     lines.append("")
