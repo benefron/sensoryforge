@@ -141,3 +141,35 @@ def test_ra_filter_ramp_response_converges_to_k3_didt():
     order_2 = torch.log2(torch.tensor(errors[1] / errors[2]))
     assert order_1 > 0.7, f"expected first-order convergence, got order {order_1}"
     assert order_2 > 0.7, f"expected first-order convergence, got order {order_2}"
+
+
+def test_ra_filter_impulse_response_decays_monotonically_to_zero():
+    """RA impulse response: positive, then a monotone decay to zero.
+
+    Restored. This lived in ``tests/unit/test_filters_vs_theory.py`` and was
+    deleted when Wave S migrated that file here, with no replacement; the
+    ramp test above covers a different property. It is a qualitative
+    property check rather than a closed-form comparison, kept because it
+    catches a sign error or an unstable recursion that a ramp input can
+    mask: an RA filter must respond to an impulse and then relax, never
+    oscillate or drift.
+
+    Tolerance: 1e-6 on successive samples absorbs float32 rounding in an
+    otherwise strictly decreasing tail; 1e-2 on the final sample is about
+    seven time constants after the impulse, where exp(-200/30) is 1.3e-3.
+    """
+    tau_ra = 30.0  # ms
+    k3 = 2.0
+    dt = 0.1  # ms
+    steps = int(200.0 / dt)
+
+    ra_filter = RAFilterTorch(tau_RA=tau_ra, k3=k3, dt=dt)
+    impulse = torch.zeros(1, steps, 1)
+    impulse[:, 0, 0] = 1.0 / dt  # discrete impulse
+
+    ra_out = ra_filter(impulse, reset_states=True).squeeze().numpy()
+
+    assert ra_out[0] > 0.0
+    tail = ra_out[1:]
+    assert (tail[:-1] >= tail[1:] - 1e-6).all()
+    assert tail[-1] < 1e-2
