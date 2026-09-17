@@ -1003,7 +1003,13 @@ class SimulationEngine:
                 prior state is saved and restored around that call, so this
                 does not leak into anything that draws from the global RNG
                 afterwards -- e.g. a later population in the same ``run()``
-                that has no ``noise_seed`` of its own.
+                that has no ``noise_seed`` of its own. The CPU generator state
+                is always saved/restored; the CUDA state is too when ``drive``
+                is on CUDA; the MPS state is too whenever MPS is available
+                (``torch.manual_seed()`` reseeds MPS's global generator
+                regardless of ``drive``'s own device, so that state must be
+                saved/restored unconditionally on MPS availability, not on
+                whether the drive itself is on MPS).
 
         Returns:
             Dictionary with at minimum ``"spikes"`` (integer sub-step spike
@@ -1074,11 +1080,21 @@ class SimulationEngine:
             # (a later population with no noise_seed of its own, or
             # anything else in the process). Only happens when a generator
             # is given; the noise_generator=None branch above never touches
-            # the global RNG.
+            # the global RNG. `torch.manual_seed()` reseeds *every* global
+            # generator it knows about, not just the one for the drive's own
+            # device: CUDA's when a CUDA device is available, and MPS's
+            # whenever MPS is available -- regardless of whether the drive
+            # itself is on that device -- so both must be saved/restored too,
+            # unconditionally on availability (not on the drive's device).
             cpu_state = _torch.get_rng_state()
             cuda_state = None
             if filtered_sub.is_cuda:
                 cuda_state = _torch.cuda.get_rng_state(filtered_sub.device)
+            mps_state = None
+            if getattr(_torch.backends, "mps", None) is not None and (
+                _torch.backends.mps.is_available()
+            ):
+                mps_state = _torch.mps.get_rng_state()
             try:
                 _torch.manual_seed(noise_generator.initial_seed())
                 neuron_output = neuron_model(filtered_sub)
@@ -1086,6 +1102,8 @@ class SimulationEngine:
                 _torch.set_rng_state(cpu_state)
                 if cuda_state is not None:
                     _torch.cuda.set_rng_state(cuda_state, filtered_sub.device)
+                if mps_state is not None:
+                    _torch.mps.set_rng_state(mps_state)
 
         if isinstance(neuron_output, tuple):
             v_trace_sub, spikes_sub = neuron_output

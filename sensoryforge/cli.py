@@ -320,6 +320,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             if bundle_dir:
                 print(f"Bundle written to {bundle_dir}")
 
+            if sf_config.simulation.seed is not None:
+                print(f"Seed: {sf_config.simulation.seed}")
+
             if args.output:
                 output_path = Path(args.output)
                 print(f"Saving results to {output_path}...")
@@ -338,8 +341,6 @@ def cmd_run(args: argparse.Namespace) -> int:
                 print("Results saved successfully")
             else:
                 print("\nSimulation completed successfully!")
-                if sf_config.simulation.seed is not None:
-                    print(f"Seed: {sf_config.simulation.seed}")
                 for pop_name, pop_results in results.items():
                     # An analog readout (a DSL neuron with no spike
                     # condition, Wave N) carries "state" and has no

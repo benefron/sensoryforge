@@ -218,6 +218,14 @@ def test_first_populations_noise_seed_does_not_leak_into_second():
     all; without one, both its filtered noise and its neuron's internal
     Langevin noise do) -- that is a correct, expected difference, not a leak,
     and comparing across it would not isolate the leak this test is for.
+
+    This covers the CPU RNG only (both populations run on ``device="cpu"``,
+    the only device available in CI). The save/restore in
+    `_run_pop_from_drive` also covers CUDA (when the drive is on CUDA) and
+    MPS (unconditionally on availability, since `torch.manual_seed()`
+    reseeds MPS's global generator regardless of the drive's own device);
+    see `test_noise_generator_reseed_does_not_leak_the_mps_rng_state` for the
+    MPS-specific regression, skipped when MPS is unavailable.
     """
     stim = _make_stimulus()
 
@@ -271,6 +279,46 @@ def test_noise_generator_reseed_saves_and_restores_global_rng_state():
     state_after = torch.get_rng_state()
 
     assert torch.equal(state_before, state_after)
+
+
+def test_noise_generator_reseed_does_not_leak_the_mps_rng_state():
+    """`torch.manual_seed()` reseeds MPS's global generator too, regardless of
+    the drive's own device (F-075 fix round 2) -- so the reseed-for-the-
+    neuron-call inside `_run_pop_from_drive` must save/restore the MPS RNG
+    state unconditionally whenever MPS is available, even for a CPU drive.
+    Skipped when MPS is unavailable (this suite also runs on Linux CI).
+    """
+    if not (
+        getattr(torch.backends, "mps", None) is not None
+        and torch.backends.mps.is_available()
+    ):
+        pytest.skip("MPS not available on this machine")
+
+    from sensoryforge.filters.sa_ra import SAFilterTorch
+    from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
+
+    torch.mps.manual_seed(123)
+    filt = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=0.5)
+    neuron = IzhikevichNeuronTorch(dt=0.05)
+    drive = (
+        torch.ones(1, 20, 4) * 5.0
+    )  # CPU drive -- MPS is untouched by drive's own device
+    gen = torch.Generator(device="cpu").manual_seed(7)
+
+    mps_state_before = torch.mps.get_rng_state().clone()
+    SimulationEngine._run_pop_from_drive(
+        drive=drive,
+        filter_module=filt,
+        neuron_model=neuron,
+        noise_std=0.5,
+        return_intermediates=True,
+        dt_ms=0.5,
+        integrate_dt_ms=0.05,
+        noise_generator=gen,
+    )
+    mps_state_after = torch.mps.get_rng_state()
+
+    assert torch.equal(mps_state_before, mps_state_after)
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +515,43 @@ def test_cli_run_accepts_seed_flag(tmp_path):
         f"--- stderr ---\n{result.stderr}"
     )
     assert "seed" in result.stdout.lower()
+
+
+def test_cli_run_accepts_seed_flag_with_output(tmp_path):
+    """`--seed` must echo `Seed: <n>` in the `--output` branch too, not only
+    the no-`--output` summary branch (fix round 1)."""
+    config = _make_config(noise_std=0.0)
+    yaml_path = tmp_path / "config.yml"
+    yaml_path.write_text(config.to_yaml())
+    output_path = tmp_path / "results.pt"
+
+    env = _subprocess_env()
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sensoryforge.cli",
+            "run",
+            str(yaml_path),
+            "--seed",
+            "5",
+            "--duration",
+            "20",
+            "--output",
+            str(output_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(REPO_ROOT),
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"CLI run --seed --output failed:\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}"
+    )
+    assert "seed: 5" in result.stdout.lower()
+    assert output_path.exists()
 
 
 def _subprocess_env():
