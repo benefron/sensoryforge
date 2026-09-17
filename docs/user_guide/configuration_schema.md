@@ -37,6 +37,10 @@ Configuration for a single receptor grid layer.
 | `center_y` | float | `0.0` | Y-coordinate of grid center in mm |
 | `color` | list[int] | `[66, 135, 245, 200]` | RGBA color tuple [r, g, b, a] for visualization |
 | `visible` | bool | `True` | Whether this grid layer is visible in the GUI |
+| `seed` | int | `None` | Seed for the random jitter of `jittered_grid`, `blue_noise` and `poisson` arrangements (F-050); `None` draws from the global RNG (not reproducible) |
+| `channels` | list[string] | `["value"]` | Named sensor channels/planes carried by this grid (Wave L1); the single-channel default is omitted from `to_dict()` output so existing configs are unchanged byte for byte; names must be non-empty, unique, valid Python identifiers |
+| `coords_file` | string | `None` | Path to an `[M, 2]` CSV or `.pt` file of receptor coordinates in mm (Wave L1); when set, the grid is built from these coordinates instead of `rows`/`cols`/`spacing` |
+| `layers` | list[dict] | `[]` | For `arrangement == "composite"` (Wave L4), the ordered list of layer specs building a `CompositeReceptorGrid`; each entry has a required `name` and either `density` (+ optional `arrangement`, `offset`, `seed`, `color`) or `coordinates` (an `[n, 2]` list) or `coords_file`; layer order is the receptor-index contract |
 
 ### Example
 
@@ -162,6 +166,7 @@ populations:
 | `neuron_model` | string | `"Izhikevich"` | Model type: `"Izhikevich"`, `"AdEx"`, `"MQIF"`, `"FA"`, `"SA"`, `"DSL"` |
 | `model_params` | dict | `{}` | Model-specific parameters dict |
 | `dsl_config` | dict | `None` | DSL configuration (equations, threshold, reset, parameters) |
+| `readout` | string | `"auto"` | How to read out a DSL population (Wave N): `"auto"` infers analog when `dsl_config` has no `threshold`, else spiking; `"spiking"`/`"analog"` force it, raising `ValueError` if incompatible with `dsl_config`; ignored for non-DSL `neuron_model` values. See [Analog Readouts](analog_readouts.md) |
 
 #### Filter Configuration
 
@@ -296,17 +301,26 @@ Configuration for stimulus generation.
 | `name` | string | `"Stimulus"` | Stimulus name/identifier |
 | `type` | string | `"gaussian"` | Stimulus type: `"gaussian"`, `"texture"`, `"moving"`, `"timeline"`, `"repeated_pattern"` |
 | `motion` | string | `"static"` | Motion type: `"static"`, `"moving"` |
-| `amplitude` | float | `10.0` | Stimulus amplitude |
-| `sigma` | float | `1.0` | Gaussian sigma (spatial spread) in mm |
-| `center_x` | float | `0.0` | X-coordinate of center in mm |
-| `center_y` | float | `0.0` | Y-coordinate of center in mm |
-| `wavelength` | float | `0.5` | Wavelength for texture patterns in mm |
-| `orientation_deg` | float | `0.0` | Orientation in degrees |
-| `phase` | float | `0.0` | Phase offset |
-| `motion_type` | string | `"linear"` | Motion type: `"linear"`, `"circular"` |
+| `composition_mode` | string | `"single"` | Composition mode for multi-stimulus configs |
+| `target_layer` | string | `None` | Target grid layer name |
+| `stimuli` | list[dict] | `[]` | Sub-stimulus config dicts (for `"timeline"`/composition types) |
 | `start` | list[float] | `[0.0, 0.0]` | Start position [x, y] in mm |
 | `end` | list[float] | `[0.0, 0.0]` | End position [x, y] in mm |
-| `duration` | float | `1000.0` | Duration in ms |
+| `spread` | float | `1.0` | Spatial spread in mm |
+| `orientation_deg` | float | `0.0` | Orientation in degrees |
+| `amplitude` | float | `30.0` | Stimulus amplitude |
+| `speed_mm_s` | float | `10.0` | Speed for moving stimuli, mm/s |
+| `ramp_up_ms` | float | `10.0` | Ramp-up duration in ms |
+| `plateau_ms` | float | `800.0` | Plateau duration in ms |
+| `ramp_down_ms` | float | `10.0` | Ramp-down duration in ms |
+| `pattern` | string | `"gabor"` | Pattern type for texture stimuli: `"gabor"`, `"grating"` |
+| `wavelength` | float | `2.0` | Wavelength for texture patterns in mm |
+| `phase` | float | `0.0` | Phase offset |
+| `sigma` | float | `2.0` | Gaussian sigma for the gabor envelope, in mm |
+| `motion_type` | string | `"linear"` | Motion type: `"linear"`, `"circular"` |
+| `center` | list[float] | `[0.0, 0.0]` | Center point [x, y] in mm, for circular motion |
+| `radius` | float | `2.0` | Radius in mm, for circular motion |
+| `channel` | string | `None` | Named channel/plane of the target grid's `channels` this stimulus drives (Wave L2); `None` means the single/first channel. Several stimuli with different `channel` values compose into one multi-channel tensor |
 
 ### Example
 
@@ -316,9 +330,10 @@ stimulus:
   type: "gaussian"
   amplitude: 30.0
   sigma: 0.5
-  center_x: 0.0
-  center_y: 0.0
-  duration: 1000.0
+  start: [0.0, 0.0]
+  ramp_up_ms: 10.0
+  plateau_ms: 800.0
+  ramp_down_ms: 10.0
 ```
 
 ## SimulationConfig
@@ -330,19 +345,20 @@ Configuration for simulation settings.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `device` | string | `"cpu"` | Device: `"cpu"`, `"cuda"`, `"mps"` |
-| `dt` | float | `1.0` | Time step in ms |
-| `duration` | float | `1000.0` | Simulation duration in ms |
-| `seed` | int | `None` | Random seed (None for random) |
-| `solver_config` | dict | `None` | Global solver configuration (overrides per-population) |
+| `dt_ms` | float | `1.0` | Record step in ms — the time resolution of the filter, stimulus, and returned spike/voltage arrays. Must be a whole multiple of `integrate_dt_ms` (F-042) |
+| `integrate_dt_ms` | float | `0.05` | Neuron integration step in ms (F-008); the neuron model is stepped at this finer resolution, holding drive constant across `round(dt_ms / integrate_dt_ms)` sub-steps per record bin, matching pressure-simulation's `encode_runner.run_encoding` exactly |
+| `solver` | dict | `{"type": "euler"}` | Global solver config (`type`, `method`, `rtol`, `atol`) |
+| `duration_ms` | float | `None` | Simulation duration in ms (optional; inferred from the stimulus when omitted) |
+| `dt` | float | `None` | Deprecated alias for `dt_ms` (F-008/E10); emits `DeprecationWarning`; raises `ValueError` if both `dt` and a differing, non-default `dt_ms` are given |
 
 ### Example
 
 ```yaml
 simulation:
   device: "cpu"
-  dt: 0.5
-  duration: 1000.0
-  seed: 42
+  dt_ms: 1.0
+  integrate_dt_ms: 0.05
+  duration_ms: 1000.0
 ```
 
 ## Complete Example
@@ -395,13 +411,12 @@ stimulus:
   type: "gaussian"
   amplitude: 30.0
   sigma: 0.5
-  center_x: 0.0
-  center_y: 0.0
+  start: [0.0, 0.0]
 
 simulation:
   device: "cpu"
-  dt: 0.5
-  duration: 1000.0
+  dt_ms: 0.5
+  duration_ms: 1000.0
 ```
 
 ## Python API Usage
