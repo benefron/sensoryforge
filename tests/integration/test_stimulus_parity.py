@@ -28,6 +28,7 @@ import torch
 from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.register_components import register_all
 from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.testing.golden import assert_matches_golden
 
 register_all()
 
@@ -102,7 +103,10 @@ def test_stimulus_matches_pressure_simulation_exactly(golden, grid, name):
     assert (
         actual.shape == expected.shape
     ), f"{name}: shape {tuple(actual.shape)} != golden {tuple(expected.shape)}"
-    assert torch.equal(actual, expected), f"{name}: values differ from golden"
+    # Not torch.equal: on Linux x86_64 these differ from the macOS-generated
+    # fixture by at most one float32 step (5.96e-8), see
+    # sensoryforge/testing/golden.py for the measurement.
+    assert_matches_golden(actual, expected, what=f"{name} stimulus")
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,7 @@ from sensoryforge.config.schema import (
     StimulusConfig,
 )
 from sensoryforge.core.simulation_engine import SimulationEngine
+from sensoryforge.testing.golden import assert_matches_golden
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -123,18 +124,43 @@ def engine_result(golden):
     return engine.run(stimulus, return_intermediates=True)
 
 
+# Tolerances (F-071). These were an absolute 1e-6, which is below float32
+# resolution for these values: the largest drive is about 35, where one float32
+# step is 3.8e-6, and the largest filtered response about 131, where it is
+# 1.5e-5. The test therefore passed only where results were bit-identical to
+# the macOS-generated fixture. On GitHub's Linux x86_64 runners with the default
+# thread count, the first CI run measured a maximum relative difference of
+# 3.3e-7 for drive and 9.8e-6 for the filtered response -- the second larger
+# because the SA and RA filters are recursive and carry rounding forward over
+# 200 bins -- while spikes, compared exactly below, matched. The relative
+# tolerances are about three and five times those measurements. A genuine
+# parity break, a different filter constant or gain, moves these values by
+# far more than 1e-4 relative.
+DRIVE_RTOL = 1e-6
+FILTERED_RTOL = 5e-5
+ABS_FLOOR = 1e-6  # for values near zero, where a relative bound is meaningless
+
+
 def test_drive_matches(golden, engine_result):
-    sa_drive = engine_result["SA Pop"]["drive"].numpy()
-    ra_drive = engine_result["RA Pop"]["drive"].numpy()
-    np.testing.assert_allclose(sa_drive, golden["sa_drive"], atol=1e-6)
-    np.testing.assert_allclose(ra_drive, golden["ra_drive"], atol=1e-6)
+    for pop, key in (("SA Pop", "sa"), ("RA Pop", "ra")):
+        assert_matches_golden(
+            engine_result[pop]["drive"],
+            golden[f"{key}_drive"],
+            what=f"{key} drive",
+            rtol=DRIVE_RTOL,
+            atol=ABS_FLOOR,
+        )
 
 
 def test_filtered_and_gained_response_matches(golden, engine_result):
-    sa_filtered = engine_result["SA Pop"]["filtered"].numpy()
-    ra_filtered = engine_result["RA Pop"]["filtered"].numpy()
-    np.testing.assert_allclose(sa_filtered, golden["sa_filtered"], atol=1e-6)
-    np.testing.assert_allclose(ra_filtered, golden["ra_filtered"], atol=1e-6)
+    for pop, key in (("SA Pop", "sa"), ("RA Pop", "ra")):
+        assert_matches_golden(
+            engine_result[pop]["filtered"],
+            golden[f"{key}_filtered"],
+            what=f"{key} filtered response",
+            rtol=FILTERED_RTOL,
+            atol=ABS_FLOOR,
+        )
 
 
 def test_spikes_match_as_binary_raster(golden, engine_result):

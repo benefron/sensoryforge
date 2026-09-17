@@ -6,9 +6,19 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-import numpy as np
-import torch
+# Thread limits must be set before torch is imported: torch fixes its
+# intra-op thread count at import, so these lines, which used to sit after the
+# imports below, never took effect. CI therefore ran with every core the runner
+# had, and matrix reductions split across that many threads rounded
+# differently from a run with fewer (seen as sub-float32-step parity
+# differences on Linux, F-071).
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
+import pytest  # noqa: E402
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -27,9 +37,6 @@ os.environ["SENSORYFORGE_SETTINGS_DIR"] = tempfile.mkdtemp(
     prefix="sensoryforge-test-settings-"
 )
 
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 try:
     torch.set_num_threads(1)

@@ -30,6 +30,7 @@ from sensoryforge.core.innervation import FlatInnervationModule, InnervationModu
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.registry import INNERVATION_REGISTRY
+from sensoryforge.testing.golden import assert_matches_golden
 
 GOLDEN = (
     Path(__file__).resolve().parents[1] / "fixtures" / "rf_engine_golden_weights.pt"
@@ -156,7 +157,12 @@ def test_engine_gaussian_grid_path_matches_recorded_weights(golden):
     engine = SimulationEngine(_config("gaussian"))
     bank = engine.populations[0]["bank"]
     rec = golden["engine"]
-    assert torch.equal(bank.weights, rec["weights"].reshape(9, ROWS * COLS))
+    assert_matches_golden(
+        bank.weights,
+        rec["weights"].reshape(9, ROWS * COLS),
+        what="engine gaussian weights",
+        exact_structure=True,
+    )
     assert torch.equal(bank.neuron_centers, rec["neuron_centers"])
     assert torch.equal(bank.receptor_coords, rec["receptor_coords"])
 
@@ -170,7 +176,12 @@ def test_legacy_pipeline_matches_recorded_weights(golden):
         bank = getattr(p, f"{key}_innervation")
         assert isinstance(bank, ReceptiveFieldBank)
         n = rec[f"{key}_weights"].shape[0]
-        assert torch.equal(bank.weights, rec[f"{key}_weights"].reshape(n, -1))
+        assert_matches_golden(
+            bank.weights,
+            rec[f"{key}_weights"].reshape(n, -1),
+            what=f"legacy pipeline {key} weights",
+            exact_structure=True,
+        )
     assert torch.equal(p.sa_innervation.neuron_centers, rec["sa_centers"])
     out = p.forward(stimulus_type="gaussian", amplitude=30.0, sigma=0.5)
     assert out["sa_spikes"].shape[-1] == 9
@@ -197,7 +208,12 @@ def test_innervation_module_is_a_deprecated_wrapper_over_a_bank(golden):
         )
     assert isinstance(mod.bank, ReceptiveFieldBank)
     assert tuple(mod.innervation_weights.shape) == (9, ROWS, COLS)
-    assert torch.equal(mod.innervation_weights, golden["engine"]["weights"])
+    assert_matches_golden(
+        mod.innervation_weights,
+        golden["engine"]["weights"],
+        what="deprecated InnervationModule weights",
+        exact_structure=True,
+    )
     assert mod.num_neurons == 9
     assert tuple(mod.neuron_centers.shape) == (9, 2)
     out = mod(torch.rand(2, 5, ROWS, COLS))

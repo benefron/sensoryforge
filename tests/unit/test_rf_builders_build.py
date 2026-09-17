@@ -24,6 +24,7 @@ from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.register_components import register_all
 from sensoryforge.registry import INNERVATION_REGISTRY
 from sensoryforge.testing.contracts import check_component
+from sensoryforge.testing.golden import assert_matches_golden
 
 register_all()
 
@@ -75,7 +76,12 @@ def test_filter_params_keeps_only_constructor_keys():
 def test_build_reproduces_recorded_flat_module_weights(method, golden):
     bank = _builder(method, golden).build()
     assert isinstance(bank, ReceptiveFieldBank)
-    assert torch.equal(bank.weights, golden[method]["weights"])
+    assert_matches_golden(
+        bank.weights,
+        golden[method]["weights"],
+        what=f"{method} weights",
+        exact_structure=True,
+    )
     assert torch.equal(bank.neuron_centers, golden[method]["neuron_centers"])
     assert torch.equal(bank.receptor_coords, golden["receptor_coords"])
 
@@ -92,7 +98,12 @@ def test_flat_module_still_matches_recorded_weights(method, golden):
         seed=golden["seed"],
         device="cpu",
     )
-    assert torch.equal(module.innervation_weights, golden[method]["weights"])
+    assert_matches_golden(
+        module.innervation_weights,
+        golden[method]["weights"],
+        what=f"{method} flat-module weights",
+        exact_structure=True,
+    )
 
 
 @pytest.mark.parametrize("method", METHODS)
