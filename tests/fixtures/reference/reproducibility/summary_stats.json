@@ -1,0 +1,53 @@
+{
+  "quick": true,
+  "stimuli": {
+    "braille": {
+      "RA Population": {
+        "mean_rate_hz": 0.9444444444444444,
+        "n_neurons": 900,
+        "spikes": 51
+      },
+      "SA Population": {
+        "mean_rate_hz": 0.2777777777777778,
+        "n_neurons": 900,
+        "spikes": 15
+      }
+    },
+    "drifting_grating": {
+      "RA Population": {
+        "mean_rate_hz": 58.111111111111114,
+        "n_neurons": 900,
+        "spikes": 3138
+      },
+      "SA Population": {
+        "mean_rate_hz": 19.88888888888889,
+        "n_neurons": 900,
+        "spikes": 1074
+      }
+    },
+    "moving_edge": {
+      "RA Population": {
+        "mean_rate_hz": 120.2367941712204,
+        "n_neurons": 900,
+        "spikes": 6601
+      },
+      "SA Population": {
+        "mean_rate_hz": 14.863387978142075,
+        "n_neurons": 900,
+        "spikes": 816
+      }
+    },
+    "ramp_gaussian": {
+      "RA Population": {
+        "mean_rate_hz": 2.2222222222222223,
+        "n_neurons": 900,
+        "spikes": 120
+      },
+      "SA Population": {
+        "mean_rate_hz": 1.1851851851851851,
+        "n_neurons": 900,
+        "spikes": 64
+      }
+    }
+  }
+}
