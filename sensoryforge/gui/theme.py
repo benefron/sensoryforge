@@ -44,12 +44,36 @@ ROW_HEIGHT = 28
 BUTTON_HEIGHT = 30
 PRIMARY_HEIGHT = 36
 
-# Graphics and visualization constants
-AXIS_PEN = 0.12
+# Graphics and visualization constants (partial; pen() defined below)
 GRID_ALPHA = 0.12
 LINE_WIDTH = 1.6
 RASTER_SIZE = 4
 COLORMAP_NAME = "viridis"
+
+
+def pen(color: str | QtGui.QColor, width: float = LINE_WIDTH) -> QtGui.QPen:
+    """Create a styled pen with the given color and width.
+
+    Args:
+        color: Hex color string (e.g. "#2563EB") or QtGui.QColor
+        width: Pen width in pixels (default LINE_WIDTH = 1.6)
+
+    Returns:
+        A QtGui.QPen with round caps and the specified color and width.
+
+    Example:
+        >>> p = pen("#2563EB", width=2.0)
+        >>> assert p.widthF() == 2.0
+    """
+    qcolor = color if isinstance(color, QtGui.QColor) else QtGui.QColor(color)
+    qpen = QtGui.QPen(qcolor)
+    qpen.setWidthF(width)
+    qpen.setCapStyle(QtCore.Qt.RoundCap)
+    return qpen
+
+
+# Pen for plot axes (defined after pen() function)
+AXIS_PEN = pen("#B9C0CA", 1.0)
 
 
 def population_color(index: int, neuron_type: str | None = None) -> QtGui.QColor:
@@ -149,31 +173,10 @@ def apply(app: QtWidgets.QApplication) -> None:
         foreground=PALETTE["text_secondary"],
     )
 
-    # Set application font to platform default at 12 px
+    # Set application font to 12 px
     font = app.font()
-    font.setPointSize(12)
+    font.setPixelSize(12)
     app.setFont(font)
-
-
-def pen(color: str | QtGui.QColor, width: float = LINE_WIDTH) -> QtGui.QPen:
-    """Create a styled pen with the given color and width.
-
-    Args:
-        color: Hex color string (e.g. "#2563EB") or QtGui.QColor
-        width: Pen width in pixels (default LINE_WIDTH = 1.6)
-
-    Returns:
-        A QtGui.QPen with round caps and the specified color and width.
-
-    Example:
-        >>> p = pen("#2563EB", width=2.0)
-        >>> assert p.widthF() == 2.0
-    """
-    qcolor = color if isinstance(color, QtGui.QColor) else QtGui.QColor(color)
-    qpen = QtGui.QPen(qcolor)
-    qpen.setWidthF(width)
-    qpen.setCapStyle(QtCore.Qt.RoundCap)
-    return qpen
 
 
 def colormap() -> pg.ColorMap:

@@ -5,6 +5,7 @@ Marked with 'gui' for pytest-qt.
 """
 
 import pytest
+import unittest.mock
 
 pytest.importorskip("PyQt5")
 
@@ -162,9 +163,10 @@ class TestApply:
     def test_apply_sets_fusion_style(self, qapp):
         """apply(qapp) sets the Fusion style."""
         theme.apply(qapp)
-        # After setStyle("Fusion") + setStyleSheet, the style becomes
-        # QStyleSheetStyle wrapping Fusion. Just verify style was applied.
-        assert qapp.style() is not None
+        # After setStyle("Fusion"), className should contain "Fusion"
+        # (may be wrapped in QStyleSheetStyle after setStyleSheet)
+        style_class = qapp.style().metaObject().className()
+        assert "Fusion" in style_class or "StyleSheet" in style_class
 
     def test_apply_sets_stylesheet(self, qapp):
         """apply(qapp) sets the stylesheet."""
@@ -175,17 +177,20 @@ class TestApply:
 
     def test_apply_sets_pyqtgraph_config(self, qapp):
         """apply(qapp) calls pg.setConfigOptions with correct parameters."""
-        theme.apply(qapp)
-        # Verify that setConfigOptions was called and pyqtgraph is configured.
-        # We can't easily verify the exact values, so just verify apply()
-        # doesn't raise and the options method exists.
-        assert hasattr(pg, "setConfigOptions")
+        with unittest.mock.patch("pyqtgraph.setConfigOptions") as mock_set:
+            theme.apply(qapp)
+            # Verify setConfigOptions was called with correct kwargs
+            mock_set.assert_called_once()
+            call_kwargs = mock_set.call_args[1]
+            assert call_kwargs["antialias"] is True
+            assert call_kwargs["background"] == "#FFFFFF"
+            assert call_kwargs["foreground"] == "#5B6470"
 
     def test_apply_sets_font(self, qapp):
         """apply(qapp) sets the application font to 12px."""
         theme.apply(qapp)
         font = qapp.font()
-        assert font.pointSize() == 12
+        assert font.pixelSize() == 12
 
 
 class TestPen:
@@ -234,11 +239,19 @@ class TestGraphicsConstants:
 
     def test_graphics_constants_values(self):
         """Graphics constants have expected values."""
-        assert theme.AXIS_PEN == 0.12
+        # AXIS_PEN is a QPen, checked in separate test
         assert theme.GRID_ALPHA == 0.12
         assert theme.LINE_WIDTH == 1.6
         assert theme.RASTER_SIZE == 4
         assert theme.COLORMAP_NAME == "viridis"
+
+    def test_axis_pen_is_qpen(self):
+        """AXIS_PEN is a QPen with border color and width 1.0."""
+        assert isinstance(theme.AXIS_PEN, QtGui.QPen)
+        # Color should be #B9C0CA (border color)
+        assert theme.AXIS_PEN.color().name() == "#b9c0ca"
+        # Width should be 1.0
+        assert abs(theme.AXIS_PEN.widthF() - 1.0) < 0.01
 
 
 class TestColormap:
