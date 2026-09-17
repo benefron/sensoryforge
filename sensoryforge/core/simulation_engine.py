@@ -51,6 +51,35 @@ from sensoryforge.neurons.model_dsl import NeuronModel
 register_all()
 
 
+def _lattice_fields_set_by_user(pop_cfg: Any) -> List[str]:
+    """Neuron-lattice size fields on *pop_cfg* that differ from their defaults.
+
+    Reads the defaults from the ``PopulationConfig`` dataclass itself, so
+    the rule stays right if a default changes.
+
+    Args:
+        pop_cfg: A ``PopulationConfig``.
+
+    Returns:
+        ``name=value`` strings for each of ``neurons_per_row``,
+        ``neuron_rows`` and ``neuron_cols`` the user changed.
+    """
+    import dataclasses
+
+    from sensoryforge.config.schema import PopulationConfig
+
+    defaults = {
+        f.name: f.default
+        for f in dataclasses.fields(PopulationConfig)
+        if f.name in ("neurons_per_row", "neuron_rows", "neuron_cols")
+    }
+    return [
+        f"{name}={getattr(pop_cfg, name)!r}"
+        for name, default in defaults.items()
+        if getattr(pop_cfg, name) != default
+    ]
+
+
 class SimulationEngine:
     """Unified simulation execution engine.
 
@@ -371,15 +400,22 @@ class SimulationEngine:
             receptor_coords = grid.get_receptor_coordinates()
 
         if builder_cls.DERIVES_NEURON_CENTERS:
-            warnings.warn(
-                f"Population {pop_cfg.name!r}: innervation_method "
-                f"{innervation_method!r} derives its own neuron lattice; "
-                f"neurons_per_row={pop_cfg.neurons_per_row}, "
-                f"neuron_rows={pop_cfg.neuron_rows}, "
-                f"neuron_cols={pop_cfg.neuron_cols} are ignored.",
-                UserWarning,
-                stacklevel=2,
-            )
+            # Warn only about lattice sizes the user actually set (F-069).
+            # These fields always exist on PopulationConfig, so warning
+            # whenever a lattice-deriving builder is used told everyone
+            # "neurons_per_row=10 ... ignored" -- including every user of
+            # the shipped tactile preset, which never sets it. A warning that
+            # fires on defaults teaches people to ignore warnings.
+            ignored = _lattice_fields_set_by_user(pop_cfg)
+            if ignored:
+                warnings.warn(
+                    f"Population {pop_cfg.name!r}: innervation_method "
+                    f"{innervation_method!r} derives its own neuron lattice, "
+                    f"so {', '.join(ignored)} "
+                    f"{'is' if len(ignored) == 1 else 'are'} ignored.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             neuron_centers = None
         elif shared_neuron_centers is not None:
             # M2: every input that lays out its own lattice (i.e. does not
