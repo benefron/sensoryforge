@@ -454,10 +454,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(result))
         return 0
 
+    all_cells = default_cells() + [CI_GUARD_CELL]
     cells = default_cells()
     if args.cell:
         wanted = set(args.cell)
-        cells = [c for c in cells if c.name in wanted]
+        cells = [c for c in all_cells if c.name in wanted]
         missing = wanted - {c.name for c in cells}
         if missing:
             raise SystemExit(f"Unknown cell(s): {sorted(missing)}")

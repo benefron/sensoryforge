@@ -151,10 +151,16 @@ def generate(data: Dict[str, Any], out_path: Path) -> None:
     lines.append("")
     lines.append(
         "`.github/workflows/benchmarks.yml` runs the `ci_guard` cell (same shape as "
-        "`smoke_10x10`) on every push/PR and fails if its run-phase median regresses by "
-        "more than the factor recorded in `benchmarks/results/ci_baseline.json` -- see "
-        "`benchmarks/check_regression.py` for the comparison and its docstring for the "
-        "factor chosen and why."
+        "`smoke_10x10`) on every push/PR via `python -m benchmarks.check_regression`, "
+        "and fails if its run-phase median exceeds **3.0x** the baseline recorded in "
+        "`benchmarks/results/ci_baseline.json` (38.07 ms measured on this machine across "
+        "six back-to-back runs, a 3.85% run-to-run spread -- 3.0x sits far above that "
+        "local noise floor to tolerate a noisier shared CI runner). This catches a 3x or "
+        "worse regression (the spec's own example of a ten-times-slower engine trips it "
+        "with more than 3x headroom, confirmed by deliberately slowing `SimulationEngine.run` "
+        "and watching the guard fail) but **will not** catch a smaller regression -- a change "
+        "that makes this cell 50-100% slower passes the CI guard silently. See "
+        "`benchmarks/check_regression.py`'s docstring for the full reasoning."
     )
     lines.append("")
 

@@ -7,7 +7,7 @@ export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 QT_QPA_PLATFORM=offscreen
 /opt/miniconda3/envs/sensoryforge/bin/python -m benchmarks.run_benchmarks
 ```
 
-Measured on: **macOS-15.7.1-arm64-arm-64bit** / **Apple M3 Pro**, generated 2026-09-17T07:56:34Z.
+Measured on: **macOS-15.7.1-arm64-arm-64bit** / **Apple M3 Pro**, generated 2026-09-17T07:59:35Z.
 
 | | |
 |---|---|
@@ -38,10 +38,10 @@ This measurement:
 
 | Cell | Grid | SA x RA / row | Duration (ms) | Device | N | Build median (ms) | Build spread (ms) | Run median (ms) | Run spread (ms) | Peak RSS (MB) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| smoke_10x10 | 10x10 | 3 x 4 | 20 | cpu | 7 | 8.76 | 0.50 | 40.33 | 1.32 | 239 |
-| medium_40x40 | 40x40 | 10 x 14 | 100 | cpu | 5 | 17.55 | 0.81 | 196.98 | 3.89 | 248 |
-| large_80x80 | 80x80 | 10 x 14 | 1000 | cpu | 3 | 39.24 | 0.49 | 1945.74 | 26.08 | 421 |
-| smoke_10x10_mps | 10x10 | 3 x 4 | 20 | mps | 7 | 16.45 | 2.21 | 1103.44 | 32.65 | 323 |
+| smoke_10x10 | 10x10 | 3 x 4 | 20 | cpu | 7 | 8.64 | 2.63 | 37.70 | 0.95 | 218 |
+| medium_40x40 | 40x40 | 10 x 14 | 100 | cpu | 5 | 17.06 | 0.69 | 193.85 | 4.76 | 249 |
+| large_80x80 | 80x80 | 10 x 14 | 1000 | cpu | 3 | 40.21 | 3.77 | 1945.99 | 9.89 | 421 |
+| smoke_10x10_mps | 10x10 | 3 x 4 | 20 | mps | 7 | 17.13 | 2.23 | 1153.07 | 19.33 | 335 |
 
 `large_80x80` is the cell required by the Wave T spec (an 80x80 grid with both SA and RA populations); `smoke_10x10` is the fast smoke-test cell.
 
@@ -51,5 +51,5 @@ Full per-repeat timings (not just median/min/max) are in `benchmarks/results/lat
 
 ## CI regression guard
 
-`.github/workflows/benchmarks.yml` runs the `ci_guard` cell (same shape as `smoke_10x10`) on every push/PR and fails if its run-phase median regresses by more than the factor recorded in `benchmarks/results/ci_baseline.json` -- see `benchmarks/check_regression.py` for the comparison and its docstring for the factor chosen and why.
+`.github/workflows/benchmarks.yml` runs the `ci_guard` cell (same shape as `smoke_10x10`) on every push/PR via `python -m benchmarks.check_regression`, and fails if its run-phase median exceeds **3.0x** the baseline recorded in `benchmarks/results/ci_baseline.json` (38.07 ms measured on this machine across six back-to-back runs, a 3.85% run-to-run spread -- 3.0x sits far above that local noise floor to tolerate a noisier shared CI runner). This catches a 3x or worse regression (the spec's own example of a ten-times-slower engine trips it with more than 3x headroom, confirmed by deliberately slowing `SimulationEngine.run` and watching the guard fail) but **will not** catch a smaller regression -- a change that makes this cell 50-100% slower passes the CI guard silently. See `benchmarks/check_regression.py`'s docstring for the full reasoning.
 
