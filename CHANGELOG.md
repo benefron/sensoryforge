@@ -8,10 +8,11 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 Nothing yet.
 
-## [1.0.0] - 2026-09-17
+## [1.0.0] - Unreleased (prepared 2026-09-17)
 
-Not yet published to PyPI or tagged in git; install from source (see
-`CONTRIBUTING.md`). This is the first version-1.0.0 changelog entry,
+Not yet released: not tagged in git, not published to PyPI, and continuous integration has never
+run on GitHub for this repository. Install from source (see `CONTRIBUTING.md`). Replace this
+heading's date when the release is actually tagged. This is the first version-1.0.0 changelog entry,
 covering everything below back through the project's Phase 0 start,
 compiled from the git history and the wave handover records
 (`docs/development/handover/`) rather than summarised from memory. See
@@ -72,6 +73,37 @@ open going into this release.
 
 ### Fixed
 
+Found while reviewing Phases 2 to 4, each by checking a claim against running code rather than
+reading it:
+
+- **A `moving` stimulus did not move** (F-057). Rendered through the stimulus registry it returned
+  the same frame for every time sample, because the registered class advances on `step()` and the
+  renderer called it once. Stepped stimuli are now driven frame by frame, and calls using the
+  older flat parameters (`amplitude`, `sigma`, `start`, `end`) are routed to the generator that
+  understands them.
+- **Registry-rendered stimuli changed what existing configs produced.** A `gaussian` stimulus with
+  no explicit `sigma` took the component's default of 0.2 mm instead of the previous 1.0 mm, 25
+  times weaker on a standard grid; defaults are now preserved for every stimulus name both paths
+  know, and `--duration` gives the same frame count as before.
+- **`sensoryforge run` crashed on any config with an analog population** (F-060), after the run
+  had already succeeded and written its bundle; it now reports the analog state range.
+- **The data bundle could be loaded but not run by pressure-simulation's viewer** (F-054): it wrote
+  no `neuron_modules/`, which the viewer needs to enable its Run button. Its stimulus payload was
+  also an untagged dictionary that pressure-simulation's generator would silently read as a
+  default blob (F-055); every payload now carries a `schema_version` and `kind`.
+- **The Stimulus Designer could not load its own saved configuration** (F-064); integer spin boxes
+  rejected the float values its loader passed them.
+- **The Circuit tab lost node positions on every reload** (F-065); they are now saved beside the
+  config in `<config>.layout.json`, and any missing or malformed layout file is ignored rather
+  than blocking the config from loading.
+- **Running a graph silently ignored stimulus settings the chosen stimulus does not accept**
+  (F-061); it now warns, naming only the values the user actually set.
+- **A warning about an ignored neuron-lattice size fired on every run of the shipped tactile
+  preset** (F-069), about a value nobody had set; it now fires only for sizes the user set.
+- **The reproducibility check demanded exact spike counts on every platform** (F-068). It is exact
+  on the platform the reference was recorded on and tolerant elsewhere, where floating-point
+  rounding can legitimately flip a spike at threshold.
+
 - The canonical config adapter no longer squares neuron counts or receptor grid size. A canonical
   population of N neurons per row now builds N² neurons consistently across the legacy pipeline and
   `SimulationEngine` (previously the legacy pipeline could build 16x the intended count); the
@@ -102,8 +134,13 @@ open going into this release.
   a median plus observed spread per cell (not a single sample), with peak resident memory and full
   environment/version metadata recorded alongside every number. The published, regenerable table
   is `docs/reference/benchmarks.md`; `.github/workflows/benchmarks.yml` runs a fast cell on every
-  push/PR and fails on more than a 3x regression against the committed baseline
-  (`benchmarks/check_regression.py`).
+  push/PR and fails when the engine is more than 3x slower than the committed baseline
+  (`benchmarks/check_regression.py`). The comparison is calibrated rather than in raw
+  milliseconds (F-067): each run also times a fixed reference kernel in the same process, and the
+  guard compares engine time relative to it, so a CI runner slower than the laptop the baseline
+  came from does not fail the guard with nothing changed. On this machine's efficiency cores the
+  engine's raw time rose 4.56x while the calibrated factor was 1.05x. It does not catch regressions
+  under about 3x, and its calibration across processor architectures is estimated, not measured.
 - **The pressure-simulation recipe** (Phase 2, Wave K; F-052): `sensoryforge/stimuli/render.py`'s
   `render_stimulus()` is now the CLI's and `BatchExecutor`'s single stimulus-dispatch point (K1) —
   it checks `STIMULUS_REGISTRY` before falling back to `GeneralizedTactileEncodingPipeline`'s
@@ -142,6 +179,20 @@ open going into this release.
   The Spiking tab's raster panel plots the state trace, labelled with the state variable's name,
   in place of the spike scatter for an analog population (N4). Spiking populations are bit-for-bit
   unaffected. See `docs/user_guide/analog_readouts.md` and `docs/examples/analog_dsl.py`.
+- **Multi-input populations and processing layers** (Phase 2, Wave M; with Waves L and N, closes
+  the last of F-010): a population can read from several grids or channels at once.
+  `PopulationConfig.inputs` is a list of `PopulationInput` (`grid`, `channel`, `rf` as an
+  `RFBuilderConfig`, `gain`, `layers`, `processing`), combined by `PopulationConfig.combine`:
+  `"sum"` (every input must produce the same neuron count) or `"concat"` (the neuron axis grows,
+  one block per input). The existing single-input fields remain as shorthand that expands into
+  one input, and every existing config still round-trips to byte-identical YAML. An optional
+  per-input processing stage runs before the receptive-field bank, from the new
+  `PROCESSING_REGISTRY`; `onoff` (`OnOffLayer`), a centre-surround difference of Gaussians
+  emitting separate ON and OFF planes, is the first built-in layer. The `vision_onoff_rgb` preset
+  and `examples/vision_rgb_onoff.py` demonstrate an RGB sensor array feeding both combine modes.
+  Sum is tested as exactly equal to a single bank on the summed input; each concat block against
+  its own single-input run; and ON against OFF with stimuli of opposite sign. See
+  `docs/concepts/populations_and_inputs.md` and `docs/extending/add_processing_layer.md`.
 - **Real receptor sampling and composite grids in `SimulationEngine`** (Phase 2, Wave L; closes
   F-010): `SimulationEngine` no longer assumes receptor index equals stimulus pixel index. It now
   samples the stimulus at each receptor's own `(x, y)` mm position with bilinear interpolation
@@ -186,7 +237,8 @@ open going into this release.
 - **The data bundle** (Phase 2, Wave J; F-011, F-013): `sensoryforge.io.bundle.write_bundle()` /
   `load_bundle()` write a self-contained run directory (`config.json` -- a superset of
   pressure-simulation's `1.0.0` "mechanoreceptor bundle" format its viewer reads unchanged --
-  one `population_NN_<NAME>.pt` per population, `stimuli/stimulus.json`, and `data.h5` with
+  one `population_NN_<NAME>.pt` per population, `stimuli/stimulus.json`, `neuron_modules/`, and
+  `data.h5` with
   `/stimulus/frames`, `/time_ms`, and per-population `/populations/<name>/{drive, filtered,
   spikes}`). `sensoryforge run` gains `--bundle DIR`; `SimulationEngine.run()` gains a
   keyword-only `bundle_dir` (and `stimulus_config`/`seed`) to write one directly.
@@ -377,11 +429,12 @@ equally to a changelog that hides what still fails):
   which unrectified SA (resolved separately, see above) makes reachable for strongly negative
   drive.
 - **`pytest -m gui` segfaults under Python's cyclic garbage collector** in a `pyqtgraph`
-  callback chain (F-035); `tests/conftest.py` disables GC for every session to avoid it, which also
+  callback chain (F-035); `tests/conftest.py` disables GC for any session that collects a GUI test
+  (not for non-GUI-only sessions) to avoid it, which also
   means the harness can no longer detect this crash class if it recurs.
 - **The Circuit tab's graph validator does not catch a combine whose inputs disagree on neuron
   count** (F-062), and **draws its own preview widgets rather than reusing the Mechanoreceptor and
   Stimulus Designer tabs'** (F-063), so the two can drift.
 
-[Unreleased]: https://github.com/benefron/sensoryforge/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/benefron/sensoryforge/releases/tag/v1.0.0
+<!-- Version links to the v1.0.0 tag and release are added when that tag exists (D-010: no links
+to infrastructure that does not exist yet). -->
