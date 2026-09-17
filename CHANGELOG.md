@@ -87,6 +87,13 @@ Not yet published to PyPI; install from source (see `CONTRIBUTING.md`).
 
 ### Added
 
+- **A benchmark harness** (Phase 4, Wave T; F-022, second half): `benchmarks/run_benchmarks.py`
+  sweeps grid size, neuron count and device, timing build and run phases separately and reporting
+  a median plus observed spread per cell (not a single sample), with peak resident memory and full
+  environment/version metadata recorded alongside every number. The published, regenerable table
+  is `docs/reference/benchmarks.md`; `.github/workflows/benchmarks.yml` runs a fast cell on every
+  push/PR and fails on more than a 3x regression against the committed baseline
+  (`benchmarks/check_regression.py`).
 - **The pressure-simulation recipe** (Phase 2, Wave K; F-052): `sensoryforge/stimuli/render.py`'s
   `render_stimulus()` is now the CLI's and `BatchExecutor`'s single stimulus-dispatch point (K1) —
   it checks `STIMULUS_REGISTRY` before falling back to `GeneralizedTactileEncodingPipeline`'s
