@@ -7,7 +7,7 @@ export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 QT_QPA_PLATFORM=offscreen
 /opt/miniconda3/envs/sensoryforge/bin/python -m benchmarks.run_benchmarks
 ```
 
-Measured on: **macOS-15.7.1-arm64-arm-64bit** / **Apple M3 Pro**, generated 2026-09-17T07:54:56Z.
+Measured on: **macOS-15.7.1-arm64-arm-64bit** / **Apple M3 Pro**, generated 2026-09-17T07:56:34Z.
 
 | | |
 |---|---|
@@ -38,10 +38,10 @@ This measurement:
 
 | Cell | Grid | SA x RA / row | Duration (ms) | Device | N | Build median (ms) | Build spread (ms) | Run median (ms) | Run spread (ms) | Peak RSS (MB) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| smoke_10x10 | 10x10 | 3 x 4 | 20 | cpu | 7 | 8.69 | 0.74 | 37.49 | 0.63 | 236 |
-| medium_40x40 | 40x40 | 10 x 14 | 100 | cpu | 5 | 16.92 | 1.96 | 196.74 | 9.52 | 264 |
-| large_80x80 | 80x80 | 10 x 14 | 200 | cpu | 3 | 40.22 | 0.51 | 507.27 | 481.94 | 335 |
-| smoke_10x10_mps | 10x10 | 3 x 4 | 20 | mps | 7 | 17.15 | 38.17 | 1144.21 | 102.63 | 325 |
+| smoke_10x10 | 10x10 | 3 x 4 | 20 | cpu | 7 | 8.76 | 0.50 | 40.33 | 1.32 | 239 |
+| medium_40x40 | 40x40 | 10 x 14 | 100 | cpu | 5 | 17.55 | 0.81 | 196.98 | 3.89 | 248 |
+| large_80x80 | 80x80 | 10 x 14 | 1000 | cpu | 3 | 39.24 | 0.49 | 1945.74 | 26.08 | 421 |
+| smoke_10x10_mps | 10x10 | 3 x 4 | 20 | mps | 7 | 16.45 | 2.21 | 1103.44 | 32.65 | 323 |
 
 `large_80x80` is the cell required by the Wave T spec (an 80x80 grid with both SA and RA populations); `smoke_10x10` is the fast smoke-test cell.
 

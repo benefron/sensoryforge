@@ -75,10 +75,10 @@ WARMUP_REPEATS = 1
 # coordinator's 2026-09-17 note): several quick repeats of a modest cell
 # report the spread far more reliably than one long run of a large one, and
 # survive interruption. "smoke_10x10" is the fast sanity cell; "large_80x80"
-# is the one T2 asks for explicitly ("an 80x80 grid with both
-# pressure-simulation populations over one second") but is kept to a single
-# short simulated duration and a small repeat count so the whole harness
-# still finishes in well under a minute.
+# is the one T2 asks for explicitly -- an 80x80 grid with both
+# pressure-simulation populations (SA + RA) simulated over one full second
+# -- kept to a small repeat count (3) so it stays a ~10s cell, not "many
+# minutes", per the coordinator's 2026-09-17 note.
 
 
 @dataclass
@@ -120,7 +120,7 @@ def default_cells() -> List[Cell]:
             cols=80,
             neurons_per_row_sa=10,
             neurons_per_row_ra=14,
-            duration_ms=200.0,
+            duration_ms=1000.0,
             repeats=3,
         ),
     ]
