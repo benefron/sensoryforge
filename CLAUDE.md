@@ -189,8 +189,9 @@ def get_param_spec(cls):
 
 ### GUI Structure
 
-The GUI (`sensoryforge/gui/main.py`) is a PyQt5 `QMainWindow` with **five tabs**:
+The GUI (`sensoryforge/gui/main.py`) is a PyQt5 `QMainWindow` with **six tabs**:
 
+0. **CircuitTab** (`gui/tabs/circuit_tab.py`, Phase 3) — the node-graph editor and the entry point. Node classes in `gui/circuit/nodes.py` map one-to-one onto the config dataclasses; `gui/circuit/serialise.py` converts graph ↔ `SensoryForgeConfig` losslessly (round-trip tested over every example and preset) and keeps node positions advisorily in `<config>.layout.json`. The inspector (`gui/circuit/inspector.py`) renders parameters from `get_param_spec()`, so a plugin component gets a settings form with no GUI code. A new *node type* or custom preview is still an in-repo change: `NODE_CLASSES` and the preview dispatch are hard-coded tables.
 1. **MechanoreceptorTab** — spatial grid config, receptor population setup, receptive field visualisation
 2. **StimulusDesignerTab** — interactive stimulus creation with live preview
 3. **SpikingNeuronTab** — neuron model config, run simulation, view spike raster; uses `SimulationEngine._run_pop_from_drive()` as shared backend
@@ -224,7 +225,17 @@ This ensures the GUI simulation path and the `SimulationEngine.run()` path produ
 ### Known Technical Debt
 
 **The living ledger (`docs_root/LEDGER.md`) is the current source of truth for open findings.**
-The items below are the ones still open as of 2026-09-14 (ledger `F-0NN` IDs); see
+
+**Open as of 2026-09-17, and the hazards to know before changing things:**
+
+- **Never run `pip install -e .` from a git worktree** (F-053). The conda environment is shared, and an editable install rewrites one global pointer, silently repointing every other checkout; subprocess-launched code then imports the wrong tree while tests still pass.
+- **Golden fixtures have only run on macOS arm64** (F-071): `tests/integration/test_pressure_sim_parity.py`, `test_stimulus_parity.py` and `tests/fixtures/rf_engine_golden_weights.pt`. A failure on another platform may be floating-point rounding; diagnose before loosening a test or changing code. `tests/validation/test_reproducibility.py` is already platform-aware (F-068).
+- **Peak memory from the watchdog is noise below about 2x** (F-056); never compare the figure across runs. Use `benchmarks/` for performance, whose CI guard is calibrated against a reference kernel (F-067) and catches only regressions of about 3x or more.
+- **Continuous integration has never run on GitHub** for this repository, and the docs site has never been deployed.
+- **Comparison with published afferent data is qualitative only** (F-070).
+- **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036); **GUI tests disable the cyclic garbage collector** because of a pyqtgraph segfault (F-035); **the Circuit validator misses a sum-combine with mismatched neuron counts** (F-062); **Circuit previews duplicate the other tabs' drawing code** (F-063).
+
+The items below were open as of 2026-09-14 (ledger `F-0NN` IDs); see
 `docs/development/reviews/` for the historical audits they came from, and note several items that
 audit once listed here (DSL/CUDA support, `reset_states`) were already fixed — see ledger `R-001`,
 `D-011`.
@@ -245,6 +256,8 @@ lattice). `SimulationEngine._build_grids()` builds `arrangement == "composite"` 
 coordinates directly. `GridConfig.channels` names a grid's sensor planes (single-channel default
 unchanged) and `StimulusConfig.channel` names which plane a stimulus drives; see
 `docs/concepts/units_and_shapes.md`, `docs/concepts/sensor_arrays.md`. Closes F-010.
+
+**Resolved 2026-09-16 to 2026-09-17, Phases 2 to 4** (see the ledger for each record): stimuli dispatch through `STIMULUS_REGISTRY` via `sensoryforge/stimuli/render.py`, with legacy defaults preserved for names both paths know and stepped stimuli such as `moving` driven frame by frame (F-052, F-057); multi-input populations, `combine` sum/concat and a `PROCESSING_REGISTRY` with `onoff` (Wave M; the processing kind is contract-checked, F-058); the data bundle carries `neuron_modules/` and a tagged stimulus payload so pressure-simulation's viewer can run it (F-054, F-055); `sensoryforge run` reports analog populations (F-060); the Stimulus Designer reloads its own config (F-064); a lattice-size warning fires only for sizes the user set (F-069); the benchmark CI guard is calibrated against a reference kernel (F-067); and the reproducibility check is exact on the reference's platform, tolerant elsewhere (F-068).
 
 **Resolved 2026-09-16, Phase 2 Wave N:** a DSL model's `threshold`/`reset` are optional, giving an analog (non-spiking) readout (`(state_trace, None)`); the shared backend labels this `"state"` instead of `"spikes"`; `SimulationEngine` builds DSL populations from `dsl_config` (previously `TypeError`/`ValueError: Unknown neuron model`); the Spiking tab plots the state trace for such a population. See "Analog readouts" above and `docs/user_guide/analog_readouts.md`.
 
