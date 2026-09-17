@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-066 · CLOSED · finding · - · 2026-09-17
+F-066 the Circuit screenshot test ran the generator against the committed docs/assets/gui directory and checked that same directory, so every GUI suite run rewrote tracked images and the test could not fail, because previously committed images satisfied its size check even when the script wrote nothing
+→ commit 84dd282
+
 ## F-065 · CLOSED · finding · - · 2026-09-16
 F-065 Wave O specified saving Circuit node positions to a sibling <config>.layout.json via Flowchart.saveState() but no part of it was implemented, so a graph's arrangement was lost on every reload and grep for saveState across sensoryforge/ returned nothing
 → commit d9e93e7
