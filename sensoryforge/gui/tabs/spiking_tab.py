@@ -10,6 +10,8 @@ import numpy as np
 import torch
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from sensoryforge.gui.settings import gui_settings
 import pyqtgraph as pg  # type: ignore
 
 # Ensure repository root on sys.path for package imports when run as a script
@@ -184,7 +186,7 @@ class CollapsibleSection(QtWidgets.QWidget):
 
         # Restore persisted state if a key was provided, else use collapsed param
         if settings_key is not None:
-            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings = gui_settings()
             saved = qsettings.value(settings_key)
             if saved is not None:
                 collapsed = saved not in (True, "true", 1, "1")
@@ -249,7 +251,7 @@ class CollapsibleSection(QtWidgets.QWidget):
         )
         self._content.setVisible(expanded)
         if self._settings_key is not None:
-            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings = gui_settings()
             qsettings.setValue(self._settings_key, expanded)
 
 
@@ -358,7 +360,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
         """Show or hide advanced sections based on expert mode state."""
         for w in self._expert_only_widgets_spiking:
             w.setVisible(checked)
-        qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        qsettings = gui_settings()
         qsettings.setValue("gui/spiking_tab/expert_mode", checked)
 
     # ------------------------------------------------------------------
@@ -379,7 +381,7 @@ class SpikingNeuronTab(QtWidgets.QWidget):
 
         # Expert mode toggle
         self._expert_only_widgets_spiking: List = []
-        _qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        _qsettings = gui_settings()
         _saved_expert = _qsettings.value("gui/spiking_tab/expert_mode")
         self._initial_expert_spiking = (
             _saved_expert in (True, "true", 1, "1")

@@ -69,9 +69,16 @@ def test_template_population_shows_derived_neuron_count():
     tab._on_add_population()
     pop = tab.populations[-1]
     tab._selected_population = pop
+    # The field's own hidden flag is what choosing a method controls. Checking
+    # isVisibleTo(tab) also depended on whether the collapsible "Population
+    # Settings" section was expanded -- collapsed by default, expanded only on
+    # a machine where someone had saved it that way -- so this passed locally
+    # and failed on a fresh CI runner.
+    tab.cmb_innervation_method.setCurrentText("gaussian")
+    assert tab.dbl_resolvable_distance.isHidden()
     tab.cmb_innervation_method.setCurrentText("template")
     tab.dbl_resolvable_distance.setValue(0.40)
-    assert tab.dbl_resolvable_distance.isVisibleTo(tab)
+    assert not tab.dbl_resolvable_distance.isHidden()
     assert not tab.spin_neurons_per_row.isEnabled()
     tab._generate_populations()
     tab._load_population_into_form(pop)

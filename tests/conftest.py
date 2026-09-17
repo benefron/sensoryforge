@@ -14,6 +14,19 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Hermetic GUI preferences (sensoryforge/gui/settings.py). Without this the
+# GUI tests read and write the preferences of whoever runs them -- expert mode,
+# which collapsible sections are expanded -- so they passed on a machine where
+# someone had once expanded a section and failed on a fresh CI runner, and a
+# test run could overwrite a developer's real GUI state. A fresh directory per
+# session makes every run start from the application's true defaults, here and
+# in CI alike. Subprocesses the tests launch inherit it.
+import tempfile  # noqa: E402
+
+os.environ["SENSORYFORGE_SETTINGS_DIR"] = tempfile.mkdtemp(
+    prefix="sensoryforge-test-settings-"
+)
+
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")

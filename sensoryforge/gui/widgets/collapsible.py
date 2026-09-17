@@ -7,6 +7,8 @@ from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.gui.settings import gui_settings
+
 
 class CollapsibleGroupBox(QtWidgets.QWidget):
     """Collapsible section with toggle button, normal content styling.
@@ -56,7 +58,7 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
 
         # Restore persisted state if a key was provided, else use start_expanded
         if settings_key is not None:
-            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings = gui_settings()
             saved = qsettings.value(settings_key)
             if saved is not None:
                 self._is_expanded = saved in (True, "true", 1, "1")
@@ -129,7 +131,7 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
         self._content.setVisible(self._is_expanded)
         self._update_button_text()
         if self.__dict__.get("_settings_key") is not None:
-            qsettings = QtCore.QSettings(self._QSETTINGS_ORG, self._QSETTINGS_APP)
+            qsettings = gui_settings()
             qsettings.setValue(self._settings_key, self._is_expanded)
 
     # ------------------------------------------------------------------

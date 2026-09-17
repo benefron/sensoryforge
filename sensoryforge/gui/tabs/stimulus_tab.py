@@ -9,6 +9,8 @@ import numpy as np
 import torch
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from sensoryforge.gui.settings import gui_settings
 import pyqtgraph as pg  # type: ignore
 
 from sensoryforge.stimuli.stimulus import (
@@ -1251,7 +1253,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
                 ew.append(lbl)
 
         # Restore persisted state
-        settings = QtCore.QSettings()
+        settings = gui_settings()
         expert = settings.value("gui/stimulus_tab/expert_mode", False, type=bool)
         self.chk_expert_mode.blockSignals(True)
         self.chk_expert_mode.setChecked(expert)
@@ -1265,7 +1267,7 @@ class StimulusDesignerTab(QtWidgets.QWidget):
         expert = state == QtCore.Qt.Checked
         for w in self._expert_only_widgets_stimulus:
             w.setVisible(expert)
-        QtCore.QSettings().setValue("gui/stimulus_tab/expert_mode", expert)
+        gui_settings().setValue("gui/stimulus_tab/expert_mode", expert)
 
     # ------------------------------------------------------------------
     # Signal connections

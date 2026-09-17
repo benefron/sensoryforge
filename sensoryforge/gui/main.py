@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from sensoryforge.gui.settings import gui_settings
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 # Ensure repository root on sys.path for package imports when run as a script
@@ -166,7 +168,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         ``~/SensoryForge/workspace/``.  Called at startup and whenever a tab
         requests a workspace (e.g. on first "Save to Library").
         """
-        settings = QtCore.QSettings("SensoryForge", "GUI")
+        settings = gui_settings()
         last = str(settings.value("last_workspace", ""))
         default = Path.home() / "SensoryForge" / "workspace"
         path = Path(last) if last and Path(last).is_dir() else default
@@ -443,7 +445,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         except OSError as exc:
             QMessageBox.critical(self, "Create failed", str(exc))
             return
-        QtCore.QSettings("SensoryForge", "GUI").setValue("last_workspace", str(path))
+        gui_settings().setValue("last_workspace", str(path))
         self._push_experiment_manager()
         self._update_workspace_label()
 
@@ -457,7 +459,7 @@ class SensoryForgeWindow(QtWidgets.QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Open failed", str(exc))
             return
-        QtCore.QSettings("SensoryForge", "GUI").setValue("last_workspace", str(path))
+        gui_settings().setValue("last_workspace", str(path))
         self._push_experiment_manager()
         self._update_workspace_label()
 

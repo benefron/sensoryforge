@@ -13,6 +13,8 @@ import numpy as np
 import torch
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from sensoryforge.gui.settings import gui_settings
 import pyqtgraph as pg  # type: ignore
 
 # Ensure repository root on sys.path
@@ -451,7 +453,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
 
         # Expert mode toggle — pinned at the top of the control panel
         self._expert_only_widgets: List = []
-        _qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        _qsettings = gui_settings()
         _saved_expert = _qsettings.value("gui/mechanoreceptor_tab/expert_mode")
         _initial_expert = (
             _saved_expert in (True, "true", 1, "1")
@@ -989,7 +991,7 @@ class MechanoreceptorTab(QtWidgets.QWidget):
         """Show or hide advanced widgets based on expert mode state."""
         for w in self._expert_only_widgets:
             w.setVisible(checked)
-        qsettings = QtCore.QSettings("SensoryForge", "GUI")
+        qsettings = gui_settings()
         qsettings.setValue("gui/mechanoreceptor_tab/expert_mode", checked)
 
     def _configure_plot(self) -> None:
