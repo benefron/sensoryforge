@@ -663,6 +663,12 @@ class SimulationConfig:
         dt: Deprecated alias for ``dt_ms`` (F-008/E10). Emits
             ``DeprecationWarning`` when used; raises ``ValueError`` if both
             ``dt`` and a non-default, different ``dt_ms`` are given.
+        seed: Global run seed (GUI v2, phase 1 interface contract section 7:
+            ``RunController.run`` passes this to
+            :meth:`~sensoryforge.core.simulation_engine.SimulationEngine.run`).
+            ``None`` means unseeded. Distinct from a population's own
+            ``PopulationConfig.seed`` (innervation wiring) and a grid's
+            ``GridConfig.seed`` (arrangement jitter).
     """
 
     device: str = "cpu"
@@ -671,6 +677,7 @@ class SimulationConfig:
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
     dt: Optional[float] = None  # deprecated alias for dt_ms
+    seed: Optional[int] = None
 
     def __post_init__(self) -> None:
         """Resolve the deprecated ``dt`` alias, then validate (F-042).
