@@ -46,26 +46,36 @@ neuron must fire repetitively) is at equality:
 
 For ``b = 0.2`` (both RS and FS): ``I_rheobase = 4.8^2/0.16 - 140 = 4.0``.
 
-Tolerance: the adiabatic approximation ignores u's finite relaxation time
-(set by ``a``), so the true (simulated) threshold is not exactly 4.0; we
-verified empirically (bisection search, recorded 2026-09-16) that the
-simulated threshold is 3.77 (RS, a=0.02) and 3.86 (FS, a=0.1) -- both within
-0.25 mA of the closed-form value, consistent with the approximation's
-expected error shrinking as ``a -> 0``. We assert a 0.5 mA absolute
-tolerance: generous enough not to flake on the genuine adiabatic-approximation
-gap, but tight enough that a materially wrong ``b`` (e.g. 0.1, giving
-I_rheobase=10.06, or 0.3, giving I_rheobase=-0.4) fails it by many multiples
-(see perturbation below).
+Tolerance: the closed form assumes u tracks v instantly (u = b*v at the fixed
+point), which the real dynamics do not do exactly, so the simulated
+threshold is not exactly 4.0. Measured by bisection: 3.774 for RS (a=0.02)
+and 3.859 for FS (a=0.10), gaps of 0.23 and 0.14 mA. The assertion allows
+0.5 mA, about twice the larger gap. (An earlier version of this docstring
+said the gap shrinks as ``a`` gets smaller; the two measurements show the
+opposite, so that claim is removed rather than kept.)
 
-Perturbation proof (recorded 2026-09-16, applied to
-``sensoryforge/neurons/izhikevich.py``, tested, then reverted): changing the
-``RS`` preset's ``b`` from ``0.20`` to ``0.10`` makes
-``test_rheobase_matches_closed_form_bifurcation`` fail for RS: the empirical
-threshold barely moves (adiabatic slaving is still governed by the *true*
-underlying dynamics), so it lands far from the *stated* closed-form
-prediction recomputed with the perturbed ``b`` -- concretely, the
-recomputed closed-form target jumps to 10.06 while the simulated threshold
-stays near 3.8, an error of ~6.3 mA against the 0.5 mA tolerance.
+What this test catches, and how -- established by experiment on 2026-09-17,
+correcting an earlier record of a result that did not happen:
+
+* **An error in the integrated equations.** Changing ``140`` to ``135`` in
+  the membrane update, in both integration paths, moves the simulated
+  thresholds to 8.774 (RS) and 8.859 (FS) while the closed-form target, which
+  is written from the published equation rather than read from the
+  implementation, stays at 4.0. The test fails by about 4.8 mA. This is the
+  physics comparison doing its job: the reference is independent of the
+  code under test.
+* **A wrong preset value.** Changing RS's ``b`` from 0.20 to 0.10 does *not*
+  make the physics comparison fail. The simulated threshold moves to 10.012
+  and the closed form recomputed from that ``b`` is 10.063; they agree,
+  because the model is still integrated correctly. That change is caught
+  only by the explicit ``b == 0.20`` and ``target == 4.0`` assertions, which
+  pin the published parameter value. An earlier version of this docstring
+  claimed the simulated threshold "stays near 3.8" under this perturbation.
+  It does not; the failure that record describes came from those hard-coded
+  assertions, not from the physics.
+
+Both halves are needed: the closed-form comparison validates the
+integration, and the pinned published value validates the preset.
 """
 
 from __future__ import annotations
