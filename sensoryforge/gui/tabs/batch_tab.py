@@ -79,6 +79,74 @@ class _BatchWorker(QtCore.QThread):
 
 
 # ---------------------------------------------------------------------------
+# Graph-sweep helpers (Q1)
+# ---------------------------------------------------------------------------
+
+
+def _param_names_for_node(node) -> list:
+    """The parameter names offered for ``node`` in the sweep dialog: the
+    registered component's ``get_param_spec()`` names, per P3's
+    registry-driven convention (``CircuitTab.REGISTRY_NODE_TYPES``), or an
+    empty list when the node type has no registered component
+    (``CombineNode``, ``RecordNode``) or the component cannot be resolved.
+    """
+    from sensoryforge.gui.circuit.nodes import (
+        FilterNode,
+        ProcessingNode,
+        RFBankNode,
+        ReadoutNode,
+        SensorArrayNode,
+        StimulusNode,
+    )
+    from sensoryforge.registry import (
+        FILTER_REGISTRY,
+        GRID_REGISTRY,
+        INNERVATION_REGISTRY,
+        NEURON_REGISTRY,
+        PROCESSING_REGISTRY,
+        STIMULUS_REGISTRY,
+    )
+
+    lookup = None
+    component_name = None
+    if isinstance(node, SensorArrayNode):
+        lookup, component_name = GRID_REGISTRY, node.grid.arrangement
+    elif isinstance(node, StimulusNode):
+        lookup, component_name = STIMULUS_REGISTRY, node.stimulus.type
+    elif isinstance(node, RFBankNode):
+        lookup, component_name = INNERVATION_REGISTRY, node.pop_input.rf.method
+    elif isinstance(node, ProcessingNode):
+        lookup, component_name = PROCESSING_REGISTRY, node.spec.get("method")
+    elif isinstance(node, FilterNode):
+        lookup, component_name = FILTER_REGISTRY, node.filter_method
+    elif isinstance(node, ReadoutNode):
+        lookup, component_name = NEURON_REGISTRY, node.fields.get("neuron_model")
+
+    if lookup is None or not component_name:
+        return []
+    try:
+        specs = lookup.get_param_spec(component_name)
+    except (KeyError, ValueError):
+        return []
+    return [spec.name for spec in specs]
+
+
+def _parse_sweep_value(text: str):
+    """Parse one comma-separated sweep value: int, then float, then the
+    literal string (so e.g. an ``arrangement`` sweep over ``"grid, hex"``
+    keeps its string values)."""
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    return text
+
+
+# ---------------------------------------------------------------------------
 # BatchTab
 # ---------------------------------------------------------------------------
 
@@ -93,17 +161,32 @@ class BatchTab(QtWidgets.QWidget):
         batch_tab.set_experiment_manager(em)
     """
 
+    #: Emitted once per run during a graph sweep (Q1): (index, total).
+    graph_sweep_progress = QtCore.pyqtSignal(int, int)
+
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self._em = None
         self._executor = None
         self._worker: Optional[_BatchWorker] = None
         self._config_path: Optional[Path] = None
+        self._circuit_tab = None
         self._build_ui()
+        self._build_graph_sweep_ui()
 
     def set_experiment_manager(self, em) -> None:
         """Inject shared ExperimentManager from main window."""
         self._em = em
+
+    def set_circuit_tab(self, circuit_tab) -> None:
+        """Inject the Circuit tab (Q1) so its live graph can be swept.
+
+        Args:
+            circuit_tab: The :class:`~sensoryforge.gui.tabs.circuit_tab.CircuitTab`
+                instance sharing this window, or ``None``.
+        """
+        self._circuit_tab = circuit_tab
+        self._refresh_sweep_node_combo()
 
     # ------------------------------------------------------------------
     # Build UI
@@ -329,6 +412,147 @@ class BatchTab(QtWidgets.QWidget):
     def _log_line(self, msg: str) -> None:
         self._log.appendPlainText(msg)
         self._log.verticalScrollBar().setValue(self._log.verticalScrollBar().maximum())
+
+    # ------------------------------------------------------------------
+    # Sweep this graph (Q1)
+    # ------------------------------------------------------------------
+
+    def _build_graph_sweep_ui(self) -> None:
+        """Build the "sweep this graph" section: pick a node + one of its
+        ``ParamSpec`` settings, enter a comma-separated list of values, and
+        run one bundle per value via
+        :func:`sensoryforge.gui.circuit.sweep.sweep_graph`.
+        """
+        outer = self.layout()
+
+        group = QtWidgets.QGroupBox("Sweep This Graph")
+        form = QtWidgets.QFormLayout(group)
+        form.setLabelAlignment(QtCore.Qt.AlignRight)
+
+        self._sweep_node_combo = QtWidgets.QComboBox()
+        self._sweep_node_combo.currentTextChanged.connect(
+            self._refresh_sweep_param_combo
+        )
+        form.addRow("Node:", self._sweep_node_combo)
+
+        self._sweep_param_combo = QtWidgets.QComboBox()
+        self._sweep_param_combo.setEditable(True)
+        form.addRow("Parameter:", self._sweep_param_combo)
+
+        self._sweep_values_edit = QtWidgets.QLineEdit()
+        self._sweep_values_edit.setPlaceholderText("e.g. 10, 20, 30")
+        form.addRow("Values (comma-separated):", self._sweep_values_edit)
+
+        out_row = QtWidgets.QHBoxLayout()
+        self._sweep_output_edit = QtWidgets.QLineEdit()
+        out_row.addWidget(self._sweep_output_edit, stretch=1)
+        btn_browse_out = QtWidgets.QPushButton("Browse…")
+        btn_browse_out.clicked.connect(self._on_browse_sweep_output)
+        out_row.addWidget(btn_browse_out)
+        form.addRow("Output dir:", out_row)
+
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_refresh = QtWidgets.QPushButton("Refresh from graph")
+        btn_refresh.clicked.connect(self._refresh_sweep_node_combo)
+        btn_row.addWidget(btn_refresh)
+        self._btn_run_sweep = QtWidgets.QPushButton("Run Sweep")
+        self._btn_run_sweep.clicked.connect(self._on_run_graph_sweep)
+        btn_row.addWidget(self._btn_run_sweep)
+        form.addRow(btn_row)
+
+        outer.addWidget(group)
+        self._refresh_sweep_node_combo()
+
+    def _refresh_sweep_node_combo(self) -> None:
+        self._sweep_node_combo.clear()
+        if self._circuit_tab is None:
+            return
+        for name in sorted(self._circuit_tab.nodes()):
+            self._sweep_node_combo.addItem(name)
+        self._refresh_sweep_param_combo()
+
+    def _refresh_sweep_param_combo(self, *_args) -> None:
+        """Populate the parameter combo from the selected node's registered
+        component ``get_param_spec()`` (P3's registry-driven convention),
+        falling back to an empty (freely-editable) box when the node's
+        current component has no param spec or is not selected."""
+        self._sweep_param_combo.clear()
+        if self._circuit_tab is None:
+            return
+        node_name = self._sweep_node_combo.currentText()
+        nodes = self._circuit_tab.nodes()
+        node = nodes.get(node_name)
+        if node is None:
+            return
+        for name in _param_names_for_node(node):
+            self._sweep_param_combo.addItem(name)
+
+    def _on_browse_sweep_output(self) -> None:
+        initial = ""
+        if self._em is not None and self._em.is_open:
+            initial = str(self._em.project_dir)
+        path = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select sweep output directory", initial
+        )
+        if path:
+            self._sweep_output_edit.setText(path)
+
+    def _on_run_graph_sweep(self) -> None:
+        if self._circuit_tab is None:
+            QtWidgets.QMessageBox.warning(
+                self, "Sweep This Graph", "No Circuit tab is connected."
+            )
+            return
+        node_name = self._sweep_node_combo.currentText()
+        param_name = self._sweep_param_combo.currentText().strip()
+        output_dir = self._sweep_output_edit.text().strip()
+        if not node_name or not param_name or not output_dir:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Sweep This Graph",
+                "Select a node, a parameter, and an output directory.",
+            )
+            return
+        raw_values = [v.strip() for v in self._sweep_values_edit.text().split(",")]
+        raw_values = [v for v in raw_values if v]
+        values = [_parse_sweep_value(v) for v in raw_values]
+
+        try:
+            bundle_dirs = self.run_graph_sweep(
+                node_name, param_name, values, output_dir
+            )
+        except Exception as exc:  # noqa: BLE001 - surfaced to the user, not swallowed
+            import traceback
+
+            self._log_line(f"\n✗ Sweep failed:\n{traceback.format_exc()}")
+            QtWidgets.QMessageBox.critical(self, "Sweep This Graph", str(exc))
+            return
+
+        for i, bundle_dir in enumerate(bundle_dirs, start=1):
+            self.graph_sweep_progress.emit(i, len(bundle_dirs))
+            self._log_line(f"Sweep run {i}/{len(bundle_dirs)}: {bundle_dir}")
+        self._log_line(
+            f"\n✓ Sweep complete — {len(bundle_dirs)} bundles in {output_dir}"
+        )
+
+    def run_graph_sweep(
+        self, node_name: str, param_name: str, values, output_dir
+    ) -> list:
+        """Run :func:`sensoryforge.gui.circuit.sweep.sweep_graph` against the
+        connected Circuit tab's live flowchart.
+
+        Kept as its own method (rather than inlined in the button handler)
+        so GUI tests can call it directly without going through the combo
+        boxes/line edits.
+
+        Returns:
+            The list of bundle directories written, one per value.
+        """
+        from sensoryforge.gui.circuit.sweep import sweep_graph
+
+        return sweep_graph(
+            self._circuit_tab.flowchart, node_name, param_name, values, output_dir
+        )
 
 
 # ---------------------------------------------------------------------------

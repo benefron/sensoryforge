@@ -101,3 +101,6 @@ jobs:
 
       - name: mkdocs build --strict
         run: mkdocs build --strict
+
+      - name: Execute notebooks (nbmake)
+        run: pytest --nbmake --nbmake-timeout=120 examples/notebooks/01_quickstart.ipynb docs/examples/validation_touchsim.ipynb

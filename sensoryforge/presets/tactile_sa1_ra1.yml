@@ -1,0 +1,58 @@
+# tactile_sa1_ra1 -- the pressure-simulation recipe (Phase 2, Wave K, K4)
+#
+# 80x80 receptor grid at 0.15 mm, one SA population and one RA population,
+# both with designed receptive fields from the `template` builder (D-020:
+# sigma = d/pi, pitch = d, neuron count derived) at a single resolvable
+# distance d = 0.40 mm. Filter and neuron parameters are left to the
+# resolver (sensoryforge/config/defaults.py): SA gets the regular-spiking
+# Izhikevich preset and the `sa` filter defaults, RA gets fast-spiking and
+# the `ra` filter defaults (k3 = 2.0, D-Q1).
+#
+# See docs/concepts/pressure_simulation_use_case.md and
+# docs/user_guide/presets.md.
+#
+# Usage:
+#   sensoryforge run --preset tactile_sa1_ra1
+#   sensoryforge run --preset tactile_sa1_ra1 my_overrides.yml
+metadata:
+  name: Pressure-simulation recipe (SA1/RA1)
+  version: '1.0'
+  description: >-
+    80x80 grid at 0.15 mm; one SA and one RA population with template
+    (designed) receptive fields at resolvable_distance_mm=0.40.
+grids:
+- name: Main Grid
+  arrangement: grid
+  rows: 80
+  cols: 80
+  spacing: 0.15
+  center_x: 0.0
+  center_y: 0.0
+populations:
+- name: SA Population
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: template
+  resolvable_distance_mm: 0.40
+  innervation_params:
+    k: 28
+    normalize: l2
+  neuron_model: izhikevich
+  filter_method: sa
+  input_gain: 50.0
+  seed: 42
+- name: RA Population
+  neuron_type: RA
+  target_grid: Main Grid
+  innervation_method: template
+  resolvable_distance_mm: 0.40
+  innervation_params:
+    k: 28
+    normalize: l2
+  neuron_model: izhikevich
+  filter_method: ra
+  input_gain: 50.0
+  seed: 43
+simulation:
+  device: cpu
+  dt_ms: 1.0

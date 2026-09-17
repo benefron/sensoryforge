@@ -37,7 +37,6 @@ from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.stimuli.base import ParamSpec
 
 
-
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:

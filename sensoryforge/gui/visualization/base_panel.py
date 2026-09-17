@@ -42,6 +42,12 @@ class VisData:
         population_colors: Mapping from population name to QColor.
         innervation_weights: Mapping from population name to weight array.
             Grid module: [N_neurons, grid_h, grid_w]. Flat: [N_neurons, N_receptors].
+        channel_names: Names of the sensor channels a multi-channel run's
+            stimulus was rendered on (``GridConfig.channels``), in the same
+            order as the channel axis of the *raw* ``[T, C, H, W]`` stimulus
+            tensor the tab received (Wave Q, Q2). Empty for a single-channel
+            run; ``stimulus_frames`` above is always ``[T, H, W]`` -- one
+            already-selected channel's slice, never the raw 4-D tensor.
     """
 
     time_ms: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -54,6 +60,7 @@ class VisData:
     receptor_positions: Optional[np.ndarray] = None  # [M, 2]
     population_colors: Dict[str, QtGui.QColor] = field(default_factory=dict)
     innervation_weights: Dict[str, np.ndarray] = field(default_factory=dict)
+    channel_names: List[str] = field(default_factory=list)
 
     @property
     def n_steps(self) -> int:

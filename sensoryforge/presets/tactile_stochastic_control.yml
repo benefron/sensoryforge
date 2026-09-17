@@ -1,0 +1,56 @@
+# tactile_stochastic_control -- the named control arm (D-019, Phase 2, Wave K, K4)
+#
+# Identical to tactile_sa1_ra1 except receptive fields come from the
+# `gaussian` builder with use_distance_weights=false, pressure-simulation's
+# uniform-random-weight ("stochastic") innervation, instead of the
+# designed `template` builder. D-019 (docs_root/LEDGER.md) settles this as
+# the control arm; there is no separate `gaussian_stochastic` name in
+# INNERVATION_REGISTRY (GaussianInnervation already implements both the
+# analytic and the stochastic weighting, selected by
+# use_distance_weights).
+#
+# Usage:
+#   sensoryforge run --preset tactile_stochastic_control
+metadata:
+  name: Pressure-simulation recipe -- stochastic control arm
+  version: '1.0'
+  description: >-
+    D-019 control arm: gaussian/use_distance_weights=false (stochastic,
+    uniform-random weight) receptive fields, same grid and populations as
+    tactile_sa1_ra1.
+grids:
+- name: Main Grid
+  arrangement: grid
+  rows: 80
+  cols: 80
+  spacing: 0.15
+  center_x: 0.0
+  center_y: 0.0
+populations:
+- name: SA Population
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: gaussian
+  connections_per_neuron: 28
+  sigma_d_mm: 0.3
+  use_distance_weights: false
+  neurons_per_row: 30
+  neuron_model: izhikevich
+  filter_method: sa
+  input_gain: 50.0
+  seed: 42
+- name: RA Population
+  neuron_type: RA
+  target_grid: Main Grid
+  innervation_method: gaussian
+  connections_per_neuron: 28
+  sigma_d_mm: 0.3
+  use_distance_weights: false
+  neurons_per_row: 30
+  neuron_model: izhikevich
+  filter_method: ra
+  input_gain: 50.0
+  seed: 43
+simulation:
+  device: cpu
+  dt_ms: 1.0

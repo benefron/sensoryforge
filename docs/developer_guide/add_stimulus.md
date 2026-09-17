@@ -22,6 +22,11 @@ Component names are matched **case-insensitively** (H1, F-046): `"Ring"` and
 exact-case collisions with a built-in stimulus's name — though a genuine
 collision (same name, different class) still raises.
 
+The complete runnable example is `docs/examples/plugin_stimulus.py` (a smaller ring stimulus,
+`AnnulusStimulus`, than this page's `RingStimulus` walkthrough, but the same steps and shape): it
+defines the class, registers it, runs the shared contract check, and generates one frame directly.
+It is executed by `tests/docs/test_docs_examples.py`.
+
 ---
 
 ## 1. Understand the API contract
@@ -51,8 +56,13 @@ not `_check_stimulus`. `EdgeGrating` would fail it today (missing
 Tensor shapes and units:
 
 - `xx`, `yy`: `[H, W]` spatial coordinate grids in **mm**
-- `forward()` return: `[H, W]` pressure field in **mA** (or dimensionless if
-  used as a mask)
+- `forward()` return: **either** a single frame `[H, W]` (a static spatial
+  pattern; `render_stimulus`, see step 5, expands it over time with a
+  ramp/plateau/ramp envelope) **or** a whole sequence `[T, H, W]` (a
+  stimulus with its own internal motion or dynamics, like `MovingStimulus`
+  or the ported pressure-simulation stimuli in `sensoryforge/stimuli/
+  tactile.py`) — both are valid (Phase 2, Wave K, Fact K-c). Units are
+  **mA** (or dimensionless if used as a mask).
 
 ---
 
@@ -221,6 +231,20 @@ Run: `pytest tests/unit/test_ring_stimulus.py -v`
 
 ## 5. Use from the CLI
 
+Before Phase 2 Wave K (F-052), the CLI's canonical `run` path dispatched
+stimulus types through a hard-coded chain in
+`GeneralizedTactileEncodingPipeline.generate_stimulus` that only knew nine
+names — a registered stimulus like `ring` was reachable through
+`STIMULUS_REGISTRY.create()` in code, but **not** from a config file. Since
+K1, `sensoryforge/stimuli/render.py`'s `render_stimulus()` is the CLI's and
+`BatchExecutor`'s single dispatch point: it checks `STIMULUS_REGISTRY`
+first, so *any* registered stimulus — built-in or a plugin's — is runnable
+from a config file with no changes to the CLI. This is the concrete,
+executed proof of that: a stimulus registered only inside
+`tests/unit/test_render_stimulus.py::test_plugin_stimulus_registered_only_at_test_time_runs`
+(a two-line `BaseStimulus` subclass) runs end to end through
+`render_stimulus`, the same call the CLI makes.
+
 After registering, the stimulus works with any canonical config:
 
 ```yaml
@@ -243,16 +267,16 @@ populations:
     filter_method: SA
 
 simulation:
-  dt: 0.1
+  dt_ms: 1.0
   device: cpu
 
-stimulus:
-  type: ring           # ← your new stimulus key
-  center_x: 0.0
-  center_y: 0.0
-  radius: 1.5
-  width: 0.1
-  amplitude: 8.0
+stimuli:
+  - type: ring          # ← your new stimulus key
+    center_x: 0.0
+    center_y: 0.0
+    radius: 1.5
+    width: 0.1
+    amplitude: 8.0
 ```
 
 ```bash

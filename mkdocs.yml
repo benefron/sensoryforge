@@ -103,7 +103,14 @@ nav:
     - Custom Neuron Models: tutorials/custom_neurons.md
     - Building a Custom Pipeline: tutorials/custom_pipeline.md
     - Parameter Sweeps: tutorials/parameter_sweeps.md
-    
+
+  - Concepts:
+    - Units and Shapes: concepts/units_and_shapes.md
+    - Sensor Arrays: concepts/sensor_arrays.md
+    - Populations and Inputs: concepts/populations_and_inputs.md
+    - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
+    - The Graph: concepts/the_graph.md
+
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
@@ -114,8 +121,11 @@ nav:
     - Units and Gains: user_guide/units_and_gains.md
     - Composite Grid: user_guide/composite_grid.md
     - Receptive Fields: user_guide/receptive_fields.md
+    - Data Bundles: user_guide/bundles.md
     - Equation DSL: user_guide/equation_dsl.md
+    - Analog Readouts: user_guide/analog_readouts.md
     - Extended Stimuli: user_guide/extended_stimuli.md
+    - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
 
@@ -125,6 +135,10 @@ nav:
     - Adding a Filter: developer_guide/add_filter.md
     - Adding a Stimulus: developer_guide/add_stimulus.md
     - Adding a Receptive-Field Builder: developer_guide/add_rf_builder.md
+    - Adding a Grid Arrangement: extending/add_grid_arrangement.md
+    - Adding a Processing Layer: extending/add_processing_layer.md
+    - Adding a Circuit Node: extending/add_gui_node.md
+    - Adding a Solver: extending/add_solver.md
     - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
@@ -132,6 +146,7 @@ nav:
   - API Reference:
     - Pipeline: api_reference/pipeline.md
     - Neurons: api_reference/neurons.md
+    - Benchmarks: reference/benchmarks.md
 
   - Contributing: contributing.md
 

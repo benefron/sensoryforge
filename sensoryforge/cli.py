@@ -20,8 +20,10 @@ import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
+from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.render import render_stimulus
 from sensoryforge.registry import (
     NEURON_REGISTRY,
     FILTER_REGISTRY,
@@ -29,7 +31,36 @@ from sensoryforge.registry import (
     STIMULUS_REGISTRY,
     SOLVER_REGISTRY,
     GRID_REGISTRY,
+    PROCESSING_REGISTRY,
 )
+
+
+def _deep_merge_preset(
+    base: Dict[str, Any], overrides: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Recursively merge ``overrides`` onto a (deep-copied) ``base`` (K4).
+
+    Nested dicts are merged key by key; lists and scalars in ``overrides``
+    replace ``base``'s value outright (a config's ``grids``/``populations``
+    list is not merged element-by-element -- the override file's list wins
+    whole).
+
+    Args:
+        base: The preset's config dict (not mutated).
+        overrides: The user's config file dict, applied on top.
+
+    Returns:
+        A new merged dict.
+    """
+    import copy as _copy
+
+    result = _copy.deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge_preset(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 def validate_config(config: Dict[str, Any]) -> bool:
@@ -170,8 +201,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         Exit code (0 for success, 1 for error).
     """
     try:
-        # Load configuration
-        config = load_config_file(args.config)
+        # Load configuration -- a preset (K4), a config file, or both (the
+        # preset as the base, the file's values overriding it).
+        preset_name = getattr(args, "preset", None)
+        if preset_name:
+            from sensoryforge.presets import load_preset
+
+            config = load_preset(preset_name)
+            if args.config:
+                config = _deep_merge_preset(config, load_config_file(args.config))
+        elif args.config:
+            config = load_config_file(args.config)
+        else:
+            print(
+                "Error running simulation: no config file and no --preset given",
+                file=sys.stderr,
+            )
+            return 1
 
         # Validate
         if not validate_config(config):
@@ -202,7 +248,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             # the requested duration; see _generate_trapezoidal_stimulus).
             stimulus_params["duration"] = args.duration
 
-        print(f"Loading pipeline from {args.config}...")
+        source_desc = args.config or f"--preset {preset_name}"
+        print(f"Loading pipeline from {source_desc}...")
 
         if is_canonical:
             # ---------------------------------------------------------------
@@ -216,16 +263,58 @@ def cmd_run(args: argparse.Namespace) -> int:
 
             sf_config = SensoryForgeConfig.from_dict(config)
 
-            # Stimulus generation: reuse GeneralizedTactileEncodingPipeline for now
-            # (SimulationEngine does not yet have its own stimulus module)
-            pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
-            stimulus_tensor, _, _ = pipeline.generate_stimulus(
-                stimulus_type=stimulus_type, **stimulus_params
+            # Stimulus generation: render_stimulus (K1, F-052) dispatches
+            # through STIMULUS_REGISTRY first, so any registered or
+            # plugin-registered stimulus (including composite, edge_grating,
+            # gabor, and the four ported pressure-simulation stimuli) is
+            # reachable from a config file, falling back to the legacy
+            # pipeline's chain only for its unregistered names.
+            if sf_config.grids:
+                grid_cfg = sf_config.grids[0]
+                stim_grid = ReceptorGrid(
+                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
+                    spacing=grid_cfg.spacing,
+                    arrangement=grid_cfg.arrangement,
+                    center=(grid_cfg.center_x, grid_cfg.center_y),
+                    density=grid_cfg.density,
+                    device=sf_config.simulation.device,
+                    seed=grid_cfg.seed,
+                )
+                xx, yy = stim_grid.get_coordinates()
+            else:
+                xx, yy = torch.meshgrid(
+                    torch.linspace(-1, 1, 40),
+                    torch.linspace(-1, 1, 40),
+                    indexing="ij",
+                )
+            # "duration" (set above for the legacy pipeline's **kwargs
+            # signature) is not a stimulus constructor parameter for a
+            # registered component; render_stimulus takes it as duration_ms.
+            render_params = {
+                k: v for k, v in stimulus_params.items() if k != "duration"
+            }
+            frames, _ = render_stimulus(
+                stimulus_type,
+                render_params,
+                xx,
+                yy,
+                dt_ms=sf_config.simulation.dt_ms,
+                duration_ms=args.duration,
+                device=sf_config.simulation.device,
             )
+            stimulus_tensor = frames.unsqueeze(0)
 
             print(f"Running simulation (duration: {args.duration}ms)...")
             engine = SimulationEngine(sf_config)
-            results = engine.run(stimulus_tensor, return_intermediates=True)
+            bundle_dir = getattr(args, "bundle", None)
+            results = engine.run(
+                stimulus_tensor,
+                return_intermediates=True,
+                bundle_dir=bundle_dir,
+                stimulus_config={"type": stimulus_type, **stimulus_params},
+            )
+            if bundle_dir:
+                print(f"Bundle written to {bundle_dir}")
 
             if args.output:
                 output_path = Path(args.output)
@@ -246,8 +335,27 @@ def cmd_run(args: argparse.Namespace) -> int:
             else:
                 print("\nSimulation completed successfully!")
                 for pop_name, pop_results in results.items():
-                    total = int(pop_results["spikes"].sum().item())
-                    print(f"{pop_name} spikes: {total}")
+                    # An analog readout (a DSL neuron with no spike
+                    # condition, Wave N) carries "state" and has no
+                    # "spikes" key at all. Summarising it as spikes used
+                    # to raise KeyError here, after the bundle had
+                    # already been written.
+                    if "spikes" in pop_results:
+                        total = int(pop_results["spikes"].sum().item())
+                        print(f"{pop_name} spikes: {total}")
+                    elif "state" in pop_results:
+                        state = pop_results["state"]
+                        print(
+                            f"{pop_name} analog state: "
+                            f"min {float(state.min()):.3f}, "
+                            f"max {float(state.max()):.3f}, "
+                            f"mean {float(state.mean()):.3f}"
+                        )
+                    else:
+                        print(
+                            f"{pop_name}: no spikes or state in results "
+                            f"(keys: {sorted(pop_results)})"
+                        )
 
         else:
             # ---------------------------------------------------------------
@@ -356,15 +464,17 @@ def cmd_batch(args: argparse.Namespace) -> int:
         print(f"Loading batch configuration from {args.config}...")
         executor = BatchExecutor(config)
 
-        # Determine save format
-        save_format = config.get("batch", {}).get("save_format", "pytorch")
+        # Determine save format (legacy configs only; canonical configs
+        # always write bundles -- see BatchExecutor.execute, J3)
+        save_format = config.get("batch", {}).get("save_format", "hdf5")
         save_intermediates = config.get("batch", {}).get("save_intermediates", False)
 
-        # Execute batch
+        # Execute batch (or a single SLURM array task, J3/F-011)
         results = executor.execute(
             save_format=save_format,
             save_intermediates=save_intermediates,
             resume_from=args.resume if args.resume else None,
+            task_index=args.task_index if args.task_index is not None else None,
         )
 
         # Print summary
@@ -484,6 +594,7 @@ def cmd_list_components(args: argparse.Namespace) -> int:
         ("⚙️  Solvers", SOLVER_REGISTRY),
         ("🌐 Grid Types", GRID_REGISTRY),
         ("🔗 Innervation Methods", INNERVATION_REGISTRY),
+        ("🧩 Processing Layers", PROCESSING_REGISTRY),
     ]
     for title, registry in sections:
         print(f"\n{title}:")
@@ -492,6 +603,30 @@ def cmd_list_components(args: argparse.Namespace) -> int:
 
     print("\n💡 Use 'sensoryforge run --help' for usage examples")
 
+    return 0
+
+
+def cmd_list_presets(args: argparse.Namespace) -> int:
+    """List shipped canonical-config presets (K4).
+
+    Args:
+        args: Command-line arguments (unused).
+
+    Returns:
+        Exit code (0 for success).
+    """
+    from sensoryforge.presets import list_presets, preset_description
+
+    print("Available SensoryForge Presets:")
+    print("=" * 50)
+    for name in list_presets():
+        desc = preset_description(name)
+        print(f"  - {name}: {desc}" if desc else f"  - {name}")
+
+    print(
+        "\n💡 Use 'sensoryforge run --preset <name>' to run one, or "
+        "'sensoryforge run --preset <name> config.yml' to override it"
+    )
     return 0
 
 
@@ -638,7 +773,23 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Run command
     run_parser = subparsers.add_parser("run", help="Run simulation from YAML config")
-    run_parser.add_argument("config", help="Path to YAML configuration file")
+    run_parser.add_argument(
+        "config",
+        nargs="?",
+        default=None,
+        help=(
+            "Path to YAML configuration file. Optional when --preset is "
+            "given: the preset alone is the full config, or (with a config "
+            "file too) the file's values override the preset (K4)."
+        ),
+    )
+    run_parser.add_argument(
+        "--preset",
+        help=(
+            "Name of a shipped preset (see 'sensoryforge list-presets') to "
+            "use as the base config, optionally overridden by 'config'."
+        ),
+    )
     run_parser.add_argument(
         "--duration",
         type=float,
@@ -647,6 +798,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--output", help="Output file path (PyTorch checkpoint .pt or .pth)"
+    )
+    run_parser.add_argument(
+        "--bundle",
+        help=(
+            "Write a data bundle (config.json, population .pt files, "
+            "stimuli/, data.h5) to this directory (canonical configs only; "
+            "see sensoryforge.io.bundle)"
+        ),
     )
     run_parser.add_argument(
         "--device", choices=["cpu", "cuda", "mps"], help="Override device from config"
@@ -669,6 +828,17 @@ def create_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "--resume", help="Resume from checkpoint file (path to checkpoint.json)"
     )
+    batch_parser.add_argument(
+        "--task-index",
+        type=int,
+        default=None,
+        help=(
+            "Execute only this one stimulus index instead of the whole "
+            "sweep (for a SLURM array task, e.g. $SLURM_ARRAY_TASK_ID; J3, "
+            "F-011). Canonical configs write it as "
+            "<output>/<batch_id>/stim_%%04d/."
+        ),
+    )
 
     # Validate command
     validate_parser = subparsers.add_parser(
@@ -680,6 +850,9 @@ def create_parser() -> argparse.ArgumentParser:
     list_parser = subparsers.add_parser(
         "list-components", help="List available filters, neurons, stimuli, and solvers"
     )
+
+    # List presets command (K4)
+    subparsers.add_parser("list-presets", help="List shipped canonical-config presets")
 
     # Visualize command
     viz_parser = subparsers.add_parser(
@@ -743,6 +916,7 @@ def main() -> int:
         "batch": cmd_batch,
         "validate": cmd_validate,
         "list-components": cmd_list_components,
+        "list-presets": cmd_list_presets,
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
     }

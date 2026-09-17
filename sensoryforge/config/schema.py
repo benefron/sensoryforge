@@ -46,6 +46,22 @@ class GridConfig:
         seed: Seed for the random jitter of the ``jittered_grid``,
             ``blue_noise`` and ``poisson`` arrangements (F-050). ``None``
             draws from the global RNG (not reproducible).
+        channels: Named sensor channels/planes carried by this grid (Phase 2,
+            Wave L1). ``["value"]`` (the default) means a single, unnamed
+            channel and is omitted from :meth:`to_dict` output so existing
+            single-channel configs are unchanged byte for byte. Names must
+            be non-empty, unique, valid Python identifiers.
+        coords_file: Optional path to an ``[M, 2]`` CSV or ``.pt`` file of
+            receptor coordinates in mm (Wave L1). When set, the grid is
+            built from these coordinates (via
+            ``CompositeReceptorGrid.add_layer_with_coords``) instead of
+            ``rows``/``cols``/``spacing``.
+        layers: For ``arrangement == "composite"`` (Wave L4), the ordered
+            list of layer specs building a :class:`CompositeReceptorGrid`.
+            Each entry is a dict with a required ``name`` and either
+            ``density`` (+ optional ``arrangement``, ``offset``, ``seed``,
+            ``color``) or ``coordinates`` (an ``[n, 2]`` list) or
+            ``coords_file``. Layer order is the receptor-index contract.
     """
 
     name: str
@@ -59,10 +75,50 @@ class GridConfig:
     color: List[int] = field(default_factory=lambda: [66, 135, 245, 200])
     visible: bool = True
     seed: Optional[int] = None
+    channels: List[str] = field(default_factory=lambda: ["value"])
+    coords_file: Optional[str] = None
+    layers: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Validate channel names (Wave L1).
+
+        Raises:
+            ValueError: If a channel name is empty, not a valid identifier,
+                or repeated -- named with the grid and the offending entry.
+        """
+        seen: set = set()
+        for entry in self.channels:
+            if not isinstance(entry, str) or not entry:
+                raise ValueError(
+                    f"Grid {self.name!r}: channel names must be non-empty "
+                    f"strings, got {entry!r}"
+                )
+            if not entry.isidentifier():
+                raise ValueError(
+                    f"Grid {self.name!r}: channel name {entry!r} is not a "
+                    "valid identifier"
+                )
+            if entry in seen:
+                raise ValueError(
+                    f"Grid {self.name!r}: duplicate channel name {entry!r}"
+                )
+            seen.add(entry)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict for YAML serialization."""
-        return asdict(self)
+        """Convert to plain dict for YAML serialization.
+
+        ``channels == ["value"]`` (the single-channel default) and
+        ``coords_file is None`` and ``layers == []`` are omitted so
+        pre-Wave-L configs round-trip byte for byte (Wave L1).
+        """
+        result = asdict(self)
+        if result.get("channels") == ["value"]:
+            del result["channels"]
+        if result.get("coords_file") is None:
+            del result["coords_file"]
+        if result.get("layers") == []:
+            del result["layers"]
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> GridConfig:
@@ -90,6 +146,125 @@ class GridConfig:
             kwargs["center_y"] += data["offset"][1]
 
         return cls(**kwargs)
+
+
+@dataclass
+class RFBuilderConfig:
+    """Receptive-field builder selection for one :class:`PopulationInput`.
+
+    Attributes:
+        method: Registered innervation/RF builder name (``gaussian``,
+            ``uniform``, ``one_to_one``, ``distance_weighted``,
+            ``template``, ``imported``, or a plugin's).
+        params: Builder parameters, merged the same way
+            ``PopulationConfig.innervation_params`` is (Wave I) -- last,
+            on top of the population's other builder knobs.
+    """
+
+    method: str = "gaussian"
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to plain dict; ``params`` is omitted when empty."""
+        result: Dict[str, Any] = {"method": self.method}
+        if self.params:
+            result["params"] = dict(self.params)
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> RFBuilderConfig:
+        """Create from dict (e.g. from YAML)."""
+        return cls(
+            method=data.get("method", "gaussian"),
+            params=dict(data.get("params") or {}),
+        )
+
+
+@dataclass
+class PopulationInput:
+    """One sensor input a population's neurons read from (Wave M1).
+
+    A population may read from more than one grid/channel; each such input
+    gets its own :class:`ReceptiveFieldBank` (Wave M2), built on its own
+    ``rf`` builder, and the population's ``combine`` mode says how the
+    per-input drives become one population drive.
+
+    Attributes:
+        grid: Name of the grid this input samples.
+        channel: Named channel/plane within that grid
+            (``GridConfig.channels``); ``"value"`` is the single-channel
+            default.
+        rf: Receptive-field builder selection for this input.
+        gain: Multiplier applied to this input's drive before combining.
+        layers: For a composite grid, the named layer subset this input
+            samples (mirrors ``PopulationConfig.target_layers``); ``None``
+            means every layer.
+        processing: Ordered list of processing-layer specs (Wave M3), each
+            ``{"method": <PROCESSING_REGISTRY name>, "params": {...}}``,
+            applied to this input's receptor responses before the
+            receptive-field bank. Empty (the default) means no processing
+            stage at all.
+    """
+
+    grid: str
+    channel: str = "value"
+    rf: RFBuilderConfig = field(default_factory=RFBuilderConfig)
+    gain: float = 1.0
+    layers: Optional[List[str]] = None
+    processing: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to plain dict; fields at their default are omitted."""
+        result: Dict[str, Any] = {"grid": self.grid}
+        if self.channel != "value":
+            result["channel"] = self.channel
+        rf_dict = self.rf.to_dict()
+        if rf_dict != {"method": "gaussian"}:
+            result["rf"] = rf_dict
+        if self.gain != 1.0:
+            result["gain"] = self.gain
+        if self.layers:
+            result["layers"] = list(self.layers)
+        if self.processing:
+            result["processing"] = list(self.processing)
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> PopulationInput:
+        """Create from dict (e.g. from YAML)."""
+        return cls(
+            grid=data["grid"],
+            channel=data.get("channel", "value"),
+            rf=RFBuilderConfig.from_dict(data.get("rf") or {}),
+            gain=data.get("gain", 1.0),
+            layers=data.get("layers"),
+            processing=list(data.get("processing") or []),
+        )
+
+
+# Sugar fields on PopulationConfig that expand into one implicit
+# PopulationInput (Wave M1) -- paired with their dataclass defaults so
+# __post_init__ can detect "the user set this away from its default".
+_POPULATION_INPUT_SUGAR_DEFAULTS: Dict[str, Any] = {
+    "target_grid": None,
+    "target_layers": None,
+    "innervation_method": "gaussian",
+    "sigma_d_mm": 0.3,
+    "connections_per_neuron": 28,
+    "use_distance_weights": True,
+    "resolvable_distance_mm": None,
+    "innervation_params": {},
+}
+
+
+def _input_is_sugar_shaped(pop_input: "PopulationInput") -> bool:
+    """Whether a single :class:`PopulationInput` can be written as the
+    pre-Wave-M sugar fields on :meth:`PopulationConfig.to_dict` (M1)."""
+    return (
+        pop_input.channel == "value"
+        and pop_input.gain == 1.0
+        and not pop_input.processing
+    )
 
 
 @dataclass
@@ -137,6 +312,12 @@ class PopulationConfig:
         model_params: Model-specific parameters dict.
         dsl_config: DSL configuration dict (equations, threshold, reset,
             parameters).
+        readout: How to read out a DSL population (Phase 2, N3): "auto"
+            (default) infers analog when dsl_config has no threshold, else
+            spiking; "spiking" or "analog" force it, raising a ValueError
+            when the dsl_config is incompatible (e.g. "analog" with a
+            threshold present, or "spiking" with none). Ignored for
+            non-DSL neuron models.
         filter_method: Filter type (SA, RA, none/identity).
         filter_params: Filter-specific parameters dict.
         solver_config: Solver configuration dict (type, method, rtol, atol).
@@ -169,6 +350,15 @@ class PopulationConfig:
     edge_offset: float = 0.0
     resolvable_distance_mm: Optional[float] = None
     innervation_params: Dict[str, Any] = field(default_factory=dict)
+    target_layers: Optional[List[str]] = None
+
+    # Multi-input populations and processing layers (Wave M1). The
+    # single-input fields above stay and are sugar: from_dict() expands
+    # them into exactly one PopulationInput; to_dict() writes the short
+    # form back when there is exactly one input that fits it. Setting both
+    # forms at once raises ValueError (__post_init__).
+    inputs: List["PopulationInput"] = field(default_factory=list)
+    combine: str = "sum"  # "sum" or "concat"
 
     # Neuron layout
     neuron_arrangement: str = "grid"  # grid, poisson, hex, etc.
@@ -181,6 +371,7 @@ class PopulationConfig:
     neuron_model: str = "Izhikevich"  # Izhikevich, AdEx, MQIF, FA, SA, DSL
     model_params: Dict[str, Any] = field(default_factory=dict)
     dsl_config: Optional[Dict[str, Any]] = None
+    readout: str = "auto"  # auto, spiking, analog -- DSL populations only
 
     # Filter
     filter_method: str = "none"  # SA, RA, none
@@ -203,12 +394,67 @@ class PopulationConfig:
     input_gain: float = 50.0
     seed: Optional[int] = None
 
+    def __post_init__(self) -> None:
+        """Validate ``combine`` and the sugar/``inputs`` exclusivity (M1).
+
+        Raises:
+            ValueError: If ``combine`` is not ``"sum"``/``"concat"``, or
+                both ``inputs`` and one of the single-input sugar fields
+                are set away from their defaults.
+        """
+        if self.combine not in ("sum", "concat"):
+            raise ValueError(
+                f"Population {self.name!r}: combine must be 'sum' or "
+                f"'concat', got {self.combine!r}"
+            )
+        if self.inputs:
+            set_sugar = [
+                field_name
+                for field_name, default in _POPULATION_INPUT_SUGAR_DEFAULTS.items()
+                if getattr(self, field_name) != default
+            ]
+            if set_sugar:
+                raise ValueError(
+                    f"Population {self.name!r}: both 'inputs' and "
+                    f"single-input field(s) {set_sugar} are set -- use one "
+                    "form or the other, not both."
+                )
+
+    def effective_inputs(self) -> List["PopulationInput"]:
+        """This population's inputs as a uniform list (Wave M2).
+
+        Returns ``inputs`` unchanged when set explicitly; otherwise expands
+        the single-input sugar fields into one implicit
+        :class:`PopulationInput`, so the engine can build one
+        :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` per input
+        without special-casing the sugar path.
+        """
+        if self.inputs:
+            return list(self.inputs)
+        return [
+            PopulationInput(
+                grid=self.target_grid,
+                channel="value",
+                rf=RFBuilderConfig(method=self.innervation_method or "gaussian"),
+                gain=1.0,
+                layers=self.target_layers,
+                processing=[],
+            )
+        ]
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization.
 
         Returns:
             Dictionary representation suitable for YAML export.
             None values are removed for cleaner YAML output.
+            ``inputs``/``combine`` follow the same discipline as
+            ``GridConfig.channels`` (Wave L1): ``inputs == []`` and
+            ``combine == "sum"`` (both defaults) are omitted, and exactly
+            one input that fits the pre-M1 sugar shape (default channel,
+            gain, no processing) is written back as the short form instead
+            of an ``inputs`` list, so pre-Wave-M configs round-trip byte
+            for byte (M1).
 
         Example:
             >>> config = PopulationConfig(name="SA", neurons_per_row=10)
@@ -216,6 +462,32 @@ class PopulationConfig:
             >>> # Can be saved to YAML or passed to pipeline
         """
         result = asdict(self)
+        if len(self.inputs) == 1 and _input_is_sugar_shaped(self.inputs[0]):
+            pop_input = self.inputs[0]
+            del result["inputs"]
+            result["target_grid"] = pop_input.grid
+            if pop_input.layers:
+                result["target_layers"] = list(pop_input.layers)
+            else:
+                result.pop("target_layers", None)
+            result["innervation_method"] = pop_input.rf.method
+            extra = dict(pop_input.rf.params)
+            for key in (
+                "sigma_d_mm",
+                "connections_per_neuron",
+                "use_distance_weights",
+                "resolvable_distance_mm",
+            ):
+                if key in extra:
+                    result[key] = extra.pop(key)
+            if extra:
+                result["innervation_params"] = extra
+        elif result.get("inputs") == []:
+            del result["inputs"]
+        else:
+            result["inputs"] = [i.to_dict() for i in self.inputs]
+        if result.get("combine") == "sum":
+            del result["combine"]
         # Remove None values for cleaner YAML
         return {k: v for k, v in result.items() if v is not None}
 
@@ -246,6 +518,15 @@ class PopulationConfig:
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
+        if "inputs" in kwargs:
+            kwargs["inputs"] = [
+                (
+                    item
+                    if isinstance(item, PopulationInput)
+                    else PopulationInput.from_dict(item)
+                )
+                for item in kwargs["inputs"]
+            ]
         return cls(**kwargs)
 
 
@@ -309,6 +590,13 @@ class StimulusConfig:
     motion_type: str = "linear"  # linear, circular
     center: List[float] = field(default_factory=lambda: [0.0, 0.0])
     radius: float = 2.0
+
+    # Sensor channel (Phase 2, Wave L2): which named plane of the target
+    # grid's `channels` this stimulus drives. `None` (default) means the
+    # single/first channel -- existing single-channel configs are
+    # unaffected. Several stimuli with different `channel` values compose
+    # into one multi-channel tensor; planes with no stimulus are zero.
+    channel: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""

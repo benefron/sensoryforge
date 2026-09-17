@@ -43,7 +43,9 @@ import numpy as np
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
+from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.render import render_stimulus
 
 
 class BatchExecutor:
@@ -101,9 +103,25 @@ class BatchExecutor:
         if self._is_canonical:
             self._sf_config = SensoryForgeConfig.from_dict(self.base_config)
             self.engine: Optional[SimulationEngine] = SimulationEngine(self._sf_config)
+            # Stimulus grid for render_stimulus (K1, F-052): same geometry
+            # SimulationEngine._build_grids uses for the first grid.
+            grid_cfg = self._sf_config.grids[0] if self._sf_config.grids else None
+            if grid_cfg is not None:
+                self._stim_grid = ReceptorGrid(
+                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
+                    spacing=grid_cfg.spacing,
+                    arrangement=grid_cfg.arrangement,
+                    center=(grid_cfg.center_x, grid_cfg.center_y),
+                    density=grid_cfg.density,
+                    device=self._sf_config.simulation.device,
+                    seed=grid_cfg.seed,
+                )
+            else:
+                self._stim_grid = None
         else:
             self._sf_config = None
             self.engine = None
+            self._stim_grid = None
 
         # Setup output directory
         output_dir = self.batch_config.get("output_dir", "./batch_results")
@@ -119,6 +137,14 @@ class BatchExecutor:
         # Metadata
         self.metadata = config.get("metadata", {})
         self.batch_id = self._generate_batch_id()
+
+        # J3: the batch root -- canonical runs write one bundle per stimulus
+        # under here (stim_0000/, stim_0001/, ...), plus batch_metadata.json
+        # and stimulus_index.json. Legacy runs keep writing their
+        # consolidated .pt/.h5 directly under output_dir (unchanged).
+        self.batch_root = self.output_dir / self.batch_id
+        if self._is_canonical:
+            self.batch_root.mkdir(parents=True, exist_ok=True)
 
     def _generate_batch_id(self) -> str:
         """Generate unique batch identifier.
@@ -255,36 +281,146 @@ class BatchExecutor:
         param_str = "_".join(param_parts) if param_parts else "default"
         return f"{stim_type}_{param_str}_rep{rep_idx}"
 
-    def execute(
-        self,
-        save_format: str = "pytorch",
-        save_intermediates: bool = False,
-        resume_from: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Execute full batch with progress tracking.
+    def _bundle_dir_for(self, idx: int) -> Path:
+        """The per-stimulus bundle directory for stimulus index *idx* (J3)."""
+        return self.batch_root / f"stim_{idx:04d}"
+
+    def _execute_and_write_bundle(
+        self, idx: int, stim_config: Dict[str, Any], save_intermediates: bool
+    ) -> Path:
+        """Run one stimulus through the engine and write it as a bundle.
+
+        Canonical-config counterpart to :meth:`_execute_single_stimulus`
+        (which stays as-is, flattened-dict shaped, for callers that don't
+        want a bundle on disk). Reuses
+        :meth:`~sensoryforge.core.simulation_engine.SimulationEngine.run`'s
+        own ``bundle_dir`` support (J2) rather than duplicating it.
 
         Args:
-            save_format: Output format - 'pytorch' (default) or 'hdf5'
-            save_intermediates: If True, save filtered currents and voltages
-            resume_from: Optional checkpoint file path to resume from
+            idx: Stimulus index into ``self.stimulus_configs`` (also the
+                bundle directory's ``stim_%04d`` suffix).
+            stim_config: One expanded stimulus configuration.
+            save_intermediates: Passed through to ``engine.run()``.
+
+        Returns:
+            The bundle directory written.
+        """
+        stimulus_params = {
+            k: v
+            for k, v in stim_config.items()
+            if k not in ["stimulus_id", "combo_idx", "rep_idx", "seed", "type"]
+        }
+        seed = stim_config["seed"]
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        # render_stimulus (K1, F-052) dispatches through STIMULUS_REGISTRY
+        # first, so a canonical batch config can use any registered stimulus
+        # (composite, edge_grating, gabor, the ported pressure-simulation
+        # stimuli, or a plugin's), falling back to the legacy pipeline's
+        # chain only for its unregistered names.
+        render_params = {k: v for k, v in stimulus_params.items() if k != "duration"}
+        xx, yy = self._stim_grid.get_coordinates()
+        # A batch sweep entry need not name "duration" explicitly (e.g. an
+        # amplitude sweep over "gaussian"). Before Wave K, every stimulus
+        # here went through GeneralizedTactileEncodingPipeline.generate_
+        # stimulus, whose single-frame generators (_generate_gaussian_
+        # stimulus, etc.) default an absent duration to 100.0 ms held at
+        # full amplitude. render_stimulus has no such implicit default (a
+        # duration_ms of None gives a near-instantaneous one-off frame), so
+        # preserve the batch path's prior behaviour explicitly here.
+        duration_ms = stimulus_params.get("duration", 100.0)
+        frames, _ = render_stimulus(
+            stim_config["type"],
+            render_params,
+            xx,
+            yy,
+            dt_ms=self._sf_config.simulation.dt_ms,
+            duration_ms=duration_ms,
+            device=self._sf_config.simulation.device,
+        )
+        stimulus_tensor = frames.unsqueeze(0)
+        grid_cfg = self._sf_config.grids[0]
+        target_h = grid_cfg.rows or 40
+        target_w = grid_cfg.cols or 40
+        if (
+            stimulus_tensor.shape[-2] != target_h
+            or stimulus_tensor.shape[-1] != target_w
+        ):
+            raise ValueError(
+                "Canonical stimulus resolution "
+                f"{tuple(stimulus_tensor.shape[-2:])} does not match the "
+                f"grid config ({target_h}, {target_w}) — the "
+                "canonical->legacy adapter is out of sync with the "
+                "engine's grid (see _canonical_to_legacy_config)."
+            )
+
+        bundle_dir = self._bundle_dir_for(idx)
+        self.engine.run(
+            stimulus_tensor,
+            return_intermediates=save_intermediates,
+            bundle_dir=bundle_dir,
+            stimulus_config={"type": stim_config["type"], **stimulus_params},
+            seed=seed,
+            bundle_overwrite=True,
+        )
+        return bundle_dir
+
+    def execute(
+        self,
+        save_format: str = "hdf5",
+        save_intermediates: bool = False,
+        resume_from: Optional[str] = None,
+        task_index: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Execute the batch (or a single stimulus of it) with progress tracking.
+
+        Canonical configs (F-013): each stimulus is written as its own data
+        bundle (:mod:`sensoryforge.io.bundle`) under
+        ``<output_dir>/<batch_id>/stim_%04d/`` -- no monolithic consolidated
+        file. Legacy configs keep the old consolidated ``.pt``/``.h5`` file
+        directly under ``output_dir`` (unchanged; *save_format* still
+        selects between them there).
+
+        Args:
+            save_format: Legacy-path output format -- 'hdf5' (default) or
+                'pytorch'. Ignored for canonical configs (bundles always
+                carry both ``.pt`` population files and ``data.h5``).
+            save_intermediates: If True, save filtered currents and voltages.
+            resume_from: Optional checkpoint file path to resume from.
+            task_index: If given, execute only this one stimulus index (for
+                a SLURM array task, J3) instead of the whole sweep.
 
         Returns:
             Dictionary with batch results and metadata:
                 - 'batch_id': Unique batch identifier
                 - 'num_stimuli': Total number of stimuli executed
-                - 'output_path': Path to saved results file
+                - 'output_path': Path to saved results (a bundle directory
+                  for a single ``task_index``; the batch root for a
+                  canonical sweep; the consolidated file for legacy)
                 - 'duration_seconds': Total execution time
                 - 'failed_stimuli': List of failed stimulus indices
 
         Example:
             >>> executor = BatchExecutor(config)
-            >>> results = executor.execute(save_format='pytorch')
+            >>> results = executor.execute()
             >>> print(f"Saved to {results['output_path']}")
         """
+        indices = (
+            [task_index]
+            if task_index is not None
+            else range(len(self.stimulus_configs))
+        )
+
         print(f"Starting batch execution: {self.batch_id}")
-        print(f"Total stimuli: {len(self.stimulus_configs)}")
+        print(
+            f"Total stimuli: {len(list(indices)) if task_index is not None else len(self.stimulus_configs)}"
+        )
         print(f"Output directory: {self.output_dir}")
-        print(f"Save format: {save_format}")
+        if self._is_canonical:
+            print(f"Bundle root: {self.batch_root}")
+        else:
+            print(f"Save format: {save_format}")
 
         start_time = time.time()
 
@@ -298,37 +434,46 @@ class BatchExecutor:
             failed_indices = checkpoint_data.get("failed_stimuli", [])
             print(f"Resuming from checkpoint: {len(completed_indices)} completed")
 
-        # Determine output file path
-        if save_format == "hdf5":
-            output_file = self.output_dir / f"{self.batch_id}.h5"
-        else:  # pytorch
-            output_file = self.output_dir / f"{self.batch_id}.pt"
+        # Determine output file path (legacy consolidated save only)
+        if not self._is_canonical:
+            if save_format == "hdf5":
+                output_file = self.output_dir / f"{self.batch_id}.h5"
+            else:  # pytorch
+                output_file = self.output_dir / f"{self.batch_id}.pt"
 
         # Execute stimuli
         all_results = []
+        bundle_dirs = []
+        n_total = len(self.stimulus_configs)
 
-        for idx, stim_config in enumerate(self.stimulus_configs):
+        for idx in indices:
+            stim_config = self.stimulus_configs[idx]
             # Skip if already completed
             if idx in completed_indices:
                 print(
-                    f"[{idx+1}/{len(self.stimulus_configs)}] Skipping "
+                    f"[{idx+1}/{n_total}] Skipping "
                     f"{stim_config['stimulus_id']} (already completed)"
                 )
                 continue
 
             try:
                 print(
-                    f"[{idx+1}/{len(self.stimulus_configs)}] Executing "
-                    f"{stim_config['stimulus_id']}..."
+                    f"[{idx+1}/{n_total}] Executing " f"{stim_config['stimulus_id']}..."
                 )
 
-                # Execute stimulus through pipeline
-                result = self._execute_single_stimulus(stim_config, save_intermediates)
-
-                # Store result
-                result["stimulus_config"] = stim_config
-                result["stimulus_index"] = idx
-                all_results.append(result)
+                if self._is_canonical:
+                    bundle_dir = self._execute_and_write_bundle(
+                        idx, stim_config, save_intermediates
+                    )
+                    bundle_dirs.append(bundle_dir)
+                else:
+                    # Execute stimulus through pipeline
+                    result = self._execute_single_stimulus(
+                        stim_config, save_intermediates
+                    )
+                    result["stimulus_config"] = stim_config
+                    result["stimulus_index"] = idx
+                    all_results.append(result)
 
                 # Update checkpoint
                 completed_indices.add(idx)
@@ -341,32 +486,41 @@ class BatchExecutor:
                 self._save_checkpoint(completed_indices, failed_indices, idx + 1)
                 continue
 
-        # Save consolidated results
-        print(f"\nSaving results to {output_file}...")
-
-        if save_format == "hdf5":
-            self._save_results_hdf5(all_results, output_file)
+        if self._is_canonical:
+            metadata_dir = self.batch_root
+            output_path = (
+                bundle_dirs[0]
+                if task_index is not None and bundle_dirs
+                else self.batch_root
+            )
         else:
-            self._save_results_pytorch(all_results, output_file)
+            print(f"\nSaving results to {output_file}...")
+            if save_format == "hdf5":
+                self._save_results_hdf5(all_results, output_file)
+            else:
+                self._save_results_pytorch(all_results, output_file)
+            metadata_dir = output_file.parent
+            output_path = output_file
 
         # Save metadata
-        self._save_metadata(output_file.parent)
+        self._save_metadata(metadata_dir)
 
         # Save stimulus index
-        self._save_stimulus_index(output_file.parent)
+        self._save_stimulus_index(metadata_dir)
 
         duration = time.time() - start_time
 
+        n_done = len(bundle_dirs) if self._is_canonical else len(all_results)
         print(f"\nBatch execution completed!")
         print(f"Duration: {duration:.2f} seconds")
-        print(f"Successful: {len(all_results)}/{len(self.stimulus_configs)}")
+        print(f"Successful: {n_done}/{len(list(indices))}")
         print(f"Failed: {len(failed_indices)}")
-        print(f"Output: {output_file}")
+        print(f"Output: {output_path}")
 
         return {
             "batch_id": self.batch_id,
-            "num_stimuli": len(all_results),
-            "output_path": str(output_file),
+            "num_stimuli": n_done,
+            "output_path": str(output_path),
             "duration_seconds": duration,
             "failed_stimuli": failed_indices,
         }
@@ -720,14 +874,14 @@ class BatchExecutor:
             f"OUTPUT_DIR={out_dir}",
             'mkdir -p "$OUTPUT_DIR"',
             "",
-            "# Each array task processes one stimulus index",
+            "# Each array task processes one stimulus index, writing its own",
+            "# bundle under $OUTPUT_DIR/<batch_id>/stim_%04d/ (F-011, F-013).",
             "STIM_IDX=$SLURM_ARRAY_TASK_ID",
             "",
-            "sensoryforge run \\",
+            "sensoryforge batch \\",
             f"    {config_yaml_path} \\",
-            "    --stimulus-index $STIM_IDX \\",
-            '    --output "$OUTPUT_DIR/stimulus_${STIM_IDX}.h5" \\',
-            "    --format hdf5",
+            "    --task-index $STIM_IDX \\",
+            '    --output "$OUTPUT_DIR"',
             "",
             'echo "Task $SLURM_ARRAY_TASK_ID completed with exit code $?"',
         ]

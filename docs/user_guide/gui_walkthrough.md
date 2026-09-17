@@ -1,7 +1,16 @@
 # SensoryForge GUI Walkthrough
 
-This guide walks through a complete simulation from start to finish using
-the SensoryForge graphical interface.
+This guide walks through a complete experiment using the SensoryForge GUI, built as a
+node graph on the **Circuit tab** (Phase 3). It reproduces the
+[pressure-simulation recipe](../concepts/pressure_simulation_use_case.md) — an 80x80
+receptor grid, SA and RA populations with `template`-derived receptive fields at a
+0.40 mm resolvable distance — as a graph, runs it, inspects a node, and exports the
+result as a bundle the CLI can also produce.
+
+Every step below was actually run while writing this page (the commands and output
+are pasted verbatim from that run, offscreen, the same way the test suite runs the
+GUI); where the graph did something other than what the Phase 3 spec implied, that is
+called out rather than smoothed over.
 
 ## Launch
 
@@ -10,233 +19,178 @@ conda activate sensoryforge
 python sensoryforge/gui/main.py
 ```
 
-The window opens with five tabs:
+The window opens with six tabs. **Circuit is first** — it is the entry point to
+building an experiment — followed by the five tabs Phase 2 shipped:
 
 | Tab | Purpose |
 |-----|---------|
-| **Grid & Innervation** | Configure receptor grid and neuron populations |
-| **Stimulus Designer** | Design the tactile stimulus |
-| **Spiking Neurons** | Choose neuron model and run simulation |
-| **Visualization** | View spike rasters and drive signals |
-| **Batch** | Run parameter sweeps and export SLURM scripts |
-
-### Expert mode
-
-Each tab has an **Expert mode** checkbox at the top of its control panel
-(unchecked by default).
-
-| Mode | What you see |
-|------|-------------|
-| **Basic** (default) | Essential controls only — grid size, population settings, neuron model, run button |
-| **Expert** | All advanced controls — separate seeds, position offsets, weight ranges, far-connection tuning, filter parameters, DSL editor, CSV import/export |
-
-State is saved in `QSettings` and persists across sessions.
-
----
-
-## Step 1 — Grid & Innervation
-
-### 1a. Create a grid
-
-1. In the **Grid & Innervation** tab, click **Add Grid**.
-2. Set **Rows** and **Cols** (e.g. 20 × 20).
-3. Set **Spacing (mm)** — typical skin receptor density: 0.15–0.5 mm.
-4. Arrangement: **grid** (regular) or **hex** (hexagonal packing).
-5. Click **Generate Grids** to create the receptor array.
-
-The scatter plot on the right shows receptor positions.
-
-### 1b. Add a neuron population
-
-1. Click **Add Population**.
-2. Set **Neuron type** (SA, RA, or SA2).
-3. Set **Neurons per row** — more neurons = finer spatial resolution.
-4. Set **Innervation method**: `gaussian` (smooth receptive fields) or
-   `point` (nearest-neighbour).
-5. Set **σ_d (mm)**: Gaussian receptive field width.
-6. Click the 🔵 circle in the colour column to pick a display colour.
-
-The innervation weights are built automatically.
-
-### 1c. Import a custom population from CSV
-
-If you have pre-computed neuron positions and innervation weights, you can
-bypass the built-in innervation module entirely:
-
-1. Add a population as normal (step 1b).
-2. Enable **Expert mode** (see below) to reveal the **Custom CSV** section
-   inside Population Settings.
-3. Click **Export CSV Folder…** on any existing instantiated population to
-   create a valid folder with the right file format.
-4. Edit the exported CSVs or replace them with your own data.
-5. Click **Import CSV Folder…** and select the folder.
-
-The folder must contain three files:
-
-| File | Format | Description |
-|------|--------|-------------|
-| `neuron_positions.csv` | header row `x_mm,y_mm`, then N rows | Neuron center coordinates in mm |
-| `innervation_weights.csv` | N rows × M columns, no header | Weight matrix (rows = neurons, cols = receptors) |
-| `manifest.json` | JSON | Metadata: `num_neurons`, `num_receptors`, file names |
-
-**Important:** `M` (number of receptors) must match the current grid's
-receptor count.  If it doesn't, SensoryForge will warn and load the population
-with zero-filled receptor coordinates instead of crashing.
-
-Once imported, the population uses the CSV data for all subsequent
-visualizations and simulations.  The CSV stub is preserved through
-**Generate Population(s)** — regeneration only affects non-CSV populations.
-
-### 1d. Save the configuration
-
-Click **Save As…** in the bottom toolbar to save the grid + population
-configuration as a `bundle.json` inside a project folder.
-
----
-
-## Step 2 — Stimulus Designer
-
-Switch to the **Stimulus Designer** tab.
-
-### 2a. Choose a stimulus type
-
-Click one of the type buttons:
-
-| Button | Shape |
-|--------|-------|
-| **Gaussian** | Smooth bump — most common |
-| **Point** | Ideal point contact |
-| **Edge** | Sharp edge or grating |
-| **Texture** | Gabor patch or edge grating |
-| **Moving** | Any shape with linear / circular / slide motion |
-
-### 2b. Set parameters
-
-Adjust the sliders and spinboxes that appear.  The **live preview** on the
-right updates in real time.
-
-- **Amplitude**: peak pressure in mA
-- **Sigma**: width of the stimulus in mm (for Gaussian/Gabor)
-- **Center X / Y**: position on the skin in mm
-
-### 2c. Build a sequence
-
-1. Set **Duration (ms)** and **dt (ms)**.
-2. Click **Add to Stack** to append this stimulus to the timeline.
-3. Repeat for each segment.
-4. Click **Preview** to animate the stack.
-
-### 2d. Save
-
-Click **Save As…** to save the stimulus stack as `stimulus.json`.
-
----
-
-## Step 3 — Spiking Neurons
-
-Switch to the **Spiking Neurons** tab.
-
-### 3a. Configure the neuron model
-
-Expand **Model Parameters**.
-
-| Field | Typical value | Notes |
-|-------|--------------|-------|
-| Neuron model | Izhikevich | Best general-purpose model |
-| dt (ms) | 0.1 | Lower = more accurate, slower |
-| Device | cpu | Use `cuda` if GPU is available |
-
-### 3b. Choose a filter
-
-Expand **Filter Parameters**.
-
-- **Filter method**: `SA` for slow-adapting, `RA` for rapidly-adapting, or
-  `none` to pass drive directly.
-- **Input gain**: multiply the drive before the neuron. Useful for scaling.
-- **Noise σ**: add Gaussian noise to the drive.
-
-### 3c. Run
-
-Click **▶ Run Simulation**.  The progress bar shows each population.
-When finished, a spike raster appears in the panel.
-
----
-
-## Step 4 — Visualization
-
-Switch to the **Visualization** tab.
-
-### 4a. Choose a layout
-
-Select a preset from the **Layout** dropdown and click **Apply**:
-
-| Preset | Shows |
-|--------|-------|
-| Default | Stimulus + 2 population heatmaps + raster |
-| 2×2 Grid | Stimulus, heatmap, activity, raster |
-| Focus + Details | Large raster + stimulus + firing rate |
-
-### 4b. Navigate time
-
-Use the **playback bar** at the bottom:
-- ▶ **Play** to animate at the simulation time step
-- ◀◀ / ▶▶ to jump to start/end
-- Drag the scrubber to any time step
-
-### 4c. Customise panels
-
-Each panel has:
-- **⚙** — open the settings sidebar (colormap, axis limits)
-- **▾** — change panel type (e.g. swap raster for firing rate)
-- **✕** — remove the panel
-
-Panels can be **dragged and dropped** to rearrange, or **floated** into
-a separate window by dragging the panel title bar.
-
----
-
-## Step 5 — Export and batch scaling
-
-Once the interactive simulation looks right:
-
-1. Go to **File → Save Config (YAML)** to write a `config.yml` file.
-2. Run the same config from the CLI:
-
-   ```bash
-   sensoryforge run config.yml --duration 1000 --output results.h5
-   ```
-
-3. For parameter sweeps, use the **Batch** tab:
-   - Load a batch YAML (see `examples/batch_config.yml`)
-   - Click **▶ Run Batch** for local execution
-   - Click **Export SLURM Script…** for cluster submission
-
----
-
-## Projects
-
-Use **File → New Project…** to create a project directory with the
-standard layout:
-
-```
-my_experiment/
-    config.yaml       ← saved with File → Save Config
-    stimuli/          ← stimulus stacks
-    results/          ← HDF5 / .pt output files
-    figures/          ← exported PNG/SVG figures
+| **Circuit** | Build the experiment as a node graph; run it |
+| **Grid & Innervation** | The older, form-based way to configure a grid/population (still present; the graph is the new way) |
+| **Stimulus Designer** | Design and preview a stimulus |
+| **Spiking Neurons** | Choose a neuron model and run a single population outside the graph |
+| **Visualization** | View spike rasters and drive signals — receives graph runs exactly as it receives Spiking-tab runs |
+| **Batch** | Parameter sweeps, including sweeping a live graph (Wave Q) |
+
+## Step 1 — Build the graph
+
+The Circuit tab has three parts: a **node palette** on the left (structural node
+types, plus a registry-driven tree of every registered grid arrangement, stimulus,
+RF builder, filter and neuron model — Wave P, P3), the **canvas** in the middle, and
+an **inspector** dock on the right that fills in once a node is selected.
+
+A population is a connected chain: one or more `RFBank` nodes (optionally through a
+`Processing` node) feed a `Filter` node, which feeds a `Readout` node. A
+`SensorArray` node supplies the receptor channel(s); a `Stimulus` node supplies the
+drive; a `Record` node is where a run's bundle is written. See the node-to-config
+table in `sensoryforge/gui/circuit/nodes.py`'s module docstring — it is the one place
+that mapping is written down, and this walkthrough follows it exactly.
+
+Rather than placing ten nodes and wiring them by hand, the fastest way to reach the
+pressure-simulation recipe is to load it — the graph equivalent of the CLI's
+`sensoryforge run --preset tactile_sa1_ra1`:
+
+```python
+from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.gui.circuit.serialise import config_to_graph
+
+config = SensoryForgeConfig.from_yaml("sensoryforge/presets/tactile_sa1_ra1.yml")
+config_to_graph(config, circuit_tab.flowchart)
 ```
 
-When a project is open, all save dialogs default to the project directory.
+`config_to_graph` lays the graph out deterministically: sensor arrays in a left
+column, the stimulus above them, then one row per population reading left to right
+(RF bank → filter → readout), with a `Record` node on the far right. Loading the same
+config twice gives the same picture. This is what that looks like right after
+loading:
 
----
+![The Circuit tab after loading the pressure-simulation preset](../assets/gui/circuit_loaded_preset.png)
 
-## Keyboard shortcuts
+Eleven nodes appear: `Main Grid` (SensorArray), `Stimulus`, one `RFBank`/`Filter` pair
+per population (`SA Population__rf0`/`SA Population__filter`, same for RA),
+`SA Population`/`RA Population` (Readout), `Record`, and pyqtgraph's own built-in
+`Input`/`Output` I/O nodes (always present on a `Flowchart`, not part of the
+config — `graph_to_config` ignores them). Six connections wire the two populations'
+chains from the grid through to the record node.
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+O` | Load YAML config |
-| `Ctrl+S` | Save YAML config |
-| `Ctrl+N` | New project |
-| `Ctrl+P` | Open project |
-| `Ctrl+Q` | Quit |
-| Space | Play / pause (Visualization tab) |
+To build the same graph by hand instead of loading a config, drag `SensorArray`,
+`Stimulus`, `RFBank`, `Filter`, `Readout` and `Record` from the palette onto the
+canvas, then connect a `SensorArray` output terminal to an `RFBank`'s `Channel`
+input, the `RFBank`'s `Drive` to a `Filter`'s `Drive`, the `Filter`'s `Filtered` to a
+`Readout`'s `Filtered`, and the `Readout`'s `Spikes` to the `Record` node's `In`. The
+registry-driven part of the palette (the tree below the plain node-type list) places
+a node and pre-selects one registered component in the same double-click — e.g.
+double-clicking `template` under `RFBank` places an `RFBank` node with
+`rf.method = "template"` already set.
+
+## Step 2 — Inspect a node
+
+Selecting a node fills the inspector dock with a form built from that node's
+component's `get_param_spec()` (Wave P, P1) — a plugin component gets this for free,
+with no GUI code (see [Extending: adding a Circuit node](../extending/add_gui_node.md)
+for what `get_param_spec()` does *not* give a component for free). Selecting the
+`Main Grid` node shows its grid parameters plus a receptor-position scatter (P2,
+reusing `ReceptorGrid`, the same class the Mechanoreceptor tab's own grid view
+builds from):
+
+![The inspector showing the SensorArray node's parameters and a receptor scatter](../assets/gui/circuit_inspector_sensor_array.png)
+
+Selecting `SA Population__filter` shows the `sa` filter's parameters instead — no RF
+or neuron controls, because a `Filter` node owns exactly
+`PopulationConfig.filter_method`/`filter_params` and nothing else (the
+`READOUT_FIELDS` tuple in `nodes.py` documents the split):
+
+![The inspector showing the Filter node's parameters](../assets/gui/circuit_inspector_filter.png)
+
+**Advanced parameters** (`ParamSpec.advanced=True`) are hidden until the **Expert
+mode** checkbox above the Run button is ticked — the same `chk_expert_mode`
+convention every other tab uses.
+
+## Step 3 — Run and export
+
+Click **Run**, or from a script:
+
+```python
+results = circuit_tab.run_graph(duration_ms=1100.0)
+```
+
+This builds a `SensoryForgeConfig` from the graph (`graph_to_config`), renders the
+stimulus, runs it through `SimulationEngine`, and — because a `Record` node is on
+the graph with an `output_dir` set — writes a bundle exactly as `sensoryforge run
+--bundle` does, then emits the same `simulation_finished` signal the Spiking tab
+emits. The Visualization tab receives it with no changes: switch to that tab to see
+the spike rasters.
+
+Running the graph above (20 ms, for a fast walkthrough run rather than the full
+1100 ms recipe) produced 900 SA neurons and 900 RA neurons — matching the
+`template` builder's derived count for `resolvable_distance_mm=0.40` on this grid
+(`docs/concepts/pressure_simulation_use_case.md`) — and a bundle directory that
+`sensoryforge.io.bundle.load_bundle` reads back successfully.
+
+### Discrepancy from the Phase 3 spec
+
+Section 4 (O3) of `docs/development/handover/phase3_tasks.md` describes node
+positions being saved via `Flowchart.saveState()` into a sibling
+`<config>.layout.json` file, advisory on load. **This was never wired up** — neither
+`CircuitTab` nor `SensoryForgeWindow`'s save/load-config handlers call
+`saveState()`/`restoreState()` anywhere in this checkout (grep
+`saveState\|restoreState` under `sensoryforge/` turns up nothing). Positions you drag
+nodes to are not currently persisted between a save and a later load; loading a
+config always re-lays the graph out via `config_to_graph`'s deterministic layout,
+which is a safe fallback but not what O3 promised. This is not a Wave R task to fix
+(R1 is documentation), so it is recorded here and left for a future wave rather than
+silently implied to work.
+
+## Exporting to YAML and round-tripping through the CLI
+
+The graph's config is a real `SensoryForgeConfig`; export it and hand it to the CLI
+like any other config:
+
+```python
+from sensoryforge.gui.circuit.serialise import graph_to_config
+
+exported = graph_to_config(circuit_tab.flowchart)
+open("my_experiment.yml", "w").write(exported.to_yaml())
+```
+
+```bash
+sensoryforge run my_experiment.yml --duration 20 --bundle out/cli_bundle
+```
+
+Verified while writing this page: running the CLI against a YAML file exported from
+the graph above completes with exit code 0, writes a bundle
+`sensoryforge.io.bundle.load_bundle` reads, and re-loading that same YAML back into a
+fresh graph (`config_to_graph`) and re-exporting it (`graph_to_config`) gives back an
+object equal to what was exported the first time —
+
+```
+Exported YAML: True
+CLI exit code: 0
+SA Population spikes: 212
+RA Population spikes: 4372
+CLI bundle loaded: True
+Re-imported graph equals original exported config: True
+```
+
+— which is the Phase 3 exit criterion "a graph built in the GUI, exported to YAML,
+run by the CLI, and re-imported gives the same graph and the same results."
+`tests/gui/test_circuit_graph_end_to_end.py::test_graph_export_runs_through_the_cli_and_reimports_identically`
+runs this same chain as an assertion, not a one-off script (Wave R, R3).
+
+## Regenerating the screenshots
+
+The screenshots above are grabs of the real, running widget tree (`QWidget.grab()`),
+not illustrations, captured entirely offscreen:
+
+```bash
+QT_QPA_PLATFORM=offscreen python docs/scripts/generate_gui_screenshots.py
+```
+
+They are not committed as generated-and-forgotten artefacts — rerun the script after
+any change to the Circuit tab's layout and the images in `docs/assets/gui/` update to
+match, instead of the walkthrough silently going stale.
+
+## Expert mode
+
+Each tab (Circuit included) has an **Expert mode** checkbox. Unchecked (Basic,
+default), advanced controls (`ParamSpec.advanced=True`) are hidden; checked, they
+appear. State persists in `QSettings` across sessions, same as every other tab.

@@ -149,10 +149,13 @@ ra_spikes = ra_neurons(ra_filtered)[1]
 
 - **[Installation Guide](docs/getting_started/installation.md)** - Set up your environment
 - **[Quick Start](docs/getting_started/quickstart.md)** - Run your first simulation
-- **[User Guide](docs/user_guide/)** - Detailed documentation
-- **[Tutorials](docs/tutorials/)** - Step-by-step guides
-- **[API Reference](docs/api_reference/)** - Complete API documentation
-- **[Extending SensoryForge](docs/developer_guide/)** - Create custom components
+- **[User Guide](docs/user_guide/overview.md)** - Detailed documentation
+- **[Tutorials](docs/tutorials/quickstart_tutorial.md)** - Step-by-step guides
+- **[API Reference](docs/api_reference/pipeline.md)** - Complete API documentation
+- **[Extending SensoryForge](docs/developer_guide/extensibility.md)** - Create custom components
+
+Build the documentation site locally with `mkdocs serve`. A published site will be linked
+here once it has actually been deployed.
 
 ---
 
@@ -382,7 +385,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- **Documentation:** [`docs/`](docs/) in this repository (MkDocs source; site not yet published)
+- **Documentation:** [`docs/`](docs/) (build locally with `mkdocs serve`)
 - **GitHub:** https://github.com/benefron/sensoryforge
 - **Issue Tracker:** https://github.com/benefron/sensoryforge/issues
 

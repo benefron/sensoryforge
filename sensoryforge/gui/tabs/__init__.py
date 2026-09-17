@@ -1,6 +1,7 @@
 """Tab widgets for the SensoryForge GUI.
 
 Current tabs:
+    CircuitTab: Node-graph editor for the whole experiment (Phase 3, Wave O)
     MechanoreceptorTab: Spatial grid, receptor populations, receptive fields
     StimulusDesignerTab: Interactive stimulus creation and preview
     SpikingNeuronTab: Neuron model configuration, simulation, spike visualization
@@ -8,6 +9,7 @@ Current tabs:
     BatchTab: Batch execution and SLURM script export
 """
 
+from .circuit_tab import CircuitTab
 from .mechanoreceptor_tab import MechanoreceptorTab, NeuronPopulation
 from .stimulus_tab import StimulusDesignerTab
 from .spiking_tab import SpikingNeuronTab
@@ -15,6 +17,7 @@ from .visualization_tab import VisualizationTab
 from .batch_tab import BatchTab
 
 __all__ = [
+    "CircuitTab",
     "MechanoreceptorTab",
     "NeuronPopulation",
     "StimulusDesignerTab",

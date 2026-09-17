@@ -88,6 +88,94 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-072 · OPEN · finding · - · 2026-09-17
+sensoryforge list-components never listed PROCESSING_REGISTRY, so a processing-layer plugin (or any processing layer) was invisible to that command even once correctly registered
+→ commit 92d8ad0
+
+## D-021 · CLOSED · decision · - · 2026-09-17
+SensoryForge and pressure-simulation engines are held in parity by SensoryForge tests/integration/test_pressure_sim_parity.py (drive and filtered response to 1e-6, spikes exact, 8x8 grid, one SA and one RA population, non-negative stimulus) and test_stimulus_parity.py (four benchmark stimuli, zero tolerance); known exceptions are the -120 mV voltage clamp under strongly negative drive (SensoryForge F-037) and that parity has only been verified on macOS arm64 (SensoryForge F-071)
+→ commit 52642b7
+
+## F-068 · CLOSED · finding · - · 2026-09-17
+F-068 the reproducibility test compared spike counts recorded on macOS arm64 exactly against runs on the Linux CI matrix, with no record of the reference's platform, and its docstring justified exact counts by the very cross-platform rounding differences that can flip a threshold-edge spike
+→ commit 2eeac0e
+
+## F-069 · CLOSED · finding · - · 2026-09-17
+F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols were ignored whenever a lattice-deriving receptive-field builder was used, even when the user had set none of them, so every run of the shipped tactile_sa1_ra1 preset printed a warning about a value nobody chose
+→ commit 2ce266f
+
+## F-070 · OPEN · finding · - · 2026-09-17
+F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
+→ commit 992e6ca
+
+## F-071 · OPEN · finding · - · 2026-09-17
+F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
+→ commit 992e6ca
+
+## F-067 · CLOSED · finding · - · 2026-09-17
+F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
+→ commit 98a7593
+
+## F-066 · CLOSED · finding · - · 2026-09-17
+F-066 the Circuit screenshot test ran the generator against the committed docs/assets/gui directory and checked that same directory, so every GUI suite run rewrote tracked images and the test could not fail, because previously committed images satisfied its size check even when the script wrote nothing
+→ commit 84dd282
+
+## F-065 · CLOSED · finding · - · 2026-09-16
+F-065 Wave O specified saving Circuit node positions to a sibling <config>.layout.json via Flowchart.saveState() but no part of it was implemented, so a graph's arrangement was lost on every reload and grep for saveState across sensoryforge/ returned nothing
+→ commit d9e93e7
+
+## F-064 · CLOSED · finding · - · 2026-09-16
+StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
+→ commit fcf0c4a
+
+## F-063 · OPEN · finding · - · 2026-09-16
+F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field previews with its own small widgets rather than reusing the Mechanoreceptor and Stimulus Designer plot widgets, because those share one plot item driving mouse-based population placement inside two 3,500-line tabs and could not be extracted safely in Wave P; the two drawing paths can now drift apart without any test noticing
+→ commit 2f399c9
+
+## F-061 · CLOSED · finding · - · 2026-09-16
+F-061 the Circuit tab discovered which stimulus parameters a class accepts by retrying and deleting whatever the constructor rejected, so a field the user had deliberately set was dropped with no message and the graph then described a run that did not happen
+→ commit 7a5ec87
+
+## F-062 · OPEN · finding · - · 2026-09-16
+F-062 the Circuit tab's GraphValidationError covers dangling terminals, a readout with no filter and a drive with neither receptive-field bank nor combine, but not a combine whose inputs disagree on neuron count, because that needs building receptor coordinates from the registries to know the counts; a sum-combined graph with mismatched inputs therefore fails at run time rather than at validation
+→ commit e356451
+
+## F-060 · CLOSED · finding · - · 2026-09-16
+F-060 sensoryforge run raised KeyError 'spikes' for any config with an analog population because the CLI summary loop read pop_results["spikes"] unconditionally, after the run had succeeded and the bundle had been written; neither Wave J nor Wave N could test the other's half of that seam
+→ commit 577f2dd
+
+## F-058 · CLOSED · finding · - · 2026-09-16
+F-058 the processing-layer kind is not wired into sensoryforge.testing.contracts.check_component, so OnOffLayer and any third-party processing plugin are checked only by hand-written tests while every other component kind goes through the shared contract harness a plugin author is told to run
+→ commit 8a6c816
+
+## F-059 · CLOSED · finding · - · 2026-09-16
+F-059 docs/user_guide/configuration_schema.md documents the Wave M config fields but not the Wave L ones -- GridConfig.channels, coords_file and layers, PopulationConfig.target_layers and readout, StimulusConfig.channel and dsl_config are all absent, so the published schema reference understates what a config may contain
+→ commit 8a6c816
+
+## F-057 · CLOSED · finding · - · 2026-09-16
+render_stimulus never advances a stateful registered stimulus's .step(), so "moving" (and any stepped stimulus) renders as a static repeated frame instead of animating
+→ commit 1d4d210
+
+## F-056 · OPEN · finding · - · 2026-09-16
+F-056 the memory watchdog's peak RSS varies from about 800 MB to 1500 MB run to run for identical code (83b735d measured 873 MB and 1517 MB on two runs), so it cannot detect a regression below roughly a factor of two and its numbers must never be compared across runs or across machines
+→ commit 0c13d47
+
+## F-055 · CLOSED · finding · - · 2026-09-16
+the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when none was given, and pressure-simulation's generate_stimulus_from_json defaults every field, so a bundle could be read there as a static Gaussian blob at the origin and encoded and plotted with no error anywhere; fixed by tagging every payload with schema_version and kind and emitting pressure-simulation's schema only for the types proven to regenerate exactly
+→ commit e722c0a
+
+## F-054 · CLOSED · finding · - · 2026-09-16
+the bundle lacked neuron_modules/, so pressure-simulation's viewer could load it but never run it; fixed by writing neuron_modules/sensoryforge.json with one population_configs entry per population, matched by raw population name. (Recorded as F-052 on branch wave-j, which forked before F-052 was taken; renumbered to F-054 at the merge.)
+→ commit 6382319
+
+## F-053 · CLOSED · finding · - · 2026-09-16
+F-053 docs examples run as subprocesses resolve `import sensoryforge` through the environment's editable install rather than the checkout under test, so with git worktrees a `pip install -e .` from one worktree makes every other checkout's docs-example tests silently exercise that worktree's code while still reporting green; fixed by setting cwd and PYTHONPATH in tests/docs/test_docs_examples.py
+→ commit ad7162d
+
+## F-052 · CLOSED · finding · - · 2026-09-16
+GeneralizedTactileEncodingPipeline.generate_stimulus dispatches stimulus names through a hard-coded if/elif chain (generalized_pipeline.py:1030-1073) that the CLI calls even for canonical configs (cli.py:222), so registered stimuli composite/edge_grating/gabor/static cannot be run from a config file and a third-party stimulus plugin can be registered but never executed
+→ commit 09a14e7
+
 ## D-020 · CLOSED · decision · - · 2026-09-15
 the template receptive-field builder derives sigma = d/pi and pitch = d from one resolvable distance d, truncates to the k nearest receptors with analytic Gaussian weights and unit-L2 rows by default
 → commit d53c018
@@ -277,11 +365,11 @@ No sub-stepping: SimulationConfig.dt=1.0 ms (schema.py:326) is fed straight to t
 docs_root/SCIENTIFIC_HYPOTHESIS.md is pressure-simulation's Oct-2025 draft: headlines the retired "SA/FA sufficient to reconstruct" hypothesis and the retired 4-population plan; CLAUDE.md/Cursor skills still name it as grounding
 → commit 7a188b6
 
-## F-010 · OPEN · finding · - · 2026-09-14
+## F-010 · CLOSED · finding · - · 2026-09-14
 SimulationEngine: composite grids NotImplementedError (:98); poisson/hex/jittered/blue_noise arrangements built then ignored, innervation uses the regular GridManager (:107-125,:224-243); DSL neurons cannot be instantiated (:260-264, dsl_config never read); _stimulus_to_receptors is a passthrough (:425-448)
 → commit 7a188b6
 
-## F-011 · OPEN · finding · - · 2026-09-14
+## F-011 · CLOSED · finding · - · 2026-09-14
 SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-index --format hdf5` (batch_executor.py:729-733) but run has neither flag (cli.py:556-578) and writes .pt only; BatchTab progress never emitted
 → commit 7a188b6
 
@@ -289,7 +377,7 @@ SLURM export is dead: generate_slurm_script emits `sensoryforge run --stimulus-i
 CRITICAL canonical->legacy adapter sets grid_size = rows*cols (generalized_pipeline.py:351) and grid.py:32 treats an int as per-side: 20x20 config -> 160k receptors, README 80x80 example -> 41M; test_gui_cli_parity and test_regression_refactoring exceed 5 GB and are OOM-killed; CLI/Batch hit it on every canonical run (cli.py:218, batch_executor.py:98)
 → commit 7a188b6 · closed by commit 1c93fa6 (grid_size now emits (rows, cols))
 
-## F-013 · OPEN · finding · - · 2026-09-14
+## F-013 · CLOSED · finding · - · 2026-09-14
 Batch export lacks neuron/receptor coordinates and dt on the canonical path; .pt is one monolithic pickle; spikes are T+1 while drive/filtered are T (undocumented); HDF5 drops list-valued stimulus params (batch_executor.py:499-592)
 → commit 7a188b6
 
@@ -313,7 +401,7 @@ test_gui_cli_parity.py:70 passes a file path to SensoryForgeConfig.from_yaml, wh
 cli list-components is a hardcoded print block (cli.py:438-478) already out of sync with the registries (lists center_surround, omits fa/sa/composite/timeline/repeated_pattern); cli validate forces the legacy pipeline for canonical configs (cli.py:406)
 → commit 7a188b6
 
-## F-019 · OPEN · finding · - · 2026-09-14
+## F-019 · CLOSED · finding · - · 2026-09-14
 ~3500 lines of unwired GUI code: gui/protocol_suite_tab.py, protocol_backend.py, protocol_execution_controller.py, neuron_explorer.py are imported by no tab, only by two tests
 → commit 7a188b6
 
@@ -325,7 +413,7 @@ Public docs: developer_guide/*, units_and_gains.md, gui_walkthrough.md, configur
 Debt lists are stale: CLAUDE.md still lists DSL numpy-only (C-2) and reset_states (M-1) as open, both resolved (R-001, D-011); docs/development/reviews/CODE_REVIEW_20260408.md tracker says 37/37 open though several are fixed; decide whether reviews/ ships publicly
 → commit 7a188b6
 
-## F-022 · OPEN · finding · - · 2026-09-14
+## F-022 · CLOSED · finding · - · 2026-09-14
 No validation against reference data or pressure-simulation: one analytic filter test (test_filters_vs_theory.py), no TouchSim/Saal comparison, notebook unexecuted, no benchmark suite
 → commit 7a188b6
 

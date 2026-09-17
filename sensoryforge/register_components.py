@@ -54,13 +54,19 @@ from sensoryforge.stimuli.builder import (
 from sensoryforge.stimuli.gaussian import GaussianStimulus
 from sensoryforge.stimuli.texture import GaborTexture, EdgeGrating
 from sensoryforge.stimuli.moving import MovingStimulus as MovingStimulusLegacy
+from sensoryforge.stimuli.tactile import (
+    RampGaussianStimulus,
+    MovingEdgeStimulus,
+    BrailleStimulus,
+    DriftingGratingStimulus,
+)
 
 # Solvers
 from sensoryforge.solvers.euler import EulerSolver
 from sensoryforge.solvers.adaptive import AdaptiveSolver
 
 # Processing
-from sensoryforge.core.processing import IdentityLayer
+from sensoryforge.core.processing import IdentityLayer, OnOffLayer
 
 # Grid arrangements (G3): thin ReceptorGrid subclasses, one per arrangement
 from sensoryforge.core.grid_arrangements import (
@@ -124,12 +130,19 @@ def register_all() -> None:
     STIMULUS_REGISTRY.register("gabor", GaborTexture)
     STIMULUS_REGISTRY.register("edge_grating", EdgeGrating)
 
+    # Pressure-simulation's four ported stimuli (Phase 2, K2)
+    STIMULUS_REGISTRY.register("ramp_gaussian", RampGaussianStimulus)
+    STIMULUS_REGISTRY.register("moving_edge", MovingEdgeStimulus)
+    STIMULUS_REGISTRY.register("braille", BrailleStimulus)
+    STIMULUS_REGISTRY.register("drifting_grating", DriftingGratingStimulus)
+
     # Register solvers
     SOLVER_REGISTRY.register("euler", EulerSolver)
     SOLVER_REGISTRY.register("adaptive", AdaptiveSolver)
 
     # Register processing layers
     PROCESSING_REGISTRY.register("identity", IdentityLayer)
+    PROCESSING_REGISTRY.register("onoff", OnOffLayer)  # Wave M3
 
     # Register grid arrangements (G3): real ReceptorGrid subclasses, one per
     # arrangement, each constructible via from_config()/GRID_REGISTRY.create().
