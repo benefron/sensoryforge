@@ -88,7 +88,11 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-072 · OPEN · finding · - · 2026-09-17
+## F-073 · OPEN · finding · - · 2026-09-17
+F-072 the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
+→ commit 4836b19
+
+## F-072 · CLOSED · finding · - · 2026-09-17
 sensoryforge list-components never listed PROCESSING_REGISTRY, so a processing-layer plugin (or any processing layer) was invisible to that command even once correctly registered
 → commit 92d8ad0
 
