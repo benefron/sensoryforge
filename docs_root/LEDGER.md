@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-067 · CLOSED · finding · - · 2026-09-17
+F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
+→ commit 98a7593
+
 ## F-066 · CLOSED · finding · - · 2026-09-17
 F-066 the Circuit screenshot test ran the generator against the committed docs/assets/gui directory and checked that same directory, so every GUI suite run rewrote tracked images and the test could not fail, because previously committed images satisfied its size check even when the script wrote nothing
 → commit 84dd282
