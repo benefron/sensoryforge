@@ -24,11 +24,12 @@ from sensoryforge.config.schema import (  # noqa: E402
 )
 from sensoryforge.gui.project import ProjectHandle  # noqa: E402
 from sensoryforge.gui.session import (  # noqa: E402
+    DEVICE_PATH,
+    FALLBACK_DEVICE,
     KNOWN_DEVICES,
     RunResult,
     Session,
     available_devices,
-    default_device,
 )
 
 
@@ -90,15 +91,35 @@ def test_available_devices_always_offers_cpu_first(session):
     assert available_devices()[0] == "cpu"
 
 
-def test_the_default_device_is_the_first_accelerator_if_there_is_one():
-    assert default_device(["cpu"]) == "cpu"
-    assert default_device(["cpu", "mps"]) == "mps"
-    assert default_device(["cpu", "cuda"]) == "cuda"
-    assert default_device(["cpu", "mps", "cuda"]) == "mps"
+def test_a_session_starts_on_the_cpu_even_where_an_accelerator_exists(session):
+    """An accelerator is opt-in: it rounds differently from the CPU goldens."""
+    assert FALLBACK_DEVICE == "cpu"
+    assert session.device == "cpu"
+    assert session.config.simulation.device == "cpu"
 
 
-def test_a_session_starts_on_the_default_device(session):
-    assert session.device == default_device(session.available_devices)
+def test_device_is_the_config_field_read_through(session):
+    session.config.simulation.device = "cuda"
+
+    assert session.device == "cuda"
+
+
+def test_device_cannot_be_assigned_behind_the_sessions_back(session):
+    with pytest.raises(AttributeError):
+        session.device = "cuda"
+
+
+def test_a_config_naming_an_absent_device_is_pulled_back_to_the_cpu(qtbot):
+    config = _config()
+    config.simulation.device = "cuda"
+
+    session = Session(config)
+
+    if "cuda" not in session.available_devices:
+        assert session.device == "cpu"
+        assert session.config.simulation.device == "cpu"
+    else:  # pragma: no cover - only on a CUDA machine
+        assert session.device == "cuda"
 
 
 # ---------------------------------------------------------------------- signals
@@ -111,6 +132,67 @@ def test_replace_config_swaps_the_config_and_announces_a_rebuild(session, qtbot)
         session.replace_config(replacement)
 
     assert session.config is replacement
+
+
+def test_replace_config_drops_the_previous_results(session, qtbot):
+    session.set_results(_run_result(session))
+
+    with qtbot.waitSignal(session.resultsChanged, timeout=1000) as blocker:
+        session.replace_config(SensoryForgeConfig())
+
+    assert blocker.args == [None]
+    assert session.last_results is None
+
+
+def test_replace_config_clears_staleness(session, qtbot):
+    session.set_results(_run_result(session))
+    session.notify("stimulus.amplitude")
+    assert session.stale is True
+
+    with qtbot.waitSignal(session.staleChanged, timeout=1000) as blocker:
+        session.replace_config(SensoryForgeConfig())
+
+    assert blocker.args == [False]
+    assert session.stale is False
+
+
+def test_replace_config_on_an_already_fresh_session_says_nothing_about_stale(
+    session, qtbot
+):
+    with qtbot.assertNotEmitted(session.staleChanged):
+        session.replace_config(SensoryForgeConfig())
+
+
+def test_replace_config_moves_the_session_onto_the_new_configs_device(session, qtbot):
+    session.available_devices = ["cpu", "mps"]
+    replacement = SensoryForgeConfig()
+    replacement.simulation.device = "mps"
+
+    with qtbot.waitSignal(session.deviceChanged, timeout=1000) as blocker:
+        session.replace_config(replacement)
+
+    assert blocker.args == ["mps"]
+    assert session.device == "mps"
+
+
+def test_replace_config_falls_back_to_the_cpu_for_a_device_this_machine_lacks(
+    session, qtbot
+):
+    session.available_devices = ["cpu"]
+    replacement = SensoryForgeConfig()
+    replacement.simulation.device = "cuda"
+
+    with qtbot.waitSignal(session.deviceChanged, timeout=1000) as blocker:
+        session.replace_config(replacement)
+
+    assert blocker.args == ["cpu"]
+    assert session.device == "cpu"
+    assert replacement.simulation.device == "cpu"
+
+
+def test_replace_config_keeping_the_same_device_says_nothing_about_it(session, qtbot):
+    with qtbot.assertNotEmitted(session.deviceChanged):
+        session.replace_config(SensoryForgeConfig())
 
 
 def test_replace_config_rejects_something_that_is_not_a_config(session):
@@ -135,6 +217,30 @@ def test_set_device_announces_only_a_real_change(session, qtbot):
 
     with qtbot.assertNotEmitted(session.deviceChanged):
         session.set_device("cuda")
+
+
+def test_set_device_writes_the_choice_into_the_config(session):
+    session.set_device("cuda")
+
+    assert session.config.simulation.device == "cuda"
+
+
+def test_set_device_is_also_a_config_change(session, qtbot):
+    with qtbot.waitSignal(session.configChanged, timeout=1000) as blocker:
+        session.set_device("cuda")
+
+    assert blocker.args == [DEVICE_PATH]
+
+
+def test_writing_the_device_by_path_still_announces_it_as_a_device_change(
+    session, qtbot
+):
+    """Whichever route writes the device, a device selector hears about it."""
+    with qtbot.waitSignal(session.deviceChanged, timeout=1000) as blocker:
+        session.set_by_path(DEVICE_PATH, "mps")
+
+    assert blocker.args == ["mps"]
+    assert session.device == "mps"
 
 
 def test_set_device_rejects_an_unknown_device(session):

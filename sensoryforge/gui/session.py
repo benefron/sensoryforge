@@ -66,26 +66,13 @@ def available_devices() -> List[str]:
     return devices
 
 
-def default_device(devices: List[str]) -> str:
-    """Pick the device a new session starts on.
+#: The dotted path :attr:`Session.device` reads and writes through.
+DEVICE_PATH = "simulation.device"
 
-    Args:
-        devices: The available device names, as :func:`available_devices`
-            returns them.
-
-    Returns:
-        The first accelerator in ``devices`` (i.e. the first entry that is not
-        ``"cpu"``), or ``"cpu"`` when that is all there is.
-
-    Raises:
-        ValueError: If ``devices`` is empty.
-    """
-    if not devices:
-        raise ValueError("no devices available; expected at least 'cpu'")
-    for name in devices:
-        if name != "cpu":
-            return name
-    return "cpu"
+#: The device a session falls back to. An accelerator is always opt-in: MPS and
+#: CUDA round differently from the CPU kernels the golden fixtures were
+#: recorded on (F-071), so the GUI never selects one by itself.
+FALLBACK_DEVICE = "cpu"
 
 
 @dataclass
@@ -188,10 +175,12 @@ class Session(QtCore.QObject):
         config: The experiment. Never reassigned except by
             :meth:`replace_config`.
         device: ``"cpu"``, ``"mps"`` or ``"cuda"`` -- the device the next run
-            uses. Availability is the caller's business
-            (:attr:`available_devices`); this is transient GUI state and is
-            deliberately *not* written into ``config.simulation.device``.
-        available_devices: What this machine offers, resolved once here.
+            uses. Read-only: it *is* ``config.simulation.device`` (a property
+            reading through to it), so the session and the config it will save
+            can never disagree. Write it with :meth:`set_device`.
+        available_devices: What this machine offers, resolved once here. A
+            session still starts on ``"cpu"`` unless the config says otherwise:
+            an accelerator is opt-in.
         project: The open project, or ``None`` for an unsaved experiment.
         last_results: The most recent run, or ``None``.
         stale: Whether the config was edited since :attr:`last_results`.
@@ -215,6 +204,9 @@ class Session(QtCore.QObject):
     ) -> None:
         """Start a session over ``config`` (an empty one when omitted).
 
+        The session starts on the config's ``simulation.device``, falling back
+        to ``"cpu"`` if this machine does not have it.
+
         Args:
             config: The experiment to hold. Taken as-is, not copied: the
                 session owns it from here on.
@@ -225,15 +217,45 @@ class Session(QtCore.QObject):
             config if config is not None else SensoryForgeConfig()
         )
         self.available_devices: List[str] = available_devices()
-        self.device: str = default_device(self.available_devices)
         self.project: Optional[ProjectHandle] = None
         self.last_results: Optional[RunResult] = None
         self.stale: bool = False
+        self._adopt_config_device()
+
+    # ----------------------------------------------------------------- device
+
+    @property
+    def device(self) -> str:
+        """The device the next run uses -- ``config.simulation.device`` itself.
+
+        Returns:
+            ``"cpu"``, ``"mps"`` or ``"cuda"``. Assigning to this attribute is
+            an error; call :meth:`set_device`, so the change is announced.
+        """
+        return self.config.simulation.device
+
+    def _adopt_config_device(self) -> bool:
+        """Make the config's device one this machine actually has.
+
+        Returns:
+            ``True`` if the device had to be replaced with
+            :data:`FALLBACK_DEVICE`.
+        """
+        if self.config.simulation.device in self.available_devices:
+            return False
+        self.config.simulation.device = FALLBACK_DEVICE
+        return True
 
     # ------------------------------------------------------------------ state
 
     def replace_config(self, config: SensoryForgeConfig) -> None:
         """Put a different config in place and tell every view to rebuild.
+
+        The results of the previous config are dropped -- they no longer
+        describe the experiment on screen -- and the session is no longer
+        stale. The device follows the new config, falling back to
+        :data:`FALLBACK_DEVICE` (and saying so through ``deviceChanged``) when
+        the config names one this machine does not have.
 
         Args:
             config: The new experiment (from a load, a preset, or File > New).
@@ -247,29 +269,49 @@ class Session(QtCore.QObject):
                 "replace_config expects a SensoryForgeConfig, got "
                 f"{type(config).__name__}"
             )
+        previous_device = self.device
         self.config = config
+        fell_back = self._adopt_config_device()
+        self.last_results = None
+        self.resultsChanged.emit(None)
+        self._set_stale(False)
+        if fell_back or self.device != previous_device:
+            # A fallback is announced even when the effective device is
+            # unchanged: the config asked for something else and was
+            # overruled, and a device selector has to show what will run.
+            self.deviceChanged.emit(self.device)
         self.configReplaced.emit()
 
     def notify(self, path: str) -> None:
         """Announce that ``path`` in the config changed.
 
         Call this after mutating the config directly;
-        :meth:`set_by_path` calls it for you.
+        :meth:`set_by_path` calls it for you. A change to
+        :data:`DEVICE_PATH` also re-emits ``deviceChanged``, whichever route
+        wrote it, so a device row never falls out of step with the config.
 
         Args:
             path: Dotted path of what changed, e.g.
                 ``"populations.1.filter_params.tau_r"``.
         """
         self.configChanged.emit(path)
+        if path == DEVICE_PATH:
+            self.deviceChanged.emit(self.device)
         if self.last_results is not None:
             self._set_stale(True)
 
     def set_device(self, device: str) -> None:
         """Choose the device the next run uses.
 
+        Writes ``config.simulation.device``, so the choice is saved with the
+        experiment, and announces it as both ``deviceChanged(device)`` and
+        ``configChanged("simulation.device")``.
+
         Args:
-            device: One of :data:`KNOWN_DEVICES`. Whether this machine has it
-                is not checked here -- see :attr:`available_devices`.
+            device: One of :data:`KNOWN_DEVICES`. Whether *this* machine has it
+                is not checked -- a config may legitimately be prepared for a
+                CUDA cluster from a laptop. See :attr:`available_devices` for
+                what to offer in a device selector.
 
         Raises:
             ValueError: If ``device`` is not a device name SensoryForge knows.
@@ -280,8 +322,8 @@ class Session(QtCore.QObject):
             )
         if device == self.device:
             return
-        self.device = device
-        self.deviceChanged.emit(device)
+        self.config.simulation.device = device
+        self.notify(DEVICE_PATH)
 
     def set_results(self, results: Optional[RunResult]) -> None:
         """Publish the results of a finished run (or clear them).
