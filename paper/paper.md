@@ -131,7 +131,8 @@ rather than take it on faith.
   match exactly; on a different platform they must agree within the larger
   of 3 spikes or 2 percent, because floating-point rounding can
   legitimately flip a neuron sitting at threshold. That cross-platform
-  tolerance is an estimate: nothing has yet been run on a second platform.
+  tolerance was set before any second platform had run; the check has
+  since passed in continuous integration on Linux x86_64 as well as macOS.
   It still fails on a real regression, and this was checked rather than
   assumed: a 10 percent change to the RA filter gain moved every affected
   count by between 3.3 and 5.3 times the tolerance. The comparison and
@@ -159,11 +160,10 @@ rather than take it on faith.
   a factor chosen to tolerate ordinary hardware noise (evidence for the
   choice, including a deliberately slowed engine that does trip the guard,
   is recorded in `benchmarks/check_regression.py`'s docstring and
-  `docs/reference/benchmarks.md`); as of this release this guard, like the
-  rest of this project's continuous integration, has never executed on
-  GitHub's own runners, so its cross-architecture calibration is estimated
-  from local experiments, not measured on the runner it will actually run
-  on.
+  `docs/reference/benchmarks.md`). On its first run on a GitHub Linux
+  x86_64 runner the engine was 1.50x slower than on the Apple M3 Pro in raw
+  time and the reference kernel 1.60x, giving a calibrated factor of 0.94x:
+  moving between these architectures shifted the ratio by about 6 percent.
 
 # Installation, documentation, and community guidelines
 
@@ -186,9 +186,9 @@ hook), every
 notebooks executed with `nbmake`
 (`.github/workflows/tests.yml`); a deploy workflow
 (`.github/workflows/deploy-docs.yml`) publishes this build to GitHub Pages
-on pushes to the default branch, though as of this release continuous
-integration has never executed on GitHub for this repository, so that
-workflow has not yet been exercised for real. The project carries an MIT
+on pushes to the default branch (https://benefron.github.io/sensoryforge/).
+Continuous integration runs the non-GUI suite on Linux x86_64 and macOS
+arm64 and the GUI suite on Linux, under Python 3.10 and 3.11. The project carries an MIT
 license (`LICENSE`), a citation file (`CITATION.cff`), and community
 guidelines (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`).
 

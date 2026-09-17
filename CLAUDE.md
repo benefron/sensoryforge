@@ -229,9 +229,9 @@ This ensures the GUI simulation path and the `SimulationEngine.run()` path produ
 **Open as of 2026-09-17, and the hazards to know before changing things:**
 
 - **Never run `pip install -e .` from a git worktree** (F-053). The conda environment is shared, and an editable install rewrites one global pointer, silently repointing every other checkout; subprocess-launched code then imports the wrong tree while tests still pass.
-- **Golden fixtures have only run on macOS arm64** (F-071): `tests/integration/test_pressure_sim_parity.py`, `test_stimulus_parity.py` and `tests/fixtures/rf_engine_golden_weights.pt`. A failure on another platform may be floating-point rounding; diagnose before loosening a test or changing code. `tests/validation/test_reproducibility.py` is already platform-aware (F-068).
+- **Compare against a golden fixture with `sensoryforge.testing.golden.assert_matches_golden`, not `torch.equal`** (F-071). Fixtures were generated on macOS arm64; Linux x86_64 reproduces their structure exactly but rounds values up to one float32 step differently. Comparisons between two results computed in the same process stay bit-exact.
 - **Peak memory from the watchdog is noise below about 2x** (F-056); never compare the figure across runs. Use `benchmarks/` for performance, whose CI guard is calibrated against a reference kernel (F-067) and catches only regressions of about 3x or more.
-- **Continuous integration has never run on GitHub** for this repository, and the docs site has never been deployed.
+- **GUI preferences go through `sensoryforge.gui.settings.gui_settings()`**, never a direct `QSettings(...)` (F-072); the test suite redirects it to a temporary directory, and a test forbids direct construction. CI runs on GitHub (Linux and macOS) and the docs deploy to https://benefron.github.io/sensoryforge/.
 - **Comparison with published afferent data is qualitative only** (F-070).
 - **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036); **GUI tests disable the cyclic garbage collector** because of a pyqtgraph segfault (F-035); **the Circuit validator misses a sum-combine with mismatched neuron counts** (F-062); **Circuit previews duplicate the other tabs' drawing code** (F-063).
 

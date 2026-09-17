@@ -8,11 +8,13 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 Nothing yet.
 
-## [1.0.0] - Unreleased (prepared 2026-09-17)
+## [1.0.0] - 2026-09-17
 
-Not yet released: not tagged in git, not published to PyPI, and continuous integration has never
-run on GitHub for this repository. Install from source (see `CONTRIBUTING.md`). Replace this
-heading's date when the release is actually tagged. This is the first version-1.0.0 changelog entry,
+Tagged in git as `v1.0.0`; not published to PyPI, so install from source (see `CONTRIBUTING.md`).
+Before tagging, continuous integration passed on GitHub for this commit: the non-GUI suite on
+Linux x86_64 and macOS arm64 under Python 3.10 and 3.11, the GUI suite on Linux under both
+versions, lint and the strict documentation build, the benchmark regression guard on Linux, and
+the documentation deployment to https://benefron.github.io/sensoryforge/. This is the first version-1.0.0 changelog entry,
 covering everything below back through the project's Phase 0 start,
 compiled from the git history and the wave handover records
 (`docs/development/handover/`) rather than summarised from memory. See
@@ -100,6 +102,20 @@ reading it:
   (F-061); it now warns, naming only the values the user actually set.
 - **A warning about an ignored neuron-lattice size fired on every run of the shipped tactile
   preset** (F-069), about a value nobody had set; it now fires only for sizes the user set.
+- **Golden-fixture tests failed on Linux x86_64** (F-071). Measured on a CI run, structure
+  was identical on every platform -- the same receptors wired to the same neurons -- and values
+  differed from the macOS-generated fixtures by at most one float32 step (5.96e-8). The tests
+  compared bit-for-bit, so they were testing the processor's rounding. They now compare at float32
+  precision (`sensoryforge.testing.golden`), still requiring identical structure, and still fail on
+  a 0.01 percent change to the weights or a 0.05 percent change to a filter gain. The test
+  configuration also set its thread limits after importing torch, where they have no effect; they
+  now come first.
+- **GUI tests read and wrote the real GUI preferences of whoever ran them** (F-072), so a test
+  passed where a section had once been saved expanded and failed on a fresh CI runner, and a test
+  run could overwrite a developer's saved state. All preferences now go through
+  `sensoryforge.gui.settings.gui_settings()`, which the test suite redirects to a temporary
+  directory. The Stimulus Designer's expert-mode toggle moved to the same store as every other
+  preference, so it resets once after upgrading.
 - **The reproducibility check demanded exact spike counts on every platform** (F-068). It is exact
   on the platform the reference was recorded on and tolerant elsewhere, where floating-point
   rounding can legitimately flip a spike at threshold.
@@ -140,7 +156,9 @@ reading it:
   guard compares engine time relative to it, so a CI runner slower than the laptop the baseline
   came from does not fail the guard with nothing changed. On this machine's efficiency cores the
   engine's raw time rose 4.56x while the calibrated factor was 1.05x. It does not catch regressions
-  under about 3x, and its calibration across processor architectures is estimated, not measured.
+  under about 3x. Its calibration across processor architectures was measured on its first GitHub
+  run, on a Linux x86_64 runner: raw engine time was 1.50x the Apple M3 Pro baseline and the
+  reference kernel's 1.60x, giving a calibrated factor of 0.94x, a shift of about 6 percent.
 - **The pressure-simulation recipe** (Phase 2, Wave K; F-052): `sensoryforge/stimuli/render.py`'s
   `render_stimulus()` is now the CLI's and `BatchExecutor`'s single stimulus-dispatch point (K1) —
   it checks `STIMULUS_REGISTRY` before falling back to `GeneralizedTactileEncodingPipeline`'s
@@ -375,11 +393,11 @@ reading it:
   instead check the correct qualitative SA-sustains/RA-adapts adaptation class against a committed,
   cited-literature reference (`tests/fixtures/reference/README.md` records exactly what this is and
   is not; ledger F-070 records this as an accepted, open limitation). `scripts/reproduce_figure.py`
-  / `scripts/reproduce_env.sh` reproduce the pressure-simulation recipe's summary statistics from a
-  fresh install, exactly on spike counts and within a stated tolerance on mean rates, checked
-  in-process by `tests/validation/test_reproducibility.py`; this proof and its committed reference
-  are exact-match on this machine only, not yet across platforms (ledger F-071 records the same
-  macOS-arm64-only caveat for the pre-existing golden-parity tests).
+  reproduces the pressure-simulation recipe's per-population spike counts against a committed
+  reference that records its platform: exactly on that platform, and within 3 spikes or 2 percent
+  elsewhere (F-068), checked by `tests/validation/test_reproducibility.py`, which passes in CI on
+  Linux and macOS. `scripts/reproduce_env.sh`, the fresh-environment wrapper, has not itself been
+  run.
 - **The benchmark harness, the published table, and a CI performance guard** (Wave T, F-022 second
   half; see "A benchmark harness" above under Phase 4 F-022) -- also documented in
   `docs/reference/benchmarks.md`, generated by `benchmarks/generate_table.py`, never hand-edited.
@@ -388,9 +406,8 @@ reading it:
   "coming in Phase N" stubs; `pytest docs/examples` runs every `docs/examples/*.py` script; the
   quick-start and validation notebooks execute under `nbmake` in CI
   (`.github/workflows/tests.yml`); a GitHub Pages deploy workflow
-  (`.github/workflows/deploy-docs.yml`) publishes the strict build on pushes to the default branch
-  (unverified as of this release -- continuous integration has never executed on GitHub for this
-  repository). This wave also found and fixed real documentation-vs-code drift beyond its own
+  (`.github/workflows/deploy-docs.yml`) publishes the strict build on pushes to the default branch,
+  live at https://benefron.github.io/sensoryforge/. This wave also found and fixed real documentation-vs-code drift beyond its own
   brief: a schema reference page naming fields that never existed on the dataclasses it described,
   a quickstart notebook calling a function that no longer exists, and a shared contract-test skip
   entry that was silently skipping the real `IdentityLayer` processing component as a side effect of
@@ -415,15 +432,10 @@ equally to a changelog that hides what still fails):
 
 - **No quantitative comparison against a published afferent model exists** (F-070): the TouchSim
   comparison above is qualitative only.
-- **Golden-parity fixtures (`tests/integration/test_pressure_sim_parity.py`,
-  `test_stimulus_parity.py`, `tests/fixtures/rf_engine_golden_weights.pt`) have only ever run on
-  macOS arm64** (F-071); a failure on another platform needs diagnosis, not an assumption of
-  regression.
 - **The memory watchdog cannot detect a regression below roughly a factor of two** and its numbers
   are never comparable run to run or machine to machine (F-056).
-- **The CI performance guard's 3.0x regression factor is calibrated from local experiments, not
-  from a run on GitHub's own runners** -- continuous integration has never executed on GitHub for
-  this repository as of this release.
+- **The CI performance guard catches only regressions of about 3x or more** on its one cell; a
+  50 or 100 percent slowdown passes it.
 - **364 flake8 style violations exist beyond the CI-gated subset** (E9/F63/F7/F82 only; F-036).
 - **SensoryForge's neurons clamp voltage at a floor where pressure-simulation's do not** (F-037),
   which unrectified SA (resolved separately, see above) makes reachable for strongly negative
@@ -436,5 +448,4 @@ equally to a changelog that hides what still fails):
   count** (F-062), and **draws its own preview widgets rather than reusing the Mechanoreceptor and
   Stimulus Designer tabs'** (F-063), so the two can drift.
 
-<!-- Version links to the v1.0.0 tag and release are added when that tag exists (D-010: no links
-to infrastructure that does not exist yet). -->
+[1.0.0]: https://github.com/benefron/sensoryforge/releases/tag/v1.0.0

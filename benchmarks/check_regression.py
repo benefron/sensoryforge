@@ -27,7 +27,9 @@ this small spends its time.
 This removes most of the hardware offset, not all of it. The engine and the
 kernel are not identical workloads, so a different CPU architecture can
 still shift their ratio somewhat. That residual is why the factor stays
-generous.
+generous. Measured on the guard's first run on a GitHub Linux x86_64
+runner: raw engine time 1.50x the Apple M3 Pro baseline, reference kernel
+1.60x, calibrated factor 0.94x -- a shift of about 6 percent.
 
 Why this factor
 ---------------

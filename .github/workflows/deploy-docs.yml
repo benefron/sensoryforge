@@ -1,13 +1,8 @@
 name: deploy-docs
 
-# Publishes the strict mkdocs build to GitHub Pages on every push to main.
-# Unverified (U4): CI has never run on GitHub for this repository (see
-# docs/development/handover/phase4_tasks.md, Wave U). This workflow was written by
-# reading the actions it uses (actions/configure-pages, actions/upload-pages-artifact,
-# actions/deploy-pages -- the standard, non-branch, GitHub Pages deployment flow) and
-# has not been run for real; its first push to main is the first time it is exercised.
-# The one-time repository-settings step it depends on -- Settings -> Pages -> Source =
-# "GitHub Actions" -- also has to be done by a repository admin before this can deploy.
+# Publishes the strict MkDocs build to https://benefron.github.io/sensoryforge/
+# on every push to main.
+# Requires Pages to be enabled with source "GitHub Actions" (done 2026-09-17).
 
 on:
   push:

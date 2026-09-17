@@ -182,8 +182,9 @@ def generate(data: Dict[str, Any], out_path: Path) -> None:
         "passes: an engine made 50% or 100% slower gets through. And efficiency and "
         "performance cores share an architecture and a BLAS library, so moving to x86 "
         "CI hardware can shift the ratio more than the experiment above did; the 3.0x "
-        "factor is generous partly for that reason. Until the guard has run on the CI "
-        "runner itself, that residual is estimated, not measured. See "
+        "factor is generous partly for that reason. Measured on its first GitHub Linux "
+        "x86_64 run: raw engine time 1.50x the baseline, reference kernel 1.60x, "
+        "calibrated factor 0.94x, a shift of about 6 percent. See "
         "`benchmarks/check_regression.py`'s docstring for the full reasoning."
     )
     lines.append("")
