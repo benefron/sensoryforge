@@ -136,11 +136,11 @@ F-062 the Circuit tab's GraphValidationError covers dangling terminals, a readou
 F-060 sensoryforge run raised KeyError 'spikes' for any config with an analog population because the CLI summary loop read pop_results["spikes"] unconditionally, after the run had succeeded and the bundle had been written; neither Wave J nor Wave N could test the other's half of that seam
 → commit 577f2dd
 
-## F-058 · OPEN · finding · - · 2026-09-16
+## F-058 · CLOSED · finding · - · 2026-09-16
 F-058 the processing-layer kind is not wired into sensoryforge.testing.contracts.check_component, so OnOffLayer and any third-party processing plugin are checked only by hand-written tests while every other component kind goes through the shared contract harness a plugin author is told to run
 → commit 8a6c816
 
-## F-059 · OPEN · finding · - · 2026-09-16
+## F-059 · CLOSED · finding · - · 2026-09-16
 F-059 docs/user_guide/configuration_schema.md documents the Wave M config fields but not the Wave L ones -- GridConfig.channels, coords_file and layers, PopulationConfig.target_layers and readout, StimulusConfig.channel and dsl_config are all absent, so the published schema reference understates what a config may contain
 → commit 8a6c816
 
