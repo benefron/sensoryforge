@@ -15,6 +15,7 @@ dependencies:
   - pyqtgraph
   - pytest
   - pytest-cov
+  - pytest-qt
   - black
   - flake8
   - mypy
