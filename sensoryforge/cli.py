@@ -31,6 +31,7 @@ from sensoryforge.registry import (
     STIMULUS_REGISTRY,
     SOLVER_REGISTRY,
     GRID_REGISTRY,
+    PROCESSING_REGISTRY,
 )
 
 
@@ -593,6 +594,7 @@ def cmd_list_components(args: argparse.Namespace) -> int:
         ("⚙️  Solvers", SOLVER_REGISTRY),
         ("🌐 Grid Types", GRID_REGISTRY),
         ("🔗 Innervation Methods", INNERVATION_REGISTRY),
+        ("🧩 Processing Layers", PROCESSING_REGISTRY),
     ]
     for title, registry in sections:
         print(f"\n{title}:")
