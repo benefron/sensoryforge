@@ -224,3 +224,4 @@ workspace/
 
 # Bundles written by example scripts (Phase 2, Wave K, K5)
 examples/output/
+.superpowers/
