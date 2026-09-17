@@ -22,6 +22,11 @@ and `"bandpass"` are the same registration, so you don't need to worry
 about exact-case collisions with a built-in filter's name — though a
 genuine collision (same name, different class) still raises.
 
+The complete runnable example is `docs/examples/plugin_filter.py` (a different, smaller filter --
+`LeakyFilterTorch` -- than this page's `BandpassFilterTorch` walkthrough, but the same steps):
+it defines the class, registers it, runs the shared contract check, and drives it with a synthetic
+step current. It is executed by `tests/docs/test_docs_examples.py`.
+
 ---
 
 ## 1. Understand the API contract

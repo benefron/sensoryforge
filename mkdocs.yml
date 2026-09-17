@@ -138,6 +138,7 @@ nav:
     - Adding a Grid Arrangement: extending/add_grid_arrangement.md
     - Adding a Processing Layer: extending/add_processing_layer.md
     - Adding a Circuit Node: extending/add_gui_node.md
+    - Adding a Solver: extending/add_solver.md
     - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md

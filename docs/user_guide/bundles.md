@@ -23,6 +23,11 @@ Write one with `sensoryforge run --bundle DIR` (see [CLI Reference](cli.md)), wi
 [`SimulationEngine.run(bundle_dir=...)`][sensoryforge.core.simulation_engine.SimulationEngine.run].
 Read one with `sensoryforge.io.bundle.load_bundle()`.
 
+Writing a bundle is a fixed function (`sensoryforge.io.bundle`), not a registry-backed plugin
+point like the seven component kinds in `docs/extending/` -- there is no `EXPORTER_REGISTRY` and
+no supported way to add a second, alternative bundle format today. A different output format is a
+separate concern from the bundle's own schema versioning described below.
+
 ## `config.json`
 
 A superset of pressure-simulation's `1.0.0` "mechanoreceptor bundle" format, so its

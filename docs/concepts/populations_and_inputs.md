@@ -57,6 +57,10 @@ exactly:
 A population with no `inputs` (the common case, sugar fields only) is unaffected: `_combine_banks`
 returns the single bank unchanged when there is exactly one input and its gain is `1.0`.
 
+`combine` is a fixed two-way choice (`"sum"` or `"concat"`), not a registry-backed plugin point
+like the seven component kinds in `docs/extending/` -- there is no `COMBINE_REGISTRY` and no way to
+add a third combination rule today without editing `SimulationEngine._combine_banks` itself.
+
 ## Where processing sits in the spine
 
 ```

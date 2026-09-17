@@ -46,6 +46,12 @@ With a `threshold`, the same class behaves exactly as before and `spikes` is a b
 
 ## Through `SimulationEngine`
 
+The runnable example is `docs/examples/analog_dsl.py`: it builds one analog population and one
+spiking population (same DSL neuron model, one without a `threshold` and one with), runs both
+through `SimulationEngine`, and asserts the analog population's result carries `"state"` (not
+`"spikes"`) while the spiking one carries `"spikes"` (not `"state"`). It is executed by
+`tests/docs/test_docs_examples.py`.
+
 A canonical population config with `neuron_model: dsl` and a thresholdless `dsl_config` runs like
 any other population, but its result dict carries `"state"` instead of `"spikes"`:
 
