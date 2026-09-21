@@ -303,3 +303,65 @@ def test_run_graph_once_renders_the_same_stimulus_as_the_cli(tmp_path):
 
 def _GRID_KW() -> dict:
     return {k: v for k, v in _GRID.items() if k != "name"}
+
+
+def test_a_bare_moving_edge_block_actually_moves():
+    """`stimulus: {type: moving_edge}` must use that type's own defaults.
+
+    StimulusConfig's schema defaults (start == end == [0, 0]) used to be
+    forwarded to the constructor and override them, so the rendered "moving"
+    edge was static: constant energy, constant centre of mass, no error.
+    """
+    import torch
+
+    from sensoryforge.config.schema import (
+        GridConfig,
+        SensoryForgeConfig,
+        StimulusConfig,
+    )
+    from sensoryforge.stimuli.render import render_for_config
+
+    config = SensoryForgeConfig(
+        grids=[
+            GridConfig(name="G", arrangement="grid", rows=40, cols=40, spacing=0.15)
+        ],
+        populations=[],
+        stimulus=StimulusConfig(type="moving_edge"),
+    )
+    stimulus, _, _, _ = render_for_config(config, duration_ms=330.0, dt_ms=1.0)
+    frames = stimulus[0]
+    early, late = frames[60], frames[280]
+    assert not torch.allclose(
+        early, late
+    ), "the moving edge is the same at 60 and 280 ms"
+
+    def x_centroid(frame):
+        xs = torch.arange(frame.shape[0], dtype=frame.dtype).view(-1, 1)
+        return float((frame * xs).sum() / frame.sum())
+
+    assert x_centroid(late) - x_centroid(early) > 3.0, (
+        f"centre of mass moved only {x_centroid(late) - x_centroid(early):.2f} rows "
+        "between 60 and 280 ms"
+    )
+
+
+def test_a_field_the_user_set_still_reaches_the_stimulus():
+    from sensoryforge.config.schema import (
+        GridConfig,
+        SensoryForgeConfig,
+        StimulusConfig,
+    )
+    from sensoryforge.stimuli.render import render_for_config
+
+    def peak(amplitude):
+        config = SensoryForgeConfig(
+            grids=[
+                GridConfig(name="G", arrangement="grid", rows=20, cols=20, spacing=0.15)
+            ],
+            populations=[],
+            stimulus=StimulusConfig(type="gaussian", amplitude=amplitude, sigma=0.5),
+        )
+        return float(render_for_config(config, duration_ms=20.0, dt_ms=1.0)[0].max())
+
+    assert peak(7.0) == pytest.approx(7.0, rel=0.05)
+    assert peak(14.0) == pytest.approx(2 * peak(7.0), rel=1e-5)

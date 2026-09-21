@@ -679,8 +679,19 @@ def render_for_config(
         )
 
     stim = config.stimulus
+    # Forward only the fields the user set. StimulusConfig carries a default
+    # for every field of every stimulus type (start and end both [0, 0], a
+    # 800 ms plateau, ...), and forwarding those made them override the chosen
+    # type's own defaults: `stimulus: {type: moving_edge}` rendered an edge
+    # with start == end, a "moving" edge that never moved, with no error. A
+    # field still at the schema default now takes the stimulus type's default.
+    # The cost: explicitly writing a value equal to the schema default (say
+    # `start: [0, 0]`) is indistinguishable from omitting it.
+    schema_defaults = type(stim)().to_dict()
     stimulus_params = {
-        k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
+        k: v
+        for k, v in stim.to_dict().items()
+        if k not in ("name", "type") and v != schema_defaults.get(k)
     }
     dropped: List[Tuple[str, Any]] = []
     while True:
