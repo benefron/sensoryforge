@@ -15,11 +15,10 @@
 # `sensoryforge run` renders whatever the `stimulus:` block below declares (Task
 # 0.6, F-061) -- here a static "gaussian" blob (sigma 0.5 mm, amplitude 30), the
 # same renderer the GUI's Circuit tab runs use, so this file behaves the same from
-# either entry point. `--duration` scales the number of frames. Only an *untouched*
-# `stimulus:` block (bit-identical to `SensoryForgeConfig()`'s own default
-# `StimulusConfig()`) falls back instead to the legacy default trapezoidal
-# (ramp/plateau/ramp) stimulus; this file's block is not that (its `sigma` differs
-# from the schema default of 2.0). No top-level `stimuli:` list is given either;
+# either entry point. `--duration` scales the number of frames. A field you leave
+# out of the block takes that stimulus type's own default. Only a config with no
+# `stimulus:` block at all falls back to the legacy default trapezoidal
+# (ramp/plateau/ramp) stimulus. No top-level `stimuli:` list is given here;
 # that key is legacy and, if present, would win over `stimulus:` with a deprecation
 # notice printed by `sensoryforge run`. See docs/user_guide/cli.md.
 #

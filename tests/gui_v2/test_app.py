@@ -86,3 +86,29 @@ def test_advanced_toggle_persists_through_gui_settings(qtbot):
     window.advanced_check.setChecked(True)
 
     assert gui_settings().value("gui/advanced", False, type=bool) is True
+
+
+def test_pressing_run_executes_the_sessions_config(qtbot, tmp_path):
+    """The window's Run button really runs the experiment, end to end.
+
+    The shell owns one ``RunController`` and the run bar drives it; this is
+    the wiring that makes the Run button do anything at all, so it is checked
+    against the real engine rather than a stub.
+    """
+    window, session = _make_app(qtbot)
+    window.run_bar.show_dialogs = False
+    # The 80x80 preset takes seconds; 12x12 for 10 ms takes milliseconds.
+    session.config.grids[0].rows = 12
+    session.config.grids[0].cols = 12
+    window._new_project(str(tmp_path / "project"))
+    window.run_bar.duration_spin.setValue(10.0)
+
+    with qtbot.waitSignal(window.run_controller.finished, timeout=60000) as blocker:
+        window.run_bar.run_button.click()
+
+    result = blocker.args[0]
+    assert session.last_results is result
+    assert set(result.results) == {p.name for p in session.config.populations}
+    assert result.bundle_dir is not None
+    assert result.bundle_dir.parent == session.project.runs_dir
+    assert window.run_bar.bundle_label.text() == str(result.bundle_dir)
