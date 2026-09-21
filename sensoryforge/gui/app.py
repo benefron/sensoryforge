@@ -18,6 +18,7 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+import yaml
 import torch
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -239,11 +240,12 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         """
         try:
             config = SensoryForgeConfig.from_yaml_file(Path(path))
-        except (ValueError, OSError) as exc:
+        except _LOAD_ERRORS as exc:
             if self.show_dialogs:
                 QtWidgets.QMessageBox.critical(self, "Could not load config", str(exc))
             return
         self._session.replace_config(config)
+        self.pipeline_strip.mark_saved()
 
     def _on_open_config(self) -> None:
         path, _filter = QtWidgets.QFileDialog.getOpenFileName(
@@ -286,6 +288,7 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         project = ProjectHandle.open(Path(root))
         self._session.set_project(project)
         self._session.replace_config(project.load_config())
+        self.pipeline_strip.mark_saved()
         gui_settings().setValue(_LAST_PROJECT_KEY, str(project.root))
 
     def _on_open_project(self) -> None:
@@ -294,7 +297,7 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
             return
         try:
             self._open_project(path)
-        except ValueError as exc:
+        except _LOAD_ERRORS as exc:
             if self.show_dialogs:
                 QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
 
@@ -303,6 +306,7 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
     def _on_save_config(self) -> None:
         if self._session.project is not None:
             self._session.project.save_config(self._session.config)
+            self.pipeline_strip.mark_saved()
         else:
             self._on_save_config_as()
 
@@ -321,6 +325,7 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         else:
             project = ProjectHandle.create(root_path, self._session.config)
         self._session.set_project(project)
+        self.pipeline_strip.mark_saved()
         gui_settings().setValue(_LAST_PROJECT_KEY, str(project.root))
 
     def _on_save_config_as(self) -> None:
@@ -388,6 +393,11 @@ def _excepthook(exc_type: type, exc_value: BaseException, exc_tb: object) -> Non
     )
 
 
+#: What reading a config can raise: a bad file, bad YAML, or a config the
+#: schema rejects.
+_LOAD_ERRORS = (ValueError, OSError, TypeError, KeyError, yaml.YAMLError)
+
+
 def _initial_config() -> Tuple[SensoryForgeConfig, Optional[ProjectHandle]]:
     """The config (and project, if any) to start the window with.
 
@@ -399,8 +409,9 @@ def _initial_config() -> Tuple[SensoryForgeConfig, Optional[ProjectHandle]]:
         try:
             project = ProjectHandle.open(last_project)
             return project.load_config(), project
-        except ValueError:
-            pass
+        except _LOAD_ERRORS as exc:
+            # A broken last project must not stop the app from starting.
+            print(f"Could not reopen {last_project}: {exc}", file=sys.stderr)
     return SensoryForgeConfig.from_yaml_file(DEFAULT_PRESET), None
 
 

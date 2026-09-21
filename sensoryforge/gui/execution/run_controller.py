@@ -251,7 +251,7 @@ class RunController(QtCore.QObject):
                 the stimulus cannot be rendered (no grid, unknown type) --
                 nothing is started in any of these cases.
         """
-        if self.running:
+        if self.running or getattr(self._session, "run_in_progress", False):
             raise RuntimeError(
                 "a run is already in progress; cancel it before starting another"
             )
@@ -306,6 +306,9 @@ class RunController(QtCore.QObject):
 
         self._worker = worker
         self._thread = thread
+        # One run at a time per session, whichever controller starts it: two
+        # runs would both reseed the global RNGs and race for last_results.
+        self._session.run_in_progress = True
         thread.start()
         self.started.emit()
 
@@ -344,8 +347,11 @@ class RunController(QtCore.QObject):
         )
         self._teardown_thread()
         # set_results is called here, on the GUI thread, never in the worker:
-        # it emits resultsChanged, which every view is connected to.
-        self._session.set_results(result)
+        # it emits resultsChanged, which every view is connected to. A quick
+        # run (one population, 100 ms) is a bench test: it is shown where it
+        # was asked for and does not replace the full run's results.
+        if not self._quick:
+            self._session.set_results(result)
         self.finished.emit(result)
 
     def _on_worker_failed(self, message: str) -> None:
@@ -370,6 +376,7 @@ class RunController(QtCore.QObject):
         self._worker = None
         if thread is None:
             return
+        self._session.run_in_progress = False
         thread.quit()
         thread.wait()
         if worker is not None:

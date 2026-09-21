@@ -169,7 +169,9 @@ def test_write_slurm_script_is_an_array_job_over_the_combinations(tmp_path):
     assert "conda activate sensoryforge" in text
     assert 'COMBO=$(printf "combo_%03d" "$SLURM_ARRAY_TASK_ID")' in text
     assert '"$SWEEP_ROOT/$COMBO/config.yml"' in text
-    assert "--duration 50.0" in text
+    # Each combination's config carries its duration; a flag would override
+    # a duration sweep (every job ran the base duration).
+    assert "--duration" not in text
     assert '--bundle "$SWEEP_ROOT/$COMBO/bundle"' in text
 
 
@@ -186,8 +188,8 @@ def test_sweep_command_uses_this_interpreter_and_the_module_entry_point(tmp_path
     # or environment (F-053).
     assert argv[:4] == [sys.executable, "-m", "sensoryforge.cli", "run"]
     assert argv[4] == str(manifest.config_path(0))
-    assert argv[5:7] == ["--duration", "5.0"]
-    assert argv[7:9] == ["--bundle", str(manifest.bundle_path(0))]
+    assert "--duration" not in argv
+    assert argv[5:7] == ["--bundle", str(manifest.bundle_path(0))]
 
 
 def _can_run_subprocess() -> bool:
@@ -263,3 +265,47 @@ def test_a_combination_that_cannot_start_still_finishes_the_sweep(
     assert blocker.args[0] == 2, "both combinations must be counted as failed"
     assert len(failures) == 2
     assert not controller.running
+
+
+@pytest.mark.slow
+def test_a_duration_sweep_runs_each_duration(qtbot, tmp_path):
+    """Swept durations reach the jobs (the --duration flag used to override them)."""
+    if not _can_run_subprocess():
+        pytest.skip("child interpreter cannot import sensoryforge")
+    import subprocess
+
+    from sensoryforge.io.bundle import load_bundle
+
+    spec = SweepSpec(fields=[("simulation.duration_ms", [12.0, 20.0])])
+    manifest = write_sweep(_config(), spec, root=tmp_path / "sweep", duration_ms=5.0)
+    frames = []
+    for index in range(2):
+        completed = subprocess.run(
+            sweep_command(manifest, index, 5.0),
+            capture_output=True,
+            text=True,
+            env=_child_env(),
+            timeout=120,
+        )
+        assert completed.returncode == 0, completed.stderr
+        frames.append(load_bundle(manifest.bundle_path(index)).stimulus.shape[0])
+    assert frames == [12, 20]
+
+
+def test_run_owned_and_shadowed_fields_are_not_offered_for_sweeps():
+    config = _config()
+    config.populations[0].innervation_params = {"sigma_d_mm": 0.4}
+    paths = [p for p, _ in sweep_paths(config)]
+    assert "populations.0.sigma_d_mm" not in paths
+    assert not any(p.endswith("model_params.dt") for p in paths)
+    assert not any(p.endswith("model_params.noise_std") for p in paths)
+
+
+def _child_env() -> dict:
+    import os
+
+    import sensoryforge
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(Path(sensoryforge.__file__).resolve().parent.parent)
+    return env

@@ -760,13 +760,19 @@ def render_for_config(
 
     canvas: Optional["StimulusCanvas"] = None
     if config.grids:
-        # The stimulus names its grid in `target_layer`; without one, or with a
-        # name that matches no grid, it is rendered on the first grid.
+        # The stimulus names its grid in `target_layer`; without one it is
+        # rendered on the first grid. A name that matches no grid is an error:
+        # drawing it on some other grid would silently change the experiment.
         target = getattr(config.stimulus, "target_layer", None)
-        grid_cfg = next(
-            (g for g in config.grids if target and g.name == target),
-            config.grids[0],
-        )
+        if target:
+            grid_cfg = next((g for g in config.grids if g.name == target), None)
+            if grid_cfg is None:
+                raise ValueError(
+                    f"stimulus target_layer {target!r} is not a grid in this "
+                    f"configuration; it has {[g.name for g in config.grids]}"
+                )
+        else:
+            grid_cfg = config.grids[0]
         canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
         xx, yy = canvas.xx, canvas.yy
     else:

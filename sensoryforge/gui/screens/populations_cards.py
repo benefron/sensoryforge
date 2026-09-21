@@ -91,6 +91,12 @@ def _set_combo(
     combo.setCurrentIndex(index if index >= 0 else -1)
 
 
+#: Neuron parameters the engine always sets itself (``build_neuron``): the
+#: integration step is ``simulation.integrate_dt_ms`` and the noise is the
+#: population's ``noise_std``. A form row for them would be ignored.
+RUN_OWNED_NEURON_PARAMS = frozenset({"dt", "noise_std"})
+
+
 class _Card(QtWidgets.QGroupBox):
     """Shared plumbing: track the selected population, rebuild on structural change."""
 
@@ -102,6 +108,11 @@ class _Card(QtWidgets.QGroupBox):
         self._population_name: Optional[str] = None
         self._outer = QtWidgets.QVBoxLayout(self)
         self._content: Optional[QtWidgets.QWidget] = None
+        self._advanced = False
+        # True while this card writes one of its own fields; the card already
+        # shows the value, and rebuilding would delete the widget being typed
+        # into (typing "125" kept only the "1").
+        self._writing = False
         session.configChanged.connect(self._on_config_changed)
         session.configReplaced.connect(self._on_config_replaced)
 
@@ -128,6 +139,23 @@ class _Card(QtWidgets.QGroupBox):
             self._content.deleteLater()
         self._content = widget
         self._outer.addWidget(widget)
+        for form in widget.findChildren(ParamForm):
+            form.set_advanced(self._advanced)
+
+    def set_advanced(self, on: bool) -> None:
+        """Show or hide advanced parameter rows (the toolbar's Advanced)."""
+        self._advanced = bool(on)
+        if self._content is not None:
+            for form in self._content.findChildren(ParamForm):
+                form.set_advanced(self._advanced)
+
+    def _write(self, path: str, value) -> None:
+        """Write one of this card's own fields without rebuilding the card."""
+        self._writing = True
+        try:
+            self._session.set_by_path(path, value)
+        finally:
+            self._writing = False
 
     def _on_config_replaced(self) -> None:
         self._rebuild()
@@ -136,6 +164,8 @@ class _Card(QtWidgets.QGroupBox):
     _SHOWS_GRIDS = False
 
     def _on_config_changed(self, path: str) -> None:
+        if self._writing:
+            return
         if self._SHOWS_GRIDS and (path == "grids" or path.startswith("grids.")):
             self._rebuild()
             return
@@ -202,6 +232,13 @@ class FilterCard(_Card):
     def _on_method(self, index: int, text: str) -> None:
         if not text:
             return
+        pop_cfg = self._session.config.populations[index]
+        if text == pop_cfg.filter_method:
+            return
+        # The old filter's parameters mean nothing to the new one (SA tau_r
+        # given to RA is a build error, and the RA form cannot show it).
+        if pop_cfg.filter_params:
+            self._session.set_by_path(f"populations.{index}.filter_params", {})
         self._session.set_by_path(f"populations.{index}.filter_method", text)
 
 
@@ -254,7 +291,11 @@ class NeuronCard(_Card):
             )
             layout.addWidget(edit_btn)
         else:
-            specs = specs_for(NEURON_REGISTRY, current)
+            specs = [
+                spec
+                for spec in specs_for(NEURON_REGISTRY, current)
+                if spec.name not in RUN_OWNED_NEURON_PARAMS
+            ]
             resolved = resolve_neuron_params(current, pop_cfg.neuron_type, {})
             specs = _specs_with_defaults(specs, resolved)
             form = ParamForm(
@@ -270,6 +311,13 @@ class NeuronCard(_Card):
     def _on_model(self, index: int, text: str) -> None:
         if not text:
             return
+        pop_cfg = self._session.config.populations[index]
+        if text == pop_cfg.neuron_model:
+            return
+        # Same-named parameters differ between models (Izhikevich a = 0.02 is
+        # not AdEx a = 2.0 nS), so the old model's values are not carried over.
+        if pop_cfg.model_params:
+            self._session.set_by_path(f"populations.{index}.model_params", {})
         self._session.set_by_path(f"populations.{index}.neuron_model", text)
 
 
@@ -282,7 +330,16 @@ class ReadoutCard(_Card):
         super().__init__("Readout & noise", session, parent)
 
     def _is_structural(self, rel_path: str) -> bool:
-        return True  # a small, cheap card -- always rebuild on its own edits
+        # Its own fields, changed from elsewhere (a sweep preview, a reload);
+        # its own edits go through _write and do not rebuild.
+        return rel_path.split(".")[0] in (
+            "input_gain",
+            "noise_std",
+            "noise_seed",
+            "readout",
+            "neuron_model",
+            "dsl_config",
+        )
 
     def _rebuild(self) -> None:
         pop_cfg = self._pop_cfg()
@@ -332,15 +389,15 @@ class ReadoutCard(_Card):
         self._set_content(content)
 
     def _on_float(self, path: str, value: float) -> None:
-        self._session.set_by_path(path, value)
+        self._write(path, value)
 
     def _on_optional_int(self, path: str, value: int) -> None:
-        self._session.set_by_path(path, None if value < 0 else value)
+        self._write(path, None if value < 0 else value)
 
     def _on_text(self, path: str, text: str) -> None:
         if not text:
             return
-        self._session.set_by_path(path, text)
+        self._write(path, text)
 
 
 class NeuronLayoutCard(_Card):
@@ -352,7 +409,15 @@ class NeuronLayoutCard(_Card):
         super().__init__("Neuron layout", session, parent)
 
     def _is_structural(self, rel_path: str) -> bool:
-        return True
+        return rel_path.split(".")[0] in (
+            "neurons_per_row",
+            "neuron_rows",
+            "neuron_cols",
+            "neuron_arrangement",
+            "seed",
+            "innervation_method",
+            "inputs",
+        )
 
     def _rebuild(self) -> None:
         pop_cfg = self._pop_cfg()
@@ -442,15 +507,15 @@ class NeuronLayoutCard(_Card):
         self._set_content(content)
 
     def _on_int(self, path: str, value: int) -> None:
-        self._session.set_by_path(path, value)
+        self._write(path, value)
 
     def _on_optional_int(self, path: str, value: int) -> None:
-        self._session.set_by_path(path, None if value < 0 else value)
+        self._write(path, None if value < 0 else value)
 
     def _on_text(self, path: str, text: str) -> None:
         if not text:
             return
-        self._session.set_by_path(path, text)
+        self._write(path, text)
 
 
 class InputsCard(_Card):
@@ -628,7 +693,8 @@ class InputsCard(_Card):
         self._session.set_by_path(path, text)
 
     def _on_float(self, path: str, value: float) -> None:
-        self._session.set_by_path(path, value)
+        # An input's gain: no rebuild, so typing is not interrupted.
+        self._write(path, value)
 
     def _on_add_input(self, index: int) -> None:
         pop_cfg = self._session.config.populations[index]
