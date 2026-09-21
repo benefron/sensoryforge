@@ -19,6 +19,7 @@ Example:
 from __future__ import annotations
 
 import warnings
+import dataclasses
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -598,19 +599,70 @@ class StimulusConfig:
     # into one multi-channel tensor; planes with no stimulus are zero.
     channel: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        # Which fields the user set, as opposed to fields merely holding the
+        # schema default. This dataclass carries one default for every field
+        # of every stimulus type, so "is it at the default?" cannot say
+        # whether a value was chosen: a Gaussian with sigma 2.0 on purpose and
+        # a moving edge whose start was never mentioned look the same. The
+        # renderer forwards only explicit fields (the rest take the stimulus
+        # type's own defaults), so the distinction has to be recorded.
+        defaults = type(self).__dataclass_fields__
+        explicit = set()
+        for name, spec in defaults.items():
+            default = (
+                spec.default_factory()
+                if spec.default_factory is not dataclasses.MISSING
+                else spec.default
+            )
+            if getattr(self, name) != default:
+                explicit.add(name)
+        object.__setattr__(self, "_explicit", explicit)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        explicit = self.__dict__.get("_explicit")
+        if explicit is not None and name in type(self).__dataclass_fields__:
+            explicit.add(name)
+
+    def explicit_fields(self) -> set:
+        """Names of the fields that were set rather than left at their default.
+
+        A field counts as set when it was given in the dict passed to
+        :meth:`from_dict` (so a value written in YAML counts even if it equals
+        the default), assigned after construction (as the GUI does), or passed
+        to the constructor with a non-default value. A constructor keyword
+        equal to the default cannot be told from an omitted one; assign it
+        after construction, or use :meth:`from_dict`, to mark it.
+        """
+        # `name` and `type` identify the stimulus; they are always written.
+        return set(self._explicit) - {"name", "type"}
+
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict for YAML serialization."""
-        result = asdict(self)
-        return {k: v for k, v in result.items() if v is not None}
+        """Convert to plain dict for YAML serialization.
+
+        Writes ``name``, ``type`` and the explicitly set fields only, so the
+        block says what was chosen and a YAML round trip preserves
+        :meth:`explicit_fields`. Use :meth:`to_full_dict` for every field.
+        """
+        full = self.to_full_dict()
+        keep = {"name", "type"} | self._explicit
+        return {k: v for k, v in full.items() if k in keep}
+
+    def to_full_dict(self) -> Dict[str, Any]:
+        """Every field with its current value (``None`` values omitted)."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> StimulusConfig:
-        """Create from dict (e.g., from YAML)."""
+        """Create from dict (e.g., from YAML); every key given counts as set."""
         kwargs = {}
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
-        return cls(**kwargs)
+        instance = cls(**kwargs)
+        instance._explicit.update(kwargs)
+        return instance
 
 
 def validate_dt_ms(dt_ms: float, integrate_dt_ms: float) -> None:

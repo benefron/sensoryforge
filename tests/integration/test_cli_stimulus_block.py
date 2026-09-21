@@ -177,7 +177,7 @@ def test_stimulus_block_frames_differ_from_default_trapezoid(tmp_path):
 
 
 def test_default_stimulus_block_still_falls_back_to_trapezoid(tmp_path):
-    """No `stimulus:` block at all -> the untouched schema default -> trapezoid."""
+    """No `stimulus:` block at all -> the default trapezoid, with a notice."""
     from sensoryforge.io.bundle import load_bundle
 
     config_path = _write_config(tmp_path, _canonical_config(with_stimulus_block=False))
@@ -185,7 +185,7 @@ def test_default_stimulus_block_still_falls_back_to_trapezoid(tmp_path):
 
     result = _run_cli(config_path, "--bundle", str(bundle_dir))
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "schema default" in result.stdout
+    assert "no 'stimulus:' block" in result.stdout
 
     bundle = load_bundle(bundle_dir)
     default_frames = _default_trapezoid_frames()

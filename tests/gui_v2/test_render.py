@@ -29,6 +29,9 @@ def _small_config() -> SensoryForgeConfig:
 
 def test_rendered_tensor_equals_render_stimulus_on_the_canvas():
     config = _small_config()
+    # Set, so they are forwarded; unset fields take the type's own defaults.
+    config.stimulus.amplitude = 12.0
+    config.stimulus.sigma = 0.8
     canvas = stimulus_canvas(config.grids[0], device="cpu")
     expected, expected_time = render_stimulus(
         "gaussian",
@@ -57,13 +60,13 @@ def test_dt_ms_defaults_to_the_config_and_can_be_overridden():
     )
 
 
-def test_untouched_schema_fields_are_dropped_without_a_warning():
-    # `StimulusConfig.to_dict()` hands the gaussian constructor a dozen fields
-    # it knows nothing about. Every one of them is still at its default here,
-    # so discarding them is housekeeping and must stay silent.
+def test_untouched_schema_fields_never_reach_the_constructor():
+    # Only fields the user set are forwarded (Task 0.6 review): a field still
+    # at its schema default takes the stimulus type's own default instead, so
+    # there is nothing to drop and nothing to warn about.
     rendered = render_for_config(_small_config(), duration_ms=10.0)
 
-    assert rendered.dropped, "expected the schema's extra fields to be dropped"
+    assert rendered.dropped == []
     assert rendered.warning is None
 
 

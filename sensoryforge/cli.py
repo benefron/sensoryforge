@@ -27,7 +27,6 @@ from sensoryforge.stimuli.render import (
     render_stimulus,
     render_for_config,
     dropped_params_warning,
-    is_default_stimulus_config,
 )
 from sensoryforge.registry import (
     NEURON_REGISTRY,
@@ -296,11 +295,10 @@ def cmd_run(args: argparse.Namespace) -> int:
                     "(see docs/user_guide/cli.md)."
                 )
                 use_legacy_default = True
-            elif is_default_stimulus_config(sf_config):
+            elif "stimulus" not in config:
                 print(
-                    "Note: the canonical 'stimulus:' block is the schema "
-                    f"default (untouched); running the default trapezoidal "
-                    f"stimulus instead (type={stimulus_type!r})."
+                    "Note: this config has no 'stimulus:' block; running the "
+                    f"default trapezoidal stimulus (type={stimulus_type!r})."
                 )
                 use_legacy_default = True
 
@@ -622,10 +620,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
                         "  Stimulus source: legacy top-level 'stimuli:' list "
                         f"(type={legacy_type!r}); the 'stimulus:' block is ignored"
                     )
-                elif is_default_stimulus_config(sf_config):
+                elif "stimulus" not in config:
                     print(
                         "  Stimulus source: default trapezoidal stimulus "
-                        "('stimulus:' block is the untouched schema default)"
+                        "(the config has no 'stimulus:' block)"
                     )
                 else:
                     print(

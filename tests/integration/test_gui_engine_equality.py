@@ -176,32 +176,6 @@ def test_hex_arrangement_really_is_irregular():
 # ------------------------------------------------- (a) == (c), across processes
 
 
-def _cli_stimuli_block(config: SensoryForgeConfig) -> list:
-    """The top-level ``stimuli:`` list ``sensoryforge run`` actually reads.
-
-    ``SensoryForgeConfig.to_dict()`` writes the schema's ``stimulus:`` mapping,
-    but ``cli.py::cmd_run`` looks for a top-level ``stimuli:`` *list* and falls
-    back to a default trapezoidal stimulus when there is none -- see
-    ``test_cli_run_ignores_the_schemas_stimulus_block`` below, which pins that
-    divergence down. Until the CLI reads ``stimulus:``, a YAML exported for the
-    CLI has to carry both.
-
-    Args:
-        config: The experiment being exported.
-
-    Returns:
-        A one-entry ``stimuli`` list with the type and the parameters the
-        stimulus class actually takes.
-    """
-    return [
-        {
-            "type": config.stimulus.type,
-            "amplitude": config.stimulus.amplitude,
-            "sigma": config.stimulus.sigma,
-        }
-    ]
-
-
 def _subprocess_env() -> dict:
     """The parent environment with this checkout pinned on ``PYTHONPATH``."""
     env = dict(os.environ)
@@ -222,7 +196,6 @@ def test_run_controller_bundle_matches_the_cli_bundle(qtbot, tmp_path):
     assert result.bundle_dir is not None
 
     payload = config.to_dict()
-    payload["stimuli"] = _cli_stimuli_block(config)
     config_path = tmp_path / "cli_config.yml"
     import yaml
 
@@ -264,18 +237,12 @@ def test_run_controller_bundle_matches_the_cli_bundle(qtbot, tmp_path):
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Open finding: `sensoryforge run` reads a top-level `stimuli:` list, "
-        "which SensoryForgeConfig neither writes nor parses, so a canonical "
-        "YAML's own `stimulus:` block is ignored and the CLI silently renders "
-        "its default trapezoidal stimulus instead. Delete this xfail (and "
-        "_cli_stimuli_block above) when the CLI reads `stimulus:`."
-    ),
-)
-def test_cli_run_ignores_the_schemas_stimulus_block(qtbot, tmp_path):
-    """Exporting a config verbatim should be enough for the CLI. It is not."""
+def test_a_verbatim_yaml_export_runs_the_same_on_the_cli(qtbot, tmp_path):
+    """Exporting a config verbatim is enough for the CLI (Task 0.6).
+
+    This was a strict xfail while `sensoryforge run` ignored the `stimulus:`
+    block and rendered a default trapezoid instead.
+    """
     config = _config()
 
     result = _run_controller(qtbot, config, project_root=tmp_path / "project")

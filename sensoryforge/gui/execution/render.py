@@ -15,7 +15,6 @@ Shapes and units follow the rest of SensoryForge: the returned stimulus is
 from __future__ import annotations
 
 import dataclasses
-import re
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
@@ -23,8 +22,10 @@ import numpy as np
 import torch
 
 from sensoryforge.config.schema import SensoryForgeConfig, StimulusConfig
-from sensoryforge.stimuli.canvas import StimulusCanvas, stimulus_canvas
-from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.stimuli.canvas import StimulusCanvas
+from sensoryforge.stimuli.render import (
+    render_for_config as _shared_render_for_config,
+)
 
 #: Keys of ``StimulusConfig.to_dict()`` that are never stimulus constructor
 #: parameters: they name the stimulus rather than shape it.
@@ -147,15 +148,9 @@ def _render_frames(
 ) -> Tuple[torch.Tensor, torch.Tensor, StimulusCanvas, List[Tuple[str, Any]]]:
     """Render ``config``'s stimulus; the one place rendering happens here.
 
-    THE ONE PLACE STIMULUS RENDERING IS ISOLATED. This body is a copy of
-    ``sensoryforge/gui/circuit/run.py::render_graph_stimulus`` (which the
-    Circuit tab and ``sensoryforge/cli.py`` share the shape of). Task 0.6
-    moves that body into the shared helper
-    ``sensoryforge.stimuli.render.render_for_config(config, *, duration_ms,
-    dt_ms) -> (stimulus, time_ms, canvas, dropped)``, whose return tuple is
-    deliberately the one below: when it lands, this function's body becomes
-    the single line ``return render_for_config(config, duration_ms=duration_ms,
-    dt_ms=dt_ms)`` and nothing else in the GUI changes.
+    Delegates to ``sensoryforge.stimuli.render.render_for_config``, the one
+    renderer the CLI, the batch executor and the GUI share (Task 0.6), so a
+    config runs the same stimulus wherever it is run.
 
     Args:
         config: The experiment whose ``stimulus`` is rendered.
@@ -172,43 +167,11 @@ def _render_frames(
         ValueError: If the config has no grid to render on, or the stimulus
             type is unknown (raised by ``render_stimulus``).
     """
-    grid_cfg = _grid_for_stimulus(config)
-    device = config.simulation.device
-    canvas = stimulus_canvas(grid_cfg, device=device)
-
-    stim = config.stimulus
-    # `StimulusConfig.to_dict()` carries every field the schema has
-    # (administrative ones such as motion/composition_mode/channel included);
-    # a given registered stimulus class's constructor accepts only its own
-    # subset. Retry dropping whichever keyword the constructor just rejected,
-    # the same way render.py's own envelope-key retry works, rather than
-    # hard-coding a per-type field list.
-    stimulus_params = {
-        key: value
-        for key, value in stim.to_dict().items()
-        if key not in _NON_PARAM_KEYS
-    }
-    dropped: List[Tuple[str, Any]] = []
-    while True:
-        try:
-            frames, time_ms = render_stimulus(
-                stim.type,
-                stimulus_params,
-                canvas.xx,
-                canvas.yy,
-                dt_ms=dt_ms,
-                duration_ms=duration_ms,
-                device=device,
-            )
-            break
-        except TypeError as exc:
-            match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
-            if match is None or match.group(1) not in stimulus_params:
-                raise
-            key = match.group(1)
-            dropped.append((key, stimulus_params.pop(key)))
-
-    return frames.unsqueeze(0), time_ms, canvas, dropped
+    # Raises ValueError for a config with no grid, which the shared helper
+    # would instead render on a synthetic canvas; a GUI config with no grid
+    # cannot run and needs a real canvas for its preview.
+    _grid_for_stimulus(config)
+    return _shared_render_for_config(config, duration_ms=duration_ms, dt_ms=dt_ms)
 
 
 def render_for_config(

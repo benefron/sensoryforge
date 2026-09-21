@@ -668,7 +668,13 @@ def render_for_config(
 
     canvas: Optional["StimulusCanvas"] = None
     if config.grids:
-        grid_cfg = config.grids[0]
+        # The stimulus names its grid in `target_layer`; without one, or with a
+        # name that matches no grid, it is rendered on the first grid.
+        target = getattr(config.stimulus, "target_layer", None)
+        grid_cfg = next(
+            (g for g in config.grids if target and g.name == target),
+            config.grids[0],
+        )
         canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
         xx, yy = canvas.xx, canvas.yy
     else:
@@ -679,20 +685,16 @@ def render_for_config(
         )
 
     stim = config.stimulus
-    # Forward only the fields the user set. StimulusConfig carries a default
-    # for every field of every stimulus type (start and end both [0, 0], a
-    # 800 ms plateau, ...), and forwarding those made them override the chosen
-    # type's own defaults: `stimulus: {type: moving_edge}` rendered an edge
-    # with start == end, a "moving" edge that never moved, with no error. A
-    # field still at the schema default now takes the stimulus type's default.
-    # The cost: explicitly writing a value equal to the schema default (say
-    # `start: [0, 0]`) is indistinguishable from omitting it.
-    schema_defaults = type(stim)().to_dict()
-    stimulus_params = {
-        k: v
-        for k, v in stim.to_dict().items()
-        if k not in ("name", "type") and v != schema_defaults.get(k)
-    }
+    # Forward only the fields the user set (StimulusConfig.explicit_fields()).
+    # StimulusConfig carries a default for every field of every stimulus type
+    # (start and end both [0, 0], an 800 ms plateau, ...); forwarding those
+    # made them override the chosen type's own defaults, so
+    # `stimulus: {type: moving_edge}` rendered an edge with start == end that
+    # never moved, with no error. Explicitness is recorded, not inferred from
+    # the value, so a field deliberately set to the schema default still counts.
+    explicit = stim.explicit_fields() - {"name", "type"}
+    full = stim.to_full_dict()
+    stimulus_params = {k: full[k] for k in explicit if k in full}
     dropped: List[Tuple[str, Any]] = []
     while True:
         try:

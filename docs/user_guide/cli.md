@@ -232,9 +232,10 @@ simulation:
 
 The `stimulus:` block above is what `sensoryforge run` actually renders (Task 0.6, F-061) — the
 same renderer the Circuit tab's GUI runs use, so a config run from the CLI and the same config run
-from the GUI produce byte-identical stimulus frames. An untouched `stimulus:` block (the schema
-default `SensoryForgeConfig().stimulus`, i.e. the config never set one) falls back instead to the
-legacy default trapezoidal (ramp/plateau/ramp) stimulus. The top-level `stimuli:` list shown under
+from the GUI produce byte-identical stimulus frames. Only the fields you write in the block are
+passed to the stimulus; a field you leave out takes that stimulus type's own default, so
+`stimulus: {type: moving_edge}` is a complete, moving edge. A config with no `stimulus:` block at
+all falls back to the legacy default trapezoidal (ramp/plateau/ramp) stimulus, with a notice. The top-level `stimuli:` list shown under
 "Legacy Format" below is **legacy**: if present and non-empty on a canonical config it still wins
 over `stimulus:` (with a deprecation notice printed to the console) for backward compatibility, but
 new configs should set `stimulus:` instead. `sensoryforge validate` prints which of the three
