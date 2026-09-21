@@ -35,7 +35,7 @@ import functools
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
 from sensoryforge.gui.session import Session
 from sensoryforge.gui.widgets.collapsible import CollapsibleGroupBox
@@ -131,8 +131,11 @@ def _make_widget(spec: ParamSpec, value: Any) -> Tuple[QtWidgets.QWidget, str]:
         return spin, "valueChanged"
 
     if spec.dtype == "float":
-        dspin = QtWidgets.QDoubleSpinBox()
-        dspin.setDecimals(4)
+        if _needs_scientific(spec, resolved):
+            dspin = ScientificSpinBox()
+        else:
+            dspin = QtWidgets.QDoubleSpinBox()
+            dspin.setDecimals(4)
         min_val = float(spec.min_val) if spec.min_val is not None else -1.0e9
         max_val = float(spec.max_val) if spec.max_val is not None else 1.0e9
         dspin.setRange(min_val, max_val)
@@ -142,7 +145,11 @@ def _make_widget(spec: ParamSpec, value: Any) -> Tuple[QtWidgets.QWidget, str]:
             step = (max_val - min_val) / 100.0
         else:
             step = 0.1
-        dspin.setSingleStep(step)
+        if isinstance(dspin, ScientificSpinBox) and spec.step is None:
+            # A range of many decades has no useful fixed step.
+            dspin.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
+        else:
+            dspin.setSingleStep(step)
         if spec.unit:
             dspin.setSuffix(f" {spec.unit}")
         dspin.setValue(float(resolved) if resolved is not None else 0.0)
@@ -152,6 +159,59 @@ def _make_widget(spec: ParamSpec, value: Any) -> Tuple[QtWidgets.QWidget, str]:
     line = QtWidgets.QLineEdit()
     line.setText("" if resolved is None else str(resolved))
     return line, "editingFinished"
+
+
+class ScientificSpinBox(QtWidgets.QDoubleSpinBox):
+    """A float box that shows and keeps very small values (``2.5e-11``).
+
+    ``QDoubleSpinBox`` rounds its value to its decimals, so with four decimals
+    a membrane capacitance of ``1e-13`` F is displayed as ``0.0000`` and the
+    first edit writes zero into the config. This box keeps 30 decimals
+    internally and formats with ``%g``.
+    """
+
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setDecimals(30)
+
+    def textFromValue(self, value: float) -> str:  # noqa: N802 (Qt name)
+        return f"{value:.6g}"
+
+    def valueFromText(self, text: str) -> float:  # noqa: N802 (Qt name)
+        body = text
+        if self.suffix() and body.endswith(self.suffix()):
+            body = body[: -len(self.suffix())]
+        try:
+            return float(body.strip())
+        except ValueError:
+            return self.value()
+
+    def validate(self, text: str, pos: int):  # noqa: D102
+        body = text
+        if self.suffix() and body.endswith(self.suffix()):
+            body = body[: -len(self.suffix())]
+        body = body.strip()
+        try:
+            float(body)
+        except ValueError:
+            partial = body == "" or body[-1] in "eE+-." or body in "+-"
+            state = (
+                QtGui.QValidator.Intermediate if partial else QtGui.QValidator.Invalid
+            )
+            return state, text, pos
+        return QtGui.QValidator.Acceptable, text, pos
+
+
+def _needs_scientific(spec: ParamSpec, value: Any) -> bool:
+    """Whether four decimals would show ``spec``'s values as zero."""
+    for candidate in (value, spec.default, spec.min_val, spec.max_val):
+        try:
+            number = abs(float(candidate))
+        except (TypeError, ValueError):
+            continue
+        if 0.0 < number < 1.0e-3:
+            return True
+    return False
 
 
 def _read_widget(spec: ParamSpec, widget: QtWidgets.QWidget) -> Any:
