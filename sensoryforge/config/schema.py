@@ -599,7 +599,26 @@ class StimulusConfig:
     # into one multi-channel tensor; planes with no stimulus are zero.
     channel: Optional[str] = None
 
+    # Parameters of the stimulus type that have no field above (a Braille
+    # stimulus's `v_mms`, an edge grating's `spacing`, ...). Forwarded to the
+    # stimulus's constructor as keywords, after the named fields, so every
+    # parameter a stimulus declares in `get_param_spec()` can be stored in a
+    # config without this dataclass growing one field per parameter of every
+    # type. A key that names a field above is rejected: the field is where
+    # that value lives.
+    params: Dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self) -> None:
+        if not isinstance(self.params, dict):
+            raise ValueError(
+                f"stimulus.params must be a mapping, got {type(self.params).__name__}"
+            )
+        clash = sorted(set(self.params) & set(type(self).__dataclass_fields__))
+        if clash:
+            raise ValueError(
+                f"stimulus.params may not repeat a stimulus field: {clash}; "
+                "set it as `stimulus.<name>` instead"
+            )
         # Which fields the user set, as opposed to fields merely holding the
         # schema default. This dataclass carries one default for every field
         # of every stimulus type, so "is it at the default?" cannot say
@@ -636,7 +655,12 @@ class StimulusConfig:
         after construction, or use :meth:`from_dict`, to mark it.
         """
         # `name` and `type` identify the stimulus; they are always written.
-        return set(self._explicit) - {"name", "type"}
+        explicit = set(self._explicit) - {"name", "type", "params"}
+        # `params` is edited in place (a dict), which no __setattr__ sees, so
+        # it counts as set exactly when it holds something.
+        if self.params:
+            explicit.add("params")
+        return explicit
 
     def unset(self, name: str) -> None:
         """Remove ``name`` from :meth:`explicit_fields` and restore its schema default.
@@ -683,7 +707,7 @@ class StimulusConfig:
         :meth:`explicit_fields`. Use :meth:`to_full_dict` for every field.
         """
         full = self.to_full_dict()
-        keep = {"name", "type"} | self._explicit
+        keep = {"name", "type"} | self.explicit_fields()
         return {k: v for k, v in full.items() if k in keep}
 
     def to_full_dict(self) -> Dict[str, Any]:

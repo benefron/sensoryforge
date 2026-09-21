@@ -147,6 +147,34 @@ def _apply_legacy_defaults(
     return merged
 
 
+def effective_defaults(stimulus_type: str) -> Dict[str, Any]:
+    """The value each parameter of ``stimulus_type`` takes when it is not set.
+
+    This is the one answer to "what will run if I leave this alone?", and what
+    a form should show for an unset parameter. It is the type's declared
+    defaults (``get_param_spec()``) overlaid with the legacy-generator
+    defaults :func:`render_stimulus` fills in for the names both paths know --
+    so a Gaussian reports amplitude 30, which is what is rendered, not the
+    constructor's 1.0.
+
+    Args:
+        stimulus_type: A registered stimulus name (case-insensitive).
+
+    Returns:
+        ``{parameter name: default}``; nested legacy entries (``moving``'s
+        ``base_stimulus``) are included as they are.
+
+    Raises:
+        KeyError: If ``stimulus_type`` is not registered.
+    """
+    defaults: Dict[str, Any] = {
+        spec.name: spec.default
+        for spec in STIMULUS_REGISTRY.get_param_spec(stimulus_type)
+    }
+    defaults.update(_LEGACY_DEFAULTS.get(stimulus_type.lower(), {}))
+    return defaults
+
+
 # Names whose registered component takes a different parameter vocabulary
 # from the legacy generator it replaced, mapped to the keys that say the
 # caller is speaking the component's vocabulary rather than the legacy one.
@@ -692,9 +720,12 @@ def render_for_config(
     # `stimulus: {type: moving_edge}` rendered an edge with start == end that
     # never moved, with no error. Explicitness is recorded, not inferred from
     # the value, so a field deliberately set to the schema default still counts.
-    explicit = stim.explicit_fields() - {"name", "type"}
+    explicit = stim.explicit_fields() - {"name", "type", "params"}
     full = stim.to_full_dict()
-    stimulus_params = {k: full[k] for k in explicit if k in full}
+    # `stimulus.params` carries the type's parameters that have no named
+    # field; a named field, when set, is the authority for its own name.
+    stimulus_params = dict(getattr(stim, "params", None) or {})
+    stimulus_params.update({k: full[k] for k in explicit if k in full})
     dropped: List[Tuple[str, Any]] = []
     while True:
         try:
