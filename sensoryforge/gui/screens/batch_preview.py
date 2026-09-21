@@ -22,7 +22,7 @@ def _section_label(text: str) -> QtWidgets.QLabel:
 def _read_only_text() -> QtWidgets.QPlainTextEdit:
     widget = QtWidgets.QPlainTextEdit()
     widget.setReadOnly(True)
-    widget.setFont(QtGui.QFont("Monospace"))
+    widget.setFont(QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont))
     widget.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
     return widget
 

@@ -35,12 +35,21 @@ class SweepRunPanel(QtWidgets.QWidget):
         layout.addWidget(self.progress_bar)
 
         split = QtWidgets.QHBoxLayout()
+        jobs_column = QtWidgets.QVBoxLayout()
+        jobs_column.addWidget(QtWidgets.QLabel("Jobs"))
         self.job_list = QtWidgets.QListWidget()
-        split.addWidget(self.job_list, 1)
+        jobs_column.addWidget(self.job_list, 1)
+        split.addLayout(jobs_column, 1)
+        log_column = QtWidgets.QVBoxLayout()
+        log_column.addWidget(QtWidgets.QLabel("Log"))
         self.log_view = QtWidgets.QPlainTextEdit()
         self.log_view.setReadOnly(True)
-        self.log_view.setFont(QtGui.QFont("Monospace"))
-        split.addWidget(self.log_view, 2)
+        # A family that exists everywhere; "Monospace" does not on macOS and
+        # costs a font-alias scan at start-up.
+        mono = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
+        self.log_view.setFont(mono)
+        log_column.addWidget(self.log_view, 1)
+        split.addLayout(log_column, 2)
         layout.addLayout(split, 1)
 
     # --------------------------------------------------------------- driving
