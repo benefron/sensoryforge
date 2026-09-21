@@ -88,6 +88,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-084 · CLOSED · finding · - · 2026-09-21
+render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
+→ commit 6956f81
+
+## F-085 · OPEN · finding · - · 2026-09-21
+with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
+→ commit 32646fb
+
 ## D-032 · CLOSED · decision · - · 2026-09-21
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
 → commit 301af19
@@ -160,7 +168,7 @@ poisson and hex receptor arrangements crashed every config-driven path (CLI, Bat
 stimuli are rendered on a regular canvas of the array's extent (sensoryforge/stimuli/canvas.py) for every arrangement and sampled at receptor coordinates by SimulationEngine; the "grid" canvas is bit-identical to ReceptorGrid.get_coordinates()
 → commit 04ab68a
 
-## F-076 · OPEN · finding · gui · 2026-09-17
+## F-076 · CLOSED · finding · gui · 2026-09-17
 the GUI Spiking Neurons tab renders stimuli with its own third renderer (spiking_tab.py:2027) and samples receptors with an unconditional flat reshape (spiking_tab.py:2596), so for any arrangement other than a resolution-matched regular grid its neuron drive differs from what SimulationEngine.run() computes for the same config; tests/unit/test_gui_rf_banks.py:164 encodes the same flat reshape as its expected value
 → commit a3b1607
 
@@ -208,7 +216,7 @@ F-065 Wave O specified saving Circuit node positions to a sibling <config>.layou
 StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
 → commit fcf0c4a
 
-## F-063 · OPEN · finding · - · 2026-09-16
+## F-063 · CLOSED · finding · - · 2026-09-16
 F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field previews with its own small widgets rather than reusing the Mechanoreceptor and Stimulus Designer plot widgets, because those share one plot item driving mouse-based population placement inside two 3,500-line tabs and could not be extracted safely in Wave P; the two drawing paths can now drift apart without any test noticing
 → commit 2f399c9
 
@@ -328,7 +336,7 @@ flake8 style debt after black (all default checks, 88 columns): 364 violations, 
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
 → commit 7da39f9
 
-## F-035 · OPEN · finding · - · 2026-09-14
+## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
 → commit fb1441b
 
