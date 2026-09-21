@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Tuple
 
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.gui.execution.sweep_controller import (
     SweepController,
     SweepManifest,
@@ -186,7 +187,7 @@ class BatchScreen(QtWidgets.QWidget):
         self.duration_spin.setRange(1.0, 600000.0)
         self.duration_spin.setDecimals(1)
         self.duration_spin.setValue(
-            self._session.config.simulation.duration_ms or 1000.0
+            resolve_duration_ms(self._session.config.simulation.duration_ms)
         )
         self.duration_spin.valueChanged.connect(self._update_summary)
         options.addRow("Duration (ms):", self.duration_spin)

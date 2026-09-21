@@ -22,6 +22,7 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.stimuli.canvas import stimulus_canvas
 from sensoryforge.stimuli.render import (
     render_stimulus,
@@ -246,6 +247,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             stimulus_cfg = config["stimuli"][0]
             stimulus_type = stimulus_cfg.get("type", "trapezoidal")
             stimulus_params = {k: v for k, v in stimulus_cfg.items() if k != "type"}
+        # The flag wins; else the config's own simulation.duration_ms; else
+        # 1000 ms (config.defaults.resolve_duration_ms, shared with the GUI).
+        args.duration = resolve_duration_ms(
+            (config.get("simulation") or {}).get("duration_ms"), args.duration
+        )
         if args.duration:
             # F-040: --duration now reaches every stimulus type, including
             # trapezoidal (it scales the plateau so the total length equals
@@ -876,8 +882,11 @@ def create_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--duration",
         type=float,
-        default=1000.0,
-        help="Simulation duration in milliseconds (default: 1000)",
+        default=None,
+        help=(
+            "Simulation duration in milliseconds (default: the config's "
+            "simulation.duration_ms, else 1000)"
+        ),
     )
     run_parser.add_argument(
         "--output", help="Output file path (PyTorch checkpoint .pt or .pth)"

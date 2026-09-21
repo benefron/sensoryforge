@@ -26,6 +26,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, sip
 
+from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.gui import theme
 from sensoryforge.gui.execution.render import RenderedStimulus, render_for_config
@@ -212,7 +213,7 @@ class StimulusPreview(QtWidgets.QWidget):
         """
         self._debounce.stop()
         config = copy.deepcopy(self._session.config)
-        run_duration = float(config.simulation.duration_ms or PREVIEW_CAP_MS)
+        run_duration = resolve_duration_ms(config.simulation.duration_ms)
         duration = min(run_duration, PREVIEW_CAP_MS)
         capped = run_duration > PREVIEW_CAP_MS
         self._capped_notice.setText(

@@ -16,6 +16,7 @@ from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.gui.session import Session
 
 #: Placement of a "no seed" spinbox value, since ``QSpinBox`` has no notion
@@ -59,7 +60,13 @@ class RunBar(QtWidgets.QWidget):
         self.duration_spin = QtWidgets.QDoubleSpinBox()
         self.duration_spin.setRange(1.0, 600000.0)
         self.duration_spin.setDecimals(1)
-        self.duration_spin.setValue(session.config.simulation.duration_ms or 1000.0)
+        self.duration_spin.setValue(
+            resolve_duration_ms(session.config.simulation.duration_ms)
+        )
+        # The duration is part of the experiment: written into the config, so
+        # a saved project, an exported YAML and `sensoryforge run` on it all
+        # run the length shown here.
+        self.duration_spin.editingFinished.connect(self._on_duration_edited)
         layout.addWidget(self.duration_spin)
 
         layout.addWidget(QtWidgets.QLabel("dt (ms)"))
@@ -97,6 +104,8 @@ class RunBar(QtWidgets.QWidget):
         layout.addWidget(self.bundle_label)
 
         session.deviceChanged.connect(self._on_session_device_changed)
+        session.configChanged.connect(self._on_config_changed)
+        session.configReplaced.connect(self._refresh_from_config)
 
     # -------------------------------------------------------------- controller
 
@@ -118,6 +127,23 @@ class RunBar(QtWidgets.QWidget):
 
     # --------------------------------------------------------------- bindings
 
+    def _refresh_from_config(self) -> None:
+        """Show the run settings of the config now in the session."""
+        simulation = self._session.config.simulation
+        for spin, value in (
+            (self.duration_spin, resolve_duration_ms(simulation.duration_ms)),
+            (self.dt_spin, simulation.dt_ms),
+            (self.seed_spin, self._seed_value()),
+        ):
+            if spin.value() != value:
+                spin.blockSignals(True)
+                spin.setValue(value)
+                spin.blockSignals(False)
+
+    def _on_config_changed(self, path: str) -> None:
+        if path in ("", "simulation") or path.startswith("simulation."):
+            self._refresh_from_config()
+
     def _seed_value(self) -> int:
         seed = self._session.config.simulation.seed
         return NO_SEED_VALUE if seed is None else int(seed)
@@ -131,6 +157,11 @@ class RunBar(QtWidgets.QWidget):
             self.device_combo.blockSignals(True)
             self.device_combo.setCurrentText(device)
             self.device_combo.blockSignals(False)
+
+    def _on_duration_edited(self) -> None:
+        value = self.duration_spin.value()
+        if self._session.config.simulation.duration_ms != value:
+            self._session.set_by_path("simulation.duration_ms", value)
 
     def _on_dt_edited(self) -> None:
         self._session.set_by_path("simulation.dt_ms", self.dt_spin.value())
