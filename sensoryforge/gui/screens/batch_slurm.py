@@ -3,8 +3,7 @@
 Fields mirror the old ``gui/tabs/batch_tab.py::_SlurmSettingsDialog`` (job
 name, partition, walltime, memory, CPUs, GPUs, conda env) so a returning user
 finds the same knobs; values persist across sessions through
-:func:`sensoryforge.gui.settings.gui_settings` (never a direct
-``QSettings(...)``, F-072/CLAUDE.md).
+:func:`sensoryforge.gui.settings.gui_settings` (never a Qt settings object built directly, F-072).
 """
 
 from __future__ import annotations
