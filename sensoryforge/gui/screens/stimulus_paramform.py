@@ -83,6 +83,9 @@ from sensoryforge.stimuli.render import effective_defaults
 #: to a function.
 LEGACY_STIMULUS_TYPES: Tuple[str, ...] = ("trapezoidal", "step", "ramp", "custom")
 
+#: Stimulus parameters the run owns, never shown in the stimulus form.
+RUN_OWNED_PARAMS = frozenset({"dt_ms"})
+
 #: Every ``StimulusConfig`` field name, computed once.
 _CONFIG_FIELDS = {f.name for f in dataclasses.fields(StimulusConfig)}
 
@@ -211,7 +214,14 @@ def specs_for_stimulus_type(stimulus_type: str) -> List[ParamSpec]:
     """
     if not STIMULUS_REGISTRY.is_registered(stimulus_type):
         return []
-    return STIMULUS_REGISTRY.get_class(stimulus_type).get_param_spec()
+    # A stimulus's own dt_ms always follows the run's step (the renderer sets
+    # it; any other value would play the stimulus at the wrong speed), so it
+    # is set on the run bar, not here.
+    return [
+        spec
+        for spec in STIMULUS_REGISTRY.get_class(stimulus_type).get_param_spec()
+        if spec.name not in RUN_OWNED_PARAMS
+    ]
 
 
 class StimulusParamForm(QtWidgets.QWidget):

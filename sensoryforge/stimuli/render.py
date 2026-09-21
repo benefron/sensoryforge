@@ -443,6 +443,7 @@ def _render_registered(
     cls = STIMULUS_REGISTRY.get_class(stimulus_type)
     params = _apply_legacy_defaults(stimulus_type, params)
     params = _scale_trajectory_to_duration(params, dt_ms, duration_ms)
+    params = _clock_to_render_step(cls, params, dt_ms, duration_ms)
 
     # The temporal-envelope keys (ramp_up_ms/plateau_ms/ramp_down_ms/
     # total_ms) are render_stimulus's own vocabulary for expanding a
@@ -547,11 +548,74 @@ def _is_stepped(instance: Any) -> bool:
     instance as stepped only when it has both a ``step`` and a trajectory
     to step along, so a static stimulus is not needlessly re-rendered.
     """
-    return (
-        callable(getattr(instance, "step", None))
-        and getattr(instance, "trajectory", None) is not None
-        and len(getattr(instance, "trajectory")) > 1
-    )
+    if not callable(getattr(instance, "step", None)):
+        return False
+    return _step_count(instance) > 1
+
+
+def _step_count(instance: Any) -> int:
+    """How many steps a stepped stimulus has: its trajectory, or its timeline.
+
+    ``moving`` advances along a ``trajectory``; ``timeline`` advances a clock
+    over ``num_steps`` (it used to be treated as a single frame, so every
+    frame of a timeline showed its first sub-stimulus).
+    """
+    trajectory = getattr(instance, "trajectory", None)
+    if trajectory is not None:
+        return len(trajectory)
+    return int(getattr(instance, "num_steps", 0) or 0)
+
+
+def _clock_to_render_step(
+    cls: type, params: Dict[str, Any], dt_ms: float, duration_ms: Optional[float]
+) -> Dict[str, Any]:
+    """Make a stimulus that keeps its own clock run on the render's step.
+
+    Several stimuli generate their sequence on their own ``dt_ms`` (the
+    tactile ones default to 1 ms, ``timeline`` to 0.5 ms). The frames are
+    then laid on the render's time axis one per step, so a stimulus clock
+    that differs from the render step plays the stimulus at the wrong speed:
+    measured, a moving edge at t = 100 ms sat at a third of the distance with
+    a 0.5 ms run step that it reaches with a 1 ms one. The render step is the
+    only consistent choice, so it is passed in; a ``dt_ms`` set to anything
+    else is an error rather than a silent speed change.
+
+    A ``timeline`` also takes its length from the render when none is given,
+    so its sub-stimuli's onsets are measured against the run.
+
+    Args:
+        cls: The stimulus class.
+        params: Constructor parameters (not mutated).
+        dt_ms: The render's time step in ms.
+        duration_ms: The render's duration in ms, or ``None``.
+
+    Returns:
+        ``params`` with ``dt_ms`` (and, for a timeline, ``total_time_ms``) set.
+
+    Raises:
+        ValueError: If ``params`` sets a ``dt_ms`` other than the render step.
+    """
+    import inspect
+
+    accepted = inspect.signature(cls.__init__).parameters
+    if "dt_ms" not in accepted:
+        return params
+    given = params.get("dt_ms")
+    if given is not None and abs(float(given) - float(dt_ms)) > 1e-9:
+        raise ValueError(
+            f"stimulus dt_ms={given} differs from the run's dt_ms={dt_ms}; the "
+            "stimulus would play at the wrong speed. Leave the stimulus's dt_ms "
+            "unset (it follows the run) or set the run's dt_ms instead."
+        )
+    clocked = dict(params)
+    clocked["dt_ms"] = float(dt_ms)
+    if (
+        "total_time_ms" in accepted
+        and "total_time_ms" not in clocked
+        and duration_ms is not None
+    ):
+        clocked["total_time_ms"] = float(duration_ms)
+    return clocked
 
 
 def _render_stepped(
@@ -574,7 +638,7 @@ def _render_stepped(
     The instance is reset before and after, so rendering twice gives the
     same answer and leaves no state behind for the next caller.
     """
-    n_traj = len(instance.trajectory)
+    n_traj = _step_count(instance)
     if duration_ms is not None:
         time_ms = _duration_axis(dt_ms, duration_ms, device)
         n_frames = time_ms.numel()
