@@ -7,9 +7,9 @@ paths:
   - "sensoryforge/config/default_config.yml"
   - "sensoryforge/config/schema.py"
   - "sensoryforge/neurons/izhikevich.py"
-  - "sensoryforge/gui/default_params.json"
-  - "sensoryforge/gui/tabs/spiking_tab.py"
-  - "sensoryforge/gui/neuron_explorer.py"
+  - "sensoryforge/gui/validation.py"
+  - "sensoryforge/gui/execution/*.py"
+  - "sensoryforge/gui/screens/populations_cards.py"
 ---
 
 # Engine parity — read before editing these files
@@ -32,7 +32,8 @@ canonical adapter in `core/generalized_pipeline.py`, `TactileEncodingPipelineTor
 hard-coded copy. `resolve_neuron_params` always starts from a preset (the explicit `preset`
 override, else `NEURON_PRESET_BY_TYPE` for the neuron type) and applies `a`/`b`/`c`/`d` overrides
 on top -- never drop the other three when only one is overridden (F-031).
-`gui/default_params.json`'s copy is drift-tested in `tests/unit/test_config_defaults.py`.
+The GUI v2 forms display these resolved values without copying them; `tests/gui_v2`
+re-runs a config with every displayed value written explicitly and requires identical output.
 
 ## State as of 2026-09-14, after Wave A + A8 (see `docs_root/LEDGER.md`)
 

@@ -130,14 +130,19 @@ plt.show()
 For interactive exploration, launch the graphical interface:
 
 ```bash
-python -m sensoryforge.gui.main
+python sensoryforge/gui/main.py
 ```
 
-The GUI provides:
-- **Mechanoreceptor Tab**: Configure grid and neuron populations
-- **Stimulus Tab**: Design stimulus patterns interactively  
-- **Spiking Tab**: Visualize population responses in real-time
-- **Protocol Suite Tab**: Run stimulus batteries for data generation
+The GUI has five screens, one per stage of the experiment:
+
+- **Sensors**: receptor arrays, with a live preview of the receptors
+- **Stimulus**: the stimulus and its parameters, with a live preview
+- **Populations**: receptive fields, filter, neuron model and readout, with bench
+  tests of each (receptive-field footprint, filter step response, neuron trace)
+- **Run & Results**: run, then raster, rates, traces and maps; open any bundle
+- **Batch**: parameter sweeps, run locally or exported as a SLURM array
+
+See the [GUI walkthrough](../user_guide/gui_walkthrough.md).
 
 ## Using the CLI
 

@@ -98,7 +98,7 @@ None)` instead of `(v_trace, spikes)`. `SimulationEngine._run_pop_from_drive` th
 result `"state"` instead of `"spikes"` (bin-end samples, same reduction as `"voltages"`), and
 `_build_populations` builds a DSL population from `PopulationConfig.dsl_config`;
 `PopulationConfig.readout` (`"auto"`/`"spiking"`/`"analog"`) can force the interpretation, raising
-when incompatible with the `dsl_config`. The Spiking tab plots the state trace (labelled with the
+when incompatible with the `dsl_config`. The GUI's Results screen plots the state trace (labelled with the
 state variable's name) in place of the spike raster for such a population. Spiking populations
 (models with a threshold) are unaffected. See `docs/user_guide/analog_readouts.md`.
 
@@ -117,7 +117,7 @@ There are two pipeline classes. **`SimulationEngine` is the canonical path** for
 
 **Routing in the CLI and Batch executor:** canonical configs (has `grids` list + `populations` list, no `pipeline` key) are automatically routed through `SimulationEngine`. Legacy configs use `GeneralizedTactileEncodingPipeline`.
 
-**GUI tabs** call `SimulationEngine._run_pop_from_drive()` (a shared static backend method) directly, after computing innervation-weighted drive locally.
+**The GUI** runs through `SimulationEngine.run()` itself (`gui/execution/run_controller.py`), never a private path.
 
 ### Configuration: Canonical vs Legacy
 
@@ -187,60 +187,40 @@ def get_param_spec(cls):
 
 `ParamSpec` also carries `choices` (enum/dropdown values), `help` (longer-form text vs. `tooltip`), `group` (UI section label), and `advanced` (hidden unless Expert mode) — all added in G1.
 
-### GUI Structure
+### GUI Structure (GUI v2)
 
-The GUI (`sensoryforge/gui/main.py`) is a PyQt5 `QMainWindow` with **six tabs**:
+`python sensoryforge/gui/main.py` (a shim onto `sensoryforge.gui.app.main`) opens `SensoryForgeApp` (`gui/app.py`): a left **stage list** — Sensors · Stimulus · Populations · Run & Results · Batch — over a `QStackedWidget` of screens (`gui/screens/`, registered in `screens/__init__.py::SCREEN_FACTORIES`), a **pipeline strip** (`widgets/pipeline_strip.py`, one row per population, one chip per stage, status dot per chip), and a **run bar** (`widgets/run_bar.py`: device, duration, dt, seed, Run, Cancel). The node graph (Circuit tab) and the six old tabs were deleted in Phase 3 (2026-09-21).
 
-0. **CircuitTab** (`gui/tabs/circuit_tab.py`, Phase 3) — the node-graph editor and the entry point. Node classes in `gui/circuit/nodes.py` map one-to-one onto the config dataclasses; `gui/circuit/serialise.py` converts graph ↔ `SensoryForgeConfig` losslessly (round-trip tested over every example and preset) and keeps node positions advisorily in `<config>.layout.json`. The inspector (`gui/circuit/inspector.py`) renders parameters from `get_param_spec()`, so a plugin component gets a settings form with no GUI code. A new *node type* or custom preview is still an in-repo change: `NODE_CLASSES` and the preview dispatch are hard-coded tables.
-1. **MechanoreceptorTab** — spatial grid config, receptor population setup, receptive field visualisation
-2. **StimulusDesignerTab** — interactive stimulus creation with live preview
-3. **SpikingNeuronTab** — neuron model config, run simulation, view spike raster; uses `SimulationEngine._run_pop_from_drive()` as shared backend
-4. **VisualizationTab** — post-simulation analysis with dark theme pyqtgraph DockArea panels (drag/float/split)
-5. **BatchTab** — parameter sweep execution and SLURM script export
-
-The GUI reads/writes `SensoryForgeConfig`. Export to YAML → run via CLI for batch scaling.
-
-**Project management:** `ExperimentManager` (`core/experiment_manager.py`) owns a project directory (`stimuli/`, `results/`, `figures/`). `SensoryForgeWindow` holds one instance and pushes it to all tabs via `set_experiment_manager()`.
-
-**Expert mode:** Each tab has a `chk_expert_mode` `QCheckBox` pinned at the top of the control panel. When unchecked (Basic mode, default), advanced widgets are hidden via `w.setVisible(False)` on each widget in `self._expert_only_widgets` (MechanoreceptorTab) or `self._expert_only_widgets_spiking` (SpikingNeuronTab). State is persisted via `QSettings` keys `"gui/mechanoreceptor_tab/expert_mode"` and `"gui/spiking_tab/expert_mode"`.
-
-**Per-column neuron toggle (MechanoreceptorTab):** `chk_square_neurons` checkbox + `spin_neurons_per_col` spinbox in Population Settings. When checked (default), `neuron_cols` is forced equal to `neuron_rows`. When unchecked, `spin_neurons_per_col` becomes visible and `neuron_cols` is set independently. Mirrors the receptor grid's `chk_square_grid` pattern.
-
-**Populations hold banks (MechanoreceptorTab):** `NeuronPopulation.bank` is a `ReceptiveFieldBank` built by `instantiate()` (grid lattice; `grid_shape` set so `innervation_weights` reads as `[N, rows, cols]` for the heatmap) or `instantiate_flat()` (composite / flat coordinates; `grid_shape=None`), with the same builder parameters `SimulationEngine.builder_params()` uses (GUI-engine parity). The method combo offers `template` with a resolvable-distance spinbox; `lbl_population_info` shows the derived neuron count.
-
-**CSV Population Import/Export (MechanoreceptorTab):** `export_population_csv(pop, folder)` writes `neuron_positions.csv` (x,y mm), `innervation_weights.csv` (N×M), `bank.pt` and `manifest.json`; `import_population_csv(pop, folder)` builds the bank with the `imported` builder on the current grid's receptor coordinates (a receptor-count mismatch raises, no zero-fill), marks the population `innervation_method="imported"` with the path in `innervation_params`, and sets `csv_folder`, which prevents regeneration during `_generate_populations()`. The dialog handlers wrap these two methods.
-
-### Backend / Frontend Contract
-
-When the GUI runs a simulation:
-
-1. `SpikingNeuronTab._simulate_population()` computes the drive from stimulus frames with the population's `ReceptiveFieldBank` (frames flattened to `[1, T, H*W]`).
-2. The drive tensor `[1, T, N]` is passed to `SimulationEngine._run_pop_from_drive(drive, filter_module, neuron_model, ...)`.
-3. The static method applies filter → gain → noise → neuron and returns `{"spikes": ..., "drive": ..., "filtered": ..., "voltages": ...}`.
-4. The tab collects per-population results and emits `simulation_finished(sim_results, ...)`.
-5. `VisualizationTab.set_simulation_results(...)` receives the data.
-
-This ensures the GUI simulation path and the `SimulationEngine.run()` path produce identical outputs for the same filter + neuron + gain settings.
+- **One config.** `gui/session.py::Session` holds exactly one `SensoryForgeConfig`. Screens write with `session.set_by_path("populations.1.filter_params.tau_r", v)` and listen to `configChanged(path)` / `configReplaced()`. File > Save/Open config is plain `to_yaml`/`from_yaml_file` (which honours `plugins:`). A project (`gui/project.py`) is a folder with `config.yml` and `runs/<bundle>/`.
+- **Validation.** `Session.errors` is `gui/validation.py::validate(config)`, recomputed on every change, keyed by stage (`grids.<i>`, `stimulus`, `populations.<i>.rf|combine|filter|neuron|readout`, ...). It builds receptive fields, filters and neurons with the engine's own code (`core/simulation_engine.py::build_filter`/`build_neuron`, and `SimulationEngine` for receptive fields, cached). The strip colours the failing chip, the run bar disables Run and says why, and each screen shows its own problems (`widgets/problem_list.py`).
+- **Forms.** Every parameter form is `widgets/param_form.py::ParamForm`, generated from `get_param_spec()`. A form must show the value that runs: stimuli use `stimuli/render.py::effective_defaults`, neurons and filters the `config/defaults.py` resolvers, receptive-field inputs `SimulationEngine.builder_params()`; the tests re-run a config with every displayed value written explicitly and require identical output. Unset optional numbers show *auto*; values below 1e-3 use a scientific box.
+- **Runs.** `gui/execution/run_controller.py::RunController` (a QThread worker) renders with `stimuli/render.py::render_for_config` and calls `SimulationEngine.run()`. Sweeps (`execution/sweep_controller.py`) run each job as a `sensoryforge` subprocess. `tests/integration/test_gui_engine_equality.py` pins GUI == engine == CLI.
+- **Plots.** Built only by `widgets/plot_factory.py`; units go in the label text (never pyqtgraph `units=`, which SI-prefixes "1000 ms" as "1 kms"); pens are cosmetic; pyqtgraph signals connect only through `plot_factory.connect` (F-035). Build each plot once per screen lifetime. `widgets/figure_export.py` saves PNG/SVG.
+- **Advanced toggle.** One toolbar checkbox (`gui/advanced`, via `gui_settings()`); a screen that has advanced rows defines `set_advanced(on)`, which the shell calls.
+- **Receptive-field CSV folders.** `core/rf_builders/imported.py::write_csv_folder(bank, folder)` writes `neuron_positions.csv`, `innervation_weights.csv`, `bank.pt`, `manifest.json` (button on the Populations RF bench); the `imported` builder reads them back.
 
 ### Known Technical Debt
 
 **The living ledger (`docs_root/LEDGER.md`) is the current source of truth for open findings.**
 
-**Open as of 2026-09-17, and the hazards to know before changing things:**
+**Open as of 2026-09-21, and the hazards to know before changing things:**
 
 - **Never run `pip install -e .` from a git worktree** (F-053). The conda environment is shared, and an editable install rewrites one global pointer, silently repointing every other checkout; subprocess-launched code then imports the wrong tree while tests still pass.
 - **Compare against a golden fixture with `sensoryforge.testing.golden.assert_matches_golden`, not `torch.equal`** (F-071). Fixtures were generated on macOS arm64; Linux x86_64 reproduces their structure exactly but rounds values up to one float32 step differently. Comparisons between two results computed in the same process stay bit-exact.
 - **Peak memory from the watchdog is noise below about 2x** (F-056); never compare the figure across runs. Use `benchmarks/` for performance, whose CI guard is calibrated against a reference kernel (F-067) and catches only regressions of about 3x or more.
 - **GUI preferences go through `sensoryforge.gui.settings.gui_settings()`**, never a direct `QSettings(...)` (F-072); the test suite redirects it to a temporary directory, and a test forbids direct construction. CI runs on GitHub (Linux and macOS) and the docs deploy to https://benefron.github.io/sensoryforge/.
 - **Comparison with published afferent data is qualitative only** (F-070).
-- **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036); **GUI tests disable the cyclic garbage collector** because of a pyqtgraph segfault (F-035); **the Circuit validator misses a sum-combine with mismatched neuron counts** (F-062); **Circuit previews duplicate the other tabs' drawing code** (F-063).
+- **Stimulus types disagree on amplitude scale by about 30x at their defaults** (F-083): a default `gabor` or tactile stimulus drives few or no spikes at `input_gain` 50.
+- **`GridConfig.density` is never read** (F-081); every arrangement is sized by rows x cols x spacing.
+- **The test suite runs with the cyclic GC on and collects after every `gui` test** (conftest autouse fixture). Collecting a destroyed window's pyqtgraph cycles mid-test can destroy a live ViewBox; do not discard and rebuild pyqtgraph widgets at runtime.
+- **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036).
 
 The items below were open as of 2026-09-14 (ledger `F-0NN` IDs); see
 `docs/development/reviews/` for the historical audits they came from, and note several items that
 audit once listed here (DSL/CUDA support, `reset_states`) were already fixed — see ledger `R-001`,
 `D-011`.
 
-- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` and the SpikingNeuronTab spinbox is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
+- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` (shown on the GUI's Populations screen) is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
 **Resolved 2026-09-15, Phase 2 Wave I:** receptor grids take a `seed` and random arrangements are reproducible (F-050); `innervation_method` is honoured on ordinary grids and every population's receptive fields are a `ReceptiveFieldBank` built by a registered builder (F-051, D-020).
@@ -259,7 +239,7 @@ unchanged) and `StimulusConfig.channel` names which plane a stimulus drives; see
 
 **Resolved 2026-09-16 to 2026-09-17, Phases 2 to 4** (see the ledger for each record): stimuli dispatch through `STIMULUS_REGISTRY` via `sensoryforge/stimuli/render.py`, with legacy defaults preserved for names both paths know and stepped stimuli such as `moving` driven frame by frame (F-052, F-057); multi-input populations, `combine` sum/concat and a `PROCESSING_REGISTRY` with `onoff` (Wave M; the processing kind is contract-checked, F-058); the data bundle carries `neuron_modules/` and a tagged stimulus payload so pressure-simulation's viewer can run it (F-054, F-055); `sensoryforge run` reports analog populations (F-060); the Stimulus Designer reloads its own config (F-064); a lattice-size warning fires only for sizes the user set (F-069); the benchmark CI guard is calibrated against a reference kernel (F-067); and the reproducibility check is exact on the reference's platform, tolerant elsewhere (F-068).
 
-**Resolved 2026-09-16, Phase 2 Wave N:** a DSL model's `threshold`/`reset` are optional, giving an analog (non-spiking) readout (`(state_trace, None)`); the shared backend labels this `"state"` instead of `"spikes"`; `SimulationEngine` builds DSL populations from `dsl_config` (previously `TypeError`/`ValueError: Unknown neuron model`); the Spiking tab plots the state trace for such a population. See "Analog readouts" above and `docs/user_guide/analog_readouts.md`.
+**Resolved 2026-09-16, Phase 2 Wave N:** a DSL model's `threshold`/`reset` are optional, giving an analog (non-spiking) readout (`(state_trace, None)`); the shared backend labels this `"state"` instead of `"spikes"`; `SimulationEngine` builds DSL populations from `dsl_config` (previously `TypeError`/`ValueError: Unknown neuron model`); the GUI's Results screen plots the state trace for such a population. See "Analog readouts" above and `docs/user_guide/analog_readouts.md`.
 
 **Resolved 2026-09-14** (kept here briefly so agents don't re-propose them; see ledger for the full
 decision records): `SAFilterTorch` no longer rectifies by default (F-001); the canonical→legacy

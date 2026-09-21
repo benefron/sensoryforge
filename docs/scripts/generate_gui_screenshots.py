@@ -1,21 +1,19 @@
-"""Regenerate the Circuit tab screenshots used by ``docs/user_guide/gui_walkthrough.md``.
+"""Regenerate the GUI screenshots used by ``docs/user_guide/gui_walkthrough.md``.
 
-Runs the GUI fully offscreen (``QT_QPA_PLATFORM=offscreen``, set automatically if not
-already set) and grabs real pixmaps of the Circuit tab as it walks through the
-pressure-simulation recipe (``sensoryforge/presets/tactile_sa1_ra1.yml``): the tab
-right after loading the preset into the graph, the inspector showing a selected
-node's parameters, and the tab after a run has produced a bundle. These are not
-illustrations -- they are grabs of the real widget tree at each step, so a change to
-the Circuit tab's layout shows up here the next time this script runs, instead of
-the walkthrough silently going stale.
+Runs the GUI fully offscreen (``QT_QPA_PLATFORM=offscreen``, set automatically if
+not already set), loads the pressure-simulation recipe
+(``sensoryforge/presets/tactile_sa1_ra1.yml``), performs a short real run, and
+grabs the window on each of the five screens. These are grabs of the real
+widget tree, not illustrations, so a layout change shows up the next time this
+script runs instead of the walkthrough silently going stale.
 
 Usage:
     QT_QPA_PLATFORM=offscreen python docs/scripts/generate_gui_screenshots.py
     python docs/scripts/generate_gui_screenshots.py --output-dir /tmp/shots
 
-Writes PNGs to ``docs/assets/gui/`` by default. ``--output-dir`` sends them
-elsewhere, which is what the test does so that running the suite never
-rewrites the committed images.
+Writes ``gui_sensors.png``, ``gui_stimulus.png``, ``gui_populations.png``,
+``gui_results.png`` and ``gui_batch.png`` to ``docs/assets/gui/`` by default.
+``--output-dir`` sends them elsewhere.
 """
 
 from __future__ import annotations
@@ -30,93 +28,66 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSETS_DIR = REPO_ROOT / "docs" / "assets" / "gui"
+PRESET = REPO_ROOT / "sensoryforge" / "presets" / "tactile_sa1_ra1.yml"
 
-# F-053: running this file directly puts its own directory (docs/scripts) on
-# sys.path[0], not the repository root, so a plain `import sensoryforge`
-# would fall through to whatever the environment's editable install points
-# at -- which, with git worktrees in play, can be a different checkout
-# entirely (see tests/docs/test_docs_examples.py for the same fix applied
-# to docs/examples/*.py). Put this checkout's root first, explicitly.
+# F-053: running this file directly puts docs/scripts on sys.path[0], not the
+# repository root, so `import sensoryforge` could resolve to another checkout
+# through an editable install. Put this checkout first, explicitly.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+#: Window size of every screenshot, in pixels.
+WINDOW_SIZE = (1400, 900)
+#: Length of the run shown on the Run & Results screenshot, in ms.
+RUN_MS = 300.0
 
-def main(output_dir: Path = ASSETS_DIR) -> None:
-    from PyQt5 import QtWidgets
+
+def main(output_dir: Path = ASSETS_DIR) -> list:
+    """Write one PNG per screen; return their paths."""
+    # Preferences go to a throwaway folder so a screenshot never depends on,
+    # or changes, the user's own settings (F-072).
+    os.environ.setdefault("SENSORYFORGE_SETTINGS_DIR", tempfile.mkdtemp())
+
+    from PyQt5 import QtCore, QtTest, QtWidgets
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
 
     from sensoryforge.config.schema import SensoryForgeConfig
-    from sensoryforge.gui.circuit.serialise import config_to_graph
-    from sensoryforge.gui.tabs.circuit_tab import CircuitTab
+    from sensoryforge.gui import theme
+    from sensoryforge.gui.app import STAGE_ORDER, SensoryForgeApp
+    from sensoryforge.gui.session import Session
 
+    theme.apply(app)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    config = SensoryForgeConfig.from_yaml(
-        str(REPO_ROOT / "sensoryforge" / "presets" / "tactile_sa1_ra1.yml")
-    )
+    session = Session(SensoryForgeConfig.from_yaml_file(PRESET))
+    window = SensoryForgeApp(session)
+    window.resize(*WINDOW_SIZE)
+    window.show()
 
-    tab = CircuitTab()
-    tab.resize(1400, 900)
-    tab.show()
-    app.processEvents()
+    finished = []
+    window.run_controller.finished.connect(lambda *_: finished.append(True))
+    window.run_bar.duration_spin.setValue(RUN_MS)
+    window.run_bar.run_button.click()
+    deadline = QtCore.QDeadlineTimer(120_000)
+    while not finished and not deadline.hasExpired():
+        QtTest.QTest.qWait(100)
+    if not finished:
+        raise RuntimeError("the run did not finish within 120 s")
 
-    # 1. The graph right after loading the pressure-simulation preset.
-    config_to_graph(config, tab.flowchart)
-    app.processEvents()
-    _grab(tab, "circuit_loaded_preset.png", output_dir)
-
-    # 2. A node selected, showing the inspector (P1/P2: params from
-    #    get_param_spec() plus the reused Mechanoreceptor-tab-style preview).
-    grid_node = tab.nodes().get("Main Grid")
-    if grid_node is not None:
-        tab.select_node(grid_node)
-        app.processEvents()
-        _grab(tab, "circuit_inspector_sensor_array.png", output_dir)
-
-    filter_node = tab.nodes().get("SA Population__filter")
-    if filter_node is not None:
-        tab.select_node(filter_node)
-        app.processEvents()
-        _grab(tab, "circuit_inspector_filter.png", output_dir)
-
-    # 3. Exercise a run (point the Record node at a temp bundle dir) as part
-    #    of what this script proves still works -- but do not grab a fourth
-    #    screenshot for it: the Circuit canvas itself does not change when a
-    #    run finishes (results land on the Visualization tab, unchanged by
-    #    Wave R), so a "circuit_after_run.png" would be pixel-identical to
-    #    whichever node was last selected and would only mislead a reader
-    #    into looking for a difference that is not there.
-    record_node = tab.nodes().get("Record")
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        if record_node is not None:
-            record_node.from_config(
-                {
-                    "output_dir": tmp_dir,
-                    "simulation": config.simulation.to_dict(),
-                    "metadata": {},
-                }
-            )
-        tab.run_graph(duration_ms=20.0)
-
-    print(f"Wrote screenshots to {output_dir}")
+    written = []
+    for row, stage in enumerate(STAGE_ORDER):
+        window.stage_list.setCurrentRow(row)
+        QtTest.QTest.qWait(800)  # debounced previews render
+        path = output_dir / f"gui_{stage}.png"
+        window.grab().save(str(path))
+        written.append(path)
+    window.close()
+    return written
 
 
-def _grab(widget, filename: str, output_dir: Path) -> None:
-    pixmap = widget.grab()
-    out_path = Path(output_dir) / filename
-    ok = pixmap.save(str(out_path))
-    if not ok or pixmap.width() == 0 or pixmap.height() == 0:
-        raise RuntimeError(
-            f"Offscreen grab of the Circuit tab produced an unusable image for "
-            f"{filename} ({pixmap.width()}x{pixmap.height()}, saved={ok}). "
-            "Ship the walkthrough without screenshots rather than a placeholder."
-        )
-    print(f"  {out_path}  ({pixmap.width()}x{pixmap.height()})")
-
-
-def _parse_args(argv=None) -> argparse.Namespace:
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--output-dir",
@@ -124,8 +95,6 @@ def _parse_args(argv=None) -> argparse.Namespace:
         default=ASSETS_DIR,
         help="Where to write the PNGs (default: docs/assets/gui/).",
     )
-    return parser.parse_args(argv)
-
-
-if __name__ == "__main__":
-    main(_parse_args().output_dir)
+    for image in main(parser.parse_args().output_dir):
+        print(image, flush=True)
+    os._exit(0)  # skip Qt's interpreter-teardown crash (F-016)

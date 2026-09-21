@@ -45,4 +45,4 @@ Multi-population spatial substrates — model SA1/RA1/SA2 receptor mosaics in to
 - [Extended Stimuli](extended_stimuli.md) — Texture and moving stimuli
 - [YAML Configuration](yaml_configuration.md) — Declarative pipeline setup
 - [CLI Reference](cli.md) — Command-line interface
-- [GUI Workflow](gui_phase2_access.md) — Interactive design → batch execution
+- [GUI Walkthrough](gui_walkthrough.md) — Interactive design → batch execution
