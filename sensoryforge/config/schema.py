@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
+from sensoryforge.stimuli.base import ParamSpec
 
 
 @dataclass
@@ -147,6 +148,128 @@ class GridConfig:
             kwargs["center_y"] += data["offset"][1]
 
         return cls(**kwargs)
+
+
+def grid_config_param_specs() -> List[ParamSpec]:
+    """``ParamSpec``\\ s for :class:`GridConfig`'s user-editable numeric/enum fields.
+
+    ``GRID_REGISTRY.get_param_spec("grid")`` (and the other arrangement
+    names) describes the ``GridArrangement`` family of classes
+    (``grid_size``, ``spacing``, ...) -- the low-level arrangement builder,
+    not the ``GridConfig`` the GUI and CLI actually edit (``rows``, ``cols``,
+    ``density``, ``center_x``/``center_y``, ``seed``, ...). This function is
+    the ``GridConfig``-shaped equivalent, used by
+    :mod:`sensoryforge.gui.screens.sensors` to build its form with
+    :class:`~sensoryforge.gui.widgets.param_form.ParamForm`.
+
+    Only fields with a plain (non-``default_factory``) dataclass default are
+    covered -- ``name`` (required, no default), ``channels``, ``layers`` and
+    ``color`` (list defaults) and ``coords_file`` (a path, edited with a
+    Browse button) get their own hand-built rows in the screen instead.
+
+    Returns:
+        One ``ParamSpec`` per covered field, each with ``default`` exactly
+        equal to ``GridConfig``'s own dataclass default for that field (a
+        unit test pins this).
+    """
+    return [
+        ParamSpec(
+            "arrangement",
+            label="Arrangement",
+            dtype="str",
+            default="grid",
+            choices=[
+                "grid",
+                "hex",
+                "poisson",
+                "jittered_grid",
+                "blue_noise",
+                "composite",
+            ],
+            tooltip="Spatial arrangement of this grid's receptors.",
+            group="Arrangement",
+        ),
+        ParamSpec(
+            "rows",
+            label="Rows",
+            dtype="int",
+            default=None,
+            min_val=1,
+            max_val=2000,
+            unit="",
+            tooltip="Receptor rows. Falls back to 40 when unset.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "cols",
+            label="Cols",
+            dtype="int",
+            default=None,
+            min_val=1,
+            max_val=2000,
+            unit="",
+            tooltip="Receptor columns. Falls back to 40 when unset.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "spacing",
+            label="Spacing",
+            dtype="float",
+            default=0.15,
+            min_val=0.001,
+            max_val=10.0,
+            unit="mm",
+            tooltip="Receptor pitch in mm.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "density",
+            label="Density",
+            dtype="float",
+            default=None,
+            min_val=0.0,
+            max_val=10000.0,
+            unit="mm⁻²",
+            tooltip="Target receptor density for poisson/hex/blue_noise.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "center_x",
+            label="Center X",
+            dtype="float",
+            default=0.0,
+            min_val=-1000.0,
+            max_val=1000.0,
+            unit="mm",
+            tooltip="X coordinate of the grid's center.",
+            group="Position",
+            advanced=True,
+        ),
+        ParamSpec(
+            "center_y",
+            label="Center Y",
+            dtype="float",
+            default=0.0,
+            min_val=-1000.0,
+            max_val=1000.0,
+            unit="mm",
+            tooltip="Y coordinate of the grid's center.",
+            group="Position",
+            advanced=True,
+        ),
+        ParamSpec(
+            "seed",
+            label="Seed",
+            dtype="int",
+            default=None,
+            min_val=0,
+            max_val=2**31 - 1,
+            unit="",
+            tooltip="Seeds the random jitter of jittered_grid/blue_noise/poisson (F-050).",
+            group="Reproducibility",
+            advanced=True,
+        ),
+    ]
 
 
 @dataclass
