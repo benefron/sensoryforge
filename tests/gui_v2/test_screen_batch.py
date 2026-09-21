@@ -374,3 +374,28 @@ def test_session_config_equal_before_and_after_the_whole_flow(qtbot, tmp_path):
 
     after = screen._session.config.to_yaml()
     assert after == before
+
+
+def test_slurm_export_covers_the_sweep_shown_not_an_earlier_one(qtbot, tmp_path):
+    """Editing the table after a write must not leave the script on the old sweep."""
+    screen = _screen(qtbot)
+    screen.choose_directory = lambda *a: str(tmp_path)
+    row = screen.add_field("populations.0.input_gain")
+    screen._rows[row]["values_edit"].setText("10, 50")
+    assert screen.write_sweep() is not None
+
+    screen._rows[row]["values_edit"].setText("10, 50, 90")
+    assert screen.job_count() == 3
+    script = screen.export_slurm(
+        {
+            "job_name": "x",
+            "partition": "p",
+            "time": "01:00:00",
+            "mem_gb": 4,
+            "cpus_per_task": 1,
+            "gpus": 0,
+            "conda_env": "sensoryforge",
+        }
+    )
+    array_lines = [ln for ln in script.read_text().splitlines() if "--array" in ln]
+    assert array_lines == ["#SBATCH --array=0-2"]

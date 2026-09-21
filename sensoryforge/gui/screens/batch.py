@@ -98,6 +98,7 @@ class BatchScreen(QtWidgets.QWidget):
         self._session = session
         self._rows: List[Dict] = []
         self._last_manifest: Optional[SweepManifest] = None
+        self._last_manifest_key: Optional[str] = None
         #: Guard so tests can suppress modal dialogs (mirrors RunBar).
         self.show_dialogs = True
         #: Swapped out in tests instead of a real file-chooser dialog.
@@ -424,6 +425,15 @@ class BatchScreen(QtWidgets.QWidget):
             return None
         return _timestamped_root(Path(directory), name)
 
+    def _sweep_key(self, jobs: List[Dict]) -> str:
+        """What a written sweep was written from: jobs, config and duration.
+
+        A manifest on disk is reused (by the SLURM export) only while this is
+        unchanged; otherwise the script would cover a sweep the table no
+        longer shows.
+        """
+        return repr((jobs, self._session.config.to_yaml(), self.duration_spin.value()))
+
     def write_sweep(self) -> Optional[SweepManifest]:
         """Write the current sweep to disk, returning its manifest.
 
@@ -447,6 +457,7 @@ class BatchScreen(QtWidgets.QWidget):
             duration_ms=self.duration_spin.value(),
         )
         self._last_manifest = manifest
+        self._last_manifest_key = self._sweep_key(jobs)
         self.written_path_label.setText(f"Sweep written to {manifest.root}")
         self.run_panel.reset(manifest)
         return manifest
@@ -492,7 +503,14 @@ class BatchScreen(QtWidgets.QWidget):
             The written script path, or ``None`` if the sweep could not be
             written (see :meth:`write_sweep`).
         """
-        manifest = self._last_manifest or self.write_sweep()
+        jobs, error = self.jobs()
+        manifest = self._last_manifest
+        if (
+            manifest is None
+            or error is not None
+            or self._sweep_key(jobs) != self._last_manifest_key
+        ):
+            manifest = self.write_sweep()
         if manifest is None:
             return None
         settings = dict(settings)
