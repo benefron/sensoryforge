@@ -81,6 +81,158 @@ def _lattice_fields_set_by_user(pop_cfg: Any) -> List[str]:
     ]
 
 
+def _composite_from_coords(
+    layer_name: str, coords: torch.Tensor, *, device: torch.device
+) -> CompositeReceptorGrid:
+    """Wrap an ``[M, 2]`` coordinate tensor as a single-layer composite grid.
+
+    Bounds are the coordinates' own bounding box (padded by 0.5 mm on a
+    degenerate axis, so ``CompositeReceptorGrid``'s ``xlim[0] < xlim[1]``
+    invariant holds for a single point or a co-linear set).
+
+    Args:
+        layer_name: Name of the single layer to add.
+        coords: Receptor coordinates ``[M, 2]`` in mm.
+        device: Device to build the composite grid on.
+
+    Returns:
+        A ``CompositeReceptorGrid`` with one layer named ``layer_name``.
+    """
+    x_min = coords[:, 0].min().item()
+    x_max = coords[:, 0].max().item()
+    y_min = coords[:, 1].min().item()
+    y_max = coords[:, 1].max().item()
+    if x_min == x_max:
+        x_min, x_max = x_min - 0.5, x_max + 0.5
+    if y_min == y_max:
+        y_min, y_max = y_min - 0.5, y_max + 0.5
+    composite = CompositeReceptorGrid(
+        xlim=(x_min, x_max), ylim=(y_min, y_max), device=device
+    )
+    composite.add_layer_with_coords(layer_name, coords)
+    return composite
+
+
+def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
+    """Build one receptor grid from a :class:`~sensoryforge.config.schema.GridConfig`.
+
+    This is the exact construction ``SimulationEngine._build_grids()`` uses
+    per grid entry (coords_file, composite arrangement, or an ordinary
+    ``ReceptorGrid``), extracted so other callers (e.g. the GUI's
+    ``GridPreview``) build grids the same way the engine does, rather than
+    re-implementing arrangement logic.
+
+    Args:
+        grid_cfg: The grid configuration to build from.
+        device: Device string (e.g. ``"cpu"``) or ``torch.device`` to build
+            tensors on.
+
+    Returns:
+        A ``ReceptorGrid`` (ordinary arrangement) or ``CompositeReceptorGrid``
+        (``arrangement == "composite"``, or ``grid_cfg.coords_file`` set).
+        Composite grids carry a ``provenance`` dict describing their layers.
+
+    Example:
+        >>> from sensoryforge.config.schema import GridConfig
+        >>> grid = build_grid(GridConfig(name="skin", rows=20, cols=20))
+        >>> grid.get_all_coordinates().shape
+        torch.Size([400, 2])
+    """
+    device = torch.device(device) if isinstance(device, str) else device
+    grid_name = grid_cfg.name
+    arrangement = grid_cfg.arrangement
+
+    if grid_cfg.coords_file:
+        # L1: an explicit [M, 2] coordinate file builds a single-layer
+        # CompositeReceptorGrid from those exact positions, bypassing
+        # rows/cols/spacing entirely.
+        coords = load_receptor_coords_file(grid_cfg.coords_file, device=device)
+        composite = _composite_from_coords(grid_name, coords, device=device)
+        composite.provenance = {
+            "layers": [{"name": grid_name, "count": coords.shape[0]}],
+            "source": "coords_file",
+            "coords_file": grid_cfg.coords_file,
+        }
+        return composite
+
+    if arrangement == "composite":
+        # L4: layers come from grid_cfg.layers, in declaration order --
+        # that order is the receptor-index contract (get_all_coordinates()
+        # concatenates layers in insertion order), so it is recorded
+        # verbatim in provenance.
+        if not grid_cfg.layers:
+            raise ValueError(
+                f"Grid {grid_name!r}: arrangement='composite' requires "
+                "a non-empty 'layers' list"
+            )
+        rows = grid_cfg.rows or 40
+        cols = grid_cfg.cols or 40
+        total_x = (rows - 1) * grid_cfg.spacing
+        total_y = (cols - 1) * grid_cfg.spacing
+        xlim = (
+            grid_cfg.center_x - total_x / 2,
+            grid_cfg.center_x + total_x / 2,
+        )
+        ylim = (
+            grid_cfg.center_y - total_y / 2,
+            grid_cfg.center_y + total_y / 2,
+        )
+        composite = CompositeReceptorGrid(xlim=xlim, ylim=ylim, device=device)
+        layer_order: List[str] = []
+        for entry in grid_cfg.layers:
+            lname = entry.get("name")
+            if not lname:
+                raise ValueError(
+                    f"Grid {grid_name!r}: each composite layer entry "
+                    f"needs a non-empty 'name', got {entry!r}"
+                )
+            if "coordinates" in entry:
+                coords = torch.as_tensor(
+                    entry["coordinates"],
+                    dtype=torch.float32,
+                    device=device,
+                )
+                composite.add_layer_with_coords(lname, coords, color=entry.get("color"))
+            elif "coords_file" in entry:
+                coords = load_receptor_coords_file(entry["coords_file"], device=device)
+                composite.add_layer_with_coords(lname, coords, color=entry.get("color"))
+            elif "density" in entry:
+                composite.add_layer(
+                    name=lname,
+                    density=entry["density"],
+                    arrangement=entry.get("arrangement", "grid"),
+                    offset=tuple(entry.get("offset", (0.0, 0.0))),
+                    color=entry.get("color"),
+                    seed=entry.get("seed"),
+                )
+            else:
+                raise ValueError(
+                    f"Grid {grid_name!r} layer {lname!r}: needs one of "
+                    "'density', 'coordinates' or 'coords_file'"
+                )
+            layer_order.append(lname)
+        composite.provenance = {
+            "layers": [
+                {"name": n, "count": composite.get_layer_count(n)} for n in layer_order
+            ]
+        }
+        return composite
+
+    # Ordinary (non-composite) grid.
+    rows = grid_cfg.rows or 40
+    cols = grid_cfg.cols or 40
+    grid_size = (rows, cols)
+    return ReceptorGrid(
+        grid_size=grid_size,
+        spacing=grid_cfg.spacing,
+        arrangement=arrangement,
+        center=(grid_cfg.center_x, grid_cfg.center_y),
+        density=grid_cfg.density,
+        device=device,
+        seed=grid_cfg.seed,
+    )
+
+
 class SimulationEngine:
     """Unified simulation execution engine.
 
@@ -126,150 +278,22 @@ class SimulationEngine:
     def _build_grids(self) -> None:
         """Build receptor grids from config."""
         for grid_cfg in self.config.grids:
-            # Create grid based on arrangement
-            arrangement = grid_cfg.arrangement
             grid_name = grid_cfg.name
+            grid = build_grid(grid_cfg, device=self.device)
+            self.grids.append(grid)
+            self.grid_names[grid_name] = grid
 
-            if grid_cfg.coords_file:
-                # L1: an explicit [M, 2] coordinate file builds a
-                # single-layer CompositeReceptorGrid from those exact
-                # positions, bypassing rows/cols/spacing entirely.
-                coords = load_receptor_coords_file(
-                    grid_cfg.coords_file, device=self.device
-                )
-                composite = self._composite_from_coords(grid_name, coords)
-                composite.provenance = {
-                    "layers": [{"name": grid_name, "count": coords.shape[0]}],
-                    "source": "coords_file",
-                    "coords_file": grid_cfg.coords_file,
-                }
-                self.grids.append(composite)
-                self.grid_names[grid_name] = composite
-                continue
-
-            if arrangement == "composite":
-                # L4: layers come from grid_cfg.layers, in declaration
-                # order -- that order is the receptor-index contract
-                # (get_all_coordinates() concatenates layers in insertion
-                # order), so it is recorded verbatim in provenance.
-                if not grid_cfg.layers:
-                    raise ValueError(
-                        f"Grid {grid_name!r}: arrangement='composite' requires "
-                        "a non-empty 'layers' list"
-                    )
-                rows = grid_cfg.rows or 40
-                cols = grid_cfg.cols or 40
-                total_x = (rows - 1) * grid_cfg.spacing
-                total_y = (cols - 1) * grid_cfg.spacing
-                xlim = (
-                    grid_cfg.center_x - total_x / 2,
-                    grid_cfg.center_x + total_x / 2,
-                )
-                ylim = (
-                    grid_cfg.center_y - total_y / 2,
-                    grid_cfg.center_y + total_y / 2,
-                )
-                composite = CompositeReceptorGrid(
-                    xlim=xlim, ylim=ylim, device=self.device
-                )
-                layer_order: List[str] = []
-                for entry in grid_cfg.layers:
-                    lname = entry.get("name")
-                    if not lname:
-                        raise ValueError(
-                            f"Grid {grid_name!r}: each composite layer entry "
-                            f"needs a non-empty 'name', got {entry!r}"
-                        )
-                    if "coordinates" in entry:
-                        coords = torch.as_tensor(
-                            entry["coordinates"],
-                            dtype=torch.float32,
-                            device=self.device,
-                        )
-                        composite.add_layer_with_coords(
-                            lname, coords, color=entry.get("color")
-                        )
-                    elif "coords_file" in entry:
-                        coords = load_receptor_coords_file(
-                            entry["coords_file"], device=self.device
-                        )
-                        composite.add_layer_with_coords(
-                            lname, coords, color=entry.get("color")
-                        )
-                    elif "density" in entry:
-                        composite.add_layer(
-                            name=lname,
-                            density=entry["density"],
-                            arrangement=entry.get("arrangement", "grid"),
-                            offset=tuple(entry.get("offset", (0.0, 0.0))),
-                            color=entry.get("color"),
-                            seed=entry.get("seed"),
-                        )
-                    else:
-                        raise ValueError(
-                            f"Grid {grid_name!r} layer {lname!r}: needs one of "
-                            "'density', 'coordinates' or 'coords_file'"
-                        )
-                    layer_order.append(lname)
-                composite.provenance = {
-                    "layers": [
-                        {"name": n, "count": composite.get_layer_count(n)}
-                        for n in layer_order
-                    ]
-                }
-                self.grids.append(composite)
-                self.grid_names[grid_name] = composite
-            else:
-                # Single grid
-                # ReceptorGrid takes grid_size as tuple (rows, cols) or int
-                rows = grid_cfg.rows or 40
-                cols = grid_cfg.cols or 40
-                grid_size = (rows, cols)
-
-                # Create ReceptorGrid for coordinate access
-                grid = ReceptorGrid(
-                    grid_size=grid_size,
-                    spacing=grid_cfg.spacing,
-                    arrangement=arrangement,
-                    center=(grid_cfg.center_x, grid_cfg.center_y),
-                    density=grid_cfg.density,
-                    device=self.device,
-                    seed=grid_cfg.seed,
-                )
-                self.grids.append(grid)
-                self.grid_names[grid_name] = grid
-
+            if grid_cfg.arrangement != "composite" and not grid_cfg.coords_file:
                 # Regular GridManager: the receptor lattice the bank is built on
+                rows = grid_cfg.rows or 40
+                cols = grid_cfg.cols or 40
                 grid_manager = GridManager(
-                    grid_size=grid_size,
+                    grid_size=(rows, cols),
                     spacing=grid_cfg.spacing,
                     center=(grid_cfg.center_x, grid_cfg.center_y),
                     device=self.device,
                 )
                 self.grid_managers[grid_name] = grid_manager
-
-    def _composite_from_coords(
-        self, layer_name: str, coords: torch.Tensor
-    ) -> CompositeReceptorGrid:
-        """Wrap an ``[M, 2]`` coordinate tensor as a single-layer composite grid.
-
-        Bounds are the coordinates' own bounding box (padded by 0.5 mm on a
-        degenerate axis, so ``CompositeReceptorGrid``'s ``xlim[0] < xlim[1]``
-        invariant holds for a single point or a co-linear set).
-        """
-        x_min = coords[:, 0].min().item()
-        x_max = coords[:, 0].max().item()
-        y_min = coords[:, 1].min().item()
-        y_max = coords[:, 1].max().item()
-        if x_min == x_max:
-            x_min, x_max = x_min - 0.5, x_max + 0.5
-        if y_min == y_max:
-            y_min, y_max = y_min - 0.5, y_max + 0.5
-        composite = CompositeReceptorGrid(
-            xlim=(x_min, x_max), ylim=(y_min, y_max), device=self.device
-        )
-        composite.add_layer_with_coords(layer_name, coords)
-        return composite
 
     def _resolve_input_grid(self, pop_cfg: Any, pop_input: Any) -> Any:
         """Resolve a :class:`~sensoryforge.config.schema.PopulationInput`'s
