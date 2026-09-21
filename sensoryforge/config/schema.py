@@ -638,6 +638,43 @@ class StimulusConfig:
         # `name` and `type` identify the stimulus; they are always written.
         return set(self._explicit) - {"name", "type"}
 
+    def unset(self, name: str) -> None:
+        """Remove ``name`` from :meth:`explicit_fields` and restore its schema default.
+
+        Used by the GUI's "reset to default" affordance (Phase 2 Task 2.2):
+        editing a field marks it explicit (``__setattr__``); this is the one
+        way back. After this call, :func:`sensoryforge.stimuli.render.
+        render_for_config` forwards the stimulus type's own default for
+        ``name`` instead of this field's value, exactly as if it had never
+        been set.
+
+        Args:
+            name: A field of this dataclass (``"name"``/``"type"`` cannot be
+                unset -- they are always explicit).
+
+        Raises:
+            ValueError: If ``name`` is not a field of ``StimulusConfig``, or
+                is ``"name"``/``"type"``.
+        """
+        if name in ("name", "type"):
+            raise ValueError(
+                f"{name!r} cannot be unset; it always identifies the stimulus"
+            )
+        defaults = type(self).__dataclass_fields__
+        if name not in defaults:
+            raise ValueError(
+                f"{name!r} is not a field of StimulusConfig "
+                f"(known fields: {sorted(defaults)})"
+            )
+        spec = defaults[name]
+        default = (
+            spec.default_factory()
+            if spec.default_factory is not dataclasses.MISSING
+            else spec.default
+        )
+        object.__setattr__(self, name, default)
+        self._explicit.discard(name)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization.
 
