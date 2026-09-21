@@ -13,6 +13,9 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg  # type: ignore
 
+from sensoryforge.gui import theme
+from sensoryforge.gui.widgets import plot_factory
+
 # ---------------------------------------------------------------------------
 # Data container passed to every panel
 # ---------------------------------------------------------------------------
@@ -83,7 +86,17 @@ class VisData:
 
 
 def make_colormap(name: str = "viridis") -> pg.ColorMap:
-    """Return a named pyqtgraph colormap, falling back to a grey gradient."""
+    """Return a named pyqtgraph colormap, falling back to a grey gradient.
+
+    Thin alias kept for the panels below, which import this name directly;
+    the theme colormap (``sensoryforge.gui.theme.colormap``) is the single
+    source of truth for GUI v2 -- see plot_factory.py's module docstring.
+    ``name`` is accepted for backward compatibility but only
+    ``theme.COLORMAP_NAME`` ("viridis") is themed; other names fall back to
+    the same matplotlib lookup the old implementation used.
+    """
+    if name == theme.COLORMAP_NAME:
+        return theme.colormap()
     try:
         return pg.colormap.get(name, source="matplotlib")
     except Exception:
@@ -302,9 +315,18 @@ class VisualizationPanel(QtWidgets.QWidget):
         background: str = "#1c1c1c",
         **kwargs,
     ) -> pg.PlotWidget:
-        pw = pg.PlotWidget(background=background, **kwargs)
-        pw.showGrid(x=True, y=True, alpha=0.15)
-        return pw
+        """Build a plot widget through plot_factory (the one construction path).
+
+        Ported onto :func:`sensoryforge.gui.widgets.plot_factory.make_plot`;
+        ``background`` and any other pg.PlotWidget kwarg the old dark-theme
+        panels passed are accepted for signature compatibility but ignored --
+        plot_factory themes every plot the same (light) way. This panel's
+        dark header chrome is unaffected; only the plot itself changes,
+        which is the documented, acceptable effect of this port (phase1
+        contract section 5): the old Visualization tab is deleted in
+        Phase 3.
+        """
+        return plot_factory.make_plot()
 
     @staticmethod
     def _colormap_lut(cmap_name: str = "viridis", n: int = 256) -> np.ndarray:
