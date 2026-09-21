@@ -88,6 +88,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-022 · CLOSED · decision · - · 2026-09-17
+GUI v2 uses one light theme (sensoryforge/gui/theme.py): app #F4F5F7, panels #FFFFFF, accent #2563EB, population colours SA #2563EB / RA #E8630A; no dark mode
+→ commit 5369bc9
+
+## F-074 · CLOSED · finding · engine · 2026-09-17
+PopulationConfig.noise_seed was read only by the legacy adapter (core/generalized_pipeline.py) and ignored by SimulationEngine, and neither the CLI nor the GUI seeded the RNG, so noise_std > 0 runs were reproducible only through BatchExecutor
+→ commit cb04bf0
+
+## D-023 · CLOSED · decision · - · 2026-09-17
+SimulationConfig.seed seeds torch/numpy/random at the start of SimulationEngine.run(); PopulationConfig.noise_seed drives a per-population torch.Generator for membrane noise; run() takes an optional progress_cb(index, n, name) called once per population
+→ commit cb04bf0
+
+## D-024 · CLOSED · decision · - · 2026-09-17
+GUI v2 holds exactly one SensoryForgeConfig in a Session(QObject) that emits configChanged(dotted path); every screen binds to it; a project is a directory with config.yml and runs/<bundle dirs>, no other GUI persistence format
+→ commit d774217
+
+## F-075 · CLOSED · finding · stimuli · 2026-09-17
+poisson and hex receptor arrangements crashed every config-driven path (CLI, BatchExecutor, Circuit tab) at stimulus render because they built a ReceptorGrid only to call get_coordinates(), which raises when the arrangement has no lattice
+→ commit 04ab68a
+
+## D-025 · CLOSED · decision · - · 2026-09-17
+stimuli are rendered on a regular canvas of the array's extent (sensoryforge/stimuli/canvas.py) for every arrangement and sampled at receptor coordinates by SimulationEngine; the "grid" canvas is bit-identical to ReceptorGrid.get_coordinates()
+→ commit 04ab68a
+
+## F-076 · OPEN · finding · gui · 2026-09-17
+the GUI Spiking Neurons tab renders stimuli with its own third renderer (spiking_tab.py:2027) and samples receptors with an unconditional flat reshape (spiking_tab.py:2596), so for any arrangement other than a resolution-matched regular grid its neuron drive differs from what SimulationEngine.run() computes for the same config; tests/unit/test_gui_rf_banks.py:164 encodes the same flat reshape as its expected value
+→ commit a3b1607
+
 ## F-073 · OPEN · finding · - · 2026-09-17
 F-072 the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
 → commit 4836b19

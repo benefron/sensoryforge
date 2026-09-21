@@ -663,6 +663,13 @@ class SimulationConfig:
         dt: Deprecated alias for ``dt_ms`` (F-008/E10). Emits
             ``DeprecationWarning`` when used; raises ``ValueError`` if both
             ``dt`` and a non-default, different ``dt_ms`` are given.
+        seed: Run-level seed (F-075). When set, :meth:`SimulationEngine.run`
+            seeds ``torch``/``numpy``/``random`` at the start of the run,
+            before stimulus sampling. ``None`` (default) leaves the ambient
+            RNG state untouched. Distinct from ``PopulationConfig.seed``
+            (innervation wiring, F-006 open) and ``PopulationConfig.noise_seed``
+            (per-population membrane noise) -- see
+            ``docs/user_guide/units_and_gains.md``.
     """
 
     device: str = "cpu"
@@ -671,6 +678,7 @@ class SimulationConfig:
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
     dt: Optional[float] = None  # deprecated alias for dt_ms
+    seed: Optional[int] = None
 
     def __post_init__(self) -> None:
         """Resolve the deprecated ``dt`` alias, then validate (F-042).

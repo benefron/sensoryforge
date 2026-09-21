@@ -22,9 +22,9 @@ import torch
 from pyqtgraph.flowchart import Flowchart
 
 from sensoryforge.config.schema import SensoryForgeConfig
-from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.gui.circuit.serialise import graph_to_config
+from sensoryforge.stimuli.canvas import stimulus_canvas
 from sensoryforge.stimuli.render import render_stimulus
 
 
@@ -102,16 +102,8 @@ def render_graph_stimulus(
     """
     if config.grids:
         grid_cfg = config.grids[0]
-        stim_grid = ReceptorGrid(
-            grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
-            spacing=grid_cfg.spacing,
-            arrangement=grid_cfg.arrangement,
-            center=(grid_cfg.center_x, grid_cfg.center_y),
-            density=grid_cfg.density,
-            device=config.simulation.device,
-            seed=grid_cfg.seed,
-        )
-        xx, yy = stim_grid.get_coordinates()
+        canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
+        xx, yy = canvas.xx, canvas.yy
     else:
         xx, yy = torch.meshgrid(
             torch.linspace(-1, 1, 40),

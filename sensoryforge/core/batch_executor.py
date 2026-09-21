@@ -43,8 +43,8 @@ import numpy as np
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
-from sensoryforge.core.grid import ReceptorGrid
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.canvas import stimulus_canvas
 from sensoryforge.stimuli.render import render_stimulus
 
 
@@ -107,21 +107,15 @@ class BatchExecutor:
             # SimulationEngine._build_grids uses for the first grid.
             grid_cfg = self._sf_config.grids[0] if self._sf_config.grids else None
             if grid_cfg is not None:
-                self._stim_grid = ReceptorGrid(
-                    grid_size=(grid_cfg.rows or 40, grid_cfg.cols or 40),
-                    spacing=grid_cfg.spacing,
-                    arrangement=grid_cfg.arrangement,
-                    center=(grid_cfg.center_x, grid_cfg.center_y),
-                    density=grid_cfg.density,
-                    device=self._sf_config.simulation.device,
-                    seed=grid_cfg.seed,
+                self._stim_canvas = stimulus_canvas(
+                    grid_cfg, device=self._sf_config.simulation.device
                 )
             else:
-                self._stim_grid = None
+                self._stim_canvas = None
         else:
             self._sf_config = None
             self.engine = None
-            self._stim_grid = None
+            self._stim_canvas = None
 
         # Setup output directory
         output_dir = self.batch_config.get("output_dir", "./batch_results")
@@ -320,7 +314,7 @@ class BatchExecutor:
         # stimuli, or a plugin's), falling back to the legacy pipeline's
         # chain only for its unregistered names.
         render_params = {k: v for k, v in stimulus_params.items() if k != "duration"}
-        xx, yy = self._stim_grid.get_coordinates()
+        xx, yy = self._stim_canvas.xx, self._stim_canvas.yy
         # A batch sweep entry need not name "duration" explicitly (e.g. an
         # amplitude sweep over "gaussian"). Before Wave K, every stimulus
         # here went through GeneralizedTactileEncodingPipeline.generate_
