@@ -27,7 +27,10 @@ class TestMakePlot:
 
     def test_white_background(self, qtbot):
         plot = plot_factory.make_plot()
-        assert plot.backgroundBrush().color().name().upper() == theme.PALETTE["bg_panel"].upper()
+        assert (
+            plot.backgroundBrush().color().name().upper()
+            == theme.PALETTE["bg_panel"].upper()
+        )
 
     def test_axis_pens_from_theme(self, qtbot):
         plot = plot_factory.make_plot()
@@ -60,7 +63,10 @@ class TestMakePlot:
 
     def test_menu_disabled(self, qtbot):
         plot = plot_factory.make_plot()
-        assert plot.getPlotItem().ctrlMenu is None or plot.plotItem.vb.menuEnabled() is False
+        assert (
+            plot.getPlotItem().ctrlMenu is None
+            or plot.plotItem.vb.menuEnabled() is False
+        )
 
     def test_buttons_hidden(self, qtbot):
         plot = plot_factory.make_plot()

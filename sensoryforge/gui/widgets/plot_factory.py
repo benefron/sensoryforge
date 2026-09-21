@@ -162,7 +162,9 @@ def make_raster_item(color) -> pg.ScatterPlotItem:
     return pg.ScatterPlotItem(symbol="|", size=theme.RASTER_SIZE, pen=None, brush=brush)
 
 
-def connect(signal, callback: Callable, *args, owner: Optional[object] = None) -> Callable:
+def connect(
+    signal, callback: Callable, *args, owner: Optional[object] = None
+) -> Callable:
     """Connect a pyqtgraph signal without risking a stale widget-closing slot.
 
     Wraps ``callback`` in ``functools.partial(callback, *args)`` -- never a
@@ -234,7 +236,9 @@ class PlotHost(QtWidgets.QWidget):
     host must call :func:`teardown` themselves.
     """
 
-    def __init__(self, plot: pg.PlotWidget, parent: Optional[QtWidgets.QWidget] = None) -> None:
+    def __init__(
+        self, plot: pg.PlotWidget, parent: Optional[QtWidgets.QWidget] = None
+    ) -> None:
         super().__init__(parent)
         self.plot = plot
         layout = QtWidgets.QVBoxLayout(self)
