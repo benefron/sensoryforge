@@ -157,6 +157,82 @@ def _descend(container: Any, segment: str, path: str) -> Any:
     return getattr(container, segment)
 
 
+def resolve_parent(root: Any, path: str) -> tuple:
+    """Walk every segment of ``path`` but the last, starting at ``root``.
+
+    The one place dotted paths are interpreted. :class:`Session` uses it with
+    ``root=self.config``; :mod:`sensoryforge.gui.execution.sweep_controller`
+    uses it on a deep copy of a config that belongs to no session, so the
+    rule "a segment is a list index, a dict key, or an attribute" is written
+    here once rather than in both.
+
+    Args:
+        root: The object the first segment is resolved against, normally a
+            :class:`~sensoryforge.config.schema.SensoryForgeConfig`.
+        path: The dotted path, e.g. ``"populations.0.filter_params.tau_r"``.
+
+    Returns:
+        ``(container, last_segment)`` -- the object whose member the last
+        segment names, and that segment.
+
+    Raises:
+        ValueError: If ``path`` is empty, or a segment does not resolve,
+            naming the segment that failed.
+    """
+    if not path:
+        raise ValueError("config path is empty")
+    segments = path.split(".")
+    container: Any = root
+    for segment in segments[:-1]:
+        container = _descend(container, segment, path)
+    return container, segments[-1]
+
+
+def get_by_path(root: Any, path: str) -> Any:
+    """Read the value ``path`` addresses inside ``root``.
+
+    Args:
+        root: The config (or any nested object) to read from.
+        path: The dotted path.
+
+    Returns:
+        The value at that path -- a leaf, or a whole branch such as
+        ``"populations.0"``.
+
+    Raises:
+        ValueError: If ``path`` is empty or does not resolve.
+    """
+    container, last = resolve_parent(root, path)
+    return _descend(container, last, path)
+
+
+def set_by_path(root: Any, path: str, value: Any) -> None:
+    """Write ``value`` at ``path`` inside ``root`` (no signal, no session).
+
+    A key a params dict does not have yet is added -- that is how an optional
+    model/filter parameter first gets a value. An attribute a dataclass does
+    not have is an error, since it can only be a typo.
+
+    Args:
+        root: The config (or any nested object) to write into.
+        path: The dotted path.
+        value: The new value.
+
+    Raises:
+        ValueError: If ``path`` is empty or does not resolve, naming the
+            segment that failed. Nothing is written in that case.
+    """
+    container, last = resolve_parent(root, path)
+    if isinstance(container, list):
+        container[_list_index(container, last, path)] = value
+    elif isinstance(container, dict):
+        container[last] = value
+    elif hasattr(container, last):
+        setattr(container, last, value)
+    else:
+        raise _path_error(path, last, f"is not a field of {type(container).__name__}")
+
+
 class Session(QtCore.QObject):
     """The one in-memory experiment: a SensoryForgeConfig plus transient state.
 
@@ -413,8 +489,7 @@ class Session(QtCore.QObject):
             ValueError: If ``path`` is empty or does not resolve, naming the
                 segment that failed.
         """
-        container, last = self._resolve_parent(path)
-        return _descend(container, last, path)
+        return get_by_path(self.config, path)
 
     def set_by_path(self, path: str, value: Any) -> None:
         """Write a value into the config by dotted path, then :meth:`notify`.
@@ -432,21 +507,11 @@ class Session(QtCore.QObject):
                 segment that failed. Nothing is written and nothing is emitted
                 in that case.
         """
-        container, last = self._resolve_parent(path)
-        if isinstance(container, list):
-            container[_list_index(container, last, path)] = value
-        elif isinstance(container, dict):
-            container[last] = value
-        elif hasattr(container, last):
-            setattr(container, last, value)
-        else:
-            raise _path_error(
-                path, last, f"is not a field of {type(container).__name__}"
-            )
+        set_by_path(self.config, path, value)
         self.notify(path)
 
     def _resolve_parent(self, path: str) -> tuple:
-        """Walk every segment but the last.
+        """Walk every segment but the last, against this session's config.
 
         Args:
             path: The dotted path.
@@ -458,10 +523,4 @@ class Session(QtCore.QObject):
         Raises:
             ValueError: If ``path`` is empty, or a segment does not resolve.
         """
-        if not path:
-            raise ValueError("config path is empty")
-        segments = path.split(".")
-        container: Any = self.config
-        for segment in segments[:-1]:
-            container = _descend(container, segment, path)
-        return container, segments[-1]
+        return resolve_parent(self.config, path)

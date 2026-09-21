@@ -23,6 +23,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.gui import theme
+from sensoryforge.gui.execution.run_controller import RunController
 from sensoryforge.gui.project import ProjectHandle
 from sensoryforge.gui.screens import SCREEN_FACTORIES
 from sensoryforge.gui.session import Session
@@ -192,6 +193,13 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         outer.addWidget(splitter, 1)
 
         self.run_bar = RunBar(self._session)
+        # One controller per window: every run the shell performs (the run
+        # bar's, and Phase 2's per-population Quick run) goes through it, so
+        # the GUI can never acquire a second execution path that drifts from
+        # ``SimulationEngine.run`` (the guard is
+        # ``tests/integration/test_gui_engine_equality.py``).
+        self.run_controller = RunController(self._session, self)
+        self.run_bar.set_controller(self.run_controller)
         outer.addWidget(self.run_bar)
 
         self.setCentralWidget(central)
