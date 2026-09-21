@@ -14,12 +14,14 @@ since bank construction has no cross-population state.
 
 from __future__ import annotations
 
+from pathlib import Path
 import copy
 from typing import Optional
 
 import numpy as np
 from PyQt5 import QtWidgets
 
+from sensoryforge.core.rf_builders.imported import write_csv_folder
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.core.simulation_engine import SimulationEngine
@@ -90,6 +92,18 @@ class RfFootprintBench(QtWidgets.QWidget):
         self.spin_neuron.valueChanged.connect(self._on_index_changed)
         header.addWidget(self.spin_neuron)
         header.addStretch(1)
+        self.export_rf_button = QtWidgets.QToolButton()
+        self.export_rf_button.setText("Export receptive fields…")
+        self.export_rf_button.setToolTip(
+            "Write this population's receptive fields as a CSV folder "
+            "(neuron positions, weights, bank.pt, manifest) -- the format the "
+            "'imported' RF builder reads."
+        )
+        self.export_rf_button.clicked.connect(self._on_export_rf_clicked)
+        header.addWidget(self.export_rf_button)
+        #: ``(parent, title) -> str`` returning the chosen folder ("" to
+        #: cancel); a directory dialog by default, replaceable in tests.
+        self.choose_folder = _ask_for_folder
         layout.addLayout(header)
 
         self.preview = GridPreview()
@@ -106,6 +120,34 @@ class RfFootprintBench(QtWidgets.QWidget):
         self.error_label.setWordWrap(True)
         self.error_label.setVisible(False)
         layout.addWidget(self.error_label)
+
+    def export_receptive_fields(self, folder) -> Path:
+        """Write the current bank as an ``imported``-builder CSV folder.
+
+        Args:
+            folder: Destination directory (created if needed).
+
+        Returns:
+            The folder written.
+
+        Raises:
+            ValueError: If no bank has been built (see :attr:`bank`).
+        """
+        if self._bank is None:
+            raise ValueError("no receptive fields to export: the bank did not build")
+        return write_csv_folder(self._bank, Path(folder))
+
+    def _on_export_rf_clicked(self, *_args: object) -> None:
+        folder = self.choose_folder(self, "Export receptive fields to folder")
+        if not folder:
+            return
+        try:
+            written = self.export_receptive_fields(folder)
+        except (ValueError, OSError) as exc:
+            self.error_label.setText(f"Export failed: {exc}")
+            self.error_label.setVisible(True)
+            return
+        self.export_rf_button.setToolTip(f"Last export: {written}")
 
     @property
     def neuron_index(self) -> int:
@@ -205,3 +247,7 @@ def _central_neuron(bank: ReceptiveFieldBank) -> int:
         return 0
     centroid = bank.receptor_coords.mean(dim=0)
     return int(((bank.neuron_centers - centroid) ** 2).sum(dim=1).argmin())
+
+
+def _ask_for_folder(parent: QtWidgets.QWidget, title: str) -> str:
+    return QtWidgets.QFileDialog.getExistingDirectory(parent, title)

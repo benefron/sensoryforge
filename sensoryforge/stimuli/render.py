@@ -720,10 +720,10 @@ def render_for_config(
 
     This is the one place that turns a :class:`~sensoryforge.config.schema.
     SensoryForgeConfig`'s canonical ``stimulus:`` block into frames --
-    :mod:`sensoryforge.cli` (``sensoryforge run``) and
-    :func:`sensoryforge.gui.circuit.run.render_graph_stimulus` both call it,
-    so a config run from the CLI and the same config run from the Circuit
-    tab render byte-identical stimuli.
+    :mod:`sensoryforge.cli` (``sensoryforge run``) and the GUI's run path
+    (:mod:`sensoryforge.gui.execution.render`) both call it, so a config run
+    from the CLI and the same config run from the GUI render byte-identical
+    stimuli.
 
     ``StimulusConfig.to_dict()`` carries every field the schema has
     (administrative ones like ``motion``/``composition_mode``/``channel``
@@ -734,7 +734,7 @@ def render_for_config(
     list here -- every dropped ``(key, value)`` pair is returned so the
     caller can decide whether it is worth warning about (only a value the
     user actually changed from the schema default is, see
-    :func:`sensoryforge.gui.circuit.run._dropped_params_warning`).
+    :func:`dropped_params_warning`).
 
     Args:
         config: The reconstructed :class:`SensoryForgeConfig`.
@@ -820,7 +820,7 @@ def dropped_params_warning(
     """The warning text for :func:`render_for_config`'s discarded settings, or ``None``.
 
     Shared by :mod:`sensoryforge.cli` and
-    :mod:`sensoryforge.gui.circuit.run` so both callers of
+    :mod:`sensoryforge.gui.execution.render` so both callers of
     :func:`render_for_config` describe a dropped keyword the same way.
 
     Args:

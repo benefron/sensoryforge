@@ -113,21 +113,20 @@ def test_population_config_from_dict_default_input_gain():
 # ---------------------------------------------------------------------------
 
 
-def test_spiking_tab_code_sets_gain_spinbox_to_50():
-    """The source code for SpikingNeuronTab._build_population_section must set the spinbox to 50.0.
+@pytest.mark.gui
+def test_populations_screen_shows_the_default_gain_of_50(qtbot):
+    """A new population's gain reads 50 on the Populations screen (the value
+    that compensates the filter's N/mm^2 calibration, units_and_gains.md)."""
+    from PyQt5 import QtWidgets
 
-    We verify via source inspection rather than instantiating the full tab, to
-    avoid pyqtgraph GC-during-creation crashes in long pytest sessions with
-    multiple plot-widget-bearing tabs alive.
-    """
-    import inspect
+    from sensoryforge.config.schema import GridConfig, SensoryForgeConfig
+    from sensoryforge.gui.screens.populations import PopulationsScreen
+    from sensoryforge.gui.session import Session
 
-    try:
-        from sensoryforge.gui.tabs.spiking_tab import SpikingNeuronTab
-    except ImportError:
-        pytest.skip("PyQt5 not available")
-
-    src = inspect.getsource(SpikingNeuronTab._build_population_section)
-    assert (
-        "setValue(50.0)" in src
-    ), "SpikingNeuronTab._build_population_section must call dbl_input_gain.setValue(50.0)"
+    session = Session(SensoryForgeConfig(grids=[GridConfig(name="skin")]))
+    screen = PopulationsScreen(session)
+    qtbot.addWidget(screen)
+    screen.btn_add.click()
+    assert session.config.populations[0].input_gain == 50.0
+    spins = screen.readout_card.findChildren(QtWidgets.QDoubleSpinBox)
+    assert any(spin.value() == 50.0 for spin in spins)

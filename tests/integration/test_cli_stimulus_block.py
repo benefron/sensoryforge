@@ -248,61 +248,32 @@ def test_validate_reports_the_stimulus_source(tmp_path):
 
 
 @pytest.mark.gui
-def test_run_graph_once_renders_the_same_stimulus_as_the_cli(tmp_path):
-    """The Circuit tab's `run_graph_once` and `sensoryforge run` agree exactly.
+def test_the_gui_renders_the_same_stimulus_as_the_cli(tmp_path):
+    """The GUI's renderer and `sensoryforge run` agree exactly.
 
-    Both go through `render_for_config` now (F-061), so a config run from
-    the CLI and the identical config built as a flowchart must render
+    Both go through `stimuli.render.render_for_config` (F-061, D-030), so the
+    same config rendered by the GUI v2 run path and by the CLI must give
     bit-identical stimulus frames.
     """
-    import sys as _sys
-
-    _app = None
-    from PyQt5 import QtWidgets
-
-    _app = QtWidgets.QApplication.instance()
-    if _app is None:
-        _app = QtWidgets.QApplication(_sys.argv[:1])
-
-    from sensoryforge.gui.tabs.circuit_tab import CircuitTab
-    from sensoryforge.gui.circuit.run import run_graph_once
-    from sensoryforge.config.schema import GridConfig, StimulusConfig
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.execution.render import render_for_config as gui_render
     from sensoryforge.io.bundle import load_bundle
 
-    # 1) Run the config through the CLI, exactly like the other tests here.
-    config_path = _write_config(tmp_path, _canonical_config(with_stimulus_block=True))
+    config_dict = _canonical_config(with_stimulus_block=True)
+    config_path = _write_config(tmp_path, config_dict)
     bundle_dir = tmp_path / "bundle"
     result = _run_cli(config_path, "--bundle", str(bundle_dir))
     assert result.returncode == 0, result.stdout + result.stderr
     cli_bundle = load_bundle(bundle_dir)
 
-    # 2) Build the identical config as a Circuit tab flowchart.
-    tab = CircuitTab()
-    grid_node = tab.add_node("SensorArray", "grid1")
-    grid_node.from_config(GridConfig(name="grid1", **_GRID_KW()))
-
-    stim_node = tab.add_node("Stimulus", "stim1")
-    stim_node.from_config(StimulusConfig(name="stim1", **_STIMULUS))
-
-    rf_node = tab.add_node("RFBank", "rf1")
-    filt_node = tab.add_node("Filter", "filter1")
-    filt_node.from_config({"filter_method": "sa", "filter_params": {}})
-    readout_node = tab.add_node("Readout", "SA Pop")
-    readout_node.from_config(dict(_POPULATION, target_grid=None))
-
-    tab.connect_nodes(grid_node, "value", rf_node, "Channel")
-    tab.connect_nodes(rf_node, "Drive", filt_node, "Drive")
-    tab.connect_nodes(filt_node, "Filtered", readout_node, "Filtered")
-
-    _config, _raw_results, frames, _dt_ms = run_graph_once(
-        tab.flowchart, duration_ms=float(_DURATION)
+    rendered = gui_render(
+        SensoryForgeConfig.from_dict(config_dict), duration_ms=float(_DURATION)
     )
-
-    assert torch.allclose(frames, cli_bundle.stimulus)
-
-
-def _GRID_KW() -> dict:
-    return {k: v for k, v in _GRID.items() if k != "name"}
+    frames = rendered.stimulus
+    if frames.ndim == cli_bundle.stimulus.ndim + 1:
+        frames = frames.squeeze(0)
+    assert frames.shape == cli_bundle.stimulus.shape
+    assert torch.equal(frames, cli_bundle.stimulus)
 
 
 def test_a_bare_moving_edge_block_actually_moves():

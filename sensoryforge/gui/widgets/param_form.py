@@ -19,9 +19,8 @@ edit, undo, a loaded config -- is picked up through
 :attr:`Session.configChanged` and applied to the matching widget under
 ``blockSignals``, so it never re-triggers a write.
 
-The widget-construction logic here is lifted from (not imported from --
-``gui/circuit/inspector.py`` is deleted in Phase 3)
-``gui/circuit/inspector.py::_make_widget_for_spec``/``build_param_form``.
+The widget-construction logic was lifted from the old GUI's Circuit
+inspector (``build_param_form``), which GUI v2 replaced.
 
 F-035 discipline: every Qt signal is connected to a slot built with
 ``functools.partial(self._write, name)``, never a bound method or a lambda

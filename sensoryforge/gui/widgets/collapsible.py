@@ -1,6 +1,6 @@
 """Collapsible group box widget for SensoryForge GUI panels.
 
-Extracted from mechanoreceptor_tab.py so it can be shared across all tabs.
+The one collapsible section every GUI v2 form uses.
 """
 
 from typing import Optional

@@ -1,20 +1,13 @@
 """Unit tests for sensoryforge.config.defaults (tasks A4/A8, F-026/F-030/F-031).
 
 These tests are Qt-free: they cover the resolver functions directly, that
-SimulationEngine builds exactly what the resolvers say, and that
-gui/default_params.json does not silently drift from the resolver-owned
-values (the GUI test covering SpikingNeuronTab itself lives in
-tests/unit/test_spiking_tab_defaults.py, marked gui, run separately).
+and that SimulationEngine builds exactly what the resolvers say. (The GUI v2
+forms show these same resolved values; that is tested in tests/gui_v2.)
 """
-
-import json
-from pathlib import Path
 
 import pytest
 
 from sensoryforge.config.defaults import (
-    FILTER_DEFAULTS,
-    NEURON_PRESET_BY_TYPE,
     resolve_filter_params,
     resolve_neuron_params,
 )
@@ -26,10 +19,6 @@ from sensoryforge.config.schema import (
     StimulusConfig,
 )
 from sensoryforge.core.simulation_engine import SimulationEngine
-
-DEFAULT_PARAMS_PATH = (
-    Path(__file__).resolve().parents[2] / "sensoryforge" / "gui" / "default_params.json"
-)
 
 
 class TestResolveFilterParams:
@@ -155,46 +144,3 @@ class TestSimulationEngineMatchesResolvers:
         assert neuron.d == expected_neuron["d"]
         assert filt.tau_r == expected_filter["tau_r"]
         assert filt.tau_d == expected_filter["tau_d"]
-
-
-class TestDefaultParamsJsonDoesNotDrift:
-    """Regression: gui/default_params.json must not silently diverge from the
-    resolver for the keys the resolver owns (including k3, since D-Q1).
-    """
-
-    @pytest.fixture(autouse=True)
-    def _load_json(self):
-        with open(DEFAULT_PARAMS_PATH, "r", encoding="utf-8") as f:
-            self.json_defaults = json.load(f)
-
-    def test_json_izhikevich_matches_rs_resolver_default(self):
-        """The JSON's flat 'Izhikevich' entry (had no per-population
-        neuron_type; formerly read by the standalone neuron explorer tool
-        deleted in Wave Q, Q3/F-019) must equal the RS preset the resolver
-        would produce.
-        """
-        json_model = self.json_defaults["models"]["Izhikevich"]
-        resolved_rs = resolve_neuron_params("Izhikevich", "SA", {})
-        for key in ("a", "b", "c", "d", "threshold", "noise_std"):
-            assert json_model[key] == resolved_rs[key], (
-                f"default_params.json models.Izhikevich.{key}={json_model[key]!r} "
-                f"has drifted from the resolver's RS value {resolved_rs[key]!r}"
-            )
-
-    def test_json_sa_filter_matches_resolver(self):
-        json_sa = self.json_defaults["filters"]["SA"]
-        resolved = resolve_filter_params("sa", {})
-        for key, value in resolved.items():
-            assert json_sa[key] == value, (
-                f"default_params.json filters.SA.{key}={json_sa[key]!r} has "
-                f"drifted from the resolver value {value!r}"
-            )
-
-    def test_json_ra_filter_matches_resolver(self):
-        json_ra = self.json_defaults["filters"]["RA"]
-        resolved = resolve_filter_params("ra", {})
-        for key, value in resolved.items():
-            assert json_ra[key] == value, (
-                f"default_params.json filters.RA.{key}={json_ra[key]!r} has "
-                f"drifted from the resolver value {value!r}"
-            )

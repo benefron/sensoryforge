@@ -1,6 +1,6 @@
 """Single source of truth for filter and neuron defaults.
 
-The GUI (``gui/tabs/spiking_tab.py``), :class:`~sensoryforge.core.simulation_engine.SimulationEngine`,
+The GUI's forms, :class:`~sensoryforge.core.simulation_engine.SimulationEngine`,
 and the legacy adapter (``core/generalized_pipeline.py``) must all resolve identical
 filter and neuron parameters for the same population config (see
 ``.claude/rules/engine-parity.md``, ledger F-026). This module is the one place
@@ -72,10 +72,8 @@ _IZHIKEVICH_BASE_DEFAULTS: Dict[str, float] = {"threshold": 30.0, "noise_std": 0
 
 #: Neuron integration step (ms, F-008): pressure-simulation's hard-coded
 #: native Izhikevich step, and SimulationConfig.integrate_dt_ms's default.
-#: Shared by SimulationConfig, SimulationEngine, and the GUI (both
-#: spiking_tab.py's neuron construction and stimulus_tab.py's time-step
-#: spinbox single-step, F-042) so a record step can only be set to a whole
-#: multiple of this value from the GUI.
+#: Shared by SimulationConfig and SimulationEngine; the GUI rejects a record
+#: step that is not a whole multiple of it (validation, F-042).
 DEFAULT_INTEGRATE_DT_MS: float = 0.05
 
 

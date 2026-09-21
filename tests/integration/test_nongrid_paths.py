@@ -164,17 +164,16 @@ def _run_cli_subprocess(config_dict: dict, tmp_path: Path) -> torch.Tensor:
     return torch.as_tensor(bundle.populations[POP_NAME]["drive"])
 
 
-def _run_circuit_tab(config_dict: dict) -> torch.Tensor:
-    """Run the same config through the Circuit tab's ``run_graph_once``."""
-    from sensoryforge.gui.circuit.run import run_graph_once
-    from sensoryforge.gui.circuit.serialise import config_to_graph
-    from sensoryforge.gui.tabs.circuit_tab import CircuitTab
+def _run_gui(config_dict: dict, qtbot) -> torch.Tensor:
+    """Run the same config through the GUI's one run path, ``RunController``."""
+    from sensoryforge.gui.execution.run_controller import RunController
+    from sensoryforge.gui.session import Session
 
-    config = SensoryForgeConfig.from_dict(config_dict)
-    tab = CircuitTab()
-    config_to_graph(config, tab.flowchart)
-    _, raw_results, _, _ = run_graph_once(tab.flowchart, duration_ms=20.0)
-    return raw_results[POP_NAME]["drive"]
+    session = Session(SensoryForgeConfig.from_dict(config_dict))
+    controller = RunController(session)
+    with qtbot.waitSignal(controller.finished, timeout=60000) as blocker:
+        controller.run(duration_ms=20.0, bundle=False)
+    return torch.as_tensor(blocker.args[0].results[POP_NAME]["drive"])
 
 
 @pytest.mark.parametrize("arrangement,seed", [("hex", 1), ("poisson", 1)])
@@ -194,28 +193,20 @@ def test_cli_and_batch_executor_agree(arrangement, seed, tmp_path):
 
 
 @pytest.mark.gui
+@pytest.mark.gui
 @pytest.mark.parametrize("arrangement,seed", [("hex", 1), ("poisson", 1)])
-def test_circuit_tab_agrees_with_batch_executor(arrangement, seed, tmp_path):
-    """The Circuit tab's ``run_graph_once`` agrees with ``BatchExecutor`` for
-    hex/poisson too."""
-    import sys as _sys
-
-    from PyQt5 import QtWidgets
-
-    app = QtWidgets.QApplication.instance()
-    if app is None:
-        app = QtWidgets.QApplication(_sys.argv[:1])
-
+def test_gui_run_agrees_with_batch_executor(arrangement, seed, tmp_path, qtbot):
+    """The GUI's run path agrees with ``BatchExecutor`` for hex/poisson too."""
     config_dict = _canonical_config_dict(arrangement, seed)
 
     batch_drive = _run_batch_executor(config_dict, tmp_path / "batch_run")
-    circuit_drive = _run_circuit_tab(config_dict)
+    gui_drive = _run_gui(config_dict, qtbot)
 
-    # run_graph_once's drive carries a batch dim; the bundle's does not.
-    if circuit_drive.ndim == batch_drive.ndim + 1:
-        circuit_drive = circuit_drive.squeeze(0)
+    # The controller's drive carries a batch dim; the bundle's does not.
+    if gui_drive.ndim == batch_drive.ndim + 1:
+        gui_drive = gui_drive.squeeze(0)
 
-    assert circuit_drive.shape == batch_drive.shape
+    assert gui_drive.shape == batch_drive.shape
     assert torch.allclose(
-        circuit_drive.float(), batch_drive.float(), rtol=1e-5, atol=1e-6
-    ), f"{arrangement}: Circuit tab drive != BatchExecutor drive"
+        gui_drive.float(), batch_drive.float(), rtol=1e-5, atol=1e-6
+    ), f"{arrangement}: GUI drive != BatchExecutor drive"

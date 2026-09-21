@@ -54,7 +54,9 @@ def test_results_export_writes_every_visible_panel(qtbot, tmp_path):
     from sensoryforge.gui.app import SensoryForgeApp
     from sensoryforge.gui.session import Session
 
-    config = SensoryForgeConfig.from_yaml_file("sensoryforge/presets/tactile_sa1_ra1.yml")
+    config = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    )
     config.grids[0].rows = 12
     config.grids[0].cols = 12
     session = Session(config)

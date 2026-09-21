@@ -5,8 +5,8 @@ meshgrid for arrangements that actually build one (``"grid"``,
 ``"jittered_grid"``, ``"blue_noise"`` before jitter is applied) -- it
 raises ``ValueError`` for ``"poisson"`` and ``"hex"``, which have no
 lattice at all (``core/grid.py`` ~302-316). Before this module existed,
-``sensoryforge/cli.py``, ``sensoryforge/core/batch_executor.py`` and
-``sensoryforge/gui/circuit/run.py`` each built a throwaway
+``sensoryforge/cli.py``, ``sensoryforge/core/batch_executor.py`` and the
+old GUI's Circuit tab each built a throwaway
 :class:`~sensoryforge.core.grid.ReceptorGrid` purely to call
 ``get_coordinates()`` for a render canvas, so a canonical config using
 ``"poisson"`` or ``"hex"`` could not run through any of the three
