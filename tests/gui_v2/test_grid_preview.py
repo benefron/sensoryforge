@@ -211,3 +211,16 @@ class TestTeardown:
         finally:
             if not was_enabled:
                 gc.disable()
+
+
+def test_axis_labels_name_the_unit_once(qtbot):
+    """The label carries the unit; passing it again as a pyqtgraph unit drew
+    "X (mm) (mm)" and would let pyqtgraph SI-prefix it into "kmm" on zoom."""
+    from sensoryforge.gui.widgets.grid_preview import GridPreview
+
+    widget = GridPreview()
+    qtbot.addWidget(widget)
+    plot_item = widget.findChild(__import__("pyqtgraph").PlotWidget).getPlotItem()
+    for axis in ("bottom", "left"):
+        text = plot_item.getAxis(axis).labelString()
+        assert text.count("mm") == 1, text

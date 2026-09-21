@@ -105,9 +105,7 @@ class GridPreview(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
 
-        self.plot = plot_factory.make_plot(
-            xlabel="X (mm)", ylabel="Y (mm)", x_unit="mm", y_unit="mm"
-        )
+        self.plot = plot_factory.make_plot(xlabel="X (mm)", ylabel="Y (mm)")
         self.plot.setAspectLocked(True)
 
         layout = QtWidgets.QVBoxLayout(self)
