@@ -88,6 +88,30 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-029 · CLOSED · decision · - · 2026-09-21
+the receptor/receptive-field preview is one reusable widget (sensoryforge/gui/widgets/grid_preview.py) built from GridConfig via core.simulation_engine.build_grid, the same code path SimulationEngine uses
+→ commit c4d6317
+
+## F-077 · CLOSED · finding · - · 2026-09-21
+sensoryforge run chose its stimulus from the legacy top-level stimuli: list and never read SensoryForgeConfig.stimulus, so a canonical YAML exported from the GUI ran a default trapezoid instead of the stimulus it declared
+→ commit e79ff48
+
+## D-030 · CLOSED · decision · - · 2026-09-21
+the canonical stimulus: block is what sensoryforge run renders (via stimuli.render.render_for_config, shared with the GUI); a legacy stimuli: list still wins with a deprecation notice
+→ commit e79ff48
+
+## F-078 · CLOSED · finding · - · 2026-09-21
+render_for_config forwarded every StimulusConfig schema default to the stimulus constructor, overriding the type's own defaults, so a bare 'type: moving_edge' block rendered a static edge (start == end == [0, 0]) with no error
+→ commit a123772
+
+## D-031 · CLOSED · decision · - · 2026-09-21
+every GUI v2 run goes through execution.run_controller.RunController, a QThread worker that renders with execution.render.render_for_config and calls SimulationEngine.run(progress_cb=...) on a config snapshot; cancel is cooperative; results land in Session.last_results and in a bundle under the project's runs/ directory
+→ commit 461b4b7
+
+## F-080 · CLOSED · finding · - · 2026-09-21
+forwarding only stimulus fields that differ from the schema default discarded a value deliberately set equal to it (a Gaussian sigma of 2.0 ran as the type default 1.0), and the CLI's trapezoid fallback for a default-looking stimulus block made the same YAML run different stimuli in the GUI and on the CLI
+→ commit ca78f62
+
 ## D-026 · CLOSED · decision · - · 2026-09-17
 GUI v2 forms are generated from get_param_spec() by sensoryforge/gui/widgets/param_form.py and bind to the Session by dotted path; no per-component GUI code
 → commit 8657bea
