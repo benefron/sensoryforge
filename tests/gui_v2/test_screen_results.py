@@ -231,7 +231,8 @@ def test_slider_sets_stimulus_frame_and_cursor_exactly(bundle_dir, qtbot):
     expected_t = float(view.time_ms[k])
     assert screen.raster_panel.cursor.value() == pytest.approx(expected_t)
     assert screen.rate_panel.cursor.value() == pytest.approx(expected_t)
-    assert screen.trace_panel.cursor.value() == pytest.approx(expected_t)
+    assert screen.trace_panel.cursor_current.value() == pytest.approx(expected_t)
+    assert screen.trace_panel.cursor_readout.value() == pytest.approx(expected_t)
 
 
 def test_clicking_a_neuron_in_the_map_selects_it_in_the_trace(bundle_dir, qtbot):
@@ -270,6 +271,243 @@ def test_stale_banner_shows_after_edit_and_clears_after_rerun(qtbot, tmp_path):
     with qtbot.waitSignal(controller.finished, timeout=TIMEOUT_MS):
         controller.run(duration_ms=session.config.simulation.duration_ms)
     assert not screen.stale_banner.isVisible()
+
+
+from sensoryforge.gui.screens.results_rate_panel import smoothed_rate  # noqa: E402
+
+
+def test_smoothed_rate_shape_when_window_exceeds_run_length():
+    """A run shorter than the smoothing window must not grow past T samples
+    (np.convolve(mode="same") pads out to the kernel length otherwise)."""
+    spikes = np.zeros((10, 4), dtype=np.float32)
+    rate = smoothed_rate(spikes, dt_ms=1.0, window_ms=20.0)
+    assert rate.shape == (10,)
+
+
+def test_smoothed_rate_shape_for_single_time_step():
+    spikes = np.ones((1, 3), dtype=np.float32)
+    rate = smoothed_rate(spikes, dt_ms=1.0, window_ms=20.0)
+    assert rate.shape == (1,)
+    assert rate[0] == pytest.approx(1000.0)  # 1 spike/neuron in a 1 ms bin
+
+
+def test_smoothed_rate_mean_matches_total_spikes_for_one_bin_window():
+    rng = np.random.default_rng(0)
+    spikes = (rng.random((50, 6)) < 0.2).astype(np.float32)
+    dt_ms = 2.0
+    rate = smoothed_rate(spikes, dt_ms=dt_ms, window_ms=dt_ms)  # one-bin window
+    duration_s = spikes.shape[0] * dt_ms / 1000.0
+    expected_mean_rate = spikes.sum() / spikes.shape[1] / duration_s
+    assert rate.mean() == pytest.approx(expected_mean_rate)
+
+
+def _walk_axis_items(screen):
+    """Every ``pg.AxisItem`` reachable from ``screen``'s panels."""
+    import pyqtgraph as pg
+
+    plots = []
+    for panel in (
+        screen.stimulus_panel,
+        screen.raster_panel,
+        screen.rate_panel,
+        screen.trace_panel,
+        screen.map_panel,
+    ):
+        for name in ("plot", "current_plot", "readout_plot"):
+            plot = getattr(panel, name, None)
+            if plot is not None:
+                plots.append(plot)
+    axes = []
+    for plot in plots:
+        plot_item = plot.getPlotItem()
+        for axis_name in ("bottom", "left", "right", "top"):
+            axis = plot_item.getAxis(axis_name)
+            if axis is not None:
+                axes.append(axis)
+    return axes
+
+
+def test_trace_panel_splits_current_and_readout_onto_two_linked_plots(
+    bundle_dir, qtbot
+):
+    """Defect 1: drive/filtered (mA) and voltage/state (mV) must not share
+    an axis -- the trace panel must be two stacked, x-linked plots."""
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+    bundle = load_bundle(bundle_dir)
+    view = results_data.from_bundle(bundle)
+    screen._set_view(view)
+
+    panel = screen.trace_panel
+    assert panel.current_plot is not panel.readout_plot
+    assert (
+        panel.readout_plot.getPlotItem().getViewBox()
+        is panel.current_plot.getPlotItem().getViewBox().linkedView(0)
+        or panel.readout_plot.getPlotItem().vb.linkedView(0)
+        is panel.current_plot.getPlotItem().vb
+    )
+    # The current plot's left axis must be about current, never voltage.
+    current_label = panel.current_plot.getPlotItem().getAxis("left").labelText
+    assert "mA" in current_label
+    assert "mV" not in current_label
+
+    screen.map_panel.neuronClicked.emit("Spiking", 0)
+    readout_label = panel.readout_plot.getPlotItem().getAxis("left").labelText
+    assert "mV" in readout_label
+
+    screen.map_panel.neuronClicked.emit("Analog", 0)
+    analog_label = panel.readout_plot.getPlotItem().getAxis("left").labelText
+    assert analog_label != readout_label
+    assert "mV" not in analog_label
+
+
+def test_trace_panel_cursor_moves_on_both_plots(bundle_dir, qtbot):
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+    bundle = load_bundle(bundle_dir)
+    view = results_data.from_bundle(bundle)
+    screen._set_view(view)
+
+    screen.trace_panel.set_cursor(12.0)
+    assert screen.trace_panel.cursor_current.value() == pytest.approx(12.0)
+    assert screen.trace_panel.cursor_readout.value() == pytest.approx(12.0)
+
+
+def test_rate_panel_right_axis_hidden_unless_a_population_is_analog(qtbot):
+    """Defect 2: no right (state) axis when nothing in the view is analog."""
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+
+    from sensoryforge.gui.screens.results_data import PopulationView, ResultsView
+
+    spiking = PopulationView(
+        name="OnlySpiking",
+        index=0,
+        neuron_type="RA",
+        spikes=torch.zeros(3, 2),
+        state=None,
+        drive=None,
+        filtered=None,
+        voltages=None,
+        neuron_centers=None,
+        receptor_coords=None,
+        weights=None,
+    )
+    view_no_analog = ResultsView(
+        stimulus=torch.zeros(3, 2, 2),
+        time_ms=torch.tensor([0.0, 1.0, 2.0]),
+        xlim=(-1.0, 1.0),
+        ylim=(-1.0, 1.0),
+        populations=[spiking],
+    )
+    screen._set_view(view_no_analog)
+    assert not screen.rate_panel.plot.getPlotItem().getAxis("right").isVisible()
+
+
+def test_rate_panel_right_axis_shown_when_a_population_is_analog(bundle_dir, qtbot):
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+    bundle = load_bundle(bundle_dir)
+    view = results_data.from_bundle(bundle)
+    screen._set_view(view)
+    assert screen.rate_panel.plot.getPlotItem().getAxis("right").isVisible()
+
+
+def test_rate_panel_does_not_connect_a_bound_method_to_sigresized():
+    """Defect 2 (F-035): the right-axis sync must go through plot_factory.connect
+    with a plain function, never a bound method, and be releasable by teardown."""
+    from sensoryforge.gui.screens.results_rate_panel import RatePanel
+    from sensoryforge.gui.widgets import plot_factory
+
+    panel = RatePanel()
+    owner = panel.plot
+    connections = plot_factory._CONNECTIONS.get(owner, [])
+    assert connections, "expected sigResized to be registered via plot_factory.connect"
+    for signal, slot in connections:
+        # functools.partial's .func must not be a bound method of the panel.
+        func = getattr(slot, "func", slot)
+        assert not (hasattr(func, "__self__") and isinstance(func.__self__, RatePanel))
+    panel.teardown()
+
+
+def test_stimulus_frame_bounding_rect_matches_view_extent(bundle_dir, qtbot):
+    """Defect 3: after set_frame, the image's bounding rect in view/local
+    coordinates equals the run's mm extent, not a fallback 1x1 scale."""
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+    bundle = load_bundle(bundle_dir)
+    view = results_data.from_bundle(bundle)
+    screen._set_view(view)
+
+    item = screen.stimulus_panel.image_item
+    rect = item.mapRectToParent(item.boundingRect())
+    x0, x1 = view.xlim
+    y0, y1 = view.ylim
+    assert rect.left() == pytest.approx(x0, abs=1e-6)
+    assert rect.top() == pytest.approx(y0, abs=1e-6)
+    assert rect.width() == pytest.approx(x1 - x0, abs=1e-6)
+    assert rect.height() == pytest.approx(y1 - y0, abs=1e-6)
+
+
+def test_stimulus_frame_off_centre_peak_maps_to_its_mm_position(qtbot):
+    """Defect 3: verify orientation by test, not assumption -- a stimulus
+    frame with a single bright pixel off-centre must map to that pixel's
+    known (x, y) mm position, within one pixel."""
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+
+    from sensoryforge.gui.screens.results_data import PopulationView, ResultsView
+
+    h, w = 10, 20
+    x0, x1 = -5.0, 5.0
+    y0, y1 = -2.0, 2.0
+    frame = torch.zeros(3, h, w)
+    peak_x_idx, peak_y_idx = 8, 3  # first axis = x, second = y (indexing="ij")
+    frame[0, peak_x_idx, peak_y_idx] = 99.0
+    view = ResultsView(
+        stimulus=frame,
+        time_ms=torch.tensor([0.0, 1.0, 2.0]),
+        xlim=(x0, x1),
+        ylim=(y0, y1),
+        populations=[],
+    )
+    screen._set_view(view)
+
+    item = screen.stimulus_panel.image_item
+    # Expected mm position of the peak pixel's centre.
+    expected_x = x0 + (peak_x_idx + 0.5) * (x1 - x0) / h
+    expected_y = y0 + (peak_y_idx + 0.5) * (y1 - y0) / w
+
+    mapped = item.mapToParent(QtCore.QPointF(peak_x_idx + 0.5, peak_y_idx + 0.5))
+    px_w = (x1 - x0) / h
+    px_h = (y1 - y0) / w
+    assert mapped.x() == pytest.approx(expected_x, abs=px_w)
+    assert mapped.y() == pytest.approx(expected_y, abs=px_h)
+
+
+def test_no_custom_axis_uses_units_kwarg_or_si_prefix(bundle_dir, qtbot):
+    """Defect 4: every pg.AxisItem on the screen must have SI prefixing off
+    and no '(k' in its label text (a leftover units= rescale)."""
+    session = Session(_config())
+    screen = ResultsScreen(session)
+    qtbot.addWidget(screen)
+    bundle = load_bundle(bundle_dir)
+    view = results_data.from_bundle(bundle)
+    screen._set_view(view)
+    screen.map_panel.neuronClicked.emit("Spiking", 0)
+
+    axes = _walk_axis_items(screen)
+    assert axes, "expected at least one axis to inspect"
+    for axis in axes:
+        assert axis.autoSIPrefix is False
+        label = axis.labelText or ""
+        assert "(k" not in label
 
 
 def test_open_bundle_on_non_bundle_directory_shows_error_and_keeps_live_results(

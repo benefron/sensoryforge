@@ -1,5 +1,10 @@
 """One-neuron trace panel: drive, filtered response, voltage/state, spikes.
 
+Two stacked, x-linked plots so current (mA) and the readout (mV, or a DSL
+state variable in its own unit) never share an axis: the top plot holds
+drive + filtered current, the bottom plot holds the voltage/state readout
+and the spike ticks.
+
 The population and neuron index are picked from a combo box and a spin box,
 or set programmatically by :meth:`TraceNeuronPanel.select_neuron` (wired to
 :attr:`~sensoryforge.gui.screens.results_map_panel.NeuronMapPanel.neuronClicked`
@@ -12,7 +17,7 @@ from typing import Optional
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 
 from sensoryforge.gui import theme
 from sensoryforge.gui.screens.results_data import ResultsView
@@ -44,17 +49,33 @@ class TraceNeuronPanel(QtWidgets.QWidget):
         header_layout.addStretch(1)
         layout.addWidget(header)
 
-        self.plot = plot_factory.make_plot(
-            "Neuron trace", "Time", "Current", x_unit="ms", y_unit="mA"
+        #: Top plot: drive + filtered current, both in mA.
+        self.current_plot = plot_factory.make_plot(
+            "Neuron trace", "", "Input", y_unit="mA"
         )
-        layout.addWidget(self.plot)
-        self.cursor = pg.InfiniteLine(
+        self.current_plot.getPlotItem().addLegend(offset=(10, 10))
+        layout.addWidget(self.current_plot)
+
+        #: Bottom plot: membrane voltage (mV) or a DSL state variable.
+        self.readout_plot = plot_factory.make_plot(
+            "", "Time", "Potential", x_unit="ms", y_unit="mV"
+        )
+        layout.addWidget(self.readout_plot)
+        self.readout_plot.setXLink(self.current_plot)
+
+        #: The plot the shared cursor used to live on, kept as an alias of
+        #: :attr:`cursor_readout` for callers that only ever moved one line.
+        self.cursor_current = pg.InfiniteLine(
             pos=0, angle=90, pen=theme.pen(theme.PALETTE["text_secondary"])
         )
-        self.plot.addItem(self.cursor)
+        self.current_plot.addItem(self.cursor_current)
+        self.cursor_readout = pg.InfiniteLine(
+            pos=0, angle=90, pen=theme.pen(theme.PALETTE["text_secondary"])
+        )
+        self.readout_plot.addItem(self.cursor_readout)
 
-        #: The curve last drawn for ``(population, neuron)`` -- tests read
-        #: this to check the trace's y-data.
+        #: The curve last drawn for ``(population, neuron)``'s readout --
+        #: tests read this to check the trace's y-data.
         self.active_curve: Optional[pg.PlotDataItem] = None
 
     def set_view(self, view: Optional[ResultsView]) -> None:
@@ -66,6 +87,16 @@ class TraceNeuronPanel(QtWidgets.QWidget):
             self.population_combo.addItems([pop.name for pop in view.populations])
         self.population_combo.blockSignals(False)
         self._on_selection_changed()
+        self._select_most_active_neuron()
+
+    def _select_most_active_neuron(self) -> None:
+        """Start on the neuron that spiked most: neuron 0 is usually a silent corner."""
+        pop = self._selected_population()
+        if pop is None or pop.spikes is None or pop.n_neurons == 0:
+            return
+        counts = pop.spikes.sum(dim=0)
+        if float(counts.max()) > 0:
+            self.neuron_spin.setValue(int(counts.argmax()))
 
     def _on_selection_changed(self) -> None:
         pop = self._selected_population()
@@ -91,38 +122,57 @@ class TraceNeuronPanel(QtWidgets.QWidget):
         self.neuron_spin.setValue(neuron_index)
 
     def _redraw(self) -> None:
-        self.plot.getPlotItem().clear()
-        self.plot.addItem(self.cursor)
+        current_item = self.current_plot.getPlotItem()
+        readout_item = self.readout_plot.getPlotItem()
+        current_item.clear()
+        readout_item.clear()
+        legend = current_item.legend
+        if legend is not None:
+            legend.clear()
+        current_item.addItem(self.cursor_current)
+        readout_item.addItem(self.cursor_readout)
         self.active_curve = None
         pop = self._selected_population()
         if pop is None or pop.n_neurons == 0:
+            readout_item.setLabel("left", plot_factory.axis_label("Potential", "mV"))
             return
         n = min(self.neuron_spin.value(), pop.n_neurons - 1)
         time_ms = self._view.time_ms.detach().cpu().numpy()
         color = theme.population_color(pop.index, pop.neuron_type)
 
         if pop.drive is not None:
-            self.plot.getPlotItem().plot(
+            current_item.plot(
                 time_ms,
                 pop.drive[:, n].detach().cpu().numpy(),
                 pen=theme.pen(theme.PALETTE["text_disabled"]),
                 name="drive",
             )
         if pop.filtered is not None:
-            self.plot.getPlotItem().plot(
+            current_item.plot(
                 time_ms,
                 pop.filtered[:, n].detach().cpu().numpy(),
                 pen=theme.pen(color),
                 name="filtered",
             )
+
+        if pop.is_analog:
+            readout_label = pop.state_var_name or "State"
+            readout_item.setLabel("left", plot_factory.axis_label(readout_label))
+        else:
+            readout_label = "Potential"
+            readout_item.setLabel("left", plot_factory.axis_label(readout_label, "mV"))
+
         readout = pop.voltages if pop.voltages is not None else pop.state
         if readout is not None:
             y = readout[:, n].detach().cpu().numpy()
-            self.active_curve = self.plot.getPlotItem().plot(
-                time_ms, y, pen=theme.pen(color, width=2.0), name="voltage/state"
+            self.active_curve = readout_item.plot(
+                time_ms, y, pen=theme.pen(color, width=2.0), name=readout_label
             )
         elif pop.filtered is not None:
-            self.active_curve = self.plot.getPlotItem().listDataItems()[-1]
+            # No voltage/state kept (e.g. a bundle without intermediates):
+            # fall back to the filtered current as the readout curve, drawn
+            # on the current plot where it already lives.
+            self.active_curve = current_item.listDataItems()[-1]
 
         if pop.spikes is not None:
             spikes = pop.spikes[:, n].detach().cpu().numpy()
@@ -135,12 +185,14 @@ class TraceNeuronPanel(QtWidgets.QWidget):
                 )
                 ticks = plot_factory.make_raster_item(color)
                 ticks.setData(spike_times, np.full_like(spike_times, y_top))
-                self.plot.getPlotItem().addItem(ticks)
+                readout_item.addItem(ticks)
 
     def set_cursor(self, time_value: float) -> None:
-        """Move the shared cursor line to ``time_value`` ms."""
-        self.cursor.setPos(time_value)
+        """Move both plots' shared cursor line to ``time_value`` ms."""
+        self.cursor_current.setPos(time_value)
+        self.cursor_readout.setPos(time_value)
 
     def teardown(self) -> None:
-        """Release the plot's pyqtgraph resources."""
-        plot_factory.teardown(self.plot)
+        """Release both plots' pyqtgraph resources."""
+        plot_factory.teardown(self.current_plot)
+        plot_factory.teardown(self.readout_plot)

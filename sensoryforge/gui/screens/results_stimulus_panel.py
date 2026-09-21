@@ -22,6 +22,10 @@ class StimulusFramePanel(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self._view: Optional[ResultsView] = None
+        #: ``(x, y, w, h)`` the image must span, applied after ``setImage``
+        #: -- ``ImageItem.setRect`` is a no-op (scaled against a fallback
+        #: 1x1 size) before an image exists, so it must never run first.
+        self._rect: Optional[tuple] = None
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -36,10 +40,11 @@ class StimulusFramePanel(QtWidgets.QWidget):
         self._view = view
         if view is None:
             self.image_item.clear()
+            self._rect = None
             return
         x0, x1 = view.xlim
         y0, y1 = view.ylim
-        self.image_item.setRect(x0, y0, x1 - x0, y1 - y0)
+        self._rect = (x0, y0, x1 - x0, y1 - y0)
         if view.stimulus.numel() > 0:
             lo = float(view.stimulus.min())
             hi = float(view.stimulus.max())
@@ -61,6 +66,11 @@ class StimulusFramePanel(QtWidgets.QWidget):
             raise ValueError("no ResultsView bound; call set_view() first")
         frame = self._view.stimulus[index]
         self.image_item.setImage(frame.detach().cpu().numpy(), autoLevels=False)
+        # setRect must run after setImage: it scales against the image's
+        # current size, which is undefined (falls back to 1x1) before one
+        # is set, mapping the array onto the wrong extent entirely.
+        if self._rect is not None:
+            self.image_item.setRect(*self._rect)
 
     def teardown(self) -> None:
         """Release the plot's pyqtgraph resources."""

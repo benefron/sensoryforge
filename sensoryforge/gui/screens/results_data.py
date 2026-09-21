@@ -50,6 +50,10 @@ class PopulationView:
         neuron_centers: ``[N, 2]`` neuron centres in mm, or ``None``.
         receptor_coords: ``[M, 2]`` receptor positions in mm, or ``None``.
         weights: ``[N, M]`` receptive-field weights, or ``None``.
+        state_var_name: For an analog population, the DSL model's state
+            variable name (e.g. ``"v"``), read from ``PopulationConfig
+            .dsl_config["state_vars"]``'s first key; ``"State"`` if that is
+            not available. ``None`` for a spiking population.
     """
 
     name: str
@@ -63,6 +67,7 @@ class PopulationView:
     neuron_centers: Optional[torch.Tensor]
     receptor_coords: Optional[torch.Tensor]
     weights: Optional[torch.Tensor]
+    state_var_name: Optional[str] = None
 
     @property
     def is_analog(self) -> bool:
@@ -148,11 +153,34 @@ def _banks_from_config(config: SensoryForgeConfig) -> Dict[str, ReceptiveFieldBa
     return {pop["name"]: pop["bank"] for pop in engine.populations}
 
 
+def _state_var_names(config: SensoryForgeConfig) -> Dict[str, str]:
+    """Population name -> its DSL state variable's name, analog ones only.
+
+    Read from ``PopulationConfig.dsl_config["state_vars"]``'s first key. A
+    population with no ``dsl_config`` or no ``state_vars`` is left out (the
+    caller falls back to ``"State"``).
+
+    Args:
+        config: The run's config snapshot.
+
+    Returns:
+        Population name -> state variable name.
+    """
+    names: Dict[str, str] = {}
+    for pop in config.populations:
+        dsl_config = getattr(pop, "dsl_config", None) or {}
+        state_vars = dsl_config.get("state_vars") or {}
+        if state_vars:
+            names[pop.name] = next(iter(state_vars))
+    return names
+
+
 def _population_views(
     names_in_order: List[str],
     neuron_types: Dict[str, str],
     pop_results: Dict[str, Dict[str, torch.Tensor]],
     banks: Dict[str, ReceptiveFieldBank],
+    state_var_names: Dict[str, str],
     *,
     squeeze: bool,
 ) -> List[PopulationView]:
@@ -165,6 +193,8 @@ def _population_views(
             optionally ``drive``/``filtered``/``voltages``).
         banks: Name -> its bank (from :func:`_banks_from_config`, or
             ``Bundle.banks``).
+        state_var_names: Name -> DSL state variable name, from
+            :func:`_state_var_names`.
         squeeze: Whether the tensors in ``pop_results`` still carry a leading
             batch dimension of size 1 (true for a live run's raw results,
             false for a bundle's, which are already unbatched).
@@ -174,19 +204,23 @@ def _population_views(
         raw = pop_results.get(name, {})
         maybe = (lambda t: _squeeze_batch(t)) if squeeze else (lambda t: t)
         bank = banks.get(name)
+        state = maybe(raw.get("state"))
         views.append(
             PopulationView(
                 name=name,
                 index=index,
                 neuron_type=neuron_types.get(name, "SA"),
                 spikes=maybe(raw.get("spikes")),
-                state=maybe(raw.get("state")),
+                state=state,
                 drive=maybe(raw.get("drive")),
                 filtered=maybe(raw.get("filtered")),
                 voltages=maybe(raw.get("voltages")),
                 neuron_centers=bank.neuron_centers if bank is not None else None,
                 receptor_coords=bank.receptor_coords if bank is not None else None,
                 weights=bank.weights if bank is not None else None,
+                state_var_name=(
+                    state_var_names.get(name, "State") if state is not None else None
+                ),
             )
         )
     return views
@@ -216,6 +250,7 @@ def from_run_result(result: RunResult) -> ResultsView:
     names_in_order = [pop.name for pop in config.populations if pop.enabled]
     neuron_types = {pop.name: pop.neuron_type for pop in config.populations}
     banks = _banks_from_config(config)
+    state_var_names = _state_var_names(config)
 
     canvas: StimulusCanvas = result.canvas
     stimulus = _first_channel(_squeeze_batch(result.stimulus))
@@ -227,7 +262,12 @@ def from_run_result(result: RunResult) -> ResultsView:
         xlim=tuple(canvas.xlim),
         ylim=tuple(canvas.ylim),
         populations=_population_views(
-            names_in_order, neuron_types, result.results, banks, squeeze=True
+            names_in_order,
+            neuron_types,
+            result.results,
+            banks,
+            state_var_names,
+            squeeze=True,
         ),
         label="Live results",
     )
@@ -254,6 +294,7 @@ def from_bundle(bundle: Bundle, *, label: str = "") -> ResultsView:
         pop.name for pop in config.populations if pop.enabled
     ]
     neuron_types = {pop.name: pop.neuron_type for pop in config.populations}
+    state_var_names = _state_var_names(config)
 
     grid_cfg = _grid_for_stimulus(config)
     canvas = stimulus_canvas(grid_cfg, device="cpu")
@@ -277,6 +318,7 @@ def from_bundle(bundle: Bundle, *, label: str = "") -> ResultsView:
             neuron_types,
             bundle.populations,
             bundle.banks,
+            state_var_names,
             squeeze=False,
         ),
         label=label,

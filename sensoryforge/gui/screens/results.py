@@ -175,20 +175,27 @@ class ResultsScreen(QtWidgets.QWidget):
             if item.widget() is not None:
                 item.widget().setParent(None)
 
+        # Space on the left, time on the right: the two square spatial panels
+        # share a column, and the three time-series panels (which share the
+        # playback cursor) stack in a wider one. (row, col, row span).
         positions = {
-            "stimulus": (0, 0),
-            "raster": (0, 1),
-            "rate": (1, 0),
-            "trace": (1, 1),
-            "map": (2, 0),
+            "stimulus": (0, 0, 3),
+            "map": (3, 0, 3),
+            "raster": (0, 1, 2),
+            "rate": (2, 1, 2),
+            "trace": (4, 1, 2),
         }
+        for grid_row in range(6):
+            self.grid.setRowStretch(grid_row, 1)
+        self.grid.setColumnStretch(0, 2)
+        self.grid.setColumnStretch(1, 3)
         for key in PANEL_KEYS:
             widget = self._panel_widgets[key]
             visible = self._checkboxes[key].isChecked()
             widget.setVisible(visible)
             if visible:
-                row, col = positions[key]
-                self.grid.addWidget(widget, row, col)
+                row, col, row_span = positions[key]
+                self.grid.addWidget(widget, row, col, row_span, 1)
 
     def _on_visibility_toggled(self, key: str, on: bool) -> None:
         gui_settings().setValue(_SETTINGS_PREFIX + key, on)

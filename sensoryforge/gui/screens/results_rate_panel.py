@@ -20,6 +20,22 @@ from sensoryforge.gui.widgets import plot_factory
 DEFAULT_WINDOW_MS = 20.0
 
 
+def _sync_state_view(
+    plot_item: "pg.PlotItem", state_viewbox: "pg.ViewBox", *_args
+) -> None:
+    """Keep the overlaid state ``ViewBox`` matching the rate plot's geometry.
+
+    Plain module-level function so it can be wired through
+    :func:`plot_factory.connect` (ledger F-035: never a bound method).
+
+    Args:
+        plot_item: The rate plot's ``PlotItem``, whose ``ViewBox`` resized.
+        state_viewbox: The overlaid ``ViewBox`` to resize to match.
+        *_args: Absorbs whatever ``sigResized`` emits; unused.
+    """
+    state_viewbox.setGeometry(plot_item.vb.sceneBoundingRect())
+
+
 def smoothed_rate(spikes: np.ndarray, dt_ms: float, window_ms: float) -> np.ndarray:
     """Mean per-neuron firing rate (Hz) in a sliding window, one value per bin.
 
@@ -29,13 +45,20 @@ def smoothed_rate(spikes: np.ndarray, dt_ms: float, window_ms: float) -> np.ndar
         window_ms: Smoothing window, in ms; at least one bin wide.
 
     Returns:
-        ``[T]`` rate in Hz, averaged over neurons, using a causal moving sum
-        over ``max(1, round(window_ms / dt_ms))`` bins.
+        ``[T]`` rate in Hz, averaged over neurons, using a centred moving sum
+        (``numpy.convolve(..., mode="same")``) over ``max(1, round(window_ms
+        / dt_ms))`` bins, clamped to at most ``T`` bins so the result always
+        has exactly ``T`` samples -- a run shorter than the window still
+        returns one value per bin instead of ``numpy.convolve`` padding the
+        output out to the kernel's length.
     """
     spikes = np.asarray(spikes, dtype=np.float64)
     t, n = spikes.shape
+    if t == 0:
+        return np.zeros(0)
     per_step = spikes.mean(axis=1) if n else np.zeros(t)
     window_steps = max(1, int(round(window_ms / dt_ms))) if dt_ms > 0 else 1
+    window_steps = min(window_steps, t)
     kernel = np.ones(window_steps) / window_steps
     smoothed = np.convolve(per_step, kernel, mode="same")
     return smoothed * (1000.0 / dt_ms) if dt_ms > 0 else smoothed
@@ -74,16 +97,23 @@ class RatePanel(QtWidgets.QWidget):
         self.plot.addItem(self.cursor)
 
         # Second axis (state) shares the same ViewBox geometry, laid over it.
+        # Built but left hidden: shown only when the view has an analog
+        # population (set_view/_redraw), never unconditionally.
         self._state_viewbox = pg.ViewBox()
-        self.plot.getPlotItem().showAxis("right")
         self.plot.getPlotItem().scene().addItem(self._state_viewbox)
         self.plot.getPlotItem().getAxis("right").linkToView(self._state_viewbox)
         self._state_viewbox.setXLink(self.plot.getPlotItem())
-        self.plot.getPlotItem().getAxis("right").setLabel("State", units="")
-        self.plot.getPlotItem().vb.sigResized.connect(self._sync_state_view)
-
-    def _sync_state_view(self) -> None:
-        self._state_viewbox.setGeometry(self.plot.getPlotItem().vb.sceneBoundingRect())
+        self.plot.getPlotItem().getAxis("right").setLabel(
+            plot_factory.axis_label("State")
+        )
+        self.plot.getPlotItem().hideAxis("right")
+        plot_factory.connect(
+            self.plot.getPlotItem().vb.sigResized,
+            _sync_state_view,
+            self.plot.getPlotItem(),
+            self._state_viewbox,
+            owner=self.plot,
+        )
 
     def set_view(self, view: Optional[ResultsView]) -> None:
         """Rebuild the rate/state curves for a new :class:`ResultsView`."""
@@ -93,6 +123,7 @@ class RatePanel(QtWidgets.QWidget):
         self._curves.clear()
         self._view = view
         if view is None:
+            self.plot.getPlotItem().hideAxis("right")
             return
         self._redraw()
 
@@ -108,6 +139,12 @@ class RatePanel(QtWidgets.QWidget):
         time_ms = view.time_ms.detach().cpu().numpy()
         dt_ms = float(time_ms[1] - time_ms[0]) if len(time_ms) > 1 else 1.0
         window_ms = self.window_spin.value()
+
+        has_analog = any(pop.is_analog for pop in view.populations)
+        if has_analog:
+            self.plot.getPlotItem().showAxis("right")
+        else:
+            self.plot.getPlotItem().hideAxis("right")
 
         for pop in view.populations:
             color = theme.population_color(pop.index, pop.neuron_type)
@@ -125,7 +162,7 @@ class RatePanel(QtWidgets.QWidget):
                     time_ms, rate, pen=theme.pen(color), name=pop.name
                 )
             self._curves[pop.name] = curve
-        self._sync_state_view()
+        _sync_state_view(self.plot.getPlotItem(), self._state_viewbox)
 
     def set_cursor(self, time_value: float) -> None:
         """Move the shared cursor line to ``time_value`` ms."""
