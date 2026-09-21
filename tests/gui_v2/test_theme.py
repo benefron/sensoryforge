@@ -294,3 +294,11 @@ def test_apply_makes_numbers_read_like_the_yaml(qapp):
     box.setDecimals(1)
     box.setValue(1000.5)
     assert box.text() == "1000.5"
+
+
+def test_pens_are_cosmetic_so_width_is_pixels_not_data_units():
+    from sensoryforge.gui import theme
+
+    assert theme.pen("#2563EB").isCosmetic()
+    assert theme.pen("#2563EB", width=3.0).isCosmetic()
+    assert theme.AXIS_PEN.isCosmetic()
