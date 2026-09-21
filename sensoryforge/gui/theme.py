@@ -68,6 +68,10 @@ def pen(color: str | QtGui.QColor, width: float = LINE_WIDTH) -> QtGui.QPen:
     qcolor = color if isinstance(color, QtGui.QColor) else QtGui.QColor(color)
     qpen = QtGui.QPen(qcolor)
     qpen.setWidthF(width)
+    # Cosmetic: the width is in screen pixels whatever the plot's scale. A
+    # non-cosmetic pen's width is in data units, so on a plot whose y range is
+    # about 1 a "1.6" line is a band taller than the data.
+    qpen.setCosmetic(True)
     qpen.setCapStyle(QtCore.Qt.RoundCap)
     return qpen
 

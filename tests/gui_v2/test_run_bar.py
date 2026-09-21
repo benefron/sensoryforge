@@ -129,3 +129,26 @@ def test_run_disabled_while_running(qtbot):
     assert not bar.run_button.isEnabled()
     controller.finished.emit(_Result(bundle_dir=None))
     assert bar.run_button.isEnabled()
+
+
+def test_duration_is_written_to_the_config_and_follows_a_loaded_one(qtbot):
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.run_bar import RunBar
+
+    session = Session(SensoryForgeConfig())
+    bar = RunBar(session)
+    qtbot.addWidget(bar)
+    assert session.config.simulation.duration_ms is None
+    assert bar.duration_spin.value() == 1000.0
+
+    bar.duration_spin.setValue(250.0)
+    bar.duration_spin.editingFinished.emit()
+    assert session.config.simulation.duration_ms == 250.0
+
+    other = SensoryForgeConfig()
+    other.simulation.duration_ms = 40.0
+    other.simulation.dt_ms = 0.5
+    session.replace_config(other)
+    assert bar.duration_spin.value() == 40.0
+    assert bar.dt_spin.value() == 0.5

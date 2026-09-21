@@ -282,3 +282,45 @@ def test_nonempty_specs_show_no_notice(session, qtbot):
     )
     qtbot.addWidget(form)
     assert form.empty_notice is None
+
+
+def test_a_tiny_default_is_shown_and_kept_not_rounded_to_zero(qtbot):
+    """C_mem = 1e-13 F must not display as 0.0000 and be written back as 0."""
+    from sensoryforge.gui.widgets.param_form import _make_widget, _read_widget
+    from sensoryforge.stimuli.base import ParamSpec
+
+    spec = ParamSpec(
+        "C_mem", dtype="float", default=1e-13, min_val=1e-16, max_val=1e-11, unit="F"
+    )
+    widget, _ = _make_widget(spec, None)
+    qtbot.addWidget(widget)
+    assert _read_widget(spec, widget) == 1e-13
+    assert "1e-13" in widget.text()
+    widget.setValue(2.5e-12)
+    assert _read_widget(spec, widget) == 2.5e-12
+    widget.lineEdit().setText("3e-12 F")
+    widget.interpretText()
+    assert _read_widget(spec, widget) == 3e-12
+    widget.stepUp()
+    assert 3e-12 < _read_widget(spec, widget) <= 1e-11
+
+
+def test_after_replace_config_edits_go_into_the_new_config(qtbot):
+    """A form must not keep writing into the config it was built on."""
+    from sensoryforge.config.schema import GridConfig, SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.param_form import ParamForm
+    from sensoryforge.stimuli.base import ParamSpec
+
+    session = Session(SensoryForgeConfig(grids=[GridConfig(name="a", rows=5)]))
+    spec = ParamSpec("rows", dtype="int", default=None, min_val=1, max_val=500)
+    form = ParamForm([spec], session.config.grids[0], session, "grids.0")
+    qtbot.addWidget(form)
+
+    old = session.config
+    session.replace_config(SensoryForgeConfig(grids=[GridConfig(name="b")]))
+    assert form.widget_for("rows").value() == 1  # rows unset: clamped, no crash
+
+    form.widget_for("rows").setValue(17)
+    assert session.config.grids[0].rows == 17
+    assert old.grids[0].rows == 5

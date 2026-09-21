@@ -365,3 +365,48 @@ def test_a_field_the_user_set_still_reaches_the_stimulus():
 
     assert peak(7.0) == pytest.approx(7.0, rel=0.05)
     assert peak(14.0) == pytest.approx(2 * peak(7.0), rel=1e-5)
+
+
+def test_cli_runs_the_configs_own_duration_unless_the_flag_overrides(tmp_path):
+    """simulation.duration_ms used to be ignored: every run was 1000 ms."""
+    import subprocess
+    import sys
+
+    import h5py
+    import yaml
+
+    from sensoryforge.config.schema import (
+        GridConfig,
+        PopulationConfig,
+        SensoryForgeConfig,
+    )
+
+    cfg = SensoryForgeConfig(
+        grids=[GridConfig(name="g", rows=4, cols=4)],
+        populations=[PopulationConfig(name="p", target_grid="g")],
+    )
+    cfg.simulation.duration_ms = 37.0
+    path = tmp_path / "c.yml"
+    path.write_text(cfg.to_yaml())
+
+    def steps(*extra):
+        out = tmp_path / f"out{len(extra)}"
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "sensoryforge.cli",
+                "run",
+                str(path),
+                "--bundle",
+                str(out),
+                *extra,
+            ],
+            check=True,
+            capture_output=True,
+        )
+        with h5py.File(out / "data.h5") as f:
+            return f["time_ms"].shape[0]
+
+    assert steps() == 37
+    assert steps("--duration", "12") == 12

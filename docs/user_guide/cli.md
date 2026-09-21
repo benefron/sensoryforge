@@ -26,7 +26,7 @@ sensoryforge run <config.yml> [options]
 ```
 
 **Options:**
-- `--duration DURATION`: Simulation duration in milliseconds (default: 1000)
+- `--duration DURATION`: Simulation duration in milliseconds. Without it, the config's `simulation.duration_ms` is used, and 1000 ms if that is unset too.
 - `--output FILE`: Save results to file (PyTorch checkpoint `.pt` or `.pth`)
 - `--device DEVICE`: Override device from config (`cpu`, `cuda`, or `mps`)
 

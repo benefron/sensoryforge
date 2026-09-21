@@ -22,6 +22,38 @@ from typing import Any, Dict, Optional
 
 from sensoryforge.neurons.izhikevich import IZHIKEVICH_PRESETS
 
+#: Run length when neither the caller nor the config names one, in ms.
+DEFAULT_DURATION_MS: float = 1000.0
+
+
+def resolve_duration_ms(
+    configured: Optional[float], override: Optional[float] = None
+) -> float:
+    """The run length in ms: the override, else the config's, else the default.
+
+    One rule for ``sensoryforge run`` (``--duration`` is the override), the
+    GUI run bar, the Stimulus preview and the Batch screen, so the length a
+    config records is the length every one of them runs.
+
+    Args:
+        configured: ``SimulationConfig.duration_ms`` (``None`` when unset).
+        override: An explicit request (``--duration``), or ``None``.
+
+    Returns:
+        The duration in ms.
+
+    Raises:
+        ValueError: If the chosen value is not positive.
+    """
+    for value in (override, configured):
+        if value is not None:
+            duration = float(value)
+            if duration <= 0:
+                raise ValueError(f"duration must be positive, got {duration} ms")
+            return duration
+    return DEFAULT_DURATION_MS
+
+
 #: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere;
 #: D-Q1: RA gain k3 = 2.0 everywhere).
 FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {

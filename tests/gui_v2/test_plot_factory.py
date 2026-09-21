@@ -50,10 +50,13 @@ class TestMakePlot:
             title="Drive", xlabel="Time", ylabel="Current", x_unit="ms", y_unit="mA"
         )
         plot_item = plot.getPlotItem()
-        assert "Time" in plot_item.getAxis("bottom").labelText
-        assert plot_item.getAxis("bottom").labelUnits == "ms"
-        assert "Current" in plot_item.getAxis("left").labelText
-        assert plot_item.getAxis("left").labelUnits == "mA"
+        # The unit is label text, not pyqtgraph's `units=`: that rescales the
+        # ticks and prefixes the unit, so 1000 ms read "1.0 (kms)".
+        bottom, left = plot_item.getAxis("bottom"), plot_item.getAxis("left")
+        assert bottom.labelText == "Time (ms)"
+        assert left.labelText == "Current (mA)"
+        assert not bottom.labelUnits and not left.labelUnits
+        assert bottom.autoSIPrefix is False and left.autoSIPrefix is False
 
     def test_no_labels_when_omitted(self, qtbot):
         plot = plot_factory.make_plot()
