@@ -114,7 +114,9 @@ def stimulus_canvas(
         if y_min == y_max:
             y_min, y_max = y_min - 0.5, y_max + 0.5
 
-        spacing = grid_cfg.spacing if grid_cfg.spacing and grid_cfg.spacing > 0 else 0.15
+        spacing = (
+            grid_cfg.spacing if grid_cfg.spacing and grid_cfg.spacing > 0 else 0.15
+        )
         width = x_max - x_min
         height = y_max - y_min
         # rows/cols aren't meaningful for imported coordinates -- derive a

@@ -22,10 +22,15 @@ from sensoryforge.stimuli.canvas import StimulusCanvas, stimulus_canvas
 
 
 def test_grid_arrangement_matches_receptor_grid_exactly():
-    """"grid" canvas must equal ReceptorGrid.get_coordinates() bit-for-bit."""
+    """ "grid" canvas must equal ReceptorGrid.get_coordinates() bit-for-bit."""
     grid_cfg = GridConfig(
-        name="g", arrangement="grid", rows=12, cols=9, spacing=0.2,
-        center_x=0.3, center_y=-0.1,
+        name="g",
+        arrangement="grid",
+        rows=12,
+        cols=9,
+        spacing=0.2,
+        center_x=0.3,
+        center_y=-0.1,
     )
     canvas = stimulus_canvas(grid_cfg)
 
@@ -53,7 +58,12 @@ def test_grid_arrangement_default_rows_cols():
 
 def test_hex_canvas_covers_receptor_extent_and_expected_shape():
     grid_cfg = GridConfig(
-        name="g", arrangement="hex", rows=10, cols=10, spacing=0.15, seed=1,
+        name="g",
+        arrangement="hex",
+        rows=10,
+        cols=10,
+        spacing=0.15,
+        seed=1,
     )
     canvas = stimulus_canvas(grid_cfg)
 
@@ -83,7 +93,12 @@ def test_hex_canvas_covers_receptor_extent_and_expected_shape():
 
 def test_poisson_canvas_covers_receptor_extent_seeded():
     grid_cfg = GridConfig(
-        name="g", arrangement="poisson", rows=10, cols=10, spacing=0.15, seed=1,
+        name="g",
+        arrangement="poisson",
+        rows=10,
+        cols=10,
+        spacing=0.15,
+        seed=1,
     )
     canvas = stimulus_canvas(grid_cfg)
 
@@ -167,8 +182,12 @@ def test_hex_canvas_sampling_recovers_analytic_gaussian():
 
     sigma = 0.5
     x0, y0 = 0.1, -0.2
-    x = torch.linspace(canvas.xlim[0], canvas.xlim[1], canvas.shape[0], dtype=torch.float64)
-    y = torch.linspace(canvas.ylim[0], canvas.ylim[1], canvas.shape[1], dtype=torch.float64)
+    x = torch.linspace(
+        canvas.xlim[0], canvas.xlim[1], canvas.shape[0], dtype=torch.float64
+    )
+    y = torch.linspace(
+        canvas.ylim[0], canvas.ylim[1], canvas.shape[1], dtype=torch.float64
+    )
     xx, yy = torch.meshgrid(x, y, indexing="ij")
     frame = torch.exp(-((xx - x0) ** 2 + (yy - y0) ** 2) / (2 * sigma**2)).to(
         torch.float32
