@@ -37,7 +37,11 @@ class ControllerStub(QtCore.QObject):
     def run(self, *, duration_ms, bundle=True, quick_population=None):
         self._running = True
         self.run_calls.append(
-            {"duration_ms": duration_ms, "bundle": bundle, "quick_population": quick_population}
+            {
+                "duration_ms": duration_ms,
+                "bundle": bundle,
+                "quick_population": quick_population,
+            }
         )
 
     def cancel(self):

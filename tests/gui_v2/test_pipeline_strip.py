@@ -33,7 +33,10 @@ def test_preset_shows_two_population_rows_with_expected_chips(qtbot):
 
 def test_two_inputs_show_two_rf_chips_and_a_combine_chip(qtbot):
     config = SensoryForgeConfig(
-        grids=[GridConfig(name="a", rows=4, cols=4), GridConfig(name="b", rows=4, cols=4)],
+        grids=[
+            GridConfig(name="a", rows=4, cols=4),
+            GridConfig(name="b", rows=4, cols=4),
+        ],
         populations=[
             PopulationConfig(
                 name="multi",

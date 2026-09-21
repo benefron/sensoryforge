@@ -176,6 +176,8 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         for stage in STAGE_ORDER:
             self.stage_list.addItem(STAGE_LABELS[stage])
         self.stage_list.currentRowChanged.connect(self._on_stage_row_changed)
+        # Five short labels: a fixed narrow column, so the screens get the room.
+        self.stage_list.setFixedWidth(168)
         splitter.addWidget(self.stage_list)
 
         self.stack = QtWidgets.QStackedWidget()
@@ -360,9 +362,7 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 
-def _excepthook(
-    exc_type: type, exc_value: BaseException, exc_tb: object
-) -> None:
+def _excepthook(exc_type: type, exc_value: BaseException, exc_tb: object) -> None:
     """Show unhandled exceptions in a QMessageBox instead of aborting (F-044).
 
     PyQt5 aborts the process by default when an exception escapes a Qt slot;

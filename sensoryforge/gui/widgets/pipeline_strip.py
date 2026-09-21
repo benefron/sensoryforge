@@ -86,9 +86,7 @@ def _rf_value(
     return "d", None
 
 
-def _dot_status(
-    path: str, errors: Dict[str, str], is_default: bool
-) -> Tuple[str, str]:
+def _dot_status(path: str, errors: Dict[str, str], is_default: bool) -> Tuple[str, str]:
     """Colour and tooltip message for one chip's status dot.
 
     Args:
@@ -253,7 +251,9 @@ class PipelineStrip(QtWidgets.QWidget):
         )
 
         inputs = population.effective_inputs()
-        rf_is_default = not population.inputs and population.innervation_method == "gaussian"
+        rf_is_default = (
+            not population.inputs and population.innervation_method == "gaussian"
+        )
         for population_input in inputs:
             symbol, value = _rf_value(population, population_input)
             text = f"Receptive field\n{population_input.rf.method} {symbol}={value}"

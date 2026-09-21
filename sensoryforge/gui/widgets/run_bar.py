@@ -177,7 +177,9 @@ class RunBar(QtWidgets.QWidget):
         self.progress_bar.setValue(100)
         self.progress_bar.setFormat("done")
         bundle_dir = getattr(result, "bundle_dir", None)
-        self.bundle_label.setText(str(bundle_dir) if bundle_dir else "not saved (no project)")
+        self.bundle_label.setText(
+            str(bundle_dir) if bundle_dir else "not saved (no project)"
+        )
 
     def _on_failed(self, message: str) -> None:
         self.run_button.setEnabled(True)
