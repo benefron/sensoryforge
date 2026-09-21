@@ -23,7 +23,12 @@ from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.stimuli.canvas import stimulus_canvas
-from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.stimuli.render import (
+    render_stimulus,
+    render_for_config,
+    dropped_params_warning,
+    is_default_stimulus_config,
+)
 from sensoryforge.registry import (
     NEURON_REGISTRY,
     FILTER_REGISTRY,
@@ -267,38 +272,93 @@ def cmd_run(args: argparse.Namespace) -> int:
 
             sf_config = SensoryForgeConfig.from_dict(config)
 
-            # Stimulus generation: render_stimulus (K1, F-052) dispatches
-            # through STIMULUS_REGISTRY first, so any registered or
-            # plugin-registered stimulus (including composite, edge_grating,
-            # gabor, and the four ported pressure-simulation stimuli) is
-            # reachable from a config file, falling back to the legacy
-            # pipeline's chain only for its unregistered names.
-            if sf_config.grids:
-                grid_cfg = sf_config.grids[0]
-                canvas = stimulus_canvas(grid_cfg, device=sf_config.simulation.device)
-                xx, yy = canvas.xx, canvas.yy
-            else:
-                xx, yy = torch.meshgrid(
-                    torch.linspace(-1, 1, 40),
-                    torch.linspace(-1, 1, 40),
-                    indexing="ij",
-                )
-            # "duration" (set above for the legacy pipeline's **kwargs
-            # signature) is not a stimulus constructor parameter for a
-            # registered component; render_stimulus takes it as duration_ms.
-            render_params = {
-                k: v for k, v in stimulus_params.items() if k != "duration"
-            }
-            frames, _ = render_stimulus(
-                stimulus_type,
-                render_params,
-                xx,
-                yy,
-                dt_ms=sf_config.simulation.dt_ms,
-                duration_ms=args.duration,
-                device=sf_config.simulation.device,
+            # Stimulus source (Task 0.6, F-061): the canonical 'stimulus:'
+            # block is what runs, via render_for_config -- the same
+            # renderer sensoryforge.gui.circuit.run.render_graph_stimulus
+            # uses, so a config run here and run from the Circuit tab
+            # render byte-identical stimuli. The legacy top-level
+            # 'stimuli:' list still wins when present (with a deprecation
+            # notice), and an untouched (schema-default) 'stimulus:' block
+            # still falls back to the legacy trapezoidal default, exactly
+            # as before this fix.
+            legacy_stimuli_present = (
+                "stimuli" in config
+                and isinstance(config["stimuli"], list)
+                and bool(config["stimuli"])
             )
-            stimulus_tensor = frames.unsqueeze(0)
+            use_legacy_default = False
+            if legacy_stimuli_present:
+                print(
+                    "Note: sensoryforge run is using the legacy top-level "
+                    f"'stimuli:' list (type={stimulus_type!r}); the canonical "
+                    "'stimulus:' block is ignored while 'stimuli:' is present. "
+                    "Remove 'stimuli:' to run the 'stimulus:' block instead "
+                    "(see docs/user_guide/cli.md)."
+                )
+                use_legacy_default = True
+            elif is_default_stimulus_config(sf_config):
+                print(
+                    "Note: the canonical 'stimulus:' block is the schema "
+                    f"default (untouched); running the default trapezoidal "
+                    f"stimulus instead (type={stimulus_type!r})."
+                )
+                use_legacy_default = True
+
+            if use_legacy_default:
+                # render_stimulus (K1, F-052) dispatches through
+                # STIMULUS_REGISTRY first, so any registered or
+                # plugin-registered stimulus (including composite,
+                # edge_grating, gabor, and the four ported
+                # pressure-simulation stimuli) is reachable from a config
+                # file, falling back to the legacy pipeline's chain only
+                # for its unregistered names.
+                if sf_config.grids:
+                    grid_cfg = sf_config.grids[0]
+                    canvas = stimulus_canvas(
+                        grid_cfg, device=sf_config.simulation.device
+                    )
+                    xx, yy = canvas.xx, canvas.yy
+                else:
+                    xx, yy = torch.meshgrid(
+                        torch.linspace(-1, 1, 40),
+                        torch.linspace(-1, 1, 40),
+                        indexing="ij",
+                    )
+                # "duration" (set above for the legacy pipeline's **kwargs
+                # signature) is not a stimulus constructor parameter for a
+                # registered component; render_stimulus takes it as
+                # duration_ms.
+                render_params = {
+                    k: v for k, v in stimulus_params.items() if k != "duration"
+                }
+                frames, _ = render_stimulus(
+                    stimulus_type,
+                    render_params,
+                    xx,
+                    yy,
+                    dt_ms=sf_config.simulation.dt_ms,
+                    duration_ms=args.duration,
+                    device=sf_config.simulation.device,
+                )
+                stimulus_tensor = frames.unsqueeze(0)
+                stimulus_config_for_bundle = {
+                    "type": stimulus_type,
+                    **stimulus_params,
+                }
+            else:
+                print(
+                    "Using the canonical 'stimulus:' block: "
+                    f"type={sf_config.stimulus.type!r}"
+                )
+                stimulus_tensor, _time_ms, _canvas, dropped = render_for_config(
+                    sf_config,
+                    duration_ms=args.duration,
+                    dt_ms=sf_config.simulation.dt_ms,
+                )
+                message = dropped_params_warning(sf_config.stimulus.type, dropped)
+                if message is not None:
+                    print(f"Warning: {message}", file=sys.stderr)
+                stimulus_config_for_bundle = sf_config.stimulus.to_dict()
 
             print(f"Running simulation (duration: {args.duration}ms)...")
             engine = SimulationEngine(sf_config)
@@ -307,7 +367,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 stimulus_tensor,
                 return_intermediates=True,
                 bundle_dir=bundle_dir,
-                stimulus_config={"type": stimulus_type, **stimulus_params},
+                stimulus_config=stimulus_config_for_bundle,
             )
             if bundle_dir:
                 print(f"Bundle written to {bundle_dir}")
@@ -546,6 +606,32 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 for pop in engine.populations:
                     n_neurons = pop["neuron_centers"].shape[0]
                     print(f"    {pop['name']}: {n_neurons} neurons")
+
+                # Task 0.6 (F-061): tell the caller which stimulus source
+                # `sensoryforge run` will actually use for this config,
+                # since it is not always the 'stimulus:' block (see
+                # docs/user_guide/cli.md).
+                legacy_stimuli_present = (
+                    "stimuli" in config
+                    and isinstance(config["stimuli"], list)
+                    and bool(config["stimuli"])
+                )
+                if legacy_stimuli_present:
+                    legacy_type = config["stimuli"][0].get("type", "trapezoidal")
+                    print(
+                        "  Stimulus source: legacy top-level 'stimuli:' list "
+                        f"(type={legacy_type!r}); the 'stimulus:' block is ignored"
+                    )
+                elif is_default_stimulus_config(sf_config):
+                    print(
+                        "  Stimulus source: default trapezoidal stimulus "
+                        "('stimulus:' block is the untouched schema default)"
+                    )
+                else:
+                    print(
+                        "  Stimulus source: canonical 'stimulus:' block "
+                        f"(type={sf_config.stimulus.type!r})"
+                    )
             else:
                 pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
                 pipeline_info = pipeline.get_pipeline_info()

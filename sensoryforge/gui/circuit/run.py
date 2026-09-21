@@ -13,7 +13,6 @@ are unchanged and still pass).
 
 from __future__ import annotations
 
-import re
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -24,65 +23,19 @@ from pyqtgraph.flowchart import Flowchart
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.gui.circuit.serialise import graph_to_config
-from sensoryforge.stimuli.canvas import stimulus_canvas
-from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.stimuli.render import (
+    render_for_config,
+    dropped_params_warning,
+    _is_stimulus_schema_default,
+)
 
-
-def _dropped_params_warning(stimulus_type: str, dropped) -> Optional[str]:
-    """The warning text for discarded stimulus settings, or ``None``.
-
-    Args:
-        stimulus_type: The stimulus's registered name, for the message.
-        dropped: ``(field_name, value)`` pairs the constructor rejected.
-
-    Returns:
-        A message naming only the fields whose value the user had changed
-        from the schema default, or ``None`` when every discarded field was
-        untouched and there is nothing worth saying.
-    """
-    deliberate = [
-        f"{key}={value!r}"
-        for key, value in dropped
-        if not _is_schema_default(key, value)
-    ]
-    if not deliberate:
-        return None
-    return (
-        f"Stimulus {stimulus_type!r} does not accept {', '.join(deliberate)}; "
-        "the value(s) you set were ignored and the stimulus ran without them."
-    )
-
-
-def _is_schema_default(field_name: str, value) -> bool:
-    """Whether *value* is what ``StimulusConfig`` would hold untouched.
-
-    ``StimulusConfig.to_dict()`` carries every field the schema defines,
-    most of which a given stimulus class knows nothing about. Discarding
-    those is housekeeping. Discarding one the user actually set is a
-    changed stimulus, so the two cases are told apart here rather than
-    warning about all of them and training the reader to ignore it.
-
-    Args:
-        field_name: The dropped keyword.
-        value: The value it held.
-
-    Returns:
-        ``True`` when the field is unknown to the schema or still at its
-        declared default.
-    """
-    import dataclasses
-
-    from sensoryforge.config.schema import StimulusConfig
-
-    for field in dataclasses.fields(StimulusConfig):
-        if field.name != field_name:
-            continue
-        if field.default is not dataclasses.MISSING:
-            return value == field.default
-        if field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-            return value == field.default_factory()  # type: ignore[misc]
-        return False
-    return True
+# Task 0.6 (F-061) moved the dropped-keyword-warning logic to
+# sensoryforge.stimuli.render, shared with sensoryforge.cli. These two
+# names stay importable from here (sensoryforge.gui.tabs.circuit_tab
+# re-exports them, and tests/unit/test_circuit_dropped_params.py imports
+# them from there) so nothing downstream needs to change.
+_dropped_params_warning = dropped_params_warning
+_is_schema_default = _is_stimulus_schema_default
 
 
 def render_graph_stimulus(
@@ -100,56 +53,24 @@ def render_graph_stimulus(
         :class:`~sensoryforge.core.simulation_engine.SimulationEngine.run`
         expects.
     """
-    if config.grids:
-        grid_cfg = config.grids[0]
-        canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
-        xx, yy = canvas.xx, canvas.yy
-    else:
-        xx, yy = torch.meshgrid(
-            torch.linspace(-1, 1, 40),
-            torch.linspace(-1, 1, 40),
-            indexing="ij",
-        )
-
-    stim = config.stimulus
-    # StimulusConfig.to_dict() carries every field the schema has
-    # (administrative ones like motion/composition_mode/channel included);
-    # a given registered stimulus class's constructor only accepts its own
-    # subset. Retry dropping whichever keyword the constructor just
-    # rejected, the same way render.py's own envelope-key retry works,
-    # rather than hard-coding a per-type field list here.
-    stimulus_params = {
-        k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
-    }
-    dropped: List[Any] = []
-    while True:
-        try:
-            frames, _ = render_stimulus(
-                stim.type,
-                stimulus_params,
-                xx,
-                yy,
-                dt_ms=config.simulation.dt_ms,
-                duration_ms=duration_ms,
-                device=config.simulation.device,
-            )
-            break
-        except TypeError as exc:
-            match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
-            if match is None or match.group(1) not in stimulus_params:
-                raise
-            key = match.group(1)
-            dropped.append((key, stimulus_params.pop(key)))
+    # The actual rendering (canvas selection, dispatch through
+    # STIMULUS_REGISTRY, dropped-keyword retry) lives in
+    # sensoryforge.stimuli.render.render_for_config (Task 0.6, F-061), shared
+    # with sensoryforge.cli's `sensoryforge run` so both entry points render
+    # a config's canonical stimulus: block identically.
+    stimulus_tensor, _time_ms, _canvas, dropped = render_for_config(
+        config, duration_ms=duration_ms, dt_ms=config.simulation.dt_ms
+    )
 
     # Dropping a field the user never set is housekeeping; dropping one
     # they did set changes the stimulus they asked for, and doing that
     # silently is how a graph ends up describing a run that did not
     # happen. Warn for the second case only, so the message means
     # something when it appears.
-    message = _dropped_params_warning(stim.type, dropped)
+    message = dropped_params_warning(config.stimulus.type, dropped)
     if message is not None:
         warnings.warn(message, UserWarning, stacklevel=2)
-    stimulus_tensor = frames.unsqueeze(0)
+    frames = stimulus_tensor[0]
     return stimulus_tensor, frames
 
 
