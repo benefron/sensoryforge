@@ -28,6 +28,31 @@ A stimulus type with no registered class (the legacy names ``trapezoidal``,
 ``step``, ``ramp``, ``custom``) or an empty ``get_param_spec()`` shows the
 same "no editable parameters" notice :class:`~sensoryforge.gui.widgets.
 param_form.ParamForm` shows for any other empty-spec component.
+
+Every parameter in ``get_param_spec()`` is editable here, whether or not it
+names a ``StimulusConfig`` field:
+
+* a field that names a ``StimulusConfig`` attribute: the config's value when
+  explicit, else :func:`sensoryforge.stimuli.render.effective_defaults`'s
+  value for that name (what actually runs, not ``spec.default`` -- see the
+  module-level note below), visibly marked "(default)"; editing it writes
+  through ``session.set_by_path`` (which marks it explicit); a reset button
+  un-sets it again (:meth:`StimulusConfig.unset`).
+* a parameter with no matching ``StimulusConfig`` field (e.g. ``moving_edge``'s
+  ``total_ms``, ``braille``'s ``v_mms``): stored under ``stimulus.params.<name>``
+  instead -- explicit iff the key is present in ``stim.params``, else shown at
+  its effective default; editing it writes through ``session.set_by_path``
+  (which creates the key); a reset button pops the key again.
+
+A parameter's displayed value is always ``effective_defaults(type)[name]``
+when unset, not ``spec.default``: the two disagree for several types (a
+Gaussian's amplitude is 1.0 by ``GaussianStimulus.__init__`` but 30.0 is what
+actually renders, via :mod:`sensoryforge.stimuli.render`'s legacy-default
+compatibility layer) and showing the wrong one is exactly the "shown != used"
+bug this form exists to prevent. When that effective default falls outside
+``spec.min_val``/``spec.max_val``, the widget's range is widened to include it
+rather than silently clamping the displayed value (a clamped display is the
+same bug in a different shape).
 """
 
 from __future__ import annotations
@@ -50,6 +75,7 @@ from sensoryforge.gui.widgets.param_form import (
 )
 from sensoryforge.registry import STIMULUS_REGISTRY
 from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.stimuli.render import effective_defaults
 
 #: Names ``sensoryforge.stimuli.render.render_stimulus`` accepts only through
 #: its legacy fallback chain, not through ``STIMULUS_REGISTRY``. Kept as one
@@ -60,31 +86,26 @@ LEGACY_STIMULUS_TYPES: Tuple[str, ...] = ("trapezoidal", "step", "ramp", "custom
 #: Every ``StimulusConfig`` field name, computed once.
 _CONFIG_FIELDS = {f.name for f in dataclasses.fields(StimulusConfig)}
 
-#: (stimulus type, parameter name) pairs this build found whose
-#: ``get_param_spec()`` entry names no ``StimulusConfig`` field -- filled in
-#: by :func:`unconfigurable_params`, kept here so the report and the tests
-#: read the same list the form itself computes.
+#: Prefix used for a parameter with no ``StimulusConfig`` field of its own;
+#: it lives at ``stimulus.params.<name>`` instead (``StimulusConfig.params``).
+_PARAMS_PATH_PREFIX = "stimulus.params."
 
 
 def unconfigurable_params() -> List[Tuple[str, str]]:
-    """Every ``(stimulus type, parameter name)`` this build cannot edit here.
+    """Every ``(stimulus type, parameter name)`` this form cannot edit.
 
-    A parameter of a registered stimulus class whose ``get_param_spec()``
-    name is not a field of :class:`StimulusConfig` has nowhere to be stored
-    in the config, so it cannot be made editable without inventing a side
-    channel (which the brief for this screen forbids). Listed for the lead
-    as a finding, not fixed here.
+    Historically, a parameter of a registered stimulus class whose
+    ``get_param_spec()`` name was not a field of :class:`StimulusConfig` had
+    nowhere to be stored and was shown read-only. Since ``StimulusConfig.params``
+    (a catch-all dict for exactly these parameters) was added, every declared
+    parameter of every registered stimulus type is editable here -- this
+    always returns ``[]`` now. Kept (rather than deleted outright) as the one
+    place a future audit can re-check that claim by calling it.
 
     Returns:
-        ``(stimulus_type, parameter_name)`` pairs, in registry order.
+        ``[]``.
     """
-    pairs: List[Tuple[str, str]] = []
-    for name in STIMULUS_REGISTRY.list_registered():
-        cls = STIMULUS_REGISTRY.get_class(name)
-        for spec in cls.get_param_spec():
-            if spec.name not in _CONFIG_FIELDS:
-                pairs.append((name, spec.name))
-    return pairs
+    return []
 
 
 class _Row:
@@ -114,6 +135,68 @@ class _Row:
         self.reset_button = reset_button
         self.config_field = config_field
         self.group_box = group_box
+
+
+def _effective_default(stimulus_type: str, spec: ParamSpec) -> Any:
+    """The value ``spec.name`` takes when unset, for the currently selected type.
+
+    This is :func:`sensoryforge.stimuli.render.effective_defaults`'s answer,
+    not ``spec.default`` -- see the module docstring's "shown != used" note.
+
+    Args:
+        stimulus_type: A ``StimulusConfig.type`` value.
+        spec: The parameter descriptor.
+
+    Returns:
+        ``effective_defaults(stimulus_type)[spec.name]``, or ``spec.default``
+        when ``stimulus_type`` is not registered or does not declare that key.
+    """
+    if not STIMULUS_REGISTRY.is_registered(stimulus_type):
+        return spec.default
+    defaults = effective_defaults(stimulus_type)
+    return defaults[spec.name] if spec.name in defaults else spec.default
+
+
+def _widen_to_include(spec: ParamSpec, *values: Any) -> ParamSpec:
+    """A copy of *spec* whose numeric range is widened to include *values*.
+
+    ``_make_widget`` clamps its initial value to ``spec.min_val``/``max_val``
+    on construction, so a spec whose effective default (or current explicit
+    value) falls outside its own declared range would otherwise display a
+    silently clamped number -- the same "shown != used" bug this form exists
+    to prevent, just moved into the widget instead of the label. Only int/float,
+    non-enum specs have a numeric range to widen.
+
+    Args:
+        spec: The parameter descriptor.
+        *values: Every value this row might need to display.
+
+    Returns:
+        *spec* unchanged if no value falls outside its range, else a new
+        :class:`ParamSpec` with ``min_val``/``max_val`` widened just enough.
+    """
+    if spec.dtype not in ("int", "float") or spec.choices is not None:
+        return spec
+    min_val = spec.min_val
+    max_val = spec.max_val
+    changed = False
+    for value in values:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if min_val is not None and numeric < min_val:
+            min_val = numeric
+            changed = True
+        if max_val is not None and numeric > max_val:
+            max_val = numeric
+            changed = True
+    if not changed:
+        return spec
+    data = spec.to_dict()
+    data["min_val"] = min_val
+    data["max_val"] = max_val
+    return ParamSpec(**data)
 
 
 def specs_for_stimulus_type(stimulus_type: str) -> List[ParamSpec]:
@@ -244,14 +327,20 @@ class StimulusParamForm(QtWidgets.QWidget):
     ) -> None:
         stim = self._session.config.stimulus
         is_config_field = spec.name in _CONFIG_FIELDS
-        is_explicit = is_config_field and spec.name in stim.explicit_fields()
-
         if is_config_field:
-            value = getattr(stim, spec.name) if is_explicit else spec.default
+            is_explicit = spec.name in stim.explicit_fields()
         else:
-            value = spec.default
+            is_explicit = spec.name in stim.params
 
-        widget, signal_name = _make_widget(spec, value)
+        default_value = _effective_default(stim.type, spec)
+        if is_config_field:
+            value = getattr(stim, spec.name) if is_explicit else default_value
+        else:
+            value = stim.params[spec.name] if is_explicit else default_value
+
+        widget_spec = _widen_to_include(spec, default_value, value)
+
+        widget, signal_name = _make_widget(widget_spec, value)
         widget.setObjectName(f"stim_param_{spec.name}")
 
         label = QtWidgets.QLabel()
@@ -260,20 +349,11 @@ class StimulusParamForm(QtWidgets.QWidget):
         row_hbox.setContentsMargins(0, 0, 0, 0)
         row_hbox.addWidget(widget, 1)
 
-        reset_button: Optional[QtWidgets.QToolButton] = None
-        if is_config_field:
-            reset_button = QtWidgets.QToolButton()
-            reset_button.setText("↺")  # counter-clockwise arrow: reset
-            reset_button.setToolTip("Reset to the stimulus type's default")
-            reset_button.clicked.connect(functools.partial(self._reset, spec.name))
-            row_hbox.addWidget(reset_button)
-        else:
-            widget.setEnabled(False)
-            widget.setToolTip(
-                f"{spec.name!r} is not a StimulusConfig field, so it cannot "
-                "be edited from the config yet. Showing the stimulus type's "
-                "own default."
-            )
+        reset_button = QtWidgets.QToolButton()
+        reset_button.setText("↺")  # counter-clockwise arrow: reset
+        reset_button.setToolTip("Reset to the stimulus type's default")
+        reset_button.clicked.connect(functools.partial(self._reset, spec.name))
+        row_hbox.addWidget(reset_button)
 
         tooltip = spec.tooltip or spec.help
         if tooltip:
@@ -283,25 +363,20 @@ class StimulusParamForm(QtWidgets.QWidget):
 
         if is_config_field:
             slot = functools.partial(self._write, spec.name)
-            getattr(widget, signal_name).connect(slot)
+        else:
+            slot = functools.partial(self._write_param, spec.name)
+        getattr(widget, signal_name).connect(slot)
 
         self._rows[spec.name] = _Row(
-            spec, widget, label, reset_button, is_config_field, group_box
+            widget_spec, widget, label, reset_button, is_config_field, group_box
         )
-        self._style_row(spec.name, is_explicit if is_config_field else True)
+        self._style_row(spec.name, is_explicit)
 
     # -------------------------------------------------------------- styling
 
     def _style_row(self, name: str, is_set: bool) -> None:
         row = self._rows[name]
         base = row.spec.label or row.spec.name.replace("_", " ").capitalize()
-        if not row.config_field:
-            row.label.setText(f"{base} (not configurable)")
-            font = row.label.font()
-            font.setItalic(True)
-            row.label.setFont(font)
-            row.label.setStyleSheet(f"color: {theme.PALETTE['text_disabled']};")
-            return
         if is_set:
             row.label.setText(base)
             font = row.label.font()
@@ -320,7 +395,7 @@ class StimulusParamForm(QtWidgets.QWidget):
     # -------------------------------------------------------------- writing
 
     def _write(self, name: str, *_args: Any) -> None:
-        """Write the widget's current value for ``name`` into the config."""
+        """Write the widget's current value for a ``StimulusConfig`` field."""
         row = self._rows[name]
         spec = row.spec
         widget = row.widget
@@ -331,16 +406,43 @@ class StimulusParamForm(QtWidgets.QWidget):
             return
         stim = self._session.config.stimulus
         current = (
-            getattr(stim, name) if name in stim.explicit_fields() else spec.default
+            getattr(stim, name)
+            if name in stim.explicit_fields()
+            else _effective_default(stim.type, spec)
         )
         if new_value == current:
             return
         self._session.set_by_path(f"stimulus.{name}", new_value)
 
+    def _write_param(self, name: str, *_args: Any) -> None:
+        """Write the widget's current value into ``stimulus.params[name]``."""
+        row = self._rows[name]
+        spec = row.spec
+        widget = row.widget
+        try:
+            new_value = _read_widget(spec, widget)
+        except json.JSONDecodeError as exc:
+            widget.setToolTip(str(exc))
+            return
+        stim = self._session.config.stimulus
+        current = (
+            stim.params[name]
+            if name in stim.params
+            else _effective_default(stim.type, spec)
+        )
+        if new_value == current:
+            return
+        self._session.set_by_path(f"{_PARAMS_PATH_PREFIX}{name}", new_value)
+
     def _reset(self, name: str, *_args: Any) -> None:
         """Un-set ``name``, so it goes back to the stimulus type's default."""
-        self._session.config.stimulus.unset(name)
-        self._session.notify(f"stimulus.{name}")
+        row = self._rows[name]
+        if row.config_field:
+            self._session.config.stimulus.unset(name)
+            self._session.notify(f"stimulus.{name}")
+        else:
+            self._session.config.stimulus.params.pop(name, None)
+            self._session.notify(f"{_PARAMS_PATH_PREFIX}{name}")
 
     # -------------------------------------------------------------- reading
 
@@ -352,16 +454,22 @@ class StimulusParamForm(QtWidgets.QWidget):
         if not path.startswith("stimulus."):
             return
         name = path[len("stimulus.") :]
+        if name.startswith("params."):
+            name = name[len("params.") :]
         if name in self._rows:
             self._refresh_row(name)
 
     def _refresh_row(self, name: str) -> None:
         row = self._rows[name]
-        if not row.config_field:
-            return
         stim = self._session.config.stimulus
-        is_explicit = name in stim.explicit_fields()
-        value = getattr(stim, name) if is_explicit else row.spec.default
+        default_value = _effective_default(stim.type, row.spec)
+        if row.config_field:
+            is_explicit = name in stim.explicit_fields()
+            value = getattr(stim, name) if is_explicit else default_value
+        else:
+            is_explicit = name in stim.params
+            value = stim.params[name] if is_explicit else default_value
+        row.spec = _widen_to_include(row.spec, value)
         try:
             widget_value = _read_widget(row.spec, row.widget)
         except json.JSONDecodeError:
@@ -407,7 +515,11 @@ class StimulusParamForm(QtWidgets.QWidget):
 
     def is_explicit(self, name: str) -> bool:
         """Whether ``name`` is currently shown as set rather than default."""
-        return name in self._session.config.stimulus.explicit_fields()
+        row = self._rows.get(name)
+        stim = self._session.config.stimulus
+        if row is not None and not row.config_field:
+            return name in stim.params
+        return name in stim.explicit_fields()
 
 
 def _is_json_valued(spec: ParamSpec) -> bool:

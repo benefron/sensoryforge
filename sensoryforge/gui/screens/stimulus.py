@@ -131,8 +131,17 @@ class StimulusScreen(QtWidgets.QWidget):
 
     def _on_type_changed(self, _index: int) -> None:
         new_type = self.type_combo.currentData()
-        if new_type is None or new_type == self._session.config.stimulus.type:
+        stim = self._session.config.stimulus
+        if new_type is None or new_type == stim.type:
             return
+        # `stimulus.params` holds the OLD type's own parameters (a Braille
+        # `v_mms`, an edge_grating `count`, ...); the new type's constructor
+        # either rejects an unknown key outright or, worse, silently accepts
+        # a same-named key with a different meaning. Clear it so switching
+        # types never carries stale parameters across.
+        if stim.params:
+            stim.params.clear()
+            self._session.notify("stimulus.params")
         self._session.set_by_path("stimulus.type", new_type)
 
     # ------------------------------------------------------------- name field

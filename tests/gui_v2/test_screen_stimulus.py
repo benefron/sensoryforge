@@ -10,6 +10,7 @@ empty-spec notice, changing the target grid, and a forced render error.
 
 from __future__ import annotations
 
+import torch
 import numpy as np
 import pytest
 
@@ -27,9 +28,19 @@ from sensoryforge.gui.screens import (
     stimulus_preview as stimulus_preview_module,
 )  # noqa: E402
 from sensoryforge.gui.screens.stimulus import StimulusScreen  # noqa: E402
+from sensoryforge.gui.screens.stimulus_paramform import (  # noqa: E402
+    unconfigurable_params,
+)
 from sensoryforge.gui.session import Session  # noqa: E402
+from sensoryforge.registry import STIMULUS_REGISTRY  # noqa: E402
+from sensoryforge.stimuli.render import render_for_config  # noqa: E402
 
 register_components.register_all()
+
+#: Types :func:`sensoryforge.stimuli.render.render_for_config` renders from a
+#: single ``StimulusConfig`` block on its own; ``composite``/``static``/
+#: ``timeline`` need child stimuli this form does not build.
+_SKIP_WYSIWYG_TYPES = frozenset({"composite", "static", "timeline"})
 
 
 def _config(stimulus_type: str, **grid_kwargs) -> SensoryForgeConfig:
@@ -224,3 +235,146 @@ def test_config_replaced_rebuilds_the_screen(qtbot):
     screen._session.replace_config(new_config)
     assert screen.type_combo.currentData() == "gaussian"
     assert screen.param_form.widget_for("amplitude") is not None
+
+
+# ------------------------------------------------------------- unconfigurable
+
+
+def test_unconfigurable_params_is_empty():
+    """Every declared parameter of every registered stimulus is editable now.
+
+    ``stimulus.params`` gives a param with no ``StimulusConfig`` field
+    somewhere to live, so nothing is unconfigurable any more.
+    """
+    assert unconfigurable_params() == []
+
+
+# ------------------------------------------------------- shown == used (WYSIWYG)
+
+
+def _read_row_value(spec_name, form):
+    from sensoryforge.gui.widgets.param_form import _read_widget
+
+    row = form._rows[spec_name]
+    return _read_widget(row.spec, row.widget)
+
+
+def _write_every_displayed_value(config, form):
+    """Explicitly set every row's *currently displayed* value on *config*.
+
+    Mirrors exactly what a user clicking through every row and leaving it
+    unchanged (so it becomes explicit but numerically identical) would
+    produce: a named field is set on ``stimulus.<name>``, everything else on
+    ``stimulus.params.<name>``.
+    """
+    for name, row in form._rows.items():
+        value = _read_row_value(name, form)
+        if row.config_field:
+            setattr(config.stimulus, name, value)
+        else:
+            config.stimulus.params[name] = value
+
+
+@pytest.mark.parametrize(
+    "stimulus_type",
+    sorted(set(STIMULUS_REGISTRY.list_registered()) - _SKIP_WYSIWYG_TYPES),
+)
+def test_what_you_see_is_what_runs(qtbot, stimulus_type):
+    """A fresh render must equal a render with every displayed value written explicitly.
+
+    This is the screen's core promise (see the task brief): whatever value a
+    row shows for an unset parameter is the value that actually renders.
+    Before the ``effective_defaults``-aware fix, several rows displayed
+    ``spec.default`` (the stimulus class's own constructor default) while the
+    render used a different value (the legacy-generator default, e.g.
+    gaussian amplitude 1.0 shown vs. 30.0 rendered) -- so writing the shown
+    value explicitly changed what rendered, failing this test.
+    """
+    screen = _screen(qtbot, _config(stimulus_type))
+    bare = screen._session.config
+
+    frames_bare, _, _, _ = render_for_config(bare, duration_ms=50.0, dt_ms=1.0)
+
+    explicit_config = _config(stimulus_type)
+    _write_every_displayed_value(explicit_config, screen.param_form)
+    frames_explicit, _, _, _ = render_for_config(
+        explicit_config, duration_ms=50.0, dt_ms=1.0
+    )
+
+    assert torch.equal(frames_bare, frames_explicit), (
+        f"{stimulus_type!r}: rendering with every displayed value written "
+        "explicitly must be bit-identical to the bare render (shown != used)"
+    )
+
+
+def test_gaussian_amplitude_widget_reads_30_on_a_fresh_session(qtbot):
+    screen = _screen(qtbot, _config("gaussian"))
+    amplitude_widget = screen.param_form.widget_for("amplitude")
+    assert amplitude_widget.value() == pytest.approx(30.0)
+
+
+# ------------------------------------------------------- params-backed rows
+
+
+def test_editing_a_params_backed_row_through_the_widget_changes_frames(qtbot):
+    screen = _screen(qtbot, _config("braille"))
+    _wait_render(qtbot, screen.preview)
+    frames_before = screen.preview._frames.copy()
+
+    assert "v_mms" not in screen._session.config.stimulus.params
+    v_mms_widget = screen.param_form.widget_for("v_mms")
+    v_mms_widget.setValue(v_mms_widget.value() + 30.0)
+    assert screen._session.config.stimulus.params.get("v_mms") == pytest.approx(
+        v_mms_widget.value()
+    )
+    assert screen.param_form.is_explicit("v_mms") is True
+
+    _wait_render(qtbot, screen.preview)
+    frames_after = screen.preview._frames
+    assert not np.allclose(frames_before, frames_after)
+
+
+def test_params_backed_row_survives_yaml_round_trip(qtbot):
+    screen = _screen(qtbot, _config("edge_grating"))
+    count_widget = screen.param_form.widget_for("count")
+    count_widget.setValue(count_widget.value() + 2)
+    stim = screen._session.config.stimulus
+    assert stim.params.get("count") == count_widget.value()
+
+    yaml_text = screen._session.config.to_yaml()
+    reloaded = SensoryForgeConfig.from_yaml(yaml_text)
+    assert reloaded.stimulus.params.get("count") == count_widget.value()
+    assert "count" in reloaded.stimulus.explicit_fields() or (
+        "params" in reloaded.stimulus.explicit_fields()
+    )
+
+
+def test_reset_button_on_a_params_backed_row_restores_frames_and_removes_the_key(qtbot):
+    screen = _screen(qtbot, _config("braille"))
+    _wait_render(qtbot, screen.preview)
+    frames_original = screen.preview._frames.copy()
+
+    v_mms_widget = screen.param_form.widget_for("v_mms")
+    v_mms_widget.setValue(v_mms_widget.value() + 30.0)
+    _wait_render(qtbot, screen.preview)
+    assert not np.allclose(frames_original, screen.preview._frames)
+
+    screen.param_form._rows["v_mms"].reset_button.click()
+    assert "v_mms" not in screen._session.config.stimulus.params
+    assert screen.param_form.is_explicit("v_mms") is False
+
+    _wait_render(qtbot, screen.preview)
+    assert np.array_equal(frames_original, screen.preview._frames)
+
+
+def test_changing_type_clears_params(qtbot):
+    screen = _screen(qtbot, _config("braille"))
+    v_mms_widget = screen.param_form.widget_for("v_mms")
+    v_mms_widget.setValue(v_mms_widget.value() + 30.0)
+    assert screen._session.config.stimulus.params
+
+    idx = screen.type_combo.findData("gaussian")
+    assert idx >= 0
+    screen.type_combo.setCurrentIndex(idx)
+    assert screen._session.config.stimulus.type == "gaussian"
+    assert screen._session.config.stimulus.params == {}
