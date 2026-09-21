@@ -215,3 +215,21 @@ class TestNeuronTraceBenchWidget:
         bench.set_population("SA Population")
 
         assert bench.error_label.isHidden() is False
+
+
+def test_rf_footprint_starts_on_the_central_neuron(qtbot):
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.bench.rf_footprint import RfFootprintBench
+    from sensoryforge.gui.session import Session
+
+    config = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    )
+    config.grids[0].rows = 20
+    config.grids[0].cols = 20
+    bench = RfFootprintBench(Session(config))
+    qtbot.addWidget(bench)
+    bench.set_population(config.populations[0].name)
+    centre = bench.bank.neuron_centers[bench.neuron_index]
+    spacing = config.grids[0].spacing
+    assert float(centre.abs().max()) < 0.5 + spacing

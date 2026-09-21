@@ -78,7 +78,7 @@ class RfFootprintBench(QtWidgets.QWidget):
         self._session = session
         self._population_name: Optional[str] = None
         self._bank: Optional[ReceptiveFieldBank] = None
-        self._neuron_index = 0
+        self._neuron_index: Optional[int] = None
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -108,13 +108,23 @@ class RfFootprintBench(QtWidgets.QWidget):
         layout.addWidget(self.error_label)
 
     @property
+    def neuron_index(self) -> int:
+        """The neuron whose footprint is shown."""
+        return self.spin_neuron.value()
+
+    @property
     def bank(self) -> Optional[ReceptiveFieldBank]:
         """The last successfully built bank, or ``None``."""
         return self._bank
 
     def set_population(self, population_name: Optional[str]) -> None:
-        """Point the bench at a different population and recompute."""
+        """Point the bench at a different population and recompute.
+
+        The bench starts on the neuron nearest the array centre: neuron 0 sits
+        in a corner, where its footprint is clipped and hard to see.
+        """
         self._population_name = population_name
+        self._neuron_index = None
         self.refresh()
 
     def refresh(self) -> None:
@@ -150,8 +160,8 @@ class RfFootprintBench(QtWidgets.QWidget):
         n_neurons = bank.num_neurons
         self.spin_neuron.blockSignals(True)
         self.spin_neuron.setRange(0, max(0, n_neurons - 1))
-        if self._neuron_index >= n_neurons:
-            self._neuron_index = 0
+        if self._neuron_index is None or self._neuron_index >= n_neurons:
+            self._neuron_index = _central_neuron(bank)
         self.spin_neuron.setValue(self._neuron_index)
         self.spin_neuron.blockSignals(False)
 
@@ -187,3 +197,11 @@ class RfFootprintBench(QtWidgets.QWidget):
             f"{bank.num_neurons} neurons — receptors/neuron min {lo}, "
             f"median {med}, max {hi}"
         )
+
+
+def _central_neuron(bank: ReceptiveFieldBank) -> int:
+    """Index of the neuron whose centre is nearest the receptors' centroid."""
+    if bank.num_neurons == 0:
+        return 0
+    centroid = bank.receptor_coords.mean(dim=0)
+    return int(((bank.neuron_centers - centroid) ** 2).sum(dim=1).argmin())
