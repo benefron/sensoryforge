@@ -26,6 +26,7 @@ from typing import Any, List, Optional
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.config.schema import GridConfig, grid_config_param_specs
 from sensoryforge.core.simulation_engine import build_grid
 from sensoryforge.gui import theme
@@ -128,6 +129,9 @@ class SensorsScreen(QtWidgets.QWidget):
         editor = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(editor)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        self.problems = ProblemList(self._session, self._problem_prefix)
+        layout.addWidget(self.problems)
 
         list_label = QtWidgets.QLabel("Grids")
         list_label.setObjectName("SectionTitle")
@@ -240,6 +244,8 @@ class SensorsScreen(QtWidgets.QWidget):
 
     def _select_grid(self, index: int) -> None:
         self._selected_index = index
+        if hasattr(self, "problems"):
+            self.problems.refresh()
         grid_cfg = self._grids()[index]
 
         self._suspend_name_edit = True
@@ -305,6 +311,12 @@ class SensorsScreen(QtWidgets.QWidget):
             advanced=self._advanced,
         )
         self.form_container.addWidget(self._param_form)
+
+    def _problem_prefix(self) -> Optional[str]:
+        """The selected grid's validation key, for the problem list."""
+        if self._selected_index is None:
+            return None
+        return f"grids.{self._selected_index}"
 
     def set_advanced(self, on: bool) -> None:
         """Show or hide the advanced rows (called by the shell's toggle).

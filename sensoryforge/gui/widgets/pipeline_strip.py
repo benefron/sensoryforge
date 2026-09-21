@@ -15,14 +15,13 @@ whole config -- by keeping ``PipelineStrip._pop_rows`` indexed by population.
 from __future__ import annotations
 
 from functools import partial
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from sensoryforge.config.schema import GridConfig, PopulationConfig, PopulationInput
 from sensoryforge.gui import theme
 from sensoryforge.gui.session import Session
-from sensoryforge.gui.validation import validate
 
 
 class _Row(QtWidgets.QWidget):
@@ -70,28 +69,39 @@ def _rf_value(
 ) -> Tuple[str, object]:
     """The one number worth showing on a receptive-field chip: d or sigma.
 
-    Explicit ``inputs`` carry the value in ``rf.params``; the single-input
-    sugar form (``PopulationConfig.effective_inputs``) leaves ``rf.params``
-    empty and the value lives on the population itself instead.
+    Read from the parameters the engine builds with
+    (:meth:`SimulationEngine.builder_params` overlaid with the input's own
+    ``rf.params``), and chosen by what the builder takes: ``d`` for a builder
+    with a resolvable distance (``template``), sigma otherwise. A population
+    that switched from ``template`` to ``gaussian`` keeps its
+    ``resolvable_distance_mm``, which the gaussian ignores.
     """
-    params = population_input.rf.params
-    if "resolvable_distance_mm" in params:
-        return "d", params["resolvable_distance_mm"]
-    if "sigma_d_mm" in params:
-        return "σ", params["sigma_d_mm"]
-    if not population.inputs:
-        if population.resolvable_distance_mm is not None:
-            return "d", population.resolvable_distance_mm
-        return "σ", population.sigma_d_mm
-    return "d", None
+    from sensoryforge.core.simulation_engine import SimulationEngine
+    from sensoryforge.registry import INNERVATION_REGISTRY
+
+    params = SimulationEngine.builder_params(population)
+    params.update(population_input.rf.params)
+    try:
+        names = {
+            spec.name
+            for spec in INNERVATION_REGISTRY.get_param_spec(population_input.rf.method)
+        }
+    except KeyError:
+        names = set()
+    if "resolvable_distance_mm" in names:
+        return "d", params.get("resolvable_distance_mm")
+    if "sigma_d_mm" in names:
+        return "σ", params.get("sigma_d_mm")
+    return "", None
 
 
-def _dot_status(path: str, errors: Dict[str, str], is_default: bool) -> Tuple[str, str]:
+def _dot_status(
+    path: Union[str, Tuple[str, ...]], errors: Dict[str, str], is_default: bool
+) -> Tuple[str, str]:
     """Colour and tooltip message for one chip's status dot.
 
     Args:
-        path: The exact ``validate()`` key this chip is responsible for
-            (``""`` if none).
+        path: The ``validate()`` key (or keys) this chip is responsible for.
         errors: The current ``validate(config)`` result.
         is_default: Whether the field(s) this chip shows are all at their
             schema default -- shown grey when true and no error, green
@@ -100,7 +110,8 @@ def _dot_status(path: str, errors: Dict[str, str], is_default: bool) -> Tuple[st
     Returns:
         ``(hex_color, tooltip_message)``.
     """
-    message = errors.get(path, "") if path else ""
+    keys = (path,) if isinstance(path, str) else path
+    message = "\n".join(errors[key] for key in keys if key and key in errors)
     if message:
         return theme.PALETTE["error"], message
     if is_default:
@@ -151,6 +162,10 @@ class PipelineStrip(QtWidgets.QWidget):
         session.configReplaced.connect(partial(self._rebuild))
         session.configChanged.connect(self._on_config_changed)
         session.staleChanged.connect(self._update_status_label)
+        # An edit can create or clear a problem in another row (a rename that
+        # duplicates a name, a grid that inputs point at), so a change in the
+        # validation result redraws every row.
+        session.validationChanged.connect(partial(self._on_validation_changed))
 
         self._rebuild()
 
@@ -217,29 +232,38 @@ class PipelineStrip(QtWidgets.QWidget):
         label = QtWidgets.QLabel("Sensors")
         label.setObjectName("SectionTitle")
         row.add_widget(label)
-        errors = validate(self._session.config)
+        errors = self._session.errors
         for index, grid in enumerate(self._session.config.grids):
             text = f"{grid.name}\n{_grid_summary(grid)}"
-            color, message = _dot_status("", errors, is_default=False)
+            color, message = _dot_status(f"grids.{index}", errors, is_default=False)
             self._make_chip("sensors", index, text, message, color, row)
         row.add_stretch()
         return row
 
     def _build_population_row(self, index: int) -> _Row:
         population = self._session.config.populations[index]
-        errors = validate(self._session.config)
+        errors = self._session.errors
+        key = f"populations.{index}"
         row = _Row()
 
         name_label = QtWidgets.QLabel(population.name)
         qcolor = theme.population_color(index, population.neuron_type)
+        name_problem = "\n".join(errors[k] for k in (key, f"{key}.name") if k in errors)
+        if name_problem:
+            name_label.setText(f"⚠ {population.name}")
+            name_label.setToolTip(name_problem)
+            qcolor = QtGui.QColor(theme.PALETTE["error"])
         name_label.setStyleSheet(f"color: {qcolor.name()}; font-weight: 600;")
         row.add_widget(name_label)
 
-        grid = self._grid_by_name(population.target_grid)
+        # The grid(s) this population reads: its inputs' when it has explicit
+        # inputs (target_grid is then unset), else target_grid.
+        grid_names = [i.grid for i in population.effective_inputs()]
+        grid = self._grid_by_name(grid_names[0] if grid_names else None)
         color, message = _dot_status(
             f"populations.{index}.target_grid",
             errors,
-            is_default=population.target_grid is None,
+            is_default=not grid_names or grid_names[0] is None,
         )
         self._make_chip(
             "sensor_array",
@@ -256,22 +280,21 @@ class PipelineStrip(QtWidgets.QWidget):
         )
         for population_input in inputs:
             symbol, value = _rf_value(population, population_input)
-            text = f"Receptive field\n{population_input.rf.method} {symbol}={value}"
-            color, message = _dot_status(
-                f"populations.{index}.target_grid", errors, is_default=rf_is_default
-            )
+            detail = f" {symbol}={value:g}" if symbol and value is not None else ""
+            text = f"Receptive field\n{population_input.rf.method}{detail}"
+            color, message = _dot_status(f"{key}.rf", errors, is_default=rf_is_default)
             self._make_chip("receptive_field", index, text, message, color, row)
 
         if len(inputs) > 1:
             color, message = _dot_status(
-                "", errors, is_default=population.combine == "sum"
+                f"{key}.combine", errors, is_default=population.combine == "sum"
             )
             self._make_chip(
                 "combine", index, f"Combine\n{population.combine}", message, color, row
             )
 
         color, message = _dot_status(
-            "", errors, is_default=population.filter_method == "none"
+            f"{key}.filter", errors, is_default=population.filter_method == "none"
         )
         self._make_chip(
             "filter", index, f"Filter\n{population.filter_method}", message, color, row
@@ -282,12 +305,12 @@ class PipelineStrip(QtWidgets.QWidget):
         if preset:
             neuron_text += f" ({preset})"
         color, message = _dot_status(
-            "", errors, is_default=population.neuron_model == "Izhikevich"
+            f"{key}.neuron", errors, is_default=population.neuron_model == "Izhikevich"
         )
         self._make_chip("neuron", index, neuron_text, message, color, row)
 
         color, message = _dot_status(
-            "", errors, is_default=population.readout == "auto"
+            f"{key}.readout", errors, is_default=population.readout == "auto"
         )
         self._make_chip(
             "readout", index, f"Readout\n{population.readout}", message, color, row
@@ -322,6 +345,12 @@ class PipelineStrip(QtWidgets.QWidget):
                     self._replace_population_row(index)
                     self._update_status_label()
                     return
+        self._update_status_label()
+
+    def _on_validation_changed(self, _errors: object) -> None:
+        dirty = self._dirty
+        self._rebuild()
+        self._dirty = dirty
         self._update_status_label()
 
     def _replace_population_row(self, index: int) -> None:

@@ -113,6 +113,131 @@ def _composite_from_coords(
     return composite
 
 
+def build_filter(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
+    """Build one population's temporal filter exactly as the engine does.
+
+    Shared by :class:`SimulationEngine` and GUI validation, so a filter the
+    GUI reports as buildable is the filter a run builds.
+
+    Args:
+        pop_cfg: The :class:`PopulationConfig`.
+        simulation: The :class:`SimulationConfig` (``dt_ms`` is the filter step).
+        device: Torch device for the module.
+
+    Returns:
+        The filter module, or ``None`` for ``filter_method="none"``.
+
+    Raises:
+        ValueError: If the filter method is unknown.
+        TypeError: If ``filter_params`` names a parameter the filter lacks.
+    """
+    # Build filter -- parameters resolved from the single shared
+    # default table (sensoryforge.config.defaults) so the engine and
+    # the GUI agree when a population supplies no overrides (F-026).
+    filter_method = pop_cfg.filter_method or "none"
+    filter_module = None
+    if filter_method != "none":
+        try:
+            filter_cls = FILTER_REGISTRY.get_class(filter_method)
+            if filter_method.lower() in ("sa", "ra"):
+                filter_params = resolve_filter_params(
+                    filter_method, pop_cfg.filter_params
+                )
+            else:
+                filter_params = dict(pop_cfg.filter_params or {})
+            filter_params["dt"] = simulation.dt_ms
+            filter_module = filter_cls(**filter_params).to(device)
+        except KeyError:
+            raise ValueError(f"Unknown filter method: {filter_method}")
+    return filter_module
+
+
+def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
+    """Build one population's neuron model exactly as the engine does.
+
+    Shared by :class:`SimulationEngine` and GUI validation.
+
+    Args:
+        pop_cfg: The :class:`PopulationConfig`.
+        simulation: The :class:`SimulationConfig` (``integrate_dt_ms`` is the
+            neuron step).
+        device: Torch device for the model.
+
+    Returns:
+        The neuron model (a compiled DSL model for ``neuron_model="dsl"``).
+
+    Raises:
+        ValueError: For an unknown model, a DSL model without ``dsl_config``,
+            or a ``readout`` the model cannot provide.
+        TypeError: If ``model_params`` names a parameter the model lacks.
+    """
+    # Build neuron model -- F-004: RA/RA-I (Meissner) populations
+    # resolve to the fast-spiking Izhikevich preset unless the
+    # config already pins a preset or explicit a/b/c/d (SA/SA2 keep
+    # the regular-spiking default). See resolve_neuron_params.
+    neuron_model_name = pop_cfg.neuron_model or "izhikevich"
+    try:
+        neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
+    except KeyError:
+        raise ValueError(f"Unknown neuron model: {neuron_model_name}")
+
+    if neuron_cls is NeuronModel:
+        # DSL model (F-010, N3): NeuronModel's constructor takes
+        # equations/threshold/reset/..., not dt=/noise_std=, so it
+        # is built from dsl_config and compiled instead of
+        # constructed like the other neuron classes below.
+        if not pop_cfg.dsl_config:
+            raise ValueError(
+                f"Population {pop_cfg.name!r} has neuron_model="
+                f"{neuron_model_name!r} (DSL) but no dsl_config. "
+                "Provide dsl_config with at least 'equations'."
+            )
+        dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
+        has_threshold = dsl_model.threshold_str is not None
+        readout = (pop_cfg.readout or "auto").lower()
+        if readout == "auto":
+            pass  # readout follows the model itself (N1/N2)
+        elif readout == "analog":
+            if has_threshold:
+                raise ValueError(
+                    f"Population {pop_cfg.name!r} readout='analog' "
+                    "but its dsl_config defines a threshold; remove "
+                    "the threshold or use readout='spiking'."
+                )
+        elif readout == "spiking":
+            if not has_threshold:
+                raise ValueError(
+                    f"Population {pop_cfg.name!r} readout='spiking' "
+                    "but its dsl_config has no threshold; add one "
+                    "or use readout='analog'."
+                )
+        else:
+            raise ValueError(
+                f"Population {pop_cfg.name!r}: unknown readout "
+                f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
+                "or 'analog'."
+            )
+        # F-008: the neuron integrates at integrate_dt_ms (finer,
+        # default 0.05 ms), not the record step dt_ms; sub-stepping
+        # happens in _run_pop_from_drive.
+        neuron_model = dsl_model.compile(
+            dt=simulation.integrate_dt_ms,
+            device=str(device),
+            noise_std=pop_cfg.noise_std,
+        )
+    else:
+        neuron_params = resolve_neuron_params(
+            neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
+        )
+        # F-008: the neuron integrates at integrate_dt_ms (finer,
+        # default 0.05 ms), not the record step dt_ms; sub-stepping
+        # happens in _run_pop_from_drive.
+        neuron_params["dt"] = simulation.integrate_dt_ms
+        neuron_params["noise_std"] = pop_cfg.noise_std
+        neuron_model = neuron_cls(**neuron_params).to(device)
+    return neuron_model
+
+
 def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
     """Build one receptor grid from a :class:`~sensoryforge.config.schema.GridConfig`.
 
@@ -635,89 +760,12 @@ class SimulationEngine:
             grid = input_ctxs[0]["grid"]
             target_grid_name = input_ctxs[0]["target_grid_name"]
 
-            # Build filter -- parameters resolved from the single shared
-            # default table (sensoryforge.config.defaults) so the engine and
-            # the GUI agree when a population supplies no overrides (F-026).
-            filter_method = pop_cfg.filter_method or "none"
-            filter_module = None
-            if filter_method != "none":
-                try:
-                    filter_cls = FILTER_REGISTRY.get_class(filter_method)
-                    if filter_method.lower() in ("sa", "ra"):
-                        filter_params = resolve_filter_params(
-                            filter_method, pop_cfg.filter_params
-                        )
-                    else:
-                        filter_params = dict(pop_cfg.filter_params or {})
-                    filter_params["dt"] = self.config.simulation.dt_ms
-                    filter_module = filter_cls(**filter_params).to(self.device)
-                except KeyError:
-                    raise ValueError(f"Unknown filter method: {filter_method}")
-
-            # Build neuron model -- F-004: RA/RA-I (Meissner) populations
-            # resolve to the fast-spiking Izhikevich preset unless the
-            # config already pins a preset or explicit a/b/c/d (SA/SA2 keep
-            # the regular-spiking default). See resolve_neuron_params.
-            neuron_model_name = pop_cfg.neuron_model or "izhikevich"
-            try:
-                neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
-            except KeyError:
-                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
-
-            if neuron_cls is NeuronModel:
-                # DSL model (F-010, N3): NeuronModel's constructor takes
-                # equations/threshold/reset/..., not dt=/noise_std=, so it
-                # is built from dsl_config and compiled instead of
-                # constructed like the other neuron classes below.
-                if not pop_cfg.dsl_config:
-                    raise ValueError(
-                        f"Population {pop_cfg.name!r} has neuron_model="
-                        f"{neuron_model_name!r} (DSL) but no dsl_config. "
-                        "Provide dsl_config with at least 'equations'."
-                    )
-                dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
-                has_threshold = dsl_model.threshold_str is not None
-                readout = (pop_cfg.readout or "auto").lower()
-                if readout == "auto":
-                    pass  # readout follows the model itself (N1/N2)
-                elif readout == "analog":
-                    if has_threshold:
-                        raise ValueError(
-                            f"Population {pop_cfg.name!r} readout='analog' "
-                            "but its dsl_config defines a threshold; remove "
-                            "the threshold or use readout='spiking'."
-                        )
-                elif readout == "spiking":
-                    if not has_threshold:
-                        raise ValueError(
-                            f"Population {pop_cfg.name!r} readout='spiking' "
-                            "but its dsl_config has no threshold; add one "
-                            "or use readout='analog'."
-                        )
-                else:
-                    raise ValueError(
-                        f"Population {pop_cfg.name!r}: unknown readout "
-                        f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
-                        "or 'analog'."
-                    )
-                # F-008: the neuron integrates at integrate_dt_ms (finer,
-                # default 0.05 ms), not the record step dt_ms; sub-stepping
-                # happens in _run_pop_from_drive.
-                neuron_model = dsl_model.compile(
-                    dt=self.config.simulation.integrate_dt_ms,
-                    device=str(self.device),
-                    noise_std=pop_cfg.noise_std,
-                )
-            else:
-                neuron_params = resolve_neuron_params(
-                    neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
-                )
-                # F-008: the neuron integrates at integrate_dt_ms (finer,
-                # default 0.05 ms), not the record step dt_ms; sub-stepping
-                # happens in _run_pop_from_drive.
-                neuron_params["dt"] = self.config.simulation.integrate_dt_ms
-                neuron_params["noise_std"] = pop_cfg.noise_std
-                neuron_model = neuron_cls(**neuron_params).to(self.device)
+            filter_module = build_filter(
+                pop_cfg, self.config.simulation, device=self.device
+            )
+            neuron_model = build_neuron(
+                pop_cfg, self.config.simulation, device=self.device
+            )
 
             # Store population context. "inputs" carries the per-input build
             # contexts (M2) run() needs to sample each input's own

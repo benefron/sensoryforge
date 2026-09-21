@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.config.defaults import resolve_neuron_params
 from sensoryforge.config.schema import (
     PopulationConfig,
@@ -584,6 +585,17 @@ class InputsCard(_Card):
 
         if builder_cls is not None:
             specs = specs_for(INNERVATION_REGISTRY, pop_input.rf.method)
+            # Show, for every key not set here, the value the engine will
+            # build with: the population-wide fields and innervation_params
+            # (SimulationEngine.builder_params), then this input's own params.
+            effective = SimulationEngine.builder_params(pop_cfg)
+            if explicit:
+                effective.update(pop_input.rf.params)
+            # A tuple (weight_range) is edited as a JSON list.
+            effective = {
+                k: list(v) if isinstance(v, tuple) else v for k, v in effective.items()
+            }
+            specs = _specs_with_defaults(specs, effective)
             target = pop_input.rf.params if explicit else pop_cfg.innervation_params
             param_prefix = (
                 f"populations.{index}.inputs.{j}.rf.params"

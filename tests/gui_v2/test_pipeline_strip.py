@@ -114,3 +114,51 @@ def test_stale_label_follows_session_stale(qtbot):
 
     session._set_stale(True)  # simulate results now stale
     assert strip._status_label.text() == "● edited since last run"
+
+
+def test_rf_chip_shows_the_parameter_its_builder_uses(qtbot):
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.pipeline_strip import PipelineStrip
+
+    config = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    )
+    session = Session(config)
+    strip = PipelineStrip(session)
+    qtbot.addWidget(strip)
+
+    def rf_text():
+        return strip._pop_rows[0].chips_by_stage["receptive_field"][0].text()
+
+    assert rf_text().endswith("template d=0.4")
+    # The preset's resolvable distance stays set; a gaussian ignores it.
+    session.set_by_path("populations.0.innervation_method", "gaussian")
+    session.set_by_path("populations.0.sigma_d_mm", 0.45)
+    assert rf_text().endswith("gaussian σ=0.45")
+
+
+def test_sensor_array_chip_names_the_grid_explicit_inputs_read(qtbot):
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.pipeline_strip import PipelineStrip
+
+    data = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    ).to_dict()
+    population = data["populations"][0]
+    for key in (
+        "target_grid",
+        "innervation_method",
+        "resolvable_distance_mm",
+        "innervation_params",
+    ):
+        population.pop(key, None)
+    population["inputs"] = [
+        {"grid": "Main Grid", "rf": {"method": "gaussian", "params": {}}},
+        {"grid": "Main Grid", "rf": {"method": "gaussian", "params": {}}},
+    ]
+    strip = PipelineStrip(Session(SensoryForgeConfig.from_dict(data)))
+    qtbot.addWidget(strip)
+    text = strip._pop_rows[0].chips_by_stage["sensor_array"][0].text()
+    assert "no grid" not in text and "80×80" in text

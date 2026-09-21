@@ -246,6 +246,8 @@ class Session(QtCore.QObject):
         projectChanged(object): The open :class:`ProjectHandle`, or ``None``.
         staleChanged(bool): ``True`` once the config is edited after a run, so
             views can mark the displayed results as out of date.
+        validationChanged(object): The :attr:`errors` dict, emitted after a
+            change that altered it (before ``configChanged`` for the same edit).
 
     Attributes:
         config: The experiment. Never reassigned except by
@@ -272,6 +274,7 @@ class Session(QtCore.QObject):
     resultsChanged = QtCore.pyqtSignal(object)
     projectChanged = QtCore.pyqtSignal(object)
     staleChanged = QtCore.pyqtSignal(bool)
+    validationChanged = QtCore.pyqtSignal(object)
 
     def __init__(
         self,
@@ -296,6 +299,7 @@ class Session(QtCore.QObject):
         self.project: Optional[ProjectHandle] = None
         self.last_results: Optional[RunResult] = None
         self.stale: bool = False
+        self._errors: Optional[Dict[str, str]] = None
         self._adopt_config_device()
 
     # ----------------------------------------------------------------- device
@@ -321,6 +325,30 @@ class Session(QtCore.QObject):
             return False
         self.config.simulation.device = FALLBACK_DEVICE
         return True
+
+    # ------------------------------------------------------------- validation
+
+    @property
+    def errors(self) -> Dict[str, str]:
+        """What would stop this config from building, by stage key.
+
+        :func:`sensoryforge.gui.validation.validate` of :attr:`config`,
+        computed once per change and shared by every view (the pipeline strip,
+        the run bar, each screen's problem list). Empty when the config is
+        clean. Do not mutate the returned dict.
+        """
+        if self._errors is None:
+            from sensoryforge.gui.validation import validate
+
+            self._errors = validate(self.config)
+        return self._errors
+
+    def _revalidate(self) -> None:
+        """Recompute :attr:`errors`; emit ``validationChanged`` if they moved."""
+        previous = self._errors
+        self._errors = None
+        if self.errors != previous:
+            self.validationChanged.emit(self.errors)
 
     # ------------------------------------------------------------------ state
 
@@ -356,6 +384,7 @@ class Session(QtCore.QObject):
             # unchanged: the config asked for something else and was
             # overruled, and a device selector has to show what will run.
             self.deviceChanged.emit(self.device)
+        self._revalidate()
         self.configReplaced.emit()
 
     def notify(self, path: str) -> None:
@@ -370,6 +399,7 @@ class Session(QtCore.QObject):
             path: Dotted path of what changed, e.g.
                 ``"populations.1.filter_params.tau_r"``.
         """
+        self._revalidate()
         self.configChanged.emit(path)
         if path == DEVICE_PATH:
             self.deviceChanged.emit(self.device)

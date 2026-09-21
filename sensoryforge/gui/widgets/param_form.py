@@ -119,15 +119,17 @@ def _make_widget(spec: ParamSpec, value: Any) -> Tuple[QtWidgets.QWidget, str]:
 
     if spec.dtype == "int":
         spin = QtWidgets.QSpinBox()
-        spin.setRange(
-            int(spec.min_val) if spec.min_val is not None else -(2**31),
-            int(spec.max_val) if spec.max_val is not None else 2**31 - 1,
-        )
+        low = int(spec.min_val) if spec.min_val is not None else -(2**31) + 1
+        high = int(spec.max_val) if spec.max_val is not None else 2**31 - 1
+        if _is_optional_number(spec):
+            low -= 1  # the "auto" position, one below the smallest real value
+            _mark_auto(spin)
+        spin.setRange(low, high)
         if spec.step is not None:
             spin.setSingleStep(int(spec.step))
         if spec.unit:
             spin.setSuffix(f" {spec.unit}")
-        spin.setValue(int(resolved) if resolved is not None else 0)
+        spin.setValue(int(resolved) if resolved is not None else spin.minimum())
         return spin, "valueChanged"
 
     if spec.dtype == "float":
@@ -150,15 +152,39 @@ def _make_widget(spec: ParamSpec, value: Any) -> Tuple[QtWidgets.QWidget, str]:
             dspin.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
         else:
             dspin.setSingleStep(step)
+        if _is_optional_number(spec):
+            # The "auto" position, one step below the smallest real value.
+            dspin.setMinimum(min_val - (step if step > 0 else 1.0))
+            _mark_auto(dspin)
         if spec.unit:
             dspin.setSuffix(f" {spec.unit}")
-        dspin.setValue(float(resolved) if resolved is not None else 0.0)
+        dspin.setValue(float(resolved) if resolved is not None else dspin.minimum())
         return dspin, "valueChanged"
 
     # "str" or an unrecognised dtype.
     line = QtWidgets.QLineEdit()
     line.setText("" if resolved is None else str(resolved))
     return line, "editingFinished"
+
+
+def _is_optional_number(spec: ParamSpec) -> bool:
+    """A number whose unset value (``None``) means "let the component decide"."""
+    return spec.dtype in ("int", "float") and spec.default is None
+
+
+def _mark_auto(spin: QtWidgets.QAbstractSpinBox) -> None:
+    """Show the box's minimum as "auto", read back as ``None``.
+
+    An unset optional number (a template lattice's edge offset, which is
+    pitch/2 when unset) must not be shown as 0: writing the 0 back changes
+    what is built.
+    """
+    spin.setSpecialValueText("auto")
+    spin.setProperty("auto_is_none", True)
+
+
+def _is_auto(widget: QtWidgets.QWidget) -> bool:
+    return bool(widget.property("auto_is_none")) and widget.value() == widget.minimum()
 
 
 class ScientificSpinBox(QtWidgets.QDoubleSpinBox):
@@ -228,7 +254,7 @@ def _read_widget(spec: ParamSpec, widget: QtWidgets.QWidget) -> Any:
     if spec.dtype == "bool":
         return widget.isChecked()
     if spec.dtype in ("int", "float"):
-        return widget.value()
+        return None if _is_auto(widget) else widget.value()
     return widget.text()
 
 
@@ -246,9 +272,11 @@ def _write_widget(spec: ParamSpec, widget: QtWidgets.QWidget, value: Any) -> Non
         elif spec.dtype == "bool":
             widget.setChecked(bool(value))
         elif spec.dtype in ("int", "float"):
-            # An optional number with nothing set shows 0, as _make_widget does.
-            number = value if value is not None else 0
-            widget.setValue(int(number) if spec.dtype == "int" else float(number))
+            if value is None:
+                # "auto" for an optional number; otherwise the lowest value.
+                widget.setValue(widget.minimum())
+            else:
+                widget.setValue(int(value) if spec.dtype == "int" else float(value))
         else:
             widget.setText("" if value is None else str(value))
     finally:

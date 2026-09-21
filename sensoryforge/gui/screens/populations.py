@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.config.schema import PopulationConfig
 from sensoryforge.gui import theme
 from sensoryforge.gui.bench import find_population, population_index
@@ -120,6 +121,8 @@ class PopulationsScreen(QtWidgets.QWidget):
         scroll.setWidgetResizable(True)
         content = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(content)
+        self.problems = ProblemList(self._session, self._problem_prefix)
+        layout.addWidget(self.problems)
 
         self.inputs_card = InputsCard(self._session)
         self.layout_card = NeuronLayoutCard(self._session)
@@ -309,8 +312,19 @@ class PopulationsScreen(QtWidgets.QWidget):
 
     # ------------------------------------------------------------- binding
 
+    def _problem_prefix(self) -> Optional[str]:
+        """The selected population's validation key, for the problem list."""
+        name = getattr(self, "_selected", None)
+        if name is None:
+            return None
+        try:
+            return f"populations.{population_index(self._session.config, name)}"
+        except ValueError:
+            return None
+
     def _on_selection_changed(self) -> None:
         self._selected = self._current_name()
+        self.problems.refresh()
         for card in self._cards:
             card.set_population(self._selected)
         self.rf_bench.set_population(self._selected)

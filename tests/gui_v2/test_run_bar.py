@@ -152,3 +152,29 @@ def test_duration_is_written_to_the_config_and_follows_a_loaded_one(qtbot):
     session.replace_config(other)
     assert bar.duration_spin.value() == 40.0
     assert bar.dt_spin.value() == 0.5
+
+
+def test_run_is_refused_with_the_reason_while_the_config_would_not_build(qtbot):
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.run_bar import RunBar
+
+    config = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    )
+    config.grids[0].rows = 8
+    config.grids[0].cols = 8
+    session = Session(config)
+    bar = RunBar(session)
+    qtbot.addWidget(bar)
+    assert bar.run_button.isEnabled()
+    assert not bar.problem_label.isVisibleTo(bar)
+
+    session.set_by_path("populations.0.filter_params", {"bogus": 1.0})
+    assert not bar.run_button.isEnabled()
+    assert bar.problem_label.isVisibleTo(bar)
+    assert "bogus" in bar.problem_label.text()
+
+    session.set_by_path("populations.0.filter_params", {})
+    assert bar.run_button.isEnabled()
+    assert not bar.problem_label.isVisibleTo(bar)

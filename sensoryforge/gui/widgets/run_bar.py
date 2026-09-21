@@ -16,6 +16,7 @@ from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets
 
+from sensoryforge.gui import theme
 from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.gui.session import Session
 
@@ -103,9 +104,20 @@ class RunBar(QtWidgets.QWidget):
         self.bundle_label = QtWidgets.QLabel("")
         layout.addWidget(self.bundle_label)
 
+        # Why Run is unavailable: the first problem that would stop the
+        # engine building this config (Session.errors), all of them on hover.
+        self.problem_label = QtWidgets.QLabel("")
+        self.problem_label.setObjectName("ProblemLabel")
+        self.problem_label.setStyleSheet(f"color: {theme.PALETTE['error']};")
+        self.problem_label.setVisible(False)
+        layout.addWidget(self.problem_label, 1)
+        self._running = False
+
         session.deviceChanged.connect(self._on_session_device_changed)
         session.configChanged.connect(self._on_config_changed)
         session.configReplaced.connect(self._refresh_from_config)
+        session.validationChanged.connect(self._update_run_available)
+        self._update_run_available()
 
     # -------------------------------------------------------------- controller
 
@@ -173,8 +185,25 @@ class RunBar(QtWidgets.QWidget):
 
     # -------------------------------------------------------------- run/cancel
 
+    def _update_run_available(self, *_args: object) -> None:
+        """Enable Run only when idle and the config would build."""
+        errors = self._session.errors
+        messages = [errors[key] for key in sorted(errors)]
+        if messages:
+            first = messages[0].splitlines()[0]
+            more = f" (+{len(messages) - 1} more)" if len(messages) > 1 else ""
+            self.problem_label.setText(f"Cannot run: {first}{more}")
+            self.problem_label.setToolTip("\n\n".join(messages))
+            self.run_button.setToolTip("\n\n".join(messages))
+        else:
+            self.problem_label.setText("")
+            self.problem_label.setToolTip("")
+            self.run_button.setToolTip("")
+        self.problem_label.setVisible(bool(messages))
+        self.run_button.setEnabled(not self._running and not messages)
+
     def _on_run_clicked(self) -> None:
-        if self._controller is None:
+        if self._controller is None or self._session.errors:
             return
         self.run_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
@@ -191,6 +220,7 @@ class RunBar(QtWidgets.QWidget):
     # ----------------------------------------------------------- controller cb
 
     def _on_started(self) -> None:
+        self._running = True
         self.run_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
         self.progress_bar.setValue(0)
@@ -203,7 +233,8 @@ class RunBar(QtWidgets.QWidget):
         self.progress_bar.setFormat(f"{name} ({index + 1}/{total})")
 
     def _on_finished(self, result: object) -> None:
-        self.run_button.setEnabled(True)
+        self._running = False
+        self._update_run_available()
         self.cancel_button.setEnabled(False)
         self.progress_bar.setValue(100)
         self.progress_bar.setFormat("done")
@@ -213,13 +244,15 @@ class RunBar(QtWidgets.QWidget):
         )
 
     def _on_failed(self, message: str) -> None:
-        self.run_button.setEnabled(True)
+        self._running = False
+        self._update_run_available()
         self.cancel_button.setEnabled(False)
         self.progress_bar.setFormat("failed")
         if self.show_dialogs:
             QtWidgets.QMessageBox.critical(self, "Run failed", message)
 
     def _on_cancelled(self) -> None:
-        self.run_button.setEnabled(True)
+        self._running = False
+        self._update_run_available()
         self.cancel_button.setEnabled(False)
         self.progress_bar.setFormat("cancelled")
