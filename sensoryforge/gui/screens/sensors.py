@@ -96,6 +96,7 @@ class SensorsScreen(QtWidgets.QWidget):
         super().__init__(parent)
         self._session = session
         self._selected_index: Optional[int] = None
+        self._advanced = False
         self._param_form: Optional[ParamForm] = None
         self._highlight_item: Optional[Any] = None
         self._suspend_name_edit = False
@@ -305,14 +306,19 @@ class SensorsScreen(QtWidgets.QWidget):
             grid_cfg,
             self._session,
             f"grids.{index}",
-            advanced=self._advanced_default(),
+            advanced=self._advanced,
         )
         self.form_container.addWidget(self._param_form)
 
-    def _advanced_default(self) -> bool:
-        from sensoryforge.gui.settings import gui_settings
+    def set_advanced(self, on: bool) -> None:
+        """Show or hide the advanced rows (called by the shell's toggle).
 
-        return bool(gui_settings().value("gui/advanced", False, type=bool))
+        Args:
+            on: Whether Advanced mode is on.
+        """
+        self._advanced = bool(on)
+        if self._param_form is not None:
+            self._param_form.set_advanced(self._advanced)
 
     # -------------------------------------------------------------- list UI
 

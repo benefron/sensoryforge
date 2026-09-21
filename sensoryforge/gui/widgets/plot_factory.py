@@ -38,6 +38,35 @@ _CONNECTIONS: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
 _UNOWNED_CONNECTIONS: List[Tuple[object, Callable]] = []
 
 
+def axis_label(text: str, unit: str = "") -> str:
+    """The text of an axis label: ``"Time (ms)"``.
+
+    The unit is part of the text, never pyqtgraph's ``units=``: with
+    ``units="ms"`` pyqtgraph rescales the ticks and prefixes the unit, so a
+    1000 ms run reads ``0 .. 1.0 (kms)`` and a 12 mm array ``(kmm)``.
+    SensoryForge's units are fixed (ms, mm, mA, mV, Hz); they are shown as
+    they are.
+
+    Args:
+        text: What the axis measures.
+        unit: Its unit, or ``""`` for none.
+
+    Returns:
+        ``"text (unit)"``, or ``text`` when there is no unit.
+    """
+    return f"{text} ({unit})" if unit else text
+
+
+def fix_axis_units(plot_item: "pg.PlotItem") -> None:
+    """Turn off SI-prefix rescaling on every axis of ``plot_item``.
+
+    Args:
+        plot_item: The plot whose axes should show values as they are.
+    """
+    for axis_name in ("bottom", "left", "right", "top"):
+        plot_item.getAxis(axis_name).enableAutoSIPrefix(False)
+
+
 def make_plot(
     title: str = "",
     xlabel: str = "",
@@ -78,10 +107,11 @@ def make_plot(
     if title:
         plot_item.setTitle(title)
     if xlabel:
-        plot_item.setLabel("bottom", xlabel, units=x_unit or None)
+        plot_item.setLabel("bottom", axis_label(xlabel, x_unit))
     if ylabel:
-        plot_item.setLabel("left", ylabel, units=y_unit or None)
+        plot_item.setLabel("left", axis_label(ylabel, y_unit))
 
+    fix_axis_units(plot_item)
     plot.setMenuEnabled(False)
     plot.hideButtons()
     return plot

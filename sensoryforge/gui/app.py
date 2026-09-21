@@ -187,6 +187,11 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
             widget = SCREEN_FACTORIES[stage](self._session, None)
             self._screens[stage] = widget
             self.stack.addWidget(widget)
+            # The Advanced convention (see ``screens/__init__.py``).
+            set_advanced = getattr(widget, "set_advanced", None)
+            if callable(set_advanced):
+                set_advanced(self.advanced_check.isChecked())
+                self.advancedChanged.connect(set_advanced)
         splitter.addWidget(self.stack)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
