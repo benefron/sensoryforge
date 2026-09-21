@@ -28,6 +28,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from sensoryforge.gui.widgets.figure_export import ExportFigureButton
 from sensoryforge.config.schema import GridConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.core.simulation_engine import build_grid
@@ -111,6 +112,8 @@ class GridPreview(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.plot)
+        self.export_button = ExportFigureButton(self.plot, "receptors")
+        layout.addWidget(self.export_button, 0, QtCore.Qt.AlignRight)
 
         # One scatter item per grid, plus the receptor count each covers
         # (for receptor_count() and the click-offset each scatter's index
