@@ -114,7 +114,12 @@ def validate(config: SensoryForgeConfig) -> Dict[str, str]:
             for population_input in population.effective_inputs()
             if population_input.grid not in grid_names
         ]
-        if missing:
+        if missing and missing[0] is None:
+            errors[f"populations.{i}.target_grid"] = (
+                f"population {population.name!r} reads no sensor array; "
+                "choose a grid for it on the Populations screen"
+            )
+        elif missing:
             errors[f"populations.{i}.target_grid"] = (
                 f"population {population.name!r}: no grid named "
                 f"{missing[0]!r}; known grids: {sorted(grid_names)}"

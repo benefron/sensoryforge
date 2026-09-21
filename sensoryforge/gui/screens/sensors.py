@@ -379,6 +379,11 @@ class SensorsScreen(QtWidgets.QWidget):
         self._session.config.grids.append(new_grid)
         new_index = len(self._session.config.grids) - 1
         self._session.notify(f"grids.{new_index}")
+        # A population added while there was no grid reads none; the first
+        # grid is the only sensible one for it to read.
+        for i, population in enumerate(self._session.config.populations):
+            if not population.inputs and population.target_grid is None:
+                self._session.set_by_path(f"populations.{i}.target_grid", name)
         self._refresh_list(select_index=new_index)
 
     def _on_duplicate_clicked(self) -> None:
@@ -436,7 +441,25 @@ class SensorsScreen(QtWidgets.QWidget):
             return
         self.list_message.setVisible(False)
         self._session.set_by_path(f"grids.{index}.name", new_name)
+        self._follow_rename(current, new_name)
         self._refresh_selected_list_item()
+
+    def _follow_rename(self, old: str, new: str) -> None:
+        """Point everything that named grid ``old`` at ``new``.
+
+        Populations (``target_grid`` and each explicit input's ``grid``) and
+        the stimulus (``target_layer``) refer to a grid by name; without this
+        a rename left them naming a grid that no longer exists.
+        """
+        config = self._session.config
+        for i, population in enumerate(config.populations):
+            if population.target_grid == old:
+                self._session.set_by_path(f"populations.{i}.target_grid", new)
+            for j, population_input in enumerate(population.inputs or []):
+                if population_input.grid == old:
+                    self._session.set_by_path(f"populations.{i}.inputs.{j}.grid", new)
+        if config.stimulus is not None and config.stimulus.target_layer == old:
+            self._session.set_by_path("stimulus.target_layer", new)
 
     def _on_channels_edited(self) -> None:
         if self._selected_index is None:

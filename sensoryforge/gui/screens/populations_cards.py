@@ -132,7 +132,13 @@ class _Card(QtWidgets.QGroupBox):
     def _on_config_replaced(self) -> None:
         self._rebuild()
 
+    #: Whether this card shows the grids (its choices go stale otherwise).
+    _SHOWS_GRIDS = False
+
     def _on_config_changed(self, path: str) -> None:
+        if self._SHOWS_GRIDS and (path == "grids" or path.startswith("grids.")):
+            self._rebuild()
+            return
         index = self._pop_index()
         if index is None:
             return
@@ -449,6 +455,8 @@ class NeuronLayoutCard(_Card):
 
 class InputsCard(_Card):
     """One row per input; "+ input" / "Remove" convert between sugar and explicit."""
+
+    _SHOWS_GRIDS = True
 
     def __init__(
         self, session: Session, parent: Optional[QtWidgets.QWidget] = None
