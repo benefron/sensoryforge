@@ -37,9 +37,12 @@ def session(qtbot) -> Session:
 def _pop_filter_form(session, *, advanced=False):
     specs = specs_for(FILTER_REGISTRY, "sa")
     target = session.config.populations[0].filter_params
-    return ParamForm(
-        specs, target, session, "populations.0.filter_params", advanced=advanced
-    ), specs
+    return (
+        ParamForm(
+            specs, target, session, "populations.0.filter_params", advanced=advanced
+        ),
+        specs,
+    )
 
 
 # ----------------------------------------------------------------- dict target
@@ -97,7 +100,9 @@ def test_unrelated_path_change_does_not_touch_widget(session, qtbot):
 def test_dataclass_target_round_trips_field(session, qtbot):
     grid_cfg = session.config.grids[0]
     specs = [
-        ParamSpec("rows", dtype="int", default=80, min_val=1, max_val=500, group="Layout"),
+        ParamSpec(
+            "rows", dtype="int", default=80, min_val=1, max_val=500, group="Layout"
+        ),
     ]
     form = ParamForm(specs, grid_cfg, session, "grids.0")
     widget = form.widget_for("rows")
@@ -116,7 +121,9 @@ def test_dataclass_target_round_trips_field(session, qtbot):
 def test_choices_spec_produces_combo_box(session, qtbot):
     specs = [
         ParamSpec(
-            "arrangement", dtype="str", default="grid",
+            "arrangement",
+            dtype="str",
+            default="grid",
             choices=["grid", "poisson", "hex"],
         ),
     ]
@@ -157,7 +164,13 @@ def test_advanced_rows_hidden_by_default_and_shown_on_toggle(session, qtbot):
 def test_group_entirely_advanced_is_hidden_in_basic_mode(session, qtbot):
     specs = [
         ParamSpec("tau_r", dtype="float", default=5.0, group="Temporal"),
-        ParamSpec("clip_to_positive", dtype="bool", default=False, advanced=True, group="Options"),
+        ParamSpec(
+            "clip_to_positive",
+            dtype="bool",
+            default=False,
+            advanced=True,
+            group="Options",
+        ),
     ]
     target = session.config.populations[0].filter_params
     form = ParamForm(specs, target, session, "populations.0.filter_params")
@@ -230,3 +243,42 @@ def test_specs_for_grid_registry_case_insensitive():
     lower = specs_for(GRID_REGISTRY, "grid")
     upper = specs_for(GRID_REGISTRY, "GRID")
     assert [s.name for s in lower] == [s.name for s in upper]
+
+
+def test_both_tactile_filters_declare_their_parameters():
+    """An empty spec renders an empty form, which reads as "no settings".
+
+    SA gained its spec with ParamForm; RA must match, and each default must
+    equal the resolver's value so the form opens on what the engine uses.
+    """
+    from sensoryforge.config.defaults import FILTER_DEFAULTS
+    from sensoryforge.register_components import register_all
+    from sensoryforge.registry import FILTER_REGISTRY
+
+    register_all()
+    for name in ("sa", "ra"):
+        specs = {s.name: s for s in FILTER_REGISTRY.get_param_spec(name)}
+        assert specs, f"{name} filter declares no parameters"
+        for key, value in FILTER_DEFAULTS[name].items():
+            assert key in specs, f"{name}: {key} missing from get_param_spec()"
+            assert specs[key].default == value, f"{name}.{key} default drifted"
+
+
+def test_empty_specs_show_a_notice_not_a_blank_form(session, qtbot):
+    form = ParamForm([], {}, session, "populations.0.model_params")
+    qtbot.addWidget(form)
+    assert form.empty_notice is not None
+    assert "no editable parameters" in form.empty_notice.text()
+
+
+def test_nonempty_specs_show_no_notice(session, qtbot):
+    from sensoryforge.registry import FILTER_REGISTRY
+
+    form = ParamForm(
+        FILTER_REGISTRY.get_param_spec("sa"),
+        session.config.populations[0].filter_params,
+        session,
+        "populations.0.filter_params",
+    )
+    qtbot.addWidget(form)
+    assert form.empty_notice is None

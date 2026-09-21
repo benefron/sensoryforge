@@ -197,8 +197,8 @@ class ParamForm(QtWidgets.QWidget):
     """A form generated from ``ParamSpec``\\ s, bound to a target through a Session.
 
     Args:
-        specs: The component's ``get_param_spec()`` list. May be empty (an
-            empty form is rendered, same as an empty layout).
+        specs: The component's ``get_param_spec()`` list. May be empty, in
+            which case a visible notice is shown instead of a blank form.
         target: The dataclass instance or dict the specs describe values on.
         session: The session to write through and read change notifications
             from.
@@ -231,6 +231,19 @@ class ParamForm(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        # A component that declares no ParamSpecs must not render as a blank
+        # panel: blank reads as "this component has no settings", when the
+        # truth is "its settings are not editable here". Say so.
+        self.empty_notice: Optional[QtWidgets.QLabel] = None
+        if not self._specs:
+            self.empty_notice = QtWidgets.QLabel(
+                "This component declares no editable parameters "
+                "(its get_param_spec() is empty). Edit them in the YAML config."
+            )
+            self.empty_notice.setWordWrap(True)
+            self.empty_notice.setObjectName("EmptyFormNotice")
+            layout.addWidget(self.empty_notice)
 
         groups: Dict[str, List[ParamSpec]] = {}
         order: List[str] = []

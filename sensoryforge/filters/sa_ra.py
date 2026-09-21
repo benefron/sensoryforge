@@ -252,28 +252,51 @@ class SAFilterTorch(BaseFilter):
         """
         return [
             ParamSpec(
-                "tau_r", dtype="float", default=5.0, min_val=0.1, max_val=200.0,
-                unit="ms", group="Temporal",
+                "tau_r",
+                dtype="float",
+                default=5.0,
+                min_val=0.1,
+                max_val=200.0,
+                unit="ms",
+                group="Temporal",
                 help="Rise time constant (ms) governing auxiliary state dynamics.",
             ),
             ParamSpec(
-                "tau_d", dtype="float", default=30.0, min_val=0.1, max_val=500.0,
-                unit="ms", group="Temporal",
+                "tau_d",
+                dtype="float",
+                default=30.0,
+                min_val=0.1,
+                max_val=500.0,
+                unit="ms",
+                group="Temporal",
                 help="Decay time constant (ms) governing output current dynamics.",
             ),
             ParamSpec(
-                "k1", dtype="float", default=0.05, min_val=0.0, max_val=10.0,
-                group="Gain", help="Gain applied to the input current (equation 7).",
+                "k1",
+                dtype="float",
+                default=0.05,
+                min_val=0.0,
+                max_val=10.0,
+                group="Gain",
+                help="Gain applied to the input current (equation 7).",
             ),
             ParamSpec(
-                "k2", dtype="float", default=3.0, min_val=0.0, max_val=20.0,
-                group="Gain", help="Gain applied to the derivative term (equation 7).",
+                "k2",
+                dtype="float",
+                default=3.0,
+                min_val=0.0,
+                max_val=20.0,
+                group="Gain",
+                help="Gain applied to the derivative term (equation 7).",
             ),
             ParamSpec(
-                "clip_to_positive", dtype="bool", default=False, group="Options",
+                "clip_to_positive",
+                dtype="bool",
+                default=False,
+                group="Options",
                 advanced=True,
                 help="Clamp the output I_SA to [0, inf) (non-physiological negative"
-                     " output otherwise possible).",
+                " output otherwise possible).",
             ),
         ]
 
@@ -460,6 +483,36 @@ class RAFilterTorch(BaseFilter):
             )
 
         return outputs
+
+    @classmethod
+    def get_param_spec(cls):
+        """Return parameter specifications for UI auto-generation (G1, F-049).
+
+        Returns:
+            ``ParamSpec`` list for ``tau_RA`` and ``k3`` (``dt`` is owned by
+            the pipeline's time step, not edited per filter).
+        """
+        return [
+            ParamSpec(
+                "tau_RA",
+                dtype="float",
+                default=8.0,
+                min_val=0.1,
+                max_val=200.0,
+                unit="ms",
+                group="Temporal",
+                help="Adaptation time constant (ms); 8 ms follows Kandel Ch. 21 (D-015).",
+            ),
+            ParamSpec(
+                "k3",
+                dtype="float",
+                default=2.0,
+                min_val=0.0,
+                max_val=200.0,
+                group="Gain",
+                help="Gain applied to the rectified input derivative (D-018).",
+            ),
+        ]
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "RAFilterTorch":
