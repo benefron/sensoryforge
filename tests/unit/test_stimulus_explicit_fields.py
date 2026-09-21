@@ -66,3 +66,46 @@ def test_a_deliberate_sigma_equal_to_the_schema_default_is_honoured():
         StimulusConfig.from_dict({"type": "gaussian", "sigma": SCHEMA_SIGMA})
     )
     assert chosen != unset, "sigma written in the block was ignored"
+
+
+def test_unset_removes_a_field_from_explicit_fields_and_restores_the_default():
+    stim = StimulusConfig(type="gaussian")
+    stim.sigma = SCHEMA_SIGMA + 5.0
+    assert "sigma" in stim.explicit_fields()
+
+    stim.unset("sigma")
+
+    assert "sigma" not in stim.explicit_fields()
+    assert stim.sigma == StimulusConfig().sigma
+    assert "sigma" not in stim.to_dict()
+
+
+def test_unset_of_an_already_unset_field_is_a_no_op():
+    stim = StimulusConfig(type="gaussian")
+    assert "amplitude" not in stim.explicit_fields()
+    stim.unset("amplitude")
+    assert "amplitude" not in stim.explicit_fields()
+    assert stim.amplitude == StimulusConfig().amplitude
+
+
+def test_unset_rejects_name_and_type():
+    stim = StimulusConfig(type="gaussian")
+    try:
+        stim.unset("type")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
+    try:
+        stim.unset("name")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
+
+
+def test_unset_rejects_unknown_field():
+    stim = StimulusConfig(type="gaussian")
+    try:
+        stim.unset("not_a_field")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass

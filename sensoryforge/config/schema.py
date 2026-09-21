@@ -715,7 +715,26 @@ class StimulusConfig:
     # into one multi-channel tensor; planes with no stimulus are zero.
     channel: Optional[str] = None
 
+    # Parameters of the stimulus type that have no field above (a Braille
+    # stimulus's `v_mms`, an edge grating's `spacing`, ...). Forwarded to the
+    # stimulus's constructor as keywords, after the named fields, so every
+    # parameter a stimulus declares in `get_param_spec()` can be stored in a
+    # config without this dataclass growing one field per parameter of every
+    # type. A key that names a field above is rejected: the field is where
+    # that value lives.
+    params: Dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self) -> None:
+        if not isinstance(self.params, dict):
+            raise ValueError(
+                f"stimulus.params must be a mapping, got {type(self.params).__name__}"
+            )
+        clash = sorted(set(self.params) & set(type(self).__dataclass_fields__))
+        if clash:
+            raise ValueError(
+                f"stimulus.params may not repeat a stimulus field: {clash}; "
+                "set it as `stimulus.<name>` instead"
+            )
         # Which fields the user set, as opposed to fields merely holding the
         # schema default. This dataclass carries one default for every field
         # of every stimulus type, so "is it at the default?" cannot say
@@ -752,7 +771,49 @@ class StimulusConfig:
         after construction, or use :meth:`from_dict`, to mark it.
         """
         # `name` and `type` identify the stimulus; they are always written.
-        return set(self._explicit) - {"name", "type"}
+        explicit = set(self._explicit) - {"name", "type", "params"}
+        # `params` is edited in place (a dict), which no __setattr__ sees, so
+        # it counts as set exactly when it holds something.
+        if self.params:
+            explicit.add("params")
+        return explicit
+
+    def unset(self, name: str) -> None:
+        """Remove ``name`` from :meth:`explicit_fields` and restore its schema default.
+
+        Used by the GUI's "reset to default" affordance (Phase 2 Task 2.2):
+        editing a field marks it explicit (``__setattr__``); this is the one
+        way back. After this call, :func:`sensoryforge.stimuli.render.
+        render_for_config` forwards the stimulus type's own default for
+        ``name`` instead of this field's value, exactly as if it had never
+        been set.
+
+        Args:
+            name: A field of this dataclass (``"name"``/``"type"`` cannot be
+                unset -- they are always explicit).
+
+        Raises:
+            ValueError: If ``name`` is not a field of ``StimulusConfig``, or
+                is ``"name"``/``"type"``.
+        """
+        if name in ("name", "type"):
+            raise ValueError(
+                f"{name!r} cannot be unset; it always identifies the stimulus"
+            )
+        defaults = type(self).__dataclass_fields__
+        if name not in defaults:
+            raise ValueError(
+                f"{name!r} is not a field of StimulusConfig "
+                f"(known fields: {sorted(defaults)})"
+            )
+        spec = defaults[name]
+        default = (
+            spec.default_factory()
+            if spec.default_factory is not dataclasses.MISSING
+            else spec.default
+        )
+        object.__setattr__(self, name, default)
+        self._explicit.discard(name)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization.
@@ -762,7 +823,7 @@ class StimulusConfig:
         :meth:`explicit_fields`. Use :meth:`to_full_dict` for every field.
         """
         full = self.to_full_dict()
-        keep = {"name", "type"} | self._explicit
+        keep = {"name", "type"} | self.explicit_fields()
         return {k: v for k, v in full.items() if k in keep}
 
     def to_full_dict(self) -> Dict[str, Any]:
