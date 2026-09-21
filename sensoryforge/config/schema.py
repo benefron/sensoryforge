@@ -663,12 +663,13 @@ class SimulationConfig:
         dt: Deprecated alias for ``dt_ms`` (F-008/E10). Emits
             ``DeprecationWarning`` when used; raises ``ValueError`` if both
             ``dt`` and a non-default, different ``dt_ms`` are given.
-        seed: Global run seed (GUI v2, phase 1 interface contract section 7:
-            ``RunController.run`` passes this to
-            :meth:`~sensoryforge.core.simulation_engine.SimulationEngine.run`).
-            ``None`` means unseeded. Distinct from a population's own
-            ``PopulationConfig.seed`` (innervation wiring) and a grid's
-            ``GridConfig.seed`` (arrangement jitter).
+        seed: Run-level seed (F-075). When set, :meth:`SimulationEngine.run`
+            seeds ``torch``/``numpy``/``random`` at the start of the run,
+            before stimulus sampling. ``None`` (default) leaves the ambient
+            RNG state untouched. Distinct from ``PopulationConfig.seed``
+            (innervation wiring, F-006 open) and ``PopulationConfig.noise_seed``
+            (per-population membrane noise) -- see
+            ``docs/user_guide/units_and_gains.md``.
     """
 
     device: str = "cpu"

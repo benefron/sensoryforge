@@ -14,7 +14,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from sensoryforge.gui import theme
 
-
 pytestmark = pytest.mark.gui
 
 
@@ -26,10 +25,21 @@ class TestPalette:
         assert hasattr(theme, "PALETTE")
         assert isinstance(theme.PALETTE, dict)
         expected_keys = {
-            "bg_app", "bg_panel", "bg_panel_alt", "bg_sunken",
-            "border", "border_strong", "text", "text_secondary", "text_disabled",
-            "accent", "accent_hover", "accent_subtle",
-            "success", "warning", "error"
+            "bg_app",
+            "bg_panel",
+            "bg_panel_alt",
+            "bg_sunken",
+            "border",
+            "border_strong",
+            "text",
+            "text_secondary",
+            "text_disabled",
+            "accent",
+            "accent_hover",
+            "accent_subtle",
+            "success",
+            "warning",
+            "error",
         }
         assert set(theme.PALETTE.keys()) == expected_keys
 
