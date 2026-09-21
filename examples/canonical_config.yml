@@ -12,9 +12,16 @@
 # `neurons.ra_neurons` keys used by `examples/example_config.yml`, which are also
 # per-row despite the field name looking like a total (F-023).
 #
-# No top-level `stimuli:` list is given, so `sensoryforge run` falls back to its
-# default trapezoidal stimulus (ramp/plateau/ramp) built from
-# GeneralizedTactileEncodingPipeline's temporal defaults; `--duration` scales it.
+# `sensoryforge run` renders whatever the `stimulus:` block below declares (Task
+# 0.6, F-061) -- here a static "gaussian" blob (sigma 0.5 mm, amplitude 30), the
+# same renderer the GUI's Circuit tab runs use, so this file behaves the same from
+# either entry point. `--duration` scales the number of frames. Only an *untouched*
+# `stimulus:` block (bit-identical to `SensoryForgeConfig()`'s own default
+# `StimulusConfig()`) falls back instead to the legacy default trapezoidal
+# (ramp/plateau/ramp) stimulus; this file's block is not that (its `sigma` differs
+# from the schema default of 2.0). No top-level `stimuli:` list is given either;
+# that key is legacy and, if present, would win over `stimulus:` with a deprecation
+# notice printed by `sensoryforge run`. See docs/user_guide/cli.md.
 #
 # Usage:
 #   sensoryforge validate examples/canonical_config.yml

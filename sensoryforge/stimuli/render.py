@@ -16,11 +16,17 @@ components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import re
+import warnings
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import torch
 
 from sensoryforge.registry import STIMULUS_REGISTRY
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.stimuli.canvas import StimulusCanvas
 
 # ---------------------------------------------------------------------------
 # Legacy-default compatibility (K8).
@@ -608,3 +614,177 @@ def _render_legacy(
     frames = frames.squeeze(0).to(device)
     time_ms = time_ms.to(device)
     return frames, time_ms
+
+
+def render_for_config(
+    config: "SensoryForgeConfig",
+    *,
+    duration_ms: float,
+    dt_ms: float,
+) -> Tuple[
+    torch.Tensor, torch.Tensor, Optional["StimulusCanvas"], List[Tuple[str, Any]]
+]:
+    """Render ``config.stimulus`` on ``config``'s first grid's canvas (Task 0.6, F-061).
+
+    This is the one place that turns a :class:`~sensoryforge.config.schema.
+    SensoryForgeConfig`'s canonical ``stimulus:`` block into frames --
+    :mod:`sensoryforge.cli` (``sensoryforge run``) and
+    :func:`sensoryforge.gui.circuit.run.render_graph_stimulus` both call it,
+    so a config run from the CLI and the same config run from the Circuit
+    tab render byte-identical stimuli.
+
+    ``StimulusConfig.to_dict()`` carries every field the schema has
+    (administrative ones like ``motion``/``composition_mode``/``channel``
+    included); a given registered stimulus class's constructor only accepts
+    its own subset. A ``TypeError`` naming an unexpected keyword is retried
+    with that keyword dropped, the same way :func:`render_stimulus`'s own
+    envelope-key handling works, rather than hard-coding a per-type field
+    list here -- every dropped ``(key, value)`` pair is returned so the
+    caller can decide whether it is worth warning about (only a value the
+    user actually changed from the schema default is, see
+    :func:`sensoryforge.gui.circuit.run._dropped_params_warning`).
+
+    Args:
+        config: The reconstructed :class:`SensoryForgeConfig`.
+        duration_ms: Stimulus duration in ms.
+        dt_ms: Record step in ms (``config.simulation.dt_ms``, passed
+            explicitly rather than read off *config* so a caller overriding
+            ``--duration``/``dt_ms`` independently of the loaded config can
+            do so without mutating it).
+
+    Returns:
+        ``(stimulus, time_ms, canvas, dropped)``: ``stimulus`` is
+        ``frames.unsqueeze(0)`` (batch dimension added), matching what
+        :meth:`~sensoryforge.core.simulation_engine.SimulationEngine.run`
+        expects; ``time_ms`` is the ``[T]`` time axis; ``canvas`` is the
+        :class:`~sensoryforge.stimuli.canvas.StimulusCanvas` the frames were
+        rendered on, or ``None`` when *config* has no grids (the synthetic
+        40x40 fallback canvas is used in that case, matching
+        :func:`render_stimulus`'s own default); ``dropped`` is the list of
+        ``(field_name, value)`` pairs the stimulus class's constructor
+        rejected.
+    """
+    from sensoryforge.stimuli.canvas import stimulus_canvas
+
+    canvas: Optional["StimulusCanvas"] = None
+    if config.grids:
+        grid_cfg = config.grids[0]
+        canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
+        xx, yy = canvas.xx, canvas.yy
+    else:
+        xx, yy = torch.meshgrid(
+            torch.linspace(-1, 1, 40),
+            torch.linspace(-1, 1, 40),
+            indexing="ij",
+        )
+
+    stim = config.stimulus
+    stimulus_params = {
+        k: v for k, v in stim.to_dict().items() if k not in ("name", "type")
+    }
+    dropped: List[Tuple[str, Any]] = []
+    while True:
+        try:
+            frames, time_ms = render_stimulus(
+                stim.type,
+                stimulus_params,
+                xx,
+                yy,
+                dt_ms=dt_ms,
+                duration_ms=duration_ms,
+                device=config.simulation.device,
+            )
+            break
+        except TypeError as exc:
+            match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
+            if match is None or match.group(1) not in stimulus_params:
+                raise
+            key = match.group(1)
+            dropped.append((key, stimulus_params.pop(key)))
+
+    stimulus_tensor = frames.unsqueeze(0)
+    return stimulus_tensor, time_ms, canvas, dropped
+
+
+def dropped_params_warning(
+    stimulus_type: str, dropped: List[Tuple[str, Any]]
+) -> Optional[str]:
+    """The warning text for :func:`render_for_config`'s discarded settings, or ``None``.
+
+    Shared by :mod:`sensoryforge.cli` and
+    :mod:`sensoryforge.gui.circuit.run` so both callers of
+    :func:`render_for_config` describe a dropped keyword the same way.
+
+    Args:
+        stimulus_type: The stimulus's registered name, for the message.
+        dropped: ``(field_name, value)`` pairs the constructor rejected.
+
+    Returns:
+        A message naming only the fields whose value the caller had changed
+        from the schema default, or ``None`` when every discarded field was
+        untouched and there is nothing worth saying.
+    """
+    deliberate = [
+        f"{key}={value!r}"
+        for key, value in dropped
+        if not _is_stimulus_schema_default(key, value)
+    ]
+    if not deliberate:
+        return None
+    return (
+        f"Stimulus {stimulus_type!r} does not accept {', '.join(deliberate)}; "
+        "the value(s) you set were ignored and the stimulus ran without them."
+    )
+
+
+def _is_stimulus_schema_default(field_name: str, value: Any) -> bool:
+    """Whether *value* is what ``StimulusConfig`` would hold untouched.
+
+    ``StimulusConfig.to_dict()`` carries every field the schema defines,
+    most of which a given stimulus class knows nothing about. Discarding
+    those is housekeeping. Discarding one the caller actually set is a
+    changed stimulus, so the two cases are told apart here rather than
+    warning about all of them and training the reader to ignore it.
+
+    Args:
+        field_name: The dropped keyword.
+        value: The value it held.
+
+    Returns:
+        ``True`` when the field is unknown to the schema or still at its
+        declared default.
+    """
+    import dataclasses
+
+    from sensoryforge.config.schema import StimulusConfig
+
+    for field in dataclasses.fields(StimulusConfig):
+        if field.name != field_name:
+            continue
+        if field.default is not dataclasses.MISSING:
+            return value == field.default
+        if field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+            return value == field.default_factory()  # type: ignore[misc]
+        return False
+    return True
+
+
+def is_default_stimulus_config(config: "SensoryForgeConfig") -> bool:
+    """Whether ``config.stimulus`` is an untouched ``StimulusConfig()`` default.
+
+    Used by ``sensoryforge run``/``sensoryforge validate`` (Task 0.6) to
+    decide whether a canonical config's ``stimulus:`` block was ever set by
+    its author, or is just the schema default that ``SensoryForgeConfig()``
+    fills in on its own -- only in the latter case is it reasonable to fall
+    back to the legacy trapezoid default instead of rendering the block.
+
+    Args:
+        config: The loaded :class:`SensoryForgeConfig`.
+
+    Returns:
+        ``True`` when ``config.stimulus.to_dict()`` equals a fresh
+        ``StimulusConfig().to_dict()``.
+    """
+    from sensoryforge.config.schema import StimulusConfig
+
+    return config.stimulus.to_dict() == StimulusConfig().to_dict()
