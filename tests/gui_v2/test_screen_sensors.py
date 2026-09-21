@@ -168,43 +168,48 @@ class TestRowsEditing:
 
 
 class TestArrangementSwitch:
-    def test_switch_to_hex_with_density_matches_build_grid_and_disables_rows_cols(
+    def test_hex_is_sized_by_rows_and_cols_which_stay_editable(
         self, qtbot, screen, session
     ):
         arrangement_widget = screen._param_form.widget_for("arrangement")
-        density_widget = screen._param_form.widget_for("density")
-
-        idx = arrangement_widget.findData("hex")
-        assert idx >= 0
-        arrangement_widget.setCurrentIndex(idx)
-        density_widget.setValue(30.0)
-        density_widget.editingFinished.emit()
-
+        arrangement_widget.setCurrentIndex(arrangement_widget.findData("hex"))
         assert session.config.grids[0].arrangement == "hex"
+        _wait_debounce(qtbot)
+        before = screen.preview.receptor_count()
+
+        rows_widget = screen._param_form.widget_for("rows")
+        assert rows_widget.isEnabled()
+        assert screen._param_form.widget_for("cols").isEnabled()
+        rows_widget.setValue(12)
+        rows_widget.editingFinished.emit()
         _wait_debounce(qtbot)
 
         expected = build_grid(
             session.config.grids[0], device="cpu"
         ).get_all_coordinates()
         assert screen.preview.receptor_count() == expected.shape[0]
+        assert screen.preview.receptor_count() != before
 
-        rows_widget = screen._param_form.widget_for("rows")
-        cols_widget = screen._param_form.widget_for("cols")
-        assert not rows_widget.isEnabled()
-        assert not cols_widget.isEnabled()
-        assert density_widget.isEnabled()
+    def test_no_control_is_offered_for_a_parameter_the_engine_ignores(self, screen):
+        # GridConfig.density changes nothing in build_grid for any arrangement.
+        with pytest.raises(KeyError):
+            screen._param_form.widget_for("density")
 
-    def test_switch_back_to_grid_reenables_rows_cols_disables_density(
-        self, qtbot, screen, session
-    ):
-        arrangement_widget = screen._param_form.widget_for("arrangement")
-        arrangement_widget.setCurrentIndex(arrangement_widget.findData("hex"))
-        arrangement_widget.setCurrentIndex(arrangement_widget.findData("grid"))
+    @pytest.mark.parametrize(
+        "arrangement", ["grid", "hex", "poisson", "jittered_grid", "blue_noise"]
+    )
+    def test_every_enabled_geometry_control_changes_the_array(self, arrangement):
+        import torch
 
-        rows_widget = screen._param_form.widget_for("rows")
-        density_widget = screen._param_form.widget_for("density")
-        assert rows_widget.isEnabled()
-        assert not density_widget.isEnabled()
+        def coords(**kw):
+            cfg = GridConfig(name="g", arrangement=arrangement, **kw)
+            return build_grid(cfg, device="cpu").get_all_coordinates()
+
+        base = dict(rows=10, cols=10, spacing=0.2, seed=1)
+        ref = coords(**base)
+        for name, value in (("rows", 12), ("cols", 12), ("spacing", 0.3)):
+            out = coords(**{**base, name: value})
+            assert out.shape != ref.shape or not torch.equal(out, ref), name
 
 
 class TestChannels:

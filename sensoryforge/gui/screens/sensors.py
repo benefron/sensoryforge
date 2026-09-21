@@ -40,16 +40,12 @@ _PREVIEW_DEBOUNCE_MS = 150
 #: Which GridConfig fields the ``grid`` arrangement actually reads
 #: (core/grid.py: the "grid"/"jittered_grid" branch builds a mesh from
 #: grid_size/spacing/center; density and seed are unused for "grid").
-_ROWS_COLS_ARRANGEMENTS = {"grid", "jittered_grid"}
-_DENSITY_ARRANGEMENTS = {"poisson", "hex", "blue_noise"}
+# Every arrangement is sized by rows x cols x spacing (core.simulation_engine.
+# build_grid): rows/cols set the extent and the receptor count for hex,
+# poisson and blue noise as much as for a lattice, so they stay editable.
 _SEED_ARRANGEMENTS = {"jittered_grid", "blue_noise", "poisson"}
 
-_ROWS_COLS_DISABLED_TOOLTIP = (
-    "Not read by this arrangement; use density instead. (core/grid.py "
-    "still uses this grid's last rows/cols to size the density-based "
-    "arrangement's bounds, but the value cannot be edited here.)"
-)
-_DENSITY_DISABLED_TOOLTIP = "Not read by this arrangement; use rows/cols instead."
+_COMPOSITE_DISABLED_TOOLTIP = "A composite array is sized by its layers."
 _SEED_DISABLED_TOOLTIP = "This arrangement has no randomness to seed."
 
 
@@ -475,19 +471,12 @@ class SensorsScreen(QtWidgets.QWidget):
     def _update_field_enablement(self, arrangement: str) -> None:
         if self._param_form is None:
             return
-        rows_enabled = arrangement in _ROWS_COLS_ARRANGEMENTS
-        density_enabled = arrangement in _DENSITY_ARRANGEMENTS
         seed_enabled = arrangement in _SEED_ARRANGEMENTS
         is_composite = arrangement == "composite"
 
         for name, enabled, tooltip in (
-            ("rows", rows_enabled and not is_composite, _ROWS_COLS_DISABLED_TOOLTIP),
-            ("cols", rows_enabled and not is_composite, _ROWS_COLS_DISABLED_TOOLTIP),
-            (
-                "density",
-                density_enabled and not is_composite,
-                _DENSITY_DISABLED_TOOLTIP,
-            ),
+            ("rows", not is_composite, _COMPOSITE_DISABLED_TOOLTIP),
+            ("cols", not is_composite, _COMPOSITE_DISABLED_TOOLTIP),
             ("seed", seed_enabled and not is_composite, _SEED_DISABLED_TOOLTIP),
         ):
             try:

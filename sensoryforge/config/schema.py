@@ -222,17 +222,10 @@ def grid_config_param_specs() -> List[ParamSpec]:
             tooltip="Receptor pitch in mm.",
             group="Geometry",
         ),
-        ParamSpec(
-            "density",
-            label="Density",
-            dtype="float",
-            default=None,
-            min_val=0.0,
-            max_val=10000.0,
-            unit="mm⁻²",
-            tooltip="Target receptor density for poisson/hex/blue_noise.",
-            group="Geometry",
-        ),
+        # `density` is deliberately absent: build_grid sizes every
+        # arrangement from rows x cols x spacing and never reads it (measured:
+        # 5 and 50 mm^-2 give the same receptors for every arrangement), so a
+        # form row for it would be a control that does nothing.
         ParamSpec(
             "center_x",
             label="Center X",
