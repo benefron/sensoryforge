@@ -37,7 +37,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PyQt5 import QtGui, QtWidgets
 
-from sensoryforge.gui.session import Session
+from sensoryforge.gui.session import Session, get_by_path
 from sensoryforge.gui.widgets.collapsible import CollapsibleGroupBox
 from sensoryforge.stimuli.base import ParamSpec
 
@@ -246,7 +246,9 @@ def _write_widget(spec: ParamSpec, widget: QtWidgets.QWidget, value: Any) -> Non
         elif spec.dtype == "bool":
             widget.setChecked(bool(value))
         elif spec.dtype in ("int", "float"):
-            widget.setValue(value)
+            # An optional number with nothing set shows 0, as _make_widget does.
+            number = value if value is not None else 0
+            widget.setValue(int(number) if spec.dtype == "int" else float(number))
         else:
             widget.setText("" if value is None else str(value))
     finally:
@@ -415,6 +417,17 @@ class ParamForm(QtWidgets.QWidget):
                 _write_widget(row.spec, row.widget, target_value)
 
     def _on_config_replaced(self) -> None:
+        # The old config's objects are gone from the session. Rebind to the
+        # object now at this form's path, or every later edit would be written
+        # into the discarded config (and notified under a path that, in the
+        # new one, names something else).
+        try:
+            target = get_by_path(self._session.config, self._path_prefix)
+        except ValueError:
+            self.setEnabled(False)
+            return
+        self._target = target
+        self.setEnabled(True)
         self.refresh()
 
     # -------------------------------------------------------------- public

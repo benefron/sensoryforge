@@ -16,8 +16,10 @@ from typing import Callable, Dict, Optional
 from PyQt5 import QtCore, QtWidgets
 
 from sensoryforge.gui.screens.batch import BatchScreen
+from sensoryforge.gui.screens.populations import PopulationsScreen
 from sensoryforge.gui.screens.results import ResultsScreen
 from sensoryforge.gui.screens.sensors import SensorsScreen
+from sensoryforge.gui.screens.stimulus import StimulusScreen
 from sensoryforge.gui.session import Session
 
 
@@ -55,8 +57,8 @@ SCREEN_FACTORIES: Dict[
     str, Callable[[Session, Optional[QtWidgets.QWidget]], QtWidgets.QWidget]
 ] = {
     "sensors": SensorsScreen,
-    "stimulus": _make_placeholder_factory("Stimulus"),
-    "populations": _make_placeholder_factory("Populations"),
+    "stimulus": StimulusScreen,
+    "populations": PopulationsScreen,
     "results": ResultsScreen,
     "batch": BatchScreen,
 }

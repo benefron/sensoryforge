@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import copy
 import functools
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pyqtgraph as pg
@@ -117,8 +117,11 @@ class StimulusPreview(QtWidgets.QWidget):
         super().__init__(parent)
         self._session = session
         self._generation = 0
-        self._thread: Optional[QtCore.QThread] = None
-        self._worker: Optional[_RenderWorker] = None
+        # Every render still in flight, by generation. A new render does not
+        # replace an older one's thread: dropping the last reference to a
+        # running QThread aborts the process ("QThread: Destroyed while
+        # thread is still running"). Each pair is released when it reports.
+        self._inflight: Dict[int, Tuple[QtCore.QThread, "_RenderWorker"]] = {}
         self._rendered: Optional[RenderedStimulus] = None
         self._frame_index = 0
         self._frames = np.empty((0, 0, 0), dtype=np.float32)
@@ -232,12 +235,11 @@ class StimulusPreview(QtWidgets.QWidget):
         worker.finished.connect(functools.partial(self._on_render_finished, generation))
         worker.failed.connect(functools.partial(self._on_render_failed, generation))
 
-        self._thread = thread
-        self._worker = worker
+        self._inflight[generation] = (thread, worker)
         thread.start()
 
     def _on_render_finished(self, generation: int, rendered: RenderedStimulus) -> None:
-        self._teardown_thread()
+        self._teardown_thread(generation)
         if sip.isdeleted(self):
             # The preview was torn down (e.g. its screen closed) while this
             # render was in flight on its own thread; the queued signal still
@@ -256,7 +258,7 @@ class StimulusPreview(QtWidgets.QWidget):
         self.renderFinished.emit(rendered)
 
     def _on_render_failed(self, generation: int, message: str) -> None:
-        self._teardown_thread()
+        self._teardown_thread(generation)
         if sip.isdeleted(self):
             return
         if generation != self._generation:
@@ -265,17 +267,24 @@ class StimulusPreview(QtWidgets.QWidget):
         self._error_label.setVisible(True)
         self.renderFailed.emit(message)
 
-    def _teardown_thread(self) -> None:
-        thread, worker = self._thread, self._worker
-        self._thread = None
-        self._worker = None
-        if thread is None:
+    def _teardown_thread(self, generation: int) -> None:
+        pair = self._inflight.pop(generation, None)
+        if pair is None:
             return
+        thread, worker = pair
         thread.quit()
         thread.wait()
-        if worker is not None:
-            worker.deleteLater()
+        worker.deleteLater()
         thread.deleteLater()
+
+    def wait_for_renders(self) -> None:
+        """Block until every in-flight render has finished and been released.
+
+        For shutdown and tests; the event loop is not run, so no result is
+        applied to the widgets.
+        """
+        for generation in list(self._inflight):
+            self._teardown_thread(generation)
 
     # ----------------------------------------------------------------- draw
 

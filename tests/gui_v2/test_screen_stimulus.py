@@ -378,3 +378,19 @@ def test_changing_type_clears_params(qtbot):
     screen.type_combo.setCurrentIndex(idx)
     assert screen._session.config.stimulus.type == "gaussian"
     assert screen._session.config.stimulus.params == {}
+
+
+def test_back_to_back_renders_do_not_destroy_a_running_thread(qtbot):
+    """Replacing the config while a render runs used to abort the process."""
+    from sensoryforge.gui.screens.stimulus import StimulusScreen
+
+    session = Session(_config("gaussian"))
+    screen = StimulusScreen(session)
+    qtbot.addWidget(screen)
+    preview = screen.preview
+    for _ in range(5):
+        preview.render_now()
+    assert len(preview._inflight) >= 1
+    with qtbot.waitSignal(preview.renderFinished, timeout=20000):
+        preview.render_now()
+    qtbot.waitUntil(lambda: not preview._inflight, timeout=20000)

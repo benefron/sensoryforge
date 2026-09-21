@@ -303,3 +303,24 @@ def test_a_tiny_default_is_shown_and_kept_not_rounded_to_zero(qtbot):
     assert _read_widget(spec, widget) == 3e-12
     widget.stepUp()
     assert 3e-12 < _read_widget(spec, widget) <= 1e-11
+
+
+def test_after_replace_config_edits_go_into_the_new_config(qtbot):
+    """A form must not keep writing into the config it was built on."""
+    from sensoryforge.config.schema import GridConfig, SensoryForgeConfig
+    from sensoryforge.gui.session import Session
+    from sensoryforge.gui.widgets.param_form import ParamForm
+    from sensoryforge.stimuli.base import ParamSpec
+
+    session = Session(SensoryForgeConfig(grids=[GridConfig(name="a", rows=5)]))
+    spec = ParamSpec("rows", dtype="int", default=None, min_val=1, max_val=500)
+    form = ParamForm([spec], session.config.grids[0], session, "grids.0")
+    qtbot.addWidget(form)
+
+    old = session.config
+    session.replace_config(SensoryForgeConfig(grids=[GridConfig(name="b")]))
+    assert form.widget_for("rows").value() == 1  # rows unset: clamped, no crash
+
+    form.widget_for("rows").setValue(17)
+    assert session.config.grids[0].rows == 17
+    assert old.grids[0].rows == 5
