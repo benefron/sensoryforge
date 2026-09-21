@@ -279,3 +279,18 @@ class TestColormap:
         assert result is not None
         lut = result.getLookupTable()
         assert len(lut) > 0
+
+
+def test_apply_makes_numbers_read_like_the_yaml(qapp):
+    """Spin boxes must show "1000.5", not a system-locale "1000,5"."""
+    from PyQt5 import QtCore, QtWidgets
+
+    from sensoryforge.gui import theme
+
+    theme.apply(qapp)
+    assert QtCore.QLocale().decimalPoint() == "."
+    box = QtWidgets.QDoubleSpinBox()
+    box.setRange(0, 1e6)
+    box.setDecimals(1)
+    box.setValue(1000.5)
+    assert box.text() == "1000.5"

@@ -160,6 +160,11 @@ def apply(app: QtWidgets.QApplication) -> None:
         >>> app = QtWidgets.QApplication([])
         >>> apply(app)
     """
+    # Numbers read as they do in the YAML config the user edits: "1000.0",
+    # never "1000,0". Qt otherwise follows the system locale, so on a
+    # comma-decimal system every spin box disagreed with the file format.
+    QtCore.QLocale.setDefault(QtCore.QLocale.c())
+
     # Set Fusion style for a modern, cross-platform look
     app.setStyle("Fusion")
 
