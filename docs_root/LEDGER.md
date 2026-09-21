@@ -88,6 +88,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-032 · CLOSED · decision · - · 2026-09-21
+StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
+→ commit 301af19
+
+## F-081 · OPEN · finding · - · 2026-09-21
+GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
+→ commit 8674a6a
+
+## F-082 · CLOSED · finding · - · 2026-09-21
+sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
+→ commit c65f3af
+
 ## D-029 · CLOSED · decision · - · 2026-09-21
 the receptor/receptive-field preview is one reusable widget (sensoryforge/gui/widgets/grid_preview.py) built from GridConfig via core.simulation_engine.build_grid, the same code path SimulationEngine uses
 → commit c4d6317
@@ -551,4 +563,8 @@ format produced by GUI and CLI; the legacy dict format stays supported for backw
 SensoryForge is an encoding-only extraction of pressure-simulation's encoding stack (pipeline,
 filters, innervation, neurons, GUI). Decoding / reconstruction / Kalman stay in pressure-simulation.
 → sensoryforge/core/pipeline.py:1-17 still carries the `encoding.pipeline_torch` header
+
+## F-083 · OPEN · finding · - · 2026-09-21
+stimulus types disagree on amplitude scale by about 30x at their defaults (gaussian, texture and moving peak about 30 mA; braille, gratings, moving_edge and ramp_gaussian about 1; gabor 0.55), while input_gain 50 is calibrated for about 30, so with tactile_sa1_ra1 on a 40x40 grid for 500 ms a default gabor gives 0 SA and 1 RA spike against 9731 and 3288 for a default gaussian; a user switching type in the GUI sees a silent population with no warning
+→ measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
 
