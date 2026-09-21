@@ -245,3 +245,51 @@ class TestQuickRun:
         assert session.stale == stale_before
         x, _ = screen.quick_raster.getData()
         assert len(x) >= 0  # a raster was produced (possibly empty), no crash
+
+
+@pytest.mark.parametrize(
+    "method", ["gaussian", "uniform", "distance_weighted", "template"]
+)
+def test_rf_form_shows_the_values_the_engine_builds_with(qtbot, method):
+    """Write back every value the inputs card displays: the bank must not change."""
+    import copy
+
+    import torch
+
+    from sensoryforge.gui.bench.rf_footprint import build_population_bank_for_config
+    from sensoryforge.gui.screens.populations_cards import InputsCard
+    from sensoryforge.gui.widgets.param_form import ParamForm, _read_widget
+
+    config = SensoryForgeConfig.from_yaml_file(
+        "sensoryforge/presets/tactile_sa1_ra1.yml"
+    )
+    config.grids[0].rows = 20
+    config.grids[0].cols = 20
+    population = config.populations[0]
+    population.innervation_method = method
+    population.innervation_params = {}
+    # Population-wide values that differ from every builder's own defaults.
+    population.sigma_d_mm = 0.45
+    population.connections_per_neuron = 12.0
+    population.max_distance_mm = 0.8
+    population.decay_rate = 3.0
+    population.resolvable_distance_mm = 0.7 if method == "template" else None
+    population.seed = 7
+    name = population.name
+    base = build_population_bank_for_config(config, name).weights
+
+    session = Session(config)
+    card = InputsCard(session)
+    qtbot.addWidget(card)
+    card.set_population(name)
+    form = card.findChild(ParamForm)
+    shown = {
+        spec.name: _read_widget(spec, form.widget_for(spec.name))
+        for spec in form._specs
+    }
+    assert shown, "the builder should declare parameters"
+
+    explicit = copy.deepcopy(config)
+    explicit.populations[0].innervation_params = dict(shown)
+    again = build_population_bank_for_config(explicit, name).weights
+    assert again.shape == base.shape and torch.equal(again, base), shown

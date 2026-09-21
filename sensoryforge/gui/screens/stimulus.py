@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from PyQt5 import QtWidgets
 
+from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.gui.screens.stimulus_paramform import (
     LEGACY_STIMULUS_TYPES,
     StimulusParamForm,
@@ -62,6 +63,8 @@ class StimulusScreen(QtWidgets.QWidget):
 
         editor = QtWidgets.QWidget()
         editor_layout = QtWidgets.QVBoxLayout(editor)
+        self.problems = ProblemList(session, "stimulus")
+        editor_layout.addWidget(self.problems)
 
         selector_box = CollapsibleGroupBox("Stimulus", start_expanded=True)
         editor_layout.addWidget(selector_box)

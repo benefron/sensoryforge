@@ -319,8 +319,28 @@ def test_after_replace_config_edits_go_into_the_new_config(qtbot):
 
     old = session.config
     session.replace_config(SensoryForgeConfig(grids=[GridConfig(name="b")]))
-    assert form.widget_for("rows").value() == 1  # rows unset: clamped, no crash
+    assert form.widget_for("rows").text() == "auto"  # rows unset: no crash
 
     form.widget_for("rows").setValue(17)
     assert session.config.grids[0].rows == 17
     assert old.grids[0].rows == 5
+
+
+@pytest.mark.parametrize("dtype", ["int", "float"])
+def test_an_unset_optional_number_is_shown_as_auto_and_read_back_as_none(qtbot, dtype):
+    from sensoryforge.gui.widgets.param_form import (
+        _make_widget,
+        _read_widget,
+        _write_widget,
+    )
+    from sensoryforge.stimuli.base import ParamSpec
+
+    spec = ParamSpec("edge_offset_mm", dtype=dtype, default=None, min_val=0, max_val=50)
+    widget, _ = _make_widget(spec, None)
+    qtbot.addWidget(widget)
+    assert widget.text() == "auto"
+    assert _read_widget(spec, widget) is None
+    widget.setValue(0)  # the smallest real value is still a value
+    assert _read_widget(spec, widget) == 0
+    _write_widget(spec, widget, None)
+    assert _read_widget(spec, widget) is None
