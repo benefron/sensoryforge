@@ -47,31 +47,25 @@ except Exception:  # pragma: no cover - fallback when backend disallows
 _session_exit_status = 0
 
 
-@pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(session, config, items):
-    """Disable the cyclic GC only for sessions that collect `gui`-marked tests.
+@pytest.fixture(autouse=True)
+def _collect_gui_garbage_at_the_test_boundary(request):
+    """Run the cyclic collector after every ``gui`` test (F-035).
 
-    ``trylast=True`` so this runs after pytest's own ``-m``/``-k`` filtering
-    (also a ``pytest_collection_modifyitems`` hookimpl) has already removed
-    deselected items from ``items`` -- otherwise ``-m "not gui"`` would still
-    see the not-yet-deselected gui items here and disable gc anyway.
-
-    Destroying pyqtgraph ViewBox/GraphicsItem hierarchies from several Qt
-    test modules in one process segfaults reliably once Python's cyclic
-    collector sweeps their reference cycles (F-035: reproduced inside
-    pyqtgraph's ScatterPlotItem render path, called from
-    MechanoreceptorTab._add_receptor_scatter_by_weight via a ViewBox lambda
-    left over from a previously destroyed tab's plot -- a real GUI bug this
-    only works around for the test harness, not a fix). Refcounting alone
-    still frees everything that isn't in a reference cycle, which is
-    sufficient for a test-session-sized run, but a non-GUI session gets no
-    benefit from paying that cost, so scope it to sessions that actually
-    collect GUI tests.
+    The collector stays enabled for the whole session. A GUI test destroys
+    its window, leaving pyqtgraph wrappers in reference cycles; if the
+    collector frees them in the middle of the *next* test, it can destroy a
+    C++ object that test is using (measured: "wrapped C/C++ object of type
+    ViewBox has been deleted" inside GridPreview.set_grids, 2 of 7 tests in
+    tests/gui_v2/test_app.py on every run, gone with this collection).
+    Collecting here, when no window of the next test exists yet, frees them
+    where nothing live can be hit. The shipped app builds each plot once
+    and keeps it for the window's lifetime, so it has no such boundary.
     """
-    import gc
+    yield
+    if request.node.get_closest_marker("gui") is not None:
+        import gc
 
-    if any(item.get_closest_marker("gui") is not None for item in items):
-        gc.disable()
+        gc.collect()
 
 
 def pytest_sessionfinish(session, exitstatus):

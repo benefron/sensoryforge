@@ -1,6 +1,6 @@
 """The "Export SLURM script..." settings dialog for the Batch screen.
 
-Fields mirror the old ``gui/tabs/batch_tab.py::_SlurmSettingsDialog`` (job
+Fields mirror the old GUI's Batch tab SLURM dialog (job
 name, partition, walltime, memory, CPUs, GPUs, conda env) so a returning user
 finds the same knobs; values persist across sessions through
 :func:`sensoryforge.gui.settings.gui_settings` (never a Qt settings object built directly, F-072).

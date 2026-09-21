@@ -279,9 +279,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
             # Stimulus source (Task 0.6, F-061): the canonical 'stimulus:'
             # block is what runs, via render_for_config -- the same
-            # renderer sensoryforge.gui.circuit.run.render_graph_stimulus
-            # uses, so a config run here and run from the Circuit tab
-            # render byte-identical stimuli. The legacy top-level
+            # renderer the GUI's run path (gui.execution.render) uses, so
+            # a config run here and run from the GUI render byte-identical
+            # stimuli. The legacy top-level
             # 'stimuli:' list still wins when present (with a deprecation
             # notice), and an untouched (schema-default) 'stimulus:' block
             # still falls back to the legacy trapezoidal default, exactly

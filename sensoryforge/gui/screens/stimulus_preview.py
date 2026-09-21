@@ -26,6 +26,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, sip
 
+from sensoryforge.gui.widgets.figure_export import ExportFigureButton
 from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.gui import theme
@@ -154,6 +155,8 @@ class StimulusPreview(QtWidgets.QWidget):
             )
         )
         layout.addWidget(self._image_plot, 2)
+        self.export_button = ExportFigureButton(self._image_plot, "stimulus_frame")
+        layout.addWidget(self.export_button, 0, QtCore.Qt.AlignRight)
 
         playback_row = QtWidgets.QHBoxLayout()
         self._play_button = QtWidgets.QPushButton("Play")

@@ -535,5 +535,5 @@ sensoryforge validate config.yml
 
 - [YAML Configuration Guide](yaml_configuration.md) - Complete configuration reference with examples
 - [CLI Guide](cli.md) - Command-line usage
-- [GUI Workflow](gui_phase2_access.md) - GUI design → CLI scale workflow
+- [GUI Walkthrough](gui_walkthrough.md) - GUI design → CLI scale workflow
 - [Extensibility Guide](../developer_guide/extensibility.md) - Adding custom components

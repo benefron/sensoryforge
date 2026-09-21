@@ -63,7 +63,7 @@ convention, which do not agree naively.
 A `"poisson"` or `"hex"` receptor arrangement has no regular lattice, so it cannot itself supply a
 render canvas the way a `"grid"` arrangement's `ReceptorGrid.get_coordinates()` does.
 `sensoryforge.stimuli.canvas.stimulus_canvas(grid_cfg)` is the one helper every config-driven entry
-point (`sensoryforge run`, `BatchExecutor`, the Circuit tab's `run_graph_once`) uses to build a
+point (`sensoryforge run`, `BatchExecutor`, the GUI's run path) uses to build a
 stimulus's render canvas: for `"grid"` it reproduces `ReceptorGrid.get_coordinates()` bit-for-bit,
 and for every other arrangement — `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`,
 `"composite"`, and an imported `coords_file` — it renders on a regular canvas spanning the

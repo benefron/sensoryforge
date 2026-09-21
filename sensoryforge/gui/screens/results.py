@@ -21,6 +21,7 @@ from typing import Dict, Optional
 
 from PyQt5 import QtWidgets
 
+from sensoryforge.gui.widgets.figure_export import export_plots
 from sensoryforge.gui import theme
 from sensoryforge.gui.screens import results_data
 from sensoryforge.gui.screens.results_bundle_browser import OpenBundleDialog
@@ -98,6 +99,12 @@ class ResultsScreen(QtWidgets.QWidget):
         self.open_bundle_button = QtWidgets.QPushButton("Open bundle...")
         self.open_bundle_button.clicked.connect(self._on_open_bundle_clicked)
         toolbar.addWidget(self.open_bundle_button)
+        self.export_button = QtWidgets.QPushButton("Export figures…")
+        self.export_button.setToolTip(
+            "Save every visible panel as PNG and SVG into a folder."
+        )
+        self.export_button.clicked.connect(self._on_export_clicked)
+        toolbar.addWidget(self.export_button)
         toolbar.addStretch(1)
         toolbar_widget = QtWidgets.QWidget()
         toolbar_widget.setLayout(toolbar)
@@ -167,6 +174,37 @@ class ResultsScreen(QtWidgets.QWidget):
             self._set_view(results_data.from_run_result(session.last_results))
 
     # ----------------------------------------------------------------- layout
+
+    def export_figures(self, folder) -> list:
+        """Write every visible panel as PNG and SVG into ``folder``.
+
+        Args:
+            folder: Destination directory (created if needed).
+
+        Returns:
+            The files written.
+        """
+        from pathlib import Path
+
+        visible = {
+            key: widget
+            for key, widget in self._panel_widgets.items()
+            if self._checkboxes[key].isChecked()
+        }
+        written = []
+        for suffix in (".png", ".svg"):
+            written += export_plots(visible, Path(folder), suffix=suffix)
+        return written
+
+    def _on_export_clicked(self, *_args: object) -> None:
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Export figures to folder"
+        )
+        if folder:
+            written = self.export_figures(folder)
+            self.export_button.setToolTip(
+                f"Last export: {len(written)} files in {folder}"
+            )
 
     def _relayout_panels(self) -> None:
         """Place every visible panel in the fixed grid, hidden ones excluded."""

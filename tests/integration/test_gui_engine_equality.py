@@ -188,9 +188,14 @@ def _subprocess_env() -> dict:
 
 
 @pytest.mark.slow
-def test_run_controller_bundle_matches_the_cli_bundle(qtbot, tmp_path):
-    """A controller run and ``sensoryforge run`` write the same numbers."""
-    config = _config()
+@pytest.mark.parametrize("noise_std", [0.0, 0.5], ids=["no-noise", "seeded-noise"])
+def test_run_controller_bundle_matches_the_cli_bundle(qtbot, tmp_path, noise_std):
+    """A controller run and ``sensoryforge run`` write the same numbers.
+
+    With membrane noise too: the run seed and each population's noise seed
+    travel in the YAML, so the CLI draws the same noise the GUI did.
+    """
+    config = _config(noise_std=noise_std)
 
     result = _run_controller(qtbot, config, project_root=tmp_path / "project")
     assert result.bundle_dir is not None

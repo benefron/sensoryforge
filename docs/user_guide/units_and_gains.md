@@ -138,9 +138,9 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 
 | Parameter | Location | Default | Why |
 |---|---|---|---|
-| `input_gain` | `PopulationConfig`, SpikingNeuronTab spinbox | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
+| `input_gain` | `PopulationConfig`, GUI Populations → Readout & noise | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
 | SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
-| Stimulus `amplitude` | GUI Stimulus Designer | 1.0 mA | User-facing; increase to 3–10 for robust spiking at default gain |
+| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | per type: 30 mA for `gaussian`, `texture`, `moving`; about 1 for `moving_edge`, `braille`, the gratings, `ramp_gaussian` | The unit-peak types drive few or no spikes at gain 50; raise their amplitude (ledger F-083) |
 
 ---
 

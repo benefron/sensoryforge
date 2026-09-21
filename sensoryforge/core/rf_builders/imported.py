@@ -304,3 +304,46 @@ class ImportedRFBuilder(BaseInnervation):
                 group="Source",
             )
         ]
+
+
+def write_csv_folder(bank: ReceptiveFieldBank, folder: Path) -> Path:
+    """Write ``bank`` as the CSV folder the ``imported`` builder reads (source a).
+
+    Files: ``neuron_positions.csv`` (``x_mm,y_mm``), ``innervation_weights.csv``
+    (``N`` x ``M``, SensoryForge receptor order), ``bank.pt``
+    (:meth:`ReceptiveFieldBank.save`, exact) and ``manifest.json``.
+
+    Args:
+        bank: The receptive fields to write.
+        folder: Destination directory (created if needed).
+
+    Returns:
+        ``folder``.
+
+    Raises:
+        OSError: If a file cannot be written.
+    """
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    centers = bank.neuron_centers.detach().cpu().numpy()
+    weights = bank.weights.detach().cpu().numpy()
+    np.savetxt(
+        folder / "neuron_positions.csv",
+        centers,
+        delimiter=",",
+        header="x_mm,y_mm",
+        comments="",
+    )
+    np.savetxt(folder / "innervation_weights.csv", weights, delimiter=",")
+    bank.save(folder / "bank.pt")
+    manifest = {
+        "version": 2,
+        "num_neurons": int(centers.shape[0]),
+        "num_receptors": int(weights.shape[1]),
+        "positions_file": "neuron_positions.csv",
+        "weights_file": "innervation_weights.csv",
+        "bank_file": "bank.pt",
+    }
+    with (folder / "manifest.json").open("w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+    return folder
