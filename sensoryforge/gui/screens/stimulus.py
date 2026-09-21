@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from PyQt5 import QtWidgets
 
+from sensoryforge.gui.screens.stimulus_substimuli import SubStimulusEditor
 from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.gui.screens.stimulus_paramform import (
     LEGACY_STIMULUS_TYPES,
@@ -87,6 +88,10 @@ class StimulusScreen(QtWidgets.QWidget):
         selector_box.addRow("Target channel", self.channel_combo)
 
         self._refresh_grid_combo()
+
+        # Composite and timeline stimuli are built from sub-stimuli.
+        self.sub_stimuli = SubStimulusEditor(session)
+        editor_layout.addWidget(self.sub_stimuli)
 
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)

@@ -64,6 +64,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PyQt5 import QtWidgets
 
+from sensoryforge.gui.screens.stimulus_substimuli import is_composed
 from sensoryforge.config.schema import StimulusConfig
 from sensoryforge.gui import theme
 from sensoryforge.gui.session import Session
@@ -285,7 +286,7 @@ class StimulusParamForm(QtWidgets.QWidget):
         form_layout.setContentsMargins(0, 0, 0, 0)
 
         specs = specs_for_stimulus_type(stimulus_type)
-        if not specs:
+        if not specs and not is_composed(stimulus_type):
             self.empty_notice = QtWidgets.QLabel(
                 f"{stimulus_type!r} declares no editable parameters "
                 "(no registered class, or an empty get_param_spec()). "
