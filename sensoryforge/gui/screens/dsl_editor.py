@@ -195,6 +195,15 @@ class DslEditorDialog(QtWidgets.QDialog):
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         )
         self.button_box.accepted.connect(self._on_ok)
+        # Any edit after a compile invalidates it: OK must save what was
+        # compiled, and what was compiled must be what is on screen.
+        self.eq_edit.textChanged.connect(self._on_edited)
+        self.threshold_edit.textChanged.connect(self._on_edited)
+        self.reset_edit.textChanged.connect(self._on_edited)
+        for kv in (self.param_table, self.state_table):
+            kv.table.itemChanged.connect(self._on_edited)
+            kv.table.model().rowsInserted.connect(self._on_edited)
+            kv.table.model().rowsRemoved.connect(self._on_edited)
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
 
@@ -228,6 +237,13 @@ class DslEditorDialog(QtWidgets.QDialog):
             "parameters": parameters,
             "state_vars": state_vars,
         }
+
+    def _on_edited(self, *_args: object) -> None:
+        if self._compiled_ok:
+            self._compiled_ok = False
+            self._compiled_config = None
+            self._set_ok_enabled(False)
+            self.badge.setText("edited: compile again")
 
     def _set_ok_enabled(self, enabled: bool) -> None:
         self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled)

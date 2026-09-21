@@ -300,6 +300,8 @@ class Session(QtCore.QObject):
         self.last_results: Optional[RunResult] = None
         self.stale: bool = False
         self._errors: Optional[Dict[str, str]] = None
+        #: Set by RunController while a run is in flight (one per session).
+        self.run_in_progress: bool = False
         self._adopt_config_device()
 
     # ----------------------------------------------------------------- device

@@ -133,6 +133,9 @@ class RfFootprintBench(QtWidgets.QWidget):
         Raises:
             ValueError: If no bank has been built (see :attr:`bank`).
         """
+        # Rebuild from the config as it is now, so an edit still waiting on
+        # the preview's debounce is never exported stale.
+        self.refresh()
         if self._bank is None:
             raise ValueError("no receptive fields to export: the bank did not build")
         return write_csv_folder(self._bank, Path(folder))

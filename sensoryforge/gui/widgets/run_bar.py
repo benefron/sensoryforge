@@ -207,10 +207,22 @@ class RunBar(QtWidgets.QWidget):
             return
         self.run_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
-        self._controller.run(
-            duration_ms=self.duration_spin.value(),
-            bundle=self._session.project is not None,
-        )
+        try:
+            self._controller.run(
+                duration_ms=self.duration_spin.value(),
+                bundle=self._session.project is not None,
+            )
+        except (RuntimeError, ValueError, OSError) as exc:
+            # Nothing started (render or setup failed): put the buttons back
+            # and say why, instead of leaving Run off and Cancel on.
+            self._running = False
+            self.cancel_button.setEnabled(False)
+            self._update_run_available()
+            self.progress_bar.setFormat("not started")
+            self.problem_label.setText(f"Could not start: {exc}")
+            self.problem_label.setVisible(True)
+            if self.show_dialogs:
+                QtWidgets.QMessageBox.warning(self, "Could not start the run", str(exc))
 
     def _on_cancel_clicked(self) -> None:
         if self._controller is None:

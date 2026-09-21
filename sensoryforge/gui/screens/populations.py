@@ -345,9 +345,13 @@ class PopulationsScreen(QtWidgets.QWidget):
         except ValueError:
             return
         prefix = f"populations.{index}."
-        relevant = path.startswith(prefix) or path in (
-            "simulation.dt_ms",
-            "simulation.integrate_dt_ms",
+        # Grids too: the receptive-field bench (and its export) builds on the
+        # grid, so a grid edit must rebuild it.
+        relevant = (
+            path.startswith(prefix)
+            or path == "grids"
+            or path.startswith("grids.")
+            or path in ("simulation.dt_ms", "simulation.integrate_dt_ms")
         )
         if relevant:
             self._debounce.start()
@@ -356,6 +360,11 @@ class PopulationsScreen(QtWidgets.QWidget):
         # enabled/name changes elsewhere should still be reflected).
         if path == f"{prefix}enabled" or path == f"{prefix}name":
             self._refresh_list()
+
+    def set_advanced(self, on: bool) -> None:
+        """Show or hide advanced rows in every card (the toolbar's Advanced)."""
+        for card in self._cards:
+            card.set_advanced(on)
 
     def _refresh_benches(self) -> None:
         self.rf_bench.refresh()

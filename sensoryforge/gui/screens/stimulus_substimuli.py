@@ -220,7 +220,7 @@ class SubStimulusEditor(QtWidgets.QGroupBox):
         self.table.setCellWidget(row, 0, kind_combo)
 
         values = [
-            ("amplitude", p.get("amplitude", 1.0), 0.0, 1000.0),
+            ("amplitude", p.get("amplitude", 1.0), -1000.0, 1000.0),
             (
                 KINDS.get(kind, "sigma"),
                 p.get(KINDS.get(kind, "sigma"), 1.0),
@@ -243,12 +243,17 @@ class SubStimulusEditor(QtWidgets.QGroupBox):
 
     def _spin(self, value, low, high, row, key) -> QtWidgets.QDoubleSpinBox:
         spin = QtWidgets.QDoubleSpinBox()
-        spin.setDecimals(2)
+        # Enough decimals that a stored value is shown, and kept, exactly
+        # (with 2, sigma 0.125 showed as 0.13 and was written back so).
+        spin.setDecimals(6)
         # Typed, not stepped: arrows would take a third of each narrow cell.
         spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         spin.setFrame(False)
-        spin.setRange(low, high)
-        spin.setValue(float(value))
+        value = float(value)
+        # Never clamp a stored value into the box's range.
+        spin.setRange(min(low, value), max(high, value))
+        spin.setValue(value)
+        spin.setProperty("shown_value", value)
         spin.editingFinished.connect(functools.partial(self._on_value, row, key, spin))
         return spin
 
@@ -261,6 +266,9 @@ class SubStimulusEditor(QtWidgets.QGroupBox):
     def _on_value(self, row: int, key: tuple, spin: QtWidgets.QDoubleSpinBox) -> None:
         if self._loading:
             return
+        if spin.value() == spin.property("shown_value"):
+            return  # focus passed through without an edit
+        spin.setProperty("shown_value", spin.value())
         entries = self.entries()
         if key[0] == "params":
             self._sub(entries, row).setdefault("params", {})[key[1]] = spin.value()

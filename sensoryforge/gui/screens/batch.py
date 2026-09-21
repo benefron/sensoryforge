@@ -36,6 +36,7 @@ from sensoryforge.gui.execution.sweep_controller import (
     write_slurm_script,
 )
 from sensoryforge.gui.screens.batch_combos import (
+    SEED_PATH,
     build_combinations,
     build_preview_manifest,
     expand_repetitions,
@@ -120,8 +121,8 @@ class BatchScreen(QtWidgets.QWidget):
         self.preview = SweepPreviewPane()
         outer.addWidget(self.preview, 4)
 
-        self._session.configChanged.connect(lambda _p: self._refresh_export())
-        self._session.configReplaced.connect(self._refresh_export)
+        self._session.configChanged.connect(self._on_config_changed)
+        self._session.configReplaced.connect(self._on_config_replaced)
         self._refresh_export()
         self._update_summary()
 
@@ -340,14 +341,39 @@ class BatchScreen(QtWidgets.QWidget):
         except ValueError as exc:
             return [], str(exc)
 
+    def _on_config_changed(self, path: str) -> None:
+        if path == "simulation.duration_ms":
+            self._follow_config_duration()
+        self._refresh_export()
+        self._update_summary()  # the first job's YAML shows the edited config
+
+    def _on_config_replaced(self) -> None:
+        self._follow_config_duration()
+        self._refresh_export()
+        self._update_summary()
+
+    def _follow_config_duration(self) -> None:
+        self.duration_spin.setValue(
+            resolve_duration_ms(self._session.config.simulation.duration_ms)
+        )
+
     def jobs(self) -> Tuple[List[Dict], Optional[str]]:
         """``base_combinations()`` expanded by repetitions, with distinct seeds."""
         combos, error = self.base_combinations()
         if error is not None:
             return [], error
-        expanded = expand_repetitions(
-            combos, self.reps_spin.value(), self.base_seed_spin.value()
-        )
+        base_seed = self.base_seed_spin.value()
+        expanded = expand_repetitions(combos, self.reps_spin.value(), base_seed)
+        if self.reps_spin.value() > 1:
+            # A population's own noise_seed fixes its noise whatever the run
+            # seed, so repetitions would be identical (measured: 1530 spikes
+            # three times); offset it per repetition too.
+            for job in expanded:
+                r = job[SEED_PATH] - base_seed
+                for i, population in enumerate(self._session.config.populations):
+                    if population.noise_seed is not None:
+                        path = f"populations.{i}.noise_seed"
+                        job.setdefault(path, population.noise_seed + r)
         return expanded, None
 
     def job_count(self) -> int:

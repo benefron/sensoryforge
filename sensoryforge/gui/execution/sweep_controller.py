@@ -64,6 +64,9 @@ CANCEL_KILL_DELAY_MS = 5000
 #: is a different feature (repeats, not a parameter axis).
 _SIMULATION_PATHS = ("dt_ms", "duration_ms")
 
+#: Neuron parameters build_neuron always overrides (integration step, noise).
+_RUN_OWNED_NEURON = frozenset({"dt", "noise_std"})
+
 #: ``(attribute holding the params dict, registry, attribute naming the
 #: component)`` for each of a population's registry-driven parameter groups.
 _POPULATION_REGISTRY_GROUPS = (
@@ -153,13 +156,21 @@ def sweep_paths(
             paths.append((f"grids.{index}.{name}", None))
 
     for index, population in enumerate(config.populations):
+        # A schema field also set in innervation_params is overridden by it
+        # (SimulationEngine.builder_params merges innervation_params last),
+        # so sweeping the schema field would change nothing.
+        shadowed = set(population.innervation_params or {})
         for name in _numeric_field_names(population):
+            if name in shadowed:
+                continue
             paths.append((f"populations.{index}.{name}", None))
         for params_attr, registry, component_attr in _POPULATION_REGISTRY_GROUPS:
             specs = _registry_specs(registry, getattr(population, component_attr, None))
             for spec in specs:
                 if spec.dtype not in ("float", "int"):
                     continue
+                if params_attr == "model_params" and spec.name in _RUN_OWNED_NEURON:
+                    continue  # the engine sets these itself (build_neuron)
                 paths.append((f"populations.{index}.{params_attr}.{spec.name}", spec))
 
     for name in _numeric_field_names(config.stimulus):
@@ -332,9 +343,10 @@ def write_slurm_script(
         manifest: The written sweep.
         settings: The job settings the old Batch tab's dialog offered --
             ``job_name``, ``partition``, ``time``, ``mem_gb``,
-            ``cpus_per_task``, ``gpus``, ``conda_env`` -- plus ``duration_ms``
-            (the ``--duration`` each task passes) and ``script_name`` (the
-            file written inside the sweep root, default ``run_sweep.sh``).
+            ``cpus_per_task``, ``gpus``, ``conda_env`` -- and ``script_name``
+            (the file written inside the sweep root, default
+            ``run_sweep.sh``). Each task runs its combination's own
+            ``simulation.duration_ms``; a ``duration_ms`` key is ignored.
             Missing keys take the dialog's own defaults.
 
     Returns:
@@ -353,7 +365,6 @@ def write_slurm_script(
     cpus = int(settings.get("cpus_per_task", 4))
     gpus = int(settings.get("gpus", 1))
     conda_env = str(settings.get("conda_env", "sensoryforge"))
-    duration_ms = float(settings.get("duration_ms", 1000.0))
     script_name = str(settings.get("script_name", "run_sweep.sh"))
 
     root = manifest.root.resolve()
@@ -387,7 +398,6 @@ def write_slurm_script(
         "",
         "sensoryforge run \\",
         '    "$SWEEP_ROOT/$COMBO/config.yml" \\',
-        f"    --duration {duration_ms} \\",
         '    --bundle "$SWEEP_ROOT/$COMBO/bundle"',
         "",
     ]
@@ -411,7 +421,8 @@ def sweep_command(manifest: SweepManifest, index: int, duration_ms: float) -> Li
     Args:
         manifest: The written sweep.
         index: Which combination.
-        duration_ms: Simulated duration in ms.
+        duration_ms: Unused; kept for callers. The combination's config
+            holds its duration.
 
     Returns:
         The argv list, program first.
@@ -422,8 +433,9 @@ def sweep_command(manifest: SweepManifest, index: int, duration_ms: float) -> Li
         "sensoryforge.cli",
         "run",
         str(manifest.config_path(index)),
-        "--duration",
-        str(float(duration_ms)),
+        # No --duration: each combination's config carries its own
+        # simulation.duration_ms (a duration sweep included), which the CLI
+        # runs when no flag overrides it.
         "--bundle",
         str(manifest.bundle_path(index)),
     ]
@@ -502,7 +514,8 @@ class SweepController(QtCore.QObject):
 
         Args:
             manifest: A sweep written by :func:`write_sweep`.
-            duration_ms: Simulated duration in ms, passed as ``--duration``.
+            duration_ms: Unused (each combination's config holds its
+                duration); kept for callers.
             parallel: How many subprocesses may run at once (at least 1).
 
         Raises:

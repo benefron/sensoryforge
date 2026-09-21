@@ -414,6 +414,14 @@ class SensorsScreen(QtWidgets.QWidget):
             )
             self.list_message.setVisible(True)
             return
+        stimulus = self._session.config.stimulus
+        if stimulus is not None and stimulus.target_layer == grid_cfg.name:
+            self.list_message.setText(
+                f"Cannot remove {grid_cfg.name!r}: the stimulus is drawn on it. "
+                "Choose another target grid on the Stimulus screen first."
+            )
+            self.list_message.setVisible(True)
+            return
         self.list_message.setVisible(False)
         del grids[index]
         new_index = max(0, index - 1)

@@ -331,6 +331,13 @@ class PipelineStrip(QtWidgets.QWidget):
 
     def _on_config_changed(self, path: str) -> None:
         self._dirty = True
+        if path in ("", "grids", "populations") or len(
+            self._session.config.populations
+        ) != len(self._pop_rows):
+            # The list itself changed (add, duplicate, remove): every row's
+            # index may have moved.
+            self._rebuild()
+            return
         if path.startswith("grids."):
             self._rebuild()
             return
@@ -345,6 +352,11 @@ class PipelineStrip(QtWidgets.QWidget):
                     self._replace_population_row(index)
                     self._update_status_label()
                     return
+        self._update_status_label()
+
+    def mark_saved(self) -> None:
+        """The config was just written: it is no longer "edited"."""
+        self._dirty = False
         self._update_status_label()
 
     def _on_validation_changed(self, _errors: object) -> None:
