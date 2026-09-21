@@ -88,6 +88,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-026 · CLOSED · decision · - · 2026-09-17
+GUI v2 forms are generated from get_param_spec() by sensoryforge/gui/widgets/param_form.py and bind to the Session by dotted path; no per-component GUI code
+→ commit 8657bea
+
+## D-027 · CLOSED · decision · - · 2026-09-17
+every pyqtgraph widget in GUI v2 is built by sensoryforge/gui/widgets/plot_factory.py; pyqtgraph signals are connected only through plot_factory.connect (functools.partial, no bound methods or widget-closing lambdas) and released by teardown()
+→ commit 0bfc3ea
+
+## D-028 · CLOSED · decision · - · 2026-09-17
+GUI v2 is one window with a left stage navigation (Sensors, Stimulus, Populations, Run & Results, Batch), a pipeline strip showing sensor array → receptive field → filter → neuron → readout per population, and a bottom run bar; there are no tabs and no node graph
+→ commit 24caa84
+
 ## D-022 · CLOSED · decision · - · 2026-09-17
 GUI v2 uses one light theme (sensoryforge/gui/theme.py): app #F4F5F7, panels #FFFFFF, accent #2563EB, population colours SA #2563EB / RA #E8630A; no dark mode
 → commit 5369bc9
@@ -116,8 +128,8 @@ stimuli are rendered on a regular canvas of the array's extent (sensoryforge/sti
 the GUI Spiking Neurons tab renders stimuli with its own third renderer (spiking_tab.py:2027) and samples receptors with an unconditional flat reshape (spiking_tab.py:2596), so for any arrangement other than a resolution-matched regular grid its neuron drive differs from what SimulationEngine.run() computes for the same config; tests/unit/test_gui_rf_banks.py:164 encodes the same flat reshape as its expected value
 → commit a3b1607
 
-## F-073 · OPEN · finding · - · 2026-09-17
-F-072 the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
+## F-073 · CLOSED · finding · - · 2026-09-17
+(cited as F-072 in commit 4836b19 and the code comments, an id that was already taken) the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
 → commit 4836b19
 
 ## F-072 · CLOSED · finding · - · 2026-09-17
