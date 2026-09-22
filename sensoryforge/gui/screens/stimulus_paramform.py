@@ -315,6 +315,7 @@ class StimulusParamForm(QtWidgets.QWidget):
         old_content = self._content
         self._content = QtWidgets.QWidget()
         self._layout.replaceWidget(old_content, self._content)
+        old_content.hide()  # hide before detaching (see populations_cards)
         old_content.setParent(None)
         old_content.deleteLater()
 

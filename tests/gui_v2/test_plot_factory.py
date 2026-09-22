@@ -199,3 +199,11 @@ class TestF035Regression:
         finally:
             if not was_enabled:
                 gc.disable()
+
+
+def test_axes_never_shrink_their_label_space(qtbot):
+    """Grow-and-shrink label space can oscillate forever (suspected CI hang)."""
+    plot = plot_factory.make_plot("p", "Time", "Rate", x_unit="ms", y_unit="Hz")
+    qtbot.addWidget(plot)
+    for name in ("bottom", "left", "right", "top"):
+        assert plot.getPlotItem().getAxis(name).style["autoReduceTextSpace"] is False

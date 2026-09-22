@@ -76,7 +76,7 @@ jobs:
       - name: Run GUI tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -m gui
+        run: pytest -m gui -v
 
   lint-and-docs:
     name: lint, format, docs build

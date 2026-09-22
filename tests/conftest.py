@@ -47,7 +47,7 @@ except Exception:  # pragma: no cover - fallback when backend disallows
 _session_exit_status = 0
 
 
-def _collect_qt_garbage() -> None:
+def _collect_qt_garbage(after: str = "") -> None:
     """Deliver Qt's pending deletions, then run the cyclic collector."""
     import gc
 
@@ -56,6 +56,39 @@ def _collect_qt_garbage() -> None:
     threads = sys.modules.get("sensoryforge.gui.execution.threads")
     if threads is not None:
         threads.wait_all()  # a worker still running must not be collected
+    qtwidgets = sys.modules.get("PyQt5.QtWidgets")
+    app = qtwidgets.QApplication.instance() if qtwidgets is not None else None
+    if app is not None:
+        from PyQt5 import sip
+
+        # Nothing from one test may stay on screen into the next: a leftover
+        # visible window is repainted during the next test (CI once spent an
+        # hour inside pyqtgraph's AxisItem painting such a window).
+        # Hidden ones too: a never-shown screen still lays out its plots
+        # inside pyqtgraph's scene, and its timers still fire (CI hung in
+        # ViewBox.updateViewRange during a test that creates no widget).
+        # Only SensoryForge's, pyqtgraph's and plain QWidget containers: Qt's
+        # own hidden top-level widgets (combo-box popups, tool tips, the
+        # desktop) belong to other objects and deleting them segfaults.
+        def ours(widget) -> bool:
+            module = type(widget).__module__
+            return module.startswith(("sensoryforge", "pyqtgraph")) or type(widget) in (
+                qtwidgets.QWidget,
+                qtwidgets.QDialog,
+            )
+
+        leftovers = [
+            w for w in app.topLevelWidgets() if not sip.isdeleted(w) and ours(w)
+        ]
+        visible = sorted({type(w).__name__ for w in leftovers if w.isVisible()})
+        if visible:
+            print(
+                f"\n[conftest] closing leftover windows {visible} after {after}",
+                file=sys.stderr,
+            )
+        for widget in leftovers:
+            widget.close()
+            widget.deleteLater()
     qtcore = sys.modules.get("PyQt5.QtCore")
     if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
         for _ in range(2):
@@ -80,10 +113,10 @@ def _collect_gui_garbage_at_the_test_boundary(request):
     """
     is_gui = request.node.get_closest_marker("gui") is not None
     if is_gui:
-        _collect_qt_garbage()
+        _collect_qt_garbage("an earlier test")
     yield
     if is_gui:
-        _collect_qt_garbage()
+        _collect_qt_garbage(request.node.nodeid)
 
 
 def pytest_sessionfinish(session, exitstatus):

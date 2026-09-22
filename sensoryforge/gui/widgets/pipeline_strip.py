@@ -215,6 +215,7 @@ class PipelineStrip(QtWidgets.QWidget):
             item = self._rows_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                widget.hide()  # hide before detaching
                 widget.setParent(None)
                 widget.deleteLater()
         self._pop_rows = {}
@@ -371,6 +372,7 @@ class PipelineStrip(QtWidgets.QWidget):
         if old_row is not None:
             position = self._rows_layout.indexOf(old_row)
             self._rows_layout.removeWidget(old_row)
+            old_row.hide()  # hide before detaching
             old_row.setParent(None)
             old_row.deleteLater()
             self._rows_layout.insertWidget(position, new_row)
