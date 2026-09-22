@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-034 · CLOSED · decision · - · 2026-09-22
+stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
+→ commit 774e9c4
+
 ## D-033 · CLOSED · decision · - · 2026-09-22
 every rendered stimulus changes over time: a still stimulus ramps up and down over one eighth of the run each unless ramp_up_ms/plateau_ms/ramp_down_ms are set, and stimuli with their own total_ms span the run unless it is set (stimuli.render.default_envelope, _clock_to_render_step)
 → commit b4afe01
