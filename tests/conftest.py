@@ -65,6 +65,17 @@ def _collect_gui_garbage_at_the_test_boundary(request):
     if request.node.get_closest_marker("gui") is not None:
         import gc
 
+        # Widgets closed at teardown are deleted by Qt on the next event-loop
+        # pass (deleteLater); their pyqtgraph cycles only become garbage then.
+        # Flush those deletions first, or the leftovers are collected in the
+        # middle of the next test after all (seen on CI, test_app.py).
+        qtcore = sys.modules.get("PyQt5.QtCore")
+        if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
+            for _ in range(2):
+                qtcore.QCoreApplication.sendPostedEvents(
+                    None, qtcore.QEvent.DeferredDelete
+                )
+                qtcore.QCoreApplication.processEvents()
         gc.collect()
 
 
