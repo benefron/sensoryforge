@@ -47,7 +47,7 @@ except Exception:  # pragma: no cover - fallback when backend disallows
 _session_exit_status = 0
 
 
-def _collect_qt_garbage() -> None:
+def _collect_qt_garbage(after: str = "") -> None:
     """Deliver Qt's pending deletions, then run the cyclic collector."""
     import gc
 
@@ -56,6 +56,22 @@ def _collect_qt_garbage() -> None:
     threads = sys.modules.get("sensoryforge.gui.execution.threads")
     if threads is not None:
         threads.wait_all()  # a worker still running must not be collected
+    qtwidgets = sys.modules.get("PyQt5.QtWidgets")
+    app = qtwidgets.QApplication.instance() if qtwidgets is not None else None
+    if app is not None:
+        # Nothing from one test may stay on screen into the next: a leftover
+        # visible window is repainted during the next test (CI once spent an
+        # hour inside pyqtgraph's AxisItem painting such a window).
+        leftovers = [w for w in app.topLevelWidgets() if w.isVisible()]
+        if leftovers:
+            names = sorted({type(w).__name__ for w in leftovers})
+            print(
+                f"\n[conftest] closing leftover windows {names} after {after}",
+                file=sys.stderr,
+            )
+        for widget in leftovers:
+            widget.close()
+            widget.deleteLater()
     qtcore = sys.modules.get("PyQt5.QtCore")
     if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
         for _ in range(2):
@@ -80,10 +96,10 @@ def _collect_gui_garbage_at_the_test_boundary(request):
     """
     is_gui = request.node.get_closest_marker("gui") is not None
     if is_gui:
-        _collect_qt_garbage()
+        _collect_qt_garbage("an earlier test")
     yield
     if is_gui:
-        _collect_qt_garbage()
+        _collect_qt_garbage(request.node.nodeid)
 
 
 def pytest_sessionfinish(session, exitstatus):

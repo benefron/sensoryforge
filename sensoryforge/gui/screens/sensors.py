@@ -289,6 +289,9 @@ class SensorsScreen(QtWidgets.QWidget):
         except TypeError:
             pass
         self.form_container.removeWidget(self._param_form)
+        # Hidden first, then detached: detaching a visible widget makes it a
+        # window of its own until Qt deletes it (seen as leftover windows).
+        self._param_form.hide()
         self._param_form.setParent(None)
         self._param_form.deleteLater()
         self._param_form = None

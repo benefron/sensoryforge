@@ -135,6 +135,10 @@ class _Card(QtWidgets.QGroupBox):
     def _set_content(self, widget: QtWidgets.QWidget) -> None:
         if self._content is not None:
             self._outer.removeWidget(self._content)
+            # Hidden first, then detached: detaching a visible widget makes it
+            # a top-level window until Qt deletes it (seen as leftover
+            # windows in tests); detached, it leaves this card's children.
+            self._content.hide()
             self._content.setParent(None)
             self._content.deleteLater()
         self._content = widget

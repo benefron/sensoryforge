@@ -210,8 +210,11 @@ class ResultsScreen(QtWidgets.QWidget):
         """Place every visible panel in the fixed grid, hidden ones excluded."""
         while self.grid.count():
             item = self.grid.takeAt(0)
+            # Out of the layout only: the panel keeps its parent (a
+            # parentless widget is a window of its own until re-added) and
+            # is re-added or hidden below.
             if item.widget() is not None:
-                item.widget().setParent(None)
+                item.widget().hide()
 
         # Space on the left, time on the right: the two square spatial panels
         # share a column, and the three time-series panels (which share the
