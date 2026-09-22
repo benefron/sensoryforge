@@ -122,6 +122,11 @@ ENVELOPE_SPECS = [
 #: Stimulus parameters the run owns, never shown in the stimulus form.
 RUN_OWNED_PARAMS = frozenset({"dt_ms"})
 
+#: Stimulus type -> parameter names that a dedicated editor owns instead of
+#: this form (``layered``'s ``combine`` is the :class:`~sensoryforge.gui.
+#: screens.stimulus_layers.LayerEditor`'s combo, not a row here).
+_TYPE_OWNED_PARAMS: Dict[str, frozenset] = {"layered": frozenset({"combine"})}
+
 #: Every ``StimulusConfig`` field name, computed once.
 _CONFIG_FIELDS = {f.name for f in dataclasses.fields(StimulusConfig)}
 
@@ -253,10 +258,11 @@ def specs_for_stimulus_type(stimulus_type: str) -> List[ParamSpec]:
     # A stimulus's own dt_ms always follows the run's step (the renderer sets
     # it; any other value would play the stimulus at the wrong speed), so it
     # is set on the run bar, not here.
+    owned = _TYPE_OWNED_PARAMS.get(stimulus_type, frozenset())
     specs = [
         spec
         for spec in STIMULUS_REGISTRY.get_class(stimulus_type).get_param_spec()
-        if spec.name not in RUN_OWNED_PARAMS
+        if spec.name not in RUN_OWNED_PARAMS and spec.name not in owned
     ]
     if takes_default_ramps(stimulus_type):
         # A still image is ramped in and out (render.default_envelope); its
@@ -327,7 +333,7 @@ class StimulusParamForm(QtWidgets.QWidget):
         form_layout.setContentsMargins(0, 0, 0, 0)
 
         specs = specs_for_stimulus_type(stimulus_type)
-        if not specs and not is_composed(stimulus_type):
+        if not specs and not is_composed(stimulus_type) and stimulus_type != "layered":
             self.empty_notice = QtWidgets.QLabel(
                 f"{stimulus_type!r} declares no editable parameters "
                 "(no registered class, or an empty get_param_spec()). "
