@@ -6,10 +6,13 @@ Copied verbatim into each repo as .claude/hooks/_ledger_parse.py. Two entrypoint
     _ledger_parse.py digest <LEDGER> <cutoff-date> <max_open> <max_recent>
         -> the bounded session-start digest (markdown on stdout, empty if no entries)
 
-    _ledger_parse.py block <LEDGER> <repo_id> <repo_path> <head> <synced> <state> <untrailed>
+    _ledger_parse.py block <LEDGER> <repo_id> <repo_path> <head> <synced> <state> <untrailed> [version]
         -> this repo's dashboard block (markdown on stdout)
 
-ledger-template-version: 2
+    _ledger_parse.py stale-rules <LEDGER> <rules_dir>
+        -> one line per .claude/rules/*.md that still cites a CLOSED/SUPERSEDED entry
+
+ledger-template-version: 3
 """
 import io
 import os
@@ -35,6 +38,44 @@ def parse_entries(path):
         elif cur is not None and line.strip() and not line.startswith('<!--'):
             cur['lines'].append(line.strip())
     return entries
+
+
+ID_RE = re.compile(r'\b([FDRN]-\d{3})\b')
+DEAD = ('CLOSED', 'SUPERSEDED')
+
+
+def stale_rules(ledger_path, rules_dir):
+    """Rules that outlived the finding they were written for.
+
+    A path-scoped rule exists to stop one open finding being re-derived. Once that
+    entry is CLOSED or SUPERSEDED the rule is telling future sessions something that
+    is no longer true, so it has to be surfaced rather than quietly rot.
+    """
+    status = {e['id']: e['status'] for e in parse_entries(ledger_path)}
+    out = []
+    try:
+        names = sorted(os.listdir(rules_dir))
+    except OSError:
+        return out
+    for name in names:
+        if not name.endswith('.md') or name == 'README.md':
+            continue
+        path = os.path.join(rules_dir, name)
+        try:
+            text = io.open(path, encoding='utf-8').read()
+        except OSError:
+            continue
+        seen = []
+        for eid in ID_RE.findall(text):
+            st = status.get(eid)
+            if st in DEAD and eid not in seen:
+                seen.append(eid)
+                out.append('stale rule: %s cites %s (%s)' % (name, eid, st))
+    return out
+
+
+def cmd_stale_rules(argv):
+    return "\n".join(stale_rules(argv[0], argv[1]))
 
 
 def _one(e, width=190):
@@ -83,6 +124,8 @@ def cmd_digest(argv):
 
 def cmd_block(argv):
     path, repo_id, repo_path, head, synced, state, since = argv[:7]
+    version = argv[7] if len(argv) > 7 else ''
+    stale = stale_rules(path, os.path.join(repo_path, '.claude', 'rules'))
     home = os.path.expanduser('~')
     if home and repo_path.startswith(home + os.sep):
         repo_path = '~' + repo_path[len(home):]
@@ -101,17 +144,21 @@ def cmd_block(argv):
         what = "since last entry" if entries else "unrecorded"
         flags.append(f"{n} commit{'s' if n != 1 else ''} {what}")
 
+    ver = f" · template v{version}" if version else ""
     out = [f"<!-- REPO:{repo_id} START -->",
            f"## {repo_id}  ·  {repo_path}",
            f"HEAD {head or '?'} · "
            + (" · ".join(flags) if flags else "up to date")
-           + f" · {len(openi)} open · {len(entries)} entries"]
+           + f" · {len(openi)} open · {len(entries)} entries{ver}"]
     if openi:
         shown = " · ".join(_short(e) for e in openi[:12])
         more = f" · …+{len(openi) - 12}" if len(openi) > 12 else ""
         out.append(f"**Open ({len(openi)}):** {shown}{more}")
     if recent:
         out.append("**Recent decisions:** " + " · ".join(_short(e) for e in recent))
+    if stale:
+        out.append("**Stale rules (%d):** " % len(stale)
+                   + " · ".join(x[len('stale rule: '):] for x in stale[:6]))
     if not entries:
         out.append("_no entries yet — tracking forward from install_")
     out.append(f"<!-- REPO:{repo_id} END -->")
@@ -127,7 +174,8 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(2)
     mode, rest = sys.argv[1], sys.argv[2:]
-    fn = {'digest': cmd_digest, 'block': cmd_block}.get(mode)
+    fn = {'digest': cmd_digest, 'block': cmd_block,
+          'stale-rules': cmd_stale_rules}.get(mode)
     if fn is None:
         sys.exit(2)
     s = fn(rest)

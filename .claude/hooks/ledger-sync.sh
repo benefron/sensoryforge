@@ -2,14 +2,18 @@
 # living-ledger — append ledger entries from commit trailers not yet recorded.
 #
 # Reads `git log <last_synced>..HEAD`, extracts Decision:/Finding:/Opens:/Closes:/
-# Retires: trailers, and inserts them into the ledger. Generated from git, so it
+# Retires:/Refs: trailers, and inserts them into the ledger. Generated from git, so it
 # cannot drift from what actually happened. Idempotent: safe to run repeatedly.
+#
+# `Refs: F-012, D-004` does not create an entry: it appends a `↔ <sha> <subject>`
+# backlink line to each named entry, so an entry accumulates the commits that touched
+# its subject. An unknown id is a warning on stderr, never a failure.
 #
 # The last-synced sha lives in .claude/.ledger-sync (gitignored) — NOT inside
 # LEDGER.md — so advancing it never dirties a tracked file. LEDGER.md is written
 # only when there are real new entries.
 #
-# ledger-template-version: 2
+# ledger-template-version: 3
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,10 +42,15 @@ fi
 [ "$LAST" = "$HEAD_SHA" ] && exit 0
 git cat-file -e "$LAST" 2>/dev/null || { ll_set_synced_sha "$REPO" "$HEAD_SHA"; exit 0; }
 
-python3 - "$LEDGER" "$LAST" <<'PY'
+DECISIONS_REL="$(ll_conf_get "$REPO" DECISIONS_PATH)"
+DECISIONS=""
+[ -n "$DECISIONS_REL" ] && [ -f "$REPO/$DECISIONS_REL" ] && DECISIONS="$REPO/$DECISIONS_REL"
+
+python3 - "$LEDGER" "$LAST" "$DECISIONS" <<'PY'
 import io, re, subprocess, sys
 
 LEDGER, last = sys.argv[1], sys.argv[2]
+DECISIONS = sys.argv[3] if len(sys.argv) > 3 else ''
 s = io.open(LEDGER, encoding='utf-8').read()
 
 def git(*a):
@@ -68,6 +77,8 @@ LORE_KEYS = ('Rejected', 'Constraint', 'Directive', 'Confidence', 'Scope-risk',
 
 new_blocks = []
 closes = set()
+refs = []          # (entry_id, short_sha, subject) backlinks to apply after insertion
+log_rows = []      # (date, id, one-liner, sha) -> the level-2 decisions log
 for rec in raw.split(SEP):
     rec = rec.strip('\n')
     if not rec:
@@ -76,6 +87,7 @@ for rec in raw.split(SEP):
     if len(parts) < 3:
         continue
     sha, date, body = parts[0].strip(), parts[1].strip(), parts[2]
+    subject = next((l.strip() for l in body.strip().splitlines() if l.strip()), '')
 
     # Only the trailing trailer block(s) of the message are scanned -- never the whole
     # body. A prose paragraph mentioning "Decision:" or "Finding:" mid-sentence must
@@ -99,6 +111,11 @@ for rec in raw.split(SEP):
 
     for line in trailer_lines:
         key, _, text = line.partition(':')
+        if key == 'Refs':
+            # A backlink, not an entry. Recorded against every id it names.
+            for rid in re.findall(r'[A-Z]-\d{3}', text):
+                refs.append((rid, sha, subject))
+            continue
         if key == 'Closes':
             # Deferred to after new_blocks are merged, so a Finding: opened and a
             # Closes: applied within the SAME sync run still resolves.
@@ -127,6 +144,10 @@ for rec in raw.split(SEP):
         entry_body = text + ''.join(f'\n· {x}' for x in lore_extra)
         new_blocks.append(
             f'## {eid} · {status} · {typ} · - · {date}\n{entry_body}\n→ commit {sha}\n')
+        if key in ('Decision', 'Retires'):
+            # Level 2 always holds at least the dated fact; a human writes the reasoning
+            # above it. Appended between markers so the prose is never touched.
+            log_rows.append((date, eid, text, sha))
 
 if new_blocks:
     marker = '<!-- ENTRIES_START -->'
@@ -134,6 +155,36 @@ if new_blocks:
 
 for cid in sorted(closes):
     s = re.sub(rf'^## {re.escape(cid)} · OPEN', f'## {cid} · CLOSED', s, flags=re.M)
+
+
+def add_backlink(text, eid, sha, subject):
+    """Append '↔ <sha> <subject>' to the end of entry <eid>'s body.
+
+    Returns (text, found). Idempotent: a backlink for the same sha is added once.
+    """
+    m = re.search(rf'^## {re.escape(eid)} · .*$', text, re.M)
+    if not m:
+        return text, False
+    start = m.end()
+    nxt = re.search(r'^## ', text[start:], re.M)
+    end = start + (nxt.start() if nxt else len(text) - start)
+    block = text[start:end]
+    if re.search(rf'^↔ {re.escape(sha)}\b', block, re.M):
+        return text, True
+    tail = '\n\n' if nxt else '\n'
+    line = f'↔ {sha} {subject}'.rstrip()
+    return text[:start] + block.rstrip('\n') + '\n' + line + tail + text[end:], True
+
+
+seen_refs = set()
+for rid, sha, subject in refs:
+    if (rid, sha) in seen_refs:
+        continue
+    seen_refs.add((rid, sha))
+    s, found = add_backlink(s, rid, sha, subject)
+    if not found:
+        sys.stderr.write(
+            f'living-ledger: Refs: {rid} in {sha} names no ledger entry — ignored.\n')
 
 # Strip a legacy in-ledger sync marker if one is still present (migration to the
 # gitignored .claude/.ledger-sync bookmark).
@@ -145,6 +196,30 @@ s = re.sub(r'\n{3,}', '\n\n', s)
 
 if s != io.open(LEDGER, encoding='utf-8').read():
     io.open(LEDGER, 'w', encoding='utf-8').write(s)
+
+# --- level 2: append the dated fact to the decisions log --------------------
+if log_rows and DECISIONS:
+    START, END = '<!-- DECISIONS_LOG_START -->', '<!-- DECISIONS_LOG_END -->'
+    try:
+        d = io.open(DECISIONS, encoding='utf-8').read()
+    except OSError:
+        d = ''
+    if START in d and END in d:
+        head, _, rest = d.partition(START)
+        body, _, tail = rest.partition(END)
+        rows = body
+        added = []
+        for date, eid, text, sha in log_rows:
+            if f'| {eid} |' in rows and sha in rows:
+                continue
+            one = text.replace('|', '\\|').strip()
+            added.append(f'| {date} | {eid} | {one} | `{sha}` |')
+        if added:
+            rows = rows.rstrip('\n') + '\n' + '\n'.join(added) + '\n'
+            if not rows.startswith('\n'):
+                rows = '\n' + rows.lstrip('\n')
+            io.open(DECISIONS, 'w', encoding='utf-8').write(
+                head + START + rows + END + tail)
 PY
 
 ll_set_synced_sha "$REPO" "$HEAD_SHA"

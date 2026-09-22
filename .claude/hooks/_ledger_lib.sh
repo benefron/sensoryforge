@@ -5,7 +5,7 @@
 # per-repo hooks keep working on a clone that has never seen this skill. Keep it small,
 # dependency-free (git + coreutils only), and safe to source from any shell.
 #
-# ledger-template-version: 2
+# ledger-template-version: 3
 
 # --- repo / path resolution --------------------------------------------------
 
@@ -126,4 +126,58 @@ ll_commits_since_last_entry() {
   else
     git -C "$root" rev-list --count HEAD 2>/dev/null || echo 0
   fi
+}
+
+# --- template version -------------------------------------------------------
+# A repo carries the template version it was installed with (the `ledger-template-version:`
+# stamp in .claude/ledger.conf and in every hook). Comparing it to the version this
+# machine's skill ships is what lets a session say "this repo is behind" out loud instead
+# of silently running old hooks.
+
+# ll_skill_dir  ->  where the living-ledger skill lives ($LL_SKILL_DIR wins, for tests)
+ll_skill_dir() { printf '%s\n' "${LL_SKILL_DIR:-$(ll_claude_home)/skills/living-ledger}"; }
+
+# ll_skill_version  ->  the template version this machine ships ('' if the skill is gone)
+ll_skill_version() {
+  local f; f="$(ll_skill_dir)/templates/ledger.conf"
+  [ -f "$f" ] || return 0
+  sed -n 's/.*ledger-template-version: \([0-9][0-9]*\).*/\1/p' "$f" | head -1
+}
+
+# ll_repo_version <repo_root>  ->  the version this repo is actually running:
+#   <N>       the LOWEST stamp across ledger.conf, .claude/hooks/*, .githooks/*
+#             (the lowest, because the oldest file is what actually misbehaves)
+#   unknown   ledger.conf exists but nothing carries a stamp
+#   0         no .claude/ledger.conf at all — a pre-hook installation
+ll_repo_version() {
+  local root="$1" f v min=""
+  [ -f "$(ll_conf_path "$root")" ] || { printf '0\n'; return 0; }
+  for f in "$root"/.claude/ledger.conf "$root"/.claude/hooks/* "$root"/.githooks/*; do
+    [ -f "$f" ] || continue
+    v="$(sed -n 's/.*ledger-template-version: \([0-9][0-9]*\).*/\1/p' "$f" | head -1)"
+    [ -n "$v" ] || continue
+    if [ -z "$min" ] || [ "$v" -lt "$min" ]; then min="$v"; fi
+  done
+  if [ -n "$min" ]; then printf '%s\n' "$min"; else printf 'unknown\n'; fi
+}
+
+# ll_repo_behind <repo_root>  ->  the repo's version if it is BEHIND the skill, else ''
+ll_repo_behind() {
+  local sv rv
+  sv="$(ll_skill_version)"; [ -n "$sv" ] || return 0
+  rv="$(ll_repo_version "$1")"
+  case "$rv" in
+    unknown) printf 'unknown\n' ;;
+    *) [ "$rv" -lt "$sv" ] && printf '%s\n' "$rv" ;;
+  esac
+  return 0
+}
+
+# ll_version_changes <version>  ->  one line naming what that version added
+ll_version_changes() {
+  case "$1" in
+    3) printf '%s\n' "enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push" ;;
+    2) printf '%s\n' "the gitignored sync bookmark and the cross-repo dashboard" ;;
+    *) printf '%s\n' "template updates" ;;
+  esac
 }

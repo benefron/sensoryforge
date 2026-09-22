@@ -5,7 +5,7 @@
 # No git operations here — /ledger-status handles pull/commit/push. This just keeps
 # the local mirror warm so the dashboard is current between status runs.
 #
-# ledger-template-version: 2
+# ledger-template-version: 3
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,8 +32,10 @@ else
 fi
 SINCE="$(ll_commits_since_last_entry "$REPO" "$LEDGER")"
 
+VERSION="$(ll_repo_version "$REPO")"
+
 python3 "$HERE/_ledger_parse.py" block \
-  "$LEDGER" "$ID" "$REPO" "$HEAD_SHA" "$SYNCED" "$STATE" "$SINCE" \
+  "$LEDGER" "$ID" "$REPO" "$HEAD_SHA" "$SYNCED" "$STATE" "$SINCE" "$VERSION" \
   > "$HOME_DIR/repos/$ID.md.tmp" 2>/dev/null && mv "$HOME_DIR/repos/$ID.md.tmp" "$HOME_DIR/repos/$ID.md"
 
 # registry row: repo_id \t remote_url \t ledger_relpath \t first_seen_date

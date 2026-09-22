@@ -23,6 +23,19 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'D=\"${CLAUDE_PROJECT_DIR:-.}\"; \"$D/.claude/hooks/ledger-index-push.sh\"'",
+            "timeout": 25,
+            "statusMessage": "Pushing ledger index\u2026"
+          }
+        ]
+      }
     ]
   }
 }
