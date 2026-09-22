@@ -46,9 +46,18 @@ from sensoryforge.stimuli.base import BaseStimulus, ParamSpec
 # --------------------------------------------------------------------- specs
 
 
+def _label(name: str) -> str:
+    """``diameter_mm`` -> ``Diameter``: the unit is shown in the box itself."""
+    for suffix in ("_mm", "_ms", "_deg"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+    return name.replace("_", " ").capitalize()
+
+
 def _f(name, default, lo=None, hi=None, unit="", help_="", advanced=False):
     return ParamSpec(
         name,
+        label=_label(name),
         dtype="float",
         default=default,
         min_val=lo,
@@ -63,6 +72,7 @@ def _f(name, default, lo=None, hi=None, unit="", help_="", advanced=False):
 def _i(name, default, lo=None, hi=None, help_=""):
     return ParamSpec(
         name,
+        label=_label(name),
         dtype="int",
         default=default,
         min_val=lo,
@@ -75,6 +85,7 @@ def _i(name, default, lo=None, hi=None, help_=""):
 def _c(name, default, choices, help_=""):
     return ParamSpec(
         name,
+        label=_label(name),
         dtype="str",
         default=default,
         choices=list(choices),
@@ -84,12 +95,26 @@ def _c(name, default, choices, help_=""):
 
 
 def _s(name, default, help_=""):
-    return ParamSpec(name, dtype="str", default=default, help=help_, tooltip=help_)
+    return ParamSpec(
+        name,
+        label=_label(name),
+        dtype="str",
+        default=default,
+        help=help_,
+        tooltip=help_,
+    )
 
 
 def _v(name, default, help_=""):
     """A list-valued parameter (a point ``[x, y]``, a list of points)."""
-    return ParamSpec(name, dtype="float", default=default, help=help_, tooltip=help_)
+    return ParamSpec(
+        name,
+        label=_label(name),
+        dtype="float",
+        default=default,
+        help=help_,
+        tooltip=help_,
+    )
 
 
 _AMPLITUDE = _f("amplitude", 1.0, 0.0, 1.0e4, "", "Peak value of one element.")

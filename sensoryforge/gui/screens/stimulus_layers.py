@@ -123,7 +123,9 @@ class LayerEditor(QtWidgets.QGroupBox):
         top_row.addStretch(1)
         outer.addLayout(top_row)
 
-        splitter = QtWidgets.QSplitter()
+        # The layer list on top, the selected layer's forms below at the full
+        # width of the column.
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
         outer.addWidget(splitter, 1)
 
         # ---------------------------------------------------------- list
@@ -136,7 +138,7 @@ class LayerEditor(QtWidgets.QGroupBox):
         self.layer_list.itemChanged.connect(self._on_item_changed)
         list_layout.addWidget(self.layer_list, 1)
 
-        buttons = QtWidgets.QGridLayout()
+        buttons = QtWidgets.QHBoxLayout()
         self.btn_add = QtWidgets.QPushButton("Add")
         self.btn_add.clicked.connect(self._on_add)
         self.btn_duplicate = QtWidgets.QPushButton("Duplicate")
@@ -147,11 +149,14 @@ class LayerEditor(QtWidgets.QGroupBox):
         self.btn_up.clicked.connect(self._on_move_up)
         self.btn_down = QtWidgets.QPushButton("Move down")
         self.btn_down.clicked.connect(self._on_move_down)
-        buttons.addWidget(self.btn_add, 0, 0)
-        buttons.addWidget(self.btn_duplicate, 0, 1)
-        buttons.addWidget(self.btn_remove, 1, 0)
-        buttons.addWidget(self.btn_up, 1, 1)
-        buttons.addWidget(self.btn_down, 2, 0, 1, 2)
+        for button in (
+            self.btn_add,
+            self.btn_duplicate,
+            self.btn_remove,
+            self.btn_up,
+            self.btn_down,
+        ):
+            buttons.addWidget(button)
         list_layout.addLayout(buttons)
         splitter.addWidget(list_panel)
 
@@ -194,7 +199,7 @@ class LayerEditor(QtWidgets.QGroupBox):
         detail_scroll.setWidget(detail_panel)
         splitter.addWidget(detail_scroll)
         splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(1, 4)
 
         session.configChanged.connect(self._on_config_changed)
         session.configReplaced.connect(self.reload)
@@ -442,9 +447,7 @@ class LayerEditor(QtWidgets.QGroupBox):
             if not self._session.config.stimulus.layers:
                 self._writing = True
                 try:
-                    self._session.set_by_path(
-                        "stimulus.layers", [default_layer()]
-                    )
+                    self._session.set_by_path("stimulus.layers", [default_layer()])
                 finally:
                     self._writing = False
                 self.reload()
