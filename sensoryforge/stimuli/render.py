@@ -172,7 +172,63 @@ def effective_defaults(stimulus_type: str) -> Dict[str, Any]:
         for spec in STIMULUS_REGISTRY.get_param_spec(stimulus_type)
     }
     defaults.update(_LEGACY_DEFAULTS.get(stimulus_type.lower(), {}))
+    # Timing that follows the run when unset (_clock_to_render_step): its
+    # value depends on the run's duration, so it has no fixed default. None
+    # means "follows the run" -- a form shows it as auto.
+    for name in run_following_params(stimulus_type):
+        if name in defaults:
+            defaults[name] = None
     return defaults
+
+
+def run_following_params(stimulus_type: str) -> frozenset:
+    """Parameters of ``stimulus_type`` that follow the run when left unset.
+
+    ``total_ms``/``total_time_ms`` take the run's duration, and a stimulus with
+    its own ramp-hold-ramp envelope stretches ``plateau_ms`` to fill it; see
+    :func:`_clock_to_render_step`. (``dt_ms`` always follows the run and is
+    not offered at all.)
+
+    Args:
+        stimulus_type: A registered stimulus name.
+
+    Returns:
+        The parameter names.
+    """
+    import inspect
+
+    cls = STIMULUS_REGISTRY.get_class(stimulus_type)
+    accepted = set(inspect.signature(cls.__init__).parameters)
+    names = {"total_ms", "total_time_ms"} & accepted
+    if (
+        "total_ms" in accepted
+        and {"plateau_ms", "ramp_up_ms", "ramp_down_ms"} <= accepted
+    ):
+        names.add("plateau_ms")
+    return frozenset(names)
+
+
+def takes_default_ramps(stimulus_type: str) -> bool:
+    """Whether ``stimulus_type`` is a still image the renderer ramps in and out.
+
+    True for a stimulus that draws one frame and keeps no clock of its own
+    (``gaussian``, ``texture``, ``gabor``, ``edge_grating``,
+    ``repeated_pattern``, ``composite``, ``static``); its envelope is
+    ``StimulusConfig.ramp_up_ms``/``plateau_ms``/``ramp_down_ms``, defaulting
+    to :func:`default_envelope`.
+
+    Args:
+        stimulus_type: A registered stimulus name.
+    """
+    import inspect
+
+    if not STIMULUS_REGISTRY.is_registered(stimulus_type):
+        return False
+    if stimulus_type.lower() in ("moving", "timeline"):
+        return False
+    cls = STIMULUS_REGISTRY.get_class(stimulus_type)
+    accepted = set(inspect.signature(cls.__init__).parameters)
+    return not ({"total_ms", "total_time_ms", "dt_ms"} & accepted)
 
 
 # Names whose registered component takes a different parameter vocabulary
@@ -244,6 +300,49 @@ def _scale_trajectory_to_duration(
     merged = dict(params)
     merged["motion_params"] = {**motion_params, "num_steps": n_steps}
     return merged
+
+
+#: A stimulus that does not move ramps up and down over this fraction of its
+#: duration each, unless the ramps are set. Neurons with dynamics need a
+#: change to respond to: a step switched on at t = 0 and held to the end gives
+#: an RA population one onset burst and no release. pressure-simulation's
+#: stimulus set ramps every stimulus over 60-80 of 600 steps.
+DEFAULT_RAMP_FRACTION = 1.0 / 8.0
+
+
+def default_envelope(
+    duration_ms: float,
+    *,
+    ramp_up_ms: Optional[float] = None,
+    plateau_ms: Optional[float] = None,
+    ramp_down_ms: Optional[float] = None,
+) -> Tuple[float, float, float]:
+    """``(ramp_up, plateau, ramp_down)`` in ms for a stimulus lasting ``duration_ms``.
+
+    A ramp that is not given is :data:`DEFAULT_RAMP_FRACTION` of the duration;
+    a plateau that is not given fills what the ramps leave. Values that are
+    given are used as they are (a ramp of 0 is a step).
+
+    Args:
+        duration_ms: The stimulus's duration in ms.
+        ramp_up_ms: Rise time in ms, or ``None`` for the default.
+        plateau_ms: Hold time in ms, or ``None`` for the rest.
+        ramp_down_ms: Fall time in ms, or ``None`` for the default.
+
+    Returns:
+        The three durations in ms.
+    """
+    duration = max(float(duration_ms), 0.0)
+    up = duration * DEFAULT_RAMP_FRACTION if ramp_up_ms is None else float(ramp_up_ms)
+    down = (
+        duration * DEFAULT_RAMP_FRACTION
+        if ramp_down_ms is None
+        else float(ramp_down_ms)
+    )
+    plateau = (
+        max(duration - up - down, 0.0) if plateau_ms is None else float(plateau_ms)
+    )
+    return up, plateau, down
 
 
 def _temporal_envelope(
@@ -502,11 +601,17 @@ def _render_registered(
             )
             time_ms = _time_axis(dt_ms, envelope_ms, device)
             plateau_default = envelope_ms
+        ramp_up, plateau, ramp_down = default_envelope(
+            plateau_default,
+            ramp_up_ms=params.get("ramp_up_ms"),
+            plateau_ms=params.get("plateau_ms"),
+            ramp_down_ms=params.get("ramp_down_ms"),
+        )
         amp = _temporal_envelope(
             time_ms,
-            ramp_up_ms=params.get("ramp_up_ms", 0.0),
-            plateau_ms=params.get("plateau_ms", plateau_default),
-            ramp_down_ms=params.get("ramp_down_ms", 0.0),
+            ramp_up_ms=ramp_up,
+            plateau_ms=plateau,
+            ramp_down_ms=ramp_down,
             amplitude=1.0,
         )
         frames = frame.unsqueeze(0) * amp.view(-1, 1, 1)
@@ -609,12 +714,45 @@ def _clock_to_render_step(
         )
     clocked = dict(params)
     clocked["dt_ms"] = float(dt_ms)
+    if "sub_stimuli" in clocked:
+        # Each part of a timeline is shown for a window; without its own
+        # envelope it would switch on and off as a step. Give it the default
+        # ramps over its own duration.
+        parts = []
+        for entry in clocked["sub_stimuli"]:
+            entry = dict(entry)
+            if entry.get("envelope") is None:
+                length = float(entry.get("duration_ms", duration_ms or 0.0) or 0.0)
+                ramp = length * DEFAULT_RAMP_FRACTION
+                entry["envelope"] = {"ramp_up_ms": ramp, "ramp_down_ms": ramp}
+            parts.append(entry)
+        clocked["sub_stimuli"] = parts
     if (
         "total_time_ms" in accepted
         and "total_time_ms" not in clocked
         and duration_ms is not None
     ):
         clocked["total_time_ms"] = float(duration_ms)
+    if "total_ms" in accepted and "total_ms" not in clocked and duration_ms is not None:
+        # A stimulus with its own length (moving_edge 330 ms, ramp_gaussian
+        # 1100 ms, ...) spans the run unless its length is set: cut short it
+        # never ramped down, and ended early it left the rest of the run
+        # blank.
+        clocked["total_ms"] = float(duration_ms)
+        if {"plateau_ms", "ramp_up_ms", "ramp_down_ms"} <= set(accepted) and (
+            "plateau_ms" not in clocked
+        ):
+            # Its own ramps are kept; the hold (a moving edge's sweep) fills
+            # the rest of the run. At the stimulus's own total this is its
+            # own plateau (moving_edge: 330 - 20 - 10 = 300 ms).
+            def own(name: str) -> float:
+                if name in clocked:
+                    return float(clocked[name])
+                return float(accepted[name].default)
+
+            clocked["plateau_ms"] = max(
+                float(duration_ms) - own("ramp_up_ms") - own("ramp_down_ms"), 0.0
+            )
     return clocked
 
 
@@ -656,11 +794,17 @@ def _render_stepped(
     instance.reset_state()
     stacked = torch.stack(frames, dim=0)
 
+    ramp_up, plateau, ramp_down = default_envelope(
+        float(time_ms[-1]) + float(dt_ms),
+        ramp_up_ms=params.get("ramp_up_ms"),
+        plateau_ms=params.get("plateau_ms"),
+        ramp_down_ms=params.get("ramp_down_ms"),
+    )
     amp = _temporal_envelope(
         time_ms,
-        ramp_up_ms=params.get("ramp_up_ms", 0.0),
-        plateau_ms=params.get("plateau_ms", float(time_ms[-1]) + float(dt_ms)),
-        ramp_down_ms=params.get("ramp_down_ms", 0.0),
+        ramp_up_ms=ramp_up,
+        plateau_ms=plateau,
+        ramp_down_ms=ramp_down,
         amplitude=1.0,
     )
     return stacked * amp.view(-1, 1, 1), time_ms
@@ -794,7 +938,11 @@ def render_for_config(
     full = stim.to_full_dict()
     # `stimulus.params` carries the type's parameters that have no named
     # field; a named field, when set, is the authority for its own name.
-    stimulus_params = dict(getattr(stim, "params", None) or {})
+    # A None value means "unset" (a form's auto): it takes the default rule
+    # (the type's own default, or the run for run-following timing).
+    stimulus_params = {
+        k: v for k, v in (getattr(stim, "params", None) or {}).items() if v is not None
+    }
     stimulus_params.update({k: full[k] for k in explicit if k in full})
     dropped: List[Tuple[str, Any]] = []
     while True:

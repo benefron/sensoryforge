@@ -168,10 +168,12 @@ def test_changing_target_grid_changes_the_preview_rect_in_mm(qtbot):
 # -------------------------------------------------------------------- empty
 
 
-def test_type_with_no_paramspecs_shows_notice_not_a_blank_form(qtbot):
+def test_a_still_stimulus_with_no_params_of_its_own_shows_its_timing(qtbot):
+    # "static" declares no parameters, but it is ramped in and out, so the
+    # form shows the envelope rows (auto until set) instead of a notice.
     screen = _screen(qtbot, _config("static"))
-    assert screen.param_form.empty_notice is not None
-    assert "no editable parameters" in screen.param_form.empty_notice.text()
+    assert screen.param_form.empty_notice is None
+    assert {"ramp_up_ms", "plateau_ms", "ramp_down_ms"} <= set(screen.param_form._rows)
 
 
 def test_legacy_type_shows_notice_too(qtbot):

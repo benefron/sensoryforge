@@ -56,8 +56,13 @@ def _legacy_frames(stimulus_type: str) -> torch.Tensor:
 
 def _registered_frames(stimulus_type: str) -> torch.Tensor:
     xx, yy = ReceptorGrid(**_GRID_KW).get_coordinates()
+    # The legacy generator switched a still stimulus on as a step and held
+    # it; the renderer now ramps it in and out by default. The spatial
+    # defaults are what this parity is about, so compare under the legacy
+    # step envelope.
+    step = {"ramp_up_ms": 0.0, "ramp_down_ms": 0.0}
     frames, _ = render_stimulus(
-        stimulus_type, {}, xx, yy, dt_ms=1.0, duration_ms=_DURATION_MS
+        stimulus_type, step, xx, yy, dt_ms=1.0, duration_ms=_DURATION_MS
     )
     return frames
 
