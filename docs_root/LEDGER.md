@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-039 · CLOSED · decision · - · 2026-09-22
+upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
+→ commit 36d2e3f
+
 ## F-094 · OPEN · finding · - · 2026-09-22
 a design directory's filter_params/model_params must be empty -- the two repos do not share filter parameter names, so any value there makes the hand-off unloadable rather than merely redundant.
 → commit a05fb8b
