@@ -88,6 +88,50 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-035 · CLOSED · decision · - · 2026-09-22
+AdEx SA/RA populations resolve to the SA1_tonic and RA1_phasic presets by neuron_type through the same resolve_neuron_params mechanism as Izhikevich's F-004 RS/FS split, rather than a second parallel resolver.
+→ commit 326ef6f
+
+## D-036 · CLOSED · decision · - · 2026-09-22
+the AdEx recipe ships as a separate preset file (tactile_sa1_ra1_adex) rather than a neuron_model switch on tactile_sa1_ra1, so the Izhikevich golden parity fixture stays untouched.
+→ commit 326ef6f
+
+## D-037 · CLOSED · decision · - · 2026-09-22
+the AdEx presets' operating point is set through R, the membrane resistance, tuned against the tactile recipe's measured responsive-neuron drive (SA rheobase 3.07 mA against a hold drive of p10/p50/p90 = 3.82/5.25/7.30 mA; RA rheobase 7.57 mA, below the 5.67-13.87 mA onset transients and above the ~0.15 mA hold drive); input_gain stays 50.0 and no preset YAML is touched.
+→ commit 326ef6f
+
+## F-086 · OPEN · finding · - · 2026-09-22
+the four pressure-simulation benchmark stimuli already render at a common peak amplitude at the recipe defaults (ramp_gaussian 0.9944, moving_edge 1.0000, braille 0.9825, drifting_grating 1.0000, within 2% of each other) and none of them routes through render.py's _LEGACY_DEFAULTS, the source of F-083's 30x split, so no change is needed for these four (partial F-083 resolution, scoped to them only).
+→ commit 326ef6f
+
+## F-087 · OPEN · finding · - · 2026-09-22
+AdEx presets tuned against a flat constant-current bench step are silent in the tactile recipe -- their rheobase lay above the drive the recipe actually delivers -- so a bench probe is not a sufficient tuning target for a population that sees filtered tactile drive; tune against the measured drive instead.
+→ commit 326ef6f
+
+## F-088 · OPEN · finding · - · 2026-09-22
+the P5 SA rate criterion is only meaningful on a drive-derived responsive set -- on a spatially localized stimulus a whole-population mean cannot reach 20-100 Hz for any neuron model, Izhikevich included.
+→ commit 326ef6f
+
+## F-089 · OPEN · finding · - · 2026-09-22
+RA's silence during a hold comes mainly from the RA filter differentiating a static drive to ~0, not from AdEx adaptation alone -- moving_edge's steady-drive interval, where the edge never stops moving, still yields 594 RA spikes.
+→ commit 326ef6f
+
+## F-090 · OPEN · finding · - · 2026-09-22
+SA1_tonic's R = 6.0 was selected by scanning R for the smallest value whose responsive-set ISI CV cleared 0.5, so the reported CV of 0.470 is a fitted outcome rather than an independent check; the purely principled placement (rheobase at the measured hold drive's p10) gives R ~= 4.8, within about 25%.
+→ commit 326ef6f
+
+## F-091 · OPEN · finding · - · 2026-09-22
+the RA onset "burst" that passes P5 is a single spike per responsive afferent synchronized across the set, not a multi-spike burst within one afferent -- the 200 Hz peak is exactly the 5 ms bin's cap for one spike.
+→ commit 326ef6f
+
+## F-092 · OPEN · finding · - · 2026-09-22
+RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz against P5's ~300 Hz) because that stimulus's RA onset drive peaks at 3.08 mA, below the 7.57 mA rheobase; reaching it needs R >~ 20, which would leave too little margin over moving_edge's 6.06 mA RA hold drive.
+→ commit 326ef6f
+
+## F-093 · OPEN · finding · - · 2026-09-22
+under the corrected responsive-set metric the Izhikevich SA baseline reaches only 8.75 Hz on the recipe's one genuine hold, an order of magnitude below P5's 20-100 Hz band; whether that is the recipe's input_gain or the RS preset is not settled.
+→ commit 326ef6f
+
 ## D-034 · CLOSED · decision · - · 2026-09-22
 stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
 → commit 774e9c4
