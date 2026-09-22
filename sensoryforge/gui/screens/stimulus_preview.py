@@ -26,6 +26,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, sip
 
+from sensoryforge.gui.execution.threads import keep_alive
 from sensoryforge.gui.widgets.figure_export import ExportFigureButton
 from sensoryforge.config.defaults import resolve_duration_ms
 from sensoryforge.config.schema import SensoryForgeConfig
@@ -240,6 +241,7 @@ class StimulusPreview(QtWidgets.QWidget):
         worker.failed.connect(functools.partial(self._on_render_failed, generation))
 
         self._inflight[generation] = (thread, worker)
+        keep_alive(thread, worker)
         thread.start()
 
     def _on_render_finished(self, generation: int, rendered: RenderedStimulus) -> None:

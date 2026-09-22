@@ -22,6 +22,7 @@ import yaml
 import torch
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from sensoryforge.gui.execution.threads import wait_all as wait_for_worker_threads
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.gui import theme
 from sensoryforge.gui.execution.run_controller import RunController
@@ -375,8 +376,10 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
             self.restoreGeometry(geometry)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        """Persist window geometry before closing."""
+        """Persist window geometry, stop a run, and join worker threads."""
         gui_settings().setValue(_GEOMETRY_KEY, self.saveGeometry())
+        self.run_controller.cancel()
+        wait_for_worker_threads()
         super().closeEvent(event)
 
 

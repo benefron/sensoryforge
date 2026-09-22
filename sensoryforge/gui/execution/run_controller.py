@@ -33,6 +33,7 @@ from typing import Any, Dict, Optional
 import torch
 from PyQt5 import QtCore
 
+from sensoryforge.gui.execution.threads import keep_alive
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.gui.execution.render import RenderedStimulus, render_for_config
@@ -309,6 +310,7 @@ class RunController(QtCore.QObject):
         # One run at a time per session, whichever controller starts it: two
         # runs would both reseed the global RNGs and race for last_results.
         self._session.run_in_progress = True
+        keep_alive(thread, worker)
         thread.start()
         self.started.emit()
 

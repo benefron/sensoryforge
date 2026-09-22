@@ -47,36 +47,43 @@ except Exception:  # pragma: no cover - fallback when backend disallows
 _session_exit_status = 0
 
 
+def _collect_qt_garbage() -> None:
+    """Deliver Qt's pending deletions, then run the cyclic collector."""
+    import gc
+
+    # Widgets closed at teardown are deleted by Qt on the next event-loop
+    # pass (deleteLater); their pyqtgraph cycles only become garbage then.
+    threads = sys.modules.get("sensoryforge.gui.execution.threads")
+    if threads is not None:
+        threads.wait_all()  # a worker still running must not be collected
+    qtcore = sys.modules.get("PyQt5.QtCore")
+    if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
+        for _ in range(2):
+            qtcore.QCoreApplication.sendPostedEvents(None, qtcore.QEvent.DeferredDelete)
+            qtcore.QCoreApplication.processEvents()
+    gc.collect()
+
+
 @pytest.fixture(autouse=True)
 def _collect_gui_garbage_at_the_test_boundary(request):
-    """Run the cyclic collector after every ``gui`` test (F-035).
+    """Run the cyclic collector before and after every ``gui`` test (F-035, F-085).
 
-    The collector stays enabled for the whole session. A GUI test destroys
-    its window, leaving pyqtgraph wrappers in reference cycles; if the
-    collector frees them in the middle of the *next* test, it can destroy a
-    C++ object that test is using (measured: "wrapped C/C++ object of type
-    ViewBox has been deleted" inside GridPreview.set_grids, 2 of 7 tests in
-    tests/gui_v2/test_app.py on every run, gone with this collection).
-    Collecting here, when no window of the next test exists yet, frees them
-    where nothing live can be hit. The shipped app builds each plot once
-    and keeps it for the window's lifetime, so it has no such boundary.
+    The collector stays enabled for the whole session. Freeing pyqtgraph
+    objects left in reference cycles by a destroyed window, in the middle of
+    another test, can destroy a C++ object that test is using (measured:
+    "wrapped C/C++ object of type ViewBox has been deleted" in
+    GridPreview.set_grids / SensorsScreen._add_highlight). Collecting before
+    a gui test starts -- when none of its windows exist -- clears leftovers of
+    any earlier test, gui-marked or not (CI failed on a test whose predecessor
+    was not gui-marked); collecting after it clears its own. The shipped app
+    builds each plot once per window lifetime, so it has no such boundary.
     """
+    is_gui = request.node.get_closest_marker("gui") is not None
+    if is_gui:
+        _collect_qt_garbage()
     yield
-    if request.node.get_closest_marker("gui") is not None:
-        import gc
-
-        # Widgets closed at teardown are deleted by Qt on the next event-loop
-        # pass (deleteLater); their pyqtgraph cycles only become garbage then.
-        # Flush those deletions first, or the leftovers are collected in the
-        # middle of the next test after all (seen on CI, test_app.py).
-        qtcore = sys.modules.get("PyQt5.QtCore")
-        if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
-            for _ in range(2):
-                qtcore.QCoreApplication.sendPostedEvents(
-                    None, qtcore.QEvent.DeferredDelete
-                )
-                qtcore.QCoreApplication.processEvents()
-        gc.collect()
+    if is_gui:
+        _collect_qt_garbage()
 
 
 def pytest_sessionfinish(session, exitstatus):
