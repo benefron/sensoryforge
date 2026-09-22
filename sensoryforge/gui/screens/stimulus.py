@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from PyQt5 import QtWidgets
 
+from sensoryforge.gui.screens.stimulus_layers import LayerEditor
 from sensoryforge.gui.screens.stimulus_substimuli import SubStimulusEditor
 from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.gui.screens.stimulus_paramform import (
@@ -93,6 +94,10 @@ class StimulusScreen(QtWidgets.QWidget):
         self.sub_stimuli = SubStimulusEditor(session)
         editor_layout.addWidget(self.sub_stimuli)
 
+        # Layered stimuli are built from a stack of layers.
+        self.layer_editor = LayerEditor(session)
+        editor_layout.addWidget(self.layer_editor, 1)
+
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         self.param_form = StimulusParamForm(
@@ -101,6 +106,8 @@ class StimulusScreen(QtWidgets.QWidget):
         )
         scroll.setWidget(self.param_form)
         editor_layout.addWidget(scroll, 1)
+        self._param_scroll = scroll
+        self._show_editor_for_type()
 
         splitter.addWidget(editor)
 
@@ -120,7 +127,14 @@ class StimulusScreen(QtWidgets.QWidget):
         current = self._session.config.stimulus.type
         self.type_combo.blockSignals(True)
         self.type_combo.clear()
-        for name in STIMULUS_REGISTRY.list_registered():
+        # "layered" first: it is the preferred, general way to build a
+        # stimulus (a stack of shape/pattern/motion/timing layers) -- every
+        # other registered name is a fixed special case of it.
+        registered = STIMULUS_REGISTRY.list_registered()
+        ordered = ([n for n in registered if n == "layered"]) + [
+            name for name in registered if name != "layered"
+        ]
+        for name in ordered:
             self.type_combo.addItem(name, name)
         self.type_combo.insertSeparator(self.type_combo.count())
         legacy_start = self.type_combo.count()
@@ -221,8 +235,15 @@ class StimulusScreen(QtWidgets.QWidget):
 
     # -------------------------------------------------------------- session
 
+    def _show_editor_for_type(self) -> None:
+        """A layered stimulus is edited in the layer editor, which takes the
+        column; every other type uses the parameter form."""
+        layered = self._session.config.stimulus.type == "layered"
+        self._param_scroll.setVisible(not layered)
+
     def _on_config_changed(self, path: str) -> None:
         if path == "stimulus.type":
+            self._show_editor_for_type()
             idx = self.type_combo.findData(self._session.config.stimulus.type)
             self.type_combo.blockSignals(True)
             self.type_combo.setCurrentIndex(idx if idx >= 0 else 0)
@@ -238,6 +259,7 @@ class StimulusScreen(QtWidgets.QWidget):
             self._refresh_grid_combo()
 
     def _on_config_replaced(self) -> None:
+        self._show_editor_for_type()
         self._populate_type_combo()
         self.name_edit.setText(self._session.config.stimulus.name)
         self._refresh_grid_combo()
