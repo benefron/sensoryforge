@@ -36,14 +36,75 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: model of Brette & Gerstner (2005), "Adaptive Exponential Integrate-and-
 #: Fire Model as an Effective Description of Neuronal Activity", J.
 #: Neurophysiol. 94:3637-3642. The *concrete numeric values* below are NOT
-#: taken from either paper -- they are chosen for this project's mA/mV/ms
-#: unit convention (R * I lands in mV; the tactile SA/RA filter drive after
-#: ``input_gain`` runs on the order of 1-100 mA, verified here at I = 40 mA)
-#: and were tuned by simulation to meet this project's targets (see
-#: ``tests/unit/test_pytorch_neurons.py``): at dt = 0.05 ms under a constant
-#: 40 mA drive for 500 ms, ``RA1_phasic`` fires exactly once (t ~= 22.6 ms)
-#: and is silent thereafter, while ``SA1_tonic`` fires at ~80 Hz throughout
-#: the full 500 ms with ISI coefficient of variation ~= 0.003.
+#: taken from either paper -- they are ours, chosen for this project's
+#: mA/mV/ms unit convention (``R * I`` lands in mV) and tuned against the
+#: drive the ``tactile_sa1_ra1`` recipe actually delivers (Phase 2b T2b,
+#: measured by ``scripts/tune_adex_populations.py`` -- see
+#: ``benchmarks/results/adex_tuning/adex_tuning.md``), not against an
+#: arbitrary bench current.
+#:
+#: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
+#: same role ``input_gain`` plays on the Izhikevich path, compensating the
+#: unit mismatch documented in ``docs/user_guide/units_and_gains.md`` (the
+#: Parvizi-Fard filter gains are calibrated for N/mm2, this project's
+#: stimulus unit is mA). For subthreshold adaptation ``a``, this
+#: parametrisation's rheobase -- the saddle-node current above which no
+#: stable subthreshold fixed point exists, so a constant drive above it
+#: fires forever instead of settling -- is:
+#:
+#:     I_rheobase = (1 + a) * ((VT - EL) + DeltaT*ln(1 + a) - DeltaT) / R
+#:
+#: ``SA1_tonic`` (``a`` = 0.02, ``R`` = 6.0): I_rheobase ~= 3.07 mA. Chosen
+#: so the rheobase sits near the LOW end of the responsive SA neurons'
+#: measured hold drive during ``ramp_gaussian`` (mean 5.53 mA; p10/p50/p90
+#: = 3.82 / 5.25 / 7.30 mA; max 10.25 mA -- iteration-1 finding: the
+#: recipe's own drive, not a flat bench step, is the tuning target), so a
+#: genuinely held stimulus is comfortably suprathreshold across that whole
+#: range. Verified by simulation: at those three percentiles the f-I curve
+#: gives ~25 / ~60 / ~95 Hz -- inside P5's 20-100 Hz band, monotone in
+#: amplitude -- and the responsive-set pooled ISI CV during
+#: ``ramp_gaussian``'s hold window is ~0.47 (< 0.5).
+#:
+#: How R=6.0 was actually picked: the purely principled placement --
+#: rheobase at the p10 of the measured hold drive (3.82 mA) -- gives
+#: R ~= 4.8. That alone left the responsive set's pooled ISI CV above 0.5
+#: (rate heterogeneity across the ~2x drive spread in the responsive set
+#: pools into an inflated CV even though each neuron's own firing is
+#: perfectly regular). R was then scanned upward and R=6.0 taken as the
+#: smallest value whose pooled ISI CV cleared 0.5 on this same hold
+#: window -- so the reported CV = 0.470 is a fitted outcome of that scan,
+#: not an independent confirmation of the CV criterion. R=6.0 is within
+#: about 25% of the principled R~=4.8, i.e. most but not all of the
+#: choice is the scan rather than the drive-percentile placement alone.
+#: At dt = 0.05 ms under
+#: a constant 40 mA bench drive for 500 ms (``tests/unit/
+#: test_pytorch_neurons.py``, unchanged current -- 40 mA remains far above
+#: the new rheobase too), it keeps spiking regularly through the full 500
+#: ms with ISI CV ~= 6e-6.
+#:
+#: ``RA1_phasic`` (``a`` = 2.0, ``R`` = 8.0): I_rheobase ~= 7.57 mA.
+#: Chosen so the rheobase sits BELOW the responsive RA neurons' measured
+#: onset-transient drive on the stimuli that produce one (``ramp_gaussian``
+#: peak 5.67 mA is borderline-below and still triggers a single spike per
+#: responsive neuron; ``moving_edge``'s stronger onset, peak 13.87 mA,
+#: triggers a multi-spike burst) but ABOVE the same neurons' measured hold
+#: drive (``ramp_gaussian`` RA hold mean 0.15 mA, near zero as expected --
+#: RA's own filter differentiates). ``b``/``tau_w`` are unchanged (20.0 /
+#: 50.0 ms): at the new ``R`` they still produce the phasic,
+#: settle-after-the-first-spike(s) character (a single spike per
+#: responsive neuron on ``ramp_gaussian``, synchronized across the
+#: responsive set into a population-level burst that peaks at ~1600 Hz
+#: instantaneous, within P5's up-to-~300 Hz target). At dt = 0.05 ms under
+#: a constant 40 mA bench drive for 500 ms it now fires continuously
+#: instead of settling (40 mA is far past the new, lower rheobase, so no
+#: stable subthreshold fixed point exists there any more); the bench test
+#: was updated to probe at 5.0 mA instead (just below the new rheobase),
+#: where it fires exactly once (t ~= 22.6 ms) and is silent thereafter --
+#: see ``test_adex_ra1_phasic_silences_within_30ms_under_constant_drive``
+#: for why the current level changed. RA-I transient bursting was NOT met
+#: on ``drifting_grating`` (onset drive there peaks at only 3.08 mA,
+#: below rheobase -- reported as a FAIL in ``adex_tuning.md``, not
+#: silently dropped).
 ADEX_PRESETS: dict = {
     # Tonic (sustained, weakly adapting): small a, zero b, long tau_w --
     # adaptation never grows enough to silence firing under constant drive.
@@ -57,7 +118,7 @@ ADEX_PRESETS: dict = {
         "b": 0.0,
         "v_reset": -58.0,
         "v_spike": 20.0,
-        "R": 1.0,
+        "R": 6.0,
     },
     # Phasic / strongly-adapting: large a and a large spike-triggered b,
     # short-to-moderate tau_w -- the first spike (or few) drives the
@@ -73,7 +134,7 @@ ADEX_PRESETS: dict = {
         "b": 20.0,
         "v_reset": -58.0,
         "v_spike": 20.0,
-        "R": 1.0,
+        "R": 8.0,
     },
 }
 
