@@ -1,0 +1,66 @@
+# tactile_sa1_ra1_adex -- the pressure-simulation recipe on AdEx neurons
+#
+# Identical to `tactile_sa1_ra1` (80x80 receptor grid at 0.15 mm, one SA and
+# one RA population with `template` receptive fields at a single resolvable
+# distance d = 0.40 mm, D-020) except that both populations run the adaptive
+# exponential integrate-and-fire neuron (`neuron_model: AdEx`) instead of
+# Izhikevich.
+#
+# Neuron parameters are left to the resolver (sensoryforge/config/defaults.py)
+# exactly as they are for the Izhikevich preset: the SA population resolves to
+# the `SA1_tonic` AdEx preset and the RA population to `RA1_phasic`, by
+# neuron_type, through the same NEURON_PRESET_BY_TYPE mechanism. Filter
+# parameters are unchanged (SA: `sa` defaults; RA: `ra` defaults, k3 = 2.0,
+# D-Q1).
+#
+# Why a separate preset file: `tactile_sa1_ra1` is pinned by the golden parity
+# test against pressure-simulation (tests/integration/test_pressure_sim_parity.py)
+# and must keep its Izhikevich neurons. AdEx is the hardware-facing path
+# (neuromorphic targets implement exponential integrate-and-fire natively), so
+# it ships as its own preset.
+#
+# Usage:
+#   sensoryforge run --preset tactile_sa1_ra1_adex
+metadata:
+  name: Pressure-simulation recipe on AdEx (SA1/RA1)
+  version: '1.0'
+  description: >-
+    80x80 grid at 0.15 mm; one SA and one RA population with template
+    (designed) receptive fields at resolvable_distance_mm=0.40, both running
+    AdEx neurons (SA1_tonic / RA1_phasic, resolved by neuron_type).
+grids:
+- name: Main Grid
+  arrangement: grid
+  rows: 80
+  cols: 80
+  spacing: 0.15
+  center_x: 0.0
+  center_y: 0.0
+populations:
+- name: SA Population
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: template
+  resolvable_distance_mm: 0.40
+  innervation_params:
+    k: 28
+    normalize: l2
+  neuron_model: AdEx
+  filter_method: sa
+  input_gain: 50.0
+  seed: 42
+- name: RA Population
+  neuron_type: RA
+  target_grid: Main Grid
+  innervation_method: template
+  resolvable_distance_mm: 0.40
+  innervation_params:
+    k: 28
+    normalize: l2
+  neuron_model: AdEx
+  filter_method: ra
+  input_gain: 50.0
+  seed: 43
+simulation:
+  device: cpu
+  dt_ms: 1.0

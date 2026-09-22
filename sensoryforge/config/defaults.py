@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from sensoryforge.neurons.adex import ADEX_PRESETS
 from sensoryforge.neurons.izhikevich import IZHIKEVICH_PRESETS
 
 #: Run length when neither the caller nor the config names one, in ms.
@@ -64,8 +65,32 @@ FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
 #: F-004: which Izhikevich preset each population neuron type builds by
 #: default. RA/RA-I (Meissner) populations get the fast-spiking preset for
 #: parity with pressure-simulation; SA/SA-I (Merkel) and SA2 keep the
-#: historical regular-spiking default.
+#: historical regular-spiking default. This table is Izhikevich-specific
+#: (kept under its historical name -- other code and tests import it); the
+#: per-model tables live in :data:`_PRESET_TABLES_BY_MODEL`.
 NEURON_PRESET_BY_TYPE: Dict[str, str] = {"SA": "RS", "RA": "FS", "SA2": "RS"}
+
+#: Which AdEx preset (:data:`sensoryforge.neurons.adex.ADEX_PRESETS`) each
+#: population neuron type builds by default. RA/RA-I (Meissner) populations
+#: get the phasic/adapting regime; SA/SA-I (Merkel) and SA2 get the tonic
+#: regime -- the same SA/RA split as :data:`NEURON_PRESET_BY_TYPE`, just
+#: against AdEx's own two named presets.
+ADEX_PRESET_BY_TYPE: Dict[str, str] = {
+    "SA": "SA1_tonic",
+    "RA": "RA1_phasic",
+    "SA2": "SA1_tonic",
+}
+
+#: Per-model preset table + neuron-type->preset map + fallback preset name +
+#: human-readable label (for error messages), keyed by lowercased
+#: ``neuron_model``. Shared by :func:`resolve_neuron_params` for every model
+#: that resolves via a named preset (currently Izhikevich and AdEx); a model
+#: absent from this table passes ``overrides`` straight through unchanged
+#: (see :func:`resolve_neuron_params`).
+_PRESET_TABLES_BY_MODEL: Dict[str, tuple] = {
+    "izhikevich": (IZHIKEVICH_PRESETS, NEURON_PRESET_BY_TYPE, "RS", "Izhikevich"),
+    "adex": (ADEX_PRESETS, ADEX_PRESET_BY_TYPE, "SA1_tonic", "AdEx"),
+}
 
 #: Non-preset Izhikevich defaults (unaffected by neuron type).
 _IZHIKEVICH_BASE_DEFAULTS: Dict[str, float] = {"threshold": 30.0, "noise_std": 0.0}
@@ -103,27 +128,79 @@ def resolve_filter_params(
     return params
 
 
+def _resolve_preset_params(
+    model_label: str,
+    presets: Dict[str, Dict[str, Any]],
+    preset_by_type: Dict[str, str],
+    default_preset: str,
+    neuron_type: str,
+    overrides: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Resolve one model's preset table against a neuron type + overrides.
+
+    Shared by every preset-driven model in :func:`resolve_neuron_params`
+    (Izhikevich, AdEx): starts from a preset -- the explicit ``preset``
+    override if given, otherwise ``preset_by_type`` for ``neuron_type``,
+    otherwise ``default_preset`` -- then applies ``overrides`` on top of the
+    preset's expanded numeric values, so overriding one parameter (F-031)
+    never drops the rest of the preset.
+
+    Args:
+        model_label: Human-readable model name for the error message (e.g.
+            "Izhikevich", "AdEx").
+        presets: The model's named preset table (e.g. ``IZHIKEVICH_PRESETS``).
+        preset_by_type: Neuron-type -> preset-name map (e.g.
+            ``NEURON_PRESET_BY_TYPE``).
+        default_preset: Preset name used when ``neuron_type`` is unknown.
+        neuron_type: Population neuron type (e.g. "SA", "RA", "SA2").
+        overrides: Population-specific ``model_params`` overrides (may
+            include an explicit ``"preset"`` key).
+
+    Returns:
+        The preset's parameters (expanded into concrete numbers, not a
+        ``"preset"`` key) merged with ``overrides``.
+
+    Raises:
+        ValueError: If an explicit ``overrides["preset"]`` names an unknown
+            preset.
+    """
+    preset_name = overrides.get("preset")
+    if preset_name is not None:
+        if preset_name not in presets:
+            raise ValueError(
+                f"Unknown {model_label} preset {preset_name!r}; choose one of "
+                f"{sorted(presets)}"
+            )
+    else:
+        preset_name = preset_by_type.get((neuron_type or "").upper(), default_preset)
+    params = dict(presets[preset_name])
+    params.update(overrides)
+    params.pop("preset", None)
+    return params
+
+
 def resolve_neuron_params(
     model_name: str, neuron_type: str, overrides: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Resolve neuron model parameters, applying the F-004 RA->FS preset.
+    """Resolve neuron model parameters, applying each model's type preset.
 
-    For the Izhikevich model, always starts from a preset -- the explicit
-    ``preset`` override if given, otherwise :data:`NEURON_PRESET_BY_TYPE` for
-    ``neuron_type`` -- then applies any ``a``/``b``/``c``/``d`` overrides on
-    top of it (matching ``IzhikevichNeuronTorch(preset=..., d=...)``
-    semantics). The preset is expanded into concrete numeric values (not
-    left as a ``"preset"`` key) so GUI widgets and engine construction see
-    the same numbers either way. The result always contains ``a``, ``b``,
-    ``c``, ``d`` and ``threshold`` -- overriding a single parameter (e.g.
-    ``{"d": 4.0}`` on an RA population) never drops the rest of the preset
-    (F-031: it used to, silently reverting the other three to the RS/type
-    default and raising ``KeyError`` in the legacy adapter).
+    For Izhikevich (F-004: RA->FS) and AdEx (RA->``RA1_phasic``, SA/SA2->
+    ``SA1_tonic``), always starts from a preset -- the explicit ``preset``
+    override if given, otherwise the model's neuron-type->preset table for
+    ``neuron_type`` -- then applies any parameter overrides on top of it
+    (matching ``IzhikevichNeuronTorch(preset=..., d=...)`` /
+    ``AdExNeuronTorch(preset=..., tau_w=...)`` semantics). The preset is
+    expanded into concrete numeric values (not left as a ``"preset"`` key)
+    so GUI widgets and engine construction see the same numbers either way.
+    Overriding a single parameter (e.g. ``{"d": 4.0}`` on an RA Izhikevich
+    population, or ``{"tau_w": 300.0}`` on an SA AdEx population) never
+    drops the rest of the preset (F-031: for Izhikevich it used to,
+    silently reverting the other three to the RS/type default and raising
+    ``KeyError`` in the legacy adapter).
 
-    Non-Izhikevich models pass ``overrides`` straight through: their
-    defaults live only in the class constructor signature, which is already
-    a single source of truth (verified to match ``gui/default_params.json``
-    for AdEx and MQIF).
+    Models not in :data:`_PRESET_TABLES_BY_MODEL` (e.g. MQIF, FA, SA, DSL)
+    pass ``overrides`` straight through: their defaults live only in the
+    class constructor signature, which is already a single source of truth.
 
     Args:
         model_name: Neuron model name (e.g. "Izhikevich", "AdEx"; case-insensitive).
@@ -132,23 +209,28 @@ def resolve_neuron_params(
 
     Returns:
         Resolved parameter dict merged with ``overrides``.
+
+    Raises:
+        ValueError: If an explicit ``overrides["preset"]`` names an unknown
+            preset for a preset-driven model.
     """
     overrides = dict(overrides or {})
-    if model_name.lower() != "izhikevich":
+    key = model_name.lower()
+    table = _PRESET_TABLES_BY_MODEL.get(key)
+    if table is None:
         return overrides
 
-    params = dict(_IZHIKEVICH_BASE_DEFAULTS)
-    preset_name = overrides.get("preset")
-    if preset_name is not None:
-        if preset_name not in IZHIKEVICH_PRESETS:
-            raise ValueError(
-                f"Unknown Izhikevich preset {preset_name!r}; choose one of "
-                f"{sorted(IZHIKEVICH_PRESETS)}"
-            )
-    else:
-        preset_name = NEURON_PRESET_BY_TYPE.get((neuron_type or "").upper(), "RS")
-    params.update(IZHIKEVICH_PRESETS[preset_name])
-
-    params.update(overrides)
-    params.pop("preset", None)
-    return params
+    presets, preset_by_type, default_preset, model_label = table
+    resolved = _resolve_preset_params(
+        model_label,
+        presets,
+        preset_by_type,
+        default_preset,
+        neuron_type,
+        overrides,
+    )
+    if key == "izhikevich":
+        params = dict(_IZHIKEVICH_BASE_DEFAULTS)
+        params.update(resolved)
+        return params
+    return resolved
