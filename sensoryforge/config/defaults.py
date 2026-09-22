@@ -1,6 +1,6 @@
 """Single source of truth for filter and neuron defaults.
 
-The GUI (``gui/tabs/spiking_tab.py``), :class:`~sensoryforge.core.simulation_engine.SimulationEngine`,
+The GUI's forms, :class:`~sensoryforge.core.simulation_engine.SimulationEngine`,
 and the legacy adapter (``core/generalized_pipeline.py``) must all resolve identical
 filter and neuron parameters for the same population config (see
 ``.claude/rules/engine-parity.md``, ledger F-026). This module is the one place
@@ -22,6 +22,38 @@ from typing import Any, Dict, Optional
 
 from sensoryforge.neurons.izhikevich import IZHIKEVICH_PRESETS
 
+#: Run length when neither the caller nor the config names one, in ms.
+DEFAULT_DURATION_MS: float = 1000.0
+
+
+def resolve_duration_ms(
+    configured: Optional[float], override: Optional[float] = None
+) -> float:
+    """The run length in ms: the override, else the config's, else the default.
+
+    One rule for ``sensoryforge run`` (``--duration`` is the override), the
+    GUI run bar, the Stimulus preview and the Batch screen, so the length a
+    config records is the length every one of them runs.
+
+    Args:
+        configured: ``SimulationConfig.duration_ms`` (``None`` when unset).
+        override: An explicit request (``--duration``), or ``None``.
+
+    Returns:
+        The duration in ms.
+
+    Raises:
+        ValueError: If the chosen value is not positive.
+    """
+    for value in (override, configured):
+        if value is not None:
+            duration = float(value)
+            if duration <= 0:
+                raise ValueError(f"duration must be positive, got {duration} ms")
+            return duration
+    return DEFAULT_DURATION_MS
+
+
 #: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere;
 #: D-Q1: RA gain k3 = 2.0 everywhere).
 FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
@@ -40,10 +72,8 @@ _IZHIKEVICH_BASE_DEFAULTS: Dict[str, float] = {"threshold": 30.0, "noise_std": 0
 
 #: Neuron integration step (ms, F-008): pressure-simulation's hard-coded
 #: native Izhikevich step, and SimulationConfig.integrate_dt_ms's default.
-#: Shared by SimulationConfig, SimulationEngine, and the GUI (both
-#: spiking_tab.py's neuron construction and stimulus_tab.py's time-step
-#: spinbox single-step, F-042) so a record step can only be set to a whole
-#: multiple of this value from the GUI.
+#: Shared by SimulationConfig and SimulationEngine; the GUI rejects a record
+#: step that is not a whole multiple of it (validation, F-042).
 DEFAULT_INTEGRATE_DT_MS: float = 0.05
 
 

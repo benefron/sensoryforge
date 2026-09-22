@@ -1,0 +1,383 @@
+"""`sensoryforge run` must render the canonical `stimulus:` block (Task 0.6, F-061).
+
+Before this fix, `cmd_run` (`sensoryforge/cli.py`) chose a canonical config's
+stimulus from a legacy top-level `stimuli:` list, falling back to a default
+trapezoidal stimulus otherwise -- it never read `SensoryForgeConfig.stimulus`
+(the canonical `stimulus:` block `SensoryForgeConfig.to_yaml()` writes and the
+GUI exports). So a config exported from the GUI with, say, a moving edge ran a
+default Gaussian trapezoid on the CLI instead.
+
+`render_for_config` (`sensoryforge/stimuli/render.py`) is now the one renderer
+both `sensoryforge run` and the GUI's Circuit tab
+(`sensoryforge/gui/circuit/run.py::render_graph_stimulus`) call, so a config
+run from either entry point renders byte-identical stimulus frames.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import torch
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# A "moving_edge" stimulus (a registered [T, H, W] stimulus, see
+# sensoryforge/stimuli/tactile.py::MovingEdgeStimulus) sweeps an oriented
+# edge across the grid -- visibly different frames from the default
+# trapezoidal stimulus, which is a static Gaussian blob held for a plateau
+# (GeneralizedTactileEncodingPipeline's temporal defaults).
+_GRID = {
+    "name": "Skin",
+    "arrangement": "grid",
+    "rows": 8,
+    "cols": 8,
+    "spacing": 0.2,
+    "center_x": 0.0,
+    "center_y": 0.0,
+}
+
+_STIMULUS = {
+    "type": "moving_edge",
+    "start": [-3.0, 0.0],
+    "end": [3.0, 0.0],
+    "spread": 0.8,
+    "orientation_deg": 25.0,
+    "amplitude": 40.0,
+    "ramp_up_ms": 5.0,
+    "plateau_ms": 40.0,
+    "ramp_down_ms": 5.0,
+}
+
+_POPULATION = {
+    "name": "SA Pop",
+    "target_grid": "Skin",
+    "neuron_type": "SA",
+    "neurons_per_row": 2,
+    "innervation_method": "gaussian",
+    "connections_per_neuron": 4,
+    "sigma_d_mm": 0.3,
+    "filter_method": "sa",
+    "neuron_model": "Izhikevich",
+    "input_gain": 1.0,
+    "noise_std": 0.0,
+    "seed": 42,
+}
+
+_SIMULATION = {"dt_ms": 1.0, "device": "cpu"}
+
+_DURATION = 30
+
+
+def _canonical_config(*, with_stimulus_block: bool) -> dict:
+    config = {
+        "grids": [dict(_GRID)],
+        "populations": [dict(_POPULATION)],
+        "simulation": dict(_SIMULATION),
+    }
+    if with_stimulus_block:
+        config["stimulus"] = dict(_STIMULUS)
+    return config
+
+
+def _write_config(tmp_path: Path, config: dict, name: str = "config.yml") -> Path:
+    path = tmp_path / name
+    with open(path, "w") as f:
+        yaml.dump(config, f)
+    return path
+
+
+def _run_cli(config_path: Path, *extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sensoryforge.cli",
+            "run",
+            str(config_path),
+            "--duration",
+            str(_DURATION),
+            *extra,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=str(REPO_ROOT),
+    )
+
+
+def _default_trapezoid_frames() -> torch.Tensor:
+    """The default trapezoidal stimulus for the same grid/duration/dt.
+
+    Built the same way `cmd_run`'s legacy-default branch does, so the
+    comparison below is against exactly what the CLI would have rendered
+    before this fix (F-061) -- ignoring the `stimulus:` block entirely.
+    """
+    from sensoryforge.stimuli.canvas import stimulus_canvas
+    from sensoryforge.stimuli.render import render_stimulus
+    from sensoryforge.config.schema import GridConfig
+
+    grid_cfg = GridConfig(**_GRID)
+    canvas = stimulus_canvas(grid_cfg, device="cpu")
+    frames, _ = render_stimulus(
+        "trapezoidal",
+        {},
+        canvas.xx,
+        canvas.yy,
+        dt_ms=_SIMULATION["dt_ms"],
+        duration_ms=float(_DURATION),
+        device="cpu",
+    )
+    return frames
+
+
+def test_stimulus_block_type_is_recorded_in_the_bundle(tmp_path):
+    """The bundle's stimulus payload records the `stimulus:` block's own type."""
+    config_path = _write_config(tmp_path, _canonical_config(with_stimulus_block=True))
+    bundle_dir = tmp_path / "bundle"
+
+    result = _run_cli(config_path, "--bundle", str(bundle_dir))
+    assert result.returncode == 0, (
+        f"exited {result.returncode}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}"
+    )
+    # The deprecation notice must NOT fire: there is no legacy `stimuli:`
+    # list here, only the canonical `stimulus:` block.
+    assert "legacy top-level 'stimuli:' list" not in result.stdout
+    assert "Using the canonical 'stimulus:' block" in result.stdout
+
+    import json
+
+    payload = json.loads((bundle_dir / "stimuli" / "stimulus.json").read_text())
+    assert payload["type"] == "moving_edge", payload
+
+
+def test_stimulus_block_frames_differ_from_default_trapezoid(tmp_path):
+    """Rendered frames come from the declared `moving_edge`, not the default."""
+    from sensoryforge.io.bundle import load_bundle
+
+    config_path = _write_config(tmp_path, _canonical_config(with_stimulus_block=True))
+    bundle_dir = tmp_path / "bundle"
+
+    result = _run_cli(config_path, "--bundle", str(bundle_dir))
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    bundle = load_bundle(bundle_dir)
+    assert bundle.stimulus is not None
+
+    default_frames = _default_trapezoid_frames()
+    assert bundle.stimulus.shape == default_frames.shape
+    assert not torch.allclose(bundle.stimulus, default_frames), (
+        "sensoryforge run rendered the default trapezoidal stimulus instead "
+        "of the canonical 'stimulus:' block"
+    )
+
+
+def test_default_stimulus_block_still_falls_back_to_trapezoid(tmp_path):
+    """No `stimulus:` block at all -> the default trapezoid, with a notice."""
+    from sensoryforge.io.bundle import load_bundle
+
+    config_path = _write_config(tmp_path, _canonical_config(with_stimulus_block=False))
+    bundle_dir = tmp_path / "bundle"
+
+    result = _run_cli(config_path, "--bundle", str(bundle_dir))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "no 'stimulus:' block" in result.stdout
+
+    bundle = load_bundle(bundle_dir)
+    default_frames = _default_trapezoid_frames()
+    assert torch.allclose(bundle.stimulus, default_frames)
+
+
+def test_legacy_stimuli_list_still_runs_with_a_deprecation_notice(tmp_path):
+    """A legacy top-level `stimuli:` list still wins, with a printed notice."""
+    from sensoryforge.io.bundle import load_bundle
+
+    config = _canonical_config(with_stimulus_block=True)
+    config["stimuli"] = [{"type": "gaussian", "amplitude": 10.0, "sigma": 1.0}]
+    config_path = _write_config(tmp_path, config)
+    bundle_dir = tmp_path / "bundle"
+
+    result = _run_cli(config_path, "--bundle", str(bundle_dir))
+    assert result.returncode == 0, (
+        f"exited {result.returncode}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}"
+    )
+    assert "legacy top-level 'stimuli:' list" in result.stdout
+
+    import json
+
+    payload = json.loads((bundle_dir / "stimuli" / "stimulus.json").read_text())
+    # "gaussian" is one of pressure-simulation's own reconstructible types
+    # (see build_stimulus_payload), tagged "kind": "stimulus".
+    assert payload["type"] == "gaussian"
+
+    bundle = load_bundle(bundle_dir)
+    assert bundle.stimulus is not None
+
+
+def test_validate_reports_the_stimulus_source(tmp_path):
+    """`sensoryforge validate` names which stimulus source `run` will use."""
+    block_path = _write_config(
+        tmp_path, _canonical_config(with_stimulus_block=True), "with_block.yml"
+    )
+    default_path = _write_config(
+        tmp_path, _canonical_config(with_stimulus_block=False), "default.yml"
+    )
+    legacy_config = _canonical_config(with_stimulus_block=True)
+    legacy_config["stimuli"] = [{"type": "gaussian"}]
+    legacy_path = _write_config(tmp_path, legacy_config, "legacy.yml")
+
+    def _validate(path: Path) -> str:
+        result = subprocess.run(
+            [sys.executable, "-m", "sensoryforge.cli", "validate", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=str(REPO_ROOT),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        return result.stdout
+
+    assert "canonical 'stimulus:' block" in _validate(block_path)
+    assert "default trapezoidal stimulus" in _validate(default_path)
+    assert "legacy top-level 'stimuli:' list" in _validate(legacy_path)
+
+
+@pytest.mark.gui
+def test_the_gui_renders_the_same_stimulus_as_the_cli(tmp_path):
+    """The GUI's renderer and `sensoryforge run` agree exactly.
+
+    Both go through `stimuli.render.render_for_config` (F-061, D-030), so the
+    same config rendered by the GUI v2 run path and by the CLI must give
+    bit-identical stimulus frames.
+    """
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.execution.render import render_for_config as gui_render
+    from sensoryforge.io.bundle import load_bundle
+
+    config_dict = _canonical_config(with_stimulus_block=True)
+    config_path = _write_config(tmp_path, config_dict)
+    bundle_dir = tmp_path / "bundle"
+    result = _run_cli(config_path, "--bundle", str(bundle_dir))
+    assert result.returncode == 0, result.stdout + result.stderr
+    cli_bundle = load_bundle(bundle_dir)
+
+    rendered = gui_render(
+        SensoryForgeConfig.from_dict(config_dict), duration_ms=float(_DURATION)
+    )
+    frames = rendered.stimulus
+    if frames.ndim == cli_bundle.stimulus.ndim + 1:
+        frames = frames.squeeze(0)
+    assert frames.shape == cli_bundle.stimulus.shape
+    assert torch.equal(frames, cli_bundle.stimulus)
+
+
+def test_a_bare_moving_edge_block_actually_moves():
+    """`stimulus: {type: moving_edge}` must use that type's own defaults.
+
+    StimulusConfig's schema defaults (start == end == [0, 0]) used to be
+    forwarded to the constructor and override them, so the rendered "moving"
+    edge was static: constant energy, constant centre of mass, no error.
+    """
+    import torch
+
+    from sensoryforge.config.schema import (
+        GridConfig,
+        SensoryForgeConfig,
+        StimulusConfig,
+    )
+    from sensoryforge.stimuli.render import render_for_config
+
+    config = SensoryForgeConfig(
+        grids=[
+            GridConfig(name="G", arrangement="grid", rows=40, cols=40, spacing=0.15)
+        ],
+        populations=[],
+        stimulus=StimulusConfig(type="moving_edge"),
+    )
+    stimulus, _, _, _ = render_for_config(config, duration_ms=330.0, dt_ms=1.0)
+    frames = stimulus[0]
+    early, late = frames[60], frames[280]
+    assert not torch.allclose(
+        early, late
+    ), "the moving edge is the same at 60 and 280 ms"
+
+    def x_centroid(frame):
+        xs = torch.arange(frame.shape[0], dtype=frame.dtype).view(-1, 1)
+        return float((frame * xs).sum() / frame.sum())
+
+    assert x_centroid(late) - x_centroid(early) > 3.0, (
+        f"centre of mass moved only {x_centroid(late) - x_centroid(early):.2f} rows "
+        "between 60 and 280 ms"
+    )
+
+
+def test_a_field_the_user_set_still_reaches_the_stimulus():
+    from sensoryforge.config.schema import (
+        GridConfig,
+        SensoryForgeConfig,
+        StimulusConfig,
+    )
+    from sensoryforge.stimuli.render import render_for_config
+
+    def peak(amplitude):
+        config = SensoryForgeConfig(
+            grids=[
+                GridConfig(name="G", arrangement="grid", rows=20, cols=20, spacing=0.15)
+            ],
+            populations=[],
+            stimulus=StimulusConfig(type="gaussian", amplitude=amplitude, sigma=0.5),
+        )
+        return float(render_for_config(config, duration_ms=20.0, dt_ms=1.0)[0].max())
+
+    assert peak(7.0) == pytest.approx(7.0, rel=0.05)
+    assert peak(14.0) == pytest.approx(2 * peak(7.0), rel=1e-5)
+
+
+def test_cli_runs_the_configs_own_duration_unless_the_flag_overrides(tmp_path):
+    """simulation.duration_ms used to be ignored: every run was 1000 ms."""
+    import subprocess
+    import sys
+
+    import h5py
+    import yaml
+
+    from sensoryforge.config.schema import (
+        GridConfig,
+        PopulationConfig,
+        SensoryForgeConfig,
+    )
+
+    cfg = SensoryForgeConfig(
+        grids=[GridConfig(name="g", rows=4, cols=4)],
+        populations=[PopulationConfig(name="p", target_grid="g")],
+    )
+    cfg.simulation.duration_ms = 37.0
+    path = tmp_path / "c.yml"
+    path.write_text(cfg.to_yaml())
+
+    def steps(*extra):
+        out = tmp_path / f"out{len(extra)}"
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "sensoryforge.cli",
+                "run",
+                str(path),
+                "--bundle",
+                str(out),
+                *extra,
+            ],
+            check=True,
+            capture_output=True,
+        )
+        with h5py.File(out / "data.h5") as f:
+            return f["time_ms"].shape[0]
+
+    assert steps() == 37
+    assert steps("--duration", "12") == 12

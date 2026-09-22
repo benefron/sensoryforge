@@ -16,11 +16,17 @@ components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import re
+import warnings
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import torch
 
 from sensoryforge.registry import STIMULUS_REGISTRY
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.stimuli.canvas import StimulusCanvas
 
 # ---------------------------------------------------------------------------
 # Legacy-default compatibility (K8).
@@ -141,6 +147,90 @@ def _apply_legacy_defaults(
     return merged
 
 
+def effective_defaults(stimulus_type: str) -> Dict[str, Any]:
+    """The value each parameter of ``stimulus_type`` takes when it is not set.
+
+    This is the one answer to "what will run if I leave this alone?", and what
+    a form should show for an unset parameter. It is the type's declared
+    defaults (``get_param_spec()``) overlaid with the legacy-generator
+    defaults :func:`render_stimulus` fills in for the names both paths know --
+    so a Gaussian reports amplitude 30, which is what is rendered, not the
+    constructor's 1.0.
+
+    Args:
+        stimulus_type: A registered stimulus name (case-insensitive).
+
+    Returns:
+        ``{parameter name: default}``; nested legacy entries (``moving``'s
+        ``base_stimulus``) are included as they are.
+
+    Raises:
+        KeyError: If ``stimulus_type`` is not registered.
+    """
+    defaults: Dict[str, Any] = {
+        spec.name: spec.default
+        for spec in STIMULUS_REGISTRY.get_param_spec(stimulus_type)
+    }
+    defaults.update(_LEGACY_DEFAULTS.get(stimulus_type.lower(), {}))
+    # Timing that follows the run when unset (_clock_to_render_step): its
+    # value depends on the run's duration, so it has no fixed default. None
+    # means "follows the run" -- a form shows it as auto.
+    for name in run_following_params(stimulus_type):
+        if name in defaults:
+            defaults[name] = None
+    return defaults
+
+
+def run_following_params(stimulus_type: str) -> frozenset:
+    """Parameters of ``stimulus_type`` that follow the run when left unset.
+
+    ``total_ms``/``total_time_ms`` take the run's duration, and a stimulus with
+    its own ramp-hold-ramp envelope stretches ``plateau_ms`` to fill it; see
+    :func:`_clock_to_render_step`. (``dt_ms`` always follows the run and is
+    not offered at all.)
+
+    Args:
+        stimulus_type: A registered stimulus name.
+
+    Returns:
+        The parameter names.
+    """
+    import inspect
+
+    cls = STIMULUS_REGISTRY.get_class(stimulus_type)
+    accepted = set(inspect.signature(cls.__init__).parameters)
+    names = {"total_ms", "total_time_ms"} & accepted
+    if (
+        "total_ms" in accepted
+        and {"plateau_ms", "ramp_up_ms", "ramp_down_ms"} <= accepted
+    ):
+        names.add("plateau_ms")
+    return frozenset(names)
+
+
+def takes_default_ramps(stimulus_type: str) -> bool:
+    """Whether ``stimulus_type`` is a still image the renderer ramps in and out.
+
+    True for a stimulus that draws one frame and keeps no clock of its own
+    (``gaussian``, ``texture``, ``gabor``, ``edge_grating``,
+    ``repeated_pattern``, ``composite``, ``static``); its envelope is
+    ``StimulusConfig.ramp_up_ms``/``plateau_ms``/``ramp_down_ms``, defaulting
+    to :func:`default_envelope`.
+
+    Args:
+        stimulus_type: A registered stimulus name.
+    """
+    import inspect
+
+    if not STIMULUS_REGISTRY.is_registered(stimulus_type):
+        return False
+    if stimulus_type.lower() in ("moving", "timeline"):
+        return False
+    cls = STIMULUS_REGISTRY.get_class(stimulus_type)
+    accepted = set(inspect.signature(cls.__init__).parameters)
+    return not ({"total_ms", "total_time_ms", "dt_ms"} & accepted)
+
+
 # Names whose registered component takes a different parameter vocabulary
 # from the legacy generator it replaced, mapped to the keys that say the
 # caller is speaking the component's vocabulary rather than the legacy one.
@@ -210,6 +300,49 @@ def _scale_trajectory_to_duration(
     merged = dict(params)
     merged["motion_params"] = {**motion_params, "num_steps": n_steps}
     return merged
+
+
+#: A stimulus that does not move ramps up and down over this fraction of its
+#: duration each, unless the ramps are set. Neurons with dynamics need a
+#: change to respond to: a step switched on at t = 0 and held to the end gives
+#: an RA population one onset burst and no release. pressure-simulation's
+#: stimulus set ramps every stimulus over 60-80 of 600 steps.
+DEFAULT_RAMP_FRACTION = 1.0 / 8.0
+
+
+def default_envelope(
+    duration_ms: float,
+    *,
+    ramp_up_ms: Optional[float] = None,
+    plateau_ms: Optional[float] = None,
+    ramp_down_ms: Optional[float] = None,
+) -> Tuple[float, float, float]:
+    """``(ramp_up, plateau, ramp_down)`` in ms for a stimulus lasting ``duration_ms``.
+
+    A ramp that is not given is :data:`DEFAULT_RAMP_FRACTION` of the duration;
+    a plateau that is not given fills what the ramps leave. Values that are
+    given are used as they are (a ramp of 0 is a step).
+
+    Args:
+        duration_ms: The stimulus's duration in ms.
+        ramp_up_ms: Rise time in ms, or ``None`` for the default.
+        plateau_ms: Hold time in ms, or ``None`` for the rest.
+        ramp_down_ms: Fall time in ms, or ``None`` for the default.
+
+    Returns:
+        The three durations in ms.
+    """
+    duration = max(float(duration_ms), 0.0)
+    up = duration * DEFAULT_RAMP_FRACTION if ramp_up_ms is None else float(ramp_up_ms)
+    down = (
+        duration * DEFAULT_RAMP_FRACTION
+        if ramp_down_ms is None
+        else float(ramp_down_ms)
+    )
+    plateau = (
+        max(duration - up - down, 0.0) if plateau_ms is None else float(plateau_ms)
+    )
+    return up, plateau, down
 
 
 def _temporal_envelope(
@@ -409,6 +542,7 @@ def _render_registered(
     cls = STIMULUS_REGISTRY.get_class(stimulus_type)
     params = _apply_legacy_defaults(stimulus_type, params)
     params = _scale_trajectory_to_duration(params, dt_ms, duration_ms)
+    params = _clock_to_render_step(cls, params, dt_ms, duration_ms)
 
     # The temporal-envelope keys (ramp_up_ms/plateau_ms/ramp_down_ms/
     # total_ms) are render_stimulus's own vocabulary for expanding a
@@ -467,11 +601,17 @@ def _render_registered(
             )
             time_ms = _time_axis(dt_ms, envelope_ms, device)
             plateau_default = envelope_ms
+        ramp_up, plateau, ramp_down = default_envelope(
+            plateau_default,
+            ramp_up_ms=params.get("ramp_up_ms"),
+            plateau_ms=params.get("plateau_ms"),
+            ramp_down_ms=params.get("ramp_down_ms"),
+        )
         amp = _temporal_envelope(
             time_ms,
-            ramp_up_ms=params.get("ramp_up_ms", 0.0),
-            plateau_ms=params.get("plateau_ms", plateau_default),
-            ramp_down_ms=params.get("ramp_down_ms", 0.0),
+            ramp_up_ms=ramp_up,
+            plateau_ms=plateau,
+            ramp_down_ms=ramp_down,
             amplitude=1.0,
         )
         frames = frame.unsqueeze(0) * amp.view(-1, 1, 1)
@@ -513,11 +653,107 @@ def _is_stepped(instance: Any) -> bool:
     instance as stepped only when it has both a ``step`` and a trajectory
     to step along, so a static stimulus is not needlessly re-rendered.
     """
-    return (
-        callable(getattr(instance, "step", None))
-        and getattr(instance, "trajectory", None) is not None
-        and len(getattr(instance, "trajectory")) > 1
-    )
+    if not callable(getattr(instance, "step", None)):
+        return False
+    return _step_count(instance) > 1
+
+
+def _step_count(instance: Any) -> int:
+    """How many steps a stepped stimulus has: its trajectory, or its timeline.
+
+    ``moving`` advances along a ``trajectory``; ``timeline`` advances a clock
+    over ``num_steps`` (it used to be treated as a single frame, so every
+    frame of a timeline showed its first sub-stimulus).
+    """
+    trajectory = getattr(instance, "trajectory", None)
+    if trajectory is not None:
+        return len(trajectory)
+    return int(getattr(instance, "num_steps", 0) or 0)
+
+
+def _clock_to_render_step(
+    cls: type, params: Dict[str, Any], dt_ms: float, duration_ms: Optional[float]
+) -> Dict[str, Any]:
+    """Make a stimulus that keeps its own clock run on the render's step.
+
+    Several stimuli generate their sequence on their own ``dt_ms`` (the
+    tactile ones default to 1 ms, ``timeline`` to 0.5 ms). The frames are
+    then laid on the render's time axis one per step, so a stimulus clock
+    that differs from the render step plays the stimulus at the wrong speed:
+    measured, a moving edge at t = 100 ms sat at a third of the distance with
+    a 0.5 ms run step that it reaches with a 1 ms one. The render step is the
+    only consistent choice, so it is passed in; a ``dt_ms`` set to anything
+    else is an error rather than a silent speed change.
+
+    A ``timeline`` also takes its length from the render when none is given,
+    so its sub-stimuli's onsets are measured against the run.
+
+    Args:
+        cls: The stimulus class.
+        params: Constructor parameters (not mutated).
+        dt_ms: The render's time step in ms.
+        duration_ms: The render's duration in ms, or ``None``.
+
+    Returns:
+        ``params`` with ``dt_ms`` (and, for a timeline, ``total_time_ms``) set.
+
+    Raises:
+        ValueError: If ``params`` sets a ``dt_ms`` other than the render step.
+    """
+    import inspect
+
+    accepted = inspect.signature(cls.__init__).parameters
+    if "dt_ms" not in accepted:
+        return params
+    given = params.get("dt_ms")
+    if given is not None and abs(float(given) - float(dt_ms)) > 1e-9:
+        raise ValueError(
+            f"stimulus dt_ms={given} differs from the run's dt_ms={dt_ms}; the "
+            "stimulus would play at the wrong speed. Leave the stimulus's dt_ms "
+            "unset (it follows the run) or set the run's dt_ms instead."
+        )
+    clocked = dict(params)
+    clocked["dt_ms"] = float(dt_ms)
+    if "sub_stimuli" in clocked:
+        # Each part of a timeline is shown for a window; without its own
+        # envelope it would switch on and off as a step. Give it the default
+        # ramps over its own duration.
+        parts = []
+        for entry in clocked["sub_stimuli"]:
+            entry = dict(entry)
+            if entry.get("envelope") is None:
+                length = float(entry.get("duration_ms", duration_ms or 0.0) or 0.0)
+                ramp = length * DEFAULT_RAMP_FRACTION
+                entry["envelope"] = {"ramp_up_ms": ramp, "ramp_down_ms": ramp}
+            parts.append(entry)
+        clocked["sub_stimuli"] = parts
+    if (
+        "total_time_ms" in accepted
+        and "total_time_ms" not in clocked
+        and duration_ms is not None
+    ):
+        clocked["total_time_ms"] = float(duration_ms)
+    if "total_ms" in accepted and "total_ms" not in clocked and duration_ms is not None:
+        # A stimulus with its own length (moving_edge 330 ms, ramp_gaussian
+        # 1100 ms, ...) spans the run unless its length is set: cut short it
+        # never ramped down, and ended early it left the rest of the run
+        # blank.
+        clocked["total_ms"] = float(duration_ms)
+        if {"plateau_ms", "ramp_up_ms", "ramp_down_ms"} <= set(accepted) and (
+            "plateau_ms" not in clocked
+        ):
+            # Its own ramps are kept; the hold (a moving edge's sweep) fills
+            # the rest of the run. At the stimulus's own total this is its
+            # own plateau (moving_edge: 330 - 20 - 10 = 300 ms).
+            def own(name: str) -> float:
+                if name in clocked:
+                    return float(clocked[name])
+                return float(accepted[name].default)
+
+            clocked["plateau_ms"] = max(
+                float(duration_ms) - own("ramp_up_ms") - own("ramp_down_ms"), 0.0
+            )
+    return clocked
 
 
 def _render_stepped(
@@ -540,7 +776,7 @@ def _render_stepped(
     The instance is reset before and after, so rendering twice gives the
     same answer and leaves no state behind for the next caller.
     """
-    n_traj = len(instance.trajectory)
+    n_traj = _step_count(instance)
     if duration_ms is not None:
         time_ms = _duration_axis(dt_ms, duration_ms, device)
         n_frames = time_ms.numel()
@@ -558,11 +794,17 @@ def _render_stepped(
     instance.reset_state()
     stacked = torch.stack(frames, dim=0)
 
+    ramp_up, plateau, ramp_down = default_envelope(
+        float(time_ms[-1]) + float(dt_ms),
+        ramp_up_ms=params.get("ramp_up_ms"),
+        plateau_ms=params.get("plateau_ms"),
+        ramp_down_ms=params.get("ramp_down_ms"),
+    )
     amp = _temporal_envelope(
         time_ms,
-        ramp_up_ms=params.get("ramp_up_ms", 0.0),
-        plateau_ms=params.get("plateau_ms", float(time_ms[-1]) + float(dt_ms)),
-        ramp_down_ms=params.get("ramp_down_ms", 0.0),
+        ramp_up_ms=ramp_up,
+        plateau_ms=plateau,
+        ramp_down_ms=ramp_down,
         amplitude=1.0,
     )
     return stacked * amp.view(-1, 1, 1), time_ms
@@ -608,3 +850,203 @@ def _render_legacy(
     frames = frames.squeeze(0).to(device)
     time_ms = time_ms.to(device)
     return frames, time_ms
+
+
+def render_for_config(
+    config: "SensoryForgeConfig",
+    *,
+    duration_ms: float,
+    dt_ms: float,
+) -> Tuple[
+    torch.Tensor, torch.Tensor, Optional["StimulusCanvas"], List[Tuple[str, Any]]
+]:
+    """Render ``config.stimulus`` on ``config``'s first grid's canvas (Task 0.6, F-061).
+
+    This is the one place that turns a :class:`~sensoryforge.config.schema.
+    SensoryForgeConfig`'s canonical ``stimulus:`` block into frames --
+    :mod:`sensoryforge.cli` (``sensoryforge run``) and the GUI's run path
+    (:mod:`sensoryforge.gui.execution.render`) both call it, so a config run
+    from the CLI and the same config run from the GUI render byte-identical
+    stimuli.
+
+    ``StimulusConfig.to_dict()`` carries every field the schema has
+    (administrative ones like ``motion``/``composition_mode``/``channel``
+    included); a given registered stimulus class's constructor only accepts
+    its own subset. A ``TypeError`` naming an unexpected keyword is retried
+    with that keyword dropped, the same way :func:`render_stimulus`'s own
+    envelope-key handling works, rather than hard-coding a per-type field
+    list here -- every dropped ``(key, value)`` pair is returned so the
+    caller can decide whether it is worth warning about (only a value the
+    user actually changed from the schema default is, see
+    :func:`dropped_params_warning`).
+
+    Args:
+        config: The reconstructed :class:`SensoryForgeConfig`.
+        duration_ms: Stimulus duration in ms.
+        dt_ms: Record step in ms (``config.simulation.dt_ms``, passed
+            explicitly rather than read off *config* so a caller overriding
+            ``--duration``/``dt_ms`` independently of the loaded config can
+            do so without mutating it).
+
+    Returns:
+        ``(stimulus, time_ms, canvas, dropped)``: ``stimulus`` is
+        ``frames.unsqueeze(0)`` (batch dimension added), matching what
+        :meth:`~sensoryforge.core.simulation_engine.SimulationEngine.run`
+        expects; ``time_ms`` is the ``[T]`` time axis; ``canvas`` is the
+        :class:`~sensoryforge.stimuli.canvas.StimulusCanvas` the frames were
+        rendered on, or ``None`` when *config* has no grids (the synthetic
+        40x40 fallback canvas is used in that case, matching
+        :func:`render_stimulus`'s own default); ``dropped`` is the list of
+        ``(field_name, value)`` pairs the stimulus class's constructor
+        rejected.
+    """
+    from sensoryforge.stimuli.canvas import stimulus_canvas
+
+    canvas: Optional["StimulusCanvas"] = None
+    if config.grids:
+        # The stimulus names its grid in `target_layer`; without one it is
+        # rendered on the first grid. A name that matches no grid is an error:
+        # drawing it on some other grid would silently change the experiment.
+        target = getattr(config.stimulus, "target_layer", None)
+        if target:
+            grid_cfg = next((g for g in config.grids if g.name == target), None)
+            if grid_cfg is None:
+                raise ValueError(
+                    f"stimulus target_layer {target!r} is not a grid in this "
+                    f"configuration; it has {[g.name for g in config.grids]}"
+                )
+        else:
+            grid_cfg = config.grids[0]
+        canvas = stimulus_canvas(grid_cfg, device=config.simulation.device)
+        xx, yy = canvas.xx, canvas.yy
+    else:
+        xx, yy = torch.meshgrid(
+            torch.linspace(-1, 1, 40),
+            torch.linspace(-1, 1, 40),
+            indexing="ij",
+        )
+
+    stim = config.stimulus
+    # Forward only the fields the user set (StimulusConfig.explicit_fields()).
+    # StimulusConfig carries a default for every field of every stimulus type
+    # (start and end both [0, 0], an 800 ms plateau, ...); forwarding those
+    # made them override the chosen type's own defaults, so
+    # `stimulus: {type: moving_edge}` rendered an edge with start == end that
+    # never moved, with no error. Explicitness is recorded, not inferred from
+    # the value, so a field deliberately set to the schema default still counts.
+    explicit = stim.explicit_fields() - {"name", "type", "params"}
+    full = stim.to_full_dict()
+    # `stimulus.params` carries the type's parameters that have no named
+    # field; a named field, when set, is the authority for its own name.
+    # A None value means "unset" (a form's auto): it takes the default rule
+    # (the type's own default, or the run for run-following timing).
+    stimulus_params = {
+        k: v for k, v in (getattr(stim, "params", None) or {}).items() if v is not None
+    }
+    stimulus_params.update({k: full[k] for k in explicit if k in full})
+    dropped: List[Tuple[str, Any]] = []
+    while True:
+        try:
+            frames, time_ms = render_stimulus(
+                stim.type,
+                stimulus_params,
+                xx,
+                yy,
+                dt_ms=dt_ms,
+                duration_ms=duration_ms,
+                device=config.simulation.device,
+            )
+            break
+        except TypeError as exc:
+            match = re.search(r"unexpected keyword argument '(\w+)'", str(exc))
+            if match is None or match.group(1) not in stimulus_params:
+                raise
+            key = match.group(1)
+            dropped.append((key, stimulus_params.pop(key)))
+
+    stimulus_tensor = frames.unsqueeze(0)
+    return stimulus_tensor, time_ms, canvas, dropped
+
+
+def dropped_params_warning(
+    stimulus_type: str, dropped: List[Tuple[str, Any]]
+) -> Optional[str]:
+    """The warning text for :func:`render_for_config`'s discarded settings, or ``None``.
+
+    Shared by :mod:`sensoryforge.cli` and
+    :mod:`sensoryforge.gui.execution.render` so both callers of
+    :func:`render_for_config` describe a dropped keyword the same way.
+
+    Args:
+        stimulus_type: The stimulus's registered name, for the message.
+        dropped: ``(field_name, value)`` pairs the constructor rejected.
+
+    Returns:
+        A message naming only the fields whose value the caller had changed
+        from the schema default, or ``None`` when every discarded field was
+        untouched and there is nothing worth saying.
+    """
+    deliberate = [
+        f"{key}={value!r}"
+        for key, value in dropped
+        if not _is_stimulus_schema_default(key, value)
+    ]
+    if not deliberate:
+        return None
+    return (
+        f"Stimulus {stimulus_type!r} does not accept {', '.join(deliberate)}; "
+        "the value(s) you set were ignored and the stimulus ran without them."
+    )
+
+
+def _is_stimulus_schema_default(field_name: str, value: Any) -> bool:
+    """Whether *value* is what ``StimulusConfig`` would hold untouched.
+
+    ``StimulusConfig.to_dict()`` carries every field the schema defines,
+    most of which a given stimulus class knows nothing about. Discarding
+    those is housekeeping. Discarding one the caller actually set is a
+    changed stimulus, so the two cases are told apart here rather than
+    warning about all of them and training the reader to ignore it.
+
+    Args:
+        field_name: The dropped keyword.
+        value: The value it held.
+
+    Returns:
+        ``True`` when the field is unknown to the schema or still at its
+        declared default.
+    """
+    import dataclasses
+
+    from sensoryforge.config.schema import StimulusConfig
+
+    for field in dataclasses.fields(StimulusConfig):
+        if field.name != field_name:
+            continue
+        if field.default is not dataclasses.MISSING:
+            return value == field.default
+        if field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+            return value == field.default_factory()  # type: ignore[misc]
+        return False
+    return True
+
+
+def is_default_stimulus_config(config: "SensoryForgeConfig") -> bool:
+    """Whether ``config.stimulus`` is an untouched ``StimulusConfig()`` default.
+
+    Used by ``sensoryforge run``/``sensoryforge validate`` (Task 0.6) to
+    decide whether a canonical config's ``stimulus:`` block was ever set by
+    its author, or is just the schema default that ``SensoryForgeConfig()``
+    fills in on its own -- only in the latter case is it reasonable to fall
+    back to the legacy trapezoid default instead of rendering the block.
+
+    Args:
+        config: The loaded :class:`SensoryForgeConfig`.
+
+    Returns:
+        ``True`` when ``config.stimulus.to_dict()`` equals a fresh
+        ``StimulusConfig().to_dict()``.
+    """
+    from sensoryforge.config.schema import StimulusConfig
+
+    return config.stimulus.to_dict() == StimulusConfig().to_dict()

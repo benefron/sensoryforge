@@ -26,7 +26,7 @@ sensoryforge run <config.yml> [options]
 ```
 
 **Options:**
-- `--duration DURATION`: Simulation duration in milliseconds (default: 1000)
+- `--duration DURATION`: Simulation duration in milliseconds. Without it, the config's `simulation.duration_ms` is used, and 1000 ms if that is unset too.
 - `--output FILE`: Save results to file (PyTorch checkpoint `.pt` or `.pth`)
 - `--device DEVICE`: Override device from config (`cpu`, `cuda`, or `mps`)
 
@@ -229,6 +229,25 @@ simulation:
   device: "cpu"
   dt: 0.5
 ```
+
+The `stimulus:` block above is what `sensoryforge run` actually renders (Task 0.6, F-061) — the
+same renderer every GUI run uses, so a config run from the CLI and the same config run from the GUI
+produce byte-identical stimulus frames. Only the fields you write in the block are
+passed to the stimulus; a field you leave out takes that stimulus type's own default, so
+`stimulus: {type: moving_edge}` is a complete, moving edge.
+
+Every stimulus changes over time. A still image (`gaussian`, `texture`, `gabor`,
+`edge_grating`, `repeated_pattern`, `composite`, `static`) ramps up over the first
+eighth of the run, holds, and ramps down over the last eighth; set `ramp_up_ms`,
+`plateau_ms` and `ramp_down_ms` to change that (`ramp_up_ms: 0` is a step). Each part
+of a `timeline` ramps the same way over its own window. A stimulus with its own time
+course (`moving_edge`, `braille`, `drifting_grating`, `ramp_gaussian`) runs on the
+run's time step and spans the run's duration unless you set its `total_ms`. A config with no `stimulus:` block at
+all falls back to the legacy default trapezoidal (ramp/plateau/ramp) stimulus, with a notice. The top-level `stimuli:` list shown under
+"Legacy Format" below is **legacy**: if present and non-empty on a canonical config it still wins
+over `stimulus:` (with a deprecation notice printed to the console) for backward compatibility, but
+new configs should set `stimulus:` instead. `sensoryforge validate` prints which of the three
+sources (`stimulus:` block, legacy `stimuli:` list, or default trapezoid) a given config will use.
 
 ### Legacy Format (Backward Compatible)
 

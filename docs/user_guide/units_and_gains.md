@@ -138,6 +138,26 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 
 | Parameter | Location | Default | Why |
 |---|---|---|---|
-| `input_gain` | `PopulationConfig`, SpikingNeuronTab spinbox | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
+| `input_gain` | `PopulationConfig`, GUI Populations → Readout & noise | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
 | SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
-| Stimulus `amplitude` | GUI Stimulus Designer | 1.0 mA | User-facing; increase to 3–10 for robust spiking at default gain |
+| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | per type: 30 mA for `gaussian`, `texture`, `moving`; about 1 for `moving_edge`, `braille`, the gratings, `ramp_gaussian` | The unit-peak types drive few or no spikes at gain 50; raise their amplitude (ledger F-083) |
+
+---
+
+## Reproducibility (seeds) {: #reproducibility-seeds }
+
+SensoryForge has three independent seeds, each covering a different source of
+randomness (F-075):
+
+| Seed | Location | Controls |
+|---|---|---|
+| `SimulationConfig.seed` (run seed) | `simulation.seed` in the canonical config, or `sensoryforge run --seed` | Seeds `torch`/`numpy`/`random` once, at the start of `SimulationEngine.run()`, before stimulus sampling and the population loop. The broadest knob — reproduces anything in the run that draws from the *global* RNG and isn't independently seeded below. |
+| `PopulationConfig.noise_seed` | Per population, in `populations[].noise_seed` | Reproduces that one population's membrane noise (`noise_std > 0`) independently of the run seed and of every other population: `SimulationEngine.run()` builds a `torch.Generator` from it and passes it into `_run_pop_from_drive`, which both draws the post-filter additive noise from that generator and reseeds the global RNG from the same value immediately before the neuron call (the built-in neuron models' own Langevin noise, driven by the same `noise_std`, has no generator parameter of its own). `None` (default) leaves that population's noise on the ambient global RNG, uncontrolled by either seed. |
+| `PopulationConfig.seed` | Per population, in `populations[].seed` | Seeds that population's innervation (receptive-field) wiring at build time. **F-006 is open**: this reseeds the *global* RNG and consumes it in a different order from pressure-simulation, so the same seed gives different wiring across the two repos; it does not affect noise or the neuron. |
+
+None of the three imply the others. A fully reproducible noisy run needs the
+run seed for anything that isn't independently seeded, plus a `noise_seed`
+per population whose noise must be reproducible on its own (e.g. when
+sweeping other settings while holding one population's noise fixed). With no
+seed set anywhere, two runs of the same config are not expected to match —
+the ambient RNG state is whatever the process happened to be in.

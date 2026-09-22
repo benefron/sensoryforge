@@ -13,6 +13,7 @@ jobs:
   non-gui:
     name: non-gui (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +39,7 @@ jobs:
   gui:
     name: gui (ubuntu, py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

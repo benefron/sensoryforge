@@ -46,7 +46,7 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for simulating sensory 
 - [Equation DSL](user_guide/equation_dsl.md) — Define neuron models via equations
 - [Solvers](user_guide/solvers.md) — ODE solver selection and configuration
 - [Extended Stimuli](user_guide/extended_stimuli.md) — Texture and moving stimuli
-- [GUI Workflow](user_guide/gui_phase2_access.md) — GUI design → CLI scale workflow
+- [GUI Walkthrough](user_guide/gui_walkthrough.md) — the five screens, from design to a CLI run
 
 ## Getting Started
 

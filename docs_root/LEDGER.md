@@ -88,8 +88,96 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-073 · OPEN · finding · - · 2026-09-17
-F-072 the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
+## D-033 · CLOSED · decision · - · 2026-09-22
+every rendered stimulus changes over time: a still stimulus ramps up and down over one eighth of the run each unless ramp_up_ms/plateau_ms/ramp_down_ms are set, and stimuli with their own total_ms span the run unless it is set (stimuli.render.default_envelope, _clock_to_render_step)
+→ commit b4afe01
+
+## F-084 · CLOSED · finding · - · 2026-09-21
+render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
+→ commit 6956f81
+
+## F-085 · OPEN · finding · - · 2026-09-21
+with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
+→ commit 32646fb
+
+## D-032 · CLOSED · decision · - · 2026-09-21
+StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
+→ commit 301af19
+
+## F-081 · OPEN · finding · - · 2026-09-21
+GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
+→ commit 8674a6a
+
+## F-082 · CLOSED · finding · - · 2026-09-21
+sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
+→ commit c65f3af
+
+## D-029 · CLOSED · decision · - · 2026-09-21
+the receptor/receptive-field preview is one reusable widget (sensoryforge/gui/widgets/grid_preview.py) built from GridConfig via core.simulation_engine.build_grid, the same code path SimulationEngine uses
+→ commit c4d6317
+
+## F-077 · CLOSED · finding · - · 2026-09-21
+sensoryforge run chose its stimulus from the legacy top-level stimuli: list and never read SensoryForgeConfig.stimulus, so a canonical YAML exported from the GUI ran a default trapezoid instead of the stimulus it declared
+→ commit e79ff48
+
+## D-030 · CLOSED · decision · - · 2026-09-21
+the canonical stimulus: block is what sensoryforge run renders (via stimuli.render.render_for_config, shared with the GUI); a legacy stimuli: list still wins with a deprecation notice
+→ commit e79ff48
+
+## F-078 · CLOSED · finding · - · 2026-09-21
+render_for_config forwarded every StimulusConfig schema default to the stimulus constructor, overriding the type's own defaults, so a bare 'type: moving_edge' block rendered a static edge (start == end == [0, 0]) with no error
+→ commit a123772
+
+## D-031 · CLOSED · decision · - · 2026-09-21
+every GUI v2 run goes through execution.run_controller.RunController, a QThread worker that renders with execution.render.render_for_config and calls SimulationEngine.run(progress_cb=...) on a config snapshot; cancel is cooperative; results land in Session.last_results and in a bundle under the project's runs/ directory
+→ commit 461b4b7
+
+## F-080 · CLOSED · finding · - · 2026-09-21
+forwarding only stimulus fields that differ from the schema default discarded a value deliberately set equal to it (a Gaussian sigma of 2.0 ran as the type default 1.0), and the CLI's trapezoid fallback for a default-looking stimulus block made the same YAML run different stimuli in the GUI and on the CLI
+→ commit ca78f62
+
+## D-026 · CLOSED · decision · - · 2026-09-17
+GUI v2 forms are generated from get_param_spec() by sensoryforge/gui/widgets/param_form.py and bind to the Session by dotted path; no per-component GUI code
+→ commit 8657bea
+
+## D-027 · CLOSED · decision · - · 2026-09-17
+every pyqtgraph widget in GUI v2 is built by sensoryforge/gui/widgets/plot_factory.py; pyqtgraph signals are connected only through plot_factory.connect (functools.partial, no bound methods or widget-closing lambdas) and released by teardown()
+→ commit 0bfc3ea
+
+## D-028 · CLOSED · decision · - · 2026-09-17
+GUI v2 is one window with a left stage navigation (Sensors, Stimulus, Populations, Run & Results, Batch), a pipeline strip showing sensor array → receptive field → filter → neuron → readout per population, and a bottom run bar; there are no tabs and no node graph
+→ commit 24caa84
+
+## D-022 · CLOSED · decision · - · 2026-09-17
+GUI v2 uses one light theme (sensoryforge/gui/theme.py): app #F4F5F7, panels #FFFFFF, accent #2563EB, population colours SA #2563EB / RA #E8630A; no dark mode
+→ commit 5369bc9
+
+## F-074 · CLOSED · finding · engine · 2026-09-17
+PopulationConfig.noise_seed was read only by the legacy adapter (core/generalized_pipeline.py) and ignored by SimulationEngine, and neither the CLI nor the GUI seeded the RNG, so noise_std > 0 runs were reproducible only through BatchExecutor
+→ commit cb04bf0
+
+## D-023 · CLOSED · decision · - · 2026-09-17
+SimulationConfig.seed seeds torch/numpy/random at the start of SimulationEngine.run(); PopulationConfig.noise_seed drives a per-population torch.Generator for membrane noise; run() takes an optional progress_cb(index, n, name) called once per population
+→ commit cb04bf0
+
+## D-024 · CLOSED · decision · - · 2026-09-17
+GUI v2 holds exactly one SensoryForgeConfig in a Session(QObject) that emits configChanged(dotted path); every screen binds to it; a project is a directory with config.yml and runs/<bundle dirs>, no other GUI persistence format
+→ commit d774217
+
+## F-075 · CLOSED · finding · stimuli · 2026-09-17
+poisson and hex receptor arrangements crashed every config-driven path (CLI, BatchExecutor, Circuit tab) at stimulus render because they built a ReceptorGrid only to call get_coordinates(), which raises when the arrangement has no lattice
+→ commit 04ab68a
+
+## D-025 · CLOSED · decision · - · 2026-09-17
+stimuli are rendered on a regular canvas of the array's extent (sensoryforge/stimuli/canvas.py) for every arrangement and sampled at receptor coordinates by SimulationEngine; the "grid" canvas is bit-identical to ReceptorGrid.get_coordinates()
+→ commit 04ab68a
+
+## F-076 · CLOSED · finding · gui · 2026-09-17
+the GUI Spiking Neurons tab renders stimuli with its own third renderer (spiking_tab.py:2027) and samples receptors with an unconditional flat reshape (spiking_tab.py:2596), so for any arrangement other than a resolution-matched regular grid its neuron drive differs from what SimulationEngine.run() computes for the same config; tests/unit/test_gui_rf_banks.py:164 encodes the same flat reshape as its expected value
+→ commit a3b1607
+
+## F-073 · CLOSED · finding · - · 2026-09-17
+(cited as F-072 in commit 4836b19 and the code comments, an id that was already taken) the GUI tests read and wrote the real per-user Qt preferences of whoever ran them, so a test passed where a collapsible section had once been saved expanded and failed on a fresh CI runner, and a test run could overwrite a developer's saved GUI state
 → commit 4836b19
 
 ## F-072 · CLOSED · finding · - · 2026-09-17
@@ -132,7 +220,7 @@ F-065 Wave O specified saving Circuit node positions to a sibling <config>.layou
 StimulusDesignerTab.set_config() raises TypeError on any full get_config()-shaped dict (QSpinBox.setValue(float) at spin_edge_count, stimulus_tab.py _set_spin); pre-existing on d763bc9, uncaught because no test called set_config() directly.
 → commit fcf0c4a
 
-## F-063 · OPEN · finding · - · 2026-09-16
+## F-063 · CLOSED · finding · - · 2026-09-16
 F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field previews with its own small widgets rather than reusing the Mechanoreceptor and Stimulus Designer plot widgets, because those share one plot item driving mouse-based population placement inside two 3,500-line tabs and could not be extracted safely in Wave P; the two drawing paths can now drift apart without any test noticing
 → commit 2f399c9
 
@@ -140,7 +228,7 @@ F-063 the Circuit inspector draws its sensor-array, stimulus and receptive-field
 F-061 the Circuit tab discovered which stimulus parameters a class accepts by retrying and deleting whatever the constructor rejected, so a field the user had deliberately set was dropped with no message and the graph then described a run that did not happen
 → commit 7a5ec87
 
-## F-062 · OPEN · finding · - · 2026-09-16
+## F-062 · CLOSED · finding · - · 2026-09-16
 F-062 the Circuit tab's GraphValidationError covers dangling terminals, a readout with no filter and a drive with neither receptive-field bank nor combine, but not a combine whose inputs disagree on neuron count, because that needs building receptor coordinates from the registries to know the counts; a sum-combined graph with mismatched inputs therefore fails at run time rather than at validation
 → commit e356451
 
@@ -252,7 +340,7 @@ flake8 style debt after black (all default checks, 88 columns): 364 violations, 
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
 → commit 7da39f9
 
-## F-035 · OPEN · finding · - · 2026-09-14
+## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
 → commit fb1441b
 
@@ -487,4 +575,9 @@ format produced by GUI and CLI; the legacy dict format stays supported for backw
 SensoryForge is an encoding-only extraction of pressure-simulation's encoding stack (pipeline,
 filters, innervation, neurons, GUI). Decoding / reconstruction / Kalman stay in pressure-simulation.
 → sensoryforge/core/pipeline.py:1-17 still carries the `encoding.pipeline_torch` header
+
+## F-083 · OPEN · finding · - · 2026-09-21
+stimulus types disagree on amplitude scale by about 30x at their defaults (gaussian, texture and moving peak about 30 mA; braille, gratings, moving_edge and ramp_gaussian about 1; gabor 0.55), while input_gain 50 is calibrated for about 30, so with tactile_sa1_ra1 on a 40x40 grid for 500 ms a default gabor gives 0 SA and 1 RA spike against 9731 and 3288 for a default gaussian; a user switching type in the GUI sees a silent population with no warning
+→ measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
+→ root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
 

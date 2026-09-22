@@ -47,31 +47,43 @@ except Exception:  # pragma: no cover - fallback when backend disallows
 _session_exit_status = 0
 
 
-@pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(session, config, items):
-    """Disable the cyclic GC only for sessions that collect `gui`-marked tests.
-
-    ``trylast=True`` so this runs after pytest's own ``-m``/``-k`` filtering
-    (also a ``pytest_collection_modifyitems`` hookimpl) has already removed
-    deselected items from ``items`` -- otherwise ``-m "not gui"`` would still
-    see the not-yet-deselected gui items here and disable gc anyway.
-
-    Destroying pyqtgraph ViewBox/GraphicsItem hierarchies from several Qt
-    test modules in one process segfaults reliably once Python's cyclic
-    collector sweeps their reference cycles (F-035: reproduced inside
-    pyqtgraph's ScatterPlotItem render path, called from
-    MechanoreceptorTab._add_receptor_scatter_by_weight via a ViewBox lambda
-    left over from a previously destroyed tab's plot -- a real GUI bug this
-    only works around for the test harness, not a fix). Refcounting alone
-    still frees everything that isn't in a reference cycle, which is
-    sufficient for a test-session-sized run, but a non-GUI session gets no
-    benefit from paying that cost, so scope it to sessions that actually
-    collect GUI tests.
-    """
+def _collect_qt_garbage() -> None:
+    """Deliver Qt's pending deletions, then run the cyclic collector."""
     import gc
 
-    if any(item.get_closest_marker("gui") is not None for item in items):
-        gc.disable()
+    # Widgets closed at teardown are deleted by Qt on the next event-loop
+    # pass (deleteLater); their pyqtgraph cycles only become garbage then.
+    threads = sys.modules.get("sensoryforge.gui.execution.threads")
+    if threads is not None:
+        threads.wait_all()  # a worker still running must not be collected
+    qtcore = sys.modules.get("PyQt5.QtCore")
+    if qtcore is not None and qtcore.QCoreApplication.instance() is not None:
+        for _ in range(2):
+            qtcore.QCoreApplication.sendPostedEvents(None, qtcore.QEvent.DeferredDelete)
+            qtcore.QCoreApplication.processEvents()
+    gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def _collect_gui_garbage_at_the_test_boundary(request):
+    """Run the cyclic collector before and after every ``gui`` test (F-035, F-085).
+
+    The collector stays enabled for the whole session. Freeing pyqtgraph
+    objects left in reference cycles by a destroyed window, in the middle of
+    another test, can destroy a C++ object that test is using (measured:
+    "wrapped C/C++ object of type ViewBox has been deleted" in
+    GridPreview.set_grids / SensorsScreen._add_highlight). Collecting before
+    a gui test starts -- when none of its windows exist -- clears leftovers of
+    any earlier test, gui-marked or not (CI failed on a test whose predecessor
+    was not gui-marked); collecting after it clears its own. The shipped app
+    builds each plot once per window lifetime, so it has no such boundary.
+    """
+    is_gui = request.node.get_closest_marker("gui") is not None
+    if is_gui:
+        _collect_qt_garbage()
+    yield
+    if is_gui:
+        _collect_qt_garbage()
 
 
 def pytest_sessionfinish(session, exitstatus):

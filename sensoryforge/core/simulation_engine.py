@@ -20,8 +20,9 @@ Example:
 
 from __future__ import annotations
 
+import random
 import warnings
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Callable, Dict, List, Any, Optional, Tuple
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -80,6 +81,283 @@ def _lattice_fields_set_by_user(pop_cfg: Any) -> List[str]:
     ]
 
 
+def _composite_from_coords(
+    layer_name: str, coords: torch.Tensor, *, device: torch.device
+) -> CompositeReceptorGrid:
+    """Wrap an ``[M, 2]`` coordinate tensor as a single-layer composite grid.
+
+    Bounds are the coordinates' own bounding box (padded by 0.5 mm on a
+    degenerate axis, so ``CompositeReceptorGrid``'s ``xlim[0] < xlim[1]``
+    invariant holds for a single point or a co-linear set).
+
+    Args:
+        layer_name: Name of the single layer to add.
+        coords: Receptor coordinates ``[M, 2]`` in mm.
+        device: Device to build the composite grid on.
+
+    Returns:
+        A ``CompositeReceptorGrid`` with one layer named ``layer_name``.
+    """
+    x_min = coords[:, 0].min().item()
+    x_max = coords[:, 0].max().item()
+    y_min = coords[:, 1].min().item()
+    y_max = coords[:, 1].max().item()
+    if x_min == x_max:
+        x_min, x_max = x_min - 0.5, x_max + 0.5
+    if y_min == y_max:
+        y_min, y_max = y_min - 0.5, y_max + 0.5
+    composite = CompositeReceptorGrid(
+        xlim=(x_min, x_max), ylim=(y_min, y_max), device=device
+    )
+    composite.add_layer_with_coords(layer_name, coords)
+    return composite
+
+
+def build_filter(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
+    """Build one population's temporal filter exactly as the engine does.
+
+    Shared by :class:`SimulationEngine` and GUI validation, so a filter the
+    GUI reports as buildable is the filter a run builds.
+
+    Args:
+        pop_cfg: The :class:`PopulationConfig`.
+        simulation: The :class:`SimulationConfig` (``dt_ms`` is the filter step).
+        device: Torch device for the module.
+
+    Returns:
+        The filter module, or ``None`` for ``filter_method="none"``.
+
+    Raises:
+        ValueError: If the filter method is unknown.
+        TypeError: If ``filter_params`` names a parameter the filter lacks.
+    """
+    # Build filter -- parameters resolved from the single shared
+    # default table (sensoryforge.config.defaults) so the engine and
+    # the GUI agree when a population supplies no overrides (F-026).
+    filter_method = pop_cfg.filter_method or "none"
+    filter_module = None
+    if filter_method != "none":
+        try:
+            filter_cls = FILTER_REGISTRY.get_class(filter_method)
+            if filter_method.lower() in ("sa", "ra"):
+                filter_params = resolve_filter_params(
+                    filter_method, pop_cfg.filter_params
+                )
+            else:
+                filter_params = dict(pop_cfg.filter_params or {})
+            filter_params["dt"] = simulation.dt_ms
+            filter_module = filter_cls(**filter_params).to(device)
+        except KeyError:
+            raise ValueError(f"Unknown filter method: {filter_method}")
+    return filter_module
+
+
+def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
+    """Build one population's neuron model exactly as the engine does.
+
+    Shared by :class:`SimulationEngine` and GUI validation.
+
+    Args:
+        pop_cfg: The :class:`PopulationConfig`.
+        simulation: The :class:`SimulationConfig` (``integrate_dt_ms`` is the
+            neuron step).
+        device: Torch device for the model.
+
+    Returns:
+        The neuron model (a compiled DSL model for ``neuron_model="dsl"``).
+
+    Raises:
+        ValueError: For an unknown model, a DSL model without ``dsl_config``,
+            or a ``readout`` the model cannot provide.
+        TypeError: If ``model_params`` names a parameter the model lacks.
+    """
+    # Build neuron model -- F-004: RA/RA-I (Meissner) populations
+    # resolve to the fast-spiking Izhikevich preset unless the
+    # config already pins a preset or explicit a/b/c/d (SA/SA2 keep
+    # the regular-spiking default). See resolve_neuron_params.
+    neuron_model_name = pop_cfg.neuron_model or "izhikevich"
+    try:
+        neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
+    except KeyError:
+        raise ValueError(f"Unknown neuron model: {neuron_model_name}")
+
+    if neuron_cls is NeuronModel:
+        # DSL model (F-010, N3): NeuronModel's constructor takes
+        # equations/threshold/reset/..., not dt=/noise_std=, so it
+        # is built from dsl_config and compiled instead of
+        # constructed like the other neuron classes below.
+        if not pop_cfg.dsl_config:
+            raise ValueError(
+                f"Population {pop_cfg.name!r} has neuron_model="
+                f"{neuron_model_name!r} (DSL) but no dsl_config. "
+                "Provide dsl_config with at least 'equations'."
+            )
+        dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
+        has_threshold = dsl_model.threshold_str is not None
+        readout = (pop_cfg.readout or "auto").lower()
+        if readout == "auto":
+            pass  # readout follows the model itself (N1/N2)
+        elif readout == "analog":
+            if has_threshold:
+                raise ValueError(
+                    f"Population {pop_cfg.name!r} readout='analog' "
+                    "but its dsl_config defines a threshold; remove "
+                    "the threshold or use readout='spiking'."
+                )
+        elif readout == "spiking":
+            if not has_threshold:
+                raise ValueError(
+                    f"Population {pop_cfg.name!r} readout='spiking' "
+                    "but its dsl_config has no threshold; add one "
+                    "or use readout='analog'."
+                )
+        else:
+            raise ValueError(
+                f"Population {pop_cfg.name!r}: unknown readout "
+                f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
+                "or 'analog'."
+            )
+        # F-008: the neuron integrates at integrate_dt_ms (finer,
+        # default 0.05 ms), not the record step dt_ms; sub-stepping
+        # happens in _run_pop_from_drive.
+        neuron_model = dsl_model.compile(
+            dt=simulation.integrate_dt_ms,
+            device=str(device),
+            noise_std=pop_cfg.noise_std,
+        )
+    else:
+        neuron_params = resolve_neuron_params(
+            neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
+        )
+        # F-008: the neuron integrates at integrate_dt_ms (finer,
+        # default 0.05 ms), not the record step dt_ms; sub-stepping
+        # happens in _run_pop_from_drive.
+        neuron_params["dt"] = simulation.integrate_dt_ms
+        neuron_params["noise_std"] = pop_cfg.noise_std
+        neuron_model = neuron_cls(**neuron_params).to(device)
+    return neuron_model
+
+
+def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
+    """Build one receptor grid from a :class:`~sensoryforge.config.schema.GridConfig`.
+
+    This is the exact construction ``SimulationEngine._build_grids()`` uses
+    per grid entry (coords_file, composite arrangement, or an ordinary
+    ``ReceptorGrid``), extracted so other callers (e.g. the GUI's
+    ``GridPreview``) build grids the same way the engine does, rather than
+    re-implementing arrangement logic.
+
+    Args:
+        grid_cfg: The grid configuration to build from.
+        device: Device string (e.g. ``"cpu"``) or ``torch.device`` to build
+            tensors on.
+
+    Returns:
+        A ``ReceptorGrid`` (ordinary arrangement) or ``CompositeReceptorGrid``
+        (``arrangement == "composite"``, or ``grid_cfg.coords_file`` set).
+        Composite grids carry a ``provenance`` dict describing their layers.
+
+    Example:
+        >>> from sensoryforge.config.schema import GridConfig
+        >>> grid = build_grid(GridConfig(name="skin", rows=20, cols=20))
+        >>> grid.get_all_coordinates().shape
+        torch.Size([400, 2])
+    """
+    device = torch.device(device) if isinstance(device, str) else device
+    grid_name = grid_cfg.name
+    arrangement = grid_cfg.arrangement
+
+    if grid_cfg.coords_file:
+        # L1: an explicit [M, 2] coordinate file builds a single-layer
+        # CompositeReceptorGrid from those exact positions, bypassing
+        # rows/cols/spacing entirely.
+        coords = load_receptor_coords_file(grid_cfg.coords_file, device=device)
+        composite = _composite_from_coords(grid_name, coords, device=device)
+        composite.provenance = {
+            "layers": [{"name": grid_name, "count": coords.shape[0]}],
+            "source": "coords_file",
+            "coords_file": grid_cfg.coords_file,
+        }
+        return composite
+
+    if arrangement == "composite":
+        # L4: layers come from grid_cfg.layers, in declaration order --
+        # that order is the receptor-index contract (get_all_coordinates()
+        # concatenates layers in insertion order), so it is recorded
+        # verbatim in provenance.
+        if not grid_cfg.layers:
+            raise ValueError(
+                f"Grid {grid_name!r}: arrangement='composite' requires "
+                "a non-empty 'layers' list"
+            )
+        rows = grid_cfg.rows or 40
+        cols = grid_cfg.cols or 40
+        total_x = (rows - 1) * grid_cfg.spacing
+        total_y = (cols - 1) * grid_cfg.spacing
+        xlim = (
+            grid_cfg.center_x - total_x / 2,
+            grid_cfg.center_x + total_x / 2,
+        )
+        ylim = (
+            grid_cfg.center_y - total_y / 2,
+            grid_cfg.center_y + total_y / 2,
+        )
+        composite = CompositeReceptorGrid(xlim=xlim, ylim=ylim, device=device)
+        layer_order: List[str] = []
+        for entry in grid_cfg.layers:
+            lname = entry.get("name")
+            if not lname:
+                raise ValueError(
+                    f"Grid {grid_name!r}: each composite layer entry "
+                    f"needs a non-empty 'name', got {entry!r}"
+                )
+            if "coordinates" in entry:
+                coords = torch.as_tensor(
+                    entry["coordinates"],
+                    dtype=torch.float32,
+                    device=device,
+                )
+                composite.add_layer_with_coords(lname, coords, color=entry.get("color"))
+            elif "coords_file" in entry:
+                coords = load_receptor_coords_file(entry["coords_file"], device=device)
+                composite.add_layer_with_coords(lname, coords, color=entry.get("color"))
+            elif "density" in entry:
+                composite.add_layer(
+                    name=lname,
+                    density=entry["density"],
+                    arrangement=entry.get("arrangement", "grid"),
+                    offset=tuple(entry.get("offset", (0.0, 0.0))),
+                    color=entry.get("color"),
+                    seed=entry.get("seed"),
+                )
+            else:
+                raise ValueError(
+                    f"Grid {grid_name!r} layer {lname!r}: needs one of "
+                    "'density', 'coordinates' or 'coords_file'"
+                )
+            layer_order.append(lname)
+        composite.provenance = {
+            "layers": [
+                {"name": n, "count": composite.get_layer_count(n)} for n in layer_order
+            ]
+        }
+        return composite
+
+    # Ordinary (non-composite) grid.
+    rows = grid_cfg.rows or 40
+    cols = grid_cfg.cols or 40
+    grid_size = (rows, cols)
+    return ReceptorGrid(
+        grid_size=grid_size,
+        spacing=grid_cfg.spacing,
+        arrangement=arrangement,
+        center=(grid_cfg.center_x, grid_cfg.center_y),
+        density=grid_cfg.density,
+        device=device,
+        seed=grid_cfg.seed,
+    )
+
+
 class SimulationEngine:
     """Unified simulation execution engine.
 
@@ -125,150 +403,22 @@ class SimulationEngine:
     def _build_grids(self) -> None:
         """Build receptor grids from config."""
         for grid_cfg in self.config.grids:
-            # Create grid based on arrangement
-            arrangement = grid_cfg.arrangement
             grid_name = grid_cfg.name
+            grid = build_grid(grid_cfg, device=self.device)
+            self.grids.append(grid)
+            self.grid_names[grid_name] = grid
 
-            if grid_cfg.coords_file:
-                # L1: an explicit [M, 2] coordinate file builds a
-                # single-layer CompositeReceptorGrid from those exact
-                # positions, bypassing rows/cols/spacing entirely.
-                coords = load_receptor_coords_file(
-                    grid_cfg.coords_file, device=self.device
-                )
-                composite = self._composite_from_coords(grid_name, coords)
-                composite.provenance = {
-                    "layers": [{"name": grid_name, "count": coords.shape[0]}],
-                    "source": "coords_file",
-                    "coords_file": grid_cfg.coords_file,
-                }
-                self.grids.append(composite)
-                self.grid_names[grid_name] = composite
-                continue
-
-            if arrangement == "composite":
-                # L4: layers come from grid_cfg.layers, in declaration
-                # order -- that order is the receptor-index contract
-                # (get_all_coordinates() concatenates layers in insertion
-                # order), so it is recorded verbatim in provenance.
-                if not grid_cfg.layers:
-                    raise ValueError(
-                        f"Grid {grid_name!r}: arrangement='composite' requires "
-                        "a non-empty 'layers' list"
-                    )
-                rows = grid_cfg.rows or 40
-                cols = grid_cfg.cols or 40
-                total_x = (rows - 1) * grid_cfg.spacing
-                total_y = (cols - 1) * grid_cfg.spacing
-                xlim = (
-                    grid_cfg.center_x - total_x / 2,
-                    grid_cfg.center_x + total_x / 2,
-                )
-                ylim = (
-                    grid_cfg.center_y - total_y / 2,
-                    grid_cfg.center_y + total_y / 2,
-                )
-                composite = CompositeReceptorGrid(
-                    xlim=xlim, ylim=ylim, device=self.device
-                )
-                layer_order: List[str] = []
-                for entry in grid_cfg.layers:
-                    lname = entry.get("name")
-                    if not lname:
-                        raise ValueError(
-                            f"Grid {grid_name!r}: each composite layer entry "
-                            f"needs a non-empty 'name', got {entry!r}"
-                        )
-                    if "coordinates" in entry:
-                        coords = torch.as_tensor(
-                            entry["coordinates"],
-                            dtype=torch.float32,
-                            device=self.device,
-                        )
-                        composite.add_layer_with_coords(
-                            lname, coords, color=entry.get("color")
-                        )
-                    elif "coords_file" in entry:
-                        coords = load_receptor_coords_file(
-                            entry["coords_file"], device=self.device
-                        )
-                        composite.add_layer_with_coords(
-                            lname, coords, color=entry.get("color")
-                        )
-                    elif "density" in entry:
-                        composite.add_layer(
-                            name=lname,
-                            density=entry["density"],
-                            arrangement=entry.get("arrangement", "grid"),
-                            offset=tuple(entry.get("offset", (0.0, 0.0))),
-                            color=entry.get("color"),
-                            seed=entry.get("seed"),
-                        )
-                    else:
-                        raise ValueError(
-                            f"Grid {grid_name!r} layer {lname!r}: needs one of "
-                            "'density', 'coordinates' or 'coords_file'"
-                        )
-                    layer_order.append(lname)
-                composite.provenance = {
-                    "layers": [
-                        {"name": n, "count": composite.get_layer_count(n)}
-                        for n in layer_order
-                    ]
-                }
-                self.grids.append(composite)
-                self.grid_names[grid_name] = composite
-            else:
-                # Single grid
-                # ReceptorGrid takes grid_size as tuple (rows, cols) or int
-                rows = grid_cfg.rows or 40
-                cols = grid_cfg.cols or 40
-                grid_size = (rows, cols)
-
-                # Create ReceptorGrid for coordinate access
-                grid = ReceptorGrid(
-                    grid_size=grid_size,
-                    spacing=grid_cfg.spacing,
-                    arrangement=arrangement,
-                    center=(grid_cfg.center_x, grid_cfg.center_y),
-                    density=grid_cfg.density,
-                    device=self.device,
-                    seed=grid_cfg.seed,
-                )
-                self.grids.append(grid)
-                self.grid_names[grid_name] = grid
-
+            if grid_cfg.arrangement != "composite" and not grid_cfg.coords_file:
                 # Regular GridManager: the receptor lattice the bank is built on
+                rows = grid_cfg.rows or 40
+                cols = grid_cfg.cols or 40
                 grid_manager = GridManager(
-                    grid_size=grid_size,
+                    grid_size=(rows, cols),
                     spacing=grid_cfg.spacing,
                     center=(grid_cfg.center_x, grid_cfg.center_y),
                     device=self.device,
                 )
                 self.grid_managers[grid_name] = grid_manager
-
-    def _composite_from_coords(
-        self, layer_name: str, coords: torch.Tensor
-    ) -> CompositeReceptorGrid:
-        """Wrap an ``[M, 2]`` coordinate tensor as a single-layer composite grid.
-
-        Bounds are the coordinates' own bounding box (padded by 0.5 mm on a
-        degenerate axis, so ``CompositeReceptorGrid``'s ``xlim[0] < xlim[1]``
-        invariant holds for a single point or a co-linear set).
-        """
-        x_min = coords[:, 0].min().item()
-        x_max = coords[:, 0].max().item()
-        y_min = coords[:, 1].min().item()
-        y_max = coords[:, 1].max().item()
-        if x_min == x_max:
-            x_min, x_max = x_min - 0.5, x_max + 0.5
-        if y_min == y_max:
-            y_min, y_max = y_min - 0.5, y_max + 0.5
-        composite = CompositeReceptorGrid(
-            xlim=(x_min, x_max), ylim=(y_min, y_max), device=self.device
-        )
-        composite.add_layer_with_coords(layer_name, coords)
-        return composite
 
     def _resolve_input_grid(self, pop_cfg: Any, pop_input: Any) -> Any:
         """Resolve a :class:`~sensoryforge.config.schema.PopulationInput`'s
@@ -610,89 +760,12 @@ class SimulationEngine:
             grid = input_ctxs[0]["grid"]
             target_grid_name = input_ctxs[0]["target_grid_name"]
 
-            # Build filter -- parameters resolved from the single shared
-            # default table (sensoryforge.config.defaults) so the engine and
-            # the GUI agree when a population supplies no overrides (F-026).
-            filter_method = pop_cfg.filter_method or "none"
-            filter_module = None
-            if filter_method != "none":
-                try:
-                    filter_cls = FILTER_REGISTRY.get_class(filter_method)
-                    if filter_method.lower() in ("sa", "ra"):
-                        filter_params = resolve_filter_params(
-                            filter_method, pop_cfg.filter_params
-                        )
-                    else:
-                        filter_params = dict(pop_cfg.filter_params or {})
-                    filter_params["dt"] = self.config.simulation.dt_ms
-                    filter_module = filter_cls(**filter_params).to(self.device)
-                except KeyError:
-                    raise ValueError(f"Unknown filter method: {filter_method}")
-
-            # Build neuron model -- F-004: RA/RA-I (Meissner) populations
-            # resolve to the fast-spiking Izhikevich preset unless the
-            # config already pins a preset or explicit a/b/c/d (SA/SA2 keep
-            # the regular-spiking default). See resolve_neuron_params.
-            neuron_model_name = pop_cfg.neuron_model or "izhikevich"
-            try:
-                neuron_cls = NEURON_REGISTRY.get_class(neuron_model_name)
-            except KeyError:
-                raise ValueError(f"Unknown neuron model: {neuron_model_name}")
-
-            if neuron_cls is NeuronModel:
-                # DSL model (F-010, N3): NeuronModel's constructor takes
-                # equations/threshold/reset/..., not dt=/noise_std=, so it
-                # is built from dsl_config and compiled instead of
-                # constructed like the other neuron classes below.
-                if not pop_cfg.dsl_config:
-                    raise ValueError(
-                        f"Population {pop_cfg.name!r} has neuron_model="
-                        f"{neuron_model_name!r} (DSL) but no dsl_config. "
-                        "Provide dsl_config with at least 'equations'."
-                    )
-                dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
-                has_threshold = dsl_model.threshold_str is not None
-                readout = (pop_cfg.readout or "auto").lower()
-                if readout == "auto":
-                    pass  # readout follows the model itself (N1/N2)
-                elif readout == "analog":
-                    if has_threshold:
-                        raise ValueError(
-                            f"Population {pop_cfg.name!r} readout='analog' "
-                            "but its dsl_config defines a threshold; remove "
-                            "the threshold or use readout='spiking'."
-                        )
-                elif readout == "spiking":
-                    if not has_threshold:
-                        raise ValueError(
-                            f"Population {pop_cfg.name!r} readout='spiking' "
-                            "but its dsl_config has no threshold; add one "
-                            "or use readout='analog'."
-                        )
-                else:
-                    raise ValueError(
-                        f"Population {pop_cfg.name!r}: unknown readout "
-                        f"{pop_cfg.readout!r}; choose 'auto', 'spiking', "
-                        "or 'analog'."
-                    )
-                # F-008: the neuron integrates at integrate_dt_ms (finer,
-                # default 0.05 ms), not the record step dt_ms; sub-stepping
-                # happens in _run_pop_from_drive.
-                neuron_model = dsl_model.compile(
-                    dt=self.config.simulation.integrate_dt_ms,
-                    device=str(self.device),
-                    noise_std=pop_cfg.noise_std,
-                )
-            else:
-                neuron_params = resolve_neuron_params(
-                    neuron_model_name, pop_cfg.neuron_type, pop_cfg.model_params
-                )
-                # F-008: the neuron integrates at integrate_dt_ms (finer,
-                # default 0.05 ms), not the record step dt_ms; sub-stepping
-                # happens in _run_pop_from_drive.
-                neuron_params["dt"] = self.config.simulation.integrate_dt_ms
-                neuron_params["noise_std"] = pop_cfg.noise_std
-                neuron_model = neuron_cls(**neuron_params).to(self.device)
+            filter_module = build_filter(
+                pop_cfg, self.config.simulation, device=self.device
+            )
+            neuron_model = build_neuron(
+                pop_cfg, self.config.simulation, device=self.device
+            )
 
             # Store population context. "inputs" carries the per-input build
             # contexts (M2) run() needs to sample each input's own
@@ -768,6 +841,7 @@ class SimulationEngine:
         stimulus_config: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
         bundle_overwrite: bool = False,
+        progress_cb: Optional[Callable[[int, int, str], None]] = None,
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -787,8 +861,19 @@ class SimulationEngine:
                 intermediates when *return_intermediates* is ``True``.
             stimulus_config: The stimulus's own config dict, written into the bundle's
                 ``stimuli/stimulus.json`` (ignored unless *bundle_dir* is given).
-            seed: The run's seed, recorded in the bundle (ignored unless *bundle_dir* is given).
+            seed: The run's seed (F-075). This is the single run-seed: when given, it is
+                used as-is; when ``None``, it falls back to ``self.config.simulation.seed``.
+                The value that resolves (either one, or ``None`` if both are unset) is used to
+                seed ``torch``/``numpy``/``random`` at the start of the run, before stimulus
+                sampling and the population loop, and is also what gets recorded in the bundle
+                (ignored unless *bundle_dir* is given). Distinct from a population's own
+                ``noise_seed`` (per-population membrane noise) and ``seed`` (innervation wiring,
+                F-006 open).
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
+            progress_cb: If given, called once per population as
+                ``progress_cb(index, n_populations, population_name)``, immediately before that
+                population's filter/neuron pass (so at call time ``results`` does not yet hold
+                that population's entry). ``None`` (default) leaves behaviour unchanged.
 
         Returns:
             Dictionary with results for each population, keyed by population name. Each value is
@@ -809,14 +894,27 @@ class SimulationEngine:
             >>> sa_spikes = results['SA Population']['spikes']  # [batch, time, num_neurons]
             >>> print(f"Total spikes: {sa_spikes.sum().item()}")
         """
+        # F-075: `seed` resolves against `self.config.simulation.seed` and, once
+        # resolved, is the single value used both to seed the RNGs below and to
+        # record into the bundle -- see the docstring's precedence note.
+        seed = seed if seed is not None else self.config.simulation.seed
+        if seed is not None:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
+
         want_intermediates = return_intermediates or bundle_dir is not None
         results = {}
+        n_populations = len(self.populations)
 
-        for pop in self.populations:
+        for index, pop in enumerate(self.populations):
             pop_name = pop["name"]
             innervation = pop["innervation"]
             filter_module = pop["filter"]
             neuron_model = pop["neuron"]
+
+            if progress_cb is not None:
+                progress_cb(index, n_populations, pop_name)
 
             # M2: sample each input's own grid/channel, run it through that
             # input's processing pipeline (if any), then concatenate along
@@ -860,15 +958,33 @@ class SimulationEngine:
             if drive.ndim == 2:
                 drive = drive.unsqueeze(1)
 
+            pop_cfg = pop["config"]
+            noise_generator = None
+            if pop_cfg.noise_seed is not None and pop_cfg.noise_std > 0:
+                # F-075: a per-population torch.Generator, seeded independently
+                # of the run seed, drives that population's membrane noise.
+                # Not every device supports torch.Generator(device=...)
+                # (e.g. an unsupported backend); fall back to a CPU generator
+                # and let _run_pop_from_drive move the draw to drive's device.
+                try:
+                    noise_generator = torch.Generator(device=self.device).manual_seed(
+                        pop_cfg.noise_seed
+                    )
+                except (RuntimeError, TypeError):
+                    noise_generator = torch.Generator(device="cpu").manual_seed(
+                        pop_cfg.noise_seed
+                    )
+
             pop_results = self._run_pop_from_drive(
                 drive=drive,
                 filter_module=filter_module,
                 neuron_model=neuron_model,
-                input_gain=pop["config"].input_gain,
-                noise_std=pop["config"].noise_std,
+                input_gain=pop_cfg.input_gain,
+                noise_std=pop_cfg.noise_std,
                 return_intermediates=want_intermediates,
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
+                noise_generator=noise_generator,
             )
             results[pop_name] = pop_results
 
@@ -906,6 +1022,7 @@ class SimulationEngine:
         return_intermediates: bool = False,
         dt_ms: float = 1.0,
         integrate_dt_ms: float = 0.05,
+        noise_generator: Optional[torch.Generator] = None,
     ) -> Dict[str, Any]:
         """Run filter → gain → noise → sub-stepped neuron on a drive tensor.
 
@@ -947,6 +1064,24 @@ class SimulationEngine:
                 the returned ``"spikes"``/``"filtered"``/``"voltages"``.
             integrate_dt_ms: Neuron integration step (ms); must match the dt
                 ``neuron_model`` was constructed with.
+            noise_generator: If given, the membrane noise draw uses this
+                ``torch.Generator`` instead of the global RNG (F-075), drawn on
+                the generator's own device and moved to ``drive``'s device if
+                they differ. ``None`` (default) draws from the global RNG via
+                ``torch.randn_like``, exactly as before this parameter existed
+                -- bit-identical to the pre-F-075 behaviour. When given, the
+                global RNG is also reseeded from the generator's own seed for
+                the neuron call (see the neuron-model note below), but its
+                prior state is saved and restored around that call, so this
+                does not leak into anything that draws from the global RNG
+                afterwards -- e.g. a later population in the same ``run()``
+                that has no ``noise_seed`` of its own. The CPU generator state
+                is always saved/restored; the CUDA state is too when ``drive``
+                is on CUDA; the MPS state is too whenever MPS is available
+                (``torch.manual_seed()`` reseeds MPS's global generator
+                regardless of ``drive``'s own device, so that state must be
+                saved/restored unconditionally on MPS availability, not on
+                whether the drive itself is on MPS).
 
         Returns:
             Dictionary with at minimum ``"spikes"`` (integer sub-step spike
@@ -978,7 +1113,21 @@ class SimulationEngine:
 
         # Additive Gaussian noise
         if noise_std > 0.0:
-            filtered = filtered + _torch.randn_like(filtered) * noise_std
+            if noise_generator is None:
+                noise = _torch.randn_like(filtered)
+            else:
+                # F-075: draw on the generator's own device; a generator
+                # built on a device the drive isn't on (e.g. a CPU fallback
+                # generator feeding an MPS/CUDA drive) still works.
+                noise = _torch.randn(
+                    filtered.shape,
+                    generator=noise_generator,
+                    device=noise_generator.device,
+                    dtype=filtered.dtype,
+                )
+                if noise.device != filtered.device:
+                    noise = noise.to(filtered.device)
+            filtered = filtered + noise * noise_std
 
         filtered = filtered.float()
 
@@ -988,7 +1137,46 @@ class SimulationEngine:
         n_substeps = max(1, round(dt_ms / integrate_dt_ms))
         filtered_sub = filtered.repeat_interleave(n_substeps, dim=1)
 
-        neuron_output = neuron_model(filtered_sub)
+        if noise_generator is None:
+            neuron_output = neuron_model(filtered_sub)
+        else:
+            # F-075: the built-in neuron models (Izhikevich/AdEx/MQIF/FA)
+            # draw their own membrane (Langevin) noise from the *global* RNG
+            # inside forward(), using this same noise_std -- there is no
+            # generator parameter threaded into neuron_model. Reseed the
+            # global RNG from noise_generator's own seed immediately before
+            # the neuron call so that noise is reproducible too, matching
+            # this population's noise_seed end to end -- but save/restore
+            # the global RNG state around it so this population's seed does
+            # not leak into whatever draws from the global RNG afterwards
+            # (a later population with no noise_seed of its own, or
+            # anything else in the process). Only happens when a generator
+            # is given; the noise_generator=None branch above never touches
+            # the global RNG. `torch.manual_seed()` reseeds *every* global
+            # generator it knows about, not just the one for the drive's own
+            # device: CUDA's when a CUDA device is available, and MPS's
+            # whenever MPS is available -- regardless of whether the drive
+            # itself is on that device -- so both must be saved/restored too,
+            # unconditionally on availability (not on the drive's device).
+            cpu_state = _torch.get_rng_state()
+            cuda_state = None
+            if filtered_sub.is_cuda:
+                cuda_state = _torch.cuda.get_rng_state(filtered_sub.device)
+            mps_state = None
+            if getattr(_torch.backends, "mps", None) is not None and (
+                _torch.backends.mps.is_available()
+            ):
+                mps_state = _torch.mps.get_rng_state()
+            try:
+                _torch.manual_seed(noise_generator.initial_seed())
+                neuron_output = neuron_model(filtered_sub)
+            finally:
+                _torch.set_rng_state(cpu_state)
+                if cuda_state is not None:
+                    _torch.cuda.set_rng_state(cuda_state, filtered_sub.device)
+                if mps_state is not None:
+                    _torch.mps.set_rng_state(mps_state)
+
         if isinstance(neuron_output, tuple):
             v_trace_sub, spikes_sub = neuron_output
         else:

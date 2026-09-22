@@ -1,8 +1,8 @@
 # Adding a New Stimulus Type
 
 This guide walks through every step required to add a new stimulus to SensoryForge.
-After following it, your stimulus will be available in the CLI, the GUI Stimulus
-Designer tab, and any code that uses the `STIMULUS_REGISTRY`.
+After following it, your stimulus will be available in the CLI, the GUI's Stimulus
+screen, and any code that uses the `STIMULUS_REGISTRY`.
 
 There are two ways to ship a new stimulus — pick one before you start:
 
@@ -287,9 +287,10 @@ sensoryforge run my_config.yml --duration 500
 
 ## 6. Verify GUI auto-discovery
 
-If `get_param_spec()` is implemented, the Stimulus Designer tab will automatically
-show spinboxes for all your parameters when the user selects your stimulus type.
-No GUI code changes are needed.
+If `get_param_spec()` is implemented, the Stimulus screen shows a form for all your
+parameters when the user selects your stimulus type. No GUI code changes are needed
+(see [GUI forms](../extending/gui_forms.md)). Make each spec's `default` the value
+your constructor uses, so the form shows the value that runs.
 
 Verify with:
 

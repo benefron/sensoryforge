@@ -19,12 +19,14 @@ Example:
 from __future__ import annotations
 
 import warnings
+import dataclasses
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
 
 from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
+from sensoryforge.stimuli.base import ParamSpec
 
 
 @dataclass
@@ -146,6 +148,121 @@ class GridConfig:
             kwargs["center_y"] += data["offset"][1]
 
         return cls(**kwargs)
+
+
+def grid_config_param_specs() -> List[ParamSpec]:
+    """``ParamSpec``\\ s for :class:`GridConfig`'s user-editable numeric/enum fields.
+
+    ``GRID_REGISTRY.get_param_spec("grid")`` (and the other arrangement
+    names) describes the ``GridArrangement`` family of classes
+    (``grid_size``, ``spacing``, ...) -- the low-level arrangement builder,
+    not the ``GridConfig`` the GUI and CLI actually edit (``rows``, ``cols``,
+    ``density``, ``center_x``/``center_y``, ``seed``, ...). This function is
+    the ``GridConfig``-shaped equivalent, used by
+    :mod:`sensoryforge.gui.screens.sensors` to build its form with
+    :class:`~sensoryforge.gui.widgets.param_form.ParamForm`.
+
+    Only fields with a plain (non-``default_factory``) dataclass default are
+    covered -- ``name`` (required, no default), ``channels``, ``layers`` and
+    ``color`` (list defaults) and ``coords_file`` (a path, edited with a
+    Browse button) get their own hand-built rows in the screen instead.
+
+    Returns:
+        One ``ParamSpec`` per covered field, each with ``default`` exactly
+        equal to ``GridConfig``'s own dataclass default for that field (a
+        unit test pins this).
+    """
+    return [
+        ParamSpec(
+            "arrangement",
+            label="Arrangement",
+            dtype="str",
+            default="grid",
+            choices=[
+                "grid",
+                "hex",
+                "poisson",
+                "jittered_grid",
+                "blue_noise",
+                "composite",
+            ],
+            tooltip="Spatial arrangement of this grid's receptors.",
+            group="Arrangement",
+        ),
+        ParamSpec(
+            "rows",
+            label="Rows",
+            dtype="int",
+            default=None,
+            min_val=1,
+            max_val=2000,
+            unit="",
+            tooltip="Receptor rows. Falls back to 40 when unset.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "cols",
+            label="Cols",
+            dtype="int",
+            default=None,
+            min_val=1,
+            max_val=2000,
+            unit="",
+            tooltip="Receptor columns. Falls back to 40 when unset.",
+            group="Geometry",
+        ),
+        ParamSpec(
+            "spacing",
+            label="Spacing",
+            dtype="float",
+            default=0.15,
+            min_val=0.001,
+            max_val=10.0,
+            unit="mm",
+            tooltip="Receptor pitch in mm.",
+            group="Geometry",
+        ),
+        # `density` is deliberately absent: build_grid sizes every
+        # arrangement from rows x cols x spacing and never reads it (measured:
+        # 5 and 50 mm^-2 give the same receptors for every arrangement), so a
+        # form row for it would be a control that does nothing.
+        ParamSpec(
+            "center_x",
+            label="Center X",
+            dtype="float",
+            default=0.0,
+            min_val=-1000.0,
+            max_val=1000.0,
+            unit="mm",
+            tooltip="X coordinate of the grid's center.",
+            group="Position",
+            advanced=True,
+        ),
+        ParamSpec(
+            "center_y",
+            label="Center Y",
+            dtype="float",
+            default=0.0,
+            min_val=-1000.0,
+            max_val=1000.0,
+            unit="mm",
+            tooltip="Y coordinate of the grid's center.",
+            group="Position",
+            advanced=True,
+        ),
+        ParamSpec(
+            "seed",
+            label="Seed",
+            dtype="int",
+            default=None,
+            min_val=0,
+            max_val=2**31 - 1,
+            unit="",
+            tooltip="Seeds the random jitter of jittered_grid/blue_noise/poisson (F-050).",
+            group="Reproducibility",
+            advanced=True,
+        ),
+    ]
 
 
 @dataclass
@@ -598,19 +715,131 @@ class StimulusConfig:
     # into one multi-channel tensor; planes with no stimulus are zero.
     channel: Optional[str] = None
 
+    # Parameters of the stimulus type that have no field above (a Braille
+    # stimulus's `v_mms`, an edge grating's `spacing`, ...). Forwarded to the
+    # stimulus's constructor as keywords, after the named fields, so every
+    # parameter a stimulus declares in `get_param_spec()` can be stored in a
+    # config without this dataclass growing one field per parameter of every
+    # type. A key that names a field above is rejected: the field is where
+    # that value lives.
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.params, dict):
+            raise ValueError(
+                f"stimulus.params must be a mapping, got {type(self.params).__name__}"
+            )
+        clash = sorted(set(self.params) & set(type(self).__dataclass_fields__))
+        if clash:
+            raise ValueError(
+                f"stimulus.params may not repeat a stimulus field: {clash}; "
+                "set it as `stimulus.<name>` instead"
+            )
+        # Which fields the user set, as opposed to fields merely holding the
+        # schema default. This dataclass carries one default for every field
+        # of every stimulus type, so "is it at the default?" cannot say
+        # whether a value was chosen: a Gaussian with sigma 2.0 on purpose and
+        # a moving edge whose start was never mentioned look the same. The
+        # renderer forwards only explicit fields (the rest take the stimulus
+        # type's own defaults), so the distinction has to be recorded.
+        defaults = type(self).__dataclass_fields__
+        explicit = set()
+        for name, spec in defaults.items():
+            default = (
+                spec.default_factory()
+                if spec.default_factory is not dataclasses.MISSING
+                else spec.default
+            )
+            if getattr(self, name) != default:
+                explicit.add(name)
+        object.__setattr__(self, "_explicit", explicit)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        explicit = self.__dict__.get("_explicit")
+        if explicit is not None and name in type(self).__dataclass_fields__:
+            explicit.add(name)
+
+    def explicit_fields(self) -> set:
+        """Names of the fields that were set rather than left at their default.
+
+        A field counts as set when it was given in the dict passed to
+        :meth:`from_dict` (so a value written in YAML counts even if it equals
+        the default), assigned after construction (as the GUI does), or passed
+        to the constructor with a non-default value. A constructor keyword
+        equal to the default cannot be told from an omitted one; assign it
+        after construction, or use :meth:`from_dict`, to mark it.
+        """
+        # `name` and `type` identify the stimulus; they are always written.
+        explicit = set(self._explicit) - {"name", "type", "params"}
+        # `params` is edited in place (a dict), which no __setattr__ sees, so
+        # it counts as set exactly when it holds something.
+        if self.params:
+            explicit.add("params")
+        return explicit
+
+    def unset(self, name: str) -> None:
+        """Remove ``name`` from :meth:`explicit_fields` and restore its schema default.
+
+        Used by the GUI's "reset to default" affordance (Phase 2 Task 2.2):
+        editing a field marks it explicit (``__setattr__``); this is the one
+        way back. After this call, :func:`sensoryforge.stimuli.render.
+        render_for_config` forwards the stimulus type's own default for
+        ``name`` instead of this field's value, exactly as if it had never
+        been set.
+
+        Args:
+            name: A field of this dataclass (``"name"``/``"type"`` cannot be
+                unset -- they are always explicit).
+
+        Raises:
+            ValueError: If ``name`` is not a field of ``StimulusConfig``, or
+                is ``"name"``/``"type"``.
+        """
+        if name in ("name", "type"):
+            raise ValueError(
+                f"{name!r} cannot be unset; it always identifies the stimulus"
+            )
+        defaults = type(self).__dataclass_fields__
+        if name not in defaults:
+            raise ValueError(
+                f"{name!r} is not a field of StimulusConfig "
+                f"(known fields: {sorted(defaults)})"
+            )
+        spec = defaults[name]
+        default = (
+            spec.default_factory()
+            if spec.default_factory is not dataclasses.MISSING
+            else spec.default
+        )
+        object.__setattr__(self, name, default)
+        self._explicit.discard(name)
+
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict for YAML serialization."""
-        result = asdict(self)
-        return {k: v for k, v in result.items() if v is not None}
+        """Convert to plain dict for YAML serialization.
+
+        Writes ``name``, ``type`` and the explicitly set fields only, so the
+        block says what was chosen and a YAML round trip preserves
+        :meth:`explicit_fields`. Use :meth:`to_full_dict` for every field.
+        """
+        full = self.to_full_dict()
+        keep = {"name", "type"} | self.explicit_fields()
+        return {k: v for k, v in full.items() if k in keep}
+
+    def to_full_dict(self) -> Dict[str, Any]:
+        """Every field with its current value (``None`` values omitted)."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> StimulusConfig:
-        """Create from dict (e.g., from YAML)."""
+        """Create from dict (e.g., from YAML); every key given counts as set."""
         kwargs = {}
         for field_name in cls.__dataclass_fields__:
             if field_name in data:
                 kwargs[field_name] = data[field_name]
-        return cls(**kwargs)
+        instance = cls(**kwargs)
+        instance._explicit.update(kwargs)
+        return instance
 
 
 def validate_dt_ms(dt_ms: float, integrate_dt_ms: float) -> None:
@@ -663,6 +892,13 @@ class SimulationConfig:
         dt: Deprecated alias for ``dt_ms`` (F-008/E10). Emits
             ``DeprecationWarning`` when used; raises ``ValueError`` if both
             ``dt`` and a non-default, different ``dt_ms`` are given.
+        seed: Run-level seed (F-075). When set, :meth:`SimulationEngine.run`
+            seeds ``torch``/``numpy``/``random`` at the start of the run,
+            before stimulus sampling. ``None`` (default) leaves the ambient
+            RNG state untouched. Distinct from ``PopulationConfig.seed``
+            (innervation wiring, F-006 open) and ``PopulationConfig.noise_seed``
+            (per-population membrane noise) -- see
+            ``docs/user_guide/units_and_gains.md``.
     """
 
     device: str = "cpu"
@@ -671,6 +907,7 @@ class SimulationConfig:
     solver: Dict[str, Any] = field(default_factory=lambda: {"type": "euler"})
     duration_ms: Optional[float] = None
     dt: Optional[float] = None  # deprecated alias for dt_ms
+    seed: Optional[int] = None
 
     def __post_init__(self) -> None:
         """Resolve the deprecated ``dt`` alias, then validate (F-042).

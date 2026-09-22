@@ -9,24 +9,25 @@ on the config API rather than full GUI initialization.
 
 
 def test_gui_imports():
-    """Verify GUI modules can be imported (smoke test)."""
-    from sensoryforge.gui.main import SensoryForgeWindow
-    from sensoryforge.gui.tabs import (
-        MechanoreceptorTab,
-        StimulusDesignerTab,
-        SpikingNeuronTab,
-    )
+    """Verify the GUI v2 modules can be imported (smoke test)."""
+    from sensoryforge.gui.app import SensoryForgeApp, main
+    from sensoryforge.gui.main import main as script_main
+    from sensoryforge.gui.screens import SCREEN_FACTORIES
 
-    assert SensoryForgeWindow is not None
-    assert MechanoreceptorTab is not None
-    assert StimulusDesignerTab is not None
-    assert SpikingNeuronTab is not None
+    assert SensoryForgeApp is not None
+    assert script_main is main
+    assert set(SCREEN_FACTORIES) == {
+        "sensors",
+        "stimulus",
+        "populations",
+        "results",
+        "batch",
+    }
 
 
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 
 
@@ -216,19 +217,3 @@ class TestYAMLConfigAPI:
             assert loaded["simulation"]["solver"]["type"] == "adaptive"
             assert loaded["simulation"]["solver"]["method"] == "dopri5"
             assert loaded["simulation"]["dsl"]["equations"] == "dv/dt = -v + I"
-
-
-# Optional GUI widget tests (will be skipped in headless environments)
-pytest_skip_gui = pytest.mark.skipif(
-    True,  # Skip GUI tests by default to avoid segfaults in CI
-    reason="GUI widget tests disabled (run manually with display)",
-)
-
-
-@pytest_skip_gui
-class TestGUIWidgets:
-    """GUI widget tests (disabled by default - for manual/interactive testing)."""
-
-    def test_placeholder(self):
-        """Placeholder for future interactive GUI tests."""
-        pytest.skip("Interactive GUI tests not enabled")

@@ -57,3 +57,18 @@ lattice whose resolution matches the stimulus frame exactly — where it reshape
 bit-identical to earlier releases. See `SimulationEngine._sample_stimulus_at_receptors` for the
 index algebra between SensoryForge's `(x, y)` convention and `grid_sample`'s `(width, height)`
 convention, which do not agree naively.
+
+## Rendering a stimulus for a non-lattice arrangement (Phase 0, F-076)
+
+A `"poisson"` or `"hex"` receptor arrangement has no regular lattice, so it cannot itself supply a
+render canvas the way a `"grid"` arrangement's `ReceptorGrid.get_coordinates()` does.
+`sensoryforge.stimuli.canvas.stimulus_canvas(grid_cfg)` is the one helper every config-driven entry
+point (`sensoryforge run`, `BatchExecutor`, the GUI's run path) uses to build a
+stimulus's render canvas: for `"grid"` it reproduces `ReceptorGrid.get_coordinates()` bit-for-bit,
+and for every other arrangement — `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`,
+`"composite"`, and an imported `coords_file` — it renders on a regular canvas spanning the
+receptor array's actual extent (the same `rows`/`cols`/`spacing`/`center` bounds
+`SimulationEngine._build_grids` uses to build that arrangement's own grid, or the imported
+coordinates' bounding box when `coords_file` is set). The stimulus is then sampled at each
+receptor's real `(x, y)` position as described above — the canvas's resolution only needs to cover
+the array's extent, not match the receptor count or layout.

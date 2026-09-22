@@ -109,14 +109,13 @@ nav:
     - Sensor Arrays: concepts/sensor_arrays.md
     - Populations and Inputs: concepts/populations_and_inputs.md
     - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
-    - The Graph: concepts/the_graph.md
+    - One Experiment, One Config: concepts/the_pipeline.md
 
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
     - YAML Configuration: user_guide/yaml_configuration.md
     - Configuration Schema: user_guide/configuration_schema.md
-    - GUI Workflow: user_guide/gui_phase2_access.md
     - GUI Walkthrough: user_guide/gui_walkthrough.md
     - Units and Gains: user_guide/units_and_gains.md
     - Composite Grid: user_guide/composite_grid.md
@@ -137,7 +136,7 @@ nav:
     - Adding a Receptive-Field Builder: developer_guide/add_rf_builder.md
     - Adding a Grid Arrangement: extending/add_grid_arrangement.md
     - Adding a Processing Layer: extending/add_processing_layer.md
-    - Adding a Circuit Node: extending/add_gui_node.md
+    - GUI Forms for a Component: extending/gui_forms.md
     - Adding a Solver: extending/add_solver.md
     - Plugin Packages: developer_guide/plugins.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md

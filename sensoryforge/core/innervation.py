@@ -325,6 +325,106 @@ class BaseInnervation(ABC):
         )
 
 
+#: How each shared receptive-field parameter is shown in a form (``weight_range``,
+#: a pair, is left to YAML: ParamSpec types are scalars). Defaults are
+#: not repeated here: :func:`_specs_from_signature` reads them from the
+#: builder's constructor, so the form and the builder cannot disagree.
+_RF_PARAM_SPECS: Dict[str, Dict[str, Any]] = {
+    "sigma_d_mm": dict(
+        dtype="float",
+        min_val=0.001,
+        max_val=50.0,
+        unit="mm",
+        group="Shape",
+        tooltip="Width (sigma) of the receptive field's distance profile.",
+    ),
+    "connections_per_neuron": dict(
+        dtype="float",
+        min_val=1.0,
+        max_val=10000.0,
+        group="Shape",
+        tooltip="Mean number of receptors each neuron samples.",
+    ),
+    "max_distance_mm": dict(
+        dtype="float",
+        min_val=0.0,
+        max_val=100.0,
+        unit="mm",
+        group="Shape",
+        tooltip="Receptors farther than this from the neuron centre are not connected.",
+    ),
+    "use_distance_weights": dict(
+        dtype="bool",
+        group="Weights",
+        tooltip="Weight each connection by its distance (analytic) instead of at random.",
+    ),
+    "decay_function": dict(
+        dtype="str",
+        choices=["exponential", "linear", "inverse_square"],
+        group="Weights",
+        tooltip="How a connection's weight falls with distance.",
+    ),
+    "decay_rate": dict(
+        dtype="float",
+        min_val=0.0,
+        max_val=100.0,
+        group="Weights",
+        tooltip="Rate of the distance decay.",
+    ),
+    "distance_weight_randomness_pct": dict(
+        dtype="float",
+        min_val=0.0,
+        max_val=100.0,
+        unit="%",
+        group="Weights",
+        advanced=True,
+        tooltip="Random jitter added to distance weights.",
+    ),
+    "far_connection_fraction": dict(
+        dtype="float",
+        min_val=0.0,
+        max_val=1.0,
+        group="Far connections",
+        advanced=True,
+        tooltip="Fraction of connections drawn from a wider profile.",
+    ),
+    "far_sigma_factor": dict(
+        dtype="float",
+        min_val=1.0,
+        max_val=100.0,
+        group="Far connections",
+        advanced=True,
+        tooltip="Width of the wider profile, as a multiple of sigma.",
+    ),
+}
+
+
+def _specs_from_signature(cls: type) -> list:
+    """ParamSpecs for every shared parameter ``cls.__init__`` takes.
+
+    Args:
+        cls: A builder class.
+
+    Returns:
+        One :class:`~sensoryforge.stimuli.base.ParamSpec` per constructor
+        parameter listed in :data:`_RF_PARAM_SPECS`, in constructor order, with
+        the constructor's default.
+    """
+    import inspect
+
+    from sensoryforge.stimuli.base import ParamSpec
+
+    specs = []
+    for name, parameter in inspect.signature(cls.__init__).parameters.items():
+        if name not in _RF_PARAM_SPECS:
+            continue
+        default = parameter.default
+        if default is inspect.Parameter.empty:
+            default = None
+        specs.append(ParamSpec(name, default=default, **_RF_PARAM_SPECS[name]))
+    return specs
+
+
 class GaussianInnervation(BaseInnervation):
     """Gaussian-weighted random innervation (existing method).
 
@@ -356,6 +456,11 @@ class GaussianInnervation(BaseInnervation):
             instead of random in [min, max].
         seed: Random seed for reproducibility.
     """
+
+    @classmethod
+    def get_param_spec(cls) -> list:
+        """The constructor's shared parameters, for GUI forms (G1)."""
+        return _specs_from_signature(cls)
 
     def __init__(
         self,
@@ -558,6 +663,11 @@ class UniformInnervation(BaseInnervation):
     or distance-weighted when use_distance_weights=True. Supports far_connection_fraction
     to add a fraction of connections from distant receptors.
     """
+
+    @classmethod
+    def get_param_spec(cls) -> list:
+        """The constructor's shared parameters, for GUI forms (G1)."""
+        return _specs_from_signature(cls)
 
     def __init__(
         self,
@@ -866,6 +976,11 @@ class DistanceWeightedInnervation(BaseInnervation):
         weight_range: (min, max) for weight scaling.
         seed: Random seed for reproducibility.
     """
+
+    @classmethod
+    def get_param_spec(cls) -> list:
+        """The constructor's shared parameters, for GUI forms (G1)."""
+        return _specs_from_signature(cls)
 
     def __init__(
         self,

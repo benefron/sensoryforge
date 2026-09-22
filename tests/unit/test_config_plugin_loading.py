@@ -156,26 +156,29 @@ def _ensure_app():
 
 
 @pytest.mark.gui
-def test_gui_load_config_registers_plugin_component(plugin_config_path, monkeypatch):
-    """SensoryForgeWindow._load_config must honour plugins: too (F-048)."""
-    _ensure_app()
-    try:
-        from sensoryforge.gui.main import SensoryForgeWindow
-    except ImportError:
-        pytest.skip("PyQt5 not available")
-    from PyQt5 import QtWidgets
+def test_gui_load_config_registers_plugin_component(plugin_config_path, qtbot):
+    """Opening a config in the GUI must honour its plugins: list (F-048)."""
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.gui.app import SensoryForgeApp
+    from sensoryforge.gui.session import Session
 
-    window = SensoryForgeWindow()
+    window = SensoryForgeApp(Session(SensoryForgeConfig()))
+    qtbot.addWidget(window)
+    window._load_config_file(str(plugin_config_path))
 
-    monkeypatch.setattr(
-        QtWidgets.QFileDialog,
-        "getOpenFileName",
-        lambda *a, **k: (str(plugin_config_path), ""),
-    )
-    monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *a, **k: None)
-    monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *a, **k: None)
-    monkeypatch.setattr(QtWidgets.QMessageBox, "critical", lambda *a, **k: None)
+    assert FILTER_REGISTRY.is_registered(COMPONENT_NAME)
 
-    window._load_config()
+
+@pytest.mark.gui
+def test_gui_open_project_registers_plugin_component(plugin_config_path, tmp_path):
+    """A project whose config.yml lists plugins: registers them when opened."""
+    import shutil
+
+    from sensoryforge.gui.project import ProjectHandle
+
+    root = tmp_path / "project"
+    root.mkdir()
+    shutil.copy(plugin_config_path, root / "config.yml")
+    ProjectHandle.open(root).load_config()
 
     assert FILTER_REGISTRY.is_registered(COMPONENT_NAME)
