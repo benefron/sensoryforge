@@ -64,7 +64,14 @@ def fix_axis_units(plot_item: "pg.PlotItem") -> None:
         plot_item: The plot whose axes should show values as they are.
     """
     for axis_name in ("bottom", "left", "right", "top"):
-        plot_item.getAxis(axis_name).enableAutoSIPrefix(False)
+        axis = plot_item.getAxis(axis_name)
+        axis.enableAutoSIPrefix(False)
+        # An axis that both grows and shrinks its label space to fit its tick
+        # labels can oscillate: a narrower axis widens the view, which changes
+        # the ticks, which widens the axis again. Growing only converges.
+        # (Suspected cause of CI hangs in ViewBox.updateViewRange/resizeEvent
+        # and AxisItem.generateDrawSpecs; Linux font metrics differ.)
+        axis.setStyle(autoReduceTextSpace=False)
 
 
 def make_plot(
