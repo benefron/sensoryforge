@@ -123,6 +123,7 @@ nav:
     - Data Bundles: user_guide/bundles.md
     - Equation DSL: user_guide/equation_dsl.md
     - Analog Readouts: user_guide/analog_readouts.md
+    - Designing Stimuli: user_guide/designing_stimuli.md
     - Extended Stimuli: user_guide/extended_stimuli.md
     - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
