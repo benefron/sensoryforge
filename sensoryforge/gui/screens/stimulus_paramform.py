@@ -76,13 +76,48 @@ from sensoryforge.gui.widgets.param_form import (
 )
 from sensoryforge.registry import STIMULUS_REGISTRY
 from sensoryforge.stimuli.base import ParamSpec
-from sensoryforge.stimuli.render import effective_defaults
+from sensoryforge.stimuli.render import effective_defaults, takes_default_ramps
 
 #: Names ``sensoryforge.stimuli.render.render_stimulus`` accepts only through
 #: its legacy fallback chain, not through ``STIMULUS_REGISTRY``. Kept as one
 #: module-level constant since ``render.py``'s own ``legacy_names`` is local
 #: to a function.
 LEGACY_STIMULUS_TYPES: Tuple[str, ...] = ("trapezoidal", "step", "ramp", "custom")
+
+#: The ramp-hold-ramp envelope of a still stimulus. ``None`` shows as auto:
+#: each ramp an eighth of the run, the hold the rest.
+ENVELOPE_SPECS = [
+    ParamSpec(
+        "ramp_up_ms",
+        dtype="float",
+        default=None,
+        min_val=0.0,
+        max_val=1.0e6,
+        unit="ms",
+        group="Timing",
+        tooltip="Rise time. Auto: an eighth of the run. 0 switches it on as a step.",
+    ),
+    ParamSpec(
+        "plateau_ms",
+        dtype="float",
+        default=None,
+        min_val=0.0,
+        max_val=1.0e6,
+        unit="ms",
+        group="Timing",
+        tooltip="Hold time at full amplitude. Auto: whatever the ramps leave.",
+    ),
+    ParamSpec(
+        "ramp_down_ms",
+        dtype="float",
+        default=None,
+        min_val=0.0,
+        max_val=1.0e6,
+        unit="ms",
+        group="Timing",
+        tooltip="Fall time. Auto: an eighth of the run.",
+    ),
+]
 
 #: Stimulus parameters the run owns, never shown in the stimulus form.
 RUN_OWNED_PARAMS = frozenset({"dt_ms"})
@@ -218,11 +253,16 @@ def specs_for_stimulus_type(stimulus_type: str) -> List[ParamSpec]:
     # A stimulus's own dt_ms always follows the run's step (the renderer sets
     # it; any other value would play the stimulus at the wrong speed), so it
     # is set on the run bar, not here.
-    return [
+    specs = [
         spec
         for spec in STIMULUS_REGISTRY.get_class(stimulus_type).get_param_spec()
         if spec.name not in RUN_OWNED_PARAMS
     ]
+    if takes_default_ramps(stimulus_type):
+        # A still image is ramped in and out (render.default_envelope); its
+        # envelope is the StimulusConfig ramp/plateau fields, auto until set.
+        specs += ENVELOPE_SPECS
+    return specs
 
 
 class StimulusParamForm(QtWidgets.QWidget):
@@ -350,6 +390,10 @@ class StimulusParamForm(QtWidgets.QWidget):
             value = stim.params[spec.name] if is_explicit else default_value
 
         widget_spec = _widen_to_include(spec, default_value, value)
+        if default_value is None and spec.dtype in ("int", "float"):
+            # Follows the run when unset (effective_defaults gives None): the
+            # widget must offer "auto", not the class's fixed default.
+            widget_spec = ParamSpec(**{**widget_spec.to_dict(), "default": None})
 
         widget, signal_name = _make_widget(widget_spec, value)
         widget.setObjectName(f"stim_param_{spec.name}")

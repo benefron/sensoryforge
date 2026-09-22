@@ -143,6 +143,9 @@ class TestComponentVocabularyUsesTheComponent:
         xx, yy = coords
         params = dict(COMPONENT_PARAMS)
         params["motion_params"] = {**COMPONENT_PARAMS["motion_params"], "num_steps": 10}
+        # A step envelope, so only the position is compared (by default the
+        # stimulus now ramps down at the end).
+        params.update(ramp_up_ms=0.0, ramp_down_ms=0.0)
         frames, _ = render_stimulus(
             "moving", params, xx, yy, dt_ms=DT_MS, duration_ms=20.0
         )

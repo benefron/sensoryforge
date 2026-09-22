@@ -61,7 +61,10 @@ in italics, the value that will run, and the ↺ button next to a set value retu
 to that default. The preview renders with the same function as the CLI and a run,
 with a playhead and the amplitude over time. **Composite** and **timeline** stimuli
 open a table of sub-stimuli: kind, amplitude, size and position, and for a timeline
-when each is shown. A stimulus always runs on the run bar's time step.
+when each is shown. A stimulus always runs on the run bar's time step, and it
+always changes over time: a still image ramps in and out (the **Timing** rows,
+*auto* = an eighth of the run each way), and a stimulus with its own time course
+spans the run.
 
 ## Populations
 
