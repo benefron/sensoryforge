@@ -88,6 +88,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-033 · CLOSED · decision · - · 2026-09-22
+every rendered stimulus changes over time: a still stimulus ramps up and down over one eighth of the run each unless ramp_up_ms/plateau_ms/ramp_down_ms are set, and stimuli with their own total_ms span the run unless it is set (stimuli.render.default_envelope, _clock_to_render_step)
+→ commit b4afe01
+
 ## F-084 · CLOSED · finding · - · 2026-09-21
 render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
 → commit 6956f81
