@@ -88,7 +88,12 @@ class RampGaussianStimulus(BaseStimulus):
             Frames ``[T, H, W]``, ``T = round(total_ms / dt_ms)``.
         """
         t_n = _n_samples(self.total_ms, self.dt_ms)
-        ramp_n = _n_samples(self.ramp_ms, self.dt_ms)
+        # Clamped to the frame count: a caller-shortened total_ms (e.g. via
+        # render_for_config's --duration clock, sensoryforge/stimuli/render.py
+        # _clock_to_render_step) can leave the default ramp_ms longer than
+        # the whole stimulus; _symmetric_ramp (this module) already clamps
+        # the same way for the other three ported stimuli.
+        ramp_n = min(_n_samples(self.ramp_ms, self.dt_ms), t_n)
         blob = torch.exp(-((xx**2 + yy**2) / (2.0 * self.sigma_mm**2))).to(
             dtype=torch.float32
         )

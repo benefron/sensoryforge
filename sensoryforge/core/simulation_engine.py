@@ -842,6 +842,7 @@ class SimulationEngine:
         seed: Optional[int] = None,
         bundle_overwrite: bool = False,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
+        design_manifest: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -861,6 +862,11 @@ class SimulationEngine:
                 intermediates when *return_intermediates* is ``True``.
             stimulus_config: The stimulus's own config dict, written into the bundle's
                 ``stimuli/stimulus.json`` (ignored unless *bundle_dir* is given).
+            design_manifest: A pressure-simulation design directory's manifest (Phase
+                2a, T2), as returned by :func:`sensoryforge.io.design.read_manifest` --
+                forwarded to :func:`~sensoryforge.io.bundle.write_bundle` verbatim
+                (ignored unless *bundle_dir* is given). ``None`` (default) leaves the
+                bundle unchanged from a run with no design.
             seed: The run's seed (F-075). This is the single run-seed: when given, it is
                 used as-is; when ``None``, it falls back to ``self.config.simulation.seed``.
                 The value that resolves (either one, or ``None`` if both are unset) is used to
@@ -1000,6 +1006,7 @@ class SimulationEngine:
                 stimulus_config=stimulus_config,
                 seed=seed,
                 overwrite=bundle_overwrite,
+                design_manifest=design_manifest,
             )
 
         if not return_intermediates and bundle_dir is not None:

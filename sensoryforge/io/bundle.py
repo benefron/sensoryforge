@@ -224,6 +224,7 @@ def write_bundle(
     stimulus_config: Optional[Dict[str, Any]] = None,
     seed: Optional[int] = None,
     overwrite: bool = False,
+    design_manifest: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """Write a run as a data bundle.
 
@@ -246,6 +247,19 @@ def write_bundle(
         seed: The run's seed, recorded as an HDF5 root attribute.
         overwrite: If ``False`` (default) and *bundle_dir* already exists and
             is non-empty, raise ``FileExistsError``.
+        design_manifest: A pressure-simulation design directory's manifest
+            (Phase 2a, T2), as returned verbatim by
+            :func:`sensoryforge.io.design.read_manifest` -- never rebuilt
+            from *config*. When given: stamped, unmodified, as
+            ``config_json["design"]``; and every population whose config's
+            ``innervation_method`` is ``"imported"`` gets ``design_id``
+            (``design_manifest["design_id"]``), ``source_repo``
+            (``"pressure-simulation"``) and ``source_repo_git_sha``
+            (``design_manifest["git_sha"]``) added to its ``.pt`` file's
+            ``provenance`` dict. ``None`` (default, unchanged from before
+            this parameter existed) writes exactly what ``write_bundle``
+            wrote with no design involved -- no ``"design"`` key, no
+            provenance changes.
 
     Returns:
         *bundle_dir* as a :class:`~pathlib.Path`.
@@ -292,12 +306,21 @@ def write_bundle(
         else:
             cols = bank.num_receptors
         tensor_name = f"population_{idx:02d}_{_safe_name(name)}.pt"
+        provenance = dict(bank.provenance)
+        if design_manifest is not None and pop_cfg.innervation_method == "imported":
+            # Phase 2a, T2: stamp which design produced this imported bank,
+            # and where that design came from, onto its own provenance --
+            # distinct from config_json["design"] below (that's the whole
+            # manifest once per bundle; this is the per-bank pointer into it).
+            provenance["design_id"] = design_manifest.get("design_id")
+            provenance["source_repo"] = "pressure-simulation"
+            provenance["source_repo_git_sha"] = design_manifest.get("git_sha")
         torch.save(
             {
                 "innervation_weights": bank.weights.detach().cpu().clone(),
                 "neuron_centers": bank.neuron_centers.detach().cpu().clone(),
                 "receptor_coords": bank.receptor_coords.detach().cpu().clone(),
-                "provenance": dict(bank.provenance),
+                "provenance": provenance,
                 "grid_shape": [int(rows), int(cols)],
             },
             bundle_dir / tensor_name,
@@ -347,6 +370,11 @@ def write_bundle(
         "populations": pop_entries,
         "config": config.to_dict(),
     }
+    if design_manifest is not None:
+        # Verbatim -- read_manifest's own dict, not re-derived from `config`
+        # (Phase 2a, T2: load_design already dropped anything config can't
+        # carry, so re-deriving would lose it).
+        config_json["design"] = design_manifest
     with open(bundle_dir / "config.json", "w") as f:
         json.dump(config_json, f, indent=2)
 
