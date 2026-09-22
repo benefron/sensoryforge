@@ -30,28 +30,25 @@
     "neuron_params": [],
     "noise_var": 0.05,
     "normalize": "l2",
+    "ra_dt_ms": 8.0,
     "ra_filter": "ra",
+    "ra_noise_var": null,
     "sa_filter": "sa",
     "seed": 0,
     "sigma_prior_mm": 0.3,
     "sigma_x_route": "analytic",
     "spacing_mm": 0.15
   },
-  "design_id": "30481c3b9b31787e26d37e727c05c838c62a89a910272e2939b054296bad7c94",
+  "design_id": "759ff80a70c3f61b080a06bc88c4120e58f5138678d13592c893269050d26cc7",
   "git_dirty": true,
-  "git_sha": "ea4670340064222ed567d26e9b2699bca7b2482c",
+  "git_sha": "dacc1fc1f578544de0fe3e9b108f2482e63190a9",
   "populations": [
     {
       "N": 4,
       "filter_method": "ra",
-      "filter_params": {
-        "tau_ms": 2.0
-      },
-      "input_gain": 1.0,
-      "model_params": {
-        "a": 0.02,
-        "b": 0.2
-      },
+      "filter_params": {},
+      "input_gain": 50.0,
+      "model_params": {},
       "name": "ra",
       "neuron_model": "adex",
       "pitch_mm": 0.6,
@@ -61,14 +58,9 @@
     {
       "N": 9,
       "filter_method": "sa",
-      "filter_params": {
-        "tau_ms": 5.0
-      },
-      "input_gain": 1.0,
-      "model_params": {
-        "a": 0.02,
-        "b": 0.2
-      },
+      "filter_params": {},
+      "input_gain": 50.0,
+      "model_params": {},
       "name": "sa",
       "neuron_model": "adex",
       "pitch_mm": 0.4,
