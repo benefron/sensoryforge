@@ -11,6 +11,7 @@ from sensoryforge.config.defaults import (
     resolve_filter_params,
     resolve_neuron_params,
 )
+from sensoryforge.neurons.adex import ADEX_PRESETS
 from sensoryforge.config.schema import (
     GridConfig,
     PopulationConfig,
@@ -90,13 +91,55 @@ class TestResolveNeuronParams:
         with pytest.raises(ValueError, match="Unknown Izhikevich preset"):
             resolve_neuron_params("Izhikevich", "RA", {"preset": "nope"})
 
-    def test_non_izhikevich_model_passes_overrides_through(self):
+    def test_non_preset_model_passes_overrides_through(self):
+        """MQIF (unlike Izhikevich and AdEx) has no preset table, so its
+        defaults live only in the class constructor signature and the
+        resolver must pass overrides straight through unchanged."""
         overrides = {"tau_m": 15.0}
-        assert resolve_neuron_params("AdEx", "RA", overrides) == overrides
+        assert resolve_neuron_params("MQIF", "RA", overrides) == overrides
 
     def test_case_insensitive_model_name(self):
         assert resolve_neuron_params("izhikevich", "RA", {}) == resolve_neuron_params(
             "Izhikevich", "RA", {}
+        )
+
+
+class TestResolveNeuronParamsAdEx:
+    def test_ra_adex_resolves_phasic(self):
+        params = resolve_neuron_params("AdEx", "RA", None)
+        assert params == ADEX_PRESETS["RA1_phasic"]
+        assert "preset" not in params
+
+    def test_sa_adex_resolves_tonic(self):
+        params = resolve_neuron_params("AdEx", "SA", None)
+        assert params == ADEX_PRESETS["SA1_tonic"]
+
+    def test_sa2_adex_resolves_tonic(self):
+        params = resolve_neuron_params("AdEx", "SA2", None)
+        assert params == ADEX_PRESETS["SA1_tonic"]
+
+    def test_single_override_keeps_preset_as_base(self):
+        """F-031 for AdEx: overriding tau_w must not drop the rest of the
+        SA1_tonic preset."""
+        params = resolve_neuron_params("AdEx", "SA", {"tau_w": 300.0})
+        expected = ADEX_PRESETS["SA1_tonic"]
+        assert params["tau_w"] == 300.0
+        for name, value in expected.items():
+            if name == "tau_w":
+                continue
+            assert params[name] == value
+
+    def test_explicit_preset_override_wins(self):
+        params = resolve_neuron_params("AdEx", "SA", {"preset": "RA1_phasic"})
+        assert params == ADEX_PRESETS["RA1_phasic"]
+
+    def test_unknown_preset_override_raises(self):
+        with pytest.raises(ValueError, match="Unknown AdEx preset"):
+            resolve_neuron_params("AdEx", "RA", {"preset": "nope"})
+
+    def test_case_insensitive_model_name(self):
+        assert resolve_neuron_params("adex", "RA", {}) == resolve_neuron_params(
+            "AdEx", "RA", {}
         )
 
 

@@ -18,7 +18,7 @@ import inspect
 import pytest
 
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch, IZHIKEVICH_PRESETS
-from sensoryforge.neurons.adex import AdExNeuronTorch
+from sensoryforge.neurons.adex import AdExNeuronTorch, ADEX_PRESETS
 from sensoryforge.neurons.mqif import MQIFNeuronTorch
 from sensoryforge.neurons.fa import FANeuronTorch
 from sensoryforge.neurons.sa import SANeuronTorch
@@ -131,11 +131,54 @@ class TestAdExRoundtrip:
             noise_std=0.4,
             v_floor=-125.0,
         )
-        d = _assert_roundtrip(neuron)
+        d = _assert_roundtrip(neuron, excluded=frozenset({"preset"}))
         assert d["EL"] == -72.0
         assert d["a"] == 3.0
         assert d["v_init"] == -68.0
         assert d["w_init"] == 1.0
+
+    def test_preset_resolves_to_numeric_values_not_preset_name(self):
+        neuron = AdExNeuronTorch(preset="RA1_phasic")
+        d = neuron.to_dict()
+
+        expected = ADEX_PRESETS["RA1_phasic"]
+        for name, value in expected.items():
+            assert d[name] == value
+
+        assert "RA1_phasic" not in d.values()
+        assert d.get("preset") != "RA1_phasic"
+
+        reconstructed = AdExNeuronTorch.from_config(d)
+        assert reconstructed.to_dict() == d
+
+    def test_explicit_kwarg_overrides_preset(self):
+        """F-031 semantics for AdEx: overriding one preset parameter must
+        not drop the other nine."""
+        neuron = AdExNeuronTorch(preset="RA1_phasic", tau_w=999.0)
+        expected = ADEX_PRESETS["RA1_phasic"]
+        assert neuron.tau_w == 999.0
+        assert neuron.a == expected["a"]
+        assert neuron.b == expected["b"]
+        assert neuron.EL == expected["EL"]
+
+    def test_unknown_preset_raises(self):
+        with pytest.raises(ValueError, match="Unknown AdEx preset"):
+            AdExNeuronTorch(preset="nope")
+
+    def test_no_preset_matches_historical_defaults(self):
+        """Guards the None-sentinel restructure: AdExNeuronTorch() with no
+        preset must keep today's default parameter values exactly."""
+        neuron = AdExNeuronTorch()
+        assert neuron.EL == -70.0
+        assert neuron.VT == -50.0
+        assert neuron.DeltaT == 2.0
+        assert neuron.tau_m == 20.0
+        assert neuron.tau_w == 100.0
+        assert neuron.a == 2.0
+        assert neuron.b == 0.0
+        assert neuron.v_reset == -58.0
+        assert neuron.v_spike == 20.0
+        assert neuron.R == 1.0
 
 
 class TestMQIFRoundtrip:
@@ -225,5 +268,9 @@ class TestSARoundtrip:
     ],
 )
 def test_default_instance_to_dict_has_every_constructor_param(cls):
-    excluded = frozenset({"preset"}) if cls is IzhikevichNeuronTorch else frozenset()
+    excluded = (
+        frozenset({"preset"})
+        if cls in (IzhikevichNeuronTorch, AdExNeuronTorch)
+        else frozenset()
+    )
     _assert_roundtrip(cls(), excluded=excluded)

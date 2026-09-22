@@ -1,11 +1,81 @@
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
 from sensoryforge.stimuli.base import ParamSpec
+
+#: Historical positional defaults of :class:`AdExNeuronTorch` (pre-preset).
+#: Kept as a single source of truth so ``AdExNeuronTorch()`` with no
+#: ``preset`` stays bit-identical to the class's original behaviour.
+_ADEX_CLASS_DEFAULTS: dict = {
+    "EL": -70.0,
+    "VT": -50.0,
+    "DeltaT": 2.0,
+    "tau_m": 20.0,
+    "tau_w": 100.0,
+    "a": 2.0,
+    "b": 0.0,
+    "v_reset": -58.0,
+    "v_spike": 20.0,
+    "R": 1.0,
+}
+
+#: Named AdEx firing-pattern regimes. Pass ``preset=...`` to
+#: :class:`AdExNeuronTorch` instead of spelling out all ten parameters by
+#: hand -- mirrors :data:`sensoryforge.neurons.izhikevich.IZHIKEVICH_PRESETS`
+#: exactly (an explicit keyword argument still overrides that one preset
+#: value; ``preset`` is excluded from ``to_dict()``).
+#:
+#: The *qualitative* regimes (tonic vs. phasic/adapting) are the standard
+#: AdEx firing-pattern classes catalogued by Naud, Marcille, Clopath &
+#: Gerstner (2008), "Firing patterns in the adaptive exponential
+#: integrate-and-fire model", Biological Cybernetics 99:335-347, for the
+#: model of Brette & Gerstner (2005), "Adaptive Exponential Integrate-and-
+#: Fire Model as an Effective Description of Neuronal Activity", J.
+#: Neurophysiol. 94:3637-3642. The *concrete numeric values* below are NOT
+#: taken from either paper -- they are chosen for this project's mA/mV/ms
+#: unit convention (R * I lands in mV; the tactile SA/RA filter drive after
+#: ``input_gain`` runs on the order of 1-100 mA, verified here at I = 40 mA)
+#: and were tuned by simulation to meet this project's targets (see
+#: ``tests/unit/test_pytorch_neurons.py``): at dt = 0.05 ms under a constant
+#: 40 mA drive for 500 ms, ``RA1_phasic`` fires exactly once (t ~= 22.6 ms)
+#: and is silent thereafter, while ``SA1_tonic`` fires at ~80 Hz throughout
+#: the full 500 ms with ISI coefficient of variation ~= 0.003.
+ADEX_PRESETS: dict = {
+    # Tonic (sustained, weakly adapting): small a, zero b, long tau_w --
+    # adaptation never grows enough to silence firing under constant drive.
+    "SA1_tonic": {
+        "EL": -70.0,
+        "VT": -50.0,
+        "DeltaT": 2.0,
+        "tau_m": 20.0,
+        "tau_w": 200.0,
+        "a": 0.02,
+        "b": 0.0,
+        "v_reset": -58.0,
+        "v_spike": 20.0,
+        "R": 1.0,
+    },
+    # Phasic / strongly-adapting: large a and a large spike-triggered b,
+    # short-to-moderate tau_w -- the first spike (or few) drives the
+    # adaptation current to a stable subthreshold fixed point, silencing
+    # the neuron for the rest of a constant drive.
+    "RA1_phasic": {
+        "EL": -70.0,
+        "VT": -50.0,
+        "DeltaT": 2.0,
+        "tau_m": 20.0,
+        "tau_w": 50.0,
+        "a": 2.0,
+        "b": 20.0,
+        "v_reset": -58.0,
+        "v_spike": 20.0,
+        "R": 1.0,
+    },
+}
 
 
 class AdExNeuronTorch(BaseNeuron):
@@ -30,39 +100,82 @@ class AdExNeuronTorch(BaseNeuron):
     forward pass returns ``(v_trace, spikes)`` where ``v_trace`` stores the
     membrane trajectory ``[batch, steps+1, features]`` before resets and
     ``spikes`` provides boolean events of the same shape.
+
+    Pass ``preset=`` (one of :data:`ADEX_PRESETS`, e.g. ``"RA1_phasic"``)
+    to set ``EL``/``VT``/``DeltaT``/``tau_m``/``tau_w``/``a``/``b``/
+    ``v_reset``/``v_spike``/``R`` from a named firing-pattern regime instead
+    of spelling them out; an explicit keyword argument for any one of those
+    ten parameters still overrides the preset value for that parameter
+    only (the other nine keep coming from the preset).
     """
+
+    #: ``preset`` is a constructor convenience that expands to concrete
+    #: numeric values -- excluded from ``to_dict()`` (which stores the
+    #: *resolved* numbers), matching
+    #: :attr:`sensoryforge.neurons.izhikevich.IzhikevichNeuronTorch._TO_DICT_EXCLUDE_PARAMS`.
+    _TO_DICT_EXCLUDE_PARAMS = frozenset({"preset"})
+
+    #: The ten parameters a preset expands into (see :data:`ADEX_PRESETS`).
+    _PRESET_PARAM_NAMES = (
+        "EL",
+        "VT",
+        "DeltaT",
+        "tau_m",
+        "tau_w",
+        "a",
+        "b",
+        "v_reset",
+        "v_spike",
+        "R",
+    )
 
     def __init__(
         self,
-        EL=-70.0,
-        VT=-50.0,
-        DeltaT=2.0,
-        tau_m=20.0,
-        tau_w=100.0,
-        a=2.0,
-        b=0.0,
-        v_reset=-58.0,
-        v_spike=20.0,
-        R=1.0,
+        EL=None,
+        VT=None,
+        DeltaT=None,
+        tau_m=None,
+        tau_w=None,
+        a=None,
+        b=None,
+        v_reset=None,
+        v_spike=None,
+        R=None,
         v_init=None,
         w_init=None,
         dt=0.05,
         noise_std: float = 0.0,
         v_floor: float = -130.0,
+        *,
+        preset: Optional[str] = None,
     ):
         super().__init__()
-        self.EL = EL
-        self.VT = VT
-        self.DeltaT = DeltaT
-        self.tau_m = tau_m
-        self.tau_w = tau_w
-        self.a = a
-        self.b = b
-        self.v_reset = v_reset
-        self.v_spike = v_spike
-        self.R = R
+        if preset is not None and preset not in ADEX_PRESETS:
+            raise ValueError(
+                f"Unknown AdEx preset {preset!r}; choose one of "
+                f"{sorted(ADEX_PRESETS)}"
+            )
+        self.preset = preset
+        preset_values = ADEX_PRESETS[preset] if preset is not None else {}
+        explicit = {
+            "EL": EL,
+            "VT": VT,
+            "DeltaT": DeltaT,
+            "tau_m": tau_m,
+            "tau_w": tau_w,
+            "a": a,
+            "b": b,
+            "v_reset": v_reset,
+            "v_spike": v_spike,
+            "R": R,
+        }
+        for name in self._PRESET_PARAM_NAMES:
+            value = explicit[name]
+            if value is None:
+                value = preset_values.get(name, _ADEX_CLASS_DEFAULTS[name])
+            setattr(self, name, value)
         self.dt = dt
-        self.v_init = EL if v_init is None else v_init
+        self.v_init = self.EL if v_init is None else v_init
         self.w_init = 0.0 if w_init is None else w_init
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
