@@ -724,6 +724,12 @@ class StimulusConfig:
     # that value lives.
     params: Dict[str, Any] = field(default_factory=dict)
 
+    # Layered stimulus (type "layered", sensoryforge.stimuli.layered): a stack
+    # of layers, each a shape placed by a pattern, moved and timed; combined
+    # by "sum" or "max".
+    layers: List[Dict[str, Any]] = field(default_factory=list)
+    combine: str = "sum"
+
     def __post_init__(self) -> None:
         if not isinstance(self.params, dict):
             raise ValueError(

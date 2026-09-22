@@ -78,6 +78,9 @@ from sensoryforge.core.grid_arrangements import (
 )
 
 
+from sensoryforge.stimuli.layered import LayeredStimulus  # noqa: E402
+
+
 def register_all() -> None:
     """Register all SensoryForge components with their registries.
 
@@ -121,6 +124,7 @@ def register_all() -> None:
 
     # Register stimuli
     STIMULUS_REGISTRY.register("gaussian", GaussianStimulus)
+    STIMULUS_REGISTRY.register("layered", LayeredStimulus)
     STIMULUS_REGISTRY.register("static", StaticStimulus)
     STIMULUS_REGISTRY.register("moving", MovingStimulus)
     STIMULUS_REGISTRY.register("composite", CompositeStimulus)
