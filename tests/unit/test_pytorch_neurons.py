@@ -33,6 +33,61 @@ def test_adex_neuron_runs_without_nan():
     assert torch.isfinite(spikes.float()).all()
 
 
+def _spike_times_ms(spikes: torch.Tensor, dt: float) -> torch.Tensor:
+    """Extract spike times (ms) from a [1, steps+1, 1] boolean spike trace.
+
+    Drops the initial sample (index 0, before any input is applied) so a
+    spike at time index ``t`` reads as ``t * dt`` ms.
+    """
+    sp = spikes[0, 1:, 0]
+    return torch.nonzero(sp).flatten().float() * dt
+
+
+def test_adex_ra1_phasic_silences_within_30ms_under_constant_drive():
+    """RA1_phasic: strong spike-triggered adaptation must silence firing
+    well within the tactile RA population's fast (tens-of-ms) time scale,
+    even though the drive current never changes.
+
+    Bench current is 5.0 mA, not the original 40.0 mA: Phase 2b T2b
+    re-tuned RA1_phasic's ``R`` from 1.0 to 8.0 against the
+    ``tactile_sa1_ra1`` recipe's measured RA onset-transient drive (peak
+    ~5.67-13.87 mA across the four benchmark stimuli), which moved the
+    rheobase (the saddle-node current above which no stable subthreshold
+    fixed point exists -- see the ``ADEX_PRESETS`` docstring) from ~60.6
+    mA down to ~7.57 mA. 40 mA is now far past that threshold (the
+    neuron fires continuously instead of settling), while 5.0 mA sits
+    just below it and reproduces the same phasic, single-early-spike
+    character the model was designed for.
+    """
+    neuron = AdExNeuronTorch(preset="RA1_phasic", dt=0.05)
+    steps = int(500.0 / 0.05)
+    drive = _constant_drive(steps=steps, features=1, current=5.0)
+
+    _, spikes = neuron(drive)
+    times = _spike_times_ms(spikes, dt=0.05)
+
+    assert ((times >= 0.0) & (times < 30.0)).any(), "expected at least one early spike"
+    assert not (
+        times >= 30.0
+    ).any(), f"unexpected spike(s) after 30 ms: {times.tolist()}"
+
+
+def test_adex_sa1_tonic_keeps_spiking_through_full_drive():
+    """SA1_tonic: weak adaptation must not silence firing -- the neuron
+    keeps spiking regularly for the whole 500 ms constant-drive window."""
+    neuron = AdExNeuronTorch(preset="SA1_tonic", dt=0.05)
+    steps = int(500.0 / 0.05)
+    drive = _constant_drive(steps=steps, features=1, current=40.0)
+
+    _, spikes = neuron(drive)
+    times = _spike_times_ms(spikes, dt=0.05)
+
+    assert (times >= 400.0).any(), "expected spikes in the final 100 ms"
+    isi = times[1:] - times[:-1]
+    cv = (isi.std() / isi.mean()).item()
+    assert cv < 0.5, f"ISI coefficient of variation too high: {cv}"
+
+
 def test_mqif_neuron_supports_zero_drive():
     neuron = MQIFNeuronTorch(dt=0.1)
     drive = _constant_drive(steps=30, features=1, current=0.0)

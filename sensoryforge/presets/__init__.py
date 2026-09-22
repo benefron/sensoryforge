@@ -4,13 +4,19 @@ A preset is a YAML fragment under this package -- data, not code -- read
 through :mod:`importlib.resources` so it works from an installed wheel run
 outside the repository, never a cwd-relative path (Phase 1b, F-014).
 
-Three presets ship with SensoryForge:
+Four presets ship with SensoryForge:
 
 - ``tactile_sa1_ra1``: the pressure-simulation recipe -- an 80x80 grid at
   0.15 mm, an SA population (regular-spiking preset, ``sa`` filter) and an
   RA population (fast-spiking preset, ``ra`` filter, k3 = 2.0), both using
   the ``template`` receptive-field builder with
   ``resolvable_distance_mm: 0.40``.
+- ``tactile_sa1_ra1_adex``: the same recipe on adaptive exponential
+  integrate-and-fire neurons -- identical to ``tactile_sa1_ra1`` except
+  ``neuron_model: AdEx``, whose ``SA1_tonic``/``RA1_phasic`` presets the
+  resolver applies by ``neuron_type``. It ships separately so
+  ``tactile_sa1_ra1`` stays pinned to Izhikevich for the
+  pressure-simulation golden parity test.
 - ``tactile_stochastic_control``: the named control arm (D-019) -- identical
   except each population's receptive fields come from the ``gaussian``
   builder with ``use_distance_weights: false`` (pressure-simulation's
@@ -28,7 +34,8 @@ Three presets ship with SensoryForge:
 Example:
     >>> from sensoryforge.presets import list_presets, load_preset
     >>> list_presets()
-    ['tactile_sa1_ra1', 'tactile_stochastic_control', 'vision_onoff_rgb']
+    ['tactile_sa1_ra1', 'tactile_sa1_ra1_adex', 'tactile_stochastic_control',
+     'vision_onoff_rgb']
     >>> config = load_preset("tactile_sa1_ra1")
     >>> config["grids"][0]["rows"]
     80
@@ -49,6 +56,11 @@ _DESCRIPTIONS: Dict[str, str] = {
         "The pressure-simulation recipe: 80x80 grid at 0.15 mm, one SA and "
         "one RA population with template (designed) receptive fields at "
         "resolvable_distance_mm=0.40."
+    ),
+    "tactile_sa1_ra1_adex": (
+        "The pressure-simulation recipe on AdEx neurons: identical to "
+        "tactile_sa1_ra1 but neuron_model=AdEx, resolving to the SA1_tonic "
+        "and RA1_phasic presets by neuron_type."
     ),
     "tactile_stochastic_control": (
         "Named control arm (D-019): identical to tactile_sa1_ra1 but with "
