@@ -206,10 +206,22 @@ def cmd_run(args: argparse.Namespace) -> int:
         Exit code (0 for success, 1 for error).
     """
     try:
-        # Load configuration -- a preset (K4), a config file, or both (the
-        # preset as the base, the file's values overriding it).
+        # Load configuration -- a preset (K4), a design directory (Phase 2a
+        # T2; --design and --preset are mutually exclusive at the argparse
+        # level), a config file, or a combination (the preset/design as the
+        # base, the file's values overriding it via the same
+        # _deep_merge_preset path either way).
         preset_name = getattr(args, "preset", None)
-        if preset_name:
+        design_dir = getattr(args, "design", None)
+        design_manifest: Optional[Dict[str, Any]] = None
+        if design_dir:
+            from sensoryforge.io.design import load_design, read_manifest
+
+            design_manifest = read_manifest(design_dir)
+            config = load_design(design_dir).to_dict()
+            if args.config:
+                config = _deep_merge_preset(config, load_config_file(args.config))
+        elif preset_name:
             from sensoryforge.presets import load_preset
 
             config = load_preset(preset_name)
@@ -219,10 +231,32 @@ def cmd_run(args: argparse.Namespace) -> int:
             config = load_config_file(args.config)
         else:
             print(
-                "Error running simulation: no config file and no --preset given",
+                "Error running simulation: no config file and no --preset "
+                "given (no --design given either)",
                 file=sys.stderr,
             )
             return 1
+
+        # --stimulus (Phase 2a T2): select the stimulus type to render by
+        # setting the canonical 'stimulus.type' field, which the existing
+        # 'stimulus:' block path below already runs. Validated against the
+        # live STIMULUS_REGISTRY so an unknown name errors clearly instead
+        # of failing deep inside SensoryForgeConfig.from_dict/render_for_config.
+        stimulus_name = getattr(args, "stimulus", None)
+        if stimulus_name:
+            from sensoryforge.register_components import register_all
+
+            register_all()
+            if not STIMULUS_REGISTRY.is_registered(stimulus_name):
+                print(
+                    f"Error running simulation: unknown stimulus type "
+                    f"{stimulus_name!r}; registered types: "
+                    f"{STIMULUS_REGISTRY.list_registered()}",
+                    file=sys.stderr,
+                )
+                return 1
+            config.setdefault("stimulus", {})
+            config["stimulus"]["type"] = stimulus_name
 
         # Validate
         if not validate_config(config):
@@ -258,7 +292,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             # the requested duration; see _generate_trapezoidal_stimulus).
             stimulus_params["duration"] = args.duration
 
-        source_desc = args.config or f"--preset {preset_name}"
+        source_desc = args.config or (
+            f"--design {design_dir}" if design_dir else f"--preset {preset_name}"
+        )
         print(f"Loading pipeline from {source_desc}...")
 
         if is_canonical:
@@ -372,6 +408,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 return_intermediates=True,
                 bundle_dir=bundle_dir,
                 stimulus_config=stimulus_config_for_bundle,
+                design_manifest=design_manifest,
             )
             if bundle_dir:
                 print(f"Bundle written to {bundle_dir}")
@@ -872,11 +909,31 @@ def create_parser() -> argparse.ArgumentParser:
             "file too) the file's values override the preset (K4)."
         ),
     )
-    run_parser.add_argument(
+    preset_or_design = run_parser.add_mutually_exclusive_group()
+    preset_or_design.add_argument(
         "--preset",
         help=(
             "Name of a shipped preset (see 'sensoryforge list-presets') to "
             "use as the base config, optionally overridden by 'config'."
+        ),
+    )
+    preset_or_design.add_argument(
+        "--design",
+        help=(
+            "Path to a pressure-simulation design directory (design.json "
+            "plus one <population>.npz per population, written by that "
+            "repo's design.export.write_design) to use as the base config "
+            "via sensoryforge.io.design.load_design, optionally overridden "
+            "by 'config' (same merge path as --preset). Mutually exclusive "
+            "with --preset."
+        ),
+    )
+    run_parser.add_argument(
+        "--stimulus",
+        help=(
+            "Stimulus type to render, by name in STIMULUS_REGISTRY (see "
+            "'sensoryforge list-components'). Sets the canonical "
+            "'stimulus.type' field, overriding the config's own value."
         ),
     )
     run_parser.add_argument(

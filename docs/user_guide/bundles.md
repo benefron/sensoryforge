@@ -213,6 +213,48 @@ as `stimulus.view(T, H*W) @ W.T` using the receptor ordering documented in
 `tests/integration/test_bundle_pressure_sim_compat.py` for a re-implementation of that
 loader used to verify this.
 
+## Running a designed encoder
+
+`sensoryforge run` can build its config from a **design directory** instead of a
+preset or a hand-written config -- a hand-off pressure-simulation writes with its own
+`design.export.write_design`: `design.json` (decisions, git provenance, and one
+metadata record per population) plus one `<population>.npz` per population (`H`,
+`centers`, and optionally `sigma`/`pitch`). `sensoryforge.io.design.load_design` turns
+that directory into a canonical config whose populations use the `imported` receptive-
+field builder (see [Receptive Fields](receptive_fields.md)) to read each `.npz`
+directly -- see that module's docstring for the exact directory contract.
+
+```bash
+sensoryforge run --design tests/fixtures/design_8x8 --stimulus ramp_gaussian \
+    --duration 20 --bundle /tmp/designed_run
+```
+
+`--design` and `--preset` are mutually exclusive (both build the *base* config the
+same way; a positional config file, if also given, overrides either one through the
+same merge as `--preset`, K4). `--stimulus <name>` selects the stimulus type to
+render by name in `STIMULUS_REGISTRY` (`sensoryforge list-components` lists them),
+failing clearly on an unrecognised name rather than falling back to a default.
+
+### What lands in the bundle
+
+A run started from `--design` writes the same bundle layout as any other run
+(`config.json`, `population_NN_<NAME>.pt`, `stimuli/`, `data.h5`), plus two additions
+that only appear when a design was used:
+
+* **`config.json["design"]`** -- the design directory's `design.json`, stamped in
+  verbatim (via `sensoryforge.io.design.read_manifest`, never re-derived from the
+  config, so it is byte-for-byte what pressure-simulation wrote: `design_id`,
+  `git_sha`, `git_dirty`, `decisions`, `populations`).
+* **Per-imported-bank provenance** -- every population whose `innervation_method` is
+  `"imported"` gets three extra keys in its `population_NN_<NAME>.pt`'s `provenance`
+  dict (alongside the existing `source_path`/`source_format`/`source_files`/...):
+  `design_id` (that design's id), `source_repo` (`"pressure-simulation"`), and
+  `source_repo_git_sha` (the design's `git_sha`) -- so a bank can be traced back to
+  the exact design and commit that produced it without re-opening `config.json`.
+
+A run with no `--design` writes exactly what it always has: no `"design"` key, no
+extra provenance fields.
+
 ## The executed example
 
 [`docs/examples/read_bundle.py`](https://github.com/benefron/sensoryforge/blob/main/docs/examples/read_bundle.py)
