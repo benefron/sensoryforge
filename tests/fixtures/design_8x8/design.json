@@ -1,0 +1,79 @@
+{
+  "decisions": {
+    "arm": "deterministic_tiled",
+    "class_weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "classes": [
+      "dots",
+      "edges",
+      "braille",
+      "textures"
+    ],
+    "d_mm": 0.4,
+    "dt_ms": 1.0,
+    "grid": [
+      8,
+      8
+    ],
+    "held_out": [
+      "gratings"
+    ],
+    "held_out_role": "probe",
+    "input_gain": 1.0,
+    "k_nearest": 28,
+    "motion_prior": "isotropic",
+    "neuron_model": "adex",
+    "neuron_params": [],
+    "noise_var": 0.05,
+    "normalize": "l2",
+    "ra_filter": "ra",
+    "sa_filter": "sa",
+    "seed": 0,
+    "sigma_prior_mm": 0.3,
+    "sigma_x_route": "analytic",
+    "spacing_mm": 0.15
+  },
+  "design_id": "30481c3b9b31787e26d37e727c05c838c62a89a910272e2939b054296bad7c94",
+  "git_dirty": true,
+  "git_sha": "ea4670340064222ed567d26e9b2699bca7b2482c",
+  "populations": [
+    {
+      "N": 4,
+      "filter_method": "ra",
+      "filter_params": {
+        "tau_ms": 2.0
+      },
+      "input_gain": 1.0,
+      "model_params": {
+        "a": 0.02,
+        "b": 0.2
+      },
+      "name": "ra",
+      "neuron_model": "adex",
+      "pitch_mm": 0.6,
+      "rf_file": "ra.npz",
+      "sigma_mm": 0.1909859317102744
+    },
+    {
+      "N": 9,
+      "filter_method": "sa",
+      "filter_params": {
+        "tau_ms": 5.0
+      },
+      "input_gain": 1.0,
+      "model_params": {
+        "a": 0.02,
+        "b": 0.2
+      },
+      "name": "sa",
+      "neuron_model": "adex",
+      "pitch_mm": 0.4,
+      "rf_file": "sa.npz",
+      "sigma_mm": 0.12732395447351627
+    }
+  ]
+}
