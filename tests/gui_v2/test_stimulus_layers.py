@@ -187,9 +187,7 @@ def test_remove_move_duplicate_and_enabled(qtbot):
     editor.layer_list.setCurrentRow(0)
     editor.btn_duplicate.click()
     assert len(session.config.stimulus.layers) == 3
-    assert (
-        session.config.stimulus.layers[0] == session.config.stimulus.layers[1]
-    )
+    assert session.config.stimulus.layers[0] == session.config.stimulus.layers[1]
 
     # Move layer 2 up (swap with layer 1).
     editor.layer_list.setCurrentRow(2)
