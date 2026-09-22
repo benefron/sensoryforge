@@ -59,14 +59,31 @@ def _collect_qt_garbage(after: str = "") -> None:
     qtwidgets = sys.modules.get("PyQt5.QtWidgets")
     app = qtwidgets.QApplication.instance() if qtwidgets is not None else None
     if app is not None:
+        from PyQt5 import sip
+
         # Nothing from one test may stay on screen into the next: a leftover
         # visible window is repainted during the next test (CI once spent an
         # hour inside pyqtgraph's AxisItem painting such a window).
-        leftovers = [w for w in app.topLevelWidgets() if w.isVisible()]
-        if leftovers:
-            names = sorted({type(w).__name__ for w in leftovers})
+        # Hidden ones too: a never-shown screen still lays out its plots
+        # inside pyqtgraph's scene, and its timers still fire (CI hung in
+        # ViewBox.updateViewRange during a test that creates no widget).
+        # Only SensoryForge's, pyqtgraph's and plain QWidget containers: Qt's
+        # own hidden top-level widgets (combo-box popups, tool tips, the
+        # desktop) belong to other objects and deleting them segfaults.
+        def ours(widget) -> bool:
+            module = type(widget).__module__
+            return module.startswith(("sensoryforge", "pyqtgraph")) or type(widget) in (
+                qtwidgets.QWidget,
+                qtwidgets.QDialog,
+            )
+
+        leftovers = [
+            w for w in app.topLevelWidgets() if not sip.isdeleted(w) and ours(w)
+        ]
+        visible = sorted({type(w).__name__ for w in leftovers if w.isVisible()})
+        if visible:
             print(
-                f"\n[conftest] closing leftover windows {names} after {after}",
+                f"\n[conftest] closing leftover windows {visible} after {after}",
                 file=sys.stderr,
             )
         for widget in leftovers:
