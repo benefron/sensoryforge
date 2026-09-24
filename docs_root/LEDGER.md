@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-1a66390 · CLOSED · finding · - · 2026-09-24
+the P5 harness scored a static hold from the moment the ramp ended, counting the RA filter's 1-6 ms tail of the ramp response as hold firing; P5 forbids spikes only after the first ~30 ms, so the hold is now scored from 30 ms after the ramp
+→ commit 63d37c3
+
+## F-0913e47 · STANDING · finding · - · 2026-09-24
+pressure-simulation's C-032 150x drive gap was its decoder multiplying input_gain into SensoryForge's filtered array a second time; that array already includes the gain, so the reconciliation needed no SensoryForge change
+→ commit 63d37c3
+
 ## D-0437899 · CLOSED · decision · - · 2026-09-24
 every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention: the named gaussian, texture and moving types and their layered presets change from 30 to 1.0, and no stimulus renders negative values by default (gabor, texture)
 · Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
@@ -117,6 +125,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
 · Rejected: leaving input gain entirely to pressure-simulation's design directories | the recipe must run sensibly without a design, and one shared gain cannot put SA and RA in their bands at once
 → commit b4a853b
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
@@ -176,6 +185,7 @@ the P5 SA rate criterion is only meaningful on a drive-derived responsive set --
 RA's silence during a hold comes mainly from the RA filter differentiating a static drive to ~0, not from AdEx adaptation alone -- moving_edge's steady-drive interval, where the edge never stops moving, still yields 594 RA spikes.
 → commit 326ef6f
 · tidied 2026-09-24: a settled result, not an open problem
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
 ## F-090 · STANDING · finding · - · 2026-09-22
 SA1_tonic's R = 6.0 was selected by scanning R for the smallest value whose responsive-set ISI CV cleared 0.5, so the reported CV of 0.470 is a fitted outcome rather than an independent check; the purely principled placement (rheobase at the measured hold drive's p10) gives R ~= 4.8, within about 25%.
@@ -187,15 +197,17 @@ the RA onset "burst" that passes P5 is a single spike per responsive afferent sy
 → commit 326ef6f
 · tidied 2026-09-24: a settled result, not an open problem
 
-## F-092 · OPEN · finding · - · 2026-09-22
+## F-092 · CLOSED · finding · - · 2026-09-22
 RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz against P5's ~300 Hz) because that stimulus's RA onset drive peaks at 3.08 mA, below the 7.57 mA rheobase; reaching it needs R >~ 20, which would leave too little margin over moving_edge's 6.06 mA RA hold drive.
 → commit 326ef6f
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
-## F-093 · OPEN · finding · - · 2026-09-22
+## F-093 · CLOSED · finding · - · 2026-09-22
 under the corrected responsive-set metric the Izhikevich SA baseline reaches only 8.75 Hz on the recipe's one genuine hold, an order of magnitude below P5's 20-100 Hz band; whether that is the recipe's input_gain or the RS preset is not settled.
 → commit 326ef6f
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
 ## D-034 · CLOSED · decision · - · 2026-09-22
 stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
@@ -456,6 +468,7 @@ flake8 style debt after black (all default checks, 88 columns): 364 violations, 
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
 → commit 7da39f9
 · settled 2026-09-24: never reached by the tactile recipes -- the lowest voltage on the four benchmark stimuli is -94.1 mV at the calibrated gains (Izhikevich SA, moving_edge), 26 mV above the floor; tests/integration/test_recipe_calibration.py fails if a recipe comes within 20 mV of it
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
