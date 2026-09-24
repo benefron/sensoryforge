@@ -1103,6 +1103,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 phase=params.get("phase", 0.0),
                 sigma=params.get("sigma", 2.0),
                 device=self.device,
+                signed=params.get("signed", False),
             )
         elif texture_type == "grating":
             # Use edge_grating if available, else fallback

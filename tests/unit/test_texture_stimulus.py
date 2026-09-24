@@ -50,6 +50,7 @@ class TestGaborTexture:
             wavelength=0.2,
             orientation=0.0,
             sigma=2.0,  # Large sigma to see oscillations
+            signed=True,  # the zero-mean form; the default is non-negative
         )
 
         # Should have both positive and negative values (oscillation)
@@ -90,8 +91,9 @@ class TestGaborTexture:
             torch.linspace(-1, 1, 64), torch.linspace(-1, 1, 64), indexing="ij"
         )
 
-        phase0 = gabor_texture(xx, yy, wavelength=0.3, phase=0.0)
-        phase_pi = gabor_texture(xx, yy, wavelength=0.3, phase=math.pi)
+        # The signed form (the default is non-negative, D-0437899).
+        phase0 = gabor_texture(xx, yy, wavelength=0.3, phase=0.0, signed=True)
+        phase_pi = gabor_texture(xx, yy, wavelength=0.3, phase=math.pi, signed=True)
 
         # Phase shift of π should approximately negate the pattern
         assert torch.allclose(phase0, -phase_pi, atol=0.15)
@@ -297,7 +299,8 @@ class TestGaborTextureModule:
 
     def test_module_forward(self):
         """Test that module forward pass produces correct output."""
-        module = GaborTexture(wavelength=0.4, orientation=0.0, sigma=0.5)
+        # The signed form (the default is non-negative, D-0437899).
+        module = GaborTexture(wavelength=0.4, orientation=0.0, sigma=0.5, signed=True)
 
         xx, yy = torch.meshgrid(
             torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing="ij"

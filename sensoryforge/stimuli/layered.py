@@ -42,6 +42,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 
 from sensoryforge.stimuli.base import BaseStimulus, ParamSpec
+from sensoryforge.stimuli.texture import raised_cosine
 
 # --------------------------------------------------------------------- specs
 
@@ -364,7 +365,7 @@ def _stripes(across, p):
         # On for the part of each period centred on phase 0.
         centred = torch.minimum(phase, 2.0 * math.pi - phase)
         return (centred <= math.pi * duty).to(across.dtype)
-    return 0.5 * (1.0 + torch.cos(phase))
+    return raised_cosine(phase)
 
 
 def _grating(x, y, p):
