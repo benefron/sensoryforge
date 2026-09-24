@@ -401,3 +401,21 @@ def test_back_to_back_renders_do_not_destroy_a_running_thread(qtbot):
     with qtbot.waitSignal(preview.renderFinished, timeout=20000):
         preview.render_now()
     qtbot.waitUntil(lambda: not preview._inflight, timeout=20000)
+
+
+@pytest.mark.parametrize("stimulus_type", ["composite", "timeline"])
+def test_a_new_sub_stimulus_defaults_to_a_unit_peak(qtbot, stimulus_type):
+    """D-0437899: the Add button's sub-stimulus peaks at 1.0 (it was 30)."""
+    from sensoryforge.gui.screens.stimulus_substimuli import default_sub_stimulus
+
+    assert default_sub_stimulus()["params"]["amplitude"] == 1.0
+    # 41 x 41 has a receptor at the centre, where the sub-stimulus peaks.
+    screen = _screen(qtbot, _config("gaussian", rows=41, cols=41))
+    # Switching to a composed type seeds one default sub-stimulus.
+    screen.type_combo.setCurrentIndex(screen.type_combo.findData(stimulus_type))
+    assert len(screen.sub_stimuli.entries()) == 1
+    frames, _, _, _ = render_for_config(
+        screen._session.config, duration_ms=100.0, dt_ms=1.0
+    )
+    assert float(frames.min()) >= 0.0
+    assert float(frames.max()) == pytest.approx(1.0, rel=0.01)
