@@ -143,6 +143,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 → commit b4a853b
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 ↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
@@ -222,12 +223,14 @@ RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz agains
 → commit 326ef6f
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 ✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 
 ## F-093 · CLOSED · finding · - · 2026-09-22
 under the corrected responsive-set metric the Izhikevich SA baseline reaches only 8.75 Hz on the recipe's one genuine hold, an order of magnitude below P5's 20-100 Hz band; whether that is the recipe's input_gain or the RS preset is not settled.
 → commit 326ef6f
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 ✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 
 ## D-034 · CLOSED · decision · - · 2026-09-22
 stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
