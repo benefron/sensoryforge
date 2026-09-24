@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-073fc19 · STANDING · finding · - · 2026-09-24
+before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
+→ commit cf2be50
+
 ## F-6c6deff · STANDING · finding · - · 2026-09-24
 at their defaults on a 40x40 grid at 0.15 mm (no receptor at the centre), repeated_pattern's six overlapping unit copies peak at 3.85 and the other unit-amplitude types sample peaks of 0.97-1.0 except gabor (0.55); on a 41x41 grid each single-element type peaks at exactly 1.0
 → commit 3237de3
@@ -117,6 +121,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 · Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
 → commit b4a853b
 ↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
+↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
 
 ## D-ea0f017 · CLOSED · decision · - · 2026-09-24
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
@@ -703,4 +708,5 @@ stimulus types disagree on amplitude scale by about 30x at their defaults (gauss
 → root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 ↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
+↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
 
