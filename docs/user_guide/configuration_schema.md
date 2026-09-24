@@ -32,7 +32,7 @@ Configuration for a single receptor grid layer.
 | `rows` | int | `None` | Number of rows (for grid arrangement) |
 | `cols` | int | `None` | Number of columns (for grid arrangement) |
 | `spacing` | float | `0.15` | Spacing between receptors in mm |
-| `density` | float | `None` | Receptor density in receptors/mm² (for Poisson/hex) |
+| `density` | float | `None` | Receptor density in receptors/mm², for `"poisson"`, `"hex"` and `"blue_noise"` (D-88b4b41): sets the receptor count to `density` x the `rows`/`cols`/`spacing` extent, overriding the `rows` x `cols` count; unset derives the count from `rows` x `cols` as before. `ValueError` if set on `"grid"`/`"jittered_grid"` (spacing already fixes their count) or if not positive |
 | `center_x` | float | `0.0` | X-coordinate of grid center in mm |
 | `center_y` | float | `0.0` | Y-coordinate of grid center in mm |
 | `color` | list[int] | `[66, 135, 245, 200]` | RGBA color tuple [r, g, b, a] for visualization |

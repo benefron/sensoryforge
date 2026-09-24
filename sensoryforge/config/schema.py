@@ -222,10 +222,23 @@ def grid_config_param_specs() -> List[ParamSpec]:
             tooltip="Receptor pitch in mm.",
             group="Geometry",
         ),
-        # `density` is deliberately absent: build_grid sizes every
-        # arrangement from rows x cols x spacing and never reads it (measured:
-        # 5 and 50 mm^-2 give the same receptors for every arrangement), so a
-        # form row for it would be a control that does nothing.
+        ParamSpec(
+            "density",
+            label="Density",
+            dtype="float",
+            default=None,
+            min_val=0.001,
+            max_val=10000.0,
+            unit="mm⁻²",
+            tooltip=(
+                "Receptor density for poisson/hex/blue_noise: sets the "
+                "receptor count to density x the rows/cols/spacing extent "
+                "(D-88b4b41). Unset (auto) derives the count from rows x "
+                "cols instead. Not usable with grid/jittered_grid, where "
+                "spacing already fixes the count."
+            ),
+            group="Geometry",
+        ),
         ParamSpec(
             "center_x",
             label="Center X",

@@ -135,6 +135,7 @@ the quantitative afferent comparison uses touchsim output generated once in a th
 GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
 · Rejected: removing GridConfig.density | irregular receptor layouts are naturally specified in receptors per mm2, the unit afferent densities are published in
 → commit b4a853b
+↔ 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
 
 ## D-039 · CLOSED · decision · - · 2026-09-22
 upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
@@ -229,10 +230,11 @@ with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycle
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
 → commit 301af19
 
-## F-081 · OPEN · finding · - · 2026-09-21
+## F-081 · CLOSED · finding · - · 2026-09-21
 GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
 → commit 8674a6a
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
 
 ## F-082 · CLOSED · finding · - · 2026-09-21
 sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
@@ -711,4 +713,3 @@ stimulus types disagree on amplitude scale by about 30x at their defaults (gauss
 → measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
 → root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
-

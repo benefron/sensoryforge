@@ -190,10 +190,49 @@ class TestArrangementSwitch:
         assert screen.preview.receptor_count() == expected.shape[0]
         assert screen.preview.receptor_count() != before
 
-    def test_no_control_is_offered_for_a_parameter_the_engine_ignores(self, screen):
-        # GridConfig.density changes nothing in build_grid for any arrangement.
-        with pytest.raises(KeyError):
-            screen._param_form.widget_for("density")
+    def test_density_disabled_for_grid_and_jittered_grid_enabled_otherwise(
+        self, qtbot, screen, session
+    ):
+        # D-88b4b41 / F-081: density sizes poisson/hex/blue_noise but is an
+        # error on grid/jittered_grid, where spacing already fixes the count.
+        arrangement_widget = screen._param_form.widget_for("arrangement")
+        density_widget = screen._param_form.widget_for("density")
+
+        for name in ("grid", "jittered_grid"):
+            arrangement_widget.setCurrentIndex(arrangement_widget.findData(name))
+            assert not density_widget.isEnabled(), name
+
+        for name in ("hex", "poisson", "blue_noise"):
+            arrangement_widget.setCurrentIndex(arrangement_widget.findData(name))
+            assert density_widget.isEnabled(), name
+
+    def test_density_control_writes_through_and_scales_receptor_count(
+        self, qtbot, screen, session
+    ):
+        arrangement_widget = screen._param_form.widget_for("arrangement")
+        arrangement_widget.setCurrentIndex(arrangement_widget.findData("poisson"))
+        _wait_debounce(qtbot)
+
+        density_widget = screen._param_form.widget_for("density")
+        assert density_widget.isEnabled()
+
+        density_widget.setValue(5.0)
+        density_widget.editingFinished.emit()
+        assert session.config.grids[0].density == 5.0
+        _wait_debounce(qtbot)
+        low_count = screen.preview.receptor_count()
+
+        density_widget.setValue(50.0)
+        density_widget.editingFinished.emit()
+        assert session.config.grids[0].density == 50.0
+        _wait_debounce(qtbot)
+        high_count = screen.preview.receptor_count()
+
+        expected = build_grid(
+            session.config.grids[0], device="cpu"
+        ).get_all_coordinates()
+        assert screen.preview.receptor_count() == expected.shape[0]
+        assert high_count > low_count
 
     @pytest.mark.parametrize(
         "arrangement", ["grid", "hex", "poisson", "jittered_grid", "blue_noise"]
