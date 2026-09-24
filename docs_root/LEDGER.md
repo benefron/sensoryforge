@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-de17e32 · STANDING · finding · - · 2026-09-24
+the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
+→ commit 74f7d2e
+
+## F-44f9142 · STANDING · finding · - · 2026-09-24
+PyQt 5.15.11 segfaults in PyQtSlot::call when the cyclic collector frees a functools.partial slot that a queued cross-thread signal has yet to deliver; StimulusPreview's render-worker connections formed such a cycle through the preview
+→ commit 74f7d2e
+
 ## D-0437899 · CLOSED · decision · - · 2026-09-24
 every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention: the named gaussian, texture and moving types and their layered presets change from 30 to 1.0, and no stimulus renders negative values by default (gabor, texture)
 · Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
@@ -209,9 +217,10 @@ every rendered stimulus changes over time: a still stimulus ramps up and down ov
 render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
 → commit 6956f81
 
-## F-085 · OPEN · finding · - · 2026-09-21
+## F-085 · CLOSED · finding · - · 2026-09-21
 with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
 → commit 32646fb
+✓ closed by 74f7d2e fix(gui): stop reference cycles from deciding when a dropped window dies
 
 ## D-032 · CLOSED · decision · - · 2026-09-21
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
