@@ -140,7 +140,7 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 |---|---|---|---|
 | `input_gain` | `PopulationConfig`, GUI Populations → Readout & noise | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
 | SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
-| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | per type: 30 mA for `gaussian`, `texture`, `moving`; about 1 for `moving_edge`, `braille`, the gratings, `ramp_gaussian` | The unit-peak types drive few or no spikes at gain 50; raise their amplitude (ledger F-083) |
+| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | 1.0 for every stimulus type: a unit peak, pressure-simulation's convention. `repeated_pattern`'s six overlapping copies each peak at 1.0 and sum to about 3.9 | At gain 50 a unit peak is borderline (table above): raise `amplitude` or `input_gain` if a population is silent (ledger F-083) |
 
 ---
 

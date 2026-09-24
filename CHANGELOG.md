@@ -6,7 +6,18 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed (behaviour — re-run any saved results after upgrading)
+
+- **Every stimulus defaults to a peak amplitude of 1.0** (D-0437899, F-083), pressure-simulation's
+  convention. `gaussian`, `texture`, `moving`, `repeated_pattern` (each copy) and the legacy
+  `trapezoidal`, `step` and `ramp` generators defaulted to 30; their layered presets, the GUI's
+  default composite/timeline sub-stimulus and `StimulusConfig.amplitude` now default to 1.0 too.
+  A config that sets `amplitude` is unaffected. At `input_gain` 50 a unit peak is borderline, so
+  a config that relied on the old default needs `amplitude: 30` to run as before.
+- **`gabor` and `texture` no longer render negative pressure by default.** They draw
+  amplitude × Gaussian window × (1 + cos(carrier)) / 2, the layered Gabor's raised cosine;
+  `signed: true` (in the stimulus `params`, or `signed=True` in `gabor_texture()`,
+  `GaborTexture` and `Stimulus.gabor()`) restores the zero-mean form exactly.
 
 ## [1.0.0] - 2026-09-17
 
