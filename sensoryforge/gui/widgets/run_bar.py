@@ -11,7 +11,6 @@ to a controller (or, in tests, a small stub with the same signals).
 
 from __future__ import annotations
 
-from functools import partial
 from typing import Optional
 
 from PyQt5 import QtCore, QtWidgets

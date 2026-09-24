@@ -19,9 +19,10 @@ import torch.nn as nn
 
 if TYPE_CHECKING:
     from sensoryforge.core.rf_bank import ReceptiveFieldBank
-    from .grid import GridManager, ReceptorGrid
+    from .grid import GridManager
 
-# Type alias for innervation methods (distance_weighted removed; use use_distance_weights option)
+# Type alias for innervation methods (distance_weighted removed; use
+# use_distance_weights option)
 InnervationMethod = Literal["gaussian", "one_to_one", "uniform", "distance_weighted"]
 
 
@@ -356,7 +357,9 @@ _RF_PARAM_SPECS: Dict[str, Dict[str, Any]] = {
     "use_distance_weights": dict(
         dtype="bool",
         group="Weights",
-        tooltip="Weight each connection by its distance (analytic) instead of at random.",
+        tooltip=(
+            "Weight each connection by its distance (analytic) instead of at " "random."
+        ),
     ),
     "decay_function": dict(
         dtype="str",
@@ -660,8 +663,8 @@ class UniformInnervation(BaseInnervation):
     Each receptor connects to exactly one neuron (its nearest neighbor).
     This creates non-overlapping, Voronoi-like receptive fields. Multiple
     receptors may connect to the same neuron. Connection weights are uniform (1.0)
-    or distance-weighted when use_distance_weights=True. Supports far_connection_fraction
-    to add a fraction of connections from distant receptors.
+    or distance-weighted when use_distance_weights=True. Supports
+    far_connection_fraction to add a fraction of connections from distant receptors.
     """
 
     @classmethod

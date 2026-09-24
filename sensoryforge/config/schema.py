@@ -271,7 +271,10 @@ def grid_config_param_specs() -> List[ParamSpec]:
             min_val=0,
             max_val=2**31 - 1,
             unit="",
-            tooltip="Seeds the random jitter of jittered_grid/blue_noise/poisson (F-050).",
+            tooltip=(
+                "Seeds the random jitter of jittered_grid/blue_noise/poisson "
+                "(F-050)."
+            ),
             group="Reproducibility",
             advanced=True,
         ),

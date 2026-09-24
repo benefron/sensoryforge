@@ -7,9 +7,7 @@ Covers:
   - HDF5 saver handles both flat (legacy) and nested-flattened (canonical) key formats
 """
 
-import pytest
 import torch
-from unittest.mock import patch, MagicMock
 
 from sensoryforge.core.batch_executor import BatchExecutor
 

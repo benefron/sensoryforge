@@ -1,7 +1,5 @@
 """Unit tests for canonical configuration schema."""
 
-import pytest
-import yaml
 from sensoryforge.config.schema import (
     SensoryForgeConfig,
     GridConfig,

@@ -6,8 +6,6 @@ extended stimuli, adaptive solvers) via YAML configuration and CLI.
 
 import pytest
 import torch
-import tempfile
-from pathlib import Path
 import yaml
 import sys
 

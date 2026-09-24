@@ -2,7 +2,6 @@ import math
 from typing import Any, Dict, List
 
 import torch
-import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
 from sensoryforge.stimuli.base import ParamSpec
@@ -370,7 +369,8 @@ class IzhikevichNeuronTorch(BaseNeuron):
                     std=torch.full(shape, std, dtype=dtype, device=device),
                 )
             else:
-                # Handle tensor/list inputs that might need broadcasting or are already correct
+                # Handle tensor/list inputs that might need broadcasting or are
+                # already correct
                 if val is not None:
                     if not torch.is_tensor(val):
                         try:

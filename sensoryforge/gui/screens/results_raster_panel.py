@@ -23,7 +23,7 @@ import pyqtgraph as pg
 from PyQt5 import QtWidgets
 
 from sensoryforge.gui import theme
-from sensoryforge.gui.screens.results_data import PopulationView, ResultsView
+from sensoryforge.gui.screens.results_data import ResultsView
 from sensoryforge.gui.widgets import plot_factory
 
 #: Spike events (time, neuron) pairs drawn before the raster decimates.

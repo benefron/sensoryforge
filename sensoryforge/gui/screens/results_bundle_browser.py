@@ -54,7 +54,10 @@ class OpenBundleDialog(QtWidgets.QDialog):
             duration_text = (
                 f"{duration_ms:.0f} ms" if duration_ms else "duration unknown"
             )
-            label = f"{name}  ({', '.join(populations) or 'no populations'}, {duration_text})"
+            label = (
+                f"{name}  ({', '.join(populations) or 'no populations'}, "
+                f"{duration_text})"
+            )
             item = QtWidgets.QListWidgetItem(label)
             item.setData(QtWidgets.QListWidgetItem.UserType, str(run_dir))
             self.list_widget.addItem(item)

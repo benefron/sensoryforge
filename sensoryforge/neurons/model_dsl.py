@@ -31,7 +31,7 @@ Example:
 
 import re
 import math
-from typing import Dict, List, Optional, Tuple, Any, Union, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING
 import torch
 import torch.nn as nn
 
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 # Check for sympy availability and provide helpful error message
 try:
     import sympy
-    from sympy import symbols, sympify, diff, Symbol
+    from sympy import Symbol
     from sympy.parsing.sympy_parser import parse_expr
 
     SYMPY_AVAILABLE = True
@@ -402,11 +402,13 @@ class NeuronModel:
             >>> neuron = model.compile(dt=0.1, device='cuda')
             >>> v_trace, spikes = neuron(input_current)
         """
-        # Accept BaseSolver instances for forward-compatibility (resolves ReviewFinding#H8)
+        # Accept BaseSolver instances for forward-compatibility (resolves
+        # ReviewFinding#H8)
         solver_name = solver if isinstance(solver, str) else "euler"
         if solver_name != "euler":
             raise ValueError(
-                f"Unsupported solver: '{solver_name}'. Only 'euler' is currently supported."
+                f"Unsupported solver: '{solver_name}'. Only 'euler' is currently "
+                "supported."
             )
 
         return _CompiledNeuronModule(
@@ -633,7 +635,8 @@ class _CompiledNeuronModule(nn.Module):
             # Handle tensors
             if not torch.is_tensor(val):
                 return torch.tensor(val, dtype=dtype, device=device)
-            # If complex tensor, take real part (imaginary should be negligible/zero for real equations)
+            # If complex tensor, take real part (imaginary should be negligible/zero
+            # for real equations)
             if torch.is_complex(val):
                 return val.real.to(dtype=dtype, device=device)
             return val.to(dtype=dtype, device=device)

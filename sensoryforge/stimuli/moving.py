@@ -259,7 +259,8 @@ class MovingStimulus(torch.nn.Module):
 
     Attributes:
         trajectory: Tensor of (x, y) positions over time, shape [num_steps, 2].
-        stimulus_generator: Callable that generates spatial stimulus given (xx, yy, cx, cy).
+        stimulus_generator: Callable that generates spatial stimulus given (xx, yy,
+            cx, cy).
         amplitude_profile: Optional temporal amplitude modulation, shape [num_steps].
 
     Example:
@@ -272,7 +273,9 @@ class MovingStimulus(torch.nn.Module):
         ...     return gaussian_stimulus(xx, yy, cx, cy, amplitude=1.0, sigma=0.2)
         >>> moving = MovingStimulus(trajectory, gauss_gen)
         >>> # Generate on grid
-        >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 32), torch.linspace(-2, 2, 32), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-2, 2, 32), torch.linspace(-2, 2, 32), indexing='ij'
+        ... )
         >>> temporal_stimulus = moving(xx, yy)
         >>> temporal_stimulus.shape
         torch.Size([50, 32, 32])
@@ -289,11 +292,12 @@ class MovingStimulus(torch.nn.Module):
         """Initialize moving stimulus with trajectory and generator.
 
         Args:
-            trajectory: Tensor of (x, y) positions over time, shape [num_steps, 2]. Units: mm.
+            trajectory: Tensor of (x, y) positions over time, shape [num_steps, 2].
+                Units: mm.
             stimulus_generator: Function that takes (xx, yy, center_x, center_y) and
                 returns a spatial stimulus pattern.
-            amplitude_profile: Optional temporal amplitude modulation, shape [num_steps].
-                If None, uses constant amplitude of 1.0.
+            amplitude_profile: Optional temporal amplitude modulation, shape
+                [num_steps]. If None, uses constant amplitude of 1.0.
 
         Raises:
             ValueError: If trajectory doesn't have shape [num_steps, 2].
@@ -404,7 +408,9 @@ def tap_sequence(
     Example:
         >>> import torch
         >>> from sensoryforge.stimuli.gaussian import gaussian_stimulus
-        >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij'
+        ... )
         >>> def gen(xx, yy, cx, cy):
         ...     return gaussian_stimulus(xx, yy, cx, cy, 1.0, 0.2)
         >>> taps = tap_sequence((0.0, 0.0), 3, 10, 5, gen, xx, yy)

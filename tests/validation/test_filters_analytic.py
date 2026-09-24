@@ -12,7 +12,8 @@ Perturbation proofs (recorded 2026-09-16, applied in place to
 * SA: changing the ``I_SA`` update in ``_forward_single_step`` (line 156)
   from ``self.I_SA + dI_SA_dt * self.dt`` to
   ``self.I_SA + dI_SA_dt * self.dt * 0.5`` (a bug that halves the effective
-  decay step) makes ``test_sa_filter_step_response_converges_to_two_exponential_solution``
+  decay step) makes
+  ``test_sa_filter_step_response_converges_to_two_exponential_solution``
   fail on the finest-dt absolute-error bound: 0.0123 vs the 5e-4 tolerance
   (35x over).
 * RA: changing ``self.k3 * torch.abs(dI_in_dt)`` in ``_forward_single_step``
@@ -44,7 +45,8 @@ def _sa_analytic_step_response(
     exact solution (standard two-compartment step response) is
 
         x(t)    = k1 * (1 - exp(-t/tau_r))
-        I_SA(t) = k1 * [1 - (tau_d*exp(-t/tau_d) - tau_r*exp(-t/tau_r)) / (tau_d - tau_r)]
+        I_SA(t) = k1 * [1 - (tau_d*exp(-t/tau_d) - tau_r*exp(-t/tau_r))
+                        / (tau_d - tau_r)]
 
     (for tau_r != tau_d; the filter defaults keep them well separated).
     """

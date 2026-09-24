@@ -6,8 +6,6 @@ with canonical configs and produces consistent results.
 
 import pytest
 import torch
-import tempfile
-from pathlib import Path
 
 from sensoryforge.config.schema import (
     SensoryForgeConfig,

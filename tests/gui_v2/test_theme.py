@@ -9,10 +9,10 @@ import unittest.mock
 
 pytest.importorskip("PyQt5")
 
-import pyqtgraph as pg
-from PyQt5 import QtCore, QtGui, QtWidgets
+import pyqtgraph as pg  # noqa: E402
+from PyQt5 import QtCore, QtGui  # noqa: E402
 
-from sensoryforge.gui import theme
+from sensoryforge.gui import theme  # noqa: E402
 
 pytestmark = pytest.mark.gui
 

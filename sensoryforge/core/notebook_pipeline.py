@@ -441,7 +441,7 @@ class NotebookTactileEncodingPipeline(nn.Module):
         ra_total_spikes = ra_spikes_sorted.sum()
         sa2_total_spikes = sa2_spikes_sorted.sum()
 
-        print(f"\nSpike Summary:")
+        print("\nSpike Summary:")
         print(f"  SA neurons: {sa_total_spikes} total spikes")
         print(f"  RA neurons: {ra_total_spikes} total spikes")
         print(f"  SA2 neurons: {sa2_total_spikes} total spikes")

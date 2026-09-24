@@ -16,7 +16,6 @@ The fix: the adapter now emits ``grid_size = (rows, cols)`` — a tuple, which
 """
 
 import pytest
-import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
@@ -129,7 +128,8 @@ def _canonical_neuron_count_config(
 
 @pytest.mark.parametrize("rows,cols", [(4, 4), (3, 5)])
 def test_adapter_does_not_square_neuron_counts(rows, cols):
-    """Regression for F-025: the adapter must build rows*cols neurons, not (rows*cols)**2.
+    """Regression for F-025: the adapter must build rows*cols neurons, not
+    (rows*cols)**2.
 
     Before the fix, ``_canonical_to_legacy_config`` wrote ``neuron_rows * neuron_cols``
     into ``neurons.sa_neurons``, which ``InnervationModule`` then squares again
@@ -150,7 +150,8 @@ def test_adapter_does_not_square_neuron_counts(rows, cols):
 
 
 def test_legacy_config_mistaken_total_neuron_count_raises():
-    """Regression for F-023: a legacy per-row key that reads like a total must fail fast.
+    """Regression for F-023: a legacy per-row key that reads like a total must fail
+    fast.
 
     ``neurons.sa_neurons`` is per-row (squared by InnervationModule), so passing
     what looks like a total count (e.g. 100000, meaning "100000 SA neurons") would

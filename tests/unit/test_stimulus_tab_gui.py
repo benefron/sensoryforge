@@ -9,13 +9,12 @@ Run with:
 
 from __future__ import annotations
 
-import importlib
 import sys
 import types
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -161,8 +160,6 @@ def _pyqt5_stub_environment():
 # ---------------------------------------------------------------------------
 # Lightweight StimulusConfig fixture (without importing the full tab)
 # ---------------------------------------------------------------------------
-
-from dataclasses import dataclass, field  # noqa: E402
 
 
 @dataclass
@@ -821,8 +818,10 @@ class TestMotionTypeDispatchLogic:
         assert self._dispatch("slide", "gaussian") == "trajectory"
 
     def test_circular_with_moving_type_does_not_dispatch_to_trajectory(self):
-        """Circular motion_type with stimulus_type=moving does NOT dispatch to trajectory."""
-        # Moving type has its own generator; trajectory is only for non-moving spatial types
+        """Circular motion_type with stimulus_type=moving does NOT dispatch to
+        trajectory."""
+        # Moving type has its own generator; trajectory is only for non-moving
+        # spatial types
         assert self._dispatch("circular", "moving") == "moving_frames"
 
     def test_static_falls_through_to_time_loop(self):
@@ -932,7 +931,8 @@ class TestCircularMotionTrajectory:
         )
 
     def test_circular_trajectory_not_linear(self):
-        """Circular trajectory is NOT a straight line (x should vary non-monotonically)."""
+        """Circular trajectory is NOT a straight line (x should vary
+        non-monotonically)."""
         circular_motion, _ = self._import_circular_motion()
         traj = circular_motion(
             center=(0.0, 0.0),
@@ -945,9 +945,10 @@ class TestCircularMotionTrajectory:
         # A full circle has x values that go +1, 0, -1, 0, +1 — not monotone
         is_monotone_increasing = _torch.all(x_vals[1:] >= x_vals[:-1])
         is_monotone_decreasing = _torch.all(x_vals[1:] <= x_vals[:-1])
-        assert not (
-            is_monotone_increasing or is_monotone_decreasing
-        ), "Circular trajectory x-coordinates are monotone — it's producing a line, not a circle"
+        assert not (is_monotone_increasing or is_monotone_decreasing), (
+            "Circular trajectory x-coordinates are monotone — it's producing a "
+            "line, not a circle"
+        )
 
     def test_circular_trajectory_completes_full_circle(self):
         """A full-circle trajectory has first and last positions nearly the same."""
@@ -983,7 +984,8 @@ class TestCircularMotionTrajectory:
         assert _torch.allclose(traj[-1], _torch.tensor([3.0, 4.0]), atol=1e-5)
 
     def test_slide_trajectory_is_monotone(self):
-        """slide_trajectory x-coordinates are monotonically increasing for horizontal slide."""
+        """slide_trajectory x-coordinates are monotonically increasing for
+        horizontal slide."""
         _, slide_trajectory = self._import_circular_motion()
         traj = slide_trajectory(start=(0.0, 0.0), end=(5.0, 0.0), num_steps=30)
         x_vals = traj[:, 0]
@@ -1005,7 +1007,8 @@ class TestConfigFromPayloadAllFields:
     """
 
     def _config_from_payload(self, payload: dict) -> StimulusConfig:
-        """Replicate spiking_tab._config_from_payload logic using local StimulusConfig."""
+        """Replicate spiking_tab._config_from_payload logic using local
+        StimulusConfig."""
 
         def _tuple(values, default):
             if not isinstance(values, (list, tuple)):
@@ -1187,7 +1190,6 @@ class TestCompositeStackTimeline:
         composition_mode: str = "add",
     ) -> dict:
         """Replicate the key subset of _build_composite_frames logic."""
-        import numpy as np
 
         use_timeline = any(c.onset_ms > 0.0 or c.duration_ms > 0.0 for c in configs)
 

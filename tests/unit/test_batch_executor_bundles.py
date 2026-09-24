@@ -4,7 +4,6 @@ flags all exist on the CLI parser (Wave J, J3, F-011, F-013).
 
 import shlex
 
-import pytest
 import torch
 
 from sensoryforge.cli import create_parser
@@ -131,14 +130,14 @@ class TestSlurmScriptFlagsExist:
         # Find the (possibly line-continued) `sensoryforge batch ...` call.
         lines = script.splitlines()
         start = next(
-            i for i, l in enumerate(lines) if l.strip().startswith("sensoryforge")
+            i for i, line in enumerate(lines) if line.strip().startswith("sensoryforge")
         )
         call_lines = [lines[start]]
         i = start
         while call_lines[-1].rstrip().endswith("\\"):
             i += 1
             call_lines.append(lines[i])
-        joined = " ".join(l.rstrip(" \\") for l in call_lines)
+        joined = " ".join(line.rstrip(" \\") for line in call_lines)
 
         # Substitute the shell variables the array job would have set.
         joined = joined.replace("$STIM_IDX", "0").replace(

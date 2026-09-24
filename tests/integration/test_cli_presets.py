@@ -5,11 +5,8 @@
 
 from __future__ import annotations
 
-import io
 import sys
-from contextlib import redirect_stdout
 
-import pytest
 import yaml
 
 from sensoryforge.cli import main as cli_main

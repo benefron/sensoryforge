@@ -501,7 +501,10 @@ class RAFilterTorch(BaseFilter):
                 max_val=200.0,
                 unit="ms",
                 group="Temporal",
-                help="Adaptation time constant (ms); 8 ms follows Kandel Ch. 21 (D-015).",
+                help=(
+                    "Adaptation time constant (ms); 8 ms follows Kandel Ch. 21 "
+                    "(D-015)."
+                ),
             ),
             ParamSpec(
                 "k3",

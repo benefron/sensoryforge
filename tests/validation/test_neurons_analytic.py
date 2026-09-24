@@ -120,7 +120,8 @@ def _empirical_rheobase(
 
 
 def test_rheobase_matches_closed_form_bifurcation():
-    """RS and FS empirical spiking thresholds match the closed-form saddle-node rheobase.
+    """RS and FS empirical spiking thresholds match the closed-form saddle-node
+    rheobase.
 
     See module docstring for the derivation, reference value (4.0 mA for
     b=0.2), and the 0.5 mA tolerance's justification.
@@ -153,7 +154,8 @@ def test_below_rheobase_neither_preset_fires():
 
 
 def test_fs_sustains_much_higher_rate_than_rs_at_same_suprathreshold_current():
-    """FS fires at a much higher steady rate than RS for the same drive (Izhikevich 2003).
+    """FS fires at a much higher steady rate than RS for the same drive
+    (Izhikevich 2003).
 
     Reference: Izhikevich (2003) describes FS neurons as capable of
     sustained firing into the "several hundred Hz" range, distinctly above

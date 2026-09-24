@@ -157,7 +157,8 @@ def _run_cli_subprocess(config_dict: dict, tmp_path: Path) -> torch.Tensor:
         timeout=120,
     )
     assert result.returncode == 0, (
-        f"CLI subprocess failed (arrangement={config_dict['grids'][0]['arrangement']}):\n"
+        f"CLI subprocess failed "
+        f"(arrangement={config_dict['grids'][0]['arrangement']}):\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     bundle = load_bundle(bundle_dir)

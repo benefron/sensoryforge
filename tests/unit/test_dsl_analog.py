@@ -17,11 +17,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _hand_written_leaky_integrator(I, dt, v_rest, R, tau_m, v0):
+def _hand_written_leaky_integrator(drive, dt, v_rest, R, tau_m, v0):
     """Reference Forward-Euler integration of dv/dt = (-(v-v_rest)+R*I)/tau_m.
 
     Args:
-        I: Input current array [steps, features].
+        drive: Input current array [steps, features].
         dt: Time step (ms).
         v_rest, R, tau_m: Model parameters.
         v0: Initial voltage.
@@ -29,12 +29,12 @@ def _hand_written_leaky_integrator(I, dt, v_rest, R, tau_m, v0):
     Returns:
         v_trace array [steps+1, features].
     """
-    steps, features = I.shape
+    steps, features = drive.shape
     v = np.full(features, v0, dtype=np.float64)
     trace = np.zeros((steps + 1, features), dtype=np.float64)
     trace[0] = v
     for t in range(steps):
-        dv = (-(v - v_rest) + R * I[t]) / tau_m
+        dv = (-(v - v_rest) + R * drive[t]) / tau_m
         v = v + dt * dv
         trace[t + 1] = v
     return trace
@@ -51,8 +51,8 @@ class TestAnalogDSLModel:
         assert model.reset_str is None
 
         neuron = model.compile(dt=0.5, device="cpu")
-        I = torch.randn(2, 20, 3, dtype=torch.float64) * 5.0
-        state_trace, spikes = neuron(I)
+        drive = torch.randn(2, 20, 3, dtype=torch.float64) * 5.0
+        state_trace, spikes = neuron(drive)
 
         assert spikes is None
         assert tuple(state_trace.shape) == (2, 21, 3)
@@ -68,12 +68,12 @@ class TestAnalogDSLModel:
         neuron = model.compile(dt=dt, device="cpu")
 
         torch.manual_seed(0)
-        I = torch.randn(1, 50, 4, dtype=torch.float64) * 3.0
-        state_trace, spikes = neuron(I)
+        drive = torch.randn(1, 50, 4, dtype=torch.float64) * 3.0
+        state_trace, spikes = neuron(drive)
 
         assert spikes is None
         expected = _hand_written_leaky_integrator(
-            I[0].numpy(), dt, v_rest, R, tau_m, v0
+            drive[0].numpy(), dt, v_rest, R, tau_m, v0
         )
         actual = state_trace[0].numpy()
         np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-6)
@@ -89,8 +89,8 @@ class TestAnalogDSLModel:
         neuron = model.compile(dt=1.0, device="cpu")
 
         torch.manual_seed(42)
-        I = torch.ones(1, 30, 2, dtype=torch.float64) * 500.0
-        v_trace, spikes = neuron(I)
+        drive = torch.ones(1, 30, 2, dtype=torch.float64) * 500.0
+        v_trace, spikes = neuron(drive)
 
         assert spikes is not None
         assert spikes.dtype == torch.bool

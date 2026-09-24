@@ -313,7 +313,8 @@ class MovingStimulus(BaseStimulus):
         # Get current position from trajectory
         if self.current_step >= len(self.trajectory):
             raise RuntimeError(
-                f"Current step {self.current_step} exceeds trajectory length {len(self.trajectory)}"
+                f"Current step {self.current_step} exceeds trajectory length "
+                f"{len(self.trajectory)}"
             )
 
         position = self.trajectory[self.current_step]
@@ -1144,7 +1145,8 @@ def with_motion(
     Args:
         stimulus: Base stimulus to add motion to.
         motion_type: Type of motion ('linear', 'circular', 'stationary').
-        **motion_params: Motion-specific parameters (start, end, center, radius, num_steps).
+        **motion_params: Motion-specific parameters (start, end, center, radius,
+            num_steps).
 
     Returns:
         MovingStimulus wrapping the base stimulus with motion.

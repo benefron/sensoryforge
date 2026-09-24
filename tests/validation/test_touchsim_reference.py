@@ -120,7 +120,8 @@ def test_sa1_sustains_firing_through_the_hold():
 
 
 def test_ra_fires_mainly_at_onset_and_offset_and_is_silent_during_hold():
-    """RA1 (touchsim's 'RA') is silent during the hold at every depth, near the probe."""
+    """RA1 (touchsim's 'RA') is silent during the hold at every depth, near the
+    probe."""
     ref = _load_fixture()
     by_class = _afferents_by_class_near_probe(ref)
     assert "RA" in by_class
@@ -135,7 +136,8 @@ def test_ra_fires_mainly_at_onset_and_offset_and_is_silent_during_hold():
         f"{[e['depth_mm'] for e in ref['by_depth']]}"
     )
 
-    # At the largest (clearly suprathreshold) depth, RA1 should respond to both transients.
+    # At the largest (clearly suprathreshold) depth, RA1 should respond to both
+    # transients.
     entry = ref["by_depth"][-1]
     rates = entry["rates_hz"][ra_id]
     assert rates["onset"] > 0.0, "RA1 should respond to the ramp-up transient"

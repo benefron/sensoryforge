@@ -7,7 +7,9 @@ edge gratings, and noise-based textures.
 Example:
     >>> import torch
     >>> from sensoryforge.stimuli.texture import gabor_texture, edge_grating
-    >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 50), torch.linspace(-2, 2, 50), indexing='ij')
+    >>> xx, yy = torch.meshgrid(
+    ...     torch.linspace(-2, 2, 50), torch.linspace(-2, 2, 50), indexing='ij'
+    ... )
     >>> gabor = gabor_texture(xx, yy, wavelength=0.5, orientation=0.0)
     >>> grating = edge_grating(xx, yy, orientation=0.0, spacing=0.6)
 """
@@ -90,8 +92,12 @@ def gabor_texture(
 
     Example:
         >>> import torch
-        >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 64), torch.linspace(-1, 1, 64), indexing='ij')
-        >>> texture = gabor_texture(xx, yy, wavelength=0.3, orientation=math.pi/4, sigma=0.4)
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-1, 1, 64), torch.linspace(-1, 1, 64), indexing='ij'
+        ... )
+        >>> texture = gabor_texture(
+        ...     xx, yy, wavelength=0.3, orientation=math.pi/4, sigma=0.4
+        ... )
         >>> texture.shape
         torch.Size([64, 64])
     """
@@ -164,8 +170,12 @@ def edge_grating(
 
     Example:
         >>> import torch
-        >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij')
-        >>> grating = edge_grating(xx, yy, orientation=math.pi/6, spacing=0.5, count=7)
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij'
+        ... )
+        >>> grating = edge_grating(
+        ...     xx, yy, orientation=math.pi/6, spacing=0.5, count=7
+        ... )
         >>> grating.shape
         torch.Size([64, 64])
     """
@@ -297,7 +307,9 @@ class GaborTexture(torch.nn.Module):
     Example:
         >>> import torch
         >>> gabor = GaborTexture(wavelength=0.4, orientation=math.pi/3)
-        >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij'
+        ... )
         >>> texture = gabor(xx, yy)
         >>> texture.shape
         torch.Size([32, 32])
@@ -491,7 +503,9 @@ class EdgeGrating(torch.nn.Module):
     Example:
         >>> import torch
         >>> grating = EdgeGrating(orientation=0.0, spacing=0.5, count=10)
-        >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij'
+        ... )
         >>> pattern = grating(xx, yy)
         >>> pattern.shape
         torch.Size([64, 64])

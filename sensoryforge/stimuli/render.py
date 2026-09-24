@@ -1,4 +1,5 @@
-"""One stimulus renderer, dispatching through ``STIMULUS_REGISTRY`` (Phase 2, Wave K, F-052).
+"""One stimulus renderer, dispatching through ``STIMULUS_REGISTRY`` (Phase 2, Wave K,
+F-052).
 
 Before this module, ``GeneralizedTactileEncodingPipeline.generate_stimulus`` (the
 function every runner called, including the CLI for canonical configs) dispatched
@@ -17,7 +18,6 @@ components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
 from __future__ import annotations
 
 import re
-import warnings
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import torch

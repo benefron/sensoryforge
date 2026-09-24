@@ -63,7 +63,8 @@ def plugin_config_path(tmp_path, fake_plugin_module):
 
 @pytest.fixture
 def batch_plugin_config_path(tmp_path, fake_plugin_module):
-    """A legacy batch config file (base_config/batch) whose plugins: registers the fake filter."""
+    """A legacy batch config file (base_config/batch) whose plugins: registers the
+    fake filter."""
     config_file = tmp_path / "batch_plugin_config.yml"
     output_dir = tmp_path / "batch_output"
     config_file.write_text(f"""\

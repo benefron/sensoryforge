@@ -180,7 +180,8 @@ def write_combo_sweep(
 
     Mirrors
     :func:`~sensoryforge.gui.execution.sweep_controller.write_sweep`'s file
-    layout exactly (so :class:`~sensoryforge.gui.execution.sweep_controller.SweepController`
+    layout exactly (so
+    :class:`~sensoryforge.gui.execution.sweep_controller.SweepController`
     and :func:`~sensoryforge.gui.execution.sweep_controller.write_slurm_script`
     work unchanged on the result), but takes literal combinations instead of
     a cartesian :class:`~sensoryforge.gui.execution.sweep_controller.SweepSpec`

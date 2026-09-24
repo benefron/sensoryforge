@@ -7,8 +7,6 @@ Validates that:
 - The GUI spinbox initial value is 50.0
 """
 
-import sys
-
 import pytest
 import torch
 
@@ -57,7 +55,8 @@ def test_gain_50_produces_spikes():
 
 
 def test_gain_1_produces_silence():
-    """SA filter → gain=1 → Izhikevich must produce no spikes even for a strong stimulus.
+    """SA filter → gain=1 → Izhikevich must produce no spikes even for a strong
+    stimulus.
 
     This confirms the original bug: at default gain=1.0, the SA filter output is
     ~0.05 × amplitude mA, far below the Izhikevich threshold (~3 mA).
@@ -103,9 +102,10 @@ def test_population_config_from_dict_default_input_gain():
     cfg = PopulationConfig.from_dict(
         {"name": "test", "neuron_type": "SA", "target_grid": "g"}
     )
-    assert (
-        cfg.input_gain == 50.0
-    ), f"PopulationConfig.from_dict default input_gain should be 50.0, got {cfg.input_gain}"
+    assert cfg.input_gain == 50.0, (
+        f"PopulationConfig.from_dict default input_gain should be 50.0, got "
+        f"{cfg.input_gain}"
+    )
 
 
 # ---------------------------------------------------------------------------

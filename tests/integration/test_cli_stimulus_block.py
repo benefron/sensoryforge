@@ -344,7 +344,6 @@ def test_cli_runs_the_configs_own_duration_unless_the_flag_overrides(tmp_path):
     import sys
 
     import h5py
-    import yaml
 
     from sensoryforge.config.schema import (
         GridConfig,

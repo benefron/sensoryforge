@@ -47,7 +47,8 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 def _hex_receptor_coords(
     n_rows: int, n_cols: int, spacing_mm: float, xlim, ylim
 ) -> torch.Tensor:
-    """Hexagonal (offset-row) lattice of (x, y) positions in mm, centred in the frame."""
+    """Hexagonal (offset-row) lattice of (x, y) positions in mm, centred in the
+    frame."""
     row_pitch = spacing_mm * math.sqrt(3) / 2.0
     pts = []
     for i in range(n_rows):

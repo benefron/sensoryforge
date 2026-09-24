@@ -87,7 +87,6 @@ class TestCompositeGridBuilds:
     def test_two_layer_composite_runs_end_to_end(self):
         cfg = _two_layer_config()
         engine = SimulationEngine(cfg)
-        grid = engine.grid_names["composite_g"]
         bank = engine.populations[0]["bank"]
         # A composite grid has no fixed pixel raster of its own -- the
         # stimulus is a spatial field over the grid's bounding box, sampled

@@ -12,7 +12,6 @@ import pytest
 pytest.importorskip("PyQt5")
 
 import pyqtgraph as pg  # noqa: E402
-from PyQt5 import QtGui  # noqa: E402
 
 from sensoryforge.gui import theme  # noqa: E402
 from sensoryforge.gui.widgets import plot_factory  # noqa: E402

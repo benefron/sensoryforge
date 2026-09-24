@@ -2,10 +2,11 @@
 
 This module provides the AdaptiveSolver class, which wraps high-quality adaptive
 ODE solvers from torchdiffeq or torchode libraries. These are optional dependencies
-that provide more accurate integration for stiff systems or when high precision is required.
+that provide more accurate integration for stiff systems or when high precision is
+required.
 """
 
-from typing import Callable, Dict, Any, Tuple, Optional
+from typing import Callable, Dict, Any, Tuple
 import torch
 
 from .base import BaseSolver
@@ -52,7 +53,9 @@ class AdaptiveSolver(BaseSolver):
         ...         return -0.1 * state
         ...
         ...     state = torch.tensor([[1.0, 2.0]])
-        ...     trajectory = solver.integrate(ode_func, state, t_span=(0.0, 10.0), dt=0.1)
+        ...     trajectory = solver.integrate(
+        ...         ode_func, state, t_span=(0.0, 10.0), dt=0.1
+        ...     )
         ... except ImportError as e:
         ...     print(f"Optional dependencies not available: {e}")
     """
@@ -83,7 +86,8 @@ class AdaptiveSolver(BaseSolver):
         # Check if required dependencies are available
         if not HAS_TORCHDIFFEQ:
             raise ImportError(
-                "AdaptiveSolver requires optional dependencies that are not installed.\n"
+                "AdaptiveSolver requires optional dependencies that are not "
+                "installed.\n"
                 "\n"
                 "To use adaptive solvers, install torchdiffeq:\n"
                 "\n"
@@ -199,7 +203,9 @@ class AdaptiveSolver(BaseSolver):
             ...     # Stiff ODE example
             ...     return -100 * state
             >>> initial = torch.tensor([[1.0, 2.0]])
-            >>> trajectory = solver.integrate(stiff_ode, initial, t_span=(0.0, 1.0), dt=0.1)
+            >>> trajectory = solver.integrate(
+            ...     stiff_ode, initial, t_span=(0.0, 1.0), dt=0.1
+            ... )
         """
         import math
 
@@ -251,8 +257,6 @@ class AdaptiveSolver(BaseSolver):
             # Transpose to match expected output format: [batch, num_steps+1, ...]
             # trajectory is currently [num_steps+1, batch, ...]
             # We need to permute dimensions to get [batch, num_steps+1, ...]
-            num_time_steps = trajectory.shape[0]
-            batch_size = trajectory.shape[1]
 
             # For 3D tensors: [time, batch, features] -> [batch, time, features]
             if trajectory.ndim == 3:

@@ -42,7 +42,8 @@ def _make_config(
     run_seed=None,
     n_populations: int = 1,
 ) -> SensoryForgeConfig:
-    """Minimal canonical config: an 8x8 grid, N SA populations, noise_std configurable."""
+    """Minimal canonical config: an 8x8 grid, N SA populations, noise_std
+    configurable."""
     grid = GridConfig(
         name="test_grid",
         rows=8,

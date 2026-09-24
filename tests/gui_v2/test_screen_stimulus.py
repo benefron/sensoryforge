@@ -16,7 +16,6 @@ import pytest
 
 pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
 
-from PyQt5 import QtCore  # noqa: E402
 
 import sensoryforge.register_components as register_components  # noqa: E402
 from sensoryforge.config.schema import (  # noqa: E402
@@ -24,9 +23,9 @@ from sensoryforge.config.schema import (  # noqa: E402
     SensoryForgeConfig,
     StimulusConfig,
 )
-from sensoryforge.gui.screens import (
+from sensoryforge.gui.screens import (  # noqa: E402
     stimulus_preview as stimulus_preview_module,
-)  # noqa: E402
+)
 from sensoryforge.gui.screens.stimulus import StimulusScreen  # noqa: E402
 from sensoryforge.gui.screens.stimulus_paramform import (  # noqa: E402
     unconfigurable_params,
