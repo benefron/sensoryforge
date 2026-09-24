@@ -99,17 +99,18 @@ def _collect_qt_garbage(after: str = "") -> None:
 
 @pytest.fixture(autouse=True)
 def _collect_gui_garbage_at_the_test_boundary(request):
-    """Run the cyclic collector before and after every ``gui`` test (F-035, F-085).
+    """Run the cyclic collector before and after every ``gui`` test (F-035).
 
-    The collector stays enabled for the whole session. Freeing pyqtgraph
-    objects left in reference cycles by a destroyed window, in the middle of
-    another test, can destroy a C++ object that test is using (measured:
-    "wrapped C/C++ object of type ViewBox has been deleted" in
-    GridPreview.set_grids / SensorsScreen._add_highlight). Collecting before
-    a gui test starts -- when none of its windows exist -- clears leftovers of
-    any earlier test, gui-marked or not (CI failed on a test whose predecessor
-    was not gui-marked); collecting after it clears its own. The shipped app
-    builds each plot once per window lifetime, so it has no such boundary.
+    The collector stays enabled for the whole session. This is tidiness, no
+    longer a workaround: F-085's failures ("wrapped C/C++ object of type
+    ViewBox has been deleted" in GridPreview.set_grids, and a segfault in
+    PyQt's PyQtSlot::call) came from reference cycles that kept a window
+    alive after its test had returned, so the next collection -- wherever it
+    ran -- deleted it inside one of its own slots, or freed a slot a queued
+    cross-thread signal was still waiting for. Those cycles are gone and
+    ``tests/gui_v2/test_window_lifetime.py`` collects mid-test to keep them
+    gone. Collecting before a gui test still clears leftovers of any earlier
+    test, gui-marked or not, and collecting after it clears its own.
     """
     is_gui = request.node.get_closest_marker("gui") is not None
     if is_gui:
