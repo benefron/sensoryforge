@@ -1,0 +1,1528 @@
+{
+ "provenance": {
+  "touchsim_repo_url": "https://github.com/hsaal/touchsim",
+  "touchsim_commit_sha": "4ec9f5c382e7d48410566de743d7a4f05de75cec",
+  "touchsim_version": "0.1.1",
+  "touchsim_license": "No LICENSE file in the repository and GitHub's license detector reports none (checked 2026-09-24); treated as all rights reserved by the author (Hannes Saal / BensmaiaLab) absent an explicit open-source grant. Only numeric outputs (this fixture) are committed here; no touchsim source is copied into SensoryForge, and touchsim never becomes a dependency (ledger D-4aafcdc).",
+  "reference_paper": "Saal, H.P., Delhaye, B.P., Rayhaun, B.C. & Bensmaia, S.J. (2017). Simulating tactile signals from the whole hand with millisecond precision. PNAS 114(28), E5693-E5702.",
+  "python_version": "3.10.21",
+  "numpy_version": "2.2.6",
+  "scipy_version": "1.15.2",
+  "date_generated": "2026-09-24",
+  "generating_command": "<throwaway-env>/bin/python scripts/validation/generate_touchsim_reference.py",
+  "random_seed": 42,
+  "notes": "Every afferent uses touchsim's idx=0 single-neuron model for its class (deterministic); the seed fixes touchsim's membrane-noise RNG (numpy) and its afferent-model-selection RNG (stdlib random), the latter unused here since idx is always given explicitly."
+ },
+ "stimulus_protocol": {
+  "type": "ramp_and_hold_punctate_probe",
+  "pin_radius_mm": 0.5,
+  "ramp_ms": 50.0,
+  "hold_ms": 450.0,
+  "total_duration_ms": 550.0,
+  "fs_hz": 5000.0,
+  "ramp_type": "lin",
+  "depths_mm": [
+   0.025,
+   0.05,
+   0.1,
+   0.2,
+   0.4,
+   0.7,
+   1.25
+  ]
+ },
+ "windows_ms": {
+  "onset": [
+   0.0,
+   50.0
+  ],
+  "sustained": [
+   150.0,
+   500.0
+  ],
+  "offset": [
+   500.0,
+   550.0
+  ]
+ },
+ "afferents": [
+  {
+   "id": 0,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 0.0,
+   "y_mm": 0.0,
+   "distance_mm": 0.0
+  },
+  {
+   "id": 1,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 0.0,
+   "y_mm": 0.0,
+   "distance_mm": 0.0
+  },
+  {
+   "id": 2,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 0.0,
+   "y_mm": 0.0,
+   "distance_mm": 0.0
+  },
+  {
+   "id": 3,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 1.0,
+   "y_mm": 0.0,
+   "distance_mm": 1.0
+  },
+  {
+   "id": 4,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 1.0,
+   "y_mm": 0.0,
+   "distance_mm": 1.0
+  },
+  {
+   "id": 5,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 1.0,
+   "y_mm": 0.0,
+   "distance_mm": 1.0
+  },
+  {
+   "id": 6,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 2.0,
+   "y_mm": 0.0,
+   "distance_mm": 2.0
+  },
+  {
+   "id": 7,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 2.0,
+   "y_mm": 0.0,
+   "distance_mm": 2.0
+  },
+  {
+   "id": 8,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 2.0,
+   "y_mm": 0.0,
+   "distance_mm": 2.0
+  },
+  {
+   "id": 9,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 3.0,
+   "y_mm": 0.0,
+   "distance_mm": 3.0
+  },
+  {
+   "id": 10,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 3.0,
+   "y_mm": 0.0,
+   "distance_mm": 3.0
+  },
+  {
+   "id": 11,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 3.0,
+   "y_mm": 0.0,
+   "distance_mm": 3.0
+  },
+  {
+   "id": 12,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 4.0,
+   "y_mm": 0.0,
+   "distance_mm": 4.0
+  },
+  {
+   "id": 13,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 4.0,
+   "y_mm": 0.0,
+   "distance_mm": 4.0
+  },
+  {
+   "id": 14,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 4.0,
+   "y_mm": 0.0,
+   "distance_mm": 4.0
+  },
+  {
+   "id": 15,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 5.0,
+   "y_mm": 0.0,
+   "distance_mm": 5.0
+  },
+  {
+   "id": 16,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 5.0,
+   "y_mm": 0.0,
+   "distance_mm": 5.0
+  },
+  {
+   "id": 17,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 5.0,
+   "y_mm": 0.0,
+   "distance_mm": 5.0
+  },
+  {
+   "id": 18,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 6.0,
+   "y_mm": 0.0,
+   "distance_mm": 6.0
+  },
+  {
+   "id": 19,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 6.0,
+   "y_mm": 0.0,
+   "distance_mm": 6.0
+  },
+  {
+   "id": 20,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 6.0,
+   "y_mm": 0.0,
+   "distance_mm": 6.0
+  },
+  {
+   "id": 21,
+   "affclass": "SA1",
+   "touchsim_idx": 0,
+   "x_mm": 8.0,
+   "y_mm": 0.0,
+   "distance_mm": 8.0
+  },
+  {
+   "id": 22,
+   "affclass": "RA",
+   "touchsim_idx": 0,
+   "x_mm": 8.0,
+   "y_mm": 0.0,
+   "distance_mm": 8.0
+  },
+  {
+   "id": 23,
+   "affclass": "PC",
+   "touchsim_idx": 0,
+   "x_mm": 8.0,
+   "y_mm": 0.0,
+   "distance_mm": 8.0
+  }
+ ],
+ "by_depth": [
+  {
+   "depth_mm": 0.025,
+   "spike_times_s": {
+    "0": [],
+    "1": [],
+    "2": [
+     0.0006
+    ],
+    "3": [],
+    "4": [],
+    "5": [
+     0.0012
+    ],
+    "6": [],
+    "7": [],
+    "8": [],
+    "9": [],
+    "10": [],
+    "11": [],
+    "12": [],
+    "13": [],
+    "14": [],
+    "15": [],
+    "16": [],
+    "17": [],
+    "18": [],
+    "19": [],
+    "20": [],
+    "21": [],
+    "22": [],
+    "23": []
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "3": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "6": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    }
+   }
+  },
+  {
+   "depth_mm": 0.05,
+   "spike_times_s": {
+    "0": [],
+    "1": [],
+    "2": [
+     0.0004,
+     0.5008
+    ],
+    "3": [],
+    "4": [],
+    "5": [
+     0.0008
+    ],
+    "6": [],
+    "7": [],
+    "8": [],
+    "9": [],
+    "10": [],
+    "11": [],
+    "12": [],
+    "13": [],
+    "14": [],
+    "15": [],
+    "16": [],
+    "17": [],
+    "18": [],
+    "19": [],
+    "20": [],
+    "21": [],
+    "22": [],
+    "23": []
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "6": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    }
+   }
+  },
+  {
+   "depth_mm": 0.1,
+   "spike_times_s": {
+    "0": [
+     0.0396
+    ],
+    "1": [],
+    "2": [
+     0.0004,
+     0.5006
+    ],
+    "3": [],
+    "4": [],
+    "5": [
+     0.0006,
+     0.501
+    ],
+    "6": [],
+    "7": [],
+    "8": [
+     0.001
+    ],
+    "9": [],
+    "10": [],
+    "11": [
+     0.0014
+    ],
+    "12": [],
+    "13": [],
+    "14": [
+     0.0016
+    ],
+    "15": [],
+    "16": [],
+    "17": [],
+    "18": [],
+    "19": [],
+    "20": [],
+    "21": [],
+    "22": [],
+    "23": []
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "6": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    }
+   }
+  },
+  {
+   "depth_mm": 0.2,
+   "spike_times_s": {
+    "0": [
+     0.0154,
+     0.0444,
+     0.1564,
+     0.304,
+     0.468
+    ],
+    "1": [
+     0.0488
+    ],
+    "2": [
+     0.0002,
+     0.5004
+    ],
+    "3": [],
+    "4": [],
+    "5": [
+     0.0004,
+     0.5006
+    ],
+    "6": [],
+    "7": [],
+    "8": [
+     0.0008,
+     0.5012
+    ],
+    "9": [],
+    "10": [],
+    "11": [
+     0.001
+    ],
+    "12": [],
+    "13": [],
+    "14": [
+     0.0012
+    ],
+    "15": [],
+    "16": [],
+    "17": [
+     0.0014
+    ],
+    "18": [],
+    "19": [],
+    "20": [
+     0.0016
+    ],
+    "21": [],
+    "22": [],
+    "23": [
+     0.0022
+    ]
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 40.0,
+     "sustained": 8.5714,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "6": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    }
+   }
+  },
+  {
+   "depth_mm": 0.4,
+   "spike_times_s": {
+    "0": [
+     0.0102,
+     0.0258,
+     0.041,
+     0.0666,
+     0.1434,
+     0.2078,
+     0.2876,
+     0.3668,
+     0.4422
+    ],
+    "1": [
+     0.0112,
+     0.0402,
+     0.5118,
+     0.5478
+    ],
+    "2": [
+     0.0002,
+     0.5004
+    ],
+    "3": [
+     0.0302
+    ],
+    "4": [],
+    "5": [
+     0.0002,
+     0.5006
+    ],
+    "6": [
+     0.0498
+    ],
+    "7": [],
+    "8": [
+     0.0006,
+     0.501
+    ],
+    "9": [],
+    "10": [],
+    "11": [
+     0.0008,
+     0.5014
+    ],
+    "12": [],
+    "13": [],
+    "14": [
+     0.001,
+     0.5014
+    ],
+    "15": [],
+    "16": [],
+    "17": [
+     0.0012
+    ],
+    "18": [],
+    "19": [],
+    "20": [
+     0.0012
+    ],
+    "21": [],
+    "22": [],
+    "23": [
+     0.0018
+    ]
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 60.0,
+     "sustained": 11.4286,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "6": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    }
+   }
+  },
+  {
+   "depth_mm": 0.7,
+   "spike_times_s": {
+    "0": [
+     0.007,
+     0.0172,
+     0.0264,
+     0.0354,
+     0.0444,
+     0.0526,
+     0.091,
+     0.1302,
+     0.1742,
+     0.2154,
+     0.2526,
+     0.2914,
+     0.3284,
+     0.3756,
+     0.4158,
+     0.451,
+     0.494
+    ],
+    "1": [
+     0.0096,
+     0.0284,
+     0.045,
+     0.5064,
+     0.5328
+    ],
+    "2": [
+     0.0002,
+     0.5002
+    ],
+    "3": [
+     0.0146,
+     0.0438
+    ],
+    "4": [],
+    "5": [
+     0.0002,
+     0.5004
+    ],
+    "6": [
+     0.0522
+    ],
+    "7": [],
+    "8": [
+     0.0004,
+     0.5008
+    ],
+    "9": [
+     0.0848
+    ],
+    "10": [],
+    "11": [
+     0.0008,
+     0.501
+    ],
+    "12": [],
+    "13": [],
+    "14": [
+     0.0008,
+     0.501
+    ],
+    "15": [],
+    "16": [],
+    "17": [
+     0.001,
+     0.5014
+    ],
+    "18": [],
+    "19": [],
+    "20": [
+     0.001,
+     0.5016
+    ],
+    "21": [],
+    "22": [],
+    "23": [
+     0.0016,
+     0.502
+    ]
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 100.0,
+     "sustained": 25.7143,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 60.0,
+     "sustained": 0.0,
+     "offset": 40.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "6": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "9": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "12": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "15": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    }
+   }
+  },
+  {
+   "depth_mm": 1.25,
+   "spike_times_s": {
+    "0": [
+     0.006,
+     0.0116,
+     0.0174,
+     0.023,
+     0.0282,
+     0.0332,
+     0.0384,
+     0.0434,
+     0.0484,
+     0.0536,
+     0.075,
+     0.0996,
+     0.1238,
+     0.1478,
+     0.17,
+     0.192,
+     0.2146,
+     0.2364,
+     0.2598,
+     0.2858,
+     0.3084,
+     0.3314,
+     0.3556,
+     0.378,
+     0.4032,
+     0.427,
+     0.4514,
+     0.4736,
+     0.4964
+    ],
+    "1": [
+     0.0088,
+     0.0188,
+     0.0282,
+     0.0378,
+     0.0474,
+     0.5038,
+     0.5172,
+     0.53,
+     0.5444
+    ],
+    "2": [
+     0.0002,
+     0.0542,
+     0.5002
+    ],
+    "3": [
+     0.0096,
+     0.0252,
+     0.0428
+    ],
+    "4": [
+     0.0122,
+     0.0402,
+     0.513
+    ],
+    "5": [
+     0.0002,
+     0.5002
+    ],
+    "6": [
+     0.0226,
+     0.0628
+    ],
+    "7": [],
+    "8": [
+     0.0004,
+     0.5006
+    ],
+    "9": [
+     0.0294
+    ],
+    "10": [],
+    "11": [
+     0.0006,
+     0.501
+    ],
+    "12": [
+     0.0302
+    ],
+    "13": [],
+    "14": [
+     0.0008,
+     0.501
+    ],
+    "15": [
+     0.043
+    ],
+    "16": [],
+    "17": [
+     0.001,
+     0.5012
+    ],
+    "18": [],
+    "19": [],
+    "20": [
+     0.001,
+     0.5014
+    ],
+    "21": [],
+    "22": [],
+    "23": [
+     0.0014,
+     0.5018
+    ]
+   },
+   "rates_hz": {
+    "0": {
+     "onset": 180.0,
+     "sustained": 42.8571,
+     "offset": 0.0
+    },
+    "1": {
+     "onset": 100.0,
+     "sustained": 0.0,
+     "offset": 80.0
+    },
+    "2": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "3": {
+     "onset": 60.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "4": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "5": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "6": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "7": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "8": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "9": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "10": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "11": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "12": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "13": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "14": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "15": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "16": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "17": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "18": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "19": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "20": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    },
+    "21": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "22": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0
+    },
+    "23": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0
+    }
+   }
+  }
+ ]
+}
