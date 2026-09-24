@@ -49,11 +49,11 @@ re-runs a config with every displayed value written explicitly and requires iden
   agree for partial overrides too, and the adapter no longer raises `KeyError`.
 - **F-032 closed:** `TactileEncodingPipelineTorch`, the legacy `DEFAULT_CONFIG`, and
   `CombinedSARAFilter` all route through the resolver instead of keeping their own RS/tau_RA=30 copies.
-- **F-003 open:** the default innervation builder is the stochastic one (uniform-random weights,
-  Gaussian only in the selection probability), which pressure-simulation retired to a control arm.
-  `use_distance_weights=True` is the analytic-weight path.
-- **F-006 open:** innervation reseeds the *global* RNG and consumes it in a different order from
-  pressure-simulation, so the same seed gives different wiring across repos.
+- **F-003 closed:** connection weights default to the analytic Gaussian of distance
+  (`use_distance_weights=True`, `config/schema.py`). The uniform-random weights pressure-simulation
+  retired are still reachable with `use_distance_weights=False`, as the stochastic control arm.
+- **F-006 closed:** innervation draws from a per-instance `torch.Generator`
+  (`core/innervation.py::_seeded_generator`, on CPU per F-038) and never touches the global RNG.
 
 Filter citation is Parvizi-Fard et al. (2021) plus Kandel Ch.21 for τ values (D-013). Never write
 "Pierzowski".

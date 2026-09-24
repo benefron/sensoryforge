@@ -112,9 +112,10 @@ when there are real new entries.
 upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
 → commit 36d2e3f
 
-## F-094 · OPEN · finding · - · 2026-09-22
+## F-094 · STANDING · finding · - · 2026-09-22
 a design directory's filter_params/model_params must be empty -- the two repos do not share filter parameter names, so any value there makes the hand-off unloadable rather than merely redundant.
 → commit a05fb8b
+· tidied 2026-09-24: a settled result, not an open problem
 
 ## D-038 · CLOSED · decision · - · 2026-09-22
 SensoryForge accepts an externally designed encoder as a design directory (design.json + per-population npz) via `sensoryforge run --design`, and stamps the design manifest into the bundle.
@@ -136,29 +137,35 @@ the AdEx recipe ships as a separate preset file (tactile_sa1_ra1_adex) rather th
 the AdEx presets' operating point is set through R, the membrane resistance, tuned against the tactile recipe's measured responsive-neuron drive (SA rheobase 3.07 mA against a hold drive of p10/p50/p90 = 3.82/5.25/7.30 mA; RA rheobase 7.57 mA, below the 5.67-13.87 mA onset transients and above the ~0.15 mA hold drive); input_gain stays 50.0 and no preset YAML is touched.
 → commit 326ef6f
 
-## F-086 · OPEN · finding · - · 2026-09-22
+## F-086 · STANDING · finding · - · 2026-09-22
 the four pressure-simulation benchmark stimuli already render at a common peak amplitude at the recipe defaults (ramp_gaussian 0.9944, moving_edge 1.0000, braille 0.9825, drifting_grating 1.0000, within 2% of each other) and none of them routes through render.py's _LEGACY_DEFAULTS, the source of F-083's 30x split, so no change is needed for these four (partial F-083 resolution, scoped to them only).
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-087 · OPEN · finding · - · 2026-09-22
+## F-087 · STANDING · finding · - · 2026-09-22
 AdEx presets tuned against a flat constant-current bench step are silent in the tactile recipe -- their rheobase lay above the drive the recipe actually delivers -- so a bench probe is not a sufficient tuning target for a population that sees filtered tactile drive; tune against the measured drive instead.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-088 · OPEN · finding · - · 2026-09-22
+## F-088 · STANDING · finding · - · 2026-09-22
 the P5 SA rate criterion is only meaningful on a drive-derived responsive set -- on a spatially localized stimulus a whole-population mean cannot reach 20-100 Hz for any neuron model, Izhikevich included.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-089 · OPEN · finding · - · 2026-09-22
+## F-089 · STANDING · finding · - · 2026-09-22
 RA's silence during a hold comes mainly from the RA filter differentiating a static drive to ~0, not from AdEx adaptation alone -- moving_edge's steady-drive interval, where the edge never stops moving, still yields 594 RA spikes.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-090 · OPEN · finding · - · 2026-09-22
+## F-090 · STANDING · finding · - · 2026-09-22
 SA1_tonic's R = 6.0 was selected by scanning R for the smallest value whose responsive-set ISI CV cleared 0.5, so the reported CV of 0.470 is a fitted outcome rather than an independent check; the purely principled placement (rheobase at the measured hold drive's p10) gives R ~= 4.8, within about 25%.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-091 · OPEN · finding · - · 2026-09-22
+## F-091 · STANDING · finding · - · 2026-09-22
 the RA onset "burst" that passes P5 is a single spike per responsive afferent synchronized across the set, not a multi-spike burst within one afferent -- the 200 Hz peak is exactly the 5 ms bin's cap for one spike.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
 ## F-092 · OPEN · finding · - · 2026-09-22
 RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz against P5's ~300 Hz) because that stimulus's RA onset drive peaks at 3.08 mA, below the 7.57 mA rheobase; reaching it needs R >~ 20, which would leave too little margin over moving_edge's 6.06 mA RA hold drive.
@@ -332,9 +339,10 @@ F-059 docs/user_guide/configuration_schema.md documents the Wave M config fields
 render_stimulus never advances a stateful registered stimulus's .step(), so "moving" (and any stepped stimulus) renders as a static repeated frame instead of animating
 → commit 1d4d210
 
-## F-056 · OPEN · finding · - · 2026-09-16
+## F-056 · STANDING · finding · - · 2026-09-16
 F-056 the memory watchdog's peak RSS varies from about 800 MB to 1500 MB run to run for identical code (83b735d measured 873 MB and 1517 MB on two runs), so it cannot detect a regression below roughly a factor of two and its numbers must never be compared across runs or across machines
 → commit 0c13d47
+· tidied 2026-09-24: a settled result, not an open problem
 
 ## F-055 · CLOSED · finding · - · 2026-09-16
 the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when none was given, and pressure-simulation's generate_stimulus_from_json defaults every field, so a bundle could be read there as a static Gaussian blob at the origin and encoded and plotted with no error anywhere; fixed by tagging every payload with schema_version and kind and emitting pressure-simulation's schema only for the types proven to regenerate exactly

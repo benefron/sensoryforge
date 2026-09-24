@@ -1,4 +1,6 @@
 # Documentation Status Report
+
+> **Historical (2025-02-11).** Kept as a record; for what is open today see the living ledger, `docs_root/LEDGER.md`.
 **Date**: 2025-02-11  
 **Status**: Phase 1 Complete — Getting Started & Tutorials Created
 
