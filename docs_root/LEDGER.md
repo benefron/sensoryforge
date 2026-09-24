@@ -122,6 +122,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 → commit b4a853b
 ↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
 ↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
+↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 
 ## D-ea0f017 · CLOSED · decision · - · 2026-09-24
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
@@ -709,4 +710,5 @@ stimulus types disagree on amplitude scale by about 30x at their defaults (gauss
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 ↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
 ↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
+↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 
