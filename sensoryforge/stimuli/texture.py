@@ -22,6 +22,22 @@ import torch.nn.functional as F
 from sensoryforge.stimuli.base import ParamSpec, params_from_spec
 
 
+def raised_cosine(angle: torch.Tensor) -> torch.Tensor:
+    """``(1 + cos(angle)) / 2``: a cosine shifted and scaled into ``[0, 1]``.
+
+    The non-negative carrier shared by the Gabor texture here and the
+    layered grating/Gabor shapes (:mod:`sensoryforge.stimuli.layered`): 1 on
+    a stripe's centre line, 0 halfway between stripes, never negative.
+
+    Args:
+        angle: Carrier phase, any shape. Units: radians.
+
+    Returns:
+        Values in ``[0, 1]``, same shape as ``angle``.
+    """
+    return 0.5 * (1.0 + torch.cos(angle))
+
+
 def gabor_texture(
     xx: torch.Tensor,
     yy: torch.Tensor,
@@ -33,26 +49,40 @@ def gabor_texture(
     orientation: float = 0.0,
     phase: float = 0.0,
     device: torch.device | str | None = None,
+    *,
+    signed: bool = False,
 ) -> torch.Tensor:
     """Generate a Gabor texture (localized sinusoidal pattern).
 
     A Gabor patch is a sinusoidal grating modulated by a Gaussian envelope,
     commonly used to study orientation and spatial frequency sensitivity.
 
+    By default the pattern is a pressure, never negative:
+    ``amplitude * window * (1 + cos(carrier)) / 2`` -- the same raised cosine
+    the layered ``gabor`` shape uses, peaking at ``amplitude`` on the centre
+    stripe and falling to 0 between stripes and outside the window.
+    ``signed=True`` gives the classic zero-mean form
+    ``amplitude * window * cos(carrier)`` instead, whose lobes between the
+    stripes are negative (for signed contrast, e.g. in vision); it is what
+    this function returned before it was made non-negative (D-0437899).
+
     Args:
         xx: Tensor of x-coordinates, shape [H, W]. Units: mm.
         yy: Tensor of y-coordinates, shape [H, W]. Units: mm.
         center_x: X-coordinate of pattern center. Units: mm.
         center_y: Y-coordinate of pattern center. Units: mm.
-        amplitude: Peak amplitude of the pattern.
+        amplitude: Peak amplitude of the pattern. Units: mA.
         sigma: Standard deviation of Gaussian envelope. Units: mm.
         wavelength: Spatial wavelength of the sinusoid. Units: mm.
         orientation: Orientation angle of the grating. Units: radians.
         phase: Phase offset of the sinusoid. Units: radians.
         device: Device to create the texture on. If None, uses xx.device.
+        signed: If True, the zero-mean signed form (values in
+            ``[-amplitude, amplitude]``); if False (default), the
+            non-negative raised-cosine form (values in ``[0, amplitude]``).
 
     Returns:
-        Gabor texture pattern, shape [H, W].
+        Gabor texture pattern, shape [H, W]. Units: those of ``amplitude``.
 
     Raises:
         ValueError: If wavelength is non-positive.
@@ -88,7 +118,11 @@ def gabor_texture(
     envelope = torch.exp(-(dx**2 + dy**2) / (2 * sigma**2))
 
     # Sinusoidal carrier wave
-    carrier = torch.cos(2 * math.pi * x_rot / wavelength + phase)
+    angle = 2 * math.pi * x_rot / wavelength + phase
+    if signed:
+        carrier = torch.cos(angle)
+    else:
+        carrier = raised_cosine(angle)
 
     return amplitude * envelope * carrier
 
@@ -247,15 +281,18 @@ class GaborTexture(torch.nn.Module):
     """PyTorch module for generating Gabor texture stimuli.
 
     Encapsulates Gabor texture generation as a stateful torch.nn.Module.
+    Registered as both ``gabor`` and ``texture``. Non-negative by default
+    (see :func:`gabor_texture`); ``signed=True`` restores the zero-mean form.
 
     Attributes:
         center_x: X-coordinate of pattern center. Units: mm.
         center_y: Y-coordinate of pattern center. Units: mm.
-        amplitude: Peak amplitude of the pattern.
+        amplitude: Peak amplitude of the pattern. Units: mA.
         sigma: Standard deviation of Gaussian envelope. Units: mm.
         wavelength: Spatial wavelength of the sinusoid. Units: mm.
         orientation: Orientation angle of the grating. Units: radians.
         phase: Phase offset of the sinusoid. Units: radians.
+        signed: Whether the pattern is the signed, zero-mean form.
 
     Example:
         >>> import torch
@@ -275,17 +312,21 @@ class GaborTexture(torch.nn.Module):
         wavelength: float = 0.5,
         orientation: float = 0.0,
         phase: float = 0.0,
+        signed: bool = False,
     ) -> None:
         """Initialize Gabor texture parameters.
 
         Args:
             center_x: X-coordinate of pattern center. Units: mm.
             center_y: Y-coordinate of pattern center. Units: mm.
-            amplitude: Peak amplitude of the pattern.
+            amplitude: Peak amplitude of the pattern. Units: mA.
             sigma: Standard deviation of Gaussian envelope. Units: mm.
             wavelength: Spatial wavelength of the sinusoid. Units: mm.
             orientation: Orientation angle of the grating. Units: radians.
             phase: Phase offset of the sinusoid. Units: radians.
+            signed: If True, the zero-mean signed form with negative lobes
+                (the rendering before D-0437899); if False (default), the
+                non-negative raised-cosine form in ``[0, amplitude]``.
 
         Raises:
             ValueError: If wavelength or sigma is non-positive.
@@ -305,6 +346,7 @@ class GaborTexture(torch.nn.Module):
         self.register_buffer("wavelength", torch.tensor(wavelength))
         self.register_buffer("orientation", torch.tensor(orientation))
         self.register_buffer("phase", torch.tensor(phase))
+        self.signed = bool(signed)
 
     def forward(self, xx: torch.Tensor, yy: torch.Tensor) -> torch.Tensor:
         """Generate Gabor texture on the given coordinate grid.
@@ -314,7 +356,7 @@ class GaborTexture(torch.nn.Module):
             yy: Tensor of y-coordinates, shape [H, W]. Units: mm.
 
         Returns:
-            Gabor texture pattern, shape [H, W].
+            Gabor texture pattern, shape [H, W]. Units: mA.
         """
         return gabor_texture(
             xx,
@@ -327,6 +369,7 @@ class GaborTexture(torch.nn.Module):
             orientation=float(self.orientation),
             phase=float(self.phase),
             device=xx.device,
+            signed=self.signed,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -411,6 +454,23 @@ class GaborTexture(torch.nn.Module):
                 max_val=6.2832,
                 step=0.05,
                 unit="rad",
+            ),
+            ParamSpec(
+                "signed",
+                label="Signed (zero-mean)",
+                dtype="bool",
+                default=False,
+                tooltip="Signed, zero-mean Gabor with negative lobes.",
+                help=(
+                    "Off (default): a pressure, never negative -- amplitude x "
+                    "Gaussian window x (1 + cos(carrier)) / 2, peaking at the "
+                    "amplitude on the centre stripe. On: restores the signed, "
+                    "zero-mean form amplitude x window x cos(carrier), whose "
+                    "lobes between the stripes are negative, e.g. for signed "
+                    "contrast in vision. A negative pressure drives a negative "
+                    "current through the filters."
+                ),
+                advanced=True,
             ),
         ]
 
@@ -573,6 +633,7 @@ class EdgeGrating(torch.nn.Module):
 
 
 __all__ = [
+    "raised_cosine",
     "gabor_texture",
     "edge_grating",
     "noise_texture",

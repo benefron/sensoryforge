@@ -308,7 +308,7 @@ Configuration for stimulus generation.
 | `end` | list[float] | `[0.0, 0.0]` | End position [x, y] in mm |
 | `spread` | float | `1.0` | Spatial spread in mm |
 | `orientation_deg` | float | `0.0` | Orientation in degrees |
-| `amplitude` | float | `30.0` | Stimulus amplitude |
+| `amplitude` | float | `1.0` | Stimulus peak amplitude. Unset, every stimulus type peaks at 1.0 |
 | `speed_mm_s` | float | `10.0` | Speed for moving stimuli, mm/s |
 | `ramp_up_ms` | float | `10.0` | Ramp-up duration in ms |
 | `plateau_ms` | float | `800.0` | Plateau duration in ms |

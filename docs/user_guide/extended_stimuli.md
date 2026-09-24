@@ -10,6 +10,11 @@ Extended stimuli include textures (Gabor, gratings, noise), moving contacts, and
 
 Localized sinusoidal pattern — useful for orientation and spatial frequency sensitivity.
 
+By default it is a pressure and never negative: amplitude × Gaussian window ×
+(1 + cos(carrier)) / 2, peaking at `amplitude` on the centre stripe. Pass
+`signed=True` (or `signed: true` in a config's stimulus `params`) for the zero-mean
+form amplitude × window × cos(carrier), whose lobes between the stripes are negative.
+
 ```python
 import torch
 from sensoryforge.stimuli.texture import gabor_texture

@@ -6,13 +6,13 @@ counterpart for the Stimulus screen, but it cannot simply be a
 ``ParamForm`` reads a field's *current* value as "the value, or ``spec.default``
 if the field is missing" -- but every :class:`~sensoryforge.config.schema.
 StimulusConfig` field always holds *some* value (the dataclass's own schema
-default, e.g. ``amplitude: float = 30.0``), whether or not the user set it.
+default, e.g. ``orientation_deg: float = 0.0``), whether or not the user set it.
 What :func:`sensoryforge.stimuli.render.render_for_config` actually forwards
 to the stimulus constructor is only the fields in
 ``StimulusConfig.explicit_fields()``; every other field takes the selected
 stimulus *type's own* constructor default (which is very often a different
-number -- ``MovingEdgeStimulus.amplitude`` defaults to ``1.0``, not the
-schema's ``30.0``). So this form has to show, for each of the type's
+number -- ``MovingEdgeStimulus.orientation_deg`` defaults to ``50.0``, not the
+schema's ``0.0``). So this form has to show, for each of the type's
 ``get_param_spec()`` entries:
 
 * a field that names a ``StimulusConfig`` attribute: the config's value when
@@ -46,7 +46,7 @@ names a ``StimulusConfig`` field:
 
 A parameter's displayed value is always ``effective_defaults(type)[name]``
 when unset, not ``spec.default``: the two disagree for several types (a
-Gaussian's amplitude is 1.0 by ``GaussianStimulus.__init__`` but 30.0 is what
+Gaussian's sigma is 0.2 mm by ``GaussianStimulus.__init__`` but 1.0 mm is what
 actually renders, via :mod:`sensoryforge.stimuli.render`'s legacy-default
 compatibility layer) and showing the wrong one is exactly the "shown != used"
 bug this form exists to prevent. When that effective default falls outside

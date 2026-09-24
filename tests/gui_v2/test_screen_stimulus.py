@@ -93,13 +93,17 @@ def test_moving_edge_default_moves_and_uses_the_type_default(qtbot):
     early, late = _center_of_mass(frames[10]), _center_of_mass(frames[280])
     assert early != late, "a default moving_edge should sweep, not sit still"
 
-    # The form shows MovingEdgeStimulus's own default (1.0 mm), not the
-    # StimulusConfig schema default for `spread` (also 1.0 here, so use a
-    # field whose schema and type defaults genuinely differ: amplitude).
+    # The form shows MovingEdgeStimulus's own default, not the StimulusConfig
+    # schema default. `spread` and `amplitude` are 1.0 in both (amplitude
+    # since D-0437899), so use a field whose schema and type defaults
+    # genuinely differ: orientation_deg (50 deg vs. the schema's 0).
     stim = screen._session.config.stimulus
+    orientation_widget = screen.param_form.widget_for("orientation_deg")
+    assert orientation_widget.value() == pytest.approx(50.0)  # MovingEdgeStimulus
+    assert StimulusConfig().orientation_deg == pytest.approx(0.0)  # schema, unequal
+    assert "orientation_deg" not in stim.explicit_fields()
     amplitude_widget = screen.param_form.widget_for("amplitude")
     assert amplitude_widget.value() == pytest.approx(1.0)  # MovingEdgeStimulus default
-    assert StimulusConfig().amplitude == pytest.approx(30.0)  # schema default, unequal
     assert "amplitude" not in stim.explicit_fields()
 
 
@@ -309,10 +313,11 @@ def test_what_you_see_is_what_runs(qtbot, stimulus_type):
     )
 
 
-def test_gaussian_amplitude_widget_reads_30_on_a_fresh_session(qtbot):
+def test_gaussian_amplitude_widget_reads_1_on_a_fresh_session(qtbot):
+    # D-0437899: a unit peak (was 30 before every stimulus defaulted to 1.0).
     screen = _screen(qtbot, _config("gaussian"))
     amplitude_widget = screen.param_form.widget_for("amplitude")
-    assert amplitude_widget.value() == pytest.approx(30.0)
+    assert amplitude_widget.value() == pytest.approx(1.0)
 
 
 # ------------------------------------------------------- params-backed rows
@@ -396,3 +401,21 @@ def test_back_to_back_renders_do_not_destroy_a_running_thread(qtbot):
     with qtbot.waitSignal(preview.renderFinished, timeout=20000):
         preview.render_now()
     qtbot.waitUntil(lambda: not preview._inflight, timeout=20000)
+
+
+@pytest.mark.parametrize("stimulus_type", ["composite", "timeline"])
+def test_a_new_sub_stimulus_defaults_to_a_unit_peak(qtbot, stimulus_type):
+    """D-0437899: the Add button's sub-stimulus peaks at 1.0 (it was 30)."""
+    from sensoryforge.gui.screens.stimulus_substimuli import default_sub_stimulus
+
+    assert default_sub_stimulus()["params"]["amplitude"] == 1.0
+    # 41 x 41 has a receptor at the centre, where the sub-stimulus peaks.
+    screen = _screen(qtbot, _config("gaussian", rows=41, cols=41))
+    # Switching to a composed type seeds one default sub-stimulus.
+    screen.type_combo.setCurrentIndex(screen.type_combo.findData(stimulus_type))
+    assert len(screen.sub_stimuli.entries()) == 1
+    frames, _, _, _ = render_for_config(
+        screen._session.config, duration_ms=100.0, dt_ms=1.0
+    )
+    assert float(frames.min()) >= 0.0
+    assert float(frames.max()) == pytest.approx(1.0, rel=0.01)

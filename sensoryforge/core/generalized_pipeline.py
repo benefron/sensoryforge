@@ -18,6 +18,7 @@ from .processing import ProcessingPipeline
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.stimuli.base import DEFAULT_AMPLITUDE
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
 from sensoryforge.stimuli.texture import gabor_texture  # (resolves ReviewFinding#M3)
 from sensoryforge.stimuli.builder import TimelineStimulus, RepeatedPatternStimulus
@@ -1045,6 +1046,11 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             time_array: (n_timesteps,) time array
             temporal_profile: (n_timesteps,) temporal profile
 
+        Every generator's ``amplitude`` defaults to
+        :data:`~sensoryforge.stimuli.base.DEFAULT_AMPLITUDE` (1.0, a unit
+        peak, D-0437899); it was 30.0 before. Pass ``amplitude`` to choose
+        another peak.
+
         Stimulus Format Requirements:
         - All stimuli should have shape (1, n_timesteps, grid_h, grid_w)
         - Values represent pressure amplitude
@@ -1081,7 +1087,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Default spatial params
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
-        amplitude = params.get("amplitude", 30.0)
+        amplitude = params.get("amplitude", DEFAULT_AMPLITUDE)
 
         xx, yy = self.grid_manager.get_coordinates()
 
@@ -1097,6 +1103,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 phase=params.get("phase", 0.0),
                 sigma=params.get("sigma", 2.0),
                 device=self.device,
+                signed=params.get("signed", False),
             )
         elif texture_type == "grating":
             # Use edge_grating if available, else fallback
@@ -1143,7 +1150,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         n_timesteps = int(duration / dt)
 
         # Probe parameters
-        amplitude = params.get("amplitude", 30.0)
+        amplitude = params.get("amplitude", DEFAULT_AMPLITUDE)
         sigma = params.get("sigma", 1.0)
 
         # Generate trajectory
@@ -1265,7 +1272,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 base_stim = StaticStimulus(
                     stim_type="gaussian",
                     params={
-                        "amplitude": params.get("amplitude", 30.0),
+                        "amplitude": params.get("amplitude", DEFAULT_AMPLITUDE),
                         "sigma": params.get("sigma", 0.5),
                         "center_x": 0.0,
                         "center_y": 0.0,
@@ -1317,7 +1324,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         # Set defaults if not provided
         center_x = stimulus_cfg.get("center_x", 0.0)
         center_y = stimulus_cfg.get("center_y", 0.0)
-        amplitude = stimulus_cfg.get("amplitude", 30.0)
+        amplitude = stimulus_cfg.get("amplitude", DEFAULT_AMPLITUDE)
         sigma = stimulus_cfg.get("sigma", 1.0)
 
         # Calculate time parameters
@@ -1397,7 +1404,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
-        amplitude = params.get("amplitude", 30.0)
+        amplitude = params.get("amplitude", DEFAULT_AMPLITUDE)
         sigma = params.get("sigma", 1.0)
 
         # Create time arrays
@@ -1432,7 +1439,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
-        amplitude = params.get("amplitude", 30.0)
+        amplitude = params.get("amplitude", DEFAULT_AMPLITUDE)
         sigma = params.get("sigma", 1.0)
 
         # Create time arrays
@@ -1467,7 +1474,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         dt = params.get("dt", self.config["neurons"]["dt"])
         center_x = params.get("center_x", 0.0)
         center_y = params.get("center_y", 0.0)
-        amplitude = params.get("amplitude", 30.0)
+        amplitude = params.get("amplitude", DEFAULT_AMPLITUDE)
         sigma = params.get("sigma", 1.0)
 
         # Create time arrays
