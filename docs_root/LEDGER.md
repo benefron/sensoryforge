@@ -108,14 +108,24 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-a5cfcf0 · STANDING · finding · - · 2026-09-24
+with the neuron-input floor and a 2 ms refractory period, AdEx RA's peak per-afferent rate on moving_edge falls from 1200 to 400 Hz and no negative drive reaches either recipe's neurons; Izhikevich SA touches its -120 mV floor only on moving_edge (-121 mV unclamped) with identical spikes
+→ commit 4daea68
+
+## F-f59aa11 · OPEN · finding · - · 2026-09-24
+after strong stimulation the AdEx recipe's adaptation variable, which acts in mV, builds to hundreds of mV and drives the voltage far below rest (about -380 mV for SA and -170 mV for RA without the -130 mV clamp, which changes spikes on braille and drifting_grating); AdEx SA's hold ISI CV is about 0.5-0.6 against P5's 0.5, because its ramp response builds adaptation that decays through the hold, and its hold at 0.2 mm is 2.9 Hz against SA1's 8.6
+→ commit 4daea68
+
 ## D-43dc520 · CLOSED · decision · - · 2026-09-24
 the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
 · Rejected: rectifying the SA filter output itself (clip_to_positive) | the recorded and decoded signal must stay signed (F-001)
 → commit 9e2b70a
+↔ 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
 
 ## D-f5853a4 · CLOSED · decision · - · 2026-09-24
 AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing configs are unchanged); the SA1_tonic and RA1_phasic presets use 2 ms, capping their rates near 500 Hz
 → commit 9e2b70a
+↔ 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
 
 ## D-7e71f68 · CLOSED · decision · - · 2026-09-24
 SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does
@@ -126,10 +136,11 @@ SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's stati
 the Izhikevich recipe's SA reaches its -120 mV floor on moving stimuli's trailing edges, but its spikes are identical with and without the clamp on all four benchmark stimuli, so F-037's divergence from pressure-simulation's unclamped neurons does not arise
 → commit 3b30da8
 
-## F-96ff772 · OPEN · finding · - · 2026-09-24
+## F-96ff772 · CLOSED · finding · - · 2026-09-24
 at its calibrated gains the AdEx recipe leaves the physiological voltage range -- SA's trailing-edge current reaches about -136 mA and a burst's adaptation drives the voltage into the -130 mV clamp, which falls to about -1000 mV without it; the clamp changes spikes by under 2%, and AdEx RA reaches 1200 Hz on moving_edge, having no refractory period
 → commit 3b30da8
 ↔ 9e2b70a decide: floor the afferent neuron's input at zero; give AdEx a refractory period
+✓ closed by 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
 
 ## F-bad9126 · OPEN · finding · - · 2026-09-24
 RA's release response is as strong as its onset, because the RA filter is symmetric in the rate of change, while TouchSim's RA releases at 0.67-0.8 of its onset and is silent at 0.2 mm; SA also fires one spike at release at 1.25 mm, where SA1 is silent
