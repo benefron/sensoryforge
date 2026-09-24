@@ -108,6 +108,15 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-43dc520 · CLOSED · decision · - · 2026-09-24
+the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
+· Rejected: rectifying the SA filter output itself (clip_to_positive) | the recorded and decoded signal must stay signed (F-001)
+→ commit 9e2b70a
+
+## D-f5853a4 · CLOSED · decision · - · 2026-09-24
+AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing configs are unchanged); the SA1_tonic and RA1_phasic presets use 2 ms, capping their rates near 500 Hz
+→ commit 9e2b70a
+
 ## D-7e71f68 · CLOSED · decision · - · 2026-09-24
 SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does
 · Rejected: keeping the geometric mean over all four benchmark stimuli | with SA1-like dynamics the AdEx recipe's static and moving rates spread wider than the band itself
@@ -120,6 +129,7 @@ the Izhikevich recipe's SA reaches its -120 mV floor on moving stimuli's trailin
 ## F-96ff772 · OPEN · finding · - · 2026-09-24
 at its calibrated gains the AdEx recipe leaves the physiological voltage range -- SA's trailing-edge current reaches about -136 mA and a burst's adaptation drives the voltage into the -130 mV clamp, which falls to about -1000 mV without it; the clamp changes spikes by under 2%, and AdEx RA reaches 1200 Hz on moving_edge, having no refractory period
 → commit 3b30da8
+↔ 9e2b70a decide: floor the afferent neuron's input at zero; give AdEx a refractory period
 
 ## F-bad9126 · OPEN · finding · - · 2026-09-24
 RA's release response is as strong as its onset, because the RA filter is symmetric in the rate of change, while TouchSim's RA releases at 0.67-0.8 of its onset and is silent at 0.2 mm; SA also fires one spike at release at 1.25 mm, where SA1 is silent
@@ -654,6 +664,7 @@ SensoryForge tracks decisions/findings in docs_root/LEDGER.md via commit trailer
 ## F-001 · CLOSED · finding · - · 2026-09-14
 SAFilterTorch rectifies I_SA (clip_to_positive=True, sa_ra.py:53,160); pressure-simulation does not and its decoder recovers velocity sign from SA. Decide once, apply to both repos
 → commit 7a188b6
+↔ 9e2b70a decide: floor the afferent neuron's input at zero; give AdEx a refractory period
 
 ## F-002 · CLOSED · finding · - · 2026-09-14
 tau_RA is 30 ms (sa_ra.py:258) / 15 ms (default_config.yml:94) / 30 (CombinedSARAFilter) here; pressure-simulation locked 8 ms (Kandel Ch.21, its 0ee0653). CombinedSARAFilter() is called with no args in core/pipeline.py:145 so YAML filters are dead on that path
