@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-de17e32 · STANDING · finding · - · 2026-09-24
+the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
+→ commit 74f7d2e
+
+## F-44f9142 · STANDING · finding · - · 2026-09-24
+PyQt 5.15.11 segfaults in PyQtSlot::call when the cyclic collector frees a functools.partial slot that a queued cross-thread signal has yet to deliver; StimulusPreview's render-worker connections formed such a cycle through the preview
+→ commit 74f7d2e
+
 ## F-d33d335 · OPEN · finding · - · 2026-09-24
 the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers about two receptors of a 0.15 mm grid, so at its defaults it drives tactile_sa1_ra1 to 54 SA and 0 RA spikes in 500 ms against 1214 and 82 for a default gaussian
 → commit abdf37f
@@ -266,9 +274,10 @@ every rendered stimulus changes over time: a still stimulus ramps up and down ov
 render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
 → commit 6956f81
 
-## F-085 · OPEN · finding · - · 2026-09-21
+## F-085 · CLOSED · finding · - · 2026-09-21
 with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
 → commit 32646fb
+✓ closed by 74f7d2e fix(gui): stop reference cycles from deciding when a dropped window dies
 
 ## D-032 · CLOSED · decision · - · 2026-09-21
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
