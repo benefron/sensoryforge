@@ -126,6 +126,7 @@ the quantitative afferent comparison uses touchsim output generated once in a th
 GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
 · Rejected: removing GridConfig.density | irregular receptor layouts are naturally specified in receptors per mm2, the unit afferent densities are published in
 → commit b4a853b
+↔ 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
 
 ## D-039 · CLOSED · decision · - · 2026-09-22
 upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
@@ -217,10 +218,11 @@ with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycle
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
 → commit 301af19
 
-## F-081 · OPEN · finding · - · 2026-09-21
+## F-081 · CLOSED · finding · - · 2026-09-21
 GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
 → commit 8674a6a
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
 
 ## F-082 · CLOSED · finding · - · 2026-09-21
 sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
