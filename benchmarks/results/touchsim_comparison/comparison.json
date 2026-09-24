@@ -243,14 +243,14 @@
  },
  "AdEx": {
   "preset": "tactile_sa1_ra1_adex",
-  "amplitude_per_mm": 0.32433280070877796,
+  "amplitude_per_mm": 0.4334262130361082,
   "rows": [
    {
     "depth_mm": 0.2,
     "feature": "SA hold rate",
     "touchsim": 8.5714,
-    "sensoryforge": 5.714285714285714,
-    "agrees": true
+    "sensoryforge": 2.857142857142857,
+    "agrees": false
    },
    {
     "depth_mm": 0.2,
@@ -270,8 +270,8 @@
     "depth_mm": 0.2,
     "feature": "SA hold / onset",
     "touchsim": 0.214285,
-    "sensoryforge": 0.14285714285714285,
-    "agrees": true
+    "sensoryforge": 0.07142857142857142,
+    "agrees": false
    },
    {
     "depth_mm": 0.2,
@@ -312,7 +312,7 @@
     "depth_mm": 0.4,
     "feature": "SA onset rate",
     "touchsim": 60.0,
-    "sensoryforge": 80.0,
+    "sensoryforge": 60.0,
     "agrees": true
    },
    {
@@ -326,7 +326,7 @@
     "depth_mm": 0.4,
     "feature": "SA hold / onset",
     "touchsim": 0.19047666666666666,
-    "sensoryforge": 0.14285714285714285,
+    "sensoryforge": 0.1904761904761905,
     "agrees": true
    },
    {
@@ -368,7 +368,7 @@
     "depth_mm": 0.7,
     "feature": "SA onset rate",
     "touchsim": 100.0,
-    "sensoryforge": 140.0,
+    "sensoryforge": 100.0,
     "agrees": true
    },
    {
@@ -382,7 +382,7 @@
     "depth_mm": 0.7,
     "feature": "SA hold / onset",
     "touchsim": 0.257143,
-    "sensoryforge": 0.163265306122449,
+    "sensoryforge": 0.22857142857142856,
     "agrees": true
    },
    {
@@ -417,28 +417,28 @@
     "depth_mm": 1.25,
     "feature": "SA hold rate",
     "touchsim": 42.8571,
-    "sensoryforge": 40.0,
+    "sensoryforge": 42.85714285714286,
     "agrees": true
    },
    {
     "depth_mm": 1.25,
     "feature": "SA onset rate",
     "touchsim": 180.0,
-    "sensoryforge": 240.0,
+    "sensoryforge": 160.0,
     "agrees": true
    },
    {
     "depth_mm": 1.25,
     "feature": "SA release rate",
     "touchsim": 0.0,
-    "sensoryforge": 20.0,
-    "agrees": false
+    "sensoryforge": 0.0,
+    "agrees": true
    },
    {
     "depth_mm": 1.25,
     "feature": "SA hold / onset",
     "touchsim": 0.238095,
-    "sensoryforge": 0.16666666666666666,
+    "sensoryforge": 0.2678571428571429,
     "agrees": true
    },
    {
@@ -471,10 +471,10 @@
    }
   ],
   "summary": {
-   "SA hold rate": true,
+   "SA hold rate": false,
    "SA onset rate": true,
-   "SA release rate": false,
-   "SA hold / onset": true,
+   "SA release rate": true,
+   "SA hold / onset": false,
    "RA onset rate": true,
    "RA hold rate": true,
    "RA release rate": false,

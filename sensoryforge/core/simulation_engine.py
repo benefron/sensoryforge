@@ -28,7 +28,11 @@ import torch.nn.functional as F
 import numpy as np
 
 from sensoryforge.config.schema import SensoryForgeConfig, validate_dt_ms
-from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
+from sensoryforge.config.defaults import (
+    resolve_filter_params,
+    resolve_input_floor,
+    resolve_neuron_params,
+)
 from sensoryforge.register_components import register_all
 from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY, INNERVATION_REGISTRY
 from sensoryforge.core.grid import ReceptorGrid, GridManager, load_receptor_coords_file
@@ -992,6 +996,9 @@ class SimulationEngine:
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
                 noise_generator=noise_generator,
+                input_floor=resolve_input_floor(
+                    pop_cfg.neuron_type, pop_cfg.neuron_model, pop_cfg.input_floor
+                ),
             )
             results[pop_name] = pop_results
 
@@ -1031,6 +1038,7 @@ class SimulationEngine:
         dt_ms: float = 1.0,
         integrate_dt_ms: float = 0.05,
         noise_generator: Optional[torch.Generator] = None,
+        input_floor: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Run filter → gain → noise → sub-stepped neuron on a drive tensor.
 
@@ -1066,6 +1074,10 @@ class SimulationEngine:
                 the neuron model.  Default ``1.0`` (no scaling).
             noise_std: Standard deviation of Gaussian noise added after gain.
                 Default ``0.0`` (no noise).
+            input_floor: Lower bound (mA) on the current the neuron receives,
+                applied after gain and noise (D-43dc520). The returned
+                ``"filtered"`` is the signal before the bound, so it stays
+                signed. ``None`` (default) applies no bound.
             return_intermediates: If ``True``, include ``"drive"``, ``"filtered"``,
                 and ``"voltages"`` in the returned dict.
             dt_ms: Record step (ms) -- the time resolution of ``drive`` and
@@ -1143,7 +1155,13 @@ class SimulationEngine:
         # per bin, then run the neuron once over the whole sub-stepped
         # sequence so its state carries continuously across bins.
         n_substeps = max(1, round(dt_ms / integrate_dt_ms))
-        filtered_sub = filtered.repeat_interleave(n_substeps, dim=1)
+        # D-43dc520: the neuron sees the drive floored at input_floor; the
+        # recorded ``filtered`` keeps its sign (pressure-simulation's decoder
+        # reads it).
+        neuron_input = (
+            filtered if input_floor is None else filtered.clamp(min=input_floor)
+        )
+        filtered_sub = neuron_input.repeat_interleave(n_substeps, dim=1)
 
         if noise_generator is None:
             neuron_output = neuron_model(filtered_sub)

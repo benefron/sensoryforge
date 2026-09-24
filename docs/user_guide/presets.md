@@ -34,7 +34,7 @@ sensoryforge run --preset tactile_sa1_ra1 --duration 1000
   populations are fitted to TouchSim's SA1 and RA afferents, and each has its
   own calibrated `input_gain` (SA 380, RA 410; see
   [Units and gains](units_and_gains.md#calibrated-gains-in-the-tactile-recipes)).
-  `tactile_sa1_ra1_adex` is the same recipe on AdEx neurons (SA 500, RA 660).
+  `tactile_sa1_ra1_adex` is the same recipe on AdEx neurons (SA 370, RA 490).
 - **`tactile_stochastic_control`** — the named control arm (decision D-019 in
   `docs_root/LEDGER.md`): identical grid and populations, but with
   `innervation_method: gaussian` and `use_distance_weights: false` instead of

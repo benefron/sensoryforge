@@ -461,6 +461,14 @@ class PopulationConfig:
         visible: Whether this population is visible in the GUI.
         enabled: Whether this population is enabled for simulation.
         input_gain: Input gain multiplier.
+        input_floor: Lower bound (mA) on the current the neuron receives,
+            applied after the gain and the noise; the recorded ``filtered``
+            drive stays signed. ``None`` resolves by population
+            (:func:`sensoryforge.config.defaults.resolve_input_floor`): 0 mA
+            for tactile afferents (SA, RA, SA2) on a built-in neuron model,
+            so negative mechanical drive silences an afferent instead of
+            hyperpolarizing it (ledger D-43dc520), and no floor otherwise.
+            ``-inf`` disables the floor explicitly.
         seed: Random seed for innervation generation.
     """
 
@@ -525,6 +533,7 @@ class PopulationConfig:
     # Simulation control
     enabled: bool = True
     input_gain: float = 50.0
+    input_floor: Optional[float] = None
     seed: Optional[int] = None
 
     def __post_init__(self) -> None:

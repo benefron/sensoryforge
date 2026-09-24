@@ -53,7 +53,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: sa
-  input_gain: 500.0
+  input_gain: 370.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -65,7 +65,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: ra
-  input_gain: 660.0
+  input_gain: 490.0
   seed: 43
 simulation:
   device: cpu

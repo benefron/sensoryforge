@@ -228,7 +228,8 @@ solver_config:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | bool | `True` | Whether this population is enabled for simulation |
-| `input_gain` | float | `1.0` | Input gain multiplier |
+| `input_gain` | float | `50.0` | Input gain multiplier |
+| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on a built-in neuron model and to no floor otherwise; `-.inf` disables it (D-43dc520) |
 | `seed` | int | `None` | Random seed for innervation generation |
 
 ### Example

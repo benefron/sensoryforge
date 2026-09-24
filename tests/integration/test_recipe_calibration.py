@@ -93,8 +93,9 @@ def _run(config, frames, v_floor=None):
             "AdEx",
             marks=pytest.mark.xfail(
                 strict=True,
-                reason="AdEx adaptation drives the voltage into v_floor during "
-                "the static hold at the calibrated gains (open ledger entry)",
+                reason="AdEx adaptation, which acts in mV, drives the voltage "
+                "into v_floor after strong stimulation, and SA's hold ISI CV "
+                "(about 0.5-0.6) exceeds P5's 0.5 (open ledger entry)",
             ),
         ),
     ],

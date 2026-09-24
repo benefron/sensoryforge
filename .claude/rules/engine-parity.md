@@ -51,7 +51,7 @@ re-runs a config with every displayed value written explicitly and requires iden
   ramp response. pressure-simulation builds its filters from these same resolver defaults, so a
   change here changes its design-time drive model too.
 - **Recipe populations are fitted to TouchSim (D-f4d0967, D-d9bd411):** `tactile_sa1_ra1`
-  SA 380 / RA 410 with Izhikevich `d` SA 15 / RA 24; `tactile_sa1_ra1_adex` SA 500 / RA 660 with
+  SA 380 / RA 410 with Izhikevich `d` SA 15 / RA 24; `tactile_sa1_ra1_adex` SA 370 / RA 490 with
   the refitted AdEx presets. Re-run `scripts/validation/fit_afferents.py` and then
   `scripts/calibrate_recipe_gains.py` if a filter or neuron preset changes; do not reset gains to
   a shared 50.

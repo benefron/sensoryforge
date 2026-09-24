@@ -50,7 +50,39 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-43dc520 · A tactile afferent's neuron input is floored at zero · 2026-09-24
+
+**What was decided.** the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
+
+**Why.** With SA fitted to SA1's ramp response (k2 = 8, D-f4d0967) and a gain that puts a held stimulus at 45 Hz, the SA current on a moving stimulus's trailing edge reached about -100 to -136 mA (F-96ff772). Izhikevich SA hit its -120 mV floor there. AdEx, with only a linear leak, would have fallen to about -1000 mV without its clamp. A mechanoreceptor's transduction current cannot reverse, so negative mechanical drive should silence the afferent, not hyperpolarize it.
+
+The floor sits where the current enters the neuron (`SimulationEngine._run_pop_from_drive`, after gain and noise). The recorded `filtered` keeps its sign, and pressure-simulation's decoder reads velocity sign from it (F-001). It resolves by population: 0 mA for SA, RA and SA2 on a built-in neuron model. A DSL model, which may be an analog readout of a signed signal, gets none, and so does any other type. The vision preset sets `-.inf` explicitly, because it reuses the SA type label for non-tactile populations.
+
+**What was rejected.** Rectifying the SA filter's output (`clip_to_positive`). The recorded, decoded signal must stay signed (F-001).
+
+**Where it lives.** `sensoryforge/config/schema.py::PopulationConfig.input_floor`; `sensoryforge/config/defaults.py::resolve_input_floor`; `sensoryforge/core/simulation_engine.py::_run_pop_from_drive`; `tests/unit/test_input_floor.py`.
+
+**Ledger id + sha.** D-43dc520 · `9e2b70a` (decision)
+
+**Validation pending.** The legacy pipelines (`GeneralizedTactileEncodingPipeline`, `TactileEncodingPipelineTorch`) do not apply the floor. The GUI does not show the field yet.
+
+## D-f5853a4 · AdEx gets an absolute refractory period · 2026-09-24
+
+**What was decided.** AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing configs are unchanged); the SA1_tonic and RA1_phasic presets use 2 ms, capping their rates near 500 Hz
+
+**Why.** At the TouchSim-fitted sensitivity, AdEx RA reached 1200 Hz per afferent on `moving_edge` (six spikes in 5 ms), because AdEx has no refractory period. After a spike, `t_ref` holds the voltage at v_reset while the adaptation current keeps evolving. With 2 ms, a constant 400 mA drive gives 395 Hz instead of 880 Hz, and `moving_edge` peaks at 400 Hz. With `t_ref` = 0 the update is bit-identical to the code before the change.
+
+**What was rejected.** Capping rates in the analysis (a scoring ceiling), which would have left the simulated spike trains unphysiological.
+
+**Where it lives.** `sensoryforge/neurons/adex.py` (`t_ref`, `ADEX_PRESETS`); `tests/unit/test_adex_refractory.py`.
+
+**Ledger id + sha.** D-f5853a4 · `9e2b70a` (decision)
+
+**Validation pending.** Izhikevich has no refractory period and reaches 600-800 Hz on `moving_edge`. Its f-I curve is steep, and no decision covers it yet.
+
 ## D-f4d0967 · SA matches TouchSim's SA1 · 2026-09-24
+
+**Update 2026-09-24 (D-43dc520, D-f5853a4):** with the neuron-input floor and AdEx's refractory period, the AdEx recipe's gains became SA 370 / RA 490. AdEx now agrees with SA1 at every compared depth except 0.2 mm, where its hold is 2.9 Hz against 8.6 (one spike against three). Its hold ISI CV is about 0.5-0.6, against P5's 0.5. Izhikevich is unchanged.
 
 **What was decided.** SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
 
@@ -76,6 +108,8 @@ Two consequences followed:
 **Validation pending.** TouchSim is one model of SA1, not recordings. Real afferent data would be the stronger test. At its calibrated gains the AdEx recipe leaves the physiological voltage range (open entry), so AdEx SA's fit holds on the probe's range, not on the benchmark stimuli.
 
 ## D-d9bd411 · RA matches TouchSim's RA sensitivity · 2026-09-24
+
+**Update 2026-09-24 (D-43dc520, D-f5853a4):** RA's peak on `moving_edge` is now 400 Hz for AdEx (refractory period) and 600 Hz for Izhikevich. AdEx's RA gain is 490 against SA 370.
 
 **What was decided.** SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
 

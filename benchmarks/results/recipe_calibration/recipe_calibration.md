@@ -11,7 +11,7 @@ At the chosen gains:
 
 | population | ramp_gaussian | moving_edge | braille | drifting_grating |
 |---|---|---|---|---|
-| SA | 46.2 Hz (CV 0.22) | 86.3 Hz (CV 0.73) | 83.1 Hz (CV 2.73) | 82.7 Hz (CV 0.38) |
+| SA | 46.2 Hz (CV 0.22) | 86.3 Hz (CV 0.73) | 82.8 Hz (CV 2.73) | 82.7 Hz (CV 0.46) |
 | RA | peak 200 Hz, hold 0 | peak 600 Hz, hold 10222 | peak 400 Hz, hold 1329 | peak 200 Hz, hold 12712 |
 
 SA sweep (static-hold rate; the moving stimuli's rates for reference; P5 RA check at each gain, for reference):
@@ -26,32 +26,32 @@ SA sweep (static-hold rate; the moving stimuli's rates for reference; P5 RA chec
 | 48.3 | 5.6 | 14/12/14 | False | True |
 | 53.1 | 7.5 | 15/12/14 | False | True |
 | 58.5 | 8.8 | 15/16/14 | False | True |
-| 64.3 | 9.4 | 15/16/19 | False | True |
+| 64.3 | 9.4 | 15/16/14 | False | True |
 | 70.7 | 10.6 | 19/18/19 | False | True |
-| 77.8 | 11.9 | 20/18/18 | False | True |
-| 85.6 | 12.5 | 20/21/20 | False | True |
-| 94.2 | 13.1 | 24/22/22 | False | True |
-| 103.6 | 15.6 | 25/24/22 | False | True |
-| 113.9 | 15.6 | 25/28/27 | False | True |
+| 77.8 | 11.9 | 20/18/19 | False | True |
+| 85.6 | 12.5 | 20/21/18 | False | True |
+| 94.2 | 13.1 | 24/22/23 | False | True |
+| 103.6 | 15.6 | 25/24/23 | False | True |
+| 113.9 | 15.6 | 25/27/28 | False | True |
 | 125.3 | 17.5 | 30/28/27 | False | True |
 | 137.8 | 19.4 | 34/32/32 | False | True |
 | 151.6 | 20.6 | 35/34/31 | True | True |
 | 166.8 | 22.5 | 40/39/36 | True | True |
 | 183.5 | 23.8 | 44/42/41 | True | True |
 | 201.8 | 25.0 | 45/45/46 | True | True |
-| 222.0 | 30.0 | 50/49/50 | True | True |
-| 244.2 | 30.0 | 55/54/55 | True | True |
-| 268.6 | 33.8 | 60/61/59 | True | True |
+| 222.0 | 30.0 | 50/49/46 | True | True |
+| 244.2 | 30.0 | 55/54/50 | True | True |
+| 268.6 | 33.8 | 60/61/60 | True | True |
 | 295.5 | 38.1 | 69/67/64 | True | True |
 | 325.0 | 40.6 | 74/72/69 | True | True |
 | 357.5 | 42.5 | 80/81/78 | True | True |
-| 393.3 | 46.2 | 89/88/82 | True | False |
-| 432.6 | 51.2 | 99/96/91 | True | False |
+| 393.3 | 46.2 | 89/87/83 | True | False |
+| 432.6 | 51.2 | 99/95/92 | True | False |
 | 475.9 | 56.9 | 109/104/100 | True | False |
 | 523.5 | 61.9 | 119/116/109 | True | False |
-| 575.8 | 67.5 | 129/127/123 | True | False |
-| 633.4 | 73.1 | 144/137/132 | True | False |
-| 696.8 | 80.6 | 158/152/145 | True | False |
+| 575.8 | 67.5 | 129/126/123 | True | False |
+| 633.4 | 73.1 | 144/137/133 | True | False |
+| 696.8 | 80.6 | 158/152/147 | True | False |
 
 RA sweep (RMS log error of the onset rate against TouchSim's RA):
 
@@ -84,15 +84,15 @@ RA sweep (RMS log error of the onset rate against TouchSim's RA):
 
 ## AdEx (`tactile_sa1_ra1_adex`)
 
-- **SA gain 500.0** (interpolated 500.2); confirmed in band: True
-- **RA gain 660.0** (TouchSim's RA onset, minimal-error interval (661.2, 661.2), amplitude per mm 0.324); P5's RA criteria at this gain: **not met**
+- **SA gain 370.0** (interpolated 374.0); confirmed in band: False
+- **RA gain 490.0** (TouchSim's RA onset, minimal-error interval (489.3, 489.3), amplitude per mm 0.433); P5's RA criteria at this gain: met
 
 At the chosen gains:
 
 | population | ramp_gaussian | moving_edge | braille | drifting_grating |
 |---|---|---|---|---|
-| SA | 45.6 Hz (CV 0.23) | 196.3 Hz (CV 0.69) | 178.1 Hz (CV 3.87) | 167.3 Hz (CV 0.44) |
-| RA | peak 400 Hz, hold 0 | peak 1200 Hz, hold 15624 | peak 600 Hz, hold 1990 | peak 400 Hz, hold 16018 |
+| SA | 44.4 Hz (CV 0.61) | 97.5 Hz (CV 0.37) | 85.8 Hz (CV 2.57) | 105.7 Hz (CV 0.33) |
+| RA | peak 400 Hz, hold 0 | peak 400 Hz, hold 10324 | peak 400 Hz, hold 1235 | peak 200 Hz, hold 10808 |
 
 SA sweep (static-hold rate; the moving stimuli's rates for reference; P5 RA check at each gain, for reference):
 
@@ -103,61 +103,61 @@ SA sweep (static-hold rate; the moving stimuli's rates for reference; P5 RA chec
 | 36.3 | 0.0 | 15/11/10 | False | False |
 | 39.9 | 0.6 | 15/14/11 | False | False |
 | 43.9 | 0.6 | 15/15/15 | False | False |
-| 48.3 | 1.9 | 20/16/15 | False | False |
-| 53.1 | 2.5 | 20/20/16 | False | False |
-| 58.5 | 2.5 | 24/20/20 | False | True |
-| 64.3 | 3.8 | 25/22/20 | False | True |
-| 70.7 | 3.8 | 29/25/25 | False | True |
-| 77.8 | 5.6 | 30/27/24 | False | True |
-| 85.6 | 5.6 | 34/31/29 | False | True |
-| 94.2 | 7.5 | 39/34/29 | False | True |
-| 103.6 | 7.5 | 40/38/34 | False | True |
-| 113.9 | 8.1 | 45/40/39 | False | True |
-| 125.3 | 9.4 | 49/46/44 | False | True |
-| 137.8 | 9.4 | 54/51/46 | False | True |
-| 151.6 | 11.2 | 59/57/51 | False | True |
-| 166.8 | 13.1 | 69/60/58 | False | True |
-| 183.5 | 15.6 | 74/66/63 | False | True |
-| 201.8 | 16.2 | 83/72/67 | False | True |
-| 222.0 | 18.1 | 89/82/75 | False | True |
-| 244.2 | 21.2 | 98/89/82 | True | False |
-| 268.6 | 22.5 | 108/97/91 | True | False |
-| 295.5 | 25.0 | 118/108/101 | True | False |
-| 325.0 | 28.8 | 129/118/110 | True | False |
-| 357.5 | 31.2 | 143/129/120 | True | False |
-| 393.3 | 35.6 | 157/141/131 | True | False |
-| 432.6 | 39.4 | 172/155/144 | True | False |
-| 475.9 | 41.9 | 187/169/158 | True | False |
-| 523.5 | 47.5 | 206/186/172 | False | False |
-| 575.8 | 54.4 | 226/203/191 | False | False |
-| 633.4 | 59.4 | 246/223/210 | True | False |
-| 696.8 | 65.6 | 268/242/229 | False | False |
+| 48.3 | 1.9 | 19/15/15 | False | False |
+| 53.1 | 1.9 | 20/17/15 | False | False |
+| 58.5 | 2.5 | 20/20/19 | False | True |
+| 64.3 | 3.8 | 25/20/19 | False | True |
+| 70.7 | 4.4 | 25/25/24 | False | True |
+| 77.8 | 5.6 | 29/26/24 | False | True |
+| 85.6 | 5.6 | 30/27/29 | False | True |
+| 94.2 | 6.9 | 34/31/29 | False | True |
+| 103.6 | 6.9 | 39/32/34 | False | True |
+| 113.9 | 9.4 | 39/37/37 | False | True |
+| 125.3 | 9.4 | 44/40/39 | False | True |
+| 137.8 | 11.2 | 49/43/44 | False | True |
+| 151.6 | 14.4 | 53/46/48 | False | True |
+| 166.8 | 14.4 | 58/50/53 | False | True |
+| 183.5 | 16.9 | 59/54/58 | False | True |
+| 201.8 | 20.6 | 64/57/63 | True | True |
+| 222.0 | 21.2 | 69/63/68 | True | True |
+| 244.2 | 25.6 | 74/68/72 | False | True |
+| 268.6 | 28.1 | 78/69/82 | True | True |
+| 295.5 | 33.8 | 87/75/87 | False | True |
+| 325.0 | 37.5 | 92/80/93 | True | True |
+| 357.5 | 41.9 | 97/86/101 | True | True |
+| 393.3 | 48.1 | 102/91/111 | False | True |
+| 432.6 | 55.0 | 107/96/116 | False | True |
+| 475.9 | 64.4 | 112/98/125 | False | True |
+| 523.5 | 71.9 | 117/104/135 | True | True |
+| 575.8 | 82.5 | 125/109/145 | True | True |
+| 633.4 | 92.5 | 130/115/152 | True | True |
+| 696.8 | 104.4 | 135/120/159 | False | True |
 
 RA sweep (RMS log error of the onset rate against TouchSim's RA):
 
 | RA gain | error |
 |---|---|
-| 163.5 | 1.362 |
-| 188.0 | 1.114 |
-| 216.2 | 1.014 |
-| 248.6 | 1.014 |
-| 285.9 | 1.014 |
-| 328.8 | 0.691 |
-| 378.1 | 0.598 |
-| 434.8 | 0.569 |
-| 500.0 | 0.562 |
-| 575.0 | 0.547 |
-| 661.2 | 0.075 |
-| 760.4 | 0.225 |
-| 874.5 | 0.317 |
-| 1005.7 | 0.384 |
-| 1156.5 | 0.484 |
-| 1330.0 | 0.817 |
-| 1529.5 | 0.927 |
-| 1758.9 | 0.977 |
-| 2022.8 | 1.094 |
-| 2326.2 | 1.189 |
-| 2675.1 | 1.441 |
-| 3076.4 | 1.548 |
-| 3537.9 | 1.625 |
-| 4068.5 | 1.811 |
+| 121.0 | 1.362 |
+| 139.1 | 1.114 |
+| 160.0 | 1.014 |
+| 184.0 | 1.014 |
+| 211.5 | 1.014 |
+| 243.3 | 0.691 |
+| 279.8 | 0.598 |
+| 321.7 | 0.569 |
+| 370.0 | 0.569 |
+| 425.5 | 0.542 |
+| 489.3 | 0.075 |
+| 562.7 | 0.179 |
+| 647.1 | 0.225 |
+| 744.2 | 0.318 |
+| 855.8 | 0.399 |
+| 984.2 | 0.750 |
+| 1131.8 | 0.767 |
+| 1301.6 | 0.843 |
+| 1496.9 | 0.963 |
+| 1721.4 | 1.027 |
+| 1979.6 | 1.224 |
+| 2276.5 | 1.275 |
+| 2618.0 | 1.348 |
+| 3010.7 | 1.507 |

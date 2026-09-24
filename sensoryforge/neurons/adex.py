@@ -20,6 +20,9 @@ _ADEX_CLASS_DEFAULTS: dict = {
     "v_reset": -58.0,
     "v_spike": 20.0,
     "R": 1.0,
+    # Absolute refractory period (ms): after a spike, v is held at v_reset
+    # for t_ref while w keeps evolving. 0 keeps the historical behaviour.
+    "t_ref": 0.0,
 }
 
 #: Named AdEx firing-pattern regimes. Pass ``preset=...`` to
@@ -44,7 +47,7 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: recipe's old shared ``input_gain`` of 50, before the presets' adaptation
 #: was refitted to TouchSim's SA1/RA (D-f4d0967, D-d9bd411; see each preset's
 #: comment below). ``tactile_sa1_ra1_adex`` calibrates each population's gain
-#: on top of these presets (SA 500, RA 660, ``scripts/calibrate_recipe_gains.py``).
+#: on top of these presets (SA 370, RA 490, ``scripts/calibrate_recipe_gains.py``).
 #:
 #: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
 #: same role ``input_gain`` plays on the Izhikevich path, compensating the
@@ -127,6 +130,9 @@ ADEX_PRESETS: dict = {
         "v_reset": -70.0,
         "v_spike": 20.0,
         "R": 6.0,
+        # 2 ms absolute refractory period (D-f5853a4): caps the rate near
+        # 500 Hz, a physiological ceiling for an afferent.
+        "t_ref": 2.0,
     },
     # Phasic / strongly-adapting: large a and a large spike-triggered b,
     # short-to-moderate tau_w -- the first spike (or few) drives the
@@ -146,6 +152,7 @@ ADEX_PRESETS: dict = {
         "v_reset": -70.0,
         "v_spike": 20.0,
         "R": 8.0,
+        "t_ref": 2.0,
     },
 }
 
@@ -199,6 +206,7 @@ class AdExNeuronTorch(BaseNeuron):
         "v_reset",
         "v_spike",
         "R",
+        "t_ref",
     )
 
     def __init__(
@@ -213,6 +221,7 @@ class AdExNeuronTorch(BaseNeuron):
         v_reset=None,
         v_spike=None,
         R=None,
+        t_ref=None,
         v_init=None,
         w_init=None,
         dt=0.05,
@@ -240,6 +249,7 @@ class AdExNeuronTorch(BaseNeuron):
             "v_reset": v_reset,
             "v_spike": v_spike,
             "R": R,
+            "t_ref": t_ref,
         }
         for name in self._PRESET_PARAM_NAMES:
             value = explicit[name]
@@ -281,6 +291,7 @@ class AdExNeuronTorch(BaseNeuron):
             "v_reset": self.v_reset,
             "v_spike": self.v_spike,
             "R": self.R,
+            "t_ref": self.t_ref,
             "v_init": self.v_init,
             "w_init": self.w_init,
             "dt": self.dt,
@@ -393,6 +404,20 @@ class AdExNeuronTorch(BaseNeuron):
                 tooltip="Membrane resistance",
             ),
             ParamSpec(
+                "t_ref",
+                dtype="float",
+                default=0.0,
+                min_val=0.0,
+                max_val=20.0,
+                step=0.5,
+                unit="ms",
+                tooltip="Absolute refractory period",
+                help="After a spike the voltage is held at v_reset for this "
+                "long while the adaptation current keeps evolving. The SA1/RA1 "
+                "presets use 2 ms, which caps the rate near 500 Hz.",
+                advanced=True,
+            ),
+            ParamSpec(
                 "v_init",
                 dtype="float",
                 default=-70.0,
@@ -470,6 +495,15 @@ class AdExNeuronTorch(BaseNeuron):
             (batch, steps + 1, features), dtype=torch.bool, device=device
         )
         v_trace[:, 0, :] = v
+        # Absolute refractory period (D-f5853a4): steps left during which v is
+        # held at v_reset. With t_ref = 0 this stays unused and the update
+        # is the historical one, bit for bit.
+        ref_steps = int(round(self.t_ref / self.dt)) if self.t_ref else 0
+        refractory = (
+            torch.zeros((batch, features), dtype=torch.int64, device=device)
+            if ref_steps > 0
+            else None
+        )
         for t in range(steps):
             fired = v >= self.v_spike
             v_vis = v.clone()
@@ -489,6 +523,14 @@ class AdExNeuronTorch(BaseNeuron):
             else:
                 v_next = torch.where(not_fired, v + self.dt * dv, v_next)
             w_next = torch.where(not_fired, w + self.dt * dw, w_next)
+            if refractory is not None:
+                held = refractory > 0
+                v_next = torch.where(held, torch.full_like(v, self.v_reset), v_next)
+                refractory = torch.where(
+                    fired,
+                    torch.full_like(refractory, ref_steps),
+                    (refractory - 1).clamp(min=0),
+                )
             if self.v_floor is not None:
                 v_next = v_next.clamp(min=self.v_floor)
             v = v_next

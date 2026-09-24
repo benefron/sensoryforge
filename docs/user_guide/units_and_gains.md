@@ -101,20 +101,22 @@ gain from `scripts/calibrate_recipe_gains.py`:
 | Recipe | SA gain | RA gain |
 |---|---|---|
 | `tactile_sa1_ra1` (Izhikevich) | 380 | 410 |
-| `tactile_sa1_ra1_adex` (AdEx) | 500 | 660 |
+| `tactile_sa1_ra1_adex` (AdEx) | 370 | 490 |
 | `tactile_stochastic_control` | 380 | 410 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
 
 - **SA:** the gain that puts SA's rate during a held stimulus
   (`ramp_gaussian`'s hold, over its responsive neurons) at the centre of P5's
   20–100 Hz band on a log scale (44.7 Hz), with an ISI CV below 0.5. SA now
   answers motion as SA1 does, at several times its hold rate, so the moving
-  stimuli drive it harder (Izhikevich 83–86 Hz, AdEx 167–196 Hz); P5 states
-  its band for a held stimulus.
+  stimuli drive it harder (Izhikevich 83–86 Hz, AdEx 86–106 Hz); P5 states
+  its band for a held stimulus. AdEx SA's hold is less regular than P5 asks
+  (ISI CV about 0.5–0.6 against < 0.5): its ramp response builds adaptation
+  that decays through the hold, so its intervals shorten as the hold goes on.
 - **RA:** the gain whose onset rates best match TouchSim's RA at the same
   indentations, so RA fires at the small movements TouchSim's RA detects. RA
   must stay silent during a held stimulus. P5's 150–400 Hz burst band is
-  reported, not required: on the fast `moving_edge` RA now reaches 600 Hz
-  (Izhikevich) and 1200 Hz (AdEx).
+  reported, not required: on the fast `moving_edge` RA reaches 600 Hz
+  (Izhikevich) and 400 Hz (AdEx, whose 2 ms refractory period caps it).
 
 The shapes of the responses come from a separate fit
 (`scripts/validation/fit_afferents.py`, results in
@@ -123,12 +125,23 @@ default), spike-frequency adaptation (Izhikevich `d`: SA 15, RA 24, set in the
 recipe; AdEx `SA1_tonic`/`RA1_phasic` presets). The gains, and the full
 sweeps, are in `benchmarks/results/recipe_calibration/recipe_calibration.md`.
 
-**Known limit (AdEx).** At these gains the AdEx recipe's voltage leaves the
-physiological range. The SA current on a trailing edge reaches about
-−136 mA, and a burst's adaptation drives the voltage down too; the −130 mV
-clamp hides it (without the clamp the voltage falls to about −1000 mV). The
-clamp changes spikes by under 2%, but the dynamics are not trustworthy there;
-see the ledger's open entry on AdEx's voltage range.
+**The neuron's input is floored at 0 mA for tactile afferents**
+(`PopulationConfig.input_floor`; D-43dc520). A negative mechanical drive,
+such as the SA filter's response to a trailing edge, silences the afferent
+instead of hyperpolarizing it. The recorded `filtered` drive stays signed,
+which is what bundles store and pressure-simulation's decoder reads. Other
+populations (a DSL analog readout, the vision preset) get no floor. Set
+`input_floor: -.inf` to disable it.
+
+**AdEx has a 2 ms refractory period** in the `SA1_tonic`/`RA1_phasic`
+presets (`t_ref`; D-f5853a4), which caps its rate near 500 Hz.
+
+**Known limit (AdEx).** After strong stimulation the AdEx recipe's
+adaptation variable, which acts in mV, builds up to hundreds of mV, and the
+voltage falls far below rest once the drive stops: to about −380 mV without
+the −130 mV clamp. See the ledger's open entry before trusting AdEx dynamics
+after strong stimulation. Izhikevich reaches its floor only briefly, with
+spikes identical with and without the clamp.
 
 ---
 
