@@ -14,6 +14,11 @@
 # Usage:
 #   sensoryforge run --preset tactile_sa1_ra1
 #   sensoryforge run --preset tactile_sa1_ra1 my_overrides.yml
+#
+# Input gains are per population, calibrated against decision P5 on the four
+# benchmark stimuli by scripts/calibrate_recipe_gains.py (ledger D-ea0f017;
+# report: benchmarks/results/recipe_calibration/). One shared gain of 50 left
+# SA at 8.75 Hz on a held stimulus (F-093).
 metadata:
   name: Pressure-simulation recipe (SA1/RA1)
   version: '1.0'
@@ -39,7 +44,7 @@ populations:
     normalize: l2
   neuron_model: izhikevich
   filter_method: sa
-  input_gain: 50.0
+  input_gain: 220.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -51,7 +56,7 @@ populations:
     normalize: l2
   neuron_model: izhikevich
   filter_method: ra
-  input_gain: 50.0
+  input_gain: 61.0
   seed: 43
 simulation:
   device: cpu

@@ -343,6 +343,7 @@ def test_a_quick_run_keeps_one_population_caps_the_duration_and_skips_the_bundle
 def test_the_snapshot_is_independent_of_later_config_edits(qtbot, spy):
     spy.delay_s = 0.2
     session = _session(_config(2))
+    before = session.config.populations[0].input_gain
     controller = RunController(session)
     controller.started.connect(
         lambda: session.set_by_path("populations.0.input_gain", 999.0)
@@ -351,5 +352,5 @@ def test_the_snapshot_is_independent_of_later_config_edits(qtbot, spy):
     with qtbot.waitSignal(controller.finished, timeout=TIMEOUT_MS) as blocker:
         controller.run(duration_ms=20.0, bundle=False)
 
-    assert blocker.args[0].config_snapshot.populations[0].input_gain == 50.0
+    assert blocker.args[0].config_snapshot.populations[0].input_gain == before
     assert session.config.populations[0].input_gain == 999.0

@@ -41,7 +41,10 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: drive the ``tactile_sa1_ra1`` recipe actually delivers (Phase 2b T2b,
 #: measured by ``scripts/tune_adex_populations.py`` -- see
 #: ``benchmarks/results/adex_tuning/adex_tuning.md``), not against an
-#: arbitrary bench current.
+#: arbitrary bench current. The drive figures below were measured at the
+#: recipe's old shared ``input_gain`` of 50; ``tactile_sa1_ra1_adex`` now
+#: calibrates each population's gain on top of these presets (SA 55, RA 86,
+#: ``scripts/calibrate_recipe_gains.py``, ledger D-ea0f017).
 #:
 #: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
 #: same role ``input_gain`` plays on the Izhikevich path, compensating the

@@ -213,14 +213,14 @@ def get_param_spec(cls):
 - **Stimulus types disagree on amplitude scale by about 30x at their defaults** (F-083): a default `gabor` or tactile stimulus drives few or no spikes at `input_gain` 50.
 - **`GridConfig.density` is never read** (F-081); every arrangement is sized by rows x cols x spacing.
 - **The test suite runs with the cyclic GC on and collects after every `gui` test** (conftest autouse fixture). Collecting a destroyed window's pyqtgraph cycles mid-test can destroy a live ViewBox; do not discard and rebuild pyqtgraph widgets at runtime.
-- **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036).
+- **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037, settled: the tactile recipes never reach the floor, and `tests/integration/test_recipe_calibration.py` fails if one comes within 20 mV of it); **flake8 debt beyond the CI subset** (F-036).
 
 The items below were open as of 2026-09-14 (ledger `F-0NN` IDs); see
 `docs/development/reviews/` for the historical audits they came from, and note several items that
 audit once listed here (DSL/CUDA support, `reset_states`) were already fixed — see ledger `R-001`,
 `D-011`.
 
-- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` (shown on the GUI's Populations screen) is **50** to compensate. Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
+- **`input_gain` unit mismatch** — The SA/RA filter parameters (`k1=0.05`, etc.) were calibrated by Parvizi-Fard et al. (2021, J. Neurophysiol.) for stimulus inputs in N/mm² (τ_RA follows Kandel, Principles of Neural Science, Ch. 21). SensoryForge uses mA as its stimulus amplitude unit. The mismatch means the filter output is ~50× smaller than expected for a "1 mA" stimulus. The default `input_gain` in `PopulationConfig` (shown on the GUI's Populations screen) is **50** to compensate; the shipped tactile recipes calibrate each population's gain against P5 instead (`tactile_sa1_ra1` SA 220 / RA 61, `tactile_sa1_ra1_adex` SA 55 / RA 86, `scripts/calibrate_recipe_gains.py`, D-ea0f017). Do not set `input_gain=1` with default filter parameters — the neuron will receive sub-threshold current. See `docs/user_guide/units_and_gains.md`.
 - **Legacy `neurons.sa_neurons`/`ra_neurons` mean neurons-**per-row**, not a total count** — `InnervationModule` squares it. A config whose dense weight tensor would exceed 2e8 elements raises `ValueError`; smaller mistakes still build silently. Canonical configs are unaffected. (F-023)
 
 **Resolved 2026-09-15, Phase 2 Wave I:** receptor grids take a `seed` and random arrangements are reproducible (F-050); `innervation_method` is honoured on ordinary grids and every population's receptive fields are a `ReceptiveFieldBank` built by a registered builder (F-051, D-020).

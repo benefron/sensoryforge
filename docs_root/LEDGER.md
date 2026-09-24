@@ -452,9 +452,10 @@ default innervation uses analytic Gaussian weights; the stochastic uniform-weigh
 flake8 style debt after black (all default checks, 88 columns): 364 violations, mainly E501 164, F401 141, F541 18, E402 14, F841 11; CI gates only E9,F63,F7,F82 until ratcheted
 → commit 7da39f9
 
-## F-037 · OPEN · finding · - · 2026-09-14
+## F-037 · STANDING · finding · - · 2026-09-14
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
 → commit 7da39f9
+· settled 2026-09-24: never reached by the tactile recipes -- the lowest voltage on the four benchmark stimuli is -94.1 mV at the calibrated gains (Izhikevich SA, moving_edge), 26 mV above the floor; tests/integration/test_recipe_calibration.py fails if a recipe comes within 20 mV of it
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.

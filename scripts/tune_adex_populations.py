@@ -32,8 +32,13 @@ t=0):
     full amplitude for the rest of the recorded run -- no ramp-down is
     ever rendered, so there is no recorded offset event):
         onset  = [0, 30]
-        hold   = [ramp_ms, min(ramp_ms + 200, total_ms)]  (a genuine static
-                 hold -- scored against P5)
+        hold   = [ramp_ms + 30, min(ramp_ms + 30 + 200, total_ms)]  (a
+                 genuine static hold -- scored against P5; it starts 30 ms
+                 after the ramp ends because P5 forbids spikes only "after
+                 the first ~30 ms" of a static stimulus: the RA filter's
+                 response to the ramp decays over its 8 ms time constant,
+                 and spikes 1-6 ms after the ramp are that tail, not hold
+                 firing)
         offset = N/A (never recorded)
 
     moving_edge (``ramp_up_ms`` rise, then the edge SWEEPS across the grid
@@ -186,6 +191,9 @@ _QUICK_ENVELOPE: Dict[str, Dict[str, float]] = {
 
 ONSET_MS = 30.0
 HOLD_MS = 200.0
+#: A static hold is scored from this long after the ramp ends (P5: no spikes
+#: "after the first ~30 ms" of a static stimulus).
+HOLD_SETTLE_MS = 30.0
 OFFSET_MS = 30.0
 PEAK_RATE_BIN_MS = 5.0  # primary bin width for peak-rate metrics
 #: Pass bar for P5's RA-I transient-burst criterion, as a per-afferent peak
@@ -220,8 +228,8 @@ def windows_for(name: str, quick: bool) -> Dict[str, Any]:
 
     if name == "ramp_gaussian":
         ramp_ms = env["ramp_ms"]
-        hold_start = ramp_ms
-        hold_end = min(ramp_ms + HOLD_MS, total_ms)
+        hold_start = min(ramp_ms + HOLD_SETTLE_MS, total_ms)
+        hold_end = min(hold_start + HOLD_MS, total_ms)
         return {
             "total_ms": total_ms,
             "onset": onset,
