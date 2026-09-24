@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-36b5120 · STANDING · finding · - · 2026-09-24
+at one fitted amplitude per mm, TouchSim and SensoryForge agree on RA's silent hold and its release/onset balance, and the Izhikevich recipe also on SA's silent release and SA's hold-rate curve over 0.4-1.25 mm (11/23/43 Hz against 11/26/43)
+→ commit a2e8c0b
+
+## F-47cc697 · OPEN · finding · - · 2026-09-24
+at intensities matched on SA's hold rate, SensoryForge's RA is far less sensitive than TouchSim's RA in both recipes -- silent at the 0.2-0.7 mm levels where TouchSim's RA fires 20-60 Hz at onset, and 20 Hz against 100 Hz at 1.25 mm
+→ commit a2e8c0b
+
+## F-20e111e · OPEN · finding · - · 2026-09-24
+SensoryForge SA's ramp response is 2-3x weaker than TouchSim's SA1 (hold/onset about 0.55 against about 0.22 on the Izhikevich recipe), and AdEx SA is silent up to the 0.7 mm level, then jumps to 40 Hz, with none of SA1's graded rise
+→ commit a2e8c0b
+
 ## F-8211840 · STANDING · finding · - · 2026-09-24
 touchsim's own hsaal/touchsim@4ec9f5c (idx=0 single-neuron models, seed 42) reproduces the textbook signatures at the probe centre -- SA1 sustains firing through a 450 ms hold at suprathreshold depths (e.g. 42.9 Hz sustained at 1.25 mm, spiking out to 496 ms of the hold) while RA's sustained-window rate is exactly 0 Hz at every depth tested and it fires only at onset and offset (e.g. 100/0/80 Hz onset/sustained/offset at 1.25 mm); both SA1 and RA onset rates rise monotonically with indentation depth near the probe.
 → commit d2302dc
@@ -130,11 +142,13 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 · Rejected: leaving input gain entirely to pressure-simulation's design directories | the recipe must run sensibly without a design, and one shared gain cannot put SA and RA in their bands at once
 → commit b4a853b
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
 → commit b4a853b
 ↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
+↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 
 ## D-88b4b41 · CLOSED · decision · - · 2026-09-24
 GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
@@ -329,11 +343,12 @@ F-068 the reproducibility test compared spike counts recorded on macOS arm64 exa
 F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols were ignored whenever a lattice-deriving receptive-field builder was used, even when the user had set none of them, so every run of the shipped tactile_sa1_ra1 preset printed a warning about a value nobody chose
 → commit 2ce266f
 
-## F-070 · OPEN · finding · - · 2026-09-17
+## F-070 · CLOSED · finding · - · 2026-09-17
 F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
 → commit 992e6ca
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 ↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
+✓ closed by a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
