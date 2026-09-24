@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-d9bd411 · CLOSED · decision · - · 2026-09-24
+SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
+→ commit ce166e0
+
+## D-f4d0967 · CLOSED · decision · - · 2026-09-24
+SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
+→ commit ce166e0
+
 ## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
 plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
 → commit 6b04657
@@ -143,10 +151,12 @@ at one fitted amplitude per mm, TouchSim and SensoryForge agree on RA's silent h
 ## F-47cc697 · OPEN · finding · - · 2026-09-24
 at intensities matched on SA's hold rate, SensoryForge's RA is far less sensitive than TouchSim's RA in both recipes -- silent at the 0.2-0.7 mm levels where TouchSim's RA fires 20-60 Hz at onset, and 20 Hz against 100 Hz at 1.25 mm
 → commit a2e8c0b
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
 
 ## F-20e111e · OPEN · finding · - · 2026-09-24
 SensoryForge SA's ramp response is 2-3x weaker than TouchSim's SA1 (hold/onset about 0.55 against about 0.22 on the Izhikevich recipe), and AdEx SA is silent up to the 0.7 mm level, then jumps to 40 Hz, with none of SA1's graded rise
 → commit a2e8c0b
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
 
 ## F-8211840 · STANDING · finding · - · 2026-09-24
 touchsim's own hsaal/touchsim@4ec9f5c (idx=0 single-neuron models, seed 42) reproduces the textbook signatures at the probe centre -- SA1 sustains firing through a 450 ms hold at suprathreshold depths (e.g. 42.9 Hz sustained at 1.25 mm, spiking out to 496 ms of the hold) while RA's sustained-window rate is exactly 0 Hz at every depth tested and it fires only at onset and offset (e.g. 100/0/80 Hz onset/sustained/offset at 1.25 mm); both SA1 and RA onset rates rise monotonically with indentation depth near the probe.
@@ -179,6 +189,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 ↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 ↔ abdf37f docs: record the unit-amplitude defaults and close F-083
 ↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
