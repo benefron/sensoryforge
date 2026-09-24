@@ -161,10 +161,12 @@ note, package versions, date, exact generating command, seed). ~23 KB.
 **TouchSim's own output**: SA1 sustains firing through the hold near the
 probe; RA is silent during the hold at every depth and fires at both onset
 and offset; firing rates increase with indentation depth for afferents near
-the probe. **It does not yet compare against SensoryForge's own SA/RA
-filters** -- that quantitative comparison is deferred until after a gain
-recalibration being done elsewhere (F-070 stays open for that reason; this
-fixture and test narrow, but do not close, F-070).
+the probe. The comparison against SensoryForge's own recipes is
+`scripts/validation/compare_with_touchsim.py`, which fits one parameter (the
+stimulus amplitude per mm of indentation) and compares every other feature at
+matched depths; its report is `benchmarks/results/touchsim_comparison/`, and
+`tests/validation/test_touchsim_comparison.py` fails when a feature's verdict
+changes (F-070).
 
 ### Headline rates (Hz), afferents at the probe centre (distance 0 mm)
 
