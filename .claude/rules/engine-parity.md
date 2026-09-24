@@ -43,12 +43,18 @@ re-runs a config with every displayed value written explicitly and requires iden
   pressure-simulation matches since its commit `f7784f9` (runner, viewer and decoder fallbacks).
   Its RA input gains were tuned at k3 = 1.0 and are tracked in its own ledger, not here.
 - **F-037 settled:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007) and
-  pressure-simulation's neurons do not, but the tactile recipes never reach the floor (lowest
-  -94.1 mV against -120 mV at the calibrated gains). `tests/integration/test_recipe_calibration.py`
-  fails if a recipe comes within 20 mV of it; that is when the divergence would start to matter.
-- **Recipe gains are calibrated per population (D-ea0f017):** `tactile_sa1_ra1` SA 220 / RA 61,
-  `tactile_sa1_ra1_adex` SA 55 / RA 86, from `scripts/calibrate_recipe_gains.py`. Do not reset
-  them to a shared 50; re-run the script if a filter or neuron preset changes.
+  pressure-simulation's own neurons do not. The Izhikevich recipe's SA reaches the -120 mV floor
+  on trailing edges, but its spikes are identical with and without the clamp;
+  `tests/integration/test_recipe_calibration.py` fails if they ever differ. pressure-simulation has
+  no AdEx of its own, so this does not apply to AdEx.
+- **SA filter `k2` default is 8.0, not Parvizi-Fard's 3.0 (D-f4d0967):** fitted to TouchSim's SA1
+  ramp response. pressure-simulation builds its filters from these same resolver defaults, so a
+  change here changes its design-time drive model too.
+- **Recipe populations are fitted to TouchSim (D-f4d0967, D-d9bd411):** `tactile_sa1_ra1`
+  SA 380 / RA 410 with Izhikevich `d` SA 15 / RA 24; `tactile_sa1_ra1_adex` SA 500 / RA 660 with
+  the refitted AdEx presets. Re-run `scripts/validation/fit_afferents.py` and then
+  `scripts/calibrate_recipe_gains.py` if a filter or neuron preset changes; do not reset gains to
+  a shared 50.
 - **F-031 closed:** `resolve_neuron_params` always expands the neuron-type (or explicit) preset
   first, then applies `a`/`b`/`c`/`d` overrides on top -- GUI, engine and the legacy adapter now
   agree for partial overrides too, and the adapter no longer raises `KeyError`.

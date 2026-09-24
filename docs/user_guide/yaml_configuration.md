@@ -108,7 +108,7 @@ populations:
       tau_r: 5.0
       tau_d: 30.0
       k1: 0.05
-      k2: 3.0
+      k2: 8.0
     model_params:
       a: 0.02
       b: 0.2
@@ -384,7 +384,7 @@ filters:
   sa_tau_r: 5.0    # Rise time constant (ms)
   sa_tau_d: 30.0   # Decay time constant (ms)
   sa_k1: 0.05      # Gain parameter 1
-  sa_k2: 3.0       # Gain parameter 2
+  sa_k2: 8.0       # Gain on the rate of change (D-f4d0967)
   
   # RA filter (rapidly adapting)
   ra_tau_ra: 8.0  # RA time constant (ms)

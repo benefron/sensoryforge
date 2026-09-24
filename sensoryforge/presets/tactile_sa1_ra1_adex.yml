@@ -22,10 +22,11 @@
 # Usage:
 #   sensoryforge run --preset tactile_sa1_ra1_adex
 #
-# Input gains are per population, calibrated against decision P5 on the four
-# benchmark stimuli by scripts/calibrate_recipe_gains.py (ledger D-ea0f017;
-# report: benchmarks/results/recipe_calibration/). At the shared gain of 50
-# RA fired nothing on drifting_grating (F-092).
+# The AdEx presets SA1_tonic and RA1_phasic are fitted to TouchSim's SA1/RA
+# afferents (D-f4d0967, D-d9bd411; scripts/validation/fit_afferents.py).
+# Input gains come from scripts/calibrate_recipe_gains.py (report:
+# benchmarks/results/recipe_calibration/): SA's puts a held stimulus at 45 Hz,
+# the centre of P5's band (D-ea0f017); RA's matches TouchSim's RA sensitivity.
 metadata:
   name: Pressure-simulation recipe on AdEx (SA1/RA1)
   version: '1.0'
@@ -52,7 +53,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: sa
-  input_gain: 55.0
+  input_gain: 500.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -64,7 +65,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: ra
-  input_gain: 86.0
+  input_gain: 660.0
   seed: 43
 simulation:
   device: cpu

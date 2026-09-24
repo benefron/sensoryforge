@@ -41,9 +41,10 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: measured by ``scripts/tune_adex_populations.py`` -- see
 #: ``benchmarks/results/adex_tuning/adex_tuning.md``), not against an
 #: arbitrary bench current. The drive figures below were measured at the
-#: recipe's old shared ``input_gain`` of 50; ``tactile_sa1_ra1_adex`` now
-#: calibrates each population's gain on top of these presets (SA 55, RA 86,
-#: ``scripts/calibrate_recipe_gains.py``, ledger D-ea0f017).
+#: recipe's old shared ``input_gain`` of 50, before the presets' adaptation
+#: was refitted to TouchSim's SA1/RA (D-f4d0967, D-d9bd411; see each preset's
+#: comment below). ``tactile_sa1_ra1_adex`` calibrates each population's gain
+#: on top of these presets (SA 500, RA 660, ``scripts/calibrate_recipe_gains.py``).
 #:
 #: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
 #: same role ``input_gain`` plays on the Izhikevich path, compensating the
@@ -108,17 +109,22 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: below rheobase -- reported as a FAIL in ``adex_tuning.md``, not
 #: silently dropped).
 ADEX_PRESETS: dict = {
-    # Tonic (sustained, weakly adapting): small a, zero b, long tau_w --
-    # adaptation never grows enough to silence firing under constant drive.
+    # Tonic (sustained, adapting): small a, so firing never stops under a
+    # constant drive, but a spike-triggered b with a 110 ms tau_w, so the rate
+    # falls from the ramp to the hold and rises gradually with drive, as
+    # TouchSim's SA1 does (D-f4d0967: b 0 -> 28, tau_w 200 -> 110 ms,
+    # v_reset -58 -> -70 mV, fitted by scripts/validation/fit_afferents.py).
+    # w enters dv/dt in mV, so b is kept small enough (EL - b = -98 mV) that
+    # adaptation never drives the voltage into v_floor.
     "SA1_tonic": {
         "EL": -70.0,
         "VT": -50.0,
         "DeltaT": 2.0,
         "tau_m": 20.0,
-        "tau_w": 200.0,
+        "tau_w": 110.0,
         "a": 0.02,
-        "b": 0.0,
-        "v_reset": -58.0,
+        "b": 28.0,
+        "v_reset": -70.0,
         "v_spike": 20.0,
         "R": 6.0,
     },
@@ -133,8 +139,11 @@ ADEX_PRESETS: dict = {
         "tau_m": 20.0,
         "tau_w": 50.0,
         "a": 2.0,
-        "b": 20.0,
-        "v_reset": -58.0,
+        # b 20 -> 40 and v_reset -58 -> -70 mV (D-d9bd411): fewer spikes per
+        # transient, so RA's onset rate grows with ramp speed as TouchSim's
+        # RA does instead of saturating a few spikes above threshold.
+        "b": 40.0,
+        "v_reset": -70.0,
         "v_spike": 20.0,
         "R": 8.0,
     },

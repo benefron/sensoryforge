@@ -1,0 +1,1330 @@
+[
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 10,
+   "SA.model.d": 12
+  },
+  "amplitude_per_mm": 0.6404122817404243,
+  "error": 0.07528423654017023,
+  "v_min_hold": -79.13541412353516,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -79.13541412353516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -78.44451141357422
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -77.50523376464844
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 200.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -78.68109893798828
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 10,
+   "SA.model.d": 15
+  },
+  "amplitude_per_mm": 0.7709943665641417,
+  "error": 0.07528423654017023,
+  "v_min_hold": -81.17876434326172,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -81.17876434326172
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -80.31118774414062
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -81.15999603271484
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 200.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -80.50182342529297
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 8,
+   "SA.model.d": 15
+  },
+  "amplitude_per_mm": 0.7596331005349466,
+  "error": 0.08261365863807281,
+  "v_min_hold": -81.2059097290039,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -81.2059097290039
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 17.142857142857142,
+     "offset": 0.0,
+     "v_min_hold": -80.33797454833984
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 100.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -81.19722747802734
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 160.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -80.52161407470703
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 8,
+   "SA.model.d": 18
+  },
+  "amplitude_per_mm": 0.8877706536613778,
+  "error": 0.09419578424588837,
+  "v_min_hold": -82.86231994628906,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 11.428571428571429,
+     "offset": 0.0,
+     "v_min_hold": -82.86231994628906
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 17.142857142857142,
+     "offset": 0.0,
+     "v_min_hold": -82.04207611083984
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 100.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -82.85038757324219
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 160.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -82.22746276855469
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 10,
+   "SA.model.d": 18
+  },
+  "amplitude_per_mm": 0.9027219955639061,
+  "error": 0.10690233003573042,
+  "v_min_hold": -82.84368896484375,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 11.428571428571429,
+     "offset": 0.0,
+     "v_min_hold": -82.84368896484375
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 17.142857142857142,
+     "offset": 0.0,
+     "v_min_hold": -82.04365539550781
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -82.83799743652344
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 200.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -82.17562103271484
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 8,
+   "SA.model.d": 12
+  },
+  "amplitude_per_mm": 0.6298054470449894,
+  "error": 0.17089978251495047,
+  "v_min_hold": -79.16909790039062,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -79.16909790039062
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -78.56413269042969
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 100.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -77.53551483154297
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 160.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -78.66144561767578
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 10,
+   "SA.model.d": 8
+  },
+  "amplitude_per_mm": 0.4758972201423719,
+  "error": 0.2168489902003887,
+  "v_min_hold": -75.87039947509766,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -75.72677612304688
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 22.857142857142858,
+     "offset": 20.0,
+     "v_min_hold": -74.60041809082031
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 220.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -75.87039947509766
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 6,
+   "SA.model.d": 12
+  },
+  "amplitude_per_mm": 0.6475825615521716,
+  "error": 0.22114659462893518,
+  "v_min_hold": -79.1297836303711,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -79.1297836303711
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -78.43303680419922
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -77.50244903564453
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 140.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -78.58736419677734
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 6,
+   "SA.model.d": 15
+  },
+  "amplitude_per_mm": 0.7456666597071073,
+  "error": 0.23960445811852452,
+  "v_min_hold": -81.24685668945312,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -81.24685668945312
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -80.34637451171875
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -81.22628021240234
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -80.50408935546875
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 6,
+   "SA.model.d": 18
+  },
+  "amplitude_per_mm": 0.8698326674477842,
+  "error": 0.24024797225924233,
+  "v_min_hold": -82.9259033203125,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 20.0,
+     "v_min_hold": -82.9259033203125
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 14.285714285714286,
+     "offset": 20.0,
+     "v_min_hold": -82.09542083740234
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -82.91706085205078
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 120.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -82.22534942626953
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 8,
+   "SA.model.d": 8
+  },
+  "amplitude_per_mm": 0.4577084622960065,
+  "error": 0.2557715645583351,
+  "v_min_hold": -75.94371795654297,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 60.0,
+     "sustained": 11.428571428571429,
+     "offset": 0.0,
+     "v_min_hold": -75.73535919189453
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 100.0,
+     "sustained": 22.857142857142858,
+     "offset": 0.0,
+     "v_min_hold": -74.66493225097656
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 180.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -75.94371795654297
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 6,
+   "SA.model.d": 8
+  },
+  "amplitude_per_mm": 0.4706279055674477,
+  "error": 0.45392305118257814,
+  "v_min_hold": -75.86148834228516,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 11.428571428571429,
+     "offset": 0.0,
+     "v_min_hold": -75.64556884765625
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -74.63170623779297
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 140.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -75.86148834228516
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 3,
+   "SA.model.d": 12
+  },
+  "amplitude_per_mm": 0.6309752551981408,
+  "error": 0.5821011812688395,
+  "v_min_hold": -79.1557846069336,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -79.1557846069336
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 14.285714285714286,
+     "offset": 0.0,
+     "v_min_hold": -78.45536804199219
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 22.857142857142858,
+     "offset": 20.0,
+     "v_min_hold": -77.5106201171875
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -78.62538146972656
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 3,
+   "SA.model.d": 18
+  },
+  "amplitude_per_mm": 0.8812053449293387,
+  "error": 0.5849511807296677,
+  "v_min_hold": -82.86737823486328,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.43121337890625
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -82.85453796386719
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 17.142857142857142,
+     "offset": 0.0,
+     "v_min_hold": -82.0432357788086
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -82.86737823486328
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 42.85714285714286,
+     "offset": 0.0,
+     "v_min_hold": -82.21511840820312
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 3,
+   "SA.model.d": 15
+  },
+  "amplitude_per_mm": 0.7554159215444204,
+  "error": 0.5852150678694443,
+  "v_min_hold": -81.20846557617188,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 8.571428571428571,
+     "offset": 0.0,
+     "v_min_hold": -81.20846557617188
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 17.142857142857142,
+     "offset": 0.0,
+     "v_min_hold": -80.32935333251953
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 25.714285714285715,
+     "offset": 0.0,
+     "v_min_hold": -81.17745971679688
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -80.5003433227539
+    },
+    "RA": {
+     "onset": 40.0,
+     "sustained": 0.0,
+     "offset": 40.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ },
+ {
+  "overrides": {
+   "SA.gain": 220,
+   "SA.filter.k2": 3,
+   "SA.model.d": 8
+  },
+  "amplitude_per_mm": 0.46197504829936814,
+  "error": 0.6131107509097022,
+  "v_min_hold": -75.86676788330078,
+  "floor_safe": true,
+  "rates": {
+   "0.1": {
+    "SA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.2": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.03189849853516
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.4": {
+    "SA": {
+     "onset": 20.0,
+     "sustained": 11.428571428571429,
+     "offset": 0.0,
+     "v_min_hold": -75.67373657226562
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "0.7": {
+    "SA": {
+     "onset": 40.0,
+     "sustained": 22.857142857142858,
+     "offset": 0.0,
+     "v_min_hold": -74.64156341552734
+    },
+    "RA": {
+     "onset": 0.0,
+     "sustained": 0.0,
+     "offset": 0.0,
+     "v_min_hold": -70.00022888183594
+    }
+   },
+   "1.25": {
+    "SA": {
+     "onset": 80.0,
+     "sustained": 40.0,
+     "offset": 20.0,
+     "v_min_hold": -75.86676788330078
+    },
+    "RA": {
+     "onset": 20.0,
+     "sustained": 0.0,
+     "offset": 20.0,
+     "v_min_hold": -70.00022888183594
+    }
+   }
+  }
+ }
+]

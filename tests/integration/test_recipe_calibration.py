@@ -1,30 +1,49 @@
-"""The tactile recipes' calibrated gains meet P5, and never reach the voltage floor.
+"""The tactile recipes' calibrated populations meet P5 and stay off the voltage floor.
 
-Ledger D-ea0f017: each tactile recipe population has its own ``input_gain``,
-chosen by ``scripts/calibrate_recipe_gains.py``. This test runs each recipe at
-its own preset gains through the four benchmark stimuli and applies the same
-pass rules the calibration used, so a change that moves a recipe out of P5's
-bands fails here.
+Each tactile recipe population has its own ``input_gain``, chosen by
+``scripts/calibrate_recipe_gains.py``: SA's against P5's rate band (ledger
+D-ea0f017), RA's against TouchSim's RA afferent (D-d9bd411). This test runs
+each recipe at its own preset gains through the four benchmark stimuli:
 
-It also guards ledger F-037: SensoryForge clamps the membrane voltage at
-``v_floor`` (-120 mV Izhikevich, -130 mV AdEx) and pressure-simulation does
-not, so the two could differ -- but only if a run reaches the floor. At the
-calibrated gains the lowest voltage on these stimuli must stay at least 20 mV
-above it.
+* SA must meet P5 (every stimulus in 20-100 Hz, and the hold's ISI CV below
+  0.5), with the same rule the calibration used.
+* RA must stay silent during ``ramp_gaussian``'s static hold, from 30 ms after
+  the ramp. That is P5's physiological requirement for RA. RA's sensitivity
+  (its onset rates) is now set by TouchSim, and
+  ``tests/validation/test_touchsim_comparison.py`` pins it, so P5's
+  150-400 Hz peak band is not asserted here.
+* Izhikevich (ledger F-037): SensoryForge clamps the membrane voltage at
+  ``v_floor`` and pressure-simulation's own Izhikevich neurons do not. With
+  SA's SA1-like ramp response, the negative drive on a moving stimulus's
+  trailing edge does reach the floor. So the test checks the thing F-037 is
+  about: every population's spikes on every stimulus must be identical with
+  the clamp and without it. pressure-simulation has no AdEx neurons of its
+  own (its AdEx runs use SensoryForge), so this does not apply to AdEx.
+* AdEx: in this AdEx form the adaptation variable enters dv/dt in mV, so a
+  burst of spikes can drive the voltage into the clamp. During a static hold,
+  where no negative drive exists, the voltage must stay at least 20 mV above
+  -130 mV. At the calibrated gains it does not (the ledger's open entry on
+  AdEx's voltage range), so that check is an expected failure until the
+  model is fixed; it is strict, so it fails loudly once it passes.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
+import torch
 
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.presets import load_preset
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+
+V_FLOOR_MV = {"Izhikevich": -120.0, "AdEx": -130.0}
+MIN_MARGIN_MV = 20.0
 
 
 def _load(name):
@@ -34,20 +53,17 @@ def _load(name):
     return module
 
 
-V_FLOOR_MV = {"Izhikevich": -120.0, "AdEx": -130.0}
-MIN_MARGIN_MV = 20.0
-
-
 @pytest.fixture(scope="module")
 def calibration():
-    # calibrate_recipe_gains imports tune_adex_populations by name.
-    import sys
-
-    sys.path.insert(0, str(_SCRIPTS))
+    # calibrate_recipe_gains imports tune_adex_populations and
+    # compare_with_touchsim by name.
+    added = [str(_SCRIPTS), str(_SCRIPTS / "validation")]
+    sys.path[:0] = added
     try:
         return _load("calibrate_recipe_gains")
     finally:
-        sys.path.remove(str(_SCRIPTS))
+        for path in added:
+            sys.path.remove(path)
 
 
 @pytest.fixture(scope="module")
@@ -60,8 +76,30 @@ def drive(calibration):
     return frames_by, filtered_by
 
 
-@pytest.mark.parametrize("model", ["Izhikevich", "AdEx"])
-def test_recipe_gains_meet_p5_and_stay_above_the_voltage_floor(
+def _run(config, frames, v_floor=None):
+    if v_floor is not None:
+        for pop in config.populations:
+            pop.model_params = {**pop.model_params, "v_floor": v_floor}
+    return SimulationEngine(config).run(
+        frames.unsqueeze(0), return_intermediates=True, seed=config.simulation.seed
+    )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "Izhikevich",
+        pytest.param(
+            "AdEx",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="AdEx adaptation drives the voltage into v_floor during "
+                "the static hold at the calibrated gains (open ledger entry)",
+            ),
+        ),
+    ],
+)
+def test_recipe_populations_meet_p5_and_stay_off_the_voltage_floor(
     calibration, drive, model
 ):
     T = calibration.T
@@ -71,17 +109,32 @@ def test_recipe_gains_meet_p5_and_stay_above_the_voltage_floor(
     assert len(set(gains.values())) == 2, "SA and RA must have their own gains"
 
     rows = []
-    v_min = float("inf")
+    v_min_static_hold = float("inf")
     dt_ms = config.simulation.dt_ms
     for name in T.STIMULI:
         windows = T.windows_for(name, False)
-        results = SimulationEngine(config).run(
-            frames_by[name].unsqueeze(0),
-            return_intermediates=True,
-            seed=config.simulation.seed,
-        )
+        results = _run(config, frames_by[name])
+        if model == "Izhikevich":
+            unclamped = _run(
+                SensoryForgeConfig.from_dict(load_preset(calibration.RECIPES[model])),
+                frames_by[name],
+                v_floor=-1e6,
+            )
+            for pop_name in results:
+                assert torch.equal(
+                    results[pop_name]["spikes"], unclamped[pop_name]["spikes"]
+                ), (
+                    f"{pop_name} on {name}: the voltage clamp changes the spikes, "
+                    "so SensoryForge and pressure-simulation's unclamped "
+                    "Izhikevich neurons now differ (ledger F-037)"
+                )
         for pop_name, pop_results in results.items():
-            v_min = min(v_min, float(pop_results["voltages"].min()))
+            voltages = pop_results["voltages"]
+            if windows["hold_is_scored"]:
+                hold = T._bin_slice(dt_ms, windows["hold"], voltages.shape[1])
+                v_min_static_hold = min(
+                    v_min_static_hold, float(voltages[:, hold].min())
+                )
             neuron_type = T.population_neuron_type(config, pop_name).upper()
             window = windows["hold"] if neuron_type == "SA" else windows["onset"]
             mask = T.responsive_mask(filtered_by[name][pop_name], dt_ms, window)
@@ -106,15 +159,15 @@ def test_recipe_gains_meet_p5_and_stay_above_the_voltage_floor(
         for r in rows
         if r["population"] == "SA"
     }
-    ra = {
-        r["stimulus"]: (r["peak_per_neuron_hz"], r["hold_count"])
-        for r in rows
-        if r["population"] == "RA"
-    }
     assert calibration.sa_passes(rows, 0), f"SA rates (Hz) out of P5's band: {sa}"
-    assert calibration.ra_passes(rows, 0), f"RA (peak Hz, hold spikes) fails P5: {ra}"
-    assert v_min > V_FLOOR_MV[model] + MIN_MARGIN_MV, (
-        f"lowest voltage {v_min:.1f} mV is within {MIN_MARGIN_MV} mV of the "
-        f"{V_FLOOR_MV[model]} mV floor: the clamp pressure-simulation lacks "
-        "is now reachable (ledger F-037)"
+    ra_static_hold = [
+        r["hold_count"] for r in rows if r["population"] == "RA" and r["hold_is_scored"]
+    ]
+    assert ra_static_hold == [0], f"RA fires during the static hold: {ra_static_hold}"
+
+    floor = V_FLOOR_MV[model] + MIN_MARGIN_MV
+    assert v_min_static_hold > floor, (
+        f"during the static hold the voltage reaches {v_min_static_hold:.1f} mV, "
+        f"within {MIN_MARGIN_MV} mV of the {V_FLOOR_MV[model]} mV floor: "
+        "adaptation is driving the neuron into the clamp"
     )

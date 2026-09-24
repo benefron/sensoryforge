@@ -56,9 +56,13 @@ def resolve_duration_ms(
 
 
 #: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere;
-#: D-Q1: RA gain k3 = 2.0 everywhere).
+#: D-Q1: RA gain k3 = 2.0 everywhere). SA's k2, the gain on the input's rate
+#: of change, is 8.0, fitted so SA's ramp response matches TouchSim's SA1
+#: for both neuron models (D-f4d0967, scripts/validation/fit_afferents.py);
+#: Parvizi-Fard et al. (2021) used 3.0, which gave about half of SA1's ramp
+#: response.
 FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
-    "sa": {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0},
+    "sa": {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 8.0},
     "ra": {"tau_RA": 8.0, "k3": 2.0},
 }
 

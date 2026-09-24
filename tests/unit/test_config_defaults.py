@@ -25,7 +25,7 @@ from sensoryforge.core.simulation_engine import SimulationEngine
 class TestResolveFilterParams:
     def test_sa_empty_overrides(self):
         params = resolve_filter_params("sa", {})
-        assert params == {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0}
+        assert params == {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 8.0}
 
     def test_ra_empty_overrides_includes_k3(self):
         """D-Q1 decided: k3 = 2.0, resolver-owned like every other filter param."""

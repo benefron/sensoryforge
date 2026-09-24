@@ -50,7 +50,7 @@ class SAFilterTorch(BaseFilter):
         tau_r: float = 5.0,
         tau_d: float = 30.0,
         k1: float = 0.05,
-        k2: float = 3.0,
+        k2: float = 8.0,
         dt: float = 0.1,
         clip_to_positive: bool = False,
     ) -> None:
@@ -220,7 +220,7 @@ class SAFilterTorch(BaseFilter):
             tau_r=config.get("tau_r", 5.0),
             tau_d=config.get("tau_d", 30.0),
             k1=config.get("k1", 0.05),
-            k2=config.get("k2", 3.0),
+            k2=config.get("k2", 8.0),
             dt=config.get("dt", 0.1),
             clip_to_positive=config.get("clip_to_positive", False),
         )
@@ -283,7 +283,7 @@ class SAFilterTorch(BaseFilter):
             ParamSpec(
                 "k2",
                 dtype="float",
-                default=3.0,
+                default=8.0,
                 min_val=0.0,
                 max_val=20.0,
                 group="Gain",

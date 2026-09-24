@@ -12,8 +12,8 @@
 # Usage:
 #   sensoryforge run --preset tactile_stochastic_control
 #
-# Input gains match tactile_sa1_ra1 (SA 220, RA 61; ledger D-ea0f017) so the
-# control arm differs from it only in its receptive fields.
+# Input gains and neuron parameters match tactile_sa1_ra1 (SA 380, RA 410;
+# d 15 / 24) so the control arm differs from it only in its receptive fields.
 metadata:
   name: Pressure-simulation recipe -- stochastic control arm
   version: '1.0'
@@ -40,7 +40,9 @@ populations:
   neurons_per_row: 30
   neuron_model: izhikevich
   filter_method: sa
-  input_gain: 220.0
+  model_params:
+    d: 15.0
+  input_gain: 380.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -52,7 +54,9 @@ populations:
   neurons_per_row: 30
   neuron_model: izhikevich
   filter_method: ra
-  input_gain: 61.0
+  model_params:
+    d: 24.0
+  input_gain: 410.0
   seed: 43
 simulation:
   device: cpu

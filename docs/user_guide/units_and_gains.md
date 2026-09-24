@@ -93,34 +93,42 @@ decrease it.
 
 ## Calibrated gains in the tactile recipes
 
-The shipped tactile recipes do not use the default. Each population has its
-own gain, calibrated against the physiological targets of decision P5 on the
-four benchmark stimuli (`ramp_gaussian`, `moving_edge`, `braille`,
-`drifting_grating`, all at amplitude 1) by
-`scripts/calibrate_recipe_gains.py`:
+The shipped tactile recipes do not use the default. Their populations are
+fitted to TouchSim's SA1 and RA afferent models (Saal et al. 2017; see
+`benchmarks/results/touchsim_comparison/`), and each population has its own
+gain from `scripts/calibrate_recipe_gains.py`:
 
 | Recipe | SA gain | RA gain |
 |---|---|---|
-| `tactile_sa1_ra1` (Izhikevich) | 220 | 61 |
-| `tactile_sa1_ra1_adex` (AdEx) | 55 | 86 |
-| `tactile_stochastic_control` | 220 | 61 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
+| `tactile_sa1_ra1` (Izhikevich) | 380 | 410 |
+| `tactile_sa1_ra1_adex` (AdEx) | 500 | 660 |
+| `tactile_stochastic_control` | 380 | 410 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
 
-- **SA:** the gain that puts the SA rate, averaged geometrically over the four
-  stimuli and over each stimulus's responsive neurons, at the centre of the
-  20–100 Hz band on a log scale (44.7 Hz). Every stimulus must land inside the
-  band.
-- **RA:** the geometric centre of the range of gains in which every stimulus's
-  onset burst reaches 150–400 Hz per afferent and a held stimulus is silent
-  from 30 ms after it stops changing.
+- **SA:** the gain that puts SA's rate during a held stimulus
+  (`ramp_gaussian`'s hold, over its responsive neurons) at the centre of P5's
+  20–100 Hz band on a log scale (44.7 Hz), with an ISI CV below 0.5. SA now
+  answers motion as SA1 does, at several times its hold rate, so the moving
+  stimuli drive it harder (Izhikevich 83–86 Hz, AdEx 167–196 Hz); P5 states
+  its band for a held stimulus.
+- **RA:** the gain whose onset rates best match TouchSim's RA at the same
+  indentations, so RA fires at the small movements TouchSim's RA detects. RA
+  must stay silent during a held stimulus. P5's 150–400 Hz burst band is
+  reported, not required: on the fast `moving_edge` RA now reaches 600 Hz
+  (Izhikevich) and 1200 Hz (AdEx).
 
-The results, and the full sweep, are in
-`benchmarks/results/recipe_calibration/recipe_calibration.md`. The rates are
-the calibration's target, so hitting them does not validate the model; the
-comparison with TouchSim's afferent models does that.
+The shapes of the responses come from a separate fit
+(`scripts/validation/fit_afferents.py`, results in
+`benchmarks/results/afferent_fit/`): the SA filter's `k2` (8.0, a shared
+default), spike-frequency adaptation (Izhikevich `d`: SA 15, RA 24, set in the
+recipe; AdEx `SA1_tonic`/`RA1_phasic` presets). The gains, and the full
+sweeps, are in `benchmarks/results/recipe_calibration/recipe_calibration.md`.
 
-A single shared gain of 50 could not meet both populations' targets. It left
-Izhikevich SA at 8.75 Hz on a held stimulus, and AdEx RA silent on the
-drifting grating.
+**Known limit (AdEx).** At these gains the AdEx recipe's voltage leaves the
+physiological range. The SA current on a trailing edge reaches about
+−136 mA, and a burst's adaptation drives the voltage down too; the −130 mV
+clamp hides it (without the clamp the voltage falls to about −1000 mV). The
+clamp changes spikes by under 2%, but the dynamics are not trustworthy there;
+see the ledger's open entry on AdEx's voltage range.
 
 ---
 

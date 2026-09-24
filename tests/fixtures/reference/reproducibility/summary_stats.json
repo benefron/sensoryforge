@@ -8,50 +8,50 @@
   "stimuli": {
     "braille": {
       "RA Population": {
-        "mean_rate_hz": 1.2777777777777777,
+        "mean_rate_hz": 3.5185185185185186,
         "n_neurons": 900,
-        "spikes": 69
+        "spikes": 190
       },
       "SA Population": {
-        "mean_rate_hz": 1.4444444444444446,
+        "mean_rate_hz": 3.3518518518518516,
         "n_neurons": 900,
-        "spikes": 78
+        "spikes": 181
       }
     },
     "drifting_grating": {
       "RA Population": {
-        "mean_rate_hz": 73.22222222222223,
+        "mean_rate_hz": 185.77777777777777,
         "n_neurons": 900,
-        "spikes": 3954
+        "spikes": 10032
       },
       "SA Population": {
-        "mean_rate_hz": 84.44444444444444,
+        "mean_rate_hz": 176.1851851851852,
         "n_neurons": 900,
-        "spikes": 4560
+        "spikes": 9514
       }
     },
     "moving_edge": {
       "RA Population": {
-        "mean_rate_hz": 144.7905282331512,
+        "mean_rate_hz": 249.344262295082,
         "n_neurons": 900,
-        "spikes": 7949
+        "spikes": 13689
       },
       "SA Population": {
-        "mean_rate_hz": 75.1912568306011,
+        "mean_rate_hz": 181.89435336976322,
         "n_neurons": 900,
-        "spikes": 4128
+        "spikes": 9986
       }
     },
     "ramp_gaussian": {
       "RA Population": {
-        "mean_rate_hz": 3.037037037037037,
+        "mean_rate_hz": 7.62962962962963,
         "n_neurons": 900,
-        "spikes": 164
+        "spikes": 412
       },
       "SA Population": {
-        "mean_rate_hz": 6.518518518518519,
+        "mean_rate_hz": 13.481481481481481,
         "n_neurons": 900,
-        "spikes": 352
+        "spikes": 728
       }
     }
   }

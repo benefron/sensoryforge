@@ -50,7 +50,54 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-f4d0967 · SA matches TouchSim's SA1 · 2026-09-24
+
+**What was decided.** SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
+
+**Why.** The TouchSim comparison (`a2e8c0b`, F-20e111e) found two problems. SA's ramp response was 2-3x weaker than SA1's (hold/onset about 0.55 against 0.22). AdEx SA had a hard threshold: silent up to the 0.7 mm level, then 40 Hz. `scripts/validation/fit_afferents.py` searched grids scored by the RMS log error against SA1's onset and hold rates over 0.1-1.25 mm. The amplitude per mm was refitted at every point (the model is linear up to the neuron, so this absorbs SA's gain). The search found two levers:
+- **The ramp response comes from the SA filter's `k2`,** the gain on the input's rate of change, the only velocity-sensitive term. Parvizi-Fard et al. (2021) used 3.0. Izhikevich's best is 10 and AdEx's is 5. **8.0** costs each about one spike at one depth, and it keeps one SA filter for both recipes and for pressure-simulation: its `design/drive.py` builds filters from the same resolver defaults, and its design directories cannot carry filter parameters (F-094).
+- **The graded rise comes from spike-frequency adaptation.** Izhikevich `d` goes 8 -> 15, set in the recipe, because RS is Izhikevich's published preset. AdEx `SA1_tonic` gets b 0 -> 28, tau_w 200 -> 110 ms and v_reset -58 -> -70 mV.
+
+Result (`benchmarks/results/touchsim_comparison/`): both recipes agree with SA1 on the hold rate, the onset rate and hold/onset at every compared depth. Izhikevich reaches 40/60/100/160 Hz onset against 40/60/100/180, and 8.6/17/26/40 Hz hold against 8.6/11/26/43.
+
+Two consequences followed:
+- **SA's gain rule changed.** With SA1-like dynamics, SA answers motion at several times its hold rate. On the AdEx recipe the static and moving benchmark rates (13 against 61-74 Hz) spread wider than P5's 20-100 Hz band, so the old rule could not be met: it wanted all four stimuli in the band. SA's gain now puts the one held stimulus (`ramp_gaussian`'s hold) at 44.7 Hz, which is how P5 states its SA band. The moving stimuli's rates are reported (Izhikevich 83-86 Hz, AdEx 167-196 Hz); TouchSim's SA1 itself reaches 180 Hz during a ramp.
+- **The release current reaches the voltage floor.** The larger `k2` makes the negative SA current on a trailing edge larger. Izhikevich SA reaches its -120 mV floor there. Its spikes are identical with and without the clamp, which is what F-037 is about, and the recipe test now asserts exactly that.
+
+**What was rejected.**
+- **Tuning `k2` per recipe.** pressure-simulation runs AdEx on the default filters, so a recipe-only value would not reach its designs.
+- **Adaptation alone, without `k2`.** It flattened the rate-intensity curve, but left the ramp response at about half of SA1's, because the drive is still rising during the ramp.
+- **The first AdEx fit (b = 48-56).** It looked best, but in this AdEx form `w` enters dv/dt in mV, so it drove the voltage into the -130 mV clamp after every spike, and the clamp shaped the dynamics. Fits now reject any point whose hold voltage comes within 20 mV of the floor.
+
+**Where it lives.** `sensoryforge/config/defaults.py::FILTER_DEFAULTS` (and `SAFilterTorch`'s defaults); `sensoryforge/neurons/adex.py::ADEX_PRESETS`; `sensoryforge/presets/tactile_sa1_ra1.yml` and `tactile_stochastic_control.yml` (`model_params.d`); `scripts/validation/fit_afferents.py`, `benchmarks/results/afferent_fit/`; `scripts/calibrate_recipe_gains.py`.
+
+**Ledger id + sha.** D-f4d0967 · `ce166e0` (decision)
+
+**Validation pending.** TouchSim is one model of SA1, not recordings. Real afferent data would be the stronger test. At its calibrated gains the AdEx recipe leaves the physiological voltage range (open entry), so AdEx SA's fit holds on the probe's range, not on the benchmark stimuli.
+
+## D-d9bd411 · RA matches TouchSim's RA sensitivity · 2026-09-24
+
+**What was decided.** SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
+
+**Why.** At intensities matched on SA's hold rate, RA stayed silent at 0.2-0.7 mm, where TouchSim's RA fires 20-60 Hz at onset (F-47cc697). RA's job is to report small movements. Because the amplitude per mm absorbs SA's gain, TouchSim constrains RA's gain relative to SA's.
+- **RA's gain:** `scripts/calibrate_recipe_gains.py` sweeps it on a 15% grid at the calibrated SA gain, and takes the geometric centre of the gains whose onset rates best match TouchSim's RA at 0.1-1.25 mm. The 0.1 mm depth, where TouchSim's RA is silent, penalises an RA that is too sensitive.
+- **RA's adaptation:** it makes RA's rate grow gradually with ramp speed instead of saturating a few spikes above threshold. Izhikevich `d` goes 2 -> 24; AdEx `RA1_phasic` gets b 20 -> 40 and v_reset -58 -> -70 mV.
+
+Result: RA's onset rates match TouchSim's at every depth: Izhikevich 0/20/40/60/100 Hz, identical to TouchSim; AdEx 0/20/40/60/120 Hz. Gains: Izhikevich 410 against SA 380; AdEx 660 against SA 500.
+
+**What was rejected.** Keeping P5's RA rule, the centre of the gains whose bursts stay within 150-400 Hz, which set RA's sensitivity from the benchmark stimuli alone and left RA blind to small indentations. P5's RA criteria are now reported as a check. The silent hold still holds. The burst band does not: on the fast `moving_edge`, RA reaches 600 Hz (Izhikevich) and 1200 Hz (AdEx).
+
+**Where it lives.** `scripts/calibrate_recipe_gains.py::choose_ra_gain_touchsim`; `scripts/validation/compare_with_touchsim.py::ra_onset_error`; the three tactile presets.
+
+**Ledger id + sha.** D-d9bd411 · `ce166e0` (decision)
+
+**Validation pending.** Two points stay open:
+- **RA's release.** It is as strong as its onset, because the RA filter responds to the absolute rate of change. TouchSim's RA releases more weakly and is silent at 0.2 mm (open entry).
+- **Peak rates on fast stimuli** exceed what afferents reach, AdEx's especially, which has no refractory period (open entry).
+
 ## D-ea0f017 · Tactile recipes get per-population gains, calibrated against P5 · 2026-09-24
+
+**Superseded in part by:** D-d9bd411 · 2026-09-24 (RA's gain rule; SA's is refined in D-f4d0967's section)
 
 **What was decided.** SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
 

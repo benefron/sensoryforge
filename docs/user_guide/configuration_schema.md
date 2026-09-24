@@ -183,7 +183,7 @@ filter_params:
   tau_r: 5.0    # Rise time constant (ms)
   tau_d: 30.0   # Decay time constant (ms)
   k1: 0.05      # Gain parameter 1
-  k2: 3.0       # Gain parameter 2
+  k2: 8.0       # Gain on the input's rate of change (default 8.0; was 3.0, D-f4d0967)
 ```
 
 For RA filter:
@@ -248,7 +248,7 @@ populations:
       tau_r: 5.0
       tau_d: 30.0
       k1: 0.05
-      k2: 3.0
+      k2: 8.0
     model_params:
       a: 0.02
       b: 0.2
@@ -389,7 +389,7 @@ populations:
       tau_r: 5.0
       tau_d: 30.0
       k1: 0.05
-      k2: 3.0
+      k2: 8.0
     model_params:
       a: 0.02
       b: 0.2
