@@ -689,7 +689,10 @@ class StimulusConfig:
     end: List[float] = field(default_factory=lambda: [0.0, 0.0])
     spread: float = 1.0
     orientation_deg: float = 0.0
-    amplitude: float = 30.0
+    # Every stimulus type's own amplitude default is 1.0 (D-0437899), so the
+    # schema default matches it: an amplitude equal to it that __post_init__
+    # cannot tell from an omitted one renders the same either way.
+    amplitude: float = 1.0
 
     # Temporal parameters
     speed_mm_s: float = 10.0

@@ -116,10 +116,10 @@ def ramp_gaussian(duration_ms: float) -> Preset:
 
 
 def gaussian(duration_ms: float) -> Preset:
-    """A still Gaussian probe (the ``gaussian`` type's look: 30, sigma 1 mm)."""
+    """A still Gaussian probe (the ``gaussian`` type's look: peak 1, sigma 1 mm)."""
     ramp = _eighth(duration_ms)
     return _one(
-        {"kind": "gaussian", "amplitude": 30.0, "sigma_mm": 1.0},
+        {"kind": "gaussian", "amplitude": 1.0, "sigma_mm": 1.0},
         timing=_timing(ramp_up_ms=ramp, hold_ms=None, ramp_down_ms=ramp),
     )
 
@@ -127,7 +127,7 @@ def gaussian(duration_ms: float) -> Preset:
 def moving(duration_ms: float) -> Preset:
     """The ``moving`` type's look: a Gaussian crossing from x = -2 to 2 mm."""
     return _one(
-        {"kind": "gaussian", "amplitude": 30.0, "sigma_mm": 1.0},
+        {"kind": "gaussian", "amplitude": 1.0, "sigma_mm": 1.0},
         motion={
             "kind": "linear",
             "start": [-2.0, 0.0],
@@ -172,10 +172,13 @@ def edge_grating(duration_ms: float) -> Preset:
 
 
 def repeated_pattern(duration_ms: float) -> Preset:
-    """The ``repeated_pattern`` type's look: 2 x 3 Gaussians 0.5 mm apart."""
+    """The ``repeated_pattern`` type's look: 2 x 3 Gaussians 0.5 mm apart.
+
+    Each copy peaks at 1; they overlap, so the sum peaks higher (about 3.9).
+    """
     ramp = _eighth(duration_ms)
     return _one(
-        {"kind": "gaussian", "amplitude": 30.0, "sigma_mm": 0.5},
+        {"kind": "gaussian", "amplitude": 1.0, "sigma_mm": 0.5},
         pattern={
             "kind": "grid",
             "rows": 2,

@@ -28,10 +28,11 @@ def _renderable_types():
 
 
 def test_gaussian_effective_default_is_the_amplitude_that_runs():
+    # D-0437899: every stimulus defaults to a unit peak (was 30 for gaussian).
     eff = effective_defaults("gaussian")
-    assert eff["amplitude"] == 30.0
+    assert eff["amplitude"] == 1.0
     peak = float(_render(StimulusConfig(type="gaussian")).max())
-    assert peak == pytest.approx(30.0, rel=0.02)
+    assert peak == pytest.approx(1.0, rel=0.02)
 
 
 @pytest.mark.parametrize("stim_type", _renderable_types())
