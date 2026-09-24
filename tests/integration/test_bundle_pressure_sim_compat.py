@@ -83,8 +83,8 @@ def _load_like_pressure_sim(bundle_dir):
 
     grid_cfg = cfg["grid"]
     rows, cols = int(grid_cfg["rows"]), int(grid_cfg["cols"])
-    spacing = float(grid_cfg["spacing_mm"])
-    center = tuple(grid_cfg.get("center_mm", [0.0, 0.0]))
+    float(grid_cfg["spacing_mm"])  # bare lookup: must raise if the key is missing
+    grid_cfg.get("center_mm", [0.0, 0.0])  # matches the real loader's .get() default
 
     innervation = {}
     pop_meta = {}

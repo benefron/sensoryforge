@@ -2,7 +2,6 @@ import math
 from typing import Any, Dict, List
 
 import torch
-import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
 from sensoryforge.stimuli.base import ParamSpec

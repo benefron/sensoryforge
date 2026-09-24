@@ -48,8 +48,13 @@ register_all()
 _SKIP: Dict[str, str] = {
     "none": "placeholder 'no filter' entry (type(None)), not a component",
     "identity": "placeholder 'no filter' alias (type(None)), not a component",
-    "dsl": "DSL neuron needs equations/.compile() before behaving like a BaseNeuron; covered by test_model_dsl.py",
-    "DSL (Custom)": "DSL neuron needs equations/.compile(); covered by test_model_dsl.py",
+    "dsl": (
+        "DSL neuron needs equations/.compile() before behaving like a "
+        "BaseNeuron; covered by test_model_dsl.py"
+    ),
+    "DSL (Custom)": (
+        "DSL neuron needs equations/.compile(); covered by test_model_dsl.py"
+    ),
 }
 
 

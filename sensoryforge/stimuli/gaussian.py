@@ -7,8 +7,12 @@ commonly used in tactile encoding experiments.
 Example:
     >>> import torch
     >>> from sensoryforge.stimuli.gaussian import gaussian_stimulus
-    >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 50), torch.linspace(-2, 2, 50), indexing='ij')
-    >>> stim = gaussian_stimulus(xx, yy, center_x=0.0, center_y=0.0, amplitude=1.0, sigma=0.5)
+    >>> xx, yy = torch.meshgrid(
+    ...     torch.linspace(-2, 2, 50), torch.linspace(-2, 2, 50), indexing='ij'
+    ... )
+    >>> stim = gaussian_stimulus(
+    ...     xx, yy, center_x=0.0, center_y=0.0, amplitude=1.0, sigma=0.5
+    ... )
     >>> stim.shape
     torch.Size([50, 50])
 """
@@ -40,12 +44,15 @@ def gaussian_stimulus(
         yy: Tensor of y-coordinates, shape [H, W] or [batch, H, W]. Units: mm.
         center_x: X-coordinate of Gaussian center. Units: mm.
         center_y: Y-coordinate of Gaussian center. Units: mm.
-        amplitude: Peak amplitude of the Gaussian. Units: arbitrary (e.g., mA for pressure).
+        amplitude: Peak amplitude of the Gaussian. Units: arbitrary (e.g., mA for
+            pressure).
         sigma: Standard deviation of the Gaussian. Units: mm.
-        device: Device to create the stimulus on (cpu, cuda, mps). If None, uses xx.device.
+        device: Device to create the stimulus on (cpu, cuda, mps). If None, uses
+            xx.device.
 
     Returns:
-        Gaussian stimulus tensor with same shape as xx and yy. Units: same as amplitude.
+        Gaussian stimulus tensor with same shape as xx and yy. Units: same as
+        amplitude.
 
     Raises:
         ValueError: If sigma is non-positive.
@@ -53,7 +60,9 @@ def gaussian_stimulus(
 
     Example:
         >>> import torch
-        >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij'
+        ... )
         >>> stim = gaussian_stimulus(xx, yy, 0.0, 0.0, amplitude=2.0, sigma=0.3)
         >>> stim.max().item() > 1.9  # Peak is close to amplitude
         True
@@ -100,7 +109,8 @@ def multi_gaussian_stimulus(
         yy: Tensor of y-coordinates, shape [H, W]. Units: mm.
         centers: List of (x, y) tuples specifying Gaussian centers. Units: mm.
         amplitudes: List of amplitudes for each Gaussian. If None, uses 1.0 for all.
-        sigmas: List of standard deviations for each Gaussian. If None, uses 0.2 for all.
+        sigmas: List of standard deviations for each Gaussian. If None, uses 0.2 for
+            all.
         device: Device to create the stimulus on. If None, uses xx.device.
 
     Returns:
@@ -111,7 +121,9 @@ def multi_gaussian_stimulus(
 
     Example:
         >>> import torch
-        >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-2, 2, 64), torch.linspace(-2, 2, 64), indexing='ij'
+        ... )
         >>> centers = [(0.0, 0.0), (1.0, 0.0), (-1.0, 0.0)]
         >>> stim = multi_gaussian_stimulus(xx, yy, centers, amplitudes=[1.0, 0.5, 0.5])
         >>> stim.shape
@@ -128,11 +140,13 @@ def multi_gaussian_stimulus(
     # Validate lengths
     if len(amplitudes) != n_gaussians:
         raise ValueError(
-            f"Number of amplitudes ({len(amplitudes)}) must match number of centers ({n_gaussians})"
+            f"Number of amplitudes ({len(amplitudes)}) must match number of "
+            f"centers ({n_gaussians})"
         )
     if len(sigmas) != n_gaussians:
         raise ValueError(
-            f"Number of sigmas ({len(sigmas)}) must match number of centers ({n_gaussians})"
+            f"Number of sigmas ({len(sigmas)}) must match number of centers "
+            f"({n_gaussians})"
         )
 
     # Determine target device
@@ -163,8 +177,12 @@ class GaussianStimulus(torch.nn.Module):
 
     Example:
         >>> import torch
-        >>> gaussian = GaussianStimulus(center_x=0.5, center_y=-0.5, amplitude=2.0, sigma=0.3)
-        >>> xx, yy = torch.meshgrid(torch.linspace(-2, 2, 32), torch.linspace(-2, 2, 32), indexing='ij')
+        >>> gaussian = GaussianStimulus(
+        ...     center_x=0.5, center_y=-0.5, amplitude=2.0, sigma=0.3
+        ... )
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-2, 2, 32), torch.linspace(-2, 2, 32), indexing='ij'
+        ... )
         >>> stim = gaussian(xx, yy)
         >>> stim.shape
         torch.Size([32, 32])
@@ -318,7 +336,9 @@ def batched_gaussian_stimulus(
 
     Example:
         >>> import torch
-        >>> xx, yy = torch.meshgrid(torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij')
+        >>> xx, yy = torch.meshgrid(
+        ...     torch.linspace(-1, 1, 32), torch.linspace(-1, 1, 32), indexing='ij'
+        ... )
         >>> centers = torch.tensor([[0.0, 0.0], [0.5, 0.5], [-0.5, -0.5]])
         >>> batch = batched_gaussian_stimulus(xx, yy, centers)
         >>> batch.shape
@@ -338,7 +358,8 @@ def batched_gaussian_stimulus(
     # Validate shapes
     if amplitudes.shape[0] != batch_size:
         raise ValueError(
-            f"amplitudes batch size ({amplitudes.shape[0]}) must match centers ({batch_size})"
+            f"amplitudes batch size ({amplitudes.shape[0]}) must match centers "
+            f"({batch_size})"
         )
     if sigmas.shape[0] != batch_size:
         raise ValueError(

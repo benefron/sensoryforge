@@ -31,7 +31,6 @@ class TestMembraneNoiseTorch:
 
     def test_no_global_rng_pollution(self):
         """Regression test for ReviewFinding#H5: seed must not alter global RNG."""
-        global_seed_before = torch.initial_seed()
         torch.manual_seed(12345)
         expected_seed = torch.initial_seed()
 

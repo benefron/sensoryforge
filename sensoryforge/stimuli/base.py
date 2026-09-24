@@ -8,7 +8,7 @@ the framework (resolves ReviewFinding#H1).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -35,7 +35,8 @@ class ParamSpec:
         min_val: Minimum allowed value (float/int; ignored for bool).
         max_val: Maximum allowed value (float/int; ignored for bool).
         step: Suggested spin-box step (None → auto).
-        unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string = dimensionless.
+        unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string =
+            dimensionless.
         tooltip: Optional help text shown as a tooltip in the UI.
         choices: Optional list of allowed values, for a dropdown/enum widget
             instead of a numeric spinbox. ``None`` = not an enum.

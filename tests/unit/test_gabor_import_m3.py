@@ -6,9 +6,6 @@ causing a ``NameError`` at runtime for texture stimuli.
 Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#M3
 """
 
-import pytest
-import torch
-
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
 

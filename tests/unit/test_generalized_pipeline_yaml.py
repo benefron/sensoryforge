@@ -4,9 +4,6 @@ Tests for ReviewFindings#M2.
 """
 
 import pytest
-import tempfile
-import os
-from pathlib import Path
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
 
@@ -21,7 +18,7 @@ pipeline:
   device: cpu
   grid_size: 32
   spacing: 0.15
-  
+
 neurons:
   sa_neurons: 10
   ra_neurons: 10
@@ -58,7 +55,8 @@ neurons:
         config_path = tmp_path / "config.yml"
         config_path.write_text(minimal_yaml_config)
 
-        # This is the documented API (from docs/index.md and docs/user_guide/gui_phase2_access.md)
+        # This is the documented API (from docs/index.md and
+        # docs/user_guide/gui_phase2_access.md)
         pipeline = GeneralizedTactileEncodingPipeline.from_yaml(str(config_path))
 
         # Pipeline should be initialized and callable

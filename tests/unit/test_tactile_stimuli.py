@@ -112,7 +112,6 @@ class TestRampGaussianStimulus:
 class TestMovingEdgeStimulus:
     def test_default_time_axis_length(self, coords8):
         xx, yy = coords8
-        _, t = MovingEdgeStimulus()(xx, yy), None
         out = MovingEdgeStimulus()(xx, yy)
         # arange(0, 330 + 0.5, 1.0) -> 331 samples (Fact K-a half-step guard)
         assert out.shape[0] == 331

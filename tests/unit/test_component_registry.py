@@ -1,7 +1,6 @@
 """Unit tests for component registry system."""
 
 import pytest
-import torch
 from sensoryforge.registry import (
     ComponentRegistry,
     NEURON_REGISTRY,

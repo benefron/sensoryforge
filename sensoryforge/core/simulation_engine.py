@@ -30,16 +30,9 @@ import numpy as np
 from sensoryforge.config.schema import SensoryForgeConfig, validate_dt_ms
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.register_components import register_all
-from sensoryforge.registry import (
-    NEURON_REGISTRY,
-    FILTER_REGISTRY,
-    INNERVATION_REGISTRY,
-    STIMULUS_REGISTRY,
-    SOLVER_REGISTRY,
-    GRID_REGISTRY,
-)
+from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY, INNERVATION_REGISTRY
 from sensoryforge.core.grid import ReceptorGrid, GridManager, load_receptor_coords_file
-from sensoryforge.core.composite_grid import CompositeReceptorGrid, CompositeGrid
+from sensoryforge.core.composite_grid import CompositeReceptorGrid
 from sensoryforge.core.innervation import (
     build_population_bank,
     create_neuron_centers,
@@ -485,7 +478,8 @@ class SimulationEngine:
             use_flat = False
 
         # Build neuron arrangement first (needed for innervation)
-        # Use neuron_rows/neuron_cols if specified, otherwise use neurons_per_row for square layout
+        # Use neuron_rows/neuron_cols if specified, otherwise use neurons_per_row for
+        # square layout
         neuron_rows = (
             pop_cfg.neuron_rows
             if pop_cfg.neuron_rows is not None
@@ -846,20 +840,22 @@ class SimulationEngine:
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
-        Processes stimulus through all configured populations (innervation → filter → neuron)
-        and returns spike trains and optionally intermediate activations.
+        Processes stimulus through all configured populations (innervation → filter →
+        neuron) and returns spike trains and optionally intermediate activations.
 
         Args:
             stimulus: Stimulus tensor.
                 - Shape: `[time, height, width]` or `[batch, time, height, width]`
                 - Units: Pressure/activation values (dimensionless or N/mm²)
                 - Batch dimension is added automatically if missing
-            return_intermediates: If True, return intermediate activations (drive, filtered, voltages)
+            return_intermediates: If True, return intermediate activations (drive,
+                filtered, voltages)
             bundle_dir: If given, write a data bundle (J2, F-013) to this directory via
-                :func:`sensoryforge.io.bundle.write_bundle` after the run. Internally forces
-                intermediates on for every population (the bundle needs ``drive``/``filtered``)
-                regardless of *return_intermediates*; the returned dict still only carries
-                intermediates when *return_intermediates* is ``True``.
+                :func:`sensoryforge.io.bundle.write_bundle` after the run. Internally
+                forces intermediates on for every population (the bundle needs
+                ``drive``/``filtered``) regardless of *return_intermediates*; the
+                returned dict still only carries intermediates when
+                *return_intermediates* is ``True``.
             stimulus_config: The stimulus's own config dict, written into the bundle's
                 ``stimuli/stimulus.json`` (ignored unless *bundle_dir* is given).
             design_manifest: A pressure-simulation design directory's manifest (Phase
@@ -868,27 +864,31 @@ class SimulationEngine:
                 (ignored unless *bundle_dir* is given). ``None`` (default) leaves the
                 bundle unchanged from a run with no design.
             seed: The run's seed (F-075). This is the single run-seed: when given, it is
-                used as-is; when ``None``, it falls back to ``self.config.simulation.seed``.
-                The value that resolves (either one, or ``None`` if both are unset) is used to
-                seed ``torch``/``numpy``/``random`` at the start of the run, before stimulus
-                sampling and the population loop, and is also what gets recorded in the bundle
-                (ignored unless *bundle_dir* is given). Distinct from a population's own
-                ``noise_seed`` (per-population membrane noise) and ``seed`` (innervation wiring,
-                F-006 open).
+                used as-is; when ``None``, it falls back to
+                ``self.config.simulation.seed``. The value that resolves (either one, or
+                ``None`` if both are unset) is
+                used to seed ``torch``/``numpy``/``random`` at the start of the run,
+                before stimulus sampling and the population loop, and is also what gets
+                recorded in the bundle (ignored unless *bundle_dir* is given). Distinct
+                from a population's own ``noise_seed`` (per-population membrane noise)
+                and ``seed`` (innervation wiring, F-006 open).
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
             progress_cb: If given, called once per population as
-                ``progress_cb(index, n_populations, population_name)``, immediately before that
-                population's filter/neuron pass (so at call time ``results`` does not yet hold
-                that population's entry). ``None`` (default) leaves behaviour unchanged.
+                ``progress_cb(index, n_populations, population_name)``, immediately
+                before that population's filter/neuron pass (so at call time
+                ``results`` does not yet hold that population's entry). ``None``
+                (default) leaves behaviour unchanged.
 
         Returns:
-            Dictionary with results for each population, keyed by population name. Each value is
-            itself a dict of tensors shaped `[batch, time, num_neurons]` -- the sub-step spike
-            count per record bin under the key spikes (F-008; use greater-than-zero for a binary
-            raster), and, only when return_intermediates is True, drive and filtered (both mA)
-            and voltages (mV). A population whose neuron model has no spike condition (an analog
-            DSL model with no threshold, N1/N2) carries state (its readout trace) instead of
-            spikes, and has no spikes key at all -- see `_run_pop_from_drive`.
+            Dictionary with results for each population, keyed by population name.
+            Each value is itself a dict of tensors shaped `[batch, time, num_neurons]`
+            -- the sub-step spike count per record bin under the key spikes (F-008;
+            use greater-than-zero for a binary raster), and, only when
+            return_intermediates is True, drive and filtered (both mA) and voltages
+            (mV). A population whose neuron model has no spike condition (an analog
+            DSL model with no threshold, N1/N2) carries state (its readout trace)
+            instead of spikes, and has no spikes key at all -- see
+            `_run_pop_from_drive`.
 
         Examples:
             >>> from sensoryforge.config.schema import SensoryForgeConfig
@@ -897,7 +897,8 @@ class SimulationEngine:
             >>> engine = SimulationEngine(config)
             >>> stimulus = torch.randn(100, 80, 80)  # [time, height, width]
             >>> results = engine.run(stimulus)
-            >>> sa_spikes = results['SA Population']['spikes']  # [batch, time, num_neurons]
+            >>> # [batch, time, num_neurons]
+            >>> sa_spikes = results['SA Population']['spikes']
             >>> print(f"Total spikes: {sa_spikes.sum().item()}")
         """
         # F-075: `seed` resolves against `self.config.simulation.seed` and, once

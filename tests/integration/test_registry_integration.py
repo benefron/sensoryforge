@@ -8,13 +8,7 @@ import pytest
 import torch
 
 from sensoryforge.register_components import register_all
-from sensoryforge.registry import (
-    NEURON_REGISTRY,
-    FILTER_REGISTRY,
-    INNERVATION_REGISTRY,
-    STIMULUS_REGISTRY,
-    SOLVER_REGISTRY,
-)
+from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY, INNERVATION_REGISTRY
 
 
 class TestRegistryIntegration:
@@ -56,7 +50,7 @@ class TestRegistryIntegration:
         neuron_direct = IzhikevichNeuronTorch(dt=1.0, a=0.02, b=0.2, c=-65.0, d=8.0)
 
         # Both should be same type
-        assert type(neuron_registry) == type(neuron_direct)
+        assert type(neuron_registry) is type(neuron_direct)
 
         # Both should produce similar outputs
         input_current = torch.randn(1, 100, 10)
@@ -84,7 +78,7 @@ class TestRegistryIntegration:
         filter_direct = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=1.0)
 
         # Both should be same type
-        assert type(filter_registry) == type(filter_direct)
+        assert type(filter_registry) is type(filter_direct)
 
         # Both should produce similar outputs
         input_current = torch.randn(1, 100, 10)
@@ -124,10 +118,14 @@ class TestRegistryBackwardCompatibility:
     def test_direct_imports_still_work(self):
         """Test that direct imports still work."""
         # These should all work without registry
+        # side effect: the import succeeding is the assertion for these four
         from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch
-        from sensoryforge.neurons.adex import AdExNeuronTorch
-        from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
-        from sensoryforge.core.innervation import GaussianInnervation
+        from sensoryforge.neurons.adex import AdExNeuronTorch  # noqa: F401
+        from sensoryforge.filters.sa_ra import (  # noqa: F401
+            SAFilterTorch,
+            RAFilterTorch,
+        )
+        from sensoryforge.core.innervation import GaussianInnervation  # noqa: F401
 
         # Should be able to instantiate directly
         neuron = IzhikevichNeuronTorch(dt=1.0)

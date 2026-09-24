@@ -105,7 +105,8 @@ def _assert_param_spec(cls: type) -> None:
 
 
 def _check_neuron(cls: type, instance: Any) -> None:
-    """Canonical neuron shape: [batch, steps, features] -> v/spikes [batch, steps+1, features].
+    """Canonical neuron shape: [batch, steps, features] -> v/spikes
+    [batch, steps+1, features].
 
     ``spikes`` may be ``None`` (Phase 2, N2) for an analog (non-spiking)
     readout -- e.g. a DSL-compiled model with no threshold (N1); only

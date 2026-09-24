@@ -461,7 +461,8 @@ class ReceptorGrid(BaseGrid):
         return width * height
 
     def _density_grid_points(self, density: float) -> torch.Tensor:
-        """Regular meshgrid of points at ``density`` receptors/mm² over ``xlim``/``ylim``.
+        """Regular meshgrid of points at ``density`` receptors/mm² over
+        ``xlim``/``ylim``.
 
         Isotropic square meshgrid at spacing ``1/sqrt(density)``, unjittered.
         Shared base-point generator for the density-driven arrangements

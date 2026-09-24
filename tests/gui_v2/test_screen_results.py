@@ -11,7 +11,6 @@ driven through the real screen widgets.
 
 from __future__ import annotations
 
-import copy
 
 import numpy as np
 import pytest
@@ -303,7 +302,6 @@ def test_smoothed_rate_mean_matches_total_spikes_for_one_bin_window():
 
 def _walk_axis_items(screen):
     """Every ``pg.AxisItem`` reachable from ``screen``'s panels."""
-    import pyqtgraph as pg
 
     plots = []
     for panel in (
@@ -462,7 +460,7 @@ def test_stimulus_frame_off_centre_peak_maps_to_its_mm_position(qtbot):
     screen = ResultsScreen(session)
     qtbot.addWidget(screen)
 
-    from sensoryforge.gui.screens.results_data import PopulationView, ResultsView
+    from sensoryforge.gui.screens.results_data import ResultsView
 
     h, w = 10, 20
     x0, x1 = -5.0, 5.0

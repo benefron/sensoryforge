@@ -6,7 +6,6 @@ tensor fill value, causing a RuntimeError.
 Reference: docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#M1
 """
 
-import pytest
 import torch
 
 from sensoryforge.neurons.izhikevich import IzhikevichNeuronTorch

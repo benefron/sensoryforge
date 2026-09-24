@@ -7,7 +7,6 @@ required abstract interface contracts.
 import pytest
 import torch
 import torch.nn as nn
-from typing import Any, Dict, Tuple
 
 from sensoryforge.filters.base import BaseFilter
 from sensoryforge.neurons.base import BaseNeuron

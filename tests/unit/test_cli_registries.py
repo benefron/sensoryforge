@@ -12,7 +12,6 @@ import argparse
 import io
 from contextlib import redirect_stdout
 
-import pytest
 
 from sensoryforge.cli import cmd_list_components, cmd_validate
 from sensoryforge.registry import NEURON_REGISTRY

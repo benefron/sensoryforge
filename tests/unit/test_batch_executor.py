@@ -10,12 +10,10 @@ Tests cover:
 
 import json
 import pytest
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import torch
-import numpy as np
 
 from sensoryforge.core.batch_executor import BatchExecutor
 
@@ -358,7 +356,7 @@ class TestBatchExecutor:
             json.dump(checkpoint_data, f)
 
         # Execute with resume
-        results = executor.execute(resume_from=str(checkpoint_file))
+        executor.execute(resume_from=str(checkpoint_file))
 
         # Should have skipped first 2 stimuli
         # Pipeline should be called only 2 times (for stimuli 2 and 3)

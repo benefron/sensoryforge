@@ -116,7 +116,9 @@ class ComponentRegistry:
             >>> neuron = NEURON_REGISTRY.create("izhikevich", dt=1.0, a=0.02, b=0.2)
             >>>
             >>> # Using from_config pattern
-            >>> neuron = NEURON_REGISTRY.create("izhikevich", config={"dt": 1.0, "a": 0.02})
+            >>> neuron = NEURON_REGISTRY.create(
+            ...     "izhikevich", config={"dt": 1.0, "a": 0.02}
+            ... )
             >>>
             >>> # Factory function (for innervation)
             >>> innervation = INNERVATION_REGISTRY.create(

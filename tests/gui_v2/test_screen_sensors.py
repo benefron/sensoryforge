@@ -6,8 +6,6 @@ counts from :func:`sensoryforge.core.simulation_engine.build_grid`), not
 merely that the screen constructs.
 """
 
-import dataclasses
-
 import pytest
 
 pytestmark = pytest.mark.gui  # F-016: Qt tests, run with `pytest -m gui`
@@ -20,11 +18,11 @@ from sensoryforge.config.schema import (  # noqa: E402
     grid_config_param_specs,
 )
 from sensoryforge.core.simulation_engine import build_grid  # noqa: E402
-from sensoryforge.gui.screens.sensors import (
+from sensoryforge.gui.screens.sensors import (  # noqa: E402
     SensorsScreen,
     _grids_in_use,
     _unique_name,
-)  # noqa: E402
+)
 from sensoryforge.gui.session import Session  # noqa: E402
 
 _DEBOUNCE_WAIT_MS = 400

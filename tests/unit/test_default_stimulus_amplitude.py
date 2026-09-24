@@ -143,7 +143,8 @@ def test_every_preset_element_has_amplitude_1(name):
 
 
 def test_schema_amplitude_default_matches_the_types():
-    """An amplitude equal to the schema default counts as unset; it must render the same."""
+    """An amplitude equal to the schema default counts as unset; it must render the
+    same."""
     assert StimulusConfig().amplitude == 1.0
 
 

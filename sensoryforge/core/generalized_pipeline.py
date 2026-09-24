@@ -8,16 +8,14 @@ and parameters.
 
 import torch
 import torch.nn as nn
-from typing import Optional, Dict, Any, Union, List
 
 from .grid import GridManager
-from .composite_grid import CompositeGrid, CompositeReceptorGrid
+from .composite_grid import CompositeReceptorGrid
 from .innervation import build_population_bank, _grid_lattice_coords
 from .rf_bank import ReceptiveFieldBank
 from .processing import ProcessingPipeline
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
 from sensoryforge.config.yaml_utils import load_yaml
-from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.stimuli.base import DEFAULT_AMPLITUDE
 from sensoryforge.stimuli.stimulus import gaussian_pressure_torch, StimulusGenerator
 from sensoryforge.stimuli.texture import gabor_texture  # (resolves ReviewFinding#M3)
@@ -65,7 +63,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
     2. **Canonical Format** (recommended):
        - N-population dynamic support
-       - Format: `{'grids': [...], 'populations': [...], 'stimulus': {...}, 'simulation': {...}}`
+       - Format: `{'grids': [...], 'populations': [...], 'stimulus': {...},
+         'simulation': {...}}`
        - Converted to legacy format via `_canonical_to_legacy_config()` adapter
        - **Limitation**: Only first 3 populations are used (mapped to SA/RA/SA2 slots)
 
@@ -90,7 +89,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         >>> # Canonical format (adapter converts to legacy)
         >>> from sensoryforge.config.schema import SensoryForgeConfig
         >>> canonical = SensoryForgeConfig(...)
-        >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(canonical.to_dict())
+        >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(
+        ...     canonical.to_dict()
+        ... )
         >>>
         >>> # Run simulation
         >>> results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
@@ -100,7 +101,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         Results dictionary with keys:
         - `'sa_spikes'`: SA population spikes [time_steps, num_sa_neurons]
         - `'ra_spikes'`: RA population spikes [time_steps, num_ra_neurons]
-        - `'sa2_spikes'`: SA2 population spikes [time_steps, num_sa2_neurons] (if configured)
+        - `'sa2_spikes'`: SA2 population spikes [time_steps, num_sa2_neurons] (if
+          configured)
         - Additional keys if `return_intermediates=True`
 
     **See Also:**
@@ -722,11 +724,13 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             n_elements = rows * cols * n_receptors
             if n_elements > _DENSE_WEIGHT_CAP:
                 raise ValueError(
-                    f"neurons.{prefix}_neurons (or {prefix}_neuron_rows x {prefix}_neuron_cols) "
-                    f"= {rows}x{cols} against {n_receptors} receptors would build a dense weight "
-                    f"tensor of {n_elements} elements, exceeding the cap of {_DENSE_WEIGHT_CAP}. "
-                    f"If {rows}x{cols} was meant as a total neuron count rather than per-row, "
-                    f"pass neuron_rows/neuron_cols (or a smaller neurons_per_row) instead."
+                    f"neurons.{prefix}_neurons (or {prefix}_neuron_rows x "
+                    f"{prefix}_neuron_cols) = {rows}x{cols} against {n_receptors} "
+                    f"receptors would build a dense weight tensor of {n_elements} "
+                    f"elements, exceeding the cap of {_DENSE_WEIGHT_CAP}. "
+                    f"If {rows}x{cols} was meant as a total neuron count rather "
+                    f"than per-row, pass neuron_rows/neuron_cols (or a smaller "
+                    f"neurons_per_row) instead."
                 )
             return rows, cols
 
@@ -925,7 +929,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             self.ra_neuron = model.compile(solver=solver, dt=dt, device=self.device)
             self.sa2_neuron = model.compile(solver=solver, dt=dt, device=self.device)
 
-            # Initialize legacy params to None/safe values to avoid attribute errors if accessed
+            # Initialize legacy params to None/safe values to avoid attribute errors
+            # if accessed
             self.a_params = None
             self.b_params = None
             self.c_params = None
@@ -1686,7 +1691,8 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         **Configuration Format Detection:**
 
-        - **Canonical Format**: Detected by presence of `'grids'` and `'populations'` keys
+        - **Canonical Format**: Detected by presence of `'grids'` and `'populations'`
+          keys
         - **Legacy Format**: Detected by presence of `'pipeline'` and `'neurons'` keys
 
         **Canonical Config Limitations:**
@@ -1697,8 +1703,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
         **Component Creation:**
 
-        Components are created via registry lookup (`NEURON_REGISTRY`, `FILTER_REGISTRY`)
-        with fallback to hardcoded classes for backward compatibility.
+        Components are created via registry lookup (`NEURON_REGISTRY`,
+        `FILTER_REGISTRY`) with fallback to hardcoded classes for backward
+        compatibility.
 
         Args:
             config: Configuration dictionary. Can be:
@@ -1719,7 +1726,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             >>> # Canonical format (auto-converted via adapter)
             >>> from sensoryforge.config.schema import SensoryForgeConfig
             >>> canonical = SensoryForgeConfig(...)
-            >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(canonical.to_dict())
+            >>> pipeline = GeneralizedTactileEncodingPipeline.from_config(
+            ...     canonical.to_dict()
+            ... )
             ...     'pipeline': {'device': 'cpu', 'grid_size': 64},
             ...     'neurons': {'sa_neurons': 20, 'ra_neurons': 30}
             ... }

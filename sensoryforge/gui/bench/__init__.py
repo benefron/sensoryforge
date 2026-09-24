@@ -3,8 +3,9 @@
 Each module here computes a small, cheap preview of one component of a
 population's pipeline -- never a full simulation:
 
-- :mod:`rf_footprint`: the population's :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`,
-  built exactly as :class:`~sensoryforge.core.simulation_engine.SimulationEngine` builds it.
+- :mod:`rf_footprint`: the population's
+  :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`, built exactly as
+  :class:`~sensoryforge.core.simulation_engine.SimulationEngine` builds it.
 - :mod:`filter_step`: the population's filter's response to a unit step and a ramp.
 - :mod:`neuron_trace`: the population's neuron model's voltage trace and an f-I curve
   for a step current.

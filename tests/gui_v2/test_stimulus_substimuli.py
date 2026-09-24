@@ -5,7 +5,6 @@ import pytest
 pytestmark = pytest.mark.gui
 
 import torch  # noqa: E402
-from PyQt5 import QtWidgets  # noqa: E402
 
 from sensoryforge.config.schema import (  # noqa: E402
     GridConfig,

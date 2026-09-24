@@ -7,6 +7,11 @@ NOTE: Full GUI widget tests may fail in headless environments. These tests focus
 on the config API rather than full GUI initialization.
 """
 
+import tempfile
+from pathlib import Path
+
+import yaml
+
 
 def test_gui_imports():
     """Verify the GUI v2 modules can be imported (smoke test)."""
@@ -23,12 +28,6 @@ def test_gui_imports():
         "results",
         "batch",
     }
-
-
-import tempfile
-from pathlib import Path
-
-import yaml
 
 
 class TestYAMLConfigAPI:

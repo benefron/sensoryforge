@@ -9,7 +9,6 @@ Tests the GeneralizedTactileEncodingPipeline with:
 """
 
 import pytest
-import torch
 from sensoryforge.core.generalized_pipeline import (
     GeneralizedTactileEncodingPipeline,
     create_generalized_pipeline,

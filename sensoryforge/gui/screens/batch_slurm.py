@@ -3,7 +3,8 @@
 Fields mirror the old GUI's Batch tab SLURM dialog (job
 name, partition, walltime, memory, CPUs, GPUs, conda env) so a returning user
 finds the same knobs; values persist across sessions through
-:func:`sensoryforge.gui.settings.gui_settings` (never a Qt settings object built directly, F-072).
+:func:`sensoryforge.gui.settings.gui_settings` (never a Qt settings object built
+directly, F-072).
 """
 
 from __future__ import annotations
@@ -98,7 +99,8 @@ class SlurmSettingsDialog(QtWidgets.QDialog):
         form.addRow(buttons)
 
     def settings(self) -> Dict[str, Any]:
-        """The dialog's current values, in :func:`~...sweep_controller.write_slurm_script`'s shape.
+        """The dialog's current values, in
+        :func:`~...sweep_controller.write_slurm_script`'s shape.
 
         Also persists them via :func:`~sensoryforge.gui.settings.gui_settings`
         so the next dialog opens with what was last used.

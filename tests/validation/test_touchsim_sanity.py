@@ -1,4 +1,5 @@
-"""S2: a sanity comparison of SA/RA responses against published afferent-class behaviour.
+"""S2: a sanity comparison of SA/RA responses against published afferent-class
+behaviour.
 
 **Read ``tests/fixtures/reference/README.md`` first.** Genuine TouchSim
 output (Saal et al. 2017, PNAS) was not obtainable in this environment --

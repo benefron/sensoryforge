@@ -121,7 +121,8 @@ def resolve_filter_params(
     key = method.lower()
     if key not in FILTER_DEFAULTS:
         raise ValueError(
-            f"Unknown filter method {method!r}; expected one of {sorted(FILTER_DEFAULTS)}"
+            f"Unknown filter method {method!r}; expected one of "
+            f"{sorted(FILTER_DEFAULTS)}"
         )
     params = dict(FILTER_DEFAULTS[key])
     params.update(overrides or {})

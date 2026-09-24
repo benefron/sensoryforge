@@ -3,9 +3,6 @@
 Verifies get_grid_spacing returns correct values with ij-indexed meshgrids.
 """
 
-import torch
-import pytest
-
 from sensoryforge.core.grid import create_grid_torch, get_grid_spacing, GridManager
 
 

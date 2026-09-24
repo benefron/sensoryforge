@@ -27,7 +27,8 @@ Four presets ship with SensoryForge:
   control arm as ``gaussian`` with ``use_distance_weights: false``, which
   ``GaussianInnervation`` already implements.
 - ``vision_onoff_rgb`` (Phase 2, Wave M4): a 3-channel (R, G, B) grid with
-  one population reading two channels through :class:`~sensoryforge.core.processing.OnOffLayer`
+  one population reading two channels through
+  :class:`~sensoryforge.core.processing.OnOffLayer`
   and summing, and one reading all three channels and concatenating -- the
   generality demo for multi-input populations (Wave M).
 

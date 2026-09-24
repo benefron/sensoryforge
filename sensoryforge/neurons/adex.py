@@ -2,7 +2,6 @@ import math
 from typing import Any, Dict, List, Optional
 
 import torch
-import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
 from sensoryforge.stimuli.base import ParamSpec
@@ -176,7 +175,7 @@ class AdExNeuronTorch(BaseNeuron):
     #: ``preset`` is a constructor convenience that expands to concrete
     #: numeric values -- excluded from ``to_dict()`` (which stores the
     #: *resolved* numbers), matching
-    #: :attr:`sensoryforge.neurons.izhikevich.IzhikevichNeuronTorch._TO_DICT_EXCLUDE_PARAMS`.
+    #: :attr:`sensoryforge.neurons.izhikevich.IzhikevichNeuronTorch._TO_DICT_EXCLUDE_PARAMS`.  # noqa: E501
     _TO_DICT_EXCLUDE_PARAMS = frozenset({"preset"})
 
     #: The ten parameters a preset expands into (see :data:`ADEX_PRESETS`).

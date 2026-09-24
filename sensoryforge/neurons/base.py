@@ -33,7 +33,8 @@ class BaseNeuron(nn.Module, ABC):
     ``spikes`` may be ``None`` (Phase 2, N2) for an analog (non-spiking)
     readout -- a DSL-compiled model with no threshold (N1) integrates its
     equations and returns ``(state_trace, None)``; callers that build the
-    shared result dict (:meth:`~sensoryforge.core.simulation_engine.SimulationEngine._run_pop_from_drive`)
+    shared result dict
+    (:meth:`~sensoryforge.core.simulation_engine.SimulationEngine._run_pop_from_drive`)
     then carry a ``"state"`` key instead of ``"spikes"``.
 
     Attributes:

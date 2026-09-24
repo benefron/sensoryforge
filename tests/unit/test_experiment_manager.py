@@ -2,7 +2,6 @@
 
 import json
 import pytest
-from pathlib import Path
 
 from sensoryforge.core.experiment_manager import (
     ExperimentManager,
