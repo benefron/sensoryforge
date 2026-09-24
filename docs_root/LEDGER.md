@@ -178,6 +178,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 ↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 ↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 ↔ abdf37f docs: record the unit-amplitude defaults and close F-083
+↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
@@ -532,6 +533,7 @@ SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D
 → commit 7da39f9
 · settled 2026-09-24: never reached by the tactile recipes -- the lowest voltage on the four benchmark stimuli is -94.1 mV at the calibrated gains (Izhikevich SA, moving_edge), 26 mV above the floor; tests/integration/test_recipe_calibration.py fails if a recipe comes within 20 mV of it
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
