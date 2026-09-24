@@ -150,10 +150,16 @@ class ReceptorGrid(BaseGrid):
             spacing: Distance between receptors in mm (for grid arrangement).
             center: (x0, y0) coordinates of the grid midpoint in mm.
             arrangement: Spatial arrangement type: 'grid' (default), 'poisson',
-                'hex', or 'jittered_grid'.
-            density: Receptor density in receptors/mm². For 'poisson' and 'hex',
-                derived from grid_size and spacing when None. Ignored for grid-based
-                arrangements.
+                'hex', 'jittered_grid', or 'blue_noise'.
+            density: Receptor density in receptors/mm², for 'poisson', 'hex'
+                and 'blue_noise' (D-88b4b41). Sets the receptor count to
+                ``density`` times the ``(rows - 1) * spacing`` by
+                ``(cols - 1) * spacing`` extent that ``grid_size`` and
+                ``spacing`` define; when ``None`` (default) the count is
+                derived from ``grid_size`` instead, unchanged from before
+                D-88b4b41. Setting ``density`` on ``'grid'`` or
+                ``'jittered_grid'``, where ``spacing`` already fixes the
+                receptor count, raises ``ValueError``.
             device: PyTorch device identifier for tensors.
             seed: Seed for the random jitter of the ``jittered_grid``,
                 ``blue_noise`` and ``poisson`` arrangements (F-050). Drawn from
@@ -162,6 +168,10 @@ class ReceptorGrid(BaseGrid):
                 the global RNG untouched. ``None`` (default) draws from the
                 global RNG, as before. Ignored by ``grid`` and ``hex``.
 
+        Raises:
+            ValueError: If ``density`` is not ``None`` and not positive, or
+                if ``density`` is set on the ``'grid'`` or ``'jittered_grid'``
+                arrangement (D-88b4b41).
         """
         if isinstance(grid_size, tuple):
             self.grid_size = grid_size
@@ -178,6 +188,17 @@ class ReceptorGrid(BaseGrid):
         self.density = density
         self.seed = seed
         self._generator = _seeded_generator(seed)
+
+        if density is not None:
+            if density <= 0:
+                raise ValueError(f"density must be > 0 (receptors/mm²), got {density}")
+            if arrangement in ("grid", "jittered_grid"):
+                raise ValueError(
+                    f"density is not supported for arrangement={arrangement!r}: "
+                    "spacing already fixes the receptor count for 'grid' and "
+                    "'jittered_grid'. Set density only for 'poisson', 'hex', "
+                    "or 'blue_noise' (D-88b4b41)."
+                )
 
         # For non-grid arrangements, we need density or defer to explicit sizing
         if arrangement in ["grid", "jittered_grid", "blue_noise"]:
@@ -211,9 +232,22 @@ class ReceptorGrid(BaseGrid):
                 self.x = None
                 self.y = None
             elif arrangement == "blue_noise":
-                # Blue noise: jittered grid + Lloyd-like relaxation
-                base_coords = torch.stack([self.xx.flatten(), self.yy.flatten()], dim=1)
-                jitter_magnitude = 0.4 * self.spacing
+                # Blue noise: jittered grid + Lloyd-like relaxation.
+                # With density set (D-88b4b41), the base grid is sized from
+                # density x extent instead of grid_size x grid_size, using
+                # the same isotropic meshgrid as _generate_poisson
+                # (spacing = 1/sqrt(density)); the jitter/relaxation below
+                # then run on that base grid unchanged. With density unset,
+                # this is bit-identical to before D-88b4b41.
+                if density is not None:
+                    base_coords = self._density_grid_points(density)
+                    base_spacing = 1.0 / max(density, 1e-8) ** 0.5
+                else:
+                    base_coords = torch.stack(
+                        [self.xx.flatten(), self.yy.flatten()], dim=1
+                    )
+                    base_spacing = self.spacing
+                jitter_magnitude = 0.4 * base_spacing
                 jitter = (
                     (_rand_seeded(base_coords, self._generator) - 0.5)
                     * 2
@@ -254,16 +288,21 @@ class ReceptorGrid(BaseGrid):
             # Initialize base class with computed bounds
             super().__init__(xlim, ylim, device)
 
-            # Derive density from rows×cols and extent (receptors/mm²)
-            area = total_x * total_y
-            expected_count = n_x * n_y
-            density = (expected_count / area) if area > 0 else 100.0
+            # density set (D-88b4b41) drives the receptor count directly;
+            # unset, derive it from rows×cols and extent as before
+            # (receptors/mm²) -- bit-identical to pre-D-88b4b41 behaviour.
+            if density is not None:
+                effective_density = density
+            else:
+                area = total_x * total_y
+                expected_count = n_x * n_y
+                effective_density = (expected_count / area) if area > 0 else 100.0
 
             # Generate coordinates using arrangement-specific methods
             if arrangement == "poisson":
-                self.coordinates = self._generate_poisson(density)
+                self.coordinates = self._generate_poisson(effective_density)
             else:  # hex
-                self.coordinates = self._generate_hex(density)
+                self.coordinates = self._generate_hex(effective_density)
 
             # For non-grid arrangements, meshgrids are not defined
             self.xx = None
@@ -421,6 +460,33 @@ class ReceptorGrid(BaseGrid):
         height = self.ylim[1] - self.ylim[0]
         return width * height
 
+    def _density_grid_points(self, density: float) -> torch.Tensor:
+        """Regular meshgrid of points at ``density`` receptors/mm² over ``xlim``/``ylim``.
+
+        Isotropic square meshgrid at spacing ``1/sqrt(density)``, unjittered.
+        Shared base-point generator for the density-driven arrangements
+        (D-88b4b41): ``_generate_poisson`` jitters this once, ``blue_noise``
+        (when ``density`` is set) jitters it and then relaxes it.
+
+        Args:
+            density: Target receptor density in receptors per mm².
+
+        Returns:
+            Tensor of unjittered ``(x, y)`` coordinates in mm, shape ``[K, 2]``.
+        """
+        width = self.xlim[1] - self.xlim[0]
+        height = self.ylim[1] - self.ylim[0]
+        spacing = 1.0 / max(density, 1e-8) ** 0.5
+
+        n_x = max(1, int(width / spacing) + 1)
+        n_y = max(1, int(height / spacing) + 1)
+
+        x = torch.linspace(self.xlim[0], self.xlim[1], n_x, device=self.device)
+        y = torch.linspace(self.ylim[0], self.ylim[1], n_y, device=self.device)
+
+        xx, yy = torch.meshgrid(x, y, indexing="ij")
+        return torch.stack([xx.flatten(), yy.flatten()], dim=1)
+
     def _generate_poisson(self, density: float) -> torch.Tensor:
         """Generate approximate Poisson-distributed points via jittered grid.
 
@@ -434,18 +500,8 @@ class ReceptorGrid(BaseGrid):
         Returns:
             Tensor of approximately density × area points with shape [N, 2].
         """
-        width = self.xlim[1] - self.xlim[0]
-        height = self.ylim[1] - self.ylim[0]
+        coordinates = self._density_grid_points(density)
         spacing = 1.0 / max(density, 1e-8) ** 0.5
-
-        n_x = max(1, int(width / spacing) + 1)
-        n_y = max(1, int(height / spacing) + 1)
-
-        x = torch.linspace(self.xlim[0], self.xlim[1], n_x, device=self.device)
-        y = torch.linspace(self.ylim[0], self.ylim[1], n_y, device=self.device)
-
-        xx, yy = torch.meshgrid(x, y, indexing="ij")
-        coordinates = torch.stack([xx.flatten(), yy.flatten()], dim=1)
 
         jitter_scale = 0.5 * spacing
         jitter = (_rand_seeded(coordinates, self._generator) - 0.5) * jitter_scale

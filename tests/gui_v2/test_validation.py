@@ -137,6 +137,24 @@ def test_grid_geometry_and_missing_coords_file_are_reported_on_the_grid():
     assert "grids.0" in validate(config)
 
 
+def test_grid_density_on_grid_arrangement_is_reported_on_the_grid():
+    # D-88b4b41 / F-081: density conflicts with 'grid' and 'jittered_grid',
+    # where spacing already fixes the receptor count.
+    config = _preset()
+    config.grids[0].arrangement = "grid"
+    config.grids[0].density = 5.0
+    errors = validate(config)
+    assert "grids.0" in errors
+    assert "density" in errors["grids.0"]
+
+
+def test_grid_density_on_poisson_arrangement_is_clean():
+    config = _preset()
+    config.grids[0].arrangement = "poisson"
+    config.grids[0].density = 5.0
+    assert validate(config) == {}
+
+
 def test_validation_never_uses_the_run_device():
     config = _preset()
     config.simulation.device = "cuda"  # this machine may not have it

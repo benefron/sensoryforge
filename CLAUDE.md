@@ -211,7 +211,6 @@ def get_param_spec(cls):
 - **GUI preferences go through `sensoryforge.gui.settings.gui_settings()`**, never a direct `QSettings(...)` (F-072); the test suite redirects it to a temporary directory, and a test forbids direct construction. CI runs on GitHub (Linux and macOS) and the docs deploy to https://benefron.github.io/sensoryforge/.
 - **Comparison with published afferent data is qualitative only** (F-070).
 - **Stimulus types disagree on amplitude scale by about 30x at their defaults** (F-083): a default `gabor` or tactile stimulus drives few or no spikes at `input_gain` 50.
-- **`GridConfig.density` is never read** (F-081); every arrangement is sized by rows x cols x spacing.
 - **The test suite runs with the cyclic GC on and collects after every `gui` test** (conftest autouse fixture). Collecting a destroyed window's pyqtgraph cycles mid-test can destroy a live ViewBox; do not discard and rebuild pyqtgraph widgets at runtime.
 - **Voltage clamp divergence from pressure-simulation** under strongly negative drive (F-037); **flake8 debt beyond the CI subset** (F-036).
 
