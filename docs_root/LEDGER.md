@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
+plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
+→ commit 6b04657
+
 ## F-de17e32 · STANDING · finding · - · 2026-09-24
 the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
 → commit 74f7d2e
@@ -278,6 +282,7 @@ render_for_config ignored the stimulus's own clock, so with a run dt_ms other th
 with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
 → commit 32646fb
 ✓ closed by 74f7d2e fix(gui): stop reference cycles from deciding when a dropped window dies
+↔ 6b04657 docs: replace the F-085 hazard note with its measured cause
 
 ## D-032 · CLOSED · decision · - · 2026-09-21
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
@@ -324,6 +329,7 @@ GUI v2 forms are generated from get_param_spec() by sensoryforge/gui/widgets/par
 ## D-027 · CLOSED · decision · - · 2026-09-17
 every pyqtgraph widget in GUI v2 is built by sensoryforge/gui/widgets/plot_factory.py; pyqtgraph signals are connected only through plot_factory.connect (functools.partial, no bound methods or widget-closing lambdas) and released by teardown()
 → commit 0bfc3ea
+↔ 6b04657 docs: replace the F-085 hazard note with its measured cause
 
 ## D-028 · CLOSED · decision · - · 2026-09-17
 GUI v2 is one window with a left stage navigation (Sensors, Stimulus, Populations, Run & Results, Batch), a pipeline strip showing sensor array → receptive field → filter → neuron → readout per population, and a bottom run bar; there are no tabs and no node graph
