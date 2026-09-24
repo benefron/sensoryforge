@@ -13,6 +13,10 @@ and the layers add up (or take the maximum) frame by frame.
 Every shape is non-negative: a pressure between 0 and its amplitude. The grating and
 the Gabor use a raised cosine. Positions are `(x, y)` in mm and times in ms.
 
+Every shape's `amplitude` defaults to 1.0, the peak of one element. This is the
+convention of every stimulus in SensoryForge: each named type also peaks at 1.0 when
+its amplitude is not set.
+
 ## A braille word over a bumpy texture
 
 ```yaml
@@ -51,5 +55,24 @@ resets that part to the new kind's defaults. The Timing section sets the ramps a
   sample their ramps one step differently; the moving edge matches exactly). The named
   types themselves are unchanged.
 - `gaussian`, `moving`, `repeated_pattern`, `gabor`, `edge_grating` — the other named types
-  as layers.
+  as layers. Each element peaks at 1.0, like the named types; `repeated_pattern`'s six
+  Gaussians overlap, so their sum peaks at about 3.9.
 - `braille_word`, `bumpy_texture`, `probe_sequence` — examples of stacking.
+
+## Named types: amplitude and sign
+
+Every named stimulus type peaks at 1.0 when its `amplitude` is not set, and none renders
+a negative value by default. `gabor` and `texture` (the same Gabor patch, `texture` with
+a wider window and longer wavelength) draw amplitude × Gaussian window ×
+(1 + cos(carrier)) / 2, the same raised cosine as the layered `gabor` shape. Set
+`signed: true` in the stimulus `params` (an advanced parameter on the Stimulus screen)
+for the zero-mean form, amplitude × window × cos(carrier), whose lobes between the
+stripes are negative, for example to model signed contrast in vision. A negative
+pressure drives a negative current through the filters.
+
+```yaml
+stimulus:
+  type: gabor
+  params:
+    signed: true
+```

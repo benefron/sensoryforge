@@ -108,21 +108,118 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-d9bd411 · CLOSED · decision · - · 2026-09-24
+SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
+→ commit ce166e0
+
+## D-f4d0967 · CLOSED · decision · - · 2026-09-24
+SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
+→ commit ce166e0
+
+## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
+plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
+→ commit 6b04657
+
+## F-de17e32 · STANDING · finding · - · 2026-09-24
+the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
+→ commit 74f7d2e
+
+## F-44f9142 · STANDING · finding · - · 2026-09-24
+PyQt 5.15.11 segfaults in PyQtSlot::call when the cyclic collector frees a functools.partial slot that a queued cross-thread signal has yet to deliver; StimulusPreview's render-worker connections formed such a cycle through the preview
+→ commit 74f7d2e
+
+## F-d33d335 · OPEN · finding · - · 2026-09-24
+the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers about two receptors of a 0.15 mm grid, so at its defaults it drives tactile_sa1_ra1 to 54 SA and 0 RA spikes in 500 ms against 1214 and 82 for a default gaussian
+→ commit abdf37f
+
+## F-93b91b1 · OPEN · finding · - · 2026-09-24
+the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
+→ commit abdf37f
+
+## F-073fc19 · STANDING · finding · - · 2026-09-24
+before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
+→ commit cf2be50
+
+## F-6c6deff · STANDING · finding · - · 2026-09-24
+at their defaults on a 40x40 grid at 0.15 mm (no receptor at the centre), repeated_pattern's six overlapping unit copies peak at 3.85 and the other unit-amplitude types sample peaks of 0.97-1.0 except gabor (0.55); on a 41x41 grid each single-element type peaks at exactly 1.0
+→ commit 3237de3
+
+## F-36b5120 · STANDING · finding · - · 2026-09-24
+at one fitted amplitude per mm, TouchSim and SensoryForge agree on RA's silent hold and its release/onset balance, and the Izhikevich recipe also on SA's silent release and SA's hold-rate curve over 0.4-1.25 mm (11/23/43 Hz against 11/26/43)
+→ commit a2e8c0b
+
+## F-47cc697 · OPEN · finding · - · 2026-09-24
+at intensities matched on SA's hold rate, SensoryForge's RA is far less sensitive than TouchSim's RA in both recipes -- silent at the 0.2-0.7 mm levels where TouchSim's RA fires 20-60 Hz at onset, and 20 Hz against 100 Hz at 1.25 mm
+→ commit a2e8c0b
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+
+## F-20e111e · OPEN · finding · - · 2026-09-24
+SensoryForge SA's ramp response is 2-3x weaker than TouchSim's SA1 (hold/onset about 0.55 against about 0.22 on the Izhikevich recipe), and AdEx SA is silent up to the 0.7 mm level, then jumps to 40 Hz, with none of SA1's graded rise
+→ commit a2e8c0b
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+
+## F-8211840 · STANDING · finding · - · 2026-09-24
+touchsim's own hsaal/touchsim@4ec9f5c (idx=0 single-neuron models, seed 42) reproduces the textbook signatures at the probe centre -- SA1 sustains firing through a 450 ms hold at suprathreshold depths (e.g. 42.9 Hz sustained at 1.25 mm, spiking out to 496 ms of the hold) while RA's sustained-window rate is exactly 0 Hz at every depth tested and it fires only at onset and offset (e.g. 100/0/80 Hz onset/sustained/offset at 1.25 mm); both SA1 and RA onset rates rise monotonically with indentation depth near the probe.
+→ commit d2302dc
+
+## F-1a66390 · CLOSED · finding · - · 2026-09-24
+the P5 harness scored a static hold from the moment the ramp ended, counting the RA filter's 1-6 ms tail of the ramp response as hold firing; P5 forbids spikes only after the first ~30 ms, so the hold is now scored from 30 ms after the ramp
+→ commit 63d37c3
+
+## F-0913e47 · STANDING · finding · - · 2026-09-24
+pressure-simulation's C-032 150x drive gap was its decoder multiplying input_gain into SensoryForge's filtered array a second time; that array already includes the gain, so the reconciliation needed no SensoryForge change
+→ commit 63d37c3
+
+## D-0437899 · CLOSED · decision · - · 2026-09-24
+every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention: the named gaussian, texture and moving types and their layered presets change from 30 to 1.0, and no stimulus renders negative values by default (gabor, texture)
+· Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
+→ commit b4a853b
+↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
+↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
+↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
+↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
+↔ abdf37f docs: record the unit-amplitude defaults and close F-083
+
+## D-ea0f017 · CLOSED · decision · - · 2026-09-24
+SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
+· Rejected: leaving input gain entirely to pressure-simulation's design directories | the recipe must run sensibly without a design, and one shared gain cannot put SA and RA in their bands at once
+→ commit b4a853b
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
+↔ abdf37f docs: record the unit-amplitude defaults and close F-083
+↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
+↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+
+## D-4aafcdc · CLOSED · decision · - · 2026-09-24
+the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
+→ commit b4a853b
+↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
+↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
+
+## D-88b4b41 · CLOSED · decision · - · 2026-09-24
+GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
+· Rejected: removing GridConfig.density | irregular receptor layouts are naturally specified in receptors per mm2, the unit afferent densities are published in
+→ commit b4a853b
+↔ 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
+
 ## D-039 · CLOSED · decision · - · 2026-09-22
 upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
 → commit 36d2e3f
 
-## F-094 · OPEN · finding · - · 2026-09-22
+## F-094 · STANDING · finding · - · 2026-09-22
 a design directory's filter_params/model_params must be empty -- the two repos do not share filter parameter names, so any value there makes the hand-off unloadable rather than merely redundant.
 → commit a05fb8b
+· tidied 2026-09-24: a settled result, not an open problem
 
 ## D-038 · CLOSED · decision · - · 2026-09-22
 SensoryForge accepts an externally designed encoder as a design directory (design.json + per-population npz) via `sensoryforge run --design`, and stamps the design manifest into the bundle.
 → commit 7eba10d
 
-## F-095 · OPEN · finding · - · 2026-09-22
+## F-095 · CLOSED · finding · - · 2026-09-22
 RampGaussianStimulus did not clamp its ramp to the requested duration, so any run shorter than the 50 ms default ramp raised a tensor-size error.
 → commit 7eba10d
+✓ closed by 4d93f5c chore(ledger): tidy
 
 ## D-035 · CLOSED · decision · - · 2026-09-22
 AdEx SA/RA populations resolve to the SA1_tonic and RA1_phasic presets by neuron_type through the same resolve_neuron_params mechanism as Izhikevich's F-004 RS/FS split, rather than a second parallel resolver.
@@ -136,37 +233,50 @@ the AdEx recipe ships as a separate preset file (tactile_sa1_ra1_adex) rather th
 the AdEx presets' operating point is set through R, the membrane resistance, tuned against the tactile recipe's measured responsive-neuron drive (SA rheobase 3.07 mA against a hold drive of p10/p50/p90 = 3.82/5.25/7.30 mA; RA rheobase 7.57 mA, below the 5.67-13.87 mA onset transients and above the ~0.15 mA hold drive); input_gain stays 50.0 and no preset YAML is touched.
 → commit 326ef6f
 
-## F-086 · OPEN · finding · - · 2026-09-22
+## F-086 · STANDING · finding · - · 2026-09-22
 the four pressure-simulation benchmark stimuli already render at a common peak amplitude at the recipe defaults (ramp_gaussian 0.9944, moving_edge 1.0000, braille 0.9825, drifting_grating 1.0000, within 2% of each other) and none of them routes through render.py's _LEGACY_DEFAULTS, the source of F-083's 30x split, so no change is needed for these four (partial F-083 resolution, scoped to them only).
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-087 · OPEN · finding · - · 2026-09-22
+## F-087 · STANDING · finding · - · 2026-09-22
 AdEx presets tuned against a flat constant-current bench step are silent in the tactile recipe -- their rheobase lay above the drive the recipe actually delivers -- so a bench probe is not a sufficient tuning target for a population that sees filtered tactile drive; tune against the measured drive instead.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-088 · OPEN · finding · - · 2026-09-22
+## F-088 · STANDING · finding · - · 2026-09-22
 the P5 SA rate criterion is only meaningful on a drive-derived responsive set -- on a spatially localized stimulus a whole-population mean cannot reach 20-100 Hz for any neuron model, Izhikevich included.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-089 · OPEN · finding · - · 2026-09-22
+## F-089 · STANDING · finding · - · 2026-09-22
 RA's silence during a hold comes mainly from the RA filter differentiating a static drive to ~0, not from AdEx adaptation alone -- moving_edge's steady-drive interval, where the edge never stops moving, still yields 594 RA spikes.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 
-## F-090 · OPEN · finding · - · 2026-09-22
+## F-090 · STANDING · finding · - · 2026-09-22
 SA1_tonic's R = 6.0 was selected by scanning R for the smallest value whose responsive-set ISI CV cleared 0.5, so the reported CV of 0.470 is a fitted outcome rather than an independent check; the purely principled placement (rheobase at the measured hold drive's p10) gives R ~= 4.8, within about 25%.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-091 · OPEN · finding · - · 2026-09-22
+## F-091 · STANDING · finding · - · 2026-09-22
 the RA onset "burst" that passes P5 is a single spike per responsive afferent synchronized across the set, not a multi-spike burst within one afferent -- the 200 Hz peak is exactly the 5 ms bin's cap for one spike.
 → commit 326ef6f
+· tidied 2026-09-24: a settled result, not an open problem
 
-## F-092 · OPEN · finding · - · 2026-09-22
+## F-092 · CLOSED · finding · - · 2026-09-22
 RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz against P5's ~300 Hz) because that stimulus's RA onset drive peaks at 3.08 mA, below the 7.57 mA rheobase; reaching it needs R >~ 20, which would leave too little margin over moving_edge's 6.06 mA RA hold drive.
 → commit 326ef6f
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 
-## F-093 · OPEN · finding · - · 2026-09-22
+## F-093 · CLOSED · finding · - · 2026-09-22
 under the corrected responsive-set metric the Izhikevich SA baseline reaches only 8.75 Hz on the recipe's one genuine hold, an order of magnitude below P5's 20-100 Hz band; whether that is the recipe's input_gain or the RS preset is not settled.
 → commit 326ef6f
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
 
 ## D-034 · CLOSED · decision · - · 2026-09-22
 stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
@@ -180,17 +290,21 @@ every rendered stimulus changes over time: a still stimulus ramps up and down ov
 render_for_config ignored the stimulus's own clock, so with a run dt_ms other than 1 ms the tactile stimuli (moving_edge, braille, drifting_grating, ramp_gaussian) played at the wrong speed, and a timeline stimulus never advanced past its first sub-stimulus; fixed here, but results made with dt_ms != 1 ms from those stimuli, or with any timeline, were wrong
 → commit 6956f81
 
-## F-085 · OPEN · finding · - · 2026-09-21
+## F-085 · CLOSED · finding · - · 2026-09-21
 with the cyclic GC enabled, collecting pyqtgraph objects left in reference cycles by a destroyed window can destroy a live ViewBox of another window (measured in the test suite: RuntimeError "wrapped C/C++ object of type ViewBox has been deleted" in GridPreview.set_grids); the suite collects at test boundaries, and the app builds each plot once per window lifetime, but any future screen that discards and rebuilds pyqtgraph widgets at runtime would be exposed
 → commit 32646fb
+✓ closed by 74f7d2e fix(gui): stop reference cycles from deciding when a dropped window dies
+↔ 6b04657 docs: replace the F-085 hazard note with its measured cause
 
 ## D-032 · CLOSED · decision · - · 2026-09-21
 StimulusConfig.params (dict) stores stimulus-type parameters that have no named field and is forwarded to the constructor by render_for_config; sensoryforge.stimuli.render.effective_defaults(type) is the only source for the default a form displays, so the displayed default is the value that runs
 → commit 301af19
 
-## F-081 · OPEN · finding · - · 2026-09-21
+## F-081 · CLOSED · finding · - · 2026-09-21
 GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
 → commit 8674a6a
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+✓ closed by 036d3c8 fix(grid): honour GridConfig.density for poisson, hex and blue_noise
 
 ## F-082 · CLOSED · finding · - · 2026-09-21
 sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
@@ -227,6 +341,7 @@ GUI v2 forms are generated from get_param_spec() by sensoryforge/gui/widgets/par
 ## D-027 · CLOSED · decision · - · 2026-09-17
 every pyqtgraph widget in GUI v2 is built by sensoryforge/gui/widgets/plot_factory.py; pyqtgraph signals are connected only through plot_factory.connect (functools.partial, no bound methods or widget-closing lambdas) and released by teardown()
 → commit 0bfc3ea
+↔ 6b04657 docs: replace the F-085 hazard note with its measured cause
 
 ## D-028 · CLOSED · decision · - · 2026-09-17
 GUI v2 is one window with a left stage navigation (Sensors, Stimulus, Populations, Run & Results, Batch), a pipeline strip showing sensor array → receptive field → filter → neuron → readout per population, and a bottom run bar; there are no tabs and no node graph
@@ -280,9 +395,12 @@ F-068 the reproducibility test compared spike counts recorded on macOS arm64 exa
 F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols were ignored whenever a lattice-deriving receptive-field builder was used, even when the user had set none of them, so every run of the shipped tactile_sa1_ra1 preset printed a warning about a value nobody chose
 → commit 2ce266f
 
-## F-070 · OPEN · finding · - · 2026-09-17
+## F-070 · CLOSED · finding · - · 2026-09-17
 F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
 → commit 992e6ca
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
+✓ closed by a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
@@ -332,9 +450,10 @@ F-059 docs/user_guide/configuration_schema.md documents the Wave M config fields
 render_stimulus never advances a stateful registered stimulus's .step(), so "moving" (and any stepped stimulus) renders as a static repeated frame instead of animating
 → commit 1d4d210
 
-## F-056 · OPEN · finding · - · 2026-09-16
+## F-056 · STANDING · finding · - · 2026-09-16
 F-056 the memory watchdog's peak RSS varies from about 800 MB to 1500 MB run to run for identical code (83b735d measured 873 MB and 1517 MB on two runs), so it cannot detect a regression below roughly a factor of two and its numbers must never be compared across runs or across machines
 → commit 0c13d47
+· tidied 2026-09-24: a settled result, not an open problem
 
 ## F-055 · CLOSED · finding · - · 2026-09-16
 the bundle wrote stimuli/stimulus.json as an untagged caller dict, or {} when none was given, and pressure-simulation's generate_stimulus_from_json defaults every field, so a bundle could be read there as a static Gaussian blob at the origin and encoded and plotted with no error anywhere; fixed by tagging every payload with schema_version and kind and emitting pressure-simulation's schema only for the types proven to regenerate exactly
@@ -416,13 +535,17 @@ dt_ms that is not a whole multiple of integrate_dt_ms silently rescales neuron t
 default innervation uses analytic Gaussian weights; the stochastic uniform-weight builder is the named control arm
 → commit b1f67a3
 
-## F-036 · OPEN · finding · - · 2026-09-14
+## F-036 · CLOSED · finding · - · 2026-09-14
 flake8 style debt after black (all default checks, 88 columns): 364 violations, mainly E501 164, F401 141, F541 18, E402 14, F841 11; CI gates only E9,F63,F7,F82 until ratcheted
 → commit 7da39f9
+✓ closed by 5d8c9ec ci: enforce flake8's default checks, not only the syntax-error subset
 
-## F-037 · OPEN · finding · - · 2026-09-14
+## F-037 · STANDING · finding · - · 2026-09-14
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
 → commit 7da39f9
+· settled 2026-09-24: never reached by the tactile recipes -- the lowest voltage on the four benchmark stimuli is -94.1 mV at the calibrated gains (Izhikevich SA, moving_edge), 26 mV above the floor; tests/integration/test_recipe_calibration.py fails if a recipe comes within 20 mV of it
+↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
+↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
@@ -660,8 +783,13 @@ SensoryForge is an encoding-only extraction of pressure-simulation's encoding st
 filters, innervation, neurons, GUI). Decoding / reconstruction / Kalman stay in pressure-simulation.
 → sensoryforge/core/pipeline.py:1-17 still carries the `encoding.pipeline_torch` header
 
-## F-083 · OPEN · finding · - · 2026-09-21
+## F-083 · CLOSED · finding · - · 2026-09-21
 stimulus types disagree on amplitude scale by about 30x at their defaults (gaussian, texture and moving peak about 30 mA; braille, gratings, moving_edge and ramp_gaussian about 1; gabor 0.55), while input_gain 50 is calibrated for about 30, so with tactile_sa1_ra1 on a 40x40 grid for 500 ms a default gabor gives 0 SA and 1 RA spike against 9731 and 3288 for a default gaussian; a user switching type in the GUI sees a silent population with no warning
 → measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
 → root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
-
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+↔ 3237de3 fix(stimuli): default every stimulus to peak amplitude 1.0
+↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
+↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
+↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
+✓ closed by abdf37f docs: record the unit-amplitude defaults and close F-083

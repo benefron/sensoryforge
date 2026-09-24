@@ -151,7 +151,9 @@ def make_image_plot(
         changes (documented deviation, see task-1.4-report.md).
 
     Example:
-        >>> plot, image, colorbar = make_image_plot("Footprint", "x", "y", x_unit="mm", y_unit="mm")
+        >>> plot, image, colorbar = make_image_plot(
+        ...     "Footprint", "x", "y", x_unit="mm", y_unit="mm"
+        ... )
         >>> image.setImage(data)
     """
     plot = make_plot(title, xlabel, ylabel, x_unit=x_unit, y_unit=y_unit)

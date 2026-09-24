@@ -14,7 +14,6 @@ from __future__ import annotations
 import os
 import sys
 import traceback
-from functools import partial
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -121,9 +120,15 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
 
         preset_menu = file_menu.addMenu("Open preset")
         for preset_path in sorted(PRESETS_DIR.glob("*.yml")):
-            preset_menu.addAction(
-                preset_path.stem, partial(self._load_config_file, str(preset_path))
-            )
+            preset_menu.addAction(preset_path.stem).setData(str(preset_path))
+        # One bound-method connection for the whole menu, never a
+        # functools.partial over self per action: PyQt holds a bound method's
+        # instance weakly, but a partial is a strong reference from a child
+        # QAction back to this window. That cycle kept a window its owner had
+        # dropped alive -- timers running -- until the cyclic collector ran,
+        # and a collection inside one of the window's own slots then deleted
+        # the window under that slot (F-085).
+        preset_menu.triggered.connect(self._on_preset_triggered)
 
         save_action = file_menu.addAction("Save config", self._on_save_config)
         save_action.setShortcut(QtGui.QKeySequence.Save)
@@ -247,6 +252,10 @@ class SensoryForgeApp(QtWidgets.QMainWindow):
             return
         self._session.replace_config(config)
         self.pipeline_strip.mark_saved()
+
+    def _on_preset_triggered(self, action: QtWidgets.QAction) -> None:
+        """Load the preset an "Open preset" action names (its data is the path)."""
+        self._load_config_file(action.data())
 
     def _on_open_config(self) -> None:
         path, _filter = QtWidgets.QFileDialog.getOpenFileName(

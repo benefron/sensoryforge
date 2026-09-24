@@ -5,7 +5,8 @@ Verifies that all neuron models:
 2. Have a ``reset_state()`` method
 3. Return ``(v_trace, spikes)`` with correct shapes
 
-Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#H6
+Reference:
+    docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260209.md#H6
 """
 
 import pytest

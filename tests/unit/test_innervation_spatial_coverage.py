@@ -6,8 +6,6 @@ uniformly and that neuron centers span the expected spatial extent.
 """
 
 import pytest
-import torch
-import numpy as np
 from sensoryforge.core.grid import GridManager
 from sensoryforge.core.innervation import create_sa_innervation, create_ra_innervation
 

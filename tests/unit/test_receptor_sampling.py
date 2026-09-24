@@ -226,7 +226,6 @@ class TestEngineEndToEnd:
         )
         engine = SimulationEngine(cfg)
         grid = engine.grids[0]
-        rows, cols = 10, 10
         xlim, ylim = grid.xlim, grid.ylim
         h, w = 81, 81
         frame = _asymmetric_gaussian_frame(

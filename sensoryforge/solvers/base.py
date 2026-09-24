@@ -30,7 +30,8 @@ class BaseSolver(ABC):
         """Initialize the base solver.
 
         Args:
-            dt: Time step size in milliseconds. Defaults to 0.05 ms (Forward Euler default).
+            dt: Time step size in milliseconds. Defaults to 0.05 ms (Forward Euler
+                default).
         """
         self.dt = dt
 
@@ -50,7 +51,8 @@ class BaseSolver(ABC):
         Args:
             ode_func: Function computing the time derivative of the state.
                       Signature: f(state, t) -> dstate_dt
-                      where state has shape [batch, ...] and dstate_dt has the same shape.
+                      where state has shape [batch, ...] and dstate_dt has the same
+                      shape.
             state: Current state tensor with shape [batch, ...].
             t: Current time in milliseconds.
             dt: Time step size in milliseconds for this step.
@@ -99,7 +101,9 @@ class BaseSolver(ABC):
             ...     return -state
             >>> solver = EulerSolver(dt=0.1)
             >>> state = torch.tensor([[1.0, 2.0]])
-            >>> trajectory = solver.integrate(ode_func, state, t_span=(0.0, 1.0), dt=0.1)
+            >>> trajectory = solver.integrate(
+            ...     ode_func, state, t_span=(0.0, 1.0), dt=0.1
+            ... )
             >>> trajectory.shape
             torch.Size([1, 11, 2])
         """

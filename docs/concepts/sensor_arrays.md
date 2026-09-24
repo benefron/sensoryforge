@@ -21,19 +21,44 @@ imported coordinates and composite layers all go through the same code, so none 
 own reshape logic and none of them can silently disagree with what the frame actually shows at
 that point in space.
 
-## The four built-in arrangements
+## The five built-in arrangements
 
 | Arrangement | Coordinates | Reproducible with a seed? |
 |---|---|---|
 | `"grid"` | Regular rectangular lattice, `rows` x `cols` at `spacing` mm | N/A (deterministic) |
-| `"hex"` | Hexagonally packed, density-derived from `rows`/`cols`/`spacing` | N/A (deterministic) |
+| `"hex"` | Hexagonally packed, density-derived from `rows`/`cols`/`spacing` (or `density`, below) | N/A (deterministic) |
 | `"jittered_grid"` | Regular lattice plus Gaussian jitter | Yes, via `GridConfig.seed` (F-050) |
-| `"blue_noise"` | Jitter + Lloyd-style relaxation (blue-noise-like spacing) | Yes, via `GridConfig.seed` (F-050) |
-| `"poisson"` | Jittered grid at a target density (an approximation, not true Poisson-disk sampling) | Yes, via `GridConfig.seed` (F-050) |
+| `"blue_noise"` | Jitter + Lloyd-style relaxation (blue-noise-like spacing), density-derived from `rows`/`cols`/`spacing` (or `density`, below) | Yes, via `GridConfig.seed` (F-050) |
+| `"poisson"` | Jittered grid at a target density-derived from `rows`/`cols`/`spacing` (or `density`, below); an approximation, not true Poisson-disk sampling | Yes, via `GridConfig.seed` (F-050) |
 
 All five are registered grid-arrangement classes (`core/grid_arrangements.py`) discoverable via
 `GRID_REGISTRY`, so `sensoryforge list-components` shows them and a plugin can add a sixth (see
 [Adding a Grid Arrangement](../extending/add_grid_arrangement.md)).
+
+### `GridConfig.density`
+
+`rows`/`cols`/`spacing` always set a grid's spatial extent (`(rows - 1) * spacing` by
+`(cols - 1) * spacing`, centred at `center_x`/`center_y`). For `"poisson"`, `"hex"` and
+`"blue_noise"`, `GridConfig.density` (receptors/mm²) additionally sets the receptor *count*
+within that extent, overriding the count `rows`/`cols` would otherwise imply (D-88b4b41): a
+`density` ten times larger gives about ten times the receptors, for the same `rows`/`cols`/
+`spacing`. Leaving `density` unset (the default) derives the count from `rows` x `cols` instead,
+exactly as before D-88b4b41.
+
+Setting `density` on `"grid"` or `"jittered_grid"` is a `ValueError` -- `spacing` already fixes
+the receptor count for those two arrangements, so a `density` value would have nowhere to act
+(closes F-081, which found that `density` was accepted and round-tripped but silently ignored by
+every arrangement). It is likewise a `ValueError` for `density <= 0`.
+
+```yaml
+grids:
+  - name: fingertip
+    arrangement: poisson
+    rows: 20          # sets the extent together with spacing
+    cols: 20
+    spacing: 0.15     # mm
+    density: 50.0     # receptors/mm^2 -- overrides the rows x cols receptor count
+```
 
 ## Imported coordinates
 

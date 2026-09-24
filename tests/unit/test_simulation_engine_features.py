@@ -6,7 +6,6 @@ Covers:
   - FlatInnervationModule path no longer crashes on undefined innervation_method
 """
 
-import pytest
 import torch
 from sensoryforge.config.schema import (
     SensoryForgeConfig,
@@ -216,7 +215,8 @@ def _make_pop_config(
 
 
 def test_ra_population_defaults_to_fast_spiking_izhikevich():
-    """An RA population with no model_params override must resolve to FS (a=0.1, d=2.0)."""
+    """An RA population with no model_params override must resolve to FS
+    (a=0.1, d=2.0)."""
     engine = SimulationEngine(_make_pop_config("RA"))
     neuron = engine.populations[0]["neuron"]
     assert neuron.a == 0.1

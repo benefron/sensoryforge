@@ -19,7 +19,6 @@ Units: ms for time, mm for space, mA for the stimulus amplitude.
 from __future__ import annotations
 
 import copy
-import functools
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -58,24 +57,31 @@ _RELEVANT_PATHS = (
 class _RenderWorker(QtCore.QObject):
     """Renders one config on whatever thread owns it.
 
+    Both signals carry the render's generation first, so the preview can
+    connect them to bound methods rather than to a ``functools.partial``
+    holding the generation and the preview itself (see
+    :meth:`StimulusPreview.render_now`).
+
     Signals:
-        finished(object): A :class:`RenderedStimulus`.
-        failed(str): ``"TypeName: message"``.
+        finished(int, object): The generation and a :class:`RenderedStimulus`.
+        failed(int, str): The generation and ``"TypeName: message"``.
     """
 
-    finished = QtCore.pyqtSignal(object)
-    failed = QtCore.pyqtSignal(str)
+    finished = QtCore.pyqtSignal(int, object)
+    failed = QtCore.pyqtSignal(int, str)
 
     def __init__(
         self,
         config: SensoryForgeConfig,
         *,
+        generation: int,
         duration_ms: float,
         dt_ms: float,
         parent: Optional[QtCore.QObject] = None,
     ) -> None:
         super().__init__(parent)
         self._config = config
+        self._generation = generation
         self._duration_ms = duration_ms
         self._dt_ms = dt_ms
 
@@ -92,9 +98,9 @@ class _RenderWorker(QtCore.QObject):
             # stimulus constructor rejecting a value outright, rare -- most are
             # caught and dropped inside render_for_config itself) or a torch
             # RuntimeError (e.g. an invalid device).
-            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            self.failed.emit(self._generation, f"{type(exc).__name__}: {exc}")
         else:
-            self.finished.emit(rendered)
+            self.finished.emit(self._generation, rendered)
 
 
 class StimulusPreview(QtWidgets.QWidget):
@@ -232,13 +238,23 @@ class StimulusPreview(QtWidgets.QWidget):
         generation = self._generation
 
         worker = _RenderWorker(
-            config, duration_ms=duration, dt_ms=float(config.simulation.dt_ms)
+            config,
+            generation=generation,
+            duration_ms=duration,
+            dt_ms=float(config.simulation.dt_ms),
         )
         thread = QtCore.QThread()
         worker.moveToThread(thread)
         thread.started.connect(worker.work)
-        worker.finished.connect(functools.partial(self._on_render_finished, generation))
-        worker.failed.connect(functools.partial(self._on_render_failed, generation))
+        # Bound methods, never a functools.partial over self (F-085). These
+        # signals cross threads, so each emission waits in the GUI thread's
+        # event queue; a partial holding this widget closes a reference cycle
+        # (self -> _inflight -> worker -> its slot -> self), and when the
+        # cyclic collector frees that cycle while an emission is still
+        # queued, PyQt 5.15 delivers it to the slot it has just cleared and
+        # segfaults. PyQt holds a bound method's instance weakly: no cycle.
+        worker.finished.connect(self._on_render_finished)
+        worker.failed.connect(self._on_render_failed)
 
         self._inflight[generation] = (thread, worker)
         keep_alive(thread, worker)

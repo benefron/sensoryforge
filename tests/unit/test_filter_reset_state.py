@@ -1,11 +1,12 @@
-"""Tests for M-1: SAFilterTorch and RAFilterTorch must satisfy BaseFilter.reset_state() contract.
+"""Tests for M-1: SAFilterTorch and RAFilterTorch must satisfy BaseFilter.reset_state()
+contract.
 
 The BaseFilter interface specifies reset_state() (singular, no args).
-SAFilterTorch and RAFilterTorch previously only had reset_states() (plural, takes args),
-breaking polymorphism — any code iterating over BaseFilter instances would get AttributeError.
+SAFilterTorch and RAFilterTorch previously only had reset_states() (plural, takes
+args), breaking polymorphism — any code iterating over BaseFilter instances would
+get AttributeError.
 """
 
-import pytest
 import torch
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
 from sensoryforge.filters.base import BaseFilter
@@ -59,7 +60,8 @@ def test_ra_filter_reset_state_clears_cached_tensors():
 
 
 def test_basefilter_polymorphism_reset_state():
-    """Iterating a list of BaseFilter instances and calling reset_state() must not raise."""
+    """Iterating a list of BaseFilter instances and calling reset_state() must not
+    raise."""
     filters = [
         SAFilterTorch(dt=0.1),
         RAFilterTorch(dt=0.1),

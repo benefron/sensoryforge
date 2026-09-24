@@ -7,16 +7,9 @@ Covers:
   - Device override is applied to simulation.device for canonical configs
 """
 
-import pytest
 import torch
-from unittest.mock import patch, MagicMock
 
-from sensoryforge.config.schema import (
-    SensoryForgeConfig,
-    GridConfig,
-    PopulationConfig,
-    SimulationConfig,
-)
+from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.simulation_engine import SimulationEngine
 
 # ---------------------------------------------------------------------------

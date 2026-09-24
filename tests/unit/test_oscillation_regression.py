@@ -1,4 +1,5 @@
-"""Regression tests for oscillation / instability with noise + SA filter + gain (item 8).
+"""Regression tests for oscillation / instability with noise + SA filter + gain
+(item 8).
 
 Root causes identified:
   RC-1: SA filter k2·dI/dt term amplifies noise 849x vs k1·I term.
@@ -11,7 +12,6 @@ Root causes identified:
          is never physiologically correct. Clamping to >=0 is the fix.
 """
 
-import math
 import pytest
 import torch
 from sensoryforge.filters.sa_ra import SAFilterTorch

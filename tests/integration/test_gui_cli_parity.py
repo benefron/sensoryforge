@@ -4,10 +4,8 @@ These tests ensure that configurations created in the GUI can be loaded and exec
 via CLI, and that results are consistent across execution paths.
 """
 
-import pytest
 import torch
 import tempfile
-import yaml
 from pathlib import Path
 
 from sensoryforge.config.schema import (
@@ -20,15 +18,15 @@ from sensoryforge.config.schema import (
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 
-# GUI imports are optional - only test if available
+# GUI imports are optional - only test if available; the import succeeding
+# (not any use of the names) is what sets GUI_AVAILABLE.
 try:
-    from sensoryforge.gui.main import MainWindow
-    from PyQt5.QtWidgets import QApplication
+    from sensoryforge.gui.main import MainWindow  # noqa: F401
+    from PyQt5.QtWidgets import QApplication  # noqa: F401
 
     GUI_AVAILABLE = True
 except ImportError:
     GUI_AVAILABLE = False
-import sys
 
 
 class TestGUICLIParity:

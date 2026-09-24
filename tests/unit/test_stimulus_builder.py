@@ -71,6 +71,7 @@ class TestStaticStimulus:
             wavelength=0.3,
             orientation=math.pi / 6,
             phase=0.0,
+            signed=True,  # the zero-mean form; the default is non-negative
         )
 
         output = stim(xx, yy)

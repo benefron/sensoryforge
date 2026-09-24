@@ -63,8 +63,8 @@ class TestDynamicsValues:
         model = IzhikevichNeuronTorch(dt=DT, a=0.02, b=0.2)
         v = torch.tensor([[-60.0]])
         u = torch.tensor([[-14.0]])  # b * v_rest
-        I = torch.tensor([[5.0]])
-        dv, du = model._dynamics(v, u, I)
+        I_ext = torch.tensor([[5.0]])
+        dv, du = model._dynamics(v, u, I_ext)
 
         expected_dv = 0.04 * (-60.0) ** 2 + 5 * (-60.0) + 140 - (-14.0) + 5.0
         assert (
@@ -76,8 +76,8 @@ class TestDynamicsValues:
         model = IzhikevichNeuronTorch(dt=DT, a=0.02, b=0.2)
         v = torch.tensor([[-60.0]])
         u = torch.tensor([[-14.0]])
-        I = torch.tensor([[0.0]])
-        _, du = model._dynamics(v, u, I)
+        I_ext = torch.tensor([[0.0]])
+        _, du = model._dynamics(v, u, I_ext)
 
         expected_du = 0.02 * (0.2 * (-60.0) - (-14.0))
         assert (
@@ -89,8 +89,8 @@ class TestDynamicsValues:
         model = AdExNeuronTorch(dt=DT)
         v = torch.tensor([[-65.0]])
         w = torch.tensor([[0.0]])
-        I = torch.tensor([[10.0]])
-        dv, dw = model._dynamics(v, w, I)
+        I_ext = torch.tensor([[10.0]])
+        dv, dw = model._dynamics(v, w, I_ext)
 
         EL, VT, DeltaT, R, tau_m = (
             model.EL,
@@ -100,7 +100,9 @@ class TestDynamicsValues:
             model.tau_m,
         )
         exp_term = DeltaT * math.exp((v.item() - VT) / DeltaT)
-        expected_dv = (-(v.item() - EL) + exp_term - w.item() + R * I.item()) / tau_m
+        expected_dv = (
+            -(v.item() - EL) + exp_term - w.item() + R * I_ext.item()
+        ) / tau_m
         assert (
             abs(dv.item() - expected_dv) < 1e-3
         ), f"AdEx dv={dv.item():.4f}, expected {expected_dv:.4f}"
@@ -110,8 +112,8 @@ class TestDynamicsValues:
         model = AdExNeuronTorch(dt=DT)
         v = torch.tensor([[-65.0]])
         w = torch.tensor([[5.0]])
-        I = torch.tensor([[0.0]])
-        _, dw = model._dynamics(v, w, I)
+        I_ext = torch.tensor([[0.0]])
+        _, dw = model._dynamics(v, w, I_ext)
 
         expected_dw = (model.a * (v.item() - model.EL) - w.item()) / model.tau_w
         assert (
@@ -123,11 +125,11 @@ class TestDynamicsValues:
         model = MQIFNeuronTorch(dt=DT)
         v = torch.tensor([[-70.0]])
         u = torch.tensor([[0.0]])
-        I = torch.tensor([[5.0]])
-        dv, du = model._dynamics(v, u, I)
+        I_ext = torch.tensor([[5.0]])
+        dv, du = model._dynamics(v, u, I_ext)
 
         quad = model.a * (v.item() - model.vr) * (v.item() - model.vt)
-        expected_dv = (quad - u.item() + I.item()) / model.tau_m
+        expected_dv = (quad - u.item() + I_ext.item()) / model.tau_m
         assert (
             abs(dv.item() - expected_dv) < 1e-3
         ), f"MQIF dv={dv.item():.4f}, expected {expected_dv:.4f}"
@@ -137,8 +139,8 @@ class TestDynamicsValues:
         model = MQIFNeuronTorch(dt=DT)
         v = torch.tensor([[-70.0]])
         u = torch.tensor([[0.0]])
-        I = torch.tensor([[0.0]])
-        _, du = model._dynamics(v, u, I)
+        I_ext = torch.tensor([[0.0]])
+        _, du = model._dynamics(v, u, I_ext)
 
         expected_du = (model.b * (v.item() - model.vr) - u.item()) / model.tau_u
         assert (

@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 from PyQt5 import QtCore, QtWidgets
 
 from sensoryforge.gui.session import Session
+from sensoryforge.stimuli.base import DEFAULT_AMPLITUDE
 
 #: Sub-stimulus kinds StaticStimulus draws, and the "size" parameter of each.
 KINDS: Dict[str, str] = {
@@ -71,12 +72,12 @@ _UNITS_TIMELINE = _UNITS + " Each is shown from a time, for a duration (ms)."
 
 
 def default_sub_stimulus(center_x: float = 0.0) -> Dict[str, Any]:
-    """A Gaussian sub-stimulus: amplitude 30 mA, sigma 1 mm, at ``center_x``."""
+    """A Gaussian sub-stimulus: amplitude 1.0, sigma 1 mm, at ``center_x``."""
     return {
         "class": "StaticStimulus",
         "stim_type": "gaussian",
         "params": {
-            "amplitude": 30.0,
+            "amplitude": DEFAULT_AMPLITUDE,
             "sigma": 1.0,
             "center_x": center_x,
             "center_y": 0.0,

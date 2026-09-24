@@ -66,7 +66,8 @@ class CompressionOperator:
             return self._num_receptors
         if self.grid_shape is None:
             raise ValueError(
-                "Cannot determine num_receptors: both grid_shape and _num_receptors are None"
+                "Cannot determine num_receptors: both grid_shape and "
+                "_num_receptors are None"
             )
         return int(self.grid_shape[0] * self.grid_shape[1])
 

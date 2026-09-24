@@ -1,6 +1,7 @@
 """Run & Results screen: a fixed panel grid, one shared time cursor.
 
-:class:`ResultsScreen` shows a :class:`~sensoryforge.gui.screens.results_data.ResultsView`
+:class:`ResultsScreen` shows a
+:class:`~sensoryforge.gui.screens.results_data.ResultsView`
 built either from the session's live :class:`~sensoryforge.gui.session.RunResult`
 or from a bundle opened with **Open bundle...**. Every panel
 (:mod:`results_stimulus_panel`, :mod:`results_raster_panel`,

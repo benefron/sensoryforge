@@ -109,7 +109,6 @@ def validate_config(config: Dict[str, Any]) -> bool:
             # Validate innervation method
             innervation_method = pop.get("innervation_method", "gaussian")
             from sensoryforge.register_components import register_all
-            from sensoryforge.registry import INNERVATION_REGISTRY
 
             register_all()
             valid_methods = INNERVATION_REGISTRY.list_registered()
@@ -139,14 +138,16 @@ def validate_config(config: Dict[str, Any]) -> bool:
                 dsl_cfg = pop.get("dsl_config")
                 if not dsl_cfg or not isinstance(dsl_cfg, dict):
                     errors.append(
-                        f"Population '{pop.get('name', i)}': DSL neuron requires dsl_config dict"
+                        f"Population '{pop.get('name', i)}': DSL neuron requires "
+                        "dsl_config dict"
                     )
                 else:
                     required = ["equations", "threshold", "reset"]
                     for field in required:
                         if not dsl_cfg.get(field):
                             errors.append(
-                                f"Population '{pop.get('name', i)}': DSL config missing '{field}'"
+                                f"Population '{pop.get('name', i)}': DSL config "
+                                f"missing '{field}'"
                             )
     else:
         # Validate legacy format
@@ -537,14 +538,14 @@ def cmd_batch(args: argparse.Namespace) -> int:
             print(f"Validating batch configuration: {args.config}")
             executor = BatchExecutor(config)
 
-            print(f"\nBatch Execution Plan:")
-            print(f"=" * 60)
+            print("\nBatch Execution Plan:")
+            print("=" * 60)
             print(f"Batch ID: {executor.batch_id}")
             print(f"Total stimuli: {len(executor.stimulus_configs)}")
             print(f"Output directory: {executor.output_dir}")
 
             # Show first few stimulus configs as examples
-            print(f"\nFirst 5 stimulus configurations:")
+            print("\nFirst 5 stimulus configurations:")
             for i, stim_config in enumerate(executor.stimulus_configs[:5]):
                 print(f"  {i+1}. {stim_config['stimulus_id']}")
                 params = {
@@ -557,7 +558,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
             if len(executor.stimulus_configs) > 5:
                 print(f"  ... and {len(executor.stimulus_configs) - 5} more")
 
-            print(f"\n✓ Batch configuration is valid (dry run complete)")
+            print("\n✓ Batch configuration is valid (dry run complete)")
             return 0
 
         # Create batch executor
@@ -578,9 +579,9 @@ def cmd_batch(args: argparse.Namespace) -> int:
         )
 
         # Print summary
-        print(f"\n" + "=" * 60)
-        print(f"BATCH EXECUTION SUMMARY")
-        print(f"=" * 60)
+        print("\n" + "=" * 60)
+        print("BATCH EXECUTION SUMMARY")
+        print("=" * 60)
         print(f"Batch ID: {results['batch_id']}")
         print(f"Stimuli executed: {results['num_stimuli']}")
         print(f"Duration: {results['duration_seconds']:.2f} seconds")
@@ -592,7 +593,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
             if len(results["failed_stimuli"]) > 10:
                 print(f"... and {len(results['failed_stimuli']) - 10} more")
         else:
-            print(f"\n✓ All stimuli completed successfully")
+            print("\n✓ All stimuli completed successfully")
 
         return 0
 
@@ -640,8 +641,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 sf_config = SensoryForgeConfig.from_dict(config)
                 engine = SimulationEngine(sf_config)
 
-                print(f"✓ Configuration is valid!")
-                print(f"\nPipeline info:")
+                print("✓ Configuration is valid!")
+                print("\nPipeline info:")
                 print(f"  Device: {sf_config.simulation.device}")
                 print(f"  Populations: {len(engine.populations)}")
                 for pop in engine.populations:
@@ -677,8 +678,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
                 pipeline_info = pipeline.get_pipeline_info()
 
-                print(f"✓ Configuration is valid!")
-                print(f"\nPipeline info:")
+                print("✓ Configuration is valid!")
+                print("\nPipeline info:")
                 print(f"  Device: {pipeline_info['config']['pipeline']['device']}")
                 print(f"  Grid size: {pipeline_info['grid_properties']['size']}")
                 print(f"  SA neurons: {pipeline_info['neuron_counts']['sa_neurons']}")
@@ -700,9 +701,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_list_components(args: argparse.Namespace) -> int:
     """List available components (filters, neurons, stimuli, solvers).
 
-    Reads the live component registries (`sensoryforge.registry`) so this command can never
-    drift out of sync with what's actually registered (F-018) -- any component registered via
-    `ComponentRegistry.register()`, built-in or third-party, shows up here.
+    Reads the live component registries (`sensoryforge.registry`) so this command can
+    never drift out of sync with what's actually registered (F-018) -- any component
+    registered via `ComponentRegistry.register()`, built-in or third-party, shows up
+    here.
 
     Args:
         args: Command-line arguments (unused).
@@ -850,14 +852,15 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         print("PIPELINE STRUCTURE")
         print("=" * 60)
 
-        print(f"\n📍 Grid Configuration:")
+        print("\n📍 Grid Configuration:")
         print(f"  Size: {info['grid_properties']['size']}")
         print(f"  Spacing: {info['grid_properties']['spacing']} mm")
         print(
-            f"  Bounds: X={info['grid_properties']['xlim']}, Y={info['grid_properties']['ylim']}"
+            f"  Bounds: X={info['grid_properties']['xlim']}, "
+            f"Y={info['grid_properties']['ylim']}"
         )
 
-        print(f"\n🧠 Neuron Populations:")
+        print("\n🧠 Neuron Populations:")
         print(f"  SA neurons: {info['neuron_counts']['sa_neurons']}")
         print(f"  RA neurons: {info['neuron_counts']['ra_neurons']}")
         print(f"  SA2 neurons: {info['neuron_counts']['sa2_neurons']}")
@@ -865,14 +868,14 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         print(f"\n⚙️  Device: {info['config']['pipeline']['device']}")
 
         if "stimuli" in config:
-            print(f"\n🎯 Configured Stimuli:")
+            print("\n🎯 Configured Stimuli:")
             for i, stim in enumerate(config["stimuli"]):
                 print(f"  {i+1}. {stim.get('type', 'unknown')}")
 
         # Save visualization if requested
         if args.save:
-            print(f"\nNote: Graphical visualization not yet implemented.")
-            print(f"Use --save for future PNG export support.")
+            print("\nNote: Graphical visualization not yet implemented.")
+            print("Use --save for future PNG export support.")
 
         return 0
 
@@ -1005,7 +1008,7 @@ def create_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("config", help="Path to YAML configuration file")
 
     # List components command
-    list_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "list-components", help="List available filters, neurons, stimuli, and solvers"
     )
 

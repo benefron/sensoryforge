@@ -2,7 +2,6 @@ import math
 from typing import Any, Dict, List, Optional
 
 import torch
-import torch.nn as nn
 
 from sensoryforge.neurons.base import BaseNeuron
 from sensoryforge.stimuli.base import ParamSpec
@@ -41,7 +40,10 @@ _ADEX_CLASS_DEFAULTS: dict = {
 #: drive the ``tactile_sa1_ra1`` recipe actually delivers (Phase 2b T2b,
 #: measured by ``scripts/tune_adex_populations.py`` -- see
 #: ``benchmarks/results/adex_tuning/adex_tuning.md``), not against an
-#: arbitrary bench current.
+#: arbitrary bench current. The drive figures below were measured at the
+#: recipe's old shared ``input_gain`` of 50; ``tactile_sa1_ra1_adex`` now
+#: calibrates each population's gain on top of these presets (SA 55, RA 86,
+#: ``scripts/calibrate_recipe_gains.py``, ledger D-ea0f017).
 #:
 #: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
 #: same role ``input_gain`` plays on the Izhikevich path, compensating the
@@ -173,7 +175,7 @@ class AdExNeuronTorch(BaseNeuron):
     #: ``preset`` is a constructor convenience that expands to concrete
     #: numeric values -- excluded from ``to_dict()`` (which stores the
     #: *resolved* numbers), matching
-    #: :attr:`sensoryforge.neurons.izhikevich.IzhikevichNeuronTorch._TO_DICT_EXCLUDE_PARAMS`.
+    #: :attr:`sensoryforge.neurons.izhikevich.IzhikevichNeuronTorch._TO_DICT_EXCLUDE_PARAMS`.  # noqa: E501
     _TO_DICT_EXCLUDE_PARAMS = frozenset({"preset"})
 
     #: The ten parameters a preset expands into (see :data:`ADEX_PRESETS`).

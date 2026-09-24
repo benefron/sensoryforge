@@ -21,6 +21,11 @@
 #
 # Usage:
 #   sensoryforge run --preset tactile_sa1_ra1_adex
+#
+# Input gains are per population, calibrated against decision P5 on the four
+# benchmark stimuli by scripts/calibrate_recipe_gains.py (ledger D-ea0f017;
+# report: benchmarks/results/recipe_calibration/). At the shared gain of 50
+# RA fired nothing on drifting_grating (F-092).
 metadata:
   name: Pressure-simulation recipe on AdEx (SA1/RA1)
   version: '1.0'
@@ -47,7 +52,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: sa
-  input_gain: 50.0
+  input_gain: 55.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -59,7 +64,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: ra
-  input_gain: 50.0
+  input_gain: 86.0
   seed: 43
 simulation:
   device: cpu

@@ -1,7 +1,5 @@
 """Tests for the GUI v2 app shell, :mod:`sensoryforge.gui.app`."""
 
-from pathlib import Path
-
 import pytest
 
 pytestmark = pytest.mark.gui

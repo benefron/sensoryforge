@@ -153,7 +153,10 @@ class TestDSLNeuronIntegration:
         from sensoryforge.neurons.model_dsl import NeuronModel
 
         config = {
-            "equations": "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\ndu/dt = (a * (b*v - u)) / ms",
+            "equations": (
+                "dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms\n"
+                "du/dt = (a * (b*v - u)) / ms"
+            ),
             "threshold": "v >= 30 * mV",
             "reset": "v = c\nu = u + d",
             "parameters": {

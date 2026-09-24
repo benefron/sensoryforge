@@ -5,7 +5,7 @@ The one collapsible section every GUI v2 form uses.
 
 from typing import Optional
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 
 from sensoryforge.gui.settings import gui_settings
 

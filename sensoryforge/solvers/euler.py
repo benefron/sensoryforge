@@ -77,7 +77,8 @@ class EulerSolver(BaseSolver):
                       Signature: f(state, t) -> dstate_dt.
                       Both state and dstate_dt have shape [batch, ...].
             state: Current state tensor with shape [batch, ...].
-                   Can have arbitrary trailing dimensions (features, spatial dims, etc.).
+                   Can have arbitrary trailing dimensions (features, spatial dims,
+                   etc.).
             t: Current time in milliseconds.
             dt: Time step size in milliseconds for this step.
 

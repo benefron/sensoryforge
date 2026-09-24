@@ -6,7 +6,8 @@ own stimulus renderer and always flat-reshaped the stimulus onto receptors, so
 any arrangement but a resolution-matched regular grid diverged from the CLI).
 This module pins the new path down:
 
-* (a) the config run through :class:`~sensoryforge.gui.execution.run_controller.RunController`
+* (a) the config run through
+  :class:`~sensoryforge.gui.execution.run_controller.RunController`
 * (b) the same config run through :meth:`SimulationEngine.run` directly
 * (c) the same config written as YAML and run by ``sensoryforge run`` in a
   subprocess, compared through the bundles both wrote
@@ -79,6 +80,10 @@ def _config(*, arrangement: str = "grid", noise_std: float = 0.0) -> SensoryForg
     for population in config.populations:
         population.resolvable_distance_mm = 0.40
         population.noise_std = noise_std
+        # The golden fixture was generated at the recipe's old shared gain;
+        # pinning it keeps this an engine-equality guard, independent of the
+        # recipe's calibrated gains (D-ea0f017).
+        population.input_gain = 50.0
     return config
 
 

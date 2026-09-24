@@ -1,0 +1,484 @@
+{
+ "fit_depth_mm": 1.25,
+ "target_sa_hold_hz": 42.8571,
+ "Izhikevich": {
+  "preset": "tactile_sa1_ra1",
+  "amplitude_per_mm": 0.4958428429741312,
+  "rows": [
+   {
+    "depth_mm": 0.2,
+    "feature": "SA hold rate",
+    "touchsim": 8.5714,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA onset rate",
+    "touchsim": 40.0,
+    "sensoryforge": 20.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA hold / onset",
+    "touchsim": 0.214285,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA onset rate",
+    "touchsim": 20.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA release / onset",
+    "touchsim": 0.0,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA hold rate",
+    "touchsim": 11.4286,
+    "sensoryforge": 11.428571428571429,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA onset rate",
+    "touchsim": 60.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA hold / onset",
+    "touchsim": 0.19047666666666666,
+    "sensoryforge": 0.5714285714285714,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA onset rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA release rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA release / onset",
+    "touchsim": 1.0,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA hold rate",
+    "touchsim": 25.7143,
+    "sensoryforge": 22.857142857142858,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA onset rate",
+    "touchsim": 100.0,
+    "sensoryforge": 40.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA hold / onset",
+    "touchsim": 0.257143,
+    "sensoryforge": 0.5714285714285714,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA onset rate",
+    "touchsim": 60.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA release rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA release / onset",
+    "touchsim": 0.6666666666666666,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA hold rate",
+    "touchsim": 42.8571,
+    "sensoryforge": 42.85714285714286,
+    "agrees": true
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA onset rate",
+    "touchsim": 180.0,
+    "sensoryforge": 80.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA hold / onset",
+    "touchsim": 0.238095,
+    "sensoryforge": 0.5357142857142858,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA onset rate",
+    "touchsim": 100.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA release rate",
+    "touchsim": 80.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA release / onset",
+    "touchsim": 0.8,
+    "sensoryforge": 1.0,
+    "agrees": true
+   }
+  ],
+  "summary": {
+   "SA hold rate": false,
+   "SA onset rate": false,
+   "SA release rate": true,
+   "SA hold / onset": false,
+   "RA onset rate": false,
+   "RA hold rate": true,
+   "RA release rate": false,
+   "RA release / onset": true
+  }
+ },
+ "AdEx": {
+  "preset": "tactile_sa1_ra1_adex",
+  "amplitude_per_mm": 0.4729260133181351,
+  "rows": [
+   {
+    "depth_mm": 0.2,
+    "feature": "SA hold rate",
+    "touchsim": 8.5714,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA onset rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "SA hold / onset",
+    "touchsim": 0.214285,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA onset rate",
+    "touchsim": 20.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.2,
+    "feature": "RA release / onset",
+    "touchsim": 0.0,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA hold rate",
+    "touchsim": 11.4286,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA onset rate",
+    "touchsim": 60.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "SA hold / onset",
+    "touchsim": 0.19047666666666666,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA onset rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA release rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.4,
+    "feature": "RA release / onset",
+    "touchsim": 1.0,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA hold rate",
+    "touchsim": 25.7143,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA onset rate",
+    "touchsim": 100.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "SA hold / onset",
+    "touchsim": 0.257143,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA onset rate",
+    "touchsim": 60.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA release rate",
+    "touchsim": 40.0,
+    "sensoryforge": 0.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 0.7,
+    "feature": "RA release / onset",
+    "touchsim": 0.6666666666666666,
+    "sensoryforge": null,
+    "agrees": null
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA hold rate",
+    "touchsim": 42.8571,
+    "sensoryforge": 40.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA onset rate",
+    "touchsim": 180.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA release rate",
+    "touchsim": 0.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "SA hold / onset",
+    "touchsim": 0.238095,
+    "sensoryforge": 2.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA onset rate",
+    "touchsim": 100.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA hold rate",
+    "touchsim": 0.0,
+    "sensoryforge": 0.0,
+    "agrees": true
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA release rate",
+    "touchsim": 80.0,
+    "sensoryforge": 20.0,
+    "agrees": false
+   },
+   {
+    "depth_mm": 1.25,
+    "feature": "RA release / onset",
+    "touchsim": 0.8,
+    "sensoryforge": 1.0,
+    "agrees": true
+   }
+  ],
+  "summary": {
+   "SA hold rate": false,
+   "SA onset rate": false,
+   "SA release rate": false,
+   "RA onset rate": false,
+   "RA hold rate": true,
+   "RA release rate": false,
+   "SA hold / onset": false,
+   "RA release / onset": true
+  }
+ }
+}

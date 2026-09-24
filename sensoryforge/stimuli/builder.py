@@ -141,6 +141,7 @@ class StaticStimulus(BaseStimulus):
                 orientation=self.params.get("orientation", 0.0),
                 phase=self.params.get("phase", 0.0),
                 device=self.device,
+                signed=self.params.get("signed", False),
             )
 
         elif self.stim_type == "edge_grating":
@@ -312,7 +313,8 @@ class MovingStimulus(BaseStimulus):
         # Get current position from trajectory
         if self.current_step >= len(self.trajectory):
             raise RuntimeError(
-                f"Current step {self.current_step} exceeds trajectory length {len(self.trajectory)}"
+                f"Current step {self.current_step} exceeds trajectory length "
+                f"{len(self.trajectory)}"
             )
 
         position = self.trajectory[self.current_step]
@@ -945,17 +947,23 @@ class Stimulus:
         phase: float = 0.0,
         center: Tuple[float, float] = (0.0, 0.0),
         device: torch.device | str = "cpu",
+        signed: bool = False,
     ) -> StaticStimulus:
         """Create Gabor texture stimulus (localized sinusoidal pattern).
 
+        Non-negative by default: a raised cosine under the Gaussian window,
+        in ``[0, amplitude]`` (see :func:`~sensoryforge.stimuli.texture.
+        gabor_texture`).
+
         Args:
-            amplitude: Peak amplitude.
+            amplitude: Peak amplitude. Units: mA.
             sigma: Gaussian envelope standard deviation. Units: mm.
             wavelength: Sinusoidal wavelength. Units: mm.
             orientation: Grating orientation. Units: radians.
             phase: Sinusoidal phase offset. Units: radians.
             center: (x, y) center coordinates. Units: mm.
             device: Target device.
+            signed: If True, the signed, zero-mean form with negative lobes.
 
         Returns:
             StaticStimulus configured as Gabor patch.
@@ -976,6 +984,7 @@ class Stimulus:
                 "phase": phase,
                 "center_x": center[0],
                 "center_y": center[1],
+                "signed": signed,
             },
             device=device,
         )
@@ -1136,7 +1145,8 @@ def with_motion(
     Args:
         stimulus: Base stimulus to add motion to.
         motion_type: Type of motion ('linear', 'circular', 'stationary').
-        **motion_params: Motion-specific parameters (start, end, center, radius, num_steps).
+        **motion_params: Motion-specific parameters (start, end, center, radius,
+            num_steps).
 
     Returns:
         MovingStimulus wrapping the base stimulus with motion.

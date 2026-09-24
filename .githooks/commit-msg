@@ -1,142 +1,29 @@
 #!/bin/sh
-# living-ledger — commit-msg hook.
+# living-ledger — commit-msg hook: every commit relates to the ledger.
 #
-# "Every commit should update the ledger or relate to it." This hook enforces that:
-# a commit message must carry at least one ledger trailer in its TRAILING trailer
-# block, or an explicit, reasoned opt-out.
+# A commit must carry at least one ledger trailer in its LAST paragraph — Decision: Finding:
+# Opens: Fixed: Action: Retires: Closes: Supersedes: Refs: — or the explicit opt-out
+# `Ledger: none — <reason, 3+ words>`. The rules live in .claude/hooks/_ledger_parse.py
+# (check-msg), which reads trailers with the SAME function the sync uses: a trailer the gate
+# accepts is a trailer the ledger records, and a ledger line the sync would miss is rejected
+# here instead of being silently dropped.
 #
-# Accepted (in the trailing trailer block only — never mid-prose):
-#   Decision: <one line>              a choice that is now settled
-#   Finding:  <one line>              something discovered; opens F-0NN
-#   Opens:    F-0NN <one line>        a finding tracked under a chosen id
-#   Closes:   F-0NN                   resolves an open finding
-#   Retires:  <the framing retired>   an approach that is now dead
-#   Refs:     F-012, D-004            this commit relates to existing entries
-#   Ledger:   none — <reason, 3+ words>   explicit opt-out
+# Exempt: merges, reverts, fixup!/squash!/amend!, [bot] authors, LEDGER_SKIP=1, and the
+# EXEMPT_SUBJECTS / EXEMPT_AUTHORS regexes in .claude/ledger.conf (for pipelines and cron jobs
+# that commit). Escape hatch: git commit --no-verify.
 #
-# Exempt: merge, revert, fixup!/squash!/amend!, and the auto "chore: ledger sync"
-# commits. Escape hatch: git commit --no-verify.
-#
-# POSIX sh + awk only. No python, no bashisms.
-#
-# ledger-template-version: 3
+# ledger-template-version: 5
 set -u
-
 MSGFILE="${1:-}"
 [ -n "$MSGFILE" ] && [ -f "$MSGFILE" ] || exit 0
-
 GITDIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
-
-# --- the message, minus comments and the --verbose scissors section ---------
-CLEAN="$(awk '
-  /^[#;]?[ \t]*-+ *>8 *-+/ { exit }
-  /^#/                     { next }
-                           { print }
-' "$MSGFILE")"
-
-SUBJECT="$(printf '%s\n' "$CLEAN" | sed -e '/^[[:space:]]*$/d' | head -1)"
-
-# --- exemptions -------------------------------------------------------------
-if [ -e "$GITDIR/MERGE_HEAD" ]; then exit 0; fi
-case "$SUBJECT" in
-  "Merge "*|"merge: "*|"Merge: "*|"merge!"*)            exit 0 ;;
-  'Revert "'*|"Revert: "*|"revert: "*|"Revert "*)       exit 0 ;;
-  "fixup!"*|"squash!"*|"amend!"*)                       exit 0 ;;
-  "chore: ledger sync"*)                                exit 0 ;;
-esac
-
-# --- the trailing trailer block --------------------------------------------
-# Same scoping rule the sync uses (pressure-sim D-025): walk paragraphs from the
-# end and keep including one only while EVERY line in it is `Token: value`
-# shaped. A paragraph of prose that happens to say "Decision:" mid-sentence is
-# therefore never mistaken for a trailer.
-TRAILERS="$(printf '%s\n' "$CLEAN" | awk '
-  { ln[++n] = $0 }
-  END {
-    while (n > 0 && ln[n] ~ /^[ \t]*$/) n--
-    start = n + 1
-    i = n
-    while (i > 0) {
-      j = i
-      while (j > 0 && ln[j] !~ /^[ \t]*$/) j--
-      ok = 1
-      for (k = j + 1; k <= i; k++) {
-        line = ln[k]
-        sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
-        if (line == "") continue
-        if (line !~ /^[A-Za-z][A-Za-z0-9_-]*:[ \t]+[^ \t]/) { ok = 0; break }
-      }
-      if (!ok) break
-      start = j + 1
-      i = j
-      while (i > 0 && ln[i] ~ /^[ \t]*$/) i--
-      if (i == 0) break
-    }
-    for (k = start; k <= n; k++) if (ln[k] !~ /^[ \t]*$/) print ln[k]
-  }
-')"
-
-VERDICT="$(printf '%s\n' "$TRAILERS" | awk '
-  {
-    line = $0
-    sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
-    if (line == "") next
-    if (line ~ /^(Decision|Finding|Opens|Closes|Retires):[ \t]+[^ \t]/) { good = 1; next }
-    if (line ~ /^Refs:[ \t]/) {
-      refs = 1
-      if (line ~ /[A-Z]-[0-9][0-9][0-9]/) refsok = 1
-      next
-    }
-    if (line ~ /^Ledger:[ \t]/) {
-      ledger = 1
-      v = line; sub(/^Ledger:[ \t]*/, "", v)
-      if (v ~ /^[Nn][Oo][Nn][Ee]/) {
-        r = v; sub(/^[Nn][Oo][Nn][Ee]/, "", r); sub(/^[^A-Za-z0-9]+/, "", r)
-        if (r != "") { nw = split(r, w, /[ \t]+/); if (nw >= 3) ledgerok = 1 }
-      }
-      next
-    }
-  }
-  END {
-    if (good)     { print "OK";        exit }
-    if (refsok)   { print "OK";        exit }
-    if (refs)     { print "BADREFS";   exit }
-    if (ledgerok) { print "OK";        exit }
-    if (ledger)   { print "BADLEDGER"; exit }
-    print "NONE"
-  }
-')"
-
-[ "$VERDICT" = "OK" ] && exit 0
-
-# --- rejection ---------------------------------------------------------------
-{
-  echo
-  echo "living-ledger: commit REJECTED — this commit does not relate to the ledger."
-  echo
-  case "$VERDICT" in
-    BADREFS)
-      echo "  Your 'Refs:' trailer names no entry id."
-      echo "  It must list at least one of F-0NN / D-0NN / R-0NN / N-0NN."
-      echo ;;
-    BADLEDGER)
-      echo "  Your 'Ledger:' trailer is not a valid opt-out."
-      echo "  The only accepted form is:  Ledger: none — <reason, at least 3 words>"
-      echo ;;
-  esac
-  echo "  Add ONE of these to the trailing block of the message"
-  echo "  (a blank line, then trailer lines only — no prose after them):"
-  echo
-  echo "    Decision: use a single-writer queue instead of a lock"
-  echo "    Finding:  the parser silently drops empty stanzas"
-  echo "    Opens:    F-042 downstream cache is never invalidated"
-  echo "    Closes:   F-042"
-  echo "    Retires:  \"reconstruction is the design scorer\""
-  echo "    Refs:     F-042, D-004"
-  echo "    Ledger:   none — pure whitespace reformat, no behaviour change"
-  echo
-  echo "  Exempt automatically: merge, revert, fixup!/squash!, 'chore: ledger sync'."
-  echo "  Escape hatch (use sparingly):  git commit --no-verify"
-  echo
-} >&2
-exit 1
+[ -e "$GITDIR/MERGE_HEAD" ] && exit 0
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+PARSER="$ROOT/.claude/hooks/_ledger_parse.py"
+[ -f "$PARSER" ] || exit 0
+PY="$(command -v python3 2>/dev/null || true)"
+if [ -z "$PY" ]; then
+  echo "living-ledger: python3 not on PATH — this commit's trailers were not checked." >&2
+  exit 0
+fi
+PYTHONDONTWRITEBYTECODE=1 exec "$PY" "$PARSER" check-msg "$MSGFILE" "$ROOT"

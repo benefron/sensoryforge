@@ -207,8 +207,12 @@ def _grid_problem(grid: GridConfig) -> Optional[str]:
             value = getattr(grid, name)
             if value is not None and value < 1:
                 return f"grid {grid.name!r}: {name} must be at least 1, got {value}"
-    if grid.coords_file:
-        # Reading the file is the only way to know it is usable.
+    if grid.coords_file or (
+        grid.arrangement != "composite" and grid.density is not None
+    ):
+        # Reading the file, or building with density set, is the only way to
+        # know it is usable (D-88b4b41: density conflicts with 'grid' and
+        # 'jittered_grid', and must be positive -- ReceptorGrid enforces both).
         from sensoryforge.core.simulation_engine import build_grid
 
         try:

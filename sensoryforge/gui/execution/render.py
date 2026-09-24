@@ -190,9 +190,10 @@ def render_for_config(
         dt_ms: Record step in ms; defaults to ``config.simulation.dt_ms``.
 
     Returns:
-        A :class:`RenderedStimulus`. This does **not** emit a :class:`UserWarning` for dropped parameters -- the
-        message is returned as :attr:`RenderedStimulus.warning` so the GUI can
-        show it where the user is looking.
+        A :class:`RenderedStimulus`. This does **not** emit a :class:`UserWarning`
+        for dropped parameters -- the message is returned as
+        :attr:`RenderedStimulus.warning` so the GUI can show it where the user is
+        looking.
 
     Raises:
         ValueError: If ``duration_ms`` or the resolved ``dt_ms`` is not

@@ -55,7 +55,8 @@ class TestCompressionOperator:
         Verifies that flat innervation weights [num_neurons, num_receptors]
         are handled correctly and num_receptors is computed without IndexError.
 
-        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference:
+            docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
 
@@ -73,7 +74,8 @@ class TestCompressionOperator:
     def test_flat_innervation_compression_ratio(self, flat_weights):
         """Test compression ratio calculation for flat innervation.
 
-        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference:
+            docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
 
@@ -106,7 +108,8 @@ class TestCompressionOperator:
     def test_build_compression_operator_with_flat_weights(self, flat_weights):
         """Test build_compression_operator detects flat innervation.
 
-        Reference: docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
+        Reference:
+            docs/development/docs/development/reviews/REVIEW_AGENT_FINDINGS_20260211.md#H1
         """
         sa_weights, ra_weights = flat_weights
 
@@ -173,7 +176,8 @@ class TestCompressionOperator:
         assert combined.shape == (100, 100)  # [50 SA + 50 RA, 100 receptors]
 
     def test_num_receptors_raises_when_both_none(self):
-        """Test that num_receptors raises when both grid_shape and _num_receptors are None."""
+        """Test that num_receptors raises when both grid_shape and _num_receptors
+        are None."""
         sa_weights = torch.randn(10, 100)
         ra_weights = torch.randn(10, 100)
 

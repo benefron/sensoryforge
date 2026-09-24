@@ -3,7 +3,6 @@
 Test comprehensive parameter control for all neuron types and membrane noise.
 """
 
-import torch
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 
 
@@ -107,17 +106,15 @@ def test_yaml_config_compatibility():
     """Test that all parameters can be set via YAML config"""
 
     # This would work with a YAML file like:
-    yaml_equivalent = """
-    neuron_params:
-      sa_a: 0.03
-      sa_threshold_std: 4.0
-      ra_a: 0.15
-      sa2_c: -50.0
-    noise:
-      sa_membrane_std: 1.5
-      ra_membrane_std: 6.0
-      sa2_membrane_std: 0.5
-    """
+    #     neuron_params:
+    #       sa_a: 0.03
+    #       sa_threshold_std: 4.0
+    #       ra_a: 0.15
+    #       sa2_c: -50.0
+    #     noise:
+    #       sa_membrane_std: 1.5
+    #       ra_membrane_std: 6.0
+    #       sa2_membrane_std: 0.5
 
     # Test with dict equivalent
     config_dict = {

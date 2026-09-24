@@ -1,19 +1,28 @@
 #!/bin/bash
-# living-ledger — append ledger entries from commit trailers not yet recorded.
+# living-ledger — derive ledger entries from commit trailers.
 #
-# Reads `git log <last_synced>..HEAD`, extracts Decision:/Finding:/Opens:/Closes:/
-# Retires:/Refs: trailers, and inserts them into the ledger. Generated from git, so it
-# cannot drift from what actually happened. Idempotent: safe to run repeatedly.
+# Reads `git log <SYNC_FROM>..HEAD` and turns the trailers in each commit's TRAILING block
+# (see _ledger_parse.trailer_lines — the same reader the commit gate uses) into changes:
 #
-# `Refs: F-012, D-004` does not create an entry: it appends a `↔ <sha> <subject>`
-# backlink line to each named entry, so an entry accumulates the commits that touched
-# its subject. An unknown id is a warning on stderr, never a failure.
+#   Decision: Finding: Opens: Fixed: Action: Retires:  -> a new entry (content-hash id)
+#   Closes: F-x          -> F-x (an open item, or a finding/action) becomes CLOSED, with a
+#                           `✓ closed by <sha>` line; a decision, retired framing or note never
+#                           closes — the gate refuses it; past the gate, it gets a
+#                           `· not closed by <sha>` line, reported once (close_refusal)
+#   Supersedes: D-x      -> D-x becomes SUPERSEDED, with `⤳ superseded by <new id>`
+#   Refs: F-x, D-y       -> a `↔ <sha> <subject>` backlink on each
+#   Due: Owner: Area: Pin: Date:                 -> modifiers of the entry trailer above them
+#   Rejected: Constraint: Directive: …           -> Lore trailers, recorded into that entry
 #
-# The last-synced sha lives in .claude/.ledger-sync (gitignored) — NOT inside
-# LEDGER.md — so advancing it never dirties a tracked file. LEDGER.md is written
-# only when there are real new entries.
+# Stateless and deterministic: there is no machine-local bookmark. SYNC_FROM in the committed
+# .claude/ledger.conf is a fixed floor (set at install), and everything after it is re-derived
+# on every run and deduplicated by id — so every clone on every machine derives the same entries
+# from the same history, and a second run changes nothing. Each change is applied once: a closing
+# commit leaves its sha on the entry, so a hand re-open is never undone by a re-scan.
 #
-# ledger-template-version: 3
+# Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md.
+#
+# ledger-template-version: 5
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,63 +31,79 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 REPO="$(ll_repo_root)"
 cd "$REPO" 2>/dev/null || exit 0
-git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+git rev-parse --verify -q HEAD >/dev/null 2>&1 || exit 0
 
 LEDGER="$(ll_find_ledger "$REPO")"
 [ -n "$LEDGER" ] && [ -f "$LEDGER" ] || exit 0
+LEDGER_REL="${LEDGER#$REPO/}"
+# LL_LEDGER_FILE / LL_DECISIONS_FILE: sync into copies instead (the session-start digest does
+# this, so reading the ledger never dirties the working tree).
+[ -n "${LL_LEDGER_FILE:-}" ] && LEDGER="$LL_LEDGER_FILE"
 
-LAST="$(ll_synced_sha "$REPO")"
-HEAD_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo '')"
-[ -n "$HEAD_SHA" ] || exit 0
-
-# First run after an upgrade / fresh clone: no state file yet. Migrate a legacy
-# in-ledger marker if present, else start from HEAD (track forward).
-if [ -z "$LAST" ]; then
-  LAST="$(sed -n 's/.*last_synced_commit: \([0-9a-f]\{4,\}\).*/\1/p' "$LEDGER" | head -1)"
-  [ -n "$LAST" ] || LAST="$HEAD_SHA"
-  ll_set_synced_sha "$REPO" "$LAST"
+FLOOR="${LL_SYNC_FROM:-$(ll_sync_floor "$REPO")}"   # LL_SYNC_FROM: preview a recovery (with LL_LEDGER_FILE)
+MAX="${LL_SYNC_MAX_COMMITS:-5000}"
+if [ -n "$FLOOR" ] && git cat-file -e "${FLOOR}^{commit}" 2>/dev/null; then
+  RANGE="${FLOOR}..${LL_SYNC_HEAD:-HEAD}"
+else
+  RANGE="${LL_SYNC_HEAD:-HEAD}"   # no usable floor: bounded scan, dedup keeps it idempotent
 fi
-
-[ "$LAST" = "$HEAD_SHA" ] && exit 0
-git cat-file -e "$LAST" 2>/dev/null || { ll_set_synced_sha "$REPO" "$HEAD_SHA"; exit 0; }
 
 DECISIONS_REL="$(ll_conf_get "$REPO" DECISIONS_PATH)"
 DECISIONS=""
 [ -n "$DECISIONS_REL" ] && [ -f "$REPO/$DECISIONS_REL" ] && DECISIONS="$REPO/$DECISIONS_REL"
+[ -n "${LL_DECISIONS_FILE+x}" ] && DECISIONS="${LL_DECISIONS_FILE}"
 
-python3 - "$LEDGER" "$LAST" "$DECISIONS" <<'PY'
+PYTHONDONTWRITEBYTECODE=1 python3 - "$LEDGER" "$RANGE" "$MAX" "$HERE" "$DECISIONS" \
+  "$LEDGER_REL" "$DECISIONS_REL" "$REPO" <<'PY'
 import io, re, subprocess, sys
+sys.path.insert(0, sys.argv[4])
+from _ledger_parse import (ID_RE, HDR, ENTRIES_MARKER, KINDS, RELATE_KEYS, MODIFIER_KEYS,
+                           LORE_KEYS, hash_id, norm_text, is_legacy, trailer_lines, parse_blocks,
+                           split_ledger, entry_text, entry_commit, supersede_ids, insert_by_date,
+                           external_prefixes, close_refusal)
 
-LEDGER, last = sys.argv[1], sys.argv[2]
-DECISIONS = sys.argv[3] if len(sys.argv) > 3 else ''
-s = io.open(LEDGER, encoding='utf-8').read()
+LEDGER, RANGE, MAX, _, DECISIONS, LEDGER_REL, DECISIONS_REL, REPO = sys.argv[1:9]
+EXT = external_prefixes(REPO)
+orig = io.open(LEDGER, encoding='utf-8').read()
+if ENTRIES_MARKER not in orig:
+    sys.stderr.write(f'living-ledger: {LEDGER_REL} has no {ENTRIES_MARKER} marker — not syncing.\n')
+    sys.exit(0)
+
 
 def git(*a):
     return subprocess.run(['git', *a], capture_output=True, text=True).stdout
 
+
 SEP = '\x1e'
-raw = git('log', '--reverse', f'--format=%h%x1f%ad%x1f%B{SEP}',
-          '--date=short', f'{last}..HEAD')
+raw = git('log', '--reverse', f'-n{MAX}', f'--format=%h%x1f%ad%x1f%B{SEP}', '--date=short', RANGE)
 
-def next_id(prefix, text):
-    ns = [int(n) for n in re.findall(rf'^## {prefix}-(\d+)', text, re.M)]
-    return f'{prefix}-{max(ns, default=0) + 1:03d}'
+existing = [e for e in parse_blocks(split_ledger(orig)[1]) if e['id']]
+ids = {e['id'] for e in existing}
+# Entries written before content hashing (sequential ids, v1-v3) are recognised by the text they
+# were made from, so a re-scan never adds them a second time under a hash id.
+legacy_text = {norm_text(entry_text(e)) for e in existing if is_legacy(e['id'])}
 
-KINDS = {
-    'Decision': ('D', 'decision', 'CLOSED'),
-    'Finding':  ('F', 'finding',  'OPEN'),
-    'Opens':    ('F', 'finding',  'OPEN'),
-    'Retires':  ('R', 'retired',  'STANDING'),
-}
-# Optional Lore trailers: not entries of their own, but recorded verbatim into the
-# body of every entry created from the same trailer block. See reference/lore-paper.md.
-LORE_KEYS = ('Rejected', 'Constraint', 'Directive', 'Confidence', 'Scope-risk',
-             'Reversibility', 'Tested', 'Not-tested', 'Related')
+IGNORE_FILES = {LEDGER_REL, DECISIONS_REL}
+OPENS_ID = re.compile(r'^(F-(?:[0-9a-f]{7}|\d{3,6}))\s+(\S.*)$')
 
-new_blocks = []
-closes = set()
-refs = []          # (entry_id, short_sha, subject) backlinks to apply after insertion
-log_rows = []      # (date, id, one-liner, sha) -> the level-2 decisions log
+
+def area_of(sha):
+    """The directory (at most two levels deep) that every file of the commit shares, else '-'."""
+    files = [f for f in git('show', '--format=', '--name-only', sha).splitlines()
+             if f.strip() and f not in IGNORE_FILES and not f.startswith(('.claude/', '.githooks/'))]
+    if not files or any('/' not in f for f in files):
+        return '-'
+    common = files[0].split('/')[:-1]
+    for f in files[1:]:
+        parts = f.split('/')[:-1]
+        n = 0
+        while n < min(len(common), len(parts)) and common[n] == parts[n]:
+            n += 1
+        common = common[:n]
+    return '/'.join(common[:2]) or '-'
+
+
+commits = []      # [(sha, date, subject, [entry dicts], relate actions)]
 for rec in raw.split(SEP):
     rec = rec.strip('\n')
     if not rec:
@@ -88,116 +113,155 @@ for rec in raw.split(SEP):
         continue
     sha, date, body = parts[0].strip(), parts[1].strip(), parts[2]
     subject = next((l.strip() for l in body.strip().splitlines() if l.strip()), '')
-
-    # Only the trailing trailer block(s) of the message are scanned -- never the whole
-    # body. A prose paragraph mentioning "Decision:" or "Finding:" mid-sentence must
-    # never be mistaken for a real trailer. Walk paragraphs from the end; keep including
-    # a paragraph only while every line in it is trailer-shaped (`Token: value`),
-    # stopping at the first paragraph that isn't -- mirrors git's own trailer-block
-    # heuristic, since `git log --format=%(trailers)` only recognises git's built-in
-    # keys and silently drops custom ones like Finding:/Decision:.
-    TRAILER_LINE = re.compile(r'^[A-Za-z][\w-]*:\s+\S.*$')
-    paras = re.split(r'\n\s*\n', body.strip())
-    trailer_lines = []
-    for para in reversed(paras):
-        plines = [l.strip() for l in para.splitlines() if l.strip()]
-        if plines and all(TRAILER_LINE.match(l) for l in plines):
-            trailer_lines = plines + trailer_lines
-            continue
-        break
-
-    lore_extra = [l.strip() for l in trailer_lines
-                  if l.split(':', 1)[0] in LORE_KEYS]
-
-    for line in trailer_lines:
+    tl = trailer_lines(body)
+    if not tl:
+        continue
+    made, actions, commit_wide = [], [], []
+    for line in tl:
         key, _, text = line.partition(':')
-        if key == 'Refs':
-            # A backlink, not an entry. Recorded against every id it names.
-            for rid in re.findall(r'[A-Z]-\d{3}', text):
-                refs.append((rid, sha, subject))
-            continue
-        if key == 'Closes':
-            # Deferred to after new_blocks are merged, so a Finding: opened and a
-            # Closes: applied within the SAME sync run still resolves.
-            closes.update(re.findall(r'[A-Z]-\d{3}', text))
-            continue
-        if key not in KINDS:
-            continue
         text = text.strip()
-        if not text:
-            continue
+        if key in RELATE_KEYS:
+            olds, news = supersede_ids(text) if key == 'Supersedes' else (ID_RE.findall(text), [])
+            ours = [i for i in olds if i.split('-')[0] not in EXT]
+            theirs = [i for i in ID_RE.findall(text) if i.split('-')[0] in EXT]
+            actions += [(key, i, news) for i in ours]
+            if theirs:                                # ids of the other register (EXTERNAL_IDS):
+                commit_wide.append(('Refs', ', '.join(theirs)))   # kept as a pointer, not applied
+        elif key in KINDS and text:
+            made.append(dict(key=key, text=text, extra=[]))
+        elif key in MODIFIER_KEYS or key in LORE_KEYS:
+            # binds to the entry trailer directly above it; before any, to all of them
+            (made[-1]['extra'] if made else commit_wide).append((key, text))
+    commits.append((sha, date, subject, made, actions, commit_wide))
+
+existing_ids = set(ids)
+new_blocks, closes, log_rows = [], [], []
+for sha, date, subject, made, actions, commit_wide in commits:
+    area_auto = None
+    decision_ids = []
+    blocks = []
+    for m in made:
+        key, text = m['key'], m['text']
         prefix, typ, status = KINDS[key]
-        # Explicit ids are recognised ONLY on `Opens:` (the documented contract --
-        # "Opens: F-014 <text>"). Finding:/Decision:/Retires: text is never parsed for a
-        # leading id, even if it happens to start with something id-shaped.
-        idm = re.match(r'^([A-Z]-\d{3})\s+(.*)$', text) if key == 'Opens' else None
-        if idm:
-            eid, text = idm.group(1), idm.group(2)
-            # An explicit id can still collide. Never silently drop new content over a
-            # collision -- fall back to auto-incrementing instead.
-            if re.search(rf'^## {re.escape(eid)} ', s, re.M):
-                eid = next_id(eid.split('-')[0], s + '\n'.join(new_blocks))
-        else:
-            eid = next_id(prefix, s + '\n'.join(new_blocks))
-        if text[:60] in s:
+        mods = commit_wide + m['extra']
+        get = lambda k: next((v for kk, v in reversed(mods) if kk == k), '')
+        eid = None
+        om = OPENS_ID.match(text) if key == 'Opens' else None
+        if om:                              # `Opens: F-x <text>` — an id chosen up front
+            eid, text = om.group(1), om.group(2)
+            if eid in existing_ids and not any(e['id'] == eid and entry_commit(e) == sha
+                                               for e in existing):
+                eid = None                  # taken by another entry: never drop, re-key
+        if eid is None:
+            eid = hash_id(prefix, text)
+        if typ == 'decision':
+            decision_ids.append(eid)
+        if eid in ids or norm_text(text) in legacy_text:
             continue
-        entry_body = text + ''.join(f'\n· {x}' for x in lore_extra)
-        new_blocks.append(
-            f'## {eid} · {status} · {typ} · - · {date}\n{entry_body}\n→ commit {sha}\n')
-        if key in ('Decision', 'Retires'):
-            # Level 2 always holds at least the dated fact; a human writes the reasoning
-            # above it. Appended between markers so the prose is never touched.
+        ids.add(eid)
+        area = re.sub(r'\s+', '-', get('Area')) if get('Area') else None
+        if area is None:
+            area_auto = area_auto or area_of(sha)
+            area = area_auto
+        hdate = date
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', get('Date')) and get('Date') != date:
+            hdate = f"{get('Date')} (recorded {date})"
+        lines = [text]
+        if get('Due') and status == 'OPEN':
+            lines.append(f"· Due: {get('Due')}")
+        if get('Owner'):
+            lines.append(f"· Owner: {get('Owner')}")
+        if get('Pin').lower() in ('yes', 'true', '1', 'y'):
+            lines.append('· Pinned')
+        lines += [f'· {k}: {v}' for k, v in m['extra'] if k in LORE_KEYS]
+        lines += [f'· {k}: {v}' for k, v in commit_wide if k in LORE_KEYS or k == 'Refs'
+                  ]
+        blocks.append(f'## {eid} · {status} · {typ} · {area} · {hdate}\n'
+                      + '\n'.join(lines) + f'\n→ commit {sha}\n')
+        if typ in ('decision', 'retired'):
             log_rows.append((date, eid, text, sha))
+    new_blocks += list(reversed(blocks))    # oldest first; inserted by date, trailer order kept
+    for key, tid, by in actions:
+        closes.append((key, tid, sha, subject, ', '.join(by or decision_ids)))
+s = orig
+for b in new_blocks:
+    s = insert_by_date(s, b)
 
-if new_blocks:
-    marker = '<!-- ENTRIES_START -->'
-    s = s.replace(marker, marker + '\n\n' + '\n'.join(new_blocks).rstrip() + '\n', 1)
 
-for cid in sorted(closes):
-    s = re.sub(rf'^## {re.escape(cid)} · OPEN', f'## {cid} · CLOSED', s, flags=re.M)
-
-
-def add_backlink(text, eid, sha, subject):
-    """Append '↔ <sha> <subject>' to the end of entry <eid>'s body.
-
-    Returns (text, found). Idempotent: a backlink for the same sha is added once.
-    """
+def find_block(text, eid):
     m = re.search(rf'^## {re.escape(eid)} · .*$', text, re.M)
     if not m:
+        return None
+    start = m.start()
+    nxt = re.search(r'^## ', text[m.end():], re.M)
+    end = m.end() + (nxt.start() if nxt else len(text) - m.end())
+    return start, end
+
+
+def edit_block(text, eid, status_from, status_to, line, applied):
+    """Append `line` to entry eid and flip its status — once. `applied(l)` recognises a body
+    line left by an earlier run, in which case nothing happens (so a hand re-open is never
+    undone by a re-scan). -> (text, found)."""
+    span = find_block(text, eid)
+    if not span:
         return text, False
-    start = m.end()
-    nxt = re.search(r'^## ', text[start:], re.M)
-    end = start + (nxt.start() if nxt else len(text) - start)
+    start, end = span
     block = text[start:end]
-    if re.search(rf'^↔ {re.escape(sha)}\b', block, re.M):
+    if any(applied(l.strip()) for l in block.splitlines()[1:]):
         return text, True
-    tail = '\n\n' if nxt else '\n'
-    line = f'↔ {sha} {subject}'.rstrip()
-    return text[:start] + block.rstrip('\n') + '\n' + line + tail + text[end:], True
+    hdr, _, rest = block.partition('\n')
+    if status_to and re.match(rf'^## {re.escape(eid)} · ({"|".join(status_from)}) ', hdr):
+        hdr = re.sub(r'^(## \S+ · )\S+', lambda mm: mm.group(1) + status_to, hdr)
+    trail = block[len(block.rstrip('\n')):]
+    rest = rest.rstrip('\n')
+    new = hdr + ('\n' + rest if rest else '') + '\n' + line + (trail if trail else '\n')
+    return text[:start] + new + text[end:], True
 
 
-seen_refs = set()
-for rid, sha, subject in refs:
-    if (rid, sha) in seen_refs:
+seen = set()
+for kind, tid, sha, subject, extra in closes:
+    if (kind, tid, sha) in seen:
         continue
-    seen_refs.add((rid, sha))
-    s, found = add_backlink(s, rid, sha, subject)
+    seen.add((kind, tid, sha))
+    subj = subject[:90]
+    if kind == 'Refs':
+        s, found = edit_block(s, tid, (), '', f'↔ {sha} {subj}'.rstrip(),
+                              lambda l, h=sha: l.startswith(f'↔ {h}'))
+    elif kind == 'Closes':
+        # an open item or a finding/action closes; a decision, retired framing or note never
+        # does (close_refusal — the gate's own rule). A commit that got past the gate anyway
+        # leaves `· not closed by <sha>` on the entry instead: the status is untouched, the
+        # attempt is on record for the tidy, and it is reported once — when that line is written.
+        span = find_block(s, tid)
+        blk = s[span[0]:span[1]] if span else ''
+        hm = HDR.match(blk.split('\n', 1)[0])
+        done = any(l.strip().startswith(f'✓ closed by {sha}') for l in blk.splitlines()[1:])
+        why = close_refusal(hm.group(2), hm.group(3), tid) if hm and not done else ''
+        if why:
+            before = s
+            s, _ = edit_block(s, tid, (), '', f'· not closed by {sha} {subj}'.rstrip(),
+                              lambda l, h=sha: l.startswith(f'· not closed by {h}'))
+            if s != before:
+                sys.stderr.write(f'living-ledger: Closes {tid} in {sha} ignored — {why}\n')
+            continue
+        s, found = edit_block(s, tid, ('OPEN', 'STANDING'), 'CLOSED',
+                              f'✓ closed by {sha} {subj}'.rstrip(),
+                              lambda l, h=sha: l.startswith(f'✓ closed by {h}'))
+    else:
+        what = f'superseded by {extra}' if extra else 'superseded'
+        s, found = edit_block(s, tid, ('OPEN', 'CLOSED', 'STANDING'), 'SUPERSEDED',
+                              f'⤳ {what} in {sha} {subj}'.rstrip(),
+                              lambda l, h=sha: l.startswith('⤳ ') and f' in {h}' in l)
     if not found:
-        sys.stderr.write(
-            f'living-ledger: Refs: {rid} in {sha} names no ledger entry — ignored.\n')
+        sys.stderr.write(f'living-ledger: {kind} {tid} in {sha} names no ledger entry — ignored.\n')
 
-# Strip a legacy in-ledger sync marker if one is still present (migration to the
-# gitignored .claude/.ledger-sync bookmark).
-s = re.sub(r'^[ \t]*<!-- LEDGER_SYNC:[^\n]*-->[ \t]*\n?', '', s, flags=re.M)
-s = re.sub(r'^[ \t]*<!-- last_synced_commit: [0-9a-f]+ -->[ \t]*\n?', '', s, flags=re.M)
-s = re.sub(r'^## Sync state[ \t]*\n?', '', s, flags=re.M)
-s = re.sub(r'\n-{3,}\s*\n-{3,}\n', '\n---\n', s)   # collapse the emptied section's rules
+# Strip the in-ledger sync markers of template v1.
+s = re.sub(r'^[ \t]*<!-- (LEDGER_SYNC|last_synced_commit)[^\n]*-->[ \t]*\n?', '', s, flags=re.M)
 s = re.sub(r'\n{3,}', '\n\n', s)
-
-if s != io.open(LEDGER, encoding='utf-8').read():
+if s != orig:
     io.open(LEDGER, 'w', encoding='utf-8').write(s)
 
-# --- level 2: append the dated fact to the decisions log --------------------
+# --- level 2: append the dated fact to the decisions log --------------------------
 if log_rows and DECISIONS:
     START, END = '<!-- DECISIONS_LOG_START -->', '<!-- DECISIONS_LOG_END -->'
     try:
@@ -206,21 +270,19 @@ if log_rows and DECISIONS:
         d = ''
     if START in d and END in d:
         head, _, rest = d.partition(START)
-        body, _, tail = rest.partition(END)
-        rows = body
+        rows, _, tail = rest.partition(END)
         added = []
+        # follow the log's existing row style: a markdown table (default) or `date · id · …` lines
+        dotted = bool(re.search(r'^\d{4}-\d{2}-\d{2} · ', rows, re.M)) and '| ' not in rows
         for date, eid, text, sha in log_rows:
-            if f'| {eid} |' in rows and sha in rows:
+            if re.search(rf'(^|[|·] ?){re.escape(eid)}( ?[|·]|$)', rows, re.M):
                 continue
-            one = text.replace('|', '\\|').strip()
-            added.append(f'| {date} | {eid} | {one} | `{sha}` |')
+            if dotted:
+                added.append(f'{date} · {eid} · {text.strip()} · {sha}')
+            else:
+                added.append(f'| {date} | {eid} | {text.replace("|", chr(92) + "|").strip()} | `{sha}` |')
         if added:
-            rows = rows.rstrip('\n') + '\n' + '\n'.join(added) + '\n'
-            if not rows.startswith('\n'):
-                rows = '\n' + rows.lstrip('\n')
-            io.open(DECISIONS, 'w', encoding='utf-8').write(
-                head + START + rows + END + tail)
+            rows = '\n' + rows.strip('\n') + ('\n' if rows.strip('\n') else '') + '\n'.join(added) + '\n'
+            io.open(DECISIONS, 'w', encoding='utf-8').write(head + START + rows + END + tail)
 PY
-
-ll_set_synced_sha "$REPO" "$HEAD_SHA"
 exit 0

@@ -40,14 +40,20 @@ _PREVIEW_DEBOUNCE_MS = 150
 
 #: Which GridConfig fields the ``grid`` arrangement actually reads
 #: (core/grid.py: the "grid"/"jittered_grid" branch builds a mesh from
-#: grid_size/spacing/center; density and seed are unused for "grid").
-# Every arrangement is sized by rows x cols x spacing (core.simulation_engine.
-# build_grid): rows/cols set the extent and the receptor count for hex,
-# poisson and blue noise as much as for a lattice, so they stay editable.
+#: grid_size/spacing/center; density is unused for "grid"/"jittered_grid"
+#: and seed is unused for "grid"/"hex").
+# rows/cols/spacing always set the extent (core.simulation_engine.build_grid);
+# density (D-88b4b41) additionally sets the receptor count for hex, poisson
+# and blue_noise -- density x that extent -- and is an error on grid and
+# jittered_grid, where spacing already fixes the count (core/grid.py).
 _SEED_ARRANGEMENTS = {"jittered_grid", "blue_noise", "poisson"}
+_DENSITY_ARRANGEMENTS = {"hex", "poisson", "blue_noise"}
 
 _COMPOSITE_DISABLED_TOOLTIP = "A composite array is sized by its layers."
 _SEED_DISABLED_TOOLTIP = "This arrangement has no randomness to seed."
+_DENSITY_DISABLED_TOOLTIP = (
+    "This arrangement's receptor count is fixed by rows/cols/spacing."
+)
 
 
 def _unique_name(base: str, existing: List[str]) -> str:
@@ -518,12 +524,18 @@ class SensorsScreen(QtWidgets.QWidget):
         if self._param_form is None:
             return
         seed_enabled = arrangement in _SEED_ARRANGEMENTS
+        density_enabled = arrangement in _DENSITY_ARRANGEMENTS
         is_composite = arrangement == "composite"
 
         for name, enabled, tooltip in (
             ("rows", not is_composite, _COMPOSITE_DISABLED_TOOLTIP),
             ("cols", not is_composite, _COMPOSITE_DISABLED_TOOLTIP),
             ("seed", seed_enabled and not is_composite, _SEED_DISABLED_TOOLTIP),
+            (
+                "density",
+                density_enabled and not is_composite,
+                _DENSITY_DISABLED_TOOLTIP,
+            ),
         ):
             try:
                 widget = self._param_form.widget_for(name)

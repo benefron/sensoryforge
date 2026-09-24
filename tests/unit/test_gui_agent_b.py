@@ -1,8 +1,7 @@
-"""Tests for GUI Agent B: Extended stimuli (texture and moving) in StimulusDesignerTab."""
+"""Tests for GUI Agent B: Extended stimuli (texture and moving) in
+StimulusDesignerTab."""
 
-import math
 import torch
-import pytest
 
 
 class TestTextureStimuli:

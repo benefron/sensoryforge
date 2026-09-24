@@ -1,4 +1,5 @@
-"""One stimulus renderer, dispatching through ``STIMULUS_REGISTRY`` (Phase 2, Wave K, F-052).
+"""One stimulus renderer, dispatching through ``STIMULUS_REGISTRY`` (Phase 2, Wave K,
+F-052).
 
 Before this module, ``GeneralizedTactileEncodingPipeline.generate_stimulus`` (the
 function every runner called, including the CLI for canonical configs) dispatched
@@ -17,12 +18,12 @@ components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
 from __future__ import annotations
 
 import re
-import warnings
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import torch
 
 from sensoryforge.registry import STIMULUS_REGISTRY
+from sensoryforge.stimuli.base import DEFAULT_AMPLITUDE
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
     from sensoryforge.config.schema import SensoryForgeConfig
@@ -43,8 +44,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
 # blob). Since K1 routes these five through STIMULUS_REGISTRY first, a
 # config that omits a parameter the legacy generator defaulted now silently
 # got the *registered class's* default instead -- for "gaussian" specifically,
-# amplitude 1.0 vs. the legacy 30.0 and sigma 0.2 mm vs. 1.0 mm, a stimulus
-# 20x narrower and 25x weaker for the same config text (measured on a
+# (then) amplitude 1.0 vs. the legacy 30.0 and sigma 0.2 mm vs. 1.0 mm, a
+# stimulus 20x narrower and 25x weaker for the same config text (measured on a
 # 40x40/0.15mm grid, amplitude=10, no sigma: 32 receptors above 10% of peak
 # and frame energy 111.7 with the registered default, vs. 648 receptors and
 # 2777.6 energy with the legacy one).
@@ -77,15 +78,25 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
 # legacy-equivalent starting frame, but the comparison test for both
 # documents (with numbers) that later frames diverge, rather than
 # asserting a false bit-identical claim.
+#
+# Amplitude (D-0437899, F-083): every stimulus defaults to a peak of 1.0,
+# pressure-simulation's convention and the one its ported stimuli
+# (ramp_gaussian, moving_edge, braille, drifting_grating) and every
+# registered constructor already used. The legacy generator's own 30.0 --
+# a "mA" scale from before pressure-simulation that matches nothing it
+# calibrates against -- was changed to 1.0 in the generators too
+# (core/generalized_pipeline.py), so the two paths still agree. The
+# spatial defaults below (sigma, wavelength, ...) are the legacy ones,
+# unchanged.
 _LEGACY_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "gaussian": {
-        "amplitude": 30.0,
+        "amplitude": DEFAULT_AMPLITUDE,
         "sigma": 1.0,
         "center_x": 0.0,
         "center_y": 0.0,
     },
     "texture": {
-        "amplitude": 30.0,
+        "amplitude": DEFAULT_AMPLITUDE,
         "wavelength": 2.0,
         "orientation": 0.0,
         "phase": 0.0,
@@ -98,7 +109,7 @@ _LEGACY_DEFAULTS: Dict[str, Dict[str, Any]] = {
             "class": "StaticStimulus",
             "stim_type": "gaussian",
             "params": {
-                "amplitude": 30.0,
+                "amplitude": DEFAULT_AMPLITUDE,
                 "sigma": 0.5,
                 "center_x": 0.0,
                 "center_y": 0.0,
@@ -114,7 +125,7 @@ _LEGACY_DEFAULTS: Dict[str, Dict[str, Any]] = {
             "class": "StaticStimulus",
             "stim_type": "gaussian",
             "params": {
-                "amplitude": 30.0,
+                "amplitude": DEFAULT_AMPLITUDE,
                 "sigma": 1.0,
                 "center_x": 0.0,
                 "center_y": 0.0,
@@ -154,8 +165,8 @@ def effective_defaults(stimulus_type: str) -> Dict[str, Any]:
     a form should show for an unset parameter. It is the type's declared
     defaults (``get_param_spec()``) overlaid with the legacy-generator
     defaults :func:`render_stimulus` fills in for the names both paths know --
-    so a Gaussian reports amplitude 30, which is what is rendered, not the
-    constructor's 1.0.
+    so a Gaussian reports sigma 1.0 mm, which is what is rendered, not the
+    constructor's 0.2 mm.
 
     Args:
         stimulus_type: A registered stimulus name (case-insensitive).

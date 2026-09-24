@@ -31,7 +31,6 @@ from sensoryforge.neurons.model_dsl import NeuronModel
 
 # Filters
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
-from sensoryforge.filters.base import BaseFilter
 
 # Innervation / receptive-field builders
 from sensoryforge.core.innervation import (
@@ -53,7 +52,6 @@ from sensoryforge.stimuli.builder import (
 )
 from sensoryforge.stimuli.gaussian import GaussianStimulus
 from sensoryforge.stimuli.texture import GaborTexture, EdgeGrating
-from sensoryforge.stimuli.moving import MovingStimulus as MovingStimulusLegacy
 from sensoryforge.stimuli.tactile import (
     RampGaussianStimulus,
     MovingEdgeStimulus,

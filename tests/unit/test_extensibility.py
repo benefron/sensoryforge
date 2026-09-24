@@ -1,6 +1,5 @@
 """Unit tests for extensibility patterns."""
 
-import pytest
 import torch
 from typing import Dict, Any
 from sensoryforge.registry import ComponentRegistry, NEURON_REGISTRY

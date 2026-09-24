@@ -7,11 +7,14 @@
 #
 #   ledger-index-push.sh [--async] [--timeout N]
 #
+# Pulls (rebase) before it pushes, so two machines never reject each other: a repo block and
+# DASHBOARD.md merge by newest `_rebuilt` stamp (merge=ledger-block), registry.tsv by union.
+#
 # Always exits 0. Never blocks a session: the commit is local and instant, and the push
 # is either bounded by a timeout or detached (--async). Prints ONE line on stdout when
 # something is still pending, and nothing at all when the index is clean and pushed.
 #
-# ledger-template-version: 3
+# ledger-template-version: 5
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,6 +46,17 @@ if [ -n "$(git -C "$HOME_DIR" status --porcelain 2>/dev/null)" ]; then
 fi
 
 git -C "$HOME_DIR" remote get-url origin >/dev/null 2>&1 || exit 0
+MERGE_PY="$(ll_skill_dir)/templates/hooks/ledger-merge.py"
+[ -f "$MERGE_PY" ] || MERGE_PY="$HERE/ledger-merge.py"
+ll_ensure_index_drivers "$HOME_DIR" "$MERGE_PY"
+
+sync_index() {  # pull --rebase, then push; a failed rebase is aborted, never left half-done
+  if ! git -C "$HOME_DIR" pull -q --rebase >/dev/null 2>&1; then
+    [ -d "$HOME_DIR/.git/rebase-merge" ] || [ -d "$HOME_DIR/.git/rebase-apply" ] && \
+      git -C "$HOME_DIR" rebase --abort >/dev/null 2>&1
+  fi
+  git -C "$HOME_DIR" push -q >/dev/null 2>&1
+}
 
 pending() {  # unpushed commits, or '' when there is no upstream yet
   git -C "$HOME_DIR" rev-list --count '@{u}..HEAD' 2>/dev/null || echo ""
@@ -51,14 +65,14 @@ pending() {  # unpushed commits, or '' when there is no upstream yet
 N="$(pending)"
 [ "$N" = "0" ] && exit 0            # nothing to send
 
-# --- 2. push ---------------------------------------------------------------
+# --- 2. pull + push ------------------------------------------------------------
 if [ "$ASYNC" = 1 ]; then
-  ( git -C "$HOME_DIR" push -q >/dev/null 2>&1 & ) >/dev/null 2>&1
+  ( sync_index & ) >/dev/null 2>&1
   exit 0
 fi
 
-# bounded push — `timeout`/`gtimeout` are not on stock macOS, so poll a background job
-git -C "$HOME_DIR" push -q >/dev/null 2>&1 &
+# bounded — `timeout`/`gtimeout` are not on stock macOS, so poll a background job
+sync_index &
 PID=$!
 i=0; LIMIT=$(( ${TIMEOUT%.*} * 2 ))
 while [ "$i" -lt "$LIMIT" ]; do

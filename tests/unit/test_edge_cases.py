@@ -281,6 +281,7 @@ def test_pipeline_noise_disabled_is_deterministic():
             continue
         s1, s2 = r1[key], r2[key]
         if isinstance(s1, torch.Tensor) and isinstance(s2, torch.Tensor):
-            assert (
-                s1 == s2
-            ).all(), f"{key}: two deterministic runs differ — noise disabled but results vary"
+            assert (s1 == s2).all(), (
+                f"{key}: two deterministic runs differ — noise disabled but "
+                "results vary"
+            )

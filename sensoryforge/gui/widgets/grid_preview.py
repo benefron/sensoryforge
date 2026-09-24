@@ -315,6 +315,7 @@ class GridPreview(QtWidgets.QWidget):
     # -- teardown ------------------------------------------------------------
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802 (Qt override)
-        """Release pyqtgraph connections/items before the widget is destroyed (F-035)."""
+        """Release pyqtgraph connections/items before the widget is destroyed
+        (F-035)."""
         plot_factory.teardown(self.plot)
         super().closeEvent(event)

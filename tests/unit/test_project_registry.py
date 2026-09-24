@@ -5,9 +5,7 @@ Tests for ReviewFindings#T1.
 
 import pytest
 import json
-import tempfile
-from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
 from sensoryforge.utils.project_registry import (
     ProtocolDefinition,
     NeuronModuleManifest,

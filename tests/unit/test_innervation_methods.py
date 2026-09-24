@@ -3,7 +3,6 @@
 import pytest
 import torch
 from sensoryforge.core.innervation import (
-    BaseInnervation,
     GaussianInnervation,
     OneToOneInnervation,
     UniformInnervation,
@@ -276,7 +275,8 @@ class TestDistanceWeightedInnervation:
         assert torch.all(weights >= 0)
 
     def test_max_distance_cutoff(self, simple_coords):
-        """Test mean connections with distance cutoff; far receptors excluded from sampling."""
+        """Test mean connections with distance cutoff; far receptors excluded from
+        sampling."""
         receptor_coords, neuron_centers = simple_coords
         innervation = DistanceWeightedInnervation(
             receptor_coords,

@@ -1,2 +1,4 @@
 .ledger-sync
 .ledger-nudged
+hooks/__pycache__/
+rules/ledger/

@@ -35,8 +35,7 @@ import itertools
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-import hashlib
+from typing import Dict, List, Any, Optional
 
 import torch
 import numpy as np
@@ -407,9 +406,10 @@ class BatchExecutor:
         )
 
         print(f"Starting batch execution: {self.batch_id}")
-        print(
-            f"Total stimuli: {len(list(indices)) if task_index is not None else len(self.stimulus_configs)}"
+        total_stimuli = (
+            len(list(indices)) if task_index is not None else len(self.stimulus_configs)
         )
+        print(f"Total stimuli: {total_stimuli}")
         print(f"Output directory: {self.output_dir}")
         if self._is_canonical:
             print(f"Bundle root: {self.batch_root}")
@@ -505,7 +505,7 @@ class BatchExecutor:
         duration = time.time() - start_time
 
         n_done = len(bundle_dirs) if self._is_canonical else len(all_results)
-        print(f"\nBatch execution completed!")
+        print("\nBatch execution completed!")
         print(f"Duration: {duration:.2f} seconds")
         print(f"Successful: {n_done}/{len(list(indices))}")
         print(f"Failed: {len(failed_indices)}")

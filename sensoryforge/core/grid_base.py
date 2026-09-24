@@ -8,7 +8,7 @@ interfaces and enable registry-based instantiation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple
 import torch
 
 from sensoryforge.stimuli.base import ParamSpec

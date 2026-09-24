@@ -8,10 +8,16 @@ the framework (resolves ReviewFinding#H1).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
+
+#: The peak a stimulus has when its amplitude is not set (D-0437899, F-083):
+#: 1.0, pressure-simulation's convention, for every stimulus type. The
+#: legacy generators in ``core/generalized_pipeline.py`` and the
+#: legacy-default map in ``stimuli/render.py`` read it from here.
+DEFAULT_AMPLITUDE = 1.0
 
 # ---------------------------------------------------------------------------
 # Parameter spec dataclass
@@ -29,7 +35,8 @@ class ParamSpec:
         min_val: Minimum allowed value (float/int; ignored for bool).
         max_val: Maximum allowed value (float/int; ignored for bool).
         step: Suggested spin-box step (None → auto).
-        unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string = dimensionless.
+        unit: Physical unit string (e.g. ``"mm"``, ``"mA"``).  Empty string =
+            dimensionless.
         tooltip: Optional help text shown as a tooltip in the UI.
         choices: Optional list of allowed values, for a dropdown/enum widget
             instead of a numeric spinbox. ``None`` = not an enum.

@@ -42,18 +42,23 @@ re-runs a config with every displayed value written explicitly and requires iden
 - **D-Q1 decided: RA filter gain k3 = 2.0 everywhere (F-030, F-034 closed).** Resolver-owned here.
   pressure-simulation matches since its commit `f7784f9` (runner, viewer and decoder fallbacks).
   Its RA input gains were tuned at k3 = 1.0 and are tracked in its own ledger, not here.
-- **F-037 open:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007);
-  pressure-simulation's neurons do not, so spikes can differ for strongly negative drive.
+- **F-037 settled:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007) and
+  pressure-simulation's neurons do not, but the tactile recipes never reach the floor (lowest
+  -94.1 mV against -120 mV at the calibrated gains). `tests/integration/test_recipe_calibration.py`
+  fails if a recipe comes within 20 mV of it; that is when the divergence would start to matter.
+- **Recipe gains are calibrated per population (D-ea0f017):** `tactile_sa1_ra1` SA 220 / RA 61,
+  `tactile_sa1_ra1_adex` SA 55 / RA 86, from `scripts/calibrate_recipe_gains.py`. Do not reset
+  them to a shared 50; re-run the script if a filter or neuron preset changes.
 - **F-031 closed:** `resolve_neuron_params` always expands the neuron-type (or explicit) preset
   first, then applies `a`/`b`/`c`/`d` overrides on top -- GUI, engine and the legacy adapter now
   agree for partial overrides too, and the adapter no longer raises `KeyError`.
 - **F-032 closed:** `TactileEncodingPipelineTorch`, the legacy `DEFAULT_CONFIG`, and
   `CombinedSARAFilter` all route through the resolver instead of keeping their own RS/tau_RA=30 copies.
-- **F-003 open:** the default innervation builder is the stochastic one (uniform-random weights,
-  Gaussian only in the selection probability), which pressure-simulation retired to a control arm.
-  `use_distance_weights=True` is the analytic-weight path.
-- **F-006 open:** innervation reseeds the *global* RNG and consumes it in a different order from
-  pressure-simulation, so the same seed gives different wiring across repos.
+- **F-003 closed:** connection weights default to the analytic Gaussian of distance
+  (`use_distance_weights=True`, `config/schema.py`). The uniform-random weights pressure-simulation
+  retired are still reachable with `use_distance_weights=False`, as the stochastic control arm.
+- **F-006 closed:** innervation draws from a per-instance `torch.Generator`
+  (`core/innervation.py::_seeded_generator`, on CPU per F-038) and never touches the global RNG.
 
 Filter citation is Parvizi-Fard et al. (2021) plus Kandel Ch.21 for τ values (D-013). Never write
 "Pierzowski".

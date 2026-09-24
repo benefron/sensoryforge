@@ -91,6 +91,39 @@ decrease it.
 
 ---
 
+## Calibrated gains in the tactile recipes
+
+The shipped tactile recipes do not use the default. Each population has its
+own gain, calibrated against the physiological targets of decision P5 on the
+four benchmark stimuli (`ramp_gaussian`, `moving_edge`, `braille`,
+`drifting_grating`, all at amplitude 1) by
+`scripts/calibrate_recipe_gains.py`:
+
+| Recipe | SA gain | RA gain |
+|---|---|---|
+| `tactile_sa1_ra1` (Izhikevich) | 220 | 61 |
+| `tactile_sa1_ra1_adex` (AdEx) | 55 | 86 |
+| `tactile_stochastic_control` | 220 | 61 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
+
+- **SA:** the gain that puts the SA rate, averaged geometrically over the four
+  stimuli and over each stimulus's responsive neurons, at the centre of the
+  20–100 Hz band on a log scale (44.7 Hz). Every stimulus must land inside the
+  band.
+- **RA:** the geometric centre of the range of gains in which every stimulus's
+  onset burst reaches 150–400 Hz per afferent and a held stimulus is silent
+  from 30 ms after it stops changing.
+
+The results, and the full sweep, are in
+`benchmarks/results/recipe_calibration/recipe_calibration.md`. The rates are
+the calibration's target, so hitting them does not validate the model; the
+comparison with TouchSim's afferent models does that.
+
+A single shared gain of 50 could not meet both populations' targets. It left
+Izhikevich SA at 8.75 Hz on a held stimulus, and AdEx RA silent on the
+drifting grating.
+
+---
+
 ## Tuning `input_gain` for Different Neuron Models
 
 Different models have different effective thresholds:
@@ -140,7 +173,7 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 |---|---|---|---|
 | `input_gain` | `PopulationConfig`, GUI Populations → Readout & noise | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
 | SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
-| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | per type: 30 mA for `gaussian`, `texture`, `moving`; about 1 for `moving_edge`, `braille`, the gratings, `ramp_gaussian` | The unit-peak types drive few or no spikes at gain 50; raise their amplitude (ledger F-083) |
+| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | 1.0 for every stimulus type: a unit peak, pressure-simulation's convention. `repeated_pattern`'s six overlapping copies each peak at 1.0 and sum to about 3.9 | At gain 50 a unit peak is borderline (table above): raise `amplitude` or `input_gain` if a population is silent (ledger F-083) |
 
 ---
 

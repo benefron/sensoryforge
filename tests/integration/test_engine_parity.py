@@ -14,7 +14,6 @@ These tests run the shared SimulationEngine backend and check:
   - input_gain parity: gain applied identically through engine regardless of caller
 """
 
-import pytest
 import torch
 
 from sensoryforge.config.schema import (
@@ -241,9 +240,10 @@ class TestInputGainParity:
         result = engine.run(_constant_stimulus(30), return_intermediates=True)
         drive = result["SA Pop"]["drive"]
         filtered = result["SA Pop"]["filtered"]
-        assert torch.allclose(
-            filtered, drive * 4.0, atol=1e-5
-        ), f"filtered should equal drive×4, max diff: {(filtered - drive*4).abs().max():.5f}"
+        assert torch.allclose(filtered, drive * 4.0, atol=1e-5), (
+            f"filtered should equal drive×4, max diff: "
+            f"{(filtered - drive*4).abs().max():.5f}"
+        )
 
 
 # ---------------------------------------------------------------------------

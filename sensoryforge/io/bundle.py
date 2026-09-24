@@ -82,7 +82,8 @@ class Bundle:
 
     Attributes:
         config: The run's canonical config.
-        banks: Population name -> :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`.
+        banks: Population name ->
+            :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`.
         stimulus: Stimulus frames ``[T, H, W]`` or ``[T, C, H, W]`` (float32),
             or ``None`` if the bundle has no stimulus dataset.
         time_ms: ``[T]`` time axis in ms, or ``None``.

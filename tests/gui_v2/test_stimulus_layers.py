@@ -1,4 +1,5 @@
-"""The layer editor for layered stimuli (:mod:`sensoryforge.gui.screens.stimulus_layers`)."""
+"""The layer editor for layered stimuli
+(:mod:`sensoryforge.gui.screens.stimulus_layers`)."""
 
 from __future__ import annotations
 
@@ -191,7 +192,6 @@ def test_remove_move_duplicate_and_enabled(qtbot):
 
     # Move layer 2 up (swap with layer 1).
     editor.layer_list.setCurrentRow(2)
-    before = [id(layer) for layer in session.config.stimulus.layers]
     editor.btn_up.click()
     assert session.config.stimulus.layers[1] is not None  # swapped, still 3 layers
     assert len(session.config.stimulus.layers) == 3

@@ -4,7 +4,6 @@ These tests ensure that the major refactoring (registry system, canonical config
 SimulationEngine) didn't break existing functionality.
 """
 
-import pytest
 import torch
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
@@ -155,7 +154,7 @@ class TestRegistryVsDirectEquivalence:
         neuron_direct = IzhikevichNeuronTorch(dt=1.0, a=0.02, b=0.2, c=-65.0, d=8.0)
 
         # Both should be same type
-        assert type(neuron_registry) == type(neuron_direct)
+        assert type(neuron_registry) is type(neuron_direct)
 
         # Both should produce similar outputs
         input_current = torch.randn(1, 100, 10)
@@ -179,7 +178,7 @@ class TestRegistryVsDirectEquivalence:
         filter_direct = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=1.0)
 
         # Both should be same type
-        assert type(filter_registry) == type(filter_direct)
+        assert type(filter_registry) is type(filter_direct)
 
         # Both should produce similar outputs
         input_current = torch.randn(1, 100, 10)
