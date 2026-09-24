@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-8211840 · STANDING · finding · - · 2026-09-24
+touchsim's own hsaal/touchsim@4ec9f5c (idx=0 single-neuron models, seed 42) reproduces the textbook signatures at the probe centre -- SA1 sustains firing through a 450 ms hold at suprathreshold depths (e.g. 42.9 Hz sustained at 1.25 mm, spiking out to 496 ms of the hold) while RA's sustained-window rate is exactly 0 Hz at every depth tested and it fires only at onset and offset (e.g. 100/0/80 Hz onset/sustained/offset at 1.25 mm); both SA1 and RA onset rates rise monotonically with indentation depth near the probe.
+→ commit d2302dc
+
 ## D-0437899 · CLOSED · decision · - · 2026-09-24
 every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention: the named gaussian, texture and moving types and their layered presets change from 30 to 1.0, and no stimulus renders negative values by default (gabor, texture)
 · Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
@@ -121,6 +125,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
 → commit b4a853b
+↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
 
 ## D-88b4b41 · CLOSED · decision · - · 2026-09-24
 GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
@@ -314,6 +319,7 @@ F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols 
 F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
 → commit 992e6ca
 ↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
+↔ d2302dc test(validation): add genuine touchsim ramp-and-hold reference fixture
 
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
