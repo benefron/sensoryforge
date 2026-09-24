@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6bae4df · CLOSED · decision · - · 2026-09-24
+for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
+→ commit c368ac7
+
+## F-42a7556 · STANDING · finding · - · 2026-09-24
+on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
+→ commit c368ac7
+
 ## F-a5cfcf0 · STANDING · finding · - · 2026-09-24
 with the neuron-input floor and a 2 ms refractory period, AdEx RA's peak per-afferent rate on moving_edge falls from 1200 to 400 Hz and no negative drive reaches either recipe's neurons; Izhikevich SA touches its -120 mV floor only on moving_edge (-121 mV unclamped) with identical spikes
 → commit 4daea68
@@ -115,6 +123,7 @@ with the neuron-input floor and a 2 ms refractory period, AdEx RA's peak per-aff
 ## F-f59aa11 · OPEN · finding · - · 2026-09-24
 after strong stimulation the AdEx recipe's adaptation variable, which acts in mV, builds to hundreds of mV and drives the voltage far below rest (about -380 mV for SA and -170 mV for RA without the -130 mV clamp, which changes spikes on braille and drifting_grating); AdEx SA's hold ISI CV is about 0.5-0.6 against P5's 0.5, because its ramp response builds adaptation that decays through the hold, and its hold at 0.2 mm is 2.9 Hz against SA1's 8.6
 → commit 4daea68
+↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
 
 ## D-43dc520 · CLOSED · decision · - · 2026-09-24
 the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
@@ -150,11 +159,13 @@ RA's release response is as strong as its onset, because the RA filter is symmet
 SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
 → commit ce166e0
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
+↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
 
 ## D-f4d0967 · CLOSED · decision · - · 2026-09-24
 SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
 → commit ce166e0
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
+↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
 
 ## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
 plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
