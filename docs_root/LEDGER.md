@@ -121,9 +121,10 @@ a design directory's filter_params/model_params must be empty -- the two repos d
 SensoryForge accepts an externally designed encoder as a design directory (design.json + per-population npz) via `sensoryforge run --design`, and stamps the design manifest into the bundle.
 → commit 7eba10d
 
-## F-095 · OPEN · finding · - · 2026-09-22
+## F-095 · CLOSED · finding · - · 2026-09-22
 RampGaussianStimulus did not clamp its ramp to the requested duration, so any run shorter than the 50 ms default ramp raised a tensor-size error.
 → commit 7eba10d
+✓ closed by 4d93f5c chore(ledger): tidy
 
 ## D-035 · CLOSED · decision · - · 2026-09-22
 AdEx SA/RA populations resolve to the SA1_tonic and RA1_phasic presets by neuron_type through the same resolve_neuron_params mechanism as Izhikevich's F-004 RS/FS split, rather than a second parallel resolver.
