@@ -18,6 +18,7 @@ like every other filter parameter.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, Optional
 
 from sensoryforge.neurons.adex import ADEX_PRESETS
@@ -56,11 +57,46 @@ def resolve_duration_ms(
 
 
 #: Resolver-owned SA/RA filter defaults (D-015: tau_RA = 8 ms everywhere;
-#: D-Q1: RA gain k3 = 2.0 everywhere).
+#: D-Q1: RA gain k3 = 2.0 everywhere). SA's k2, the gain on the input's rate
+#: of change, is 8.0, fitted so SA's ramp response matches TouchSim's SA1
+#: for both neuron models (D-f4d0967, scripts/validation/fit_afferents.py);
+#: Parvizi-Fard et al. (2021) used 3.0, which gave about half of SA1's ramp
+#: response.
 FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
-    "sa": {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 3.0},
+    "sa": {"tau_r": 5.0, "tau_d": 30.0, "k1": 0.05, "k2": 8.0},
     "ra": {"tau_RA": 8.0, "k3": 2.0},
 }
+
+#: Neuron types whose neuron input is floored at 0 mA by default (ledger
+#: D-43dc520): tactile afferents, whose transduction current cannot reverse.
+AFFERENT_INPUT_FLOOR_BY_TYPE: Dict[str, float] = {"SA": 0.0, "RA": 0.0, "SA2": 0.0}
+
+
+def resolve_input_floor(
+    neuron_type: str, neuron_model: str, input_floor: Optional[float]
+) -> Optional[float]:
+    """Lower bound (mA) on a population's neuron input, or ``None`` for none.
+
+    Args:
+        neuron_type: Population neuron type (e.g. "SA", "RA").
+        neuron_model: Population neuron model (e.g. "izhikevich", "dsl").
+        input_floor: The population's ``PopulationConfig.input_floor``:
+            ``None`` for the default, ``-inf`` for no floor, else a value.
+
+    Returns:
+        The floor in mA, or ``None`` when the neuron input is not bounded.
+        By default a tactile afferent (SA, RA, SA2) on a built-in neuron
+        model gets 0 mA; a DSL model, which may be an analog readout of a
+        signed signal, and every other type get no floor.
+    """
+    if input_floor is not None:
+        return (
+            None if math.isinf(input_floor) and input_floor < 0 else float(input_floor)
+        )
+    if str(neuron_model).lower() == "dsl":
+        return None
+    return AFFERENT_INPUT_FLOOR_BY_TYPE.get(str(neuron_type).upper())
+
 
 #: F-004: which Izhikevich preset each population neuron type builds by
 #: default. RA/RA-I (Meissner) populations get the fast-spiking preset for

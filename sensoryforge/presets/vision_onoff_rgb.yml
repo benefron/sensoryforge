@@ -44,6 +44,7 @@ grids:
 populations:
 - name: RG OnOff Population
   neuron_type: SA
+  input_floor: -.inf  # a vision population, not a tactile afferent: no input floor (D-43dc520)
   neurons_per_row: 8
   inputs:
   - grid: RGB Grid
@@ -61,6 +62,7 @@ populations:
   seed: 42
 - name: RGB Concat Population
   neuron_type: SA
+  input_floor: -.inf  # a vision population, not a tactile afferent: no input floor (D-43dc520)
   neurons_per_row: 6
   inputs:
   - grid: RGB Grid

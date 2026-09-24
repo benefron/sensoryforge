@@ -23,10 +23,12 @@ reverted): swapping which filter class plays the "SA" role (constructing
 ``sa_filter`` from ``RAFilterTorch`` instead of ``SAFilterTorch``) makes
 ``test_sa_ra_filters_show_published_adaptation_classes`` fail: the measured
 SA hold/peak ratio collapses from 0.71 to ~4.6e-16 (the RA filter decays to
-exactly zero during a static hold, as it must), far below the 0.5 bound.
+exactly zero during a static hold, as it must), far below the SA bound.
 Measured ratios on the unperturbed code (recorded 2026-09-16): SA=0.71,
-RA=4.6e-16, both comfortably inside the fixture's bounds (>=0.5 and <=0.15
-respectively).
+RA=4.6e-16. Since 2026-09-24 SA's filter has a stronger ramp term, fitted to
+TouchSim's SA1 (k2 3.0 -> 8.0, D-f4d0967): SA's ratio is now 0.34, and the
+fixture's SA bound was lowered from 0.5 to 0.25 because TouchSim's own SA1
+holds at 0.19-0.26 of its ramp rate. RA's bound (<= 0.15) is unchanged.
 """
 
 from __future__ import annotations

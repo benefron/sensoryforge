@@ -15,10 +15,12 @@
 #   sensoryforge run --preset tactile_sa1_ra1
 #   sensoryforge run --preset tactile_sa1_ra1 my_overrides.yml
 #
-# Input gains are per population, calibrated against decision P5 on the four
-# benchmark stimuli by scripts/calibrate_recipe_gains.py (ledger D-ea0f017;
-# report: benchmarks/results/recipe_calibration/). One shared gain of 50 left
-# SA at 8.75 Hz on a held stimulus (F-093).
+# Populations are fitted to TouchSim's SA1/RA afferents (D-f4d0967, D-d9bd411;
+# scripts/validation/fit_afferents.py): the SA filter's k2 (a shared default,
+# 8.0) and the Izhikevich adaptation d below (SA 15, RA 24, on the RS/FS
+# presets). Input gains come from scripts/calibrate_recipe_gains.py (report:
+# benchmarks/results/recipe_calibration/): SA's puts a held stimulus at 45 Hz,
+# the centre of P5's band (D-ea0f017); RA's matches TouchSim's RA sensitivity.
 metadata:
   name: Pressure-simulation recipe (SA1/RA1)
   version: '1.0'
@@ -44,7 +46,9 @@ populations:
     normalize: l2
   neuron_model: izhikevich
   filter_method: sa
-  input_gain: 220.0
+  model_params:
+    d: 15.0
+  input_gain: 380.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -56,7 +60,9 @@ populations:
     normalize: l2
   neuron_model: izhikevich
   filter_method: ra
-  input_gain: 61.0
+  model_params:
+    d: 24.0
+  input_gain: 410.0
   seed: 43
 simulation:
   device: cpu

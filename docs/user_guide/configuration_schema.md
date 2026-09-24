@@ -183,7 +183,7 @@ filter_params:
   tau_r: 5.0    # Rise time constant (ms)
   tau_d: 30.0   # Decay time constant (ms)
   k1: 0.05      # Gain parameter 1
-  k2: 3.0       # Gain parameter 2
+  k2: 8.0       # Gain on the input's rate of change (default 8.0; was 3.0, D-f4d0967)
 ```
 
 For RA filter:
@@ -228,7 +228,8 @@ solver_config:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | bool | `True` | Whether this population is enabled for simulation |
-| `input_gain` | float | `1.0` | Input gain multiplier |
+| `input_gain` | float | `50.0` | Input gain multiplier |
+| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on a built-in neuron model and to no floor otherwise; `-.inf` disables it (D-43dc520) |
 | `seed` | int | `None` | Random seed for innervation generation |
 
 ### Example
@@ -248,7 +249,7 @@ populations:
       tau_r: 5.0
       tau_d: 30.0
       k1: 0.05
-      k2: 3.0
+      k2: 8.0
     model_params:
       a: 0.02
       b: 0.2
@@ -389,7 +390,7 @@ populations:
       tau_r: 5.0
       tau_d: 30.0
       k1: 0.05
-      k2: 3.0
+      k2: 8.0
     model_params:
       a: 0.02
       b: 0.2

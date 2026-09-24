@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -61,6 +62,9 @@ RECIPES = {"Izhikevich": "tactile_sa1_ra1", "AdEx": "tactile_sa1_ra1_adex"}
 #: Depths compared: those where TouchSim's SA1 at the probe centre fires in
 #: the hold (the shallower levels are silent in both classes).
 DEPTHS_MM = (0.2, 0.4, 0.7, 1.25)
+#: Depths RA's sensitivity is fitted over: the compared depths plus 0.1 mm,
+#: where TouchSim's RA is still silent.
+RA_FIT_DEPTHS_MM = (0.1,) + DEPTHS_MM
 FIT_DEPTH_MM = 1.25
 FACTOR = 2.0
 RUN_MS = 600.0
@@ -82,8 +86,16 @@ def load_touchsim() -> Dict[str, Any]:
     return {"windows_ms": windows, "rates": rates, "provenance": data["provenance"]}
 
 
-def _config(preset: str, amplitude: float, windows: Dict[str, List[float]]):
+def _config(
+    preset: str,
+    amplitude: float,
+    windows: Dict[str, List[float]],
+    gains: Optional[Dict[str, float]] = None,
+):
     config = SensoryForgeConfig.from_dict(load_preset(preset))
+    for pop in config.populations:
+        if gains and pop.neuron_type in gains:
+            pop.input_gain = gains[pop.neuron_type]
     layer = default_layer("disc")
     layer["shape"].update({"amplitude": amplitude, "diameter_mm": 1.0, "edge_mm": 0.05})
     ramp = windows["onset"][1] - windows["onset"][0]
@@ -100,7 +112,10 @@ def _config(preset: str, amplitude: float, windows: Dict[str, List[float]]):
 
 
 def sensoryforge_rates(
-    preset: str, amplitude: float, windows: Dict[str, List[float]]
+    preset: str,
+    amplitude: float,
+    windows: Dict[str, List[float]],
+    gains: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Dict[str, float]]:
     """Onset/hold/release rates (Hz) of each population's most-driven neuron.
 
@@ -108,12 +123,14 @@ def sensoryforge_rates(
         preset: Recipe preset name.
         amplitude: Probe amplitude (unit peak).
         windows: TouchSim's ``onset``/``sustained``/``offset`` windows in ms.
+        gains: Optional ``input_gain`` per neuron type (``"SA"``/``"RA"``),
+            overriding the preset's.
 
     Returns:
         ``{"SA": {...}, "RA": {...}}``, each with ``onset``, ``sustained`` and
         ``offset`` rates in Hz.
     """
-    config = _config(preset, amplitude, windows)
+    config = _config(preset, amplitude, windows, gains)
     dt_ms = config.simulation.dt_ms
     frames = render_for_config(config, duration_ms=RUN_MS, dt_ms=dt_ms)[0]
     results = SimulationEngine(config).run(
@@ -137,7 +154,10 @@ def sensoryforge_rates(
 
 
 def fit_amplitude_per_mm(
-    preset: str, target_hz: float, windows: Dict[str, List[float]]
+    preset: str,
+    target_hz: float,
+    windows: Dict[str, List[float]],
+    gains: Optional[Dict[str, float]] = None,
 ) -> float:
     """Amplitude per mm at which SA's hold rate at FIT_DEPTH_MM is ``target_hz``.
 
@@ -147,7 +167,7 @@ def fit_amplitude_per_mm(
     lo, hi = 0.01, 20.0
     for _ in range(14):
         mid = (lo * hi) ** 0.5
-        rate = sensoryforge_rates(preset, mid * FIT_DEPTH_MM, windows)["SA"][
+        rate = sensoryforge_rates(preset, mid * FIT_DEPTH_MM, windows, gains)["SA"][
             "sustained"
         ]
         if rate < target_hz:
@@ -186,6 +206,29 @@ def agrees(ours: Optional[float], theirs: Optional[float]) -> Optional[bool]:
     if ours <= 0.0:
         return False
     return 1.0 / FACTOR <= ours / theirs <= FACTOR
+
+
+def ra_onset_error(
+    preset: str,
+    touchsim: Dict[str, Any],
+    amplitude_per_mm: float,
+    gains: Optional[Dict[str, float]] = None,
+) -> float:
+    """RMS log error of RA's onset rate against TouchSim's RA (D-d9bd411).
+
+    Over ``RA_FIT_DEPTHS_MM``, which adds 0.1 mm (where TouchSim's RA is
+    silent) to the compared depths, so an RA that fires too early costs as
+    much as one that fires too late. Rates enter as ``log(rate + 10 Hz)``,
+    so a silent afferent is finite and one spike in the 50 ms window
+    (20 Hz) is a clear step.
+    """
+    windows = touchsim["windows_ms"]
+    errors = []
+    for depth in RA_FIT_DEPTHS_MM:
+        ours = sensoryforge_rates(preset, amplitude_per_mm * depth, windows, gains)
+        theirs = touchsim["rates"]["RA"][depth]["onset"]
+        errors.append(math.log((ours["RA"]["onset"] + 10.0) / (theirs + 10.0)) ** 2)
+    return math.sqrt(sum(errors) / len(errors))
 
 
 def compare(preset: str, touchsim: Dict[str, Any], amplitude_per_mm: float):

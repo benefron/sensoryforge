@@ -80,10 +80,14 @@ def _config(*, arrangement: str = "grid", noise_std: float = 0.0) -> SensoryForg
     for population in config.populations:
         population.resolvable_distance_mm = 0.40
         population.noise_std = noise_std
-        # The golden fixture was generated at the recipe's old shared gain;
-        # pinning it keeps this an engine-equality guard, independent of the
-        # recipe's calibrated gains (D-ea0f017).
+        # The golden fixture was generated at the recipe's old shared gain,
+        # with the old SA filter k2 and the plain RS/FS presets; pinning them
+        # keeps this an engine-equality guard, independent of the recipe's
+        # calibration (D-ea0f017, D-f4d0967, D-d9bd411).
         population.input_gain = 50.0
+        population.model_params = {}
+        if population.filter_method == "sa":
+            population.filter_params = {"k2": 3.0}
     return config
 
 

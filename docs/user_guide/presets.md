@@ -30,10 +30,11 @@ sensoryforge run --preset tactile_sa1_ra1 --duration 1000
 
 - **`tactile_sa1_ra1`** — the [pressure-simulation recipe](../concepts/pressure_simulation_use_case.md):
   an 80×80 grid at 0.15 mm, one SA and one RA population, both with `template`
-  (designed) receptive fields at `resolvable_distance_mm: 0.40`. Each
-  population has its own calibrated `input_gain` (SA 220, RA 61; see
+  (designed) receptive fields at `resolvable_distance_mm: 0.40`. Its SA and RA
+  populations are fitted to TouchSim's SA1 and RA afferents, and each has its
+  own calibrated `input_gain` (SA 380, RA 410; see
   [Units and gains](units_and_gains.md#calibrated-gains-in-the-tactile-recipes)).
-  `tactile_sa1_ra1_adex` is the same recipe on AdEx neurons (SA 55, RA 86).
+  `tactile_sa1_ra1_adex` is the same recipe on AdEx neurons (SA 370, RA 490).
 - **`tactile_stochastic_control`** — the named control arm (decision D-019 in
   `docs_root/LEDGER.md`): identical grid and populations, but with
   `innervation_method: gaussian` and `use_distance_weights: false` instead of
