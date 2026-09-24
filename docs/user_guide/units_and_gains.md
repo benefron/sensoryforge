@@ -91,6 +91,39 @@ decrease it.
 
 ---
 
+## Calibrated gains in the tactile recipes
+
+The shipped tactile recipes do not use the default. Each population has its
+own gain, calibrated against the physiological targets of decision P5 on the
+four benchmark stimuli (`ramp_gaussian`, `moving_edge`, `braille`,
+`drifting_grating`, all at amplitude 1) by
+`scripts/calibrate_recipe_gains.py`:
+
+| Recipe | SA gain | RA gain |
+|---|---|---|
+| `tactile_sa1_ra1` (Izhikevich) | 220 | 61 |
+| `tactile_sa1_ra1_adex` (AdEx) | 55 | 86 |
+| `tactile_stochastic_control` | 220 | 61 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
+
+- **SA:** the gain that puts the SA rate, averaged geometrically over the four
+  stimuli and over each stimulus's responsive neurons, at the centre of the
+  20–100 Hz band on a log scale (44.7 Hz). Every stimulus must land inside the
+  band.
+- **RA:** the geometric centre of the range of gains in which every stimulus's
+  onset burst reaches 150–400 Hz per afferent and a held stimulus is silent
+  from 30 ms after it stops changing.
+
+The results, and the full sweep, are in
+`benchmarks/results/recipe_calibration/recipe_calibration.md`. The rates are
+the calibration's target, so hitting them does not validate the model; the
+comparison with TouchSim's afferent models does that.
+
+A single shared gain of 50 could not meet both populations' targets. It left
+Izhikevich SA at 8.75 Hz on a held stimulus, and AdEx RA silent on the
+drifting grating.
+
+---
+
 ## Tuning `input_gain` for Different Neuron Models
 
 Different models have different effective thresholds:

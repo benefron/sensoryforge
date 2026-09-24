@@ -109,11 +109,12 @@ def test_write_sweep_writes_one_config_per_combination(tmp_path):
 
 def test_write_sweep_leaves_the_base_config_untouched(tmp_path):
     config = _config()
+    before = config.populations[0].input_gain
     spec = SweepSpec(fields=[("populations.0.input_gain", [1.0, 2.0])])
 
     write_sweep(config, spec, root=tmp_path / "sweep", duration_ms=10.0)
 
-    assert config.populations[0].input_gain == 50.0
+    assert config.populations[0].input_gain == before
     assert config.simulation.duration_ms is None
 
 

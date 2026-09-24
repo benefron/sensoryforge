@@ -79,6 +79,10 @@ def _config(*, arrangement: str = "grid", noise_std: float = 0.0) -> SensoryForg
     for population in config.populations:
         population.resolvable_distance_mm = 0.40
         population.noise_std = noise_std
+        # The golden fixture was generated at the recipe's old shared gain;
+        # pinning it keeps this an engine-equality guard, independent of the
+        # recipe's calibrated gains (D-ea0f017).
+        population.input_gain = 50.0
     return config
 
 

@@ -47,8 +47,10 @@ def test_preset_loads_as_a_valid_canonical_config():
 
 
 def test_differs_from_izhikevich_preset_only_in_neuron_model():
-    """The AdEx preset is a copy: nothing but neuron_model (and the
-    human-readable metadata) may drift, or the two stop being comparable."""
+    """The AdEx preset is a copy: nothing but neuron_model, the
+    human-readable metadata and each population's input_gain may drift, or
+    the two stop being comparable. The gains differ because each recipe's
+    are calibrated for its own neuron model (D-ea0f017)."""
     base = load_preset("tactile_sa1_ra1")
     adex = load_preset(PRESET_NAME)
     base.pop("metadata", None)
@@ -56,6 +58,9 @@ def test_differs_from_izhikevich_preset_only_in_neuron_model():
     normalised = copy.deepcopy(adex)
     for pop in normalised["populations"]:
         pop["neuron_model"] = "izhikevich"
+    for pops in (normalised["populations"], base["populations"]):
+        for pop in pops:
+            pop.pop("input_gain")
     assert normalised == base
 
 
