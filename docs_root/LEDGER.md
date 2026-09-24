@@ -508,9 +508,10 @@ dt_ms that is not a whole multiple of integrate_dt_ms silently rescales neuron t
 default innervation uses analytic Gaussian weights; the stochastic uniform-weight builder is the named control arm
 → commit b1f67a3
 
-## F-036 · OPEN · finding · - · 2026-09-14
+## F-036 · CLOSED · finding · - · 2026-09-14
 flake8 style debt after black (all default checks, 88 columns): 364 violations, mainly E501 164, F401 141, F541 18, E402 14, F841 11; CI gates only E9,F63,F7,F82 until ratcheted
 → commit 7da39f9
+✓ closed by 5d8c9ec ci: enforce flake8's default checks, not only the syntax-error subset
 
 ## F-037 · STANDING · finding · - · 2026-09-14
 SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D-007) but pressure-simulation's neurons do not, so spikes can differ for strongly negative drive, which unrectified SA (F-001) now makes reachable
