@@ -42,8 +42,13 @@ re-runs a config with every displayed value written explicitly and requires iden
 - **D-Q1 decided: RA filter gain k3 = 2.0 everywhere (F-030, F-034 closed).** Resolver-owned here.
   pressure-simulation matches since its commit `f7784f9` (runner, viewer and decoder fallbacks).
   Its RA input gains were tuned at k3 = 1.0 and are tracked in its own ledger, not here.
-- **F-037 open:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007);
-  pressure-simulation's neurons do not, so spikes can differ for strongly negative drive.
+- **F-037 settled:** SensoryForge's Izhikevich/AdEx/MQIF clamp voltage at `v_floor` (D-007) and
+  pressure-simulation's neurons do not, but the tactile recipes never reach the floor (lowest
+  -94.1 mV against -120 mV at the calibrated gains). `tests/integration/test_recipe_calibration.py`
+  fails if a recipe comes within 20 mV of it; that is when the divergence would start to matter.
+- **Recipe gains are calibrated per population (D-ea0f017):** `tactile_sa1_ra1` SA 220 / RA 61,
+  `tactile_sa1_ra1_adex` SA 55 / RA 86, from `scripts/calibrate_recipe_gains.py`. Do not reset
+  them to a shared 50; re-run the script if a filter or neuron preset changes.
 - **F-031 closed:** `resolve_neuron_params` always expands the neuron-type (or explicit) preset
   first, then applies `a`/`b`/`c`/`d` overrides on top -- GUI, engine and the legacy adapter now
   agree for partial overrides too, and the adapter no longer raises `KeyError`.
