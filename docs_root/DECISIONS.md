@@ -221,4 +221,5 @@ Do not hand-edit between the markers.
 | 2026-09-24 | D-88b4b41 | GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error | `b4a853b` |
 | 2026-09-24 | D-d9bd411 | SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration | `ce166e0` |
 | 2026-09-24 | D-f4d0967 | SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe | `ce166e0` |
+| 2026-09-24 | D-7e71f68 | SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does | `3b30da8` |
 <!-- DECISIONS_LOG_END -->

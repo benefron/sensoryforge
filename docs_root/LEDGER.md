@@ -108,13 +108,32 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7e71f68 · CLOSED · decision · - · 2026-09-24
+SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does
+· Rejected: keeping the geometric mean over all four benchmark stimuli | with SA1-like dynamics the AdEx recipe's static and moving rates spread wider than the band itself
+→ commit 3b30da8
+
+## F-f9f7896 · STANDING · finding · - · 2026-09-24
+the Izhikevich recipe's SA reaches its -120 mV floor on moving stimuli's trailing edges, but its spikes are identical with and without the clamp on all four benchmark stimuli, so F-037's divergence from pressure-simulation's unclamped neurons does not arise
+→ commit 3b30da8
+
+## F-96ff772 · OPEN · finding · - · 2026-09-24
+at its calibrated gains the AdEx recipe leaves the physiological voltage range -- SA's trailing-edge current reaches about -136 mA and a burst's adaptation drives the voltage into the -130 mV clamp, which falls to about -1000 mV without it; the clamp changes spikes by under 2%, and AdEx RA reaches 1200 Hz on moving_edge, having no refractory period
+→ commit 3b30da8
+
+## F-bad9126 · OPEN · finding · - · 2026-09-24
+RA's release response is as strong as its onset, because the RA filter is symmetric in the rate of change, while TouchSim's RA releases at 0.67-0.8 of its onset and is silent at 0.2 mm; SA also fires one spike at release at 1.25 mm, where SA1 is silent
+→ commit 3b30da8
+
 ## D-d9bd411 · CLOSED · decision · - · 2026-09-24
 SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
 → commit ce166e0
+↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
 ## D-f4d0967 · CLOSED · decision · - · 2026-09-24
 SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
 → commit ce166e0
+↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
 ## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
 plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
@@ -148,15 +167,17 @@ at their defaults on a 40x40 grid at 0.15 mm (no receptor at the centre), repeat
 at one fitted amplitude per mm, TouchSim and SensoryForge agree on RA's silent hold and its release/onset balance, and the Izhikevich recipe also on SA's silent release and SA's hold-rate curve over 0.4-1.25 mm (11/23/43 Hz against 11/26/43)
 → commit a2e8c0b
 
-## F-47cc697 · OPEN · finding · - · 2026-09-24
+## F-47cc697 · CLOSED · finding · - · 2026-09-24
 at intensities matched on SA's hold rate, SensoryForge's RA is far less sensitive than TouchSim's RA in both recipes -- silent at the 0.2-0.7 mm levels where TouchSim's RA fires 20-60 Hz at onset, and 20 Hz against 100 Hz at 1.25 mm
 → commit a2e8c0b
 ↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+✓ closed by 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
-## F-20e111e · OPEN · finding · - · 2026-09-24
+## F-20e111e · CLOSED · finding · - · 2026-09-24
 SensoryForge SA's ramp response is 2-3x weaker than TouchSim's SA1 (hold/onset about 0.55 against about 0.22 on the Izhikevich recipe), and AdEx SA is silent up to the 0.7 mm level, then jumps to 40 Hz, with none of SA1's graded rise
 → commit a2e8c0b
 ↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+✓ closed by 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
 ## F-8211840 · STANDING · finding · - · 2026-09-24
 touchsim's own hsaal/touchsim@4ec9f5c (idx=0 single-neuron models, seed 42) reproduces the textbook signatures at the probe centre -- SA1 sustains firing through a 450 ms hold at suprathreshold depths (e.g. 42.9 Hz sustained at 1.25 mm, spiking out to 496 ms of the hold) while RA's sustained-window rate is exactly 0 Hz at every depth tested and it fires only at onset and offset (e.g. 100/0/80 Hz onset/sustained/offset at 1.25 mm); both SA1 and RA onset rates rise monotonically with indentation depth near the probe.
@@ -190,6 +211,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 ↔ abdf37f docs: record the unit-amplitude defaults and close F-083
 ↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 ↔ ce166e0 decide: RA and SA are matched to TouchSim's afferents
+↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
@@ -546,6 +568,7 @@ SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D
 · settled 2026-09-24: never reached by the tactile recipes -- the lowest voltage on the four benchmark stimuli is -94.1 mV at the calibrated gains (Izhikevich SA, moving_edge), 26 mV above the floor; tests/integration/test_recipe_calibration.py fails if a recipe comes within 20 mV of it
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 ↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
+↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
