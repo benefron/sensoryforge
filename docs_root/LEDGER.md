@@ -108,6 +108,25 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-0437899 · CLOSED · decision · - · 2026-09-24
+every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention: the named gaussian, texture and moving types and their layered presets change from 30 to 1.0, and no stimulus renders negative values by default (gabor, texture)
+· Rejected: keeping each type's own amplitude with per-type gain guidance | a user switching type would still have to know each type's scale, and 30 matches nothing pressure-simulation calibrates against
+→ commit b4a853b
+
+## D-ea0f017 · CLOSED · decision · - · 2026-09-24
+SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
+· Rejected: leaving input gain entirely to pressure-simulation's design directories | the recipe must run sensibly without a design, and one shared gain cannot put SA and RA in their bands at once
+→ commit b4a853b
+
+## D-4aafcdc · CLOSED · decision · - · 2026-09-24
+the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
+→ commit b4a853b
+
+## D-88b4b41 · CLOSED · decision · - · 2026-09-24
+GridConfig.density sets the receptor count of poisson, hex and blue_noise layouts (density times the rows x cols x spacing extent); setting it on grid or jittered_grid, where spacing fixes the count, is an error
+· Rejected: removing GridConfig.density | irregular receptor layouts are naturally specified in receptors per mm2, the unit afferent densities are published in
+→ commit b4a853b
+
 ## D-039 · CLOSED · decision · - · 2026-09-22
 upgrade the living-ledger template from v1 to v3 — enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push
 → commit 36d2e3f
@@ -171,10 +190,12 @@ the RA onset "burst" that passes P5 is a single spike per responsive afferent sy
 ## F-092 · OPEN · finding · - · 2026-09-22
 RA1_phasic fires nothing on drifting_grating (peak per-afferent rate 0 Hz against P5's ~300 Hz) because that stimulus's RA onset drive peaks at 3.08 mA, below the 7.57 mA rheobase; reaching it needs R >~ 20, which would leave too little margin over moving_edge's 6.06 mA RA hold drive.
 → commit 326ef6f
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 
 ## F-093 · OPEN · finding · - · 2026-09-22
 under the corrected responsive-set metric the Izhikevich SA baseline reaches only 8.75 Hz on the recipe's one genuine hold, an order of magnitude below P5's 20-100 Hz band; whether that is the recipe's input_gain or the RS preset is not settled.
 → commit 326ef6f
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 
 ## D-034 · CLOSED · decision · - · 2026-09-22
 stimuli are designed as layered stimuli (stimuli.layered): a stack of layers combined by sum or max, each a primitive shape (gaussian, disc, bar, grating, gabor) placed by a pattern (single, grid+mask, list, random, braille), moved (none, linear, circular, path) and timed explicitly (onset, ramp up, hold, ramp down); the named stimulus types stay registered and exact and are also offered as layered presets
@@ -199,6 +220,7 @@ StimulusConfig.params (dict) stores stimulus-type parameters that have no named 
 ## F-081 · OPEN · finding · - · 2026-09-21
 GridConfig.density is accepted and round-tripped but never read by core.simulation_engine.build_grid: every arrangement (grid, hex, poisson, jittered_grid, blue_noise) is sized from rows x cols x spacing, so a YAML density value silently does nothing (composite layers' own density is separate and is used)
 → commit 8674a6a
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 
 ## F-082 · CLOSED · finding · - · 2026-09-21
 sensoryforge run ignored the config's simulation.duration_ms and always ran --duration (default 1000 ms); fixed here, but any earlier result produced from a config that set duration_ms without --duration was 1000 ms long
@@ -291,6 +313,7 @@ F-069 SimulationEngine warned that neurons_per_row, neuron_rows and neuron_cols 
 ## F-070 · OPEN · finding · - · 2026-09-17
 F-070 the comparison against published afferent data is qualitative only -- SA sustains and RA adapts during a hold, checked against cited literature -- because touchsim cannot be installed here and no digitised Saal et al. (2017) or Izhikevich (2003) figure data was available, so no quantitative comparison with a published afferent model exists
 → commit 992e6ca
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
@@ -673,4 +696,5 @@ filters, innervation, neurons, GUI). Decoding / reconstruction / Kalman stay in 
 stimulus types disagree on amplitude scale by about 30x at their defaults (gaussian, texture and moving peak about 30 mA; braille, gratings, moving_edge and ramp_gaussian about 1; gabor 0.55), while input_gain 50 is calibrated for about 30, so with tactile_sa1_ra1 on a 40x40 grid for 500 ms a default gabor gives 0 SA and 1 RA spike against 9731 and 3288 for a default gaussian; a user switching type in the GUI sees a silent population with no warning
 → measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
 → root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
+↔ b4a853b decide: stimulus amplitude, recipe gains, touchsim reference, grid density
 
