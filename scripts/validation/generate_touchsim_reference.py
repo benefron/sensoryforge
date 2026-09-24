@@ -102,14 +102,6 @@ WINDOWS_MS = {
 }
 
 
-def _git_commit(repo_dir: str) -> str:
-    return (
-        subprocess.check_output(["git", "-C", repo_dir, "rev-parse", "HEAD"])
-        .decode()
-        .strip()
-    )
-
-
 def build_population():
     """Returns (afferents_meta, AfferentPopulation) in a fixed, stable order."""
     afferents_meta = []
