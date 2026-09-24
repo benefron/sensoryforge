@@ -12,7 +12,7 @@
 # EXEMPT_SUBJECTS / EXEMPT_AUTHORS regexes in .claude/ledger.conf (for pipelines and cron jobs
 # that commit). Escape hatch: git commit --no-verify.
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -u
 MSGFILE="${1:-}"
 [ -n "$MSGFILE" ] && [ -f "$MSGFILE" ] || exit 0

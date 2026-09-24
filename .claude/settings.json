@@ -36,6 +36,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'D=\"${CLAUDE_PROJECT_DIR:-.}\"; \"$D/.claude/hooks/ledger-recall.sh\"'",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

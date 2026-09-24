@@ -10,7 +10,7 @@
 # re-entered hook returns immediately) and carries no trailers of its own (so a later
 # sync produces no change from it).
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -u
 
 # 1. recursion guard (and the explicit opt-out for pipelines) -----------------

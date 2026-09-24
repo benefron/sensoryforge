@@ -14,7 +14,7 @@
 # is either bounded by a timeout or detached (--async). Prints ONE line on stdout when
 # something is still pending, and nothing at all when the index is clean and pushed.
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -5,7 +5,7 @@
 # per-repo hooks keep working on a clone that has never seen this skill. Keep it small,
 # dependency-free (git + coreutils only), and safe to source from any shell.
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 
 # --- repo / path resolution --------------------------------------------------
 
@@ -304,6 +304,7 @@ ll_repo_behind() {
 # ll_version_changes <version>  ->  one line naming what that version added
 ll_version_changes() {
   case "$1" in
+    5) printf '%s\n' "prompt-time recall: each message you type is matched against the whole ledger, and the entries it touches that the session digest did not show are put in front of Claude (threshold calibrated at /ledger-tidy); ledger search" ;;
     4) printf '%s\n' "content-hash ids (no more id collisions across branches and machines), sync derived from git with no per-machine bookmark, an entry-wise merge driver for the ledger, Supersedes:/Due:/Area: trailers, overdue and triage flags, ledger lint" ;;
     3) printf '%s\n' "enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push" ;;
     2) printf '%s\n' "the gitignored sync bookmark and the cross-repo dashboard" ;;

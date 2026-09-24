@@ -10,7 +10,7 @@
 # ledger's size; the full file is grep-only. Overdue items come first, then open items in the
 # area being worked on (paths touched in the last 10 commits + the working tree).
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,6 +22,16 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ll_interactive || exit 0
 
 REPO="$(ll_repo_root)"
+# the session id, so prompt-time recall (ledger-recall.sh) knows what this digest already showed
+# (read with a timeout: hooks always close stdin, a hand-run or a test harness may not)
+SESSION=""
+if [ ! -t 0 ]; then
+  SESSION="$(python3 -c 'import json,select,sys
+try:
+    ready = select.select([sys.stdin], [], [], 0.5)[0]
+    print(json.loads(sys.stdin.read() or "{}").get("session_id") or "" if ready else "")
+except Exception: print("")' 2>/dev/null)"
+fi
 MAX_OPEN="${LL_MAX_OPEN:-22}"
 MAX_RECENT="${LL_MAX_RECENT:-12}"
 RECENT_DAYS=14
@@ -113,7 +123,8 @@ CUTOFF=$(date -v-${RECENT_DAYS}d +%Y-%m-%d 2>/dev/null || date -d "-${RECENT_DAY
 RECENT_PATHS="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ll-recent-$$")"
 { git -C "$REPO" log -10 --format= --name-only 2>/dev/null
   git -C "$REPO" status --porcelain 2>/dev/null | cut -c4-; } > "$RECENT_PATHS"
-DIGEST=$(LL_DISPLAY_PATH="$LEDGER" PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/_ledger_parse.py" \
+DIGEST=$(LL_DISPLAY_PATH="$LEDGER" LL_SESSION="$SESSION" LL_ROOT="$REPO" \
+  PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/_ledger_parse.py" \
   digest "$VIEW" "$CUTOFF" "$MAX_OPEN" "$MAX_RECENT" "$RECENT_PATHS")
 rm -f "$RECENT_PATHS"
 

@@ -5,7 +5,7 @@
 # No git operations here — /ledger-status handles pull/commit/push. This just keeps
 # the local mirror warm so the dashboard is current between status runs.
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

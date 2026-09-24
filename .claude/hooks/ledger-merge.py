@@ -29,7 +29,7 @@ newest `_rebuilt <UTC stamp>` wins.
 
 Result is written to <ours> (git's contract). Exit 0 = merged, 1 = conflict left for a human.
 
-ledger-template-version: 4
+ledger-template-version: 5
 """
 import io
 import os

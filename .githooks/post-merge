@@ -5,7 +5,7 @@
 # it only SAYS so. The next commit's post-commit records them (the ledger is derived from
 # history, nothing is lost), and the session digest shows them meanwhile.
 #
-# ledger-template-version: 4
+# ledger-template-version: 5
 set -u
 [ -n "${LEDGER_SYNC_IN_PROGRESS:-}" ] && exit 0
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
