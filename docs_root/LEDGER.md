@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-d33d335 · OPEN · finding · - · 2026-09-24
+the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers about two receptors of a 0.15 mm grid, so at its defaults it drives tactile_sa1_ra1 to 54 SA and 0 RA spikes in 500 ms against 1214 and 82 for a default gaussian
+→ commit abdf37f
+
+## F-93b91b1 · OPEN · finding · - · 2026-09-24
+the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
+→ commit abdf37f
+
 ## F-073fc19 · STANDING · finding · - · 2026-09-24
 before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
 → commit cf2be50
@@ -148,6 +156,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 ↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
 ↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 ↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
+↔ abdf37f docs: record the unit-amplitude defaults and close F-083
 
 ## D-ea0f017 · CLOSED · decision · - · 2026-09-24
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
@@ -156,6 +165,7 @@ SensoryForge's tactile recipes give SA and RA their own input gains, calibrated 
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 ↔ a2e8c0b test(validation): compare the tactile recipes with TouchSim's SA1/RA afferents
 ↔ d02a2c3 docs(decisions): the reasoning behind the recipe gain calibration
+↔ abdf37f docs: record the unit-amplitude defaults and close F-083
 
 ## D-4aafcdc · CLOSED · decision · - · 2026-09-24
 the quantitative afferent comparison uses touchsim output generated once in a throwaway environment and committed as fixture data; touchsim never becomes a dependency
@@ -744,7 +754,7 @@ SensoryForge is an encoding-only extraction of pressure-simulation's encoding st
 filters, innervation, neurons, GUI). Decoding / reconstruction / Kalman stay in pressure-simulation.
 → sensoryforge/core/pipeline.py:1-17 still carries the `encoding.pipeline_torch` header
 
-## F-083 · OPEN · finding · - · 2026-09-21
+## F-083 · CLOSED · finding · - · 2026-09-21
 stimulus types disagree on amplitude scale by about 30x at their defaults (gaussian, texture and moving peak about 30 mA; braille, gratings, moving_edge and ramp_gaussian about 1; gabor 0.55), while input_gain 50 is calibrated for about 30, so with tactile_sa1_ra1 on a 40x40 grid for 500 ms a default gabor gives 0 SA and 1 RA spike against 9731 and 3288 for a default gaussian; a user switching type in the GUI sees a silent population with no warning
 → measured 2026-09-21 on gui-v2 0b06c3b; decision needed (common default amplitude, or per-type gain guidance), not a code fix
 → root cause, measured 2026-09-22 (tactile_sa1_ra1 on a 40x40 grid, 800 ms, default ramps): (1) two amplitude conventions -- stimuli/render.py _LEGACY_DEFAULTS gives gaussian, texture and moving amplitude 30 (the pre-pressure-simulation "mA" generator), while the ported pressure-simulation stimuli and the texture-module constructors use 1.0, the scale pressure-simulation calibrates its filters and gains against (config/pipeline_config.yml: every stimulus amplitude 1.0; its gains 40-200); at gain 50 the legacy-30 types fire at 50-110 Hz mean, the unit types at 1-10 Hz; (2) repeated_pattern sums six overlapping amplitude-30 copies (peak 115.6); (3) gabor's own defaults (sigma 0.3 mm, wavelength 0.5 mm) on a 0.15 mm grid are a 2-receptor blob with a 0.55 sampled peak and equal negative lobes, which the receptive fields sum away (SA drive 0.86 vs 1.25 for the positive part alone): 0 spikes; (4) gabor and texture are signed (texture min -26.5), i.e. negative pressure driving negative current
@@ -753,3 +763,4 @@ stimulus types disagree on amplitude scale by about 30x at their defaults (gauss
 ↔ cf2be50 fix(stimuli): render gabor and texture non-negative by default
 ↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 ↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
+✓ closed by abdf37f docs: record the unit-amplitude defaults and close F-083
