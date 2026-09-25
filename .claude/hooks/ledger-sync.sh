@@ -22,7 +22,7 @@
 #
 # Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md.
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -259,7 +259,7 @@ for kind, tid, sha, subject, extra in closes:
 s = re.sub(r'^[ \t]*<!-- (LEDGER_SYNC|last_synced_commit)[^\n]*-->[ \t]*\n?', '', s, flags=re.M)
 s = re.sub(r'\n{3,}', '\n\n', s)
 if s != orig:
-    io.open(LEDGER, 'w', encoding='utf-8').write(s)
+    io.open(LEDGER, 'w', encoding='utf-8', newline='\n').write(s)
 
 # --- level 2: append the dated fact to the decisions log --------------------------
 if log_rows and DECISIONS:
@@ -283,6 +283,6 @@ if log_rows and DECISIONS:
                 added.append(f'| {date} | {eid} | {text.replace("|", chr(92) + "|").strip()} | `{sha}` |')
         if added:
             rows = '\n' + rows.strip('\n') + ('\n' if rows.strip('\n') else '') + '\n'.join(added) + '\n'
-            io.open(DECISIONS, 'w', encoding='utf-8').write(head + START + rows + END + tail)
+            io.open(DECISIONS, 'w', encoding='utf-8', newline='\n').write(head + START + rows + END + tail)
 PY
 exit 0

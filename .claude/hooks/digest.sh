@@ -10,7 +10,7 @@
 # ledger's size; the full file is grep-only. Overdue items come first, then open items in the
 # area being worked on (paths touched in the last 10 commits + the working tree).
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,7 +58,7 @@ if [ -n "$BEHIND" ]; then
     unknown) OLD="an unstamped (pre-v2) template" ;;
     *)       OLD="v$BEHIND" ;;
   esac
-  UPGRADE_FLAG="LEDGER UPGRADE AVAILABLE: this repo runs ledger template $OLD; v$SKILLV is installed on this machine — run \`/ledger-init --upgrade\` (adds: $(ll_version_changes "$SKILLV"))."
+  UPGRADE_FLAG="LEDGER UPGRADE AVAILABLE: this repo runs ledger template $OLD; v$SKILLV is installed on this machine — run \`/ledger-init --upgrade\` (adds — $(ll_changes_since "$BEHIND" "$SKILLV"))."
 fi
 
 # --- enforcement: are the committed git hooks running in this clone? ----------
@@ -112,7 +112,7 @@ fi
 # post-commit hook writes the ledger, and it commits what it writes.
 VIEW="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ll-view-$$")"
 cp "$LEDGER" "$VIEW" 2>/dev/null && \
-  LL_LEDGER_FILE="$VIEW" LL_DECISIONS_FILE="" "$HERE/ledger-sync.sh" >/dev/null 2>&1 || true
+  LL_LEDGER_FILE="$VIEW" LL_DECISIONS_FILE="" bash "$HERE/ledger-sync.sh" >/dev/null 2>&1 || true
 if ! cmp -s "$LEDGER" "$VIEW" 2>/dev/null; then
   NOTES="$NOTES
 - The committed ledger is behind the commit history (new trailers since it was last synced); \
@@ -144,7 +144,7 @@ fi
 # finding is CLOSED or SUPERSEDED the rule is now misinforming future sessions.
 # --- path-scoped rules from Directive:/Constraint:/Rejected: trailers (regenerated) ----
 # Each loads when Claude reads a file that commit touched: the constraint harvest, before edits.
-"$HERE/ledger" rules >/dev/null 2>&1 || true
+bash "$HERE/ledger" rules >/dev/null 2>&1 || true
 
 # --- ledger records that exist somewhere this checkout has not shared or seen -----
 # local refs only (no network): unpushed, not pulled as of the last fetch, other branches and
@@ -178,9 +178,9 @@ EOF
 fi
 
 # --- warm the local cross-repo mirror, then get it off the machine ----------
-"$HERE/ledger-rollup.sh" >/dev/null 2>&1 || true
-if [ -x "$HERE/ledger-index-push.sh" ]; then
-  PUSHNOTE="$("$HERE/ledger-index-push.sh" --async 2>/dev/null || true)"
+bash "$HERE/ledger-rollup.sh" >/dev/null 2>&1 || true
+if [ -f "$HERE/ledger-index-push.sh" ]; then
+  PUSHNOTE="$(bash "$HERE/ledger-index-push.sh" --async 2>/dev/null || true)"
   [ -n "$PUSHNOTE" ] && NOTES="$NOTES
 - $PUSHNOTE"
 fi

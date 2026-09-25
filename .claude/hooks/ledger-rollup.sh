@@ -5,7 +5,7 @@
 # No git operations here — /ledger-status handles pull/commit/push. This just keeps
 # the local mirror warm so the dashboard is current between status runs.
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +37,7 @@ MAX_OPEN="${LL_MAX_OPEN:-22}"
 # the block reflects every trailer in history, synced into a copy — never the working tree
 VIEW="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ll-roll-$$")"
 cp "$LEDGER" "$VIEW" && LL_LEDGER_FILE="$VIEW" LL_DECISIONS_FILE="" \
-  "$HERE/ledger-sync.sh" >/dev/null 2>&1 || true
+  bash "$HERE/ledger-sync.sh" >/dev/null 2>&1 || true
 HOST="$(ll_host)"
 LL_HOST="$HOST" PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/_ledger_parse.py" block \
   "$VIEW" "$ID" "$REPO" "$HEAD_SHA" "$STATE" "$SINCE" "$VERSION" "$MAX_OPEN" \

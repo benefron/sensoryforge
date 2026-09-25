@@ -29,7 +29,7 @@ newest `_rebuilt <UTC stamp>` wins.
 
 Result is written to <ours> (git's contract). Exit 0 = merged, 1 = conflict left for a human.
 
-ledger-template-version: 5
+ledger-template-version: 6
 """
 import io
 import os
@@ -65,7 +65,7 @@ def merge3(base, ours, theirs):
     paths = []
     for name, content in (('ours', ours), ('base', base), ('theirs', theirs)):
         p = os.path.join(d, name)
-        io.open(p, 'w', encoding='utf-8').write(content)
+        io.open(p, 'w', encoding='utf-8', newline='\n').write(content)
         paths.append(p)
     r = subprocess.run(['git', 'merge-file', '-p', '-L', 'ours', '-L', 'base', '-L', 'theirs']
                        + paths, capture_output=True, text=True)
@@ -258,7 +258,7 @@ def main(argv):
         text, conflict = merge_decisions(base, ours, theirs)
     else:
         text, conflict = merge3(base, ours, theirs)
-    io.open(argv[1], 'w', encoding='utf-8').write(text)
+    io.open(argv[1], 'w', encoding='utf-8', newline='\n').write(text)
     return 1 if conflict else 0
 
 

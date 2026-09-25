@@ -8,7 +8,7 @@
 # RECALL=off in ledger.conf turns it off for the repo; LEDGER_DIGEST=off, or a headless run,
 # turns it off with the digest.
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null

@@ -46,7 +46,7 @@ every clone and branch, so two machines or two branches can never hand out one i
 rebase or squash-merge leaves the id intact. Legacy sequential ids (`F-014`) are still parsed
 everywhere and never renumbered.
 
-ledger-template-version: 5
+ledger-template-version: 6
 """
 import datetime
 import hashlib
@@ -1364,7 +1364,7 @@ def write_rules(root, ledger, outdir):
         except OSError:
             old = ''
         if old != text:
-            io.open(path, 'w', encoding='utf-8').write(text)
+            io.open(path, 'w', encoding='utf-8', newline='\n').write(text)
     for f in os.listdir(outdir):
         if f.endswith('.md') and f not in keep:
             os.remove(os.path.join(outdir, f))
@@ -1594,7 +1594,7 @@ def write_seen(root, session, ids, append=False):
         return
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with io.open(path, 'a' if append else 'w', encoding='utf-8') as f:
+        with io.open(path, 'a' if append else 'w', encoding='utf-8', newline='\n') as f:
             f.write(''.join(i + '\n' for i in ids))
         if not append:                   # prune other sessions' files after two weeks
             cutoff = datetime.datetime.now().timestamp() - 14 * 86400
@@ -1649,11 +1649,11 @@ def _log_recall(root, rows):
     try:
         os.makedirs(d, exist_ok=True)
         path = os.path.join(d, 'log.tsv')
-        with io.open(path, 'a', encoding='utf-8') as f:
+        with io.open(path, 'a', encoding='utf-8', newline='\n') as f:
             f.write(''.join('\t'.join(str(c) for c in r) + '\n' for r in rows))
         if os.path.getsize(path) > 2_000_000:          # keep the newest half
             lines = io.open(path, encoding='utf-8').read().splitlines(True)
-            io.open(path, 'w', encoding='utf-8').writelines(lines[len(lines) // 2:])
+            io.open(path, 'w', encoding='utf-8', newline='\n').writelines(lines[len(lines) // 2:])
     except OSError:
         pass
 

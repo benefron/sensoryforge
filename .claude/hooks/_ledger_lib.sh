@@ -5,7 +5,7 @@
 # per-repo hooks keep working on a clone that has never seen this skill. Keep it small,
 # dependency-free (git + coreutils only), and safe to source from any shell.
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 
 # --- repo / path resolution --------------------------------------------------
 
@@ -146,6 +146,10 @@ ll_ensure_index_drivers() {
 # user's own — is kept as <name>.pre-ledger and runs first. core.hooksPath is NOT used: it
 # would silently disable every hook in .git/hooks (Git LFS among them).
 LL_GIT_HOOKS="commit-msg post-commit post-merge"
+# The shim runs the committed hook through bash, so a checkout whose hooks lost their executable
+# bit (committed from Windows, where git ignores it) is still enforced. Bump the marker when the
+# shim changes: an older shim reads as inactive and is rewritten in place at the next session.
+LL_SHIM_MARK="living-ledger shim v2"
 
 ll_hooks_dir() {
   local d; d="$(git -C "$1" rev-parse --git-path hooks 2>/dev/null)" || return 1
@@ -162,7 +166,7 @@ ll_git_hooks_state() {
   fi
   d="$(ll_hooks_dir "$root")" || { printf 'inactive\n'; return 0; }
   for n in $LL_GIT_HOOKS; do
-    grep -q 'living-ledger shim' "$d/$n" 2>/dev/null || { printf 'inactive\n'; return 0; }
+    grep -q "$LL_SHIM_MARK" "$d/$n" 2>/dev/null || { printf 'inactive\n'; return 0; }
   done
   printf 'active\n'
 }
@@ -185,15 +189,17 @@ ll_activate_git_hooks() {
   mkdir -p "$d" || return 1
   for n in $LL_GIT_HOOKS; do
     f="$d/$n"
-    grep -q 'living-ledger shim' "$f" 2>/dev/null && continue
-    [ -e "$f" ] && mv "$f" "$f.pre-ledger"
+    grep -q "$LL_SHIM_MARK" "$f" 2>/dev/null && continue
+    # an older shim of ours is rewritten in place; anyone else's hook is kept and runs first
+    grep -q 'living-ledger shim' "$f" 2>/dev/null || { [ -e "$f" ] && mv "$f" "$f.pre-ledger"; }
     cat > "$f" <<EOF
 #!/bin/sh
-# living-ledger shim: runs the repo's committed .githooks/$n. Delete this file to disable.
+# $LL_SHIM_MARK: runs the repo's committed .githooks/$n through bash (so it does not depend on
+# the file's executable bit). Delete this file to disable.
 # A hook that was here before is kept as $n.pre-ledger and runs first.
 if [ -x "\$0.pre-ledger" ]; then "\$0.pre-ledger" "\$@" || exit \$?; fi
 T="\$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/$n"
-[ -x "\$T" ] && exec "\$T" "\$@"
+[ -f "\$T" ] && exec bash "\$T" "\$@"
 exit 0
 EOF
     chmod +x "$f"
@@ -301,9 +307,23 @@ ll_repo_behind() {
   return 0
 }
 
+# ll_changes_since <repo version> <skill version>  ->  what every version after the repo's added
+ll_changes_since() {
+  local from="$1" to="$2" v out=""
+  case "$from" in ''|*[!0-9]*) from=$(( to - 1 )) ;; esac
+  [ "$from" -lt $(( to - 3 )) ] && from=$(( to - 3 ))       # the last three are plenty
+  v=$(( from + 1 ))
+  while [ "$v" -le "$to" ]; do
+    out="${out:+$out; }v$v: $(ll_version_changes "$v")"
+    v=$(( v + 1 ))
+  done
+  printf '%s\n' "$out"
+}
+
 # ll_version_changes <version>  ->  one line naming what that version added
 ll_version_changes() {
   case "$1" in
+    6) printf '%s\n' "hooks that keep working when a checkout lost the executable bit (a repo committed from Windows), ledger files written with Unix line endings on every platform, and an upgrade commit that keeps the scripts executable" ;;
     5) printf '%s\n' "prompt-time recall: each message you type is matched against the whole ledger, and the entries it touches that the session digest did not show are put in front of Claude (threshold calibrated at /ledger-tidy); ledger search" ;;
     4) printf '%s\n' "content-hash ids (no more id collisions across branches and machines), sync derived from git with no per-machine bookmark, an entry-wise merge driver for the ledger, Supersedes:/Due:/Area: trailers, overdue and triage flags, ledger lint" ;;
     3) printf '%s\n' "enforced commit trailers, automatic post-commit ledger sync, Refs: backlinks, the level-2 decisions record, stale-rule detection, automatic cross-repo index push" ;;

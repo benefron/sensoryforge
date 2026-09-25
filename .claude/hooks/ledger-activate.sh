@@ -5,7 +5,7 @@
 # clone's hooks dir; a hook already there (Git LFS, pre-commit, your own) is kept as
 # <name>.pre-ledger and still runs first. Delete the shim to deactivate.
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null

@@ -10,7 +10,7 @@
 # re-entered hook returns immediately) and carries no trailers of its own (so a later
 # sync produces no change from it).
 #
-# ledger-template-version: 5
+# ledger-template-version: 6
 set -u
 
 # 1. recursion guard (and the explicit opt-out for pipelines) -----------------
@@ -29,7 +29,7 @@ for m in REBASE_HEAD rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD BISEC
 done
 
 SYNC="$ROOT/.claude/hooks/ledger-sync.sh"
-[ -x "$SYNC" ] || exit 0
+[ -f "$SYNC" ] || exit 0
 
 # 3. the two files the sync may write: the ledger (level 1) and the decisions log
 #    (level 2). Both are auto-committed together, and nothing else ever is.
@@ -67,7 +67,7 @@ HANDEDITED=0
 [ -n "$(dirty)" ] && HANDEDITED=1
 
 # 5. sync ---------------------------------------------------------------------
-LEDGER_SYNC_IN_PROGRESS=1 "$SYNC" >/dev/null || true      # warnings (unknown ids) pass through
+LEDGER_SYNC_IN_PROGRESS=1 bash "$SYNC" >/dev/null || true      # warnings (unknown ids) pass through
 
 if [ -n "$(dirty)" ]; then
   if [ "$HANDEDITED" = 1 ]; then
@@ -91,10 +91,10 @@ if [ -n "$(dirty)" ]; then
 fi
 
 # 6. a new Directive:/Constraint:/Rejected: becomes a path-scoped rule right away
-[ -x "$ROOT/.claude/hooks/ledger" ] && "$ROOT/.claude/hooks/ledger" rules >/dev/null 2>&1
+[ -f "$ROOT/.claude/hooks/ledger" ] && bash "$ROOT/.claude/hooks/ledger" rules >/dev/null 2>&1
 
 # 7. keep the cross-repo mirror warm -----------------------------------------
-[ -x "$ROOT/.claude/hooks/ledger-rollup.sh" ] && \
-  LEDGER_SYNC_IN_PROGRESS=1 "$ROOT/.claude/hooks/ledger-rollup.sh" >/dev/null 2>&1
+[ -f "$ROOT/.claude/hooks/ledger-rollup.sh" ] && \
+  LEDGER_SYNC_IN_PROGRESS=1 bash "$ROOT/.claude/hooks/ledger-rollup.sh" >/dev/null 2>&1
 
 exit 0
