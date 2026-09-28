@@ -120,6 +120,7 @@ RA's response to release as strong as to indentation (the RA filter is symmetric
 ## D-407c639 · CLOSED · decision · - · 2026-09-28
 the named gabor stimulus's default sigma and wavelength become 1.0 mm (those of the layered gabor shape), so a default gabor spans many receptors of a 0.15 mm grid
 → commit 5251e45
+↔ 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
 
 ## D-6bae4df · CLOSED · decision · - · 2026-09-24
 for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
@@ -196,10 +197,11 @@ the deleted ViewBox of the GC-on test failures always belonged to the window run
 PyQt 5.15.11 segfaults in PyQtSlot::call when the cyclic collector frees a functools.partial slot that a queued cross-thread signal has yet to deliver; StimulusPreview's render-worker connections formed such a cycle through the preview
 → commit 74f7d2e
 
-## F-d33d335 · OPEN · finding · - · 2026-09-24
+## F-d33d335 · CLOSED · finding · - · 2026-09-24
 the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers about two receptors of a 0.15 mm grid, so at its defaults it drives tactile_sa1_ra1 to 54 SA and 0 RA spikes in 500 ms against 1214 and 82 for a default gaussian
 → commit abdf37f
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+✓ closed by 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
 
 ## F-93b91b1 · OPEN · finding · - · 2026-09-24
 the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
