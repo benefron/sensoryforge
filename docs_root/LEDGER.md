@@ -201,9 +201,10 @@ the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers
 → commit abdf37f
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 
-## F-93b91b1 · OPEN · finding · - · 2026-09-24
+## F-93b91b1 · CLOSED · finding · - · 2026-09-24
 the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
 → commit abdf37f
+✓ closed by 1286794 fix(gui): warn when a spiking population fires no spikes in a run
 
 ## F-073fc19 · STANDING · finding · - · 2026-09-24
 before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
