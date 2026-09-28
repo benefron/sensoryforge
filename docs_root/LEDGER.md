@@ -108,6 +108,11 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-8dde454 · CLOSED · decision · - · 2026-09-28
+the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
+· Rejected: keeping P5's 45 Hz held-stimulus gain for the non-adapting AdEx | its SA is then silent below about 40% of the benchmark pressure, so weak pressures are invisible to SA
+→ commit 67c45b5
+
 ## F-36c4674 · STANDING · finding · - · 2026-09-28
 before this change each dropped SensoryForgeApp (tactile_sa1_ra1 preset, every screen visited) left 2 GridPreview and 2 PlotWidget wrappers alive in plot_factory._CONNECTIONS (6 of each after three windows); after it, none
 → commit 699a4fa
@@ -116,6 +121,7 @@ before this change each dropped SensoryForgeApp (tactile_sa1_ra1 preset, every s
 the tactile recipes' neurons have no spike-frequency adaptation and no voltage clamp by default -- AdEx SA1_tonic and RA1_phasic get a = b = 0, the Izhikevich recipe sets d = 0, and v_floor defaults to none on Izhikevich and AdEx; adaptation (the TouchSim-fitted values, kept as AdEx presets SA1_adapting and RA1_adapting and as documented Izhikevich d values) and the clamp are opt-in options
 · Rejected: keeping the TouchSim-fitted adaptation by default | it adds a history-dependent, nonlinear term between rate and pressure that pressure-simulation's Kalman-filter inference would have to model
 → commit 5251e45
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 
 ## D-4e669b4 · CLOSED · decision · - · 2026-09-28
 RA's response to release as strong as to indentation (the RA filter is symmetric in the rate of change) is kept by design and documented as a known difference from TouchSim's RA
@@ -130,6 +136,7 @@ the named gabor stimulus's default sigma and wavelength become 1.0 mm (those of 
 for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
 → commit c368ac7
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
@@ -160,6 +167,7 @@ AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing 
 SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does
 · Rejected: keeping the geometric mean over all four benchmark stimuli | with SA1-like dynamics the AdEx recipe's static and moving rates spread wider than the band itself
 → commit 3b30da8
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 
 ## F-f9f7896 · STANDING · finding · - · 2026-09-24
 the Izhikevich recipe's SA reaches its -120 mV floor on moving stimuli's trailing edges, but its spikes are identical with and without the clamp on all four benchmark stimuli, so F-037's divergence from pressure-simulation's unclamped neurons does not arise
