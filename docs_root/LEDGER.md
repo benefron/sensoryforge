@@ -108,10 +108,16 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-673e0ed · CLOSED · decision · - · 2026-09-28
+the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain
+· Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
+→ commit df3320e
+
 ## D-8dde454 · CLOSED · decision · - · 2026-09-28
 the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
 · Rejected: keeping P5's 45 Hz held-stimulus gain for the non-adapting AdEx | its SA is then silent below about 40% of the benchmark pressure, so weak pressures are invisible to SA
 → commit 67c45b5
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 
 ## F-36c4674 · STANDING · finding · - · 2026-09-28
 before this change each dropped SensoryForgeApp (tactile_sa1_ra1 preset, every screen visited) left 2 GridPreview and 2 PlotWidget wrappers alive in plot_factory._CONNECTIONS (6 of each after three windows); after it, none
@@ -137,6 +143,7 @@ for now SensoryForge's tactile models serve the pressure-simulation project and 
 → commit c368ac7
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 ↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
@@ -189,6 +196,7 @@ SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at
 → commit ce166e0
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 
 ## D-f4d0967 · CLOSED · decision · - · 2026-09-24
 SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
