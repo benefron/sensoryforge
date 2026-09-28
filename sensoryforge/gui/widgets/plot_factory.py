@@ -12,14 +12,24 @@ garbage collector has reproduced a segfault inside
 ``ScatterPlotItem.renderSymbol`` (see ``docs_root/LEDGER.md`` F-035). Always
 connect through :func:`connect`, which wraps the callback in a plain
 ``functools.partial`` (no bound method, no closure over a widget) and
-records the connection so it can be released with :func:`teardown` before
-the plot is destroyed.
+records the connection on its owner so it can be released with
+:func:`teardown` before the plot is destroyed.
+
+Where the record lives (ledger F-0eaa5d9): on the owner itself, as an
+attribute, never in a module-level table. A module-level
+``WeakKeyDictionary`` keyed by the owner cannot release it when the value's
+slot holds the owner, as it often does (``grid_preview.py`` binds its own
+widget, ``results_map_panel.py`` a method of its panel, and both hold the
+plot): the key is never unreferenced, so every torn-down window's plots,
+and everything they reference, stayed alive for the life of the process.
+Held by the owner, the record is part of the owner's own reference graph
+and is freed with it. Connections made without an owner are not recorded
+anywhere.
 """
 
 from __future__ import annotations
 
 import functools
-import weakref
 from typing import Callable, List, Optional, Tuple
 
 import pyqtgraph as pg
@@ -27,15 +37,9 @@ from PyQt5 import QtWidgets
 
 from sensoryforge.gui import theme
 
-# owner (a pg.PlotWidget, or any other hashable/weak-referenceable object
-# passed as `owner=`) -> list of (signal, slot) pairs made through connect().
-_CONNECTIONS: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
-
-# Connections made without an `owner`: never torn down automatically by
-# teardown(plot) since there is no owning plot to key them under. Kept only
-# so connect()'s bookkeeping is total; callers that care about cleanup should
-# always pass `owner=`.
-_UNOWNED_CONNECTIONS: List[Tuple[object, Callable]] = []
+#: The attribute of an ``owner`` under which :func:`connect` keeps that
+#: owner's ``(signal, slot)`` pairs, until :func:`teardown` releases them.
+_RECORD_ATTR = "_plot_factory_connections"
 
 
 def axis_label(text: str, unit: str = "") -> str:
@@ -208,9 +212,10 @@ def connect(
 
     Wraps ``callback`` in ``functools.partial(callback, *args)`` -- never a
     bound method, never a lambda closing over a widget -- and connects that
-    to ``signal``. The connection is recorded so :func:`teardown` can
-    disconnect it later; pass ``owner`` (typically the ``pg.PlotWidget`` the
-    signal's item lives on) so ``teardown(owner)`` finds it.
+    to ``signal``. With an ``owner`` (typically the ``pg.PlotWidget`` the
+    signal's item lives on) the connection is recorded on the owner itself,
+    so :func:`teardown` can disconnect it later and the record is freed with
+    the owner (ledger F-0eaa5d9); :func:`connections` lists it.
 
     Args:
         signal: A pyqtgraph/Qt bound signal (e.g. ``scatter.sigClicked``).
@@ -218,25 +223,53 @@ def connect(
             invoke on emission. Called as ``callback(*args, *signal_payload)``.
         *args: Extra positional arguments bound ahead of the signal's own
             emitted arguments.
-        owner: The object connections should be torn down with. If omitted,
-            the connection is recorded but not associated with any plot, so
-            it will not be released by :func:`teardown`.
+        owner: The object connections should be torn down with. It must
+            take attributes (every Qt and pyqtgraph object does). If
+            omitted, the connection is not recorded anywhere and
+            :func:`teardown` cannot release it: keep the returned slot and
+            disconnect it yourself, or let it end with the signal's sender.
 
     Returns:
         The connected slot (the ``functools.partial``), for anyone who wants
         to disconnect it manually.
 
+    Raises:
+        TypeError: If ``owner`` cannot take attributes (it has no
+            ``__dict__``). Nothing is connected in that case.
+
     Example:
         >>> scatter = make_scatter()
         >>> connect(scatter.sigClicked, on_click, "population-a", owner=plot)
     """
+    record: Optional[List[Tuple[object, Callable]]] = None
+    if owner is not None:
+        try:
+            # vars(), not getattr/setattr: pg.PlotWidget forwards unknown
+            # attribute reads to its PlotItem.
+            record = vars(owner).setdefault(_RECORD_ATTR, [])
+        except TypeError:
+            raise TypeError(
+                f"plot_factory.connect owner must take attributes, got a "
+                f"{type(owner).__name__} with no __dict__"
+            ) from None
     slot = functools.partial(callback, *args)
     signal.connect(slot)
-    if owner is not None:
-        _CONNECTIONS.setdefault(owner, []).append((signal, slot))
-    else:
-        _UNOWNED_CONNECTIONS.append((signal, slot))
+    if record is not None:
+        record.append((signal, slot))
     return slot
+
+
+def connections(owner: object) -> List[Tuple[object, Callable]]:
+    """The ``(signal, slot)`` pairs :func:`connect` recorded for ``owner``.
+
+    Args:
+        owner: An object passed as ``owner=`` to :func:`connect`.
+
+    Returns:
+        A copy of its record, in connection order; empty if it has none
+        (never connected, or already torn down).
+    """
+    return list(getattr(owner, "__dict__", {}).get(_RECORD_ATTR, ()))
 
 
 def teardown(plot: pg.PlotWidget) -> None:
@@ -251,7 +284,7 @@ def teardown(plot: pg.PlotWidget) -> None:
     Args:
         plot: The plot (or other owner passed to ``connect``) to tear down.
     """
-    for signal, slot in _CONNECTIONS.pop(plot, []):
+    for signal, slot in getattr(plot, "__dict__", {}).pop(_RECORD_ATTR, []):
         try:
             signal.disconnect(slot)
         except TypeError:

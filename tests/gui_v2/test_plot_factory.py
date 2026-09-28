@@ -1,11 +1,13 @@
 """Tests for sensoryforge.gui.widgets.plot_factory.
 
 Covers the themed construction helpers, the F-035-safe connect/teardown
-signal wiring, and a GC-enabled regression test for the segfault ledger
-entry F-035 describes.
+signal wiring, a GC-enabled regression test for the segfault ledger
+entry F-035 describes, and that connection records die with their plots
+(F-0eaa5d9).
 """
 
 import gc
+import weakref
 
 import pytest
 
@@ -13,10 +15,30 @@ pytest.importorskip("PyQt5")
 
 import pyqtgraph as pg  # noqa: E402
 
+from sensoryforge.config.schema import GridConfig  # noqa: E402
 from sensoryforge.gui import theme  # noqa: E402
 from sensoryforge.gui.widgets import plot_factory  # noqa: E402
+from sensoryforge.gui.widgets.grid_preview import GridPreview  # noqa: E402
 
 pytestmark = pytest.mark.gui
+
+_CONTAINERS = (
+    list,
+    dict,
+    set,
+    weakref.WeakKeyDictionary,
+    weakref.WeakValueDictionary,
+    weakref.WeakSet,
+)
+
+
+def _module_registries() -> dict:
+    """Every module-level container in ``plot_factory``: name -> its length."""
+    return {
+        name: len(value)
+        for name, value in vars(plot_factory).items()
+        if not name.startswith("__") and isinstance(value, _CONTAINERS)
+    }
 
 
 class TestMakePlot:
@@ -161,6 +183,104 @@ class TestConnectTeardown:
 
         # Must not raise even though the slot is already disconnected.
         plot_factory.teardown(plot)
+
+    def test_teardown_drops_the_record(self, qtbot):
+        plot = plot_factory.make_plot()
+        scatter = plot_factory.make_scatter()
+        plot.addItem(scatter)
+
+        def cb(*args):
+            pass
+
+        slot = plot_factory.connect(scatter.sigClicked, cb, "tag", owner=plot)
+        assert plot_factory.connections(plot) == [(scatter.sigClicked, slot)]
+        plot_factory.teardown(plot)
+        assert plot_factory.connections(plot) == []
+
+    def test_an_owner_without_attributes_is_refused_before_connecting(self, qtbot):
+        scatter = plot_factory.make_scatter()
+        calls = []
+
+        def on_click(*args):
+            calls.append(args)
+
+        with pytest.raises(TypeError, match="owner must take attributes"):
+            plot_factory.connect(scatter.sigClicked, on_click, owner=object())
+        scatter.sigClicked.emit(scatter, [], None)
+        assert calls == []
+
+
+def _on_panel_click(panel, *emitted):
+    """A ``connect`` callback that, like GridPreview's, is bound to its panel."""
+    panel.clicks += 1
+
+
+class _Panel:
+    """Holds a plot and binds itself into that plot's slots.
+
+    ``GridPreview`` (``self`` as a ``connect`` argument) and
+    ``NeuronMapPanel`` (a method of ``self``) do the same, so the slot
+    references the panel, which references the owner plot.
+    """
+
+    def __init__(self) -> None:
+        self.clicks = 0
+        self.plot = plot_factory.make_plot()
+        self.scatter = plot_factory.make_scatter()
+        self.plot.addItem(self.scatter)
+        plot_factory.connect(
+            self.scatter.sigClicked, _on_panel_click, self, owner=self.plot
+        )
+
+
+class TestConnectionRecordLifetime:
+    """F-0eaa5d9: a record kept in a module table outlived its plot."""
+
+    def test_a_dropped_plot_is_freed_with_its_connections(self, qtbot):
+        baseline = _module_registries()
+        panel = _Panel()
+        panel.scatter.sigClicked.emit(panel.scatter, [], None)
+        assert panel.clicks == 1
+        assert plot_factory.connections(panel.plot), "the connection was recorded"
+        assert _module_registries() == baseline, "...on the plot, not the module"
+        plot_alive = weakref.ref(panel.plot)
+
+        del panel
+        gc.collect()
+
+        assert plot_alive() is None, "a registry kept the dropped plot alive"
+        assert _module_registries() == baseline
+
+    def test_a_dropped_grid_preview_is_freed(self, qtbot):
+        preview = GridPreview()
+        preview.set_grids([GridConfig(name="g", rows=10, cols=10)])
+        assert plot_factory.connections(preview.plot)
+        preview_alive = weakref.ref(preview)
+        plot_alive = weakref.ref(preview.plot)
+
+        del preview
+        gc.collect()
+
+        assert preview_alive() is None and plot_alive() is None
+
+    def test_unowned_connections_are_not_kept_by_the_module(self, qtbot):
+        baseline = _module_registries()
+        scatter = plot_factory.make_scatter()
+        calls = []
+
+        def on_click(*args):
+            calls.append(args)
+
+        slots = [plot_factory.connect(scatter.sigClicked, on_click) for _ in range(20)]
+        assert _module_registries() == baseline
+
+        scatter.sigClicked.emit(scatter, [], None)
+        assert len(calls) == 20
+        # The caller releases an unowned connection through the returned slot.
+        for slot in slots:
+            scatter.sigClicked.disconnect(slot)
+        scatter.sigClicked.emit(scatter, [], None)
+        assert len(calls) == 20
 
 
 class TestF035Regression:
