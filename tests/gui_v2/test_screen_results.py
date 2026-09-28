@@ -423,7 +423,7 @@ def test_rate_panel_does_not_connect_a_bound_method_to_sigresized():
 
     panel = RatePanel()
     owner = panel.plot
-    connections = plot_factory._CONNECTIONS.get(owner, [])
+    connections = plot_factory.connections(owner)
     assert connections, "expected sigResized to be registered via plot_factory.connect"
     for signal, slot in connections:
         # functools.partial's .func must not be a bound method of the panel.

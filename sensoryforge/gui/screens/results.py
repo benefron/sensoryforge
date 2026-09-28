@@ -10,8 +10,9 @@ or from a bundle opened with **Open bundle...**. Every panel
 ``results_data.py`` for why.
 
 Layout: a fixed 2x3 grid (stimulus, raster, rate on the top row; trace, map
-and the visibility picker's column on the bottom), a stale banner above it,
-and a shared :class:`~sensoryforge.gui.screens.results_playback.PlaybackBar`
+and the visibility picker's column on the bottom), banners above it (stale
+results, silent populations, a saved bundle in view, a load error), and a
+shared :class:`~sensoryforge.gui.screens.results_playback.PlaybackBar`
 below.
 """
 
@@ -24,6 +25,7 @@ from PyQt5 import QtWidgets
 
 from sensoryforge.gui.widgets.figure_export import export_plots
 from sensoryforge.gui import theme
+from sensoryforge.gui.execution.run_checks import describe_silent, silent_populations
 from sensoryforge.gui.screens import results_data
 from sensoryforge.gui.screens.results_bundle_browser import OpenBundleDialog
 from sensoryforge.gui.screens.results_map_panel import NeuronMapPanel
@@ -49,6 +51,25 @@ PANEL_TITLES = {
 _SETTINGS_PREFIX = "gui/results_screen/panel_visible/"
 
 
+def _banner(color_key: str, text: str = "") -> QtWidgets.QLabel:
+    """A hidden full-width banner: white text on ``theme.PALETTE[color_key]``."""
+    banner = QtWidgets.QLabel(text)
+    banner.setWordWrap(True)
+    banner.setStyleSheet(
+        f"background: {theme.PALETTE[color_key]}; color: white; padding: 6px;"
+    )
+    banner.setVisible(False)
+    return banner
+
+
+def _view_results(view: results_data.ResultsView) -> Dict[str, Dict[str, object]]:
+    """``view``'s populations, keyed as ``SimulationEngine.run`` keys them."""
+    return {
+        pop.name: {"spikes": pop.spikes, "state": pop.state, "filtered": pop.filtered}
+        for pop in view.populations
+    }
+
+
 class ResultsScreen(QtWidgets.QWidget):
     """The Run & Results stage: live or bundled, one shared time cursor."""
 
@@ -65,14 +86,16 @@ class ResultsScreen(QtWidgets.QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self.stale_banner = QtWidgets.QLabel(
-            "Results are from before your last edits — Run again"
+        self.stale_banner = _banner(
+            "warning", "Results are from before your last edits — Run again"
         )
-        self.stale_banner.setStyleSheet(
-            f"background: {theme.PALETTE['warning']}; color: white; padding: 6px;"
-        )
-        self.stale_banner.setVisible(False)
         root.addWidget(self.stale_banner)
+
+        # F-93b91b1: a spiking population that fired nothing looks like a
+        # working result unless something says so. Rebuilt with every view
+        # shown, live or bundled; hidden when every population fired.
+        self.silent_banner = _banner("warning")
+        root.addWidget(self.silent_banner)
 
         self.bundle_banner = QtWidgets.QWidget()
         bundle_layout = QtWidgets.QHBoxLayout(self.bundle_banner)
@@ -89,11 +112,7 @@ class ResultsScreen(QtWidgets.QWidget):
         self.bundle_banner.setVisible(False)
         root.addWidget(self.bundle_banner)
 
-        self.error_banner = QtWidgets.QLabel("")
-        self.error_banner.setStyleSheet(
-            f"background: {theme.PALETTE['error']}; color: white; padding: 6px;"
-        )
-        self.error_banner.setVisible(False)
+        self.error_banner = _banner("error")
         root.addWidget(self.error_banner)
 
         toolbar = QtWidgets.QHBoxLayout()
@@ -261,10 +280,21 @@ class ResultsScreen(QtWidgets.QWidget):
         if self._viewing_bundle:
             self.show_live_results()
 
+    def silent_warning(self) -> str:
+        """The silent-population warning on screen, or ``""`` when there is none."""
+        return "" if self.silent_banner.isHidden() else self.silent_banner.text()
+
+    def _update_silent_banner(self, view: Optional[results_data.ResultsView]) -> None:
+        """Name every spiking population in ``view`` that fired no spikes."""
+        text = describe_silent(silent_populations(_view_results(view))) if view else ""
+        self.silent_banner.setText(f"⚠ {text}" if text else "")
+        self.silent_banner.setVisible(bool(text))
+
     def _set_view(self, view: Optional[results_data.ResultsView]) -> None:
         self._view = view
         self.empty_state.setVisible(view is None)
         self.error_banner.setVisible(False)
+        self._update_silent_banner(view)
         for widget in (
             self.stimulus_panel,
             self.raster_panel,
