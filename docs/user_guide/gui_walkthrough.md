@@ -104,6 +104,13 @@ potential on the right, all on one time cursor driven by **Play**. The panel lis
 the right hides or shows panels. **Open bundle…** loads any bundle, from the GUI, the
 CLI or a batch; **Export figures…** saves every visible panel as PNG and SVG.
 
+If a spiking population fired no spikes at all, a banner above the panels names it
+with the peak current its neurons received, in mA (the Populations screen's
+**Quick run** says the same under its raster). A peak far below what the neuron needs
+to fire means the stimulus amplitude or the population's input gain is too weak (see
+[units and gains](units_and_gains.md)). Analog populations have no threshold and are
+never flagged. The banner clears on the next run in which every population fires.
+
 The GUI's run is the engine's run: `tests/integration/test_gui_engine_equality.py`
 checks that a GUI run, a direct `SimulationEngine.run()` and `sensoryforge run` on the
 exported YAML give identical results.

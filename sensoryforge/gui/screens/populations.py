@@ -30,6 +30,7 @@ from sensoryforge.gui.bench import find_population, population_index
 from sensoryforge.gui.bench.filter_step import FilterStepBench
 from sensoryforge.gui.bench.neuron_trace import NeuronTraceBench
 from sensoryforge.gui.bench.rf_footprint import RfFootprintBench
+from sensoryforge.gui.execution.run_checks import describe_silent, silent_populations
 from sensoryforge.gui.execution.run_controller import RunController
 from sensoryforge.gui.screens.dsl_editor import DslEditorDialog
 from sensoryforge.gui.screens.populations_cards import (
@@ -188,6 +189,13 @@ class PopulationsScreen(QtWidgets.QWidget):
         self.quick_error.setWordWrap(True)
         self.quick_error.setVisible(False)
         quick_layout.addWidget(self.quick_error)
+        # F-93b91b1: an empty raster must not pass for a working population.
+        # Styled like the Stimulus screen's render warning.
+        self.quick_warning = QtWidgets.QLabel("")
+        self.quick_warning.setStyleSheet(f"color: {theme.PALETTE['warning']};")
+        self.quick_warning.setWordWrap(True)
+        self.quick_warning.setVisible(False)
+        quick_layout.addWidget(self.quick_warning)
         layout.addWidget(quick_box)
 
         layout.addStretch(1)
@@ -381,6 +389,7 @@ class PopulationsScreen(QtWidgets.QWidget):
         if self._selected is None or self._run_controller.running:
             return
         self.quick_error.setVisible(False)
+        self.quick_warning.setVisible(False)
         try:
             self._run_controller.run(
                 duration_ms=_QUICK_RUN_MS, bundle=False, quick_population=self._selected
@@ -390,6 +399,9 @@ class PopulationsScreen(QtWidgets.QWidget):
             self.quick_error.setVisible(True)
 
     def _on_quick_finished(self, result: Any) -> None:
+        warning = describe_silent(silent_populations(result.results))
+        self.quick_warning.setText(f"⚠ {warning}" if warning else "")
+        self.quick_warning.setVisible(bool(warning))
         pop_results: Optional[Dict[str, Any]] = result.results.get(self._selected)
         if pop_results is None or "spikes" not in pop_results:
             self.quick_raster.setData([], [])
