@@ -320,8 +320,8 @@ class GaborTexture(torch.nn.Module):
         center_x: float = 0.0,
         center_y: float = 0.0,
         amplitude: float = 1.0,
-        sigma: float = 0.3,
-        wavelength: float = 0.5,
+        sigma: float = 1.0,
+        wavelength: float = 1.0,
         orientation: float = 0.0,
         phase: float = 0.0,
         signed: bool = False,
@@ -333,7 +333,10 @@ class GaborTexture(torch.nn.Module):
             center_y: Y-coordinate of pattern center. Units: mm.
             amplitude: Peak amplitude of the pattern. Units: mA.
             sigma: Standard deviation of Gaussian envelope. Units: mm.
+                Default 1.0 (was 0.3 before D-407c639, which covered about two
+                receptors of a 0.15 mm grid).
             wavelength: Spatial wavelength of the sinusoid. Units: mm.
+                Default 1.0 (was 0.5).
             orientation: Orientation angle of the grating. Units: radians.
             phase: Phase offset of the sinusoid. Units: radians.
             signed: If True, the zero-mean signed form with negative lobes
@@ -431,7 +434,7 @@ class GaborTexture(torch.nn.Module):
                 "sigma",
                 label="Sigma (envelope)",
                 dtype="float",
-                default=0.3,
+                default=1.0,
                 min_val=0.01,
                 max_val=20.0,
                 step=0.05,
@@ -441,7 +444,7 @@ class GaborTexture(torch.nn.Module):
                 "wavelength",
                 label="Wavelength",
                 dtype="float",
-                default=0.5,
+                default=1.0,
                 min_val=0.01,
                 max_val=10.0,
                 step=0.05,
