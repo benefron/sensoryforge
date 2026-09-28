@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-36c4674 · STANDING · finding · - · 2026-09-28
+before this change each dropped SensoryForgeApp (tactile_sa1_ra1 preset, every screen visited) left 2 GridPreview and 2 PlotWidget wrappers alive in plot_factory._CONNECTIONS (6 of each after three windows); after it, none
+→ commit 699a4fa
+
 ## D-ce22df3 · CLOSED · decision · - · 2026-09-28
 the tactile recipes' neurons have no spike-frequency adaptation and no voltage clamp by default -- AdEx SA1_tonic and RA1_phasic get a = b = 0, the Izhikevich recipe sets d = 0, and v_floor defaults to none on Izhikevich and AdEx; adaptation (the TouchSim-fitted values, kept as AdEx presets SA1_adapting and RA1_adapting and as documented Izhikevich d values) and the clamp are opt-in options
 · Rejected: keeping the TouchSim-fitted adaptation by default | it adds a history-dependent, nonlinear term between rate and pressure that pressure-simulation's Kalman-filter inference would have to model
@@ -184,9 +188,10 @@ SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 
-## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
+## F-0eaa5d9 · CLOSED · finding · - · 2026-09-24
 plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
 → commit 6b04657
+✓ closed by 699a4fa fix(gui): keep plot_factory connection records on their owners
 
 ## F-de17e32 · STANDING · finding · - · 2026-09-24
 the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
