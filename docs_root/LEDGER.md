@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-6c2c916 · CLOSED · finding · - · 2026-09-29
+the pipeline strip's partial-wrapped session connections and ProblemList's strongly held prefix method each kept a dropped SensoryForgeApp alive until the cyclic collector ran; both now hold their owner weakly
+→ commit ef20023
+
 ## F-c8d509b · CLOSED · finding · - · 2026-09-29
 the no-spike banner reported the run's pre-floor filtered drive as the 'peak neuron input', so a silent run could show a negative input the neuron never received; it now names it the peak filtered drive and says when no positive drive reached the neurons
 → commit 74f0e3c
@@ -120,9 +124,10 @@ the Gabor builder routes (Stimulus.gabor, StaticStimulus, gabor_texture, gabor_t
 at its low-threshold gains (SA 160, RA 260) the non-adapting AdEx recipe's SA hold rate rises roughly linearly from about 10% of the benchmark pressure (0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude at a 1 mm probe, R^2 0.97) and its RA onset rate with ramp speed (62 to 208 Hz over 5 to 40 amplitude units per second, R^2 0.86)
 → commit 29be3f0
 
-## F-1d91063 · OPEN · finding · - · 2026-09-29
+## F-1d91063 · CLOSED · finding · - · 2026-09-29
 two GUI connections follow the reference-cycle pattern F-085 warned about -- screens/results.py connects a lambda over self to each panel checkbox, and results_map_panel.py passes the bound method self._on_clicked through plot_factory.connect
 → commit 29be3f0
+✓ closed by ef20023 fix(gui): free a window that ran without the cyclic collector
 
 ## F-155f231 · CLOSED · finding · - · 2026-09-29
 SimulationEngine.run with bundle_dir and return_intermediates=False raised KeyError: 'spikes' for an analog (DSL, no threshold) population, because it trimmed every result to its spikes, which would crash a BatchExecutor run of an analog config that writes bundles
