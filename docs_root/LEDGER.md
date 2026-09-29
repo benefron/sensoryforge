@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ac51054 · CLOSED · finding · - · 2026-09-29
+the AdEx recipe's RA gain 260, merged in PR #17, was silent at 10% of the benchmark's rate of change because the low-threshold rule rounded its gain (262.7) down; low-threshold gains now round up, giving 270
+→ commit 995a001
+
 ## F-6c2c916 · CLOSED · finding · - · 2026-09-29
 the pipeline strip's partial-wrapped session connections and ProblemList's strongly held prefix method each kept a dropped SensoryForgeApp alive until the cyclic collector ran; both now hold their owner weakly
 → commit ef20023
@@ -138,6 +142,7 @@ the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of 
 · Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
 → commit df3320e
 ↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+↔ 995a001 fix(presets): round the AdEx recipe's low-threshold RA gain up, to 270
 
 ## D-8dde454 · CLOSED · decision · - · 2026-09-28
 the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
