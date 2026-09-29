@@ -14,7 +14,8 @@ RA populations do not interact, so one run at gain ``g`` scores both.
 
 Selection rules (stated here so a reader need not read the code):
 
-    SA: the gain at which the responsive-set SA rate during
+    SA, Izhikevich recipe (rule ``"p5_hold"``): the gain at which the
+    responsive-set SA rate during
     ``ramp_gaussian``'s static hold, the one held stimulus of the four,
     equals the centre of P5's 20-100 Hz band on a log scale,
     sqrt(20 * 100) = 44.7 Hz. It is found by interpolating log(rate) against
@@ -27,7 +28,27 @@ Selection rules (stated here so a reader need not read the code):
     met by the AdEx recipe once SA had that dynamic response: its static and
     moving rates spread wider than the band itself.
 
-    RA: at the chosen SA gain, the amplitude per mm of indentation is fitted
+    SA, AdEx recipe (rule ``"low_threshold"``, D-8dde454): pressure-
+    simulation's model has no adaptation, and at the P5 gain its SA is silent
+    below about 40% of the benchmark pressure. So its gain puts the firing
+    threshold at ``SA_THRESHOLD_FRACTION`` (10%) of the benchmark pressure.
+    The drive is linear in both gain and pressure, so a held benchmark at 10%
+    of its amplitude with gain ``g`` drives the neuron exactly as the full
+    benchmark does with gain ``g / 10``. The rule therefore bisects (on a log
+    scale) for the lowest gain ``g0`` at which the held ``ramp_gaussian``
+    fires at all (at least one responsive-set spike in the scored hold), and
+    takes ``g0 / SA_THRESHOLD_FRACTION``. The held benchmark then fires above
+    P5's band. That is accepted: pressure-simulation needs SA to respond to
+    weak pressures more than it needs P5's rate for a held stimulus.
+
+    RA, AdEx recipe (rule ``"low_threshold"``, D-673e0ed): as for SA, 10x
+    the lowest gain at which the held benchmark's ramp makes RA fire at all,
+    so RA fires from about 10% of the benchmark's rate of pressure change and
+    stays proportional to it over the benchmark range. The TouchSim fit below
+    is still computed and reported for the AdEx recipe, for reference.
+
+    RA, Izhikevich recipe (rule ``"touchsim"``): at the chosen SA gain, the
+    amplitude per mm of indentation is fitted
     as in ``scripts/validation/compare_with_touchsim.py`` (SA's hold rate
     matches TouchSim's SA1 at 1.25 mm). RA's gain is then swept on a 15%
     grid from 0.33x to 8x the SA gain; each point is scored by the RMS log
@@ -74,6 +95,11 @@ from sensoryforge.config.schema import SensoryForgeConfig  # noqa: E402
 from sensoryforge.presets import load_preset  # noqa: E402
 
 RECIPES = {"Izhikevich": "tactile_sa1_ra1", "AdEx": "tactile_sa1_ra1_adex"}
+#: Which SA and RA gain rule each recipe uses (module docstring; D-8dde454,
+#: D-673e0ed).
+SA_RULES = {"Izhikevich": "p5_hold", "AdEx": "low_threshold"}
+RA_RULES = {"Izhikevich": "touchsim", "AdEx": "low_threshold"}
+SA_THRESHOLD_FRACTION = 0.1
 SA_BAND_HZ = (20.0, 100.0)
 SA_TARGET_HZ = math.sqrt(SA_BAND_HZ[0] * SA_BAND_HZ[1])
 SA_MAX_ISI_CV = 0.5
@@ -93,6 +119,7 @@ def score(
     gain: float,
     frames_by: Dict[str, Any],
     filtered_by: Dict[str, Dict[str, np.ndarray]],
+    stimuli: Optional[Tuple[str, ...]] = None,
 ) -> List[Dict[str, Any]]:
     """Run the four stimuli at ``gain`` and score every population.
 
@@ -104,13 +131,14 @@ def score(
         filtered_by: Drive ``[T, N]`` (mA) per stimulus and population, from
             which the responsive sets are derived (gain-independent: the set
             is a fraction of the population's own maximum).
+        stimuli: The stimulus names to run (default: all four).
 
     Returns:
         One row per (stimulus, population).
     """
     dt_ms = config.simulation.dt_ms
     rows = []
-    for name in T.STIMULI:
+    for name in stimuli or tuple(T.STIMULI):
         windows = T.windows_for(name, False)
         results = T.run_stimulus_engine(config, frames_by[name], gain, "cpu")
         for pop_name, pop_results in results.items():
@@ -230,6 +258,62 @@ def sa_passes(rows: List[Dict[str, Any]], gain: float) -> bool:
     return True
 
 
+def sa_fires_at(config, gain: float, frames_by, filtered_by) -> bool:
+    """Whether the held ``ramp_gaussian`` makes SA spike at ``gain``."""
+    for r in score(
+        config,
+        gain,
+        {"ramp_gaussian": frames_by["ramp_gaussian"]},
+        filtered_by,
+        stimuli=("ramp_gaussian",),
+    ):
+        if r["population"] == "SA" and r["hold_is_scored"]:
+            return r["sa_rate_hz"] > 0.0
+    return False
+
+
+def ra_fires_at(config, gain: float, frames_by, filtered_by) -> bool:
+    """Whether the held ``ramp_gaussian``'s ramp makes RA spike at ``gain``."""
+    for r in score(
+        config,
+        gain,
+        {"ramp_gaussian": frames_by["ramp_gaussian"]},
+        filtered_by,
+        stimuli=("ramp_gaussian",),
+    ):
+        if r["population"] == "RA":
+            return r["peak_per_neuron_hz"] > 0.0
+    return False
+
+
+def choose_ra_gain_low_threshold(config, frames_by, filtered_by) -> float:
+    """RA's counterpart of :func:`choose_sa_gain_low_threshold` (D-673e0ed)."""
+    lo, hi = 0.1, 5000.0
+    if not ra_fires_at(config, hi, frames_by, filtered_by):
+        raise ValueError("RA never fires on the benchmark ramp, even at gain 5000")
+    for _ in range(18):
+        mid = math.sqrt(lo * hi)
+        if ra_fires_at(config, mid, frames_by, filtered_by):
+            hi = mid
+        else:
+            lo = mid
+    return hi / SA_THRESHOLD_FRACTION
+
+
+def choose_sa_gain_low_threshold(config, frames_by, filtered_by) -> float:
+    """``g0 / SA_THRESHOLD_FRACTION``, ``g0`` the lowest gain that fires (docstring)."""
+    lo, hi = 0.1, 1000.0
+    if not sa_fires_at(config, hi, frames_by, filtered_by):
+        raise ValueError("SA never fires on the held benchmark, even at gain 1000")
+    for _ in range(16):
+        mid = math.sqrt(lo * hi)
+        if sa_fires_at(config, mid, frames_by, filtered_by):
+            hi = mid
+        else:
+            lo = mid
+    return hi / SA_THRESHOLD_FRACTION
+
+
 def calibrate(steps: int) -> Dict[str, Any]:
     """Sweep, choose and confirm the gains for both recipes."""
     gains = sweep_gains(steps=steps)
@@ -246,12 +330,18 @@ def calibrate(steps: int) -> Dict[str, Any]:
         rows: List[Dict[str, Any]] = []
         for g in gains:
             rows.extend(score(config, g, frames_by, filtered_by))
-        sa = choose_sa_gain(rows, gains)
+        if SA_RULES[model] == "low_threshold":
+            sa = choose_sa_gain_low_threshold(config, frames_by, filtered_by)
+        else:
+            sa = choose_sa_gain(rows, gains)
         if sa is None:
             raise ValueError(f"{model}: no sweep gain reaches the SA target")
         ra, ra_interval, a_per_mm, ra_errors = choose_ra_gain_touchsim(
             RECIPES[model], two_sig(sa)
         )
+        if RA_RULES[model] == "low_threshold":
+            # The TouchSim fit above is still run and reported, for reference.
+            ra = choose_ra_gain_low_threshold(config, frames_by, filtered_by)
         chosen = {"SA": two_sig(sa), "RA": two_sig(ra)}
         confirm = []
         for pop, g in chosen.items():
@@ -271,8 +361,18 @@ def calibrate(steps: int) -> Dict[str, Any]:
             "amplitude_per_mm": a_per_mm,
             "ra_touchsim_errors": ra_errors,
             "confirm": confirm,
-            "sa_confirm_passes": chosen["SA"] is not None
-            and sa_passes(confirm, chosen["SA"]),
+            "sa_rule": SA_RULES[model],
+            "ra_rule": RA_RULES[model],
+            "sa_confirm_passes": (
+                sa_passes(confirm, chosen["SA"])
+                if SA_RULES[model] == "p5_hold"
+                else sa_fires_at(
+                    config,
+                    chosen["SA"] * SA_THRESHOLD_FRACTION * 1.01,
+                    frames_by,
+                    filtered_by,
+                )
+            ),
             "ra_p5_check": ra_passes(confirm, chosen["RA"]),
         }
     return out
@@ -295,13 +395,14 @@ def write_report(result: Dict[str, Any], out_dir: Path) -> Path:
         lines += [
             f"## {model} (`{m['preset']}`)",
             "",
-            f"- **SA gain {m['chosen']['SA']}** (interpolated "
-            f"{m['sa_interpolated']:.1f}); confirmed in band: "
+            f"- **SA gain {m['chosen']['SA']}** (rule `{m['sa_rule']}`, "
+            f"unrounded {m['sa_interpolated']:.1f}); confirmed: "
             f"{m['sa_confirm_passes']}",
-            f"- **RA gain {m['chosen']['RA']}** (TouchSim's RA onset, "
-            f"minimal-error interval {tuple(round(g, 1) for g in m['ra_interval'])}, "
-            f"amplitude per mm {m['amplitude_per_mm']:.3f}); P5's RA criteria "
-            f"at this gain: {'met' if m['ra_p5_check'] else '**not met**'}",
+            f"- **RA gain {m['chosen']['RA']}** (rule `{m['ra_rule']}`). "
+            f"TouchSim's RA onset fit, for reference: minimal-error interval "
+            f"{tuple(round(g, 1) for g in m['ra_interval'])}, amplitude per mm "
+            f"{m['amplitude_per_mm']:.3f}. P5's RA criteria at the chosen gain: "
+            f"{'met' if m['ra_p5_check'] else '**not met**'}",
             "",
             "At the chosen gains:",
             "",

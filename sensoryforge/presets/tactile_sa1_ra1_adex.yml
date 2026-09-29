@@ -22,8 +22,10 @@
 # Usage:
 #   sensoryforge run --preset tactile_sa1_ra1_adex
 #
-# The AdEx presets SA1_tonic and RA1_phasic are fitted to TouchSim's SA1/RA
-# afferents (D-f4d0967, D-d9bd411; scripts/validation/fit_afferents.py).
+# The AdEx presets SA1_tonic and RA1_phasic have no adaptation, a 2 ms
+# refractory period and no voltage clamp (D-ce22df3, D-f5853a4); set
+# model_params.preset to SA1_adapting / RA1_adapting for the adaptation fitted
+# to TouchSim's SA1/RA afferents (scripts/validation/fit_afferents.py).
 # Input gains come from scripts/calibrate_recipe_gains.py (report:
 # benchmarks/results/recipe_calibration/): SA's puts a held stimulus at 45 Hz,
 # the centre of P5's band (D-ea0f017); RA's matches TouchSim's RA sensitivity.
@@ -53,7 +55,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: sa
-  input_gain: 370.0
+  input_gain: 160.0
   seed: 42
 - name: RA Population
   neuron_type: RA
@@ -65,7 +67,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: ra
-  input_gain: 490.0
+  input_gain: 260.0
   seed: 43
 simulation:
   device: cpu

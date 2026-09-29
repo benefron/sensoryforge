@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-155f231 · CLOSED · finding · - · 2026-09-29
+SimulationEngine.run with bundle_dir and return_intermediates=False raised KeyError: 'spikes' for an analog (DSL, no threshold) population, because it trimmed every result to its spikes, which would crash a BatchExecutor run of an analog config that writes bundles
+→ commit 70d937a
+
 ## D-673e0ed · CLOSED · decision · - · 2026-09-28
 the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain
 · Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
@@ -153,11 +157,12 @@ on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.
 with the neuron-input floor and a 2 ms refractory period, AdEx RA's peak per-afferent rate on moving_edge falls from 1200 to 400 Hz and no negative drive reaches either recipe's neurons; Izhikevich SA touches its -120 mV floor only on moving_edge (-121 mV unclamped) with identical spikes
 → commit 4daea68
 
-## F-f59aa11 · OPEN · finding · - · 2026-09-24
+## F-f59aa11 · STANDING · finding · - · 2026-09-24
 after strong stimulation the AdEx recipe's adaptation variable, which acts in mV, builds to hundreds of mV and drives the voltage far below rest (about -380 mV for SA and -170 mV for RA without the -130 mV clamp, which changes spikes on braille and drifting_grating); AdEx SA's hold ISI CV is about 0.5-0.6 against P5's 0.5, because its ramp response builds adaptation that decays through the hold, and its hold at 0.2 mm is 2.9 Hz against SA1's 8.6
 → commit 4daea68
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+· settled 2026-09-29: now applies only to the opt-in AdEx presets SA1_adapting / RA1_adapting; the AdEx recipe, pressure-simulation's model, is non-adapting (D-ce22df3)
 
 ## D-43dc520 · CLOSED · decision · - · 2026-09-24
 the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
@@ -186,10 +191,11 @@ at its calibrated gains the AdEx recipe leaves the physiological voltage range -
 ↔ 9e2b70a decide: floor the afferent neuron's input at zero; give AdEx a refractory period
 ✓ closed by 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
 
-## F-bad9126 · OPEN · finding · - · 2026-09-24
+## F-bad9126 · STANDING · finding · - · 2026-09-24
 RA's release response is as strong as its onset, because the RA filter is symmetric in the rate of change, while TouchSim's RA releases at 0.67-0.8 of its onset and is silent at 0.2 mm; SA also fires one spike at release at 1.25 mm, where SA1 is silent
 → commit 3b30da8
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+· settled 2026-09-29: kept by design (D-4e669b4) -- RA reports the size of the rate of pressure change in either direction, which suits the pressure-simulation design; documented in docs/user_guide/units_and_gains.md
 
 ## D-d9bd411 · CLOSED · decision · - · 2026-09-24
 SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
@@ -643,6 +649,7 @@ SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 ↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
+· 2026-09-29: the clamp is now opt-in on Izhikevich and AdEx (v_floor defaults to none, D-ce22df3), so by default SensoryForge matches pressure-simulation's unclamped neurons; MQIF still clamps
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
