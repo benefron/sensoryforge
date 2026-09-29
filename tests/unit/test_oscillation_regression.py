@@ -105,13 +105,18 @@ def test_sa_filter_derivative_amplification_bounded():
     ],
 )
 def test_neuron_v_bounded_below_with_large_negative_input(model_cls, v_min_expected):
-    """Neuron voltage must not drop below physiological minimum.
+    """With the clamp on, voltage must not drop below its floor.
 
     With large negative input current, the Euler step can push v far below
     the reset potential (e.g., -166 mV for Izhikevich). This is non-physical
-    and causes pathological dynamics via the v^2 / exp terms.
+    and causes pathological dynamics via the v^2 / exp terms. The clamp is
+    opt-in on Izhikevich and AdEx since D-ce22df3 (MQIF keeps it by default),
+    so it is switched on here explicitly.
     """
-    model = model_cls(dt=DT)
+    if model_cls is MQIFNeuronTorch:
+        model = model_cls(dt=DT)
+    else:
+        model = model_cls(dt=DT, v_floor=v_min_expected)
     # Large sustained negative drive — non-physical but should be handled safely
     large_neg = torch.full((1, 500, 1), -200.0)
     v_trace, spikes = model(large_neg)
@@ -121,6 +126,17 @@ def test_neuron_v_bounded_below_with_large_negative_input(model_cls, v_min_expec
         f"{model_cls.__name__}: v_min={v_min:.1f} mV < {v_min_expected} mV. "
         "Neuron v must be clamped to prevent non-physiological hyperpolarization."
     )
+
+
+@pytest.mark.parametrize("model_cls", [IzhikevichNeuronTorch, AdExNeuronTorch])
+def test_the_clamp_is_opt_in_for_izhikevich_and_adex(model_cls):
+    """D-ce22df3: no clamp unless v_floor is set."""
+    assert model_cls(dt=DT).v_floor is None
+    large_neg = torch.full((1, 500, 1), -200.0)
+    unclamped, _ = model_cls(dt=DT)(large_neg)
+    clamped, _ = model_cls(dt=DT, v_floor=-100.0)(large_neg)
+    assert unclamped.min().item() < -100.0
+    assert clamped.min().item() >= -100.0
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +156,10 @@ def test_noise_sa_gain100_no_extreme_voltages():
 
     sa = SAFilterTorch(tau_r=5.0, tau_d=30.0, k1=0.05, k2=3.0, dt=DT)
     sa_out = sa(noise)
-    drive = sa_out * 100.0
+    # The engine floors a tactile afferent's neuron input at 0 mA
+    # (D-43dc520), which is what keeps its voltage near rest now that the
+    # neuron has no clamp by default (D-ce22df3).
+    drive = (sa_out * 100.0).clamp(min=0.0)
 
     neuron = IzhikevichNeuronTorch(dt=DT)
     v_trace, spikes = neuron(drive)

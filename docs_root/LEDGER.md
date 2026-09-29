@@ -108,9 +108,58 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-4c73438 · STANDING · finding · - · 2026-09-29
+at its low-threshold gains (SA 160, RA 260) the non-adapting AdEx recipe's SA hold rate rises roughly linearly from about 10% of the benchmark pressure (0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude at a 1 mm probe, R^2 0.97) and its RA onset rate with ramp speed (62 to 208 Hz over 5 to 40 amplitude units per second, R^2 0.86)
+→ commit 29be3f0
+
+## F-1d91063 · OPEN · finding · - · 2026-09-29
+two GUI connections follow the reference-cycle pattern F-085 warned about -- screens/results.py connects a lambda over self to each panel checkbox, and results_map_panel.py passes the bound method self._on_clicked through plot_factory.connect
+→ commit 29be3f0
+
+## F-155f231 · CLOSED · finding · - · 2026-09-29
+SimulationEngine.run with bundle_dir and return_intermediates=False raised KeyError: 'spikes' for an analog (DSL, no threshold) population, because it trimmed every result to its spikes, which would crash a BatchExecutor run of an analog config that writes bundles
+→ commit 70d937a
+
+## D-673e0ed · CLOSED · decision · - · 2026-09-28
+the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain
+· Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
+→ commit df3320e
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+
+## D-8dde454 · CLOSED · decision · - · 2026-09-28
+the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
+· Rejected: keeping P5's 45 Hz held-stimulus gain for the non-adapting AdEx | its SA is then silent below about 40% of the benchmark pressure, so weak pressures are invisible to SA
+→ commit 67c45b5
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+
+## F-36c4674 · STANDING · finding · - · 2026-09-28
+before this change each dropped SensoryForgeApp (tactile_sa1_ra1 preset, every screen visited) left 2 GridPreview and 2 PlotWidget wrappers alive in plot_factory._CONNECTIONS (6 of each after three windows); after it, none
+→ commit 699a4fa
+
+## D-ce22df3 · CLOSED · decision · - · 2026-09-28
+the tactile recipes' neurons have no spike-frequency adaptation and no voltage clamp by default -- AdEx SA1_tonic and RA1_phasic get a = b = 0, the Izhikevich recipe sets d = 0, and v_floor defaults to none on Izhikevich and AdEx; adaptation (the TouchSim-fitted values, kept as AdEx presets SA1_adapting and RA1_adapting and as documented Izhikevich d values) and the clamp are opt-in options
+· Rejected: keeping the TouchSim-fitted adaptation by default | it adds a history-dependent, nonlinear term between rate and pressure that pressure-simulation's Kalman-filter inference would have to model
+→ commit 5251e45
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+
+## D-4e669b4 · CLOSED · decision · - · 2026-09-28
+RA's response to release as strong as to indentation (the RA filter is symmetric in the rate of change) is kept by design and documented as a known difference from TouchSim's RA
+→ commit 5251e45
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+
+## D-407c639 · CLOSED · decision · - · 2026-09-28
+the named gabor stimulus's default sigma and wavelength become 1.0 mm (those of the layered gabor shape), so a default gabor spans many receptors of a 0.15 mm grid
+→ commit 5251e45
+↔ 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
+
 ## D-6bae4df · CLOSED · decision · - · 2026-09-24
 for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
 → commit c368ac7
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
@@ -120,10 +169,13 @@ on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.
 with the neuron-input floor and a 2 ms refractory period, AdEx RA's peak per-afferent rate on moving_edge falls from 1200 to 400 Hz and no negative drive reaches either recipe's neurons; Izhikevich SA touches its -120 mV floor only on moving_edge (-121 mV unclamped) with identical spikes
 → commit 4daea68
 
-## F-f59aa11 · OPEN · finding · - · 2026-09-24
+## F-f59aa11 · STANDING · finding · - · 2026-09-24
 after strong stimulation the AdEx recipe's adaptation variable, which acts in mV, builds to hundreds of mV and drives the voltage far below rest (about -380 mV for SA and -170 mV for RA without the -130 mV clamp, which changes spikes on braille and drifting_grating); AdEx SA's hold ISI CV is about 0.5-0.6 against P5's 0.5, because its ramp response builds adaptation that decays through the hold, and its hold at 0.2 mm is 2.9 Hz against SA1's 8.6
 → commit 4daea68
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+· settled 2026-09-29: now applies only to the opt-in AdEx presets SA1_adapting / RA1_adapting; the AdEx recipe, pressure-simulation's model, is non-adapting (D-ce22df3)
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
 
 ## D-43dc520 · CLOSED · decision · - · 2026-09-24
 the current a tactile afferent population's neuron receives is floored at 0 mA (PopulationConfig.input_floor, which resolves to 0 for SA, RA and SA2 populations and to no floor otherwise); the recorded filtered drive stays signed, so bundles and pressure-simulation's decoder see the same signal
@@ -140,6 +192,7 @@ AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing 
 SA's calibrated gain puts the one held benchmark stimulus (ramp_gaussian's static hold) at 44.7 Hz, the centre of P5's band, with ISI CV below 0.5; the moving stimuli's SA rates are reported, not required to lie in the band, because SA now answers motion as TouchSim's SA1 does
 · Rejected: keeping the geometric mean over all four benchmark stimuli | with SA1-like dynamics the AdEx recipe's static and moving rates spread wider than the band itself
 → commit 3b30da8
+↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 
 ## F-f9f7896 · STANDING · finding · - · 2026-09-24
 the Izhikevich recipe's SA reaches its -120 mV floor on moving stimuli's trailing edges, but its spikes are identical with and without the clamp on all four benchmark stimuli, so F-037's divergence from pressure-simulation's unclamped neurons does not arise
@@ -151,25 +204,31 @@ at its calibrated gains the AdEx recipe leaves the physiological voltage range -
 ↔ 9e2b70a decide: floor the afferent neuron's input at zero; give AdEx a refractory period
 ✓ closed by 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
 
-## F-bad9126 · OPEN · finding · - · 2026-09-24
+## F-bad9126 · STANDING · finding · - · 2026-09-24
 RA's release response is as strong as its onset, because the RA filter is symmetric in the rate of change, while TouchSim's RA releases at 0.67-0.8 of its onset and is silent at 0.2 mm; SA also fires one spike at release at 1.25 mm, where SA1 is silent
 → commit 3b30da8
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+· settled 2026-09-29: kept by design (D-4e669b4) -- RA reports the size of the rate of pressure change in either direction, which suits the pressure-simulation design; documented in docs/user_guide/units_and_gains.md
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
 
 ## D-d9bd411 · CLOSED · decision · - · 2026-09-24
 SensoryForge's RA matches TouchSim's RA in sensitivity relative to SA, firing at the small indentations where TouchSim's RA fires, so small movements are detected; TouchSim's RA, not P5 alone, sets RA's calibration
 → commit ce166e0
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
+↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 
 ## D-f4d0967 · CLOSED · decision · - · 2026-09-24
 SensoryForge's SA matches TouchSim's SA1 in its ramp (dynamic) response and in a graded rise of rate with indentation, for both the Izhikevich and the AdEx recipe
 → commit ce166e0
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
 ↔ c368ac7 decide: tactile models stay simple and serve pressure-simulation first
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 
-## F-0eaa5d9 · OPEN · finding · - · 2026-09-24
+## F-0eaa5d9 · CLOSED · finding · - · 2026-09-24
 plot_factory._CONNECTIONS is a WeakKeyDictionary whose values (signal, slot) keep their own key plot alive, so a torn-down window's plots stay registered, and _UNOWNED_CONNECTIONS grows for the life of the process
 → commit 6b04657
+✓ closed by 699a4fa fix(gui): keep plot_factory connection records on their owners
 
 ## F-de17e32 · STANDING · finding · - · 2026-09-24
 the deleted ViewBox of the GC-on test failures always belonged to the window running the code: a functools.partial(self._load_config_file) per preset action held a dropped, Python-owned SensoryForgeApp in a reference cycle, so a collection started inside its own Sensors preview slot deleted the whole window under that slot
@@ -179,13 +238,16 @@ the deleted ViewBox of the GC-on test failures always belonged to the window run
 PyQt 5.15.11 segfaults in PyQtSlot::call when the cyclic collector frees a functools.partial slot that a queued cross-thread signal has yet to deliver; StimulusPreview's render-worker connections formed such a cycle through the preview
 → commit 74f7d2e
 
-## F-d33d335 · OPEN · finding · - · 2026-09-24
+## F-d33d335 · CLOSED · finding · - · 2026-09-24
 the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers about two receptors of a 0.15 mm grid, so at its defaults it drives tactile_sa1_ra1 to 54 SA and 0 RA spikes in 500 ms against 1214 and 82 for a default gaussian
 → commit abdf37f
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
+✓ closed by 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
 
-## F-93b91b1 · OPEN · finding · - · 2026-09-24
+## F-93b91b1 · CLOSED · finding · - · 2026-09-24
 the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
 → commit abdf37f
+✓ closed by 1286794 fix(gui): warn when a spiking population fires no spikes in a run
 
 ## F-073fc19 · STANDING · finding · - · 2026-09-24
 before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
@@ -601,6 +663,8 @@ SensoryForge Izhikevich/AdEx/MQIF clamp voltage at v_floor (-120/-130/-120 mV, D
 ↔ 63d37c3 feat(presets): calibrate each tactile recipe population's input gain against P5
 ↔ 6211fe1 docs(rules): engine-parity rule reflects settled F-037 and the calibrated gains
 ↔ 3b30da8 feat(afferents): fit SA and RA to TouchSim's SA1 and RA afferents
+· 2026-09-29: the clamp is now opt-in on Izhikevich and AdEx (v_floor defaults to none, D-ce22df3), so by default SensoryForge matches pressure-simulation's unclamped neurons; MQIF still clamps
+↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
 
 ## F-035 · CLOSED · finding · - · 2026-09-14
 With Python's cyclic GC enabled, pytest -m gui segfaults (3 of 3 runs) inside pyqtgraph ScatterPlotItem.renderSymbol, called from MechanoreceptorTab._add_receptor_scatter_by_weight <- _update_innervation_graphics <- _create_population_graphics <- _regenerate_selected_population_if_instantiated, via a ViewBox lambda from a previously destroyed tab. tests/conftest.py disables GC for every session (including non-GUI) to avoid it, so the harness can no longer detect this crash class; app-level impact unproven.
@@ -808,6 +872,7 @@ compensates the SA/RA filter calibration units vs the mA stimulus unit.
 Izhikevich, AdEx and MQIF carry a v_floor clamp (−120 / −130 / −120 mV) as a numerical-stability
 guard against Euler blow-up at coarse dt.
 → sensoryforge/neurons/izhikevich.py:47 · adex.py:46 · mqif.py:43
+↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 
 ## D-006 · CLOSED · decision · filters · 2026-04-10 (from 3191080)
 SAFilterTorch output is clamped to ≥ 0 (clip_to_positive=True by default) to suppress the

@@ -93,55 +93,61 @@ decrease it.
 
 ## Calibrated gains in the tactile recipes
 
-The shipped tactile recipes do not use the default. Their populations are
-fitted to TouchSim's SA1 and RA afferent models (Saal et al. 2017; see
-`benchmarks/results/touchsim_comparison/`), and each population has its own
-gain from `scripts/calibrate_recipe_gains.py`:
+The shipped tactile recipes do not use the default. Each population has its
+own gain from `scripts/calibrate_recipe_gains.py`, and the two recipes follow
+different aims:
 
-| Recipe | SA gain | RA gain |
-|---|---|---|
-| `tactile_sa1_ra1` (Izhikevich) | 380 | 410 |
-| `tactile_sa1_ra1_adex` (AdEx) | 370 | 490 |
-| `tactile_stochastic_control` | 380 | 410 (the same as `tactile_sa1_ra1`, so the control arm differs only in its receptive fields) |
+| Recipe | Neurons | SA gain | RA gain |
+|---|---|---|---|
+| `tactile_sa1_ra1_adex` (AdEx) | no adaptation, 2 ms refractory period | 160 | 260 |
+| `tactile_sa1_ra1` (Izhikevich) | TouchSim-fitted adaptation (`d` SA 15, RA 24) | 380 | 410 |
+| `tactile_stochastic_control` | as `tactile_sa1_ra1` | 380 | 410 (so the control arm differs only in its receptive fields) |
 
-- **SA:** the gain that puts SA's rate during a held stimulus
-  (`ramp_gaussian`'s hold, over its responsive neurons) at the centre of P5's
-  20–100 Hz band on a log scale (44.7 Hz), with an ISI CV below 0.5. SA now
-  answers motion as SA1 does, at several times its hold rate, so the moving
-  stimuli drive it harder (Izhikevich 83–86 Hz, AdEx 86–106 Hz); P5 states
-  its band for a held stimulus. AdEx SA's hold is less regular than P5 asks
-  (ISI CV about 0.5–0.6 against < 0.5): its ramp response builds adaptation
-  that decays through the hold, so its intervals shorten as the hold goes on.
-- **RA:** the gain whose onset rates best match TouchSim's RA at the same
-  indentations, so RA fires at the small movements TouchSim's RA detects. RA
-  must stay silent during a held stimulus. P5's 150–400 Hz burst band is
-  reported, not required: on the fast `moving_edge` RA reaches 600 Hz
-  (Izhikevich) and 400 Hz (AdEx, whose 2 ms refractory period caps it).
+**`tactile_sa1_ra1_adex` is pressure-simulation's model** (D-ce22df3,
+D-8dde454, D-673e0ed). Its neurons are kept simple, with no spike-frequency
+adaptation and no voltage clamp, so each rate follows its present drive, which
+the Kalman-filter inference assumes. Both gains put the firing threshold at
+10% of the benchmark stimulus:
+- SA fires from 10% of the benchmark pressure;
+- RA fires from 10% of its rate of change.
+
+Above threshold the rates are roughly proportional. Measured with a 1 mm probe:
+- SA's hold rate against pressure: 0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude (R² 0.97).
+- RA's onset rate against ramp speed: 62 to 208 Hz over 5 to 40 amplitude units per second (R² 0.86, flattening at the fastest ramps).
+
+A held benchmark stimulus therefore fires SA at about 125 Hz, above P5's 20–100 Hz band. That is accepted, so that weak pressures are not invisible to SA.
+
+**`tactile_sa1_ra1` is fitted to TouchSim's SA1 and RA afferent models**
+(Saal et al. 2017; `benchmarks/results/touchsim_comparison/`, D-f4d0967,
+D-d9bd411):
+- SA's gain puts a held stimulus at 45 Hz, the centre of P5's band.
+- RA's gain matches TouchSim's RA sensitivity.
+- Its adaptation makes SA's rate rise gradually from near zero. Without it, Izhikevich is too steep: SA would be silent below about 60% of the benchmark pressure.
 
 The shapes of the responses come from a separate fit
 (`scripts/validation/fit_afferents.py`, results in
-`benchmarks/results/afferent_fit/`): the SA filter's `k2` (8.0, a shared
-default), spike-frequency adaptation (Izhikevich `d`: SA 15, RA 24, set in the
-recipe; AdEx `SA1_tonic`/`RA1_phasic` presets). The gains, and the full
-sweeps, are in `benchmarks/results/recipe_calibration/recipe_calibration.md`.
+`benchmarks/results/afferent_fit/`), including the SA filter's `k2` (8.0, a
+shared default). The TouchSim-fitted AdEx adaptation is available as the
+opt-in presets `SA1_adapting` / `RA1_adapting` (`model_params: {preset:
+SA1_adapting}`).
 
-**The neuron's input is floored at 0 mA for tactile afferents**
+**RA answers release as strongly as indentation** (D-4e669b4). The RA filter
+responds to the size of the rate of change (`|dI/dt|`), so lifting a probe
+drives RA as much as pressing it. That suits the pressure-simulation design.
+TouchSim's RA releases more weakly (0.67–0.8 of its onset) and is silent at
+0.2 mm.
+
+**A tactile afferent's neuron input is floored at 0 mA**
 (`PopulationConfig.input_floor`; D-43dc520). A negative mechanical drive,
 such as the SA filter's response to a trailing edge, silences the afferent
-instead of hyperpolarizing it. The recorded `filtered` drive stays signed,
-which is what bundles store and pressure-simulation's decoder reads. Other
-populations (a DSL analog readout, the vision preset) get no floor. Set
+instead of hyperpolarizing it. The recorded `filtered` drive stays signed:
+bundles store it, and pressure-simulation's decoder reads it. Other
+populations get no floor (a DSL analog readout, the vision preset). Set
 `input_floor: -.inf` to disable it.
 
-**AdEx has a 2 ms refractory period** in the `SA1_tonic`/`RA1_phasic`
-presets (`t_ref`; D-f5853a4), which caps its rate near 500 Hz.
-
-**Known limit (AdEx).** After strong stimulation the AdEx recipe's
-adaptation variable, which acts in mV, builds up to hundreds of mV, and the
-voltage falls far below rest once the drive stops: to about −380 mV without
-the −130 mV clamp. See the ledger's open entry before trusting AdEx dynamics
-after strong stimulation. Izhikevich reaches its floor only briefly, with
-spikes identical with and without the clamp.
+**The voltage clamp is opt-in.** Izhikevich and AdEx default to
+`v_floor: null` (no clamp). Set it (e.g. −120 mV) when integrating strongly
+negative input at a coarse step, where the Euler update can blow up.
 
 ---
 

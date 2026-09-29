@@ -43,8 +43,10 @@ def _spike_times_ms(spikes: torch.Tensor, dt: float) -> torch.Tensor:
     return torch.nonzero(sp).flatten().float() * dt
 
 
-def test_adex_ra1_phasic_silences_within_30ms_under_constant_drive():
-    """RA1_phasic: strong spike-triggered adaptation must silence firing
+def test_adex_ra1_adapting_silences_within_30ms_under_constant_drive():
+    """RA1_adapting (the opt-in adapting RA preset, D-ce22df3; it was
+    RA1_phasic before the tactile default became non-adapting): strong
+    spike-triggered adaptation must silence firing
     well within the tactile RA population's fast (tens-of-ms) time scale,
     even though the drive current never changes.
 
@@ -59,7 +61,7 @@ def test_adex_ra1_phasic_silences_within_30ms_under_constant_drive():
     just below it and reproduces the same phasic, single-early-spike
     character the model was designed for.
     """
-    neuron = AdExNeuronTorch(preset="RA1_phasic", dt=0.05)
+    neuron = AdExNeuronTorch(preset="RA1_adapting", dt=0.05)
     steps = int(500.0 / 0.05)
     drive = _constant_drive(steps=steps, features=1, current=5.0)
 
@@ -115,3 +117,15 @@ def test_sa_neuron_supports_parameter_sampling():
     assert traces.shape[1] == drive.shape[1] + 1
     assert spikes.dtype == torch.bool
     assert math.isclose(float(neuron.dt_ms), 0.2, rel_tol=1e-6)
+
+
+def test_adex_ra1_phasic_is_non_adapting_and_keeps_firing_under_constant_drive():
+    """RA1_phasic is the non-adapting tactile default (D-ce22df3): under a
+    constant suprathreshold drive it keeps firing. RA's transience comes from
+    the RA filter, which differentiates a static drive to zero."""
+    neuron = AdExNeuronTorch(preset="RA1_phasic", dt=0.05)
+    assert neuron.a == 0.0 and neuron.b == 0.0
+    steps = int(500.0 / 0.05)
+    _, spikes = neuron(_constant_drive(steps=steps, features=1, current=5.0))
+    times = _spike_times_ms(spikes, dt=0.05)
+    assert (times > 400.0).any(), "a non-adapting neuron must keep firing"

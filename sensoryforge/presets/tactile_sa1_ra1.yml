@@ -18,7 +18,10 @@
 # Populations are fitted to TouchSim's SA1/RA afferents (D-f4d0967, D-d9bd411;
 # scripts/validation/fit_afferents.py): the SA filter's k2 (a shared default,
 # 8.0) and the Izhikevich adaptation d below (SA 15, RA 24, on the RS/FS
-# presets). Input gains come from scripts/calibrate_recipe_gains.py (report:
+# presets). Izhikevich without adaptation is too steep to be graded: SA is
+# silent below about 60% of the benchmark pressure (D-8dde454). No voltage
+# clamp (D-ce22df3). Input gains come from
+# scripts/calibrate_recipe_gains.py (report:
 # benchmarks/results/recipe_calibration/): SA's puts a held stimulus at 45 Hz,
 # the centre of P5's band (D-ea0f017); RA's matches TouchSim's RA sensitivity.
 metadata:

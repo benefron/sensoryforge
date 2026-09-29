@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 
@@ -74,7 +74,7 @@ class IzhikevichNeuronTorch(BaseNeuron):
         threshold_std=0.0,
         seed=None,
         noise_std: float = 0.0,
-        v_floor: float = -120.0,
+        v_floor: Optional[float] = None,
         *,
         preset: str = "RS",
     ):
@@ -107,10 +107,12 @@ class IzhikevichNeuronTorch(BaseNeuron):
         self.seed = seed
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
-        # Physiological voltage floor (mV). Izhikevich dynamics can drive v
-        # far below the reset value c when input current is very negative.
-        # Clamping prevents non-physical hyperpolarization and avoids runaway
-        # in the v^2 quadratic term. Default: -120 mV (generous K+ reversal).
+        # Optional voltage floor (mV). None (default, D-ce22df3) integrates
+        # freely. A value clamps v from below: Izhikevich dynamics can drive
+        # v far below the reset value c under very negative input, and at a
+        # coarse integration step the v^2 term can then blow up (D-007). The
+        # engine integrates at 0.05 ms and floors a tactile afferent's input
+        # at 0 mA (D-43dc520), so the tactile recipes need no clamp.
         self.v_floor = v_floor
 
     def reset_state(self) -> None:
@@ -313,12 +315,16 @@ class IzhikevichNeuronTorch(BaseNeuron):
             ParamSpec(
                 "v_floor",
                 dtype="float",
-                default=-120.0,
+                default=None,
                 min_val=-200.0,
                 max_val=-50.0,
                 step=1.0,
                 unit="mV",
-                tooltip="Physiological voltage floor (clamp)",
+                tooltip="Voltage floor (clamp); auto means no clamp",
+                help="Unset by default (D-ce22df3). Set it (e.g. -120.0 mV) to "
+                "clamp v from below when integrating strongly negative input at "
+                "a coarse step.",
+                advanced=True,
             ),
         ]
 

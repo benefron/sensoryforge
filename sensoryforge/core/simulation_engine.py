@@ -1020,8 +1020,14 @@ class SimulationEngine:
         if not return_intermediates and bundle_dir is not None:
             # The bundle needed intermediates internally; the public return
             # value still honours the caller's own return_intermediates.
+            # Keep each population's readout: "spikes" for a spiking one,
+            # "state" for an analog one -- what the no-bundle path returns.
             results = {
-                pop_name: {"spikes": pop_results["spikes"]}
+                pop_name: {
+                    key: pop_results[key]
+                    for key in ("spikes", "state")
+                    if key in pop_results
+                }
                 for pop_name, pop_results in results.items()
             }
 

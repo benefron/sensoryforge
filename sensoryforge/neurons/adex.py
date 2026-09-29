@@ -25,134 +25,70 @@ _ADEX_CLASS_DEFAULTS: dict = {
     "t_ref": 0.0,
 }
 
-#: Named AdEx firing-pattern regimes. Pass ``preset=...`` to
-#: :class:`AdExNeuronTorch` instead of spelling out all ten parameters by
-#: hand -- mirrors :data:`sensoryforge.neurons.izhikevich.IZHIKEVICH_PRESETS`
-#: exactly (an explicit keyword argument still overrides that one preset
-#: value; ``preset`` is excluded from ``to_dict()``).
+#: Named AdEx regimes. Pass ``preset=...`` to :class:`AdExNeuronTorch`
+#: instead of spelling out every parameter by hand -- mirrors
+#: :data:`sensoryforge.neurons.izhikevich.IZHIKEVICH_PRESETS` exactly (an
+#: explicit keyword argument still overrides that one preset value;
+#: ``preset`` is excluded from ``to_dict()``).
 #:
-#: The *qualitative* regimes (tonic vs. phasic/adapting) are the standard
-#: AdEx firing-pattern classes catalogued by Naud, Marcille, Clopath &
-#: Gerstner (2008), "Firing patterns in the adaptive exponential
-#: integrate-and-fire model", Biological Cybernetics 99:335-347, for the
-#: model of Brette & Gerstner (2005), "Adaptive Exponential Integrate-and-
-#: Fire Model as an Effective Description of Neuronal Activity", J.
-#: Neurophysiol. 94:3637-3642. The *concrete numeric values* below are NOT
-#: taken from either paper -- they are ours, chosen for this project's
-#: mA/mV/ms unit convention (``R * I`` lands in mV) and tuned against the
-#: drive the ``tactile_sa1_ra1`` recipe actually delivers (Phase 2b T2b,
-#: measured by ``scripts/tune_adex_populations.py`` -- see
-#: ``benchmarks/results/adex_tuning/adex_tuning.md``), not against an
-#: arbitrary bench current. The drive figures below were measured at the
-#: recipe's old shared ``input_gain`` of 50, before the presets' adaptation
-#: was refitted to TouchSim's SA1/RA (D-f4d0967, D-d9bd411; see each preset's
-#: comment below). ``tactile_sa1_ra1_adex`` calibrates each population's gain
-#: on top of these presets (SA 370, RA 490, ``scripts/calibrate_recipe_gains.py``).
+#: The model is Brette & Gerstner (2005), J. Neurophysiol. 94:3637-3642; the
+#: numeric values are this project's, in its mA/mV/ms convention (``R * I``
+#: lands in mV, and ``w`` enters dv/dt in mV).
 #:
-#: ``R`` (membrane resistance) is the input-scaling knob -- it plays the
-#: same role ``input_gain`` plays on the Izhikevich path, compensating the
-#: unit mismatch documented in ``docs/user_guide/units_and_gains.md`` (the
-#: Parvizi-Fard filter gains are calibrated for N/mm2, this project's
-#: stimulus unit is mA). For subthreshold adaptation ``a``, this
-#: parametrisation's rheobase -- the saddle-node current above which no
-#: stable subthreshold fixed point exists, so a constant drive above it
-#: fires forever instead of settling -- is:
+#: ``SA1_tonic`` / ``RA1_phasic`` (the tactile defaults, resolved by
+#: neuron_type) have no adaptation, a 2 ms refractory period and no voltage
+#: clamp (D-ce22df3, D-f5853a4). Their rheobase is
+#: ``((VT - EL) - DeltaT) / R``: 3.0 mA for SA (``R`` = 6) and 2.25 mA for RA
+#: (``R`` = 8). The recipe's per-population ``input_gain`` places the drive
+#: above it (``scripts/calibrate_recipe_gains.py``). "Phasic" RA behaviour
+#: comes from the RA filter, which differentiates a static drive to zero, not
+#: from the neuron.
 #:
-#:     I_rheobase = (1 + a) * ((VT - EL) + DeltaT*ln(1 + a) - DeltaT) / R
-#:
-#: ``SA1_tonic`` (``a`` = 0.02, ``R`` = 6.0): I_rheobase ~= 3.07 mA. Chosen
-#: so the rheobase sits near the LOW end of the responsive SA neurons'
-#: measured hold drive during ``ramp_gaussian`` (mean 5.53 mA; p10/p50/p90
-#: = 3.82 / 5.25 / 7.30 mA; max 10.25 mA -- iteration-1 finding: the
-#: recipe's own drive, not a flat bench step, is the tuning target), so a
-#: genuinely held stimulus is comfortably suprathreshold across that whole
-#: range. Verified by simulation: at those three percentiles the f-I curve
-#: gives ~25 / ~60 / ~95 Hz -- inside P5's 20-100 Hz band, monotone in
-#: amplitude -- and the responsive-set pooled ISI CV during
-#: ``ramp_gaussian``'s hold window is ~0.47 (< 0.5).
-#:
-#: How R=6.0 was actually picked: the purely principled placement --
-#: rheobase at the p10 of the measured hold drive (3.82 mA) -- gives
-#: R ~= 4.8. That alone left the responsive set's pooled ISI CV above 0.5
-#: (rate heterogeneity across the ~2x drive spread in the responsive set
-#: pools into an inflated CV even though each neuron's own firing is
-#: perfectly regular). R was then scanned upward and R=6.0 taken as the
-#: smallest value whose pooled ISI CV cleared 0.5 on this same hold
-#: window -- so the reported CV = 0.470 is a fitted outcome of that scan,
-#: not an independent confirmation of the CV criterion. R=6.0 is within
-#: about 25% of the principled R~=4.8, i.e. most but not all of the
-#: choice is the scan rather than the drive-percentile placement alone.
-#: At dt = 0.05 ms under
-#: a constant 40 mA bench drive for 500 ms (``tests/unit/
-#: test_pytorch_neurons.py``, unchanged current -- 40 mA remains far above
-#: the new rheobase too), it keeps spiking regularly through the full 500
-#: ms with ISI CV ~= 6e-6.
-#:
-#: ``RA1_phasic`` (``a`` = 2.0, ``R`` = 8.0): I_rheobase ~= 7.57 mA.
-#: Chosen so the rheobase sits BELOW the responsive RA neurons' measured
-#: onset-transient drive on the stimuli that produce one (``ramp_gaussian``
-#: peak 5.67 mA is borderline-below and still triggers a single spike per
-#: responsive neuron; ``moving_edge``'s stronger onset, peak 13.87 mA,
-#: triggers a multi-spike burst) but ABOVE the same neurons' measured hold
-#: drive (``ramp_gaussian`` RA hold mean 0.15 mA, near zero as expected --
-#: RA's own filter differentiates). ``b``/``tau_w`` are unchanged (20.0 /
-#: 50.0 ms): at the new ``R`` they still produce the phasic,
-#: settle-after-the-first-spike(s) character (a single spike per
-#: responsive neuron on ``ramp_gaussian``, synchronized across the
-#: responsive set into a population-level burst that peaks at ~1600 Hz
-#: instantaneous, within P5's up-to-~300 Hz target). At dt = 0.05 ms under
-#: a constant 40 mA bench drive for 500 ms it now fires continuously
-#: instead of settling (40 mA is far past the new, lower rheobase, so no
-#: stable subthreshold fixed point exists there any more); the bench test
-#: was updated to probe at 5.0 mA instead (just below the new rheobase),
-#: where it fires exactly once (t ~= 22.6 ms) and is silent thereafter --
-#: see ``test_adex_ra1_phasic_silences_within_30ms_under_constant_drive``
-#: for why the current level changed. RA-I transient bursting was NOT met
-#: on ``drifting_grating`` (onset drive there peaks at only 3.08 mA,
-#: below rheobase -- reported as a FAIL in ``adex_tuning.md``, not
-#: silently dropped).
+#: ``SA1_adapting`` / ``RA1_adapting`` add the spike-frequency adaptation
+#: fitted to TouchSim's SA1/RA afferents (D-f4d0967, D-d9bd411), as an opt-in:
+#: ``model_params: {preset: SA1_adapting}``.
+_ADEX_AFFERENT_BASE: dict = {
+    "EL": -70.0,
+    "VT": -50.0,
+    "DeltaT": 2.0,
+    "tau_m": 20.0,
+    "v_reset": -70.0,
+    "v_spike": 20.0,
+    # 2 ms absolute refractory period (D-f5853a4): caps the rate near
+    # 500 Hz, a physiological ceiling for an afferent.
+    "t_ref": 2.0,
+}
+
 ADEX_PRESETS: dict = {
-    # Tonic (sustained, adapting): small a, so firing never stops under a
-    # constant drive, but a spike-triggered b with a 110 ms tau_w, so the rate
-    # falls from the ramp to the hold and rises gradually with drive, as
-    # TouchSim's SA1 does (D-f4d0967: b 0 -> 28, tau_w 200 -> 110 ms,
-    # v_reset -58 -> -70 mV, fitted by scripts/validation/fit_afferents.py).
-    # w enters dv/dt in mV, so b is kept small enough (EL - b = -98 mV) that
-    # adaptation never drives the voltage into v_floor.
-    "SA1_tonic": {
-        "EL": -70.0,
-        "VT": -50.0,
-        "DeltaT": 2.0,
-        "tau_m": 20.0,
+    # The tactile defaults carry no adaptation (a = b = 0, D-ce22df3): the
+    # neuron is an exponential integrate-and-fire with a refractory period,
+    # whose steady rate follows its drive. That keeps it simple enough for
+    # hardware and keeps rate a function of the present drive only, which
+    # pressure-simulation's Kalman-filter inference relies on. SA's ramp
+    # response comes from its filter (k2) and RA's transience from the RA
+    # filter, not from the neuron.
+    "SA1_tonic": {**_ADEX_AFFERENT_BASE, "tau_w": 110.0, "a": 0.0, "b": 0.0, "R": 6.0},
+    "RA1_phasic": {**_ADEX_AFFERENT_BASE, "tau_w": 50.0, "a": 0.0, "b": 0.0, "R": 8.0},
+    # Opt-in adaptation: the values fitted to TouchSim's SA1/RA afferents
+    # (D-f4d0967, D-d9bd411; scripts/validation/fit_afferents.py). SA adapts
+    # through a spike-triggered b with a 110 ms tau_w, so its rate falls from
+    # the ramp to the hold and rises gradually with drive; RA through a large
+    # a and b, so few spikes follow each transient. w enters dv/dt in mV, so
+    # after strong stimulation it can drive the voltage far below rest (ledger
+    # F-f59aa11); set v_floor to clamp it if needed.
+    "SA1_adapting": {
+        **_ADEX_AFFERENT_BASE,
         "tau_w": 110.0,
         "a": 0.02,
         "b": 28.0,
-        "v_reset": -70.0,
-        "v_spike": 20.0,
         "R": 6.0,
-        # 2 ms absolute refractory period (D-f5853a4): caps the rate near
-        # 500 Hz, a physiological ceiling for an afferent.
-        "t_ref": 2.0,
     },
-    # Phasic / strongly-adapting: large a and a large spike-triggered b,
-    # short-to-moderate tau_w -- the first spike (or few) drives the
-    # adaptation current to a stable subthreshold fixed point, silencing
-    # the neuron for the rest of a constant drive.
-    "RA1_phasic": {
-        "EL": -70.0,
-        "VT": -50.0,
-        "DeltaT": 2.0,
-        "tau_m": 20.0,
+    "RA1_adapting": {
+        **_ADEX_AFFERENT_BASE,
         "tau_w": 50.0,
         "a": 2.0,
-        # b 20 -> 40 and v_reset -58 -> -70 mV (D-d9bd411): fewer spikes per
-        # transient, so RA's onset rate grows with ramp speed as TouchSim's
-        # RA does instead of saturating a few spikes above threshold.
         "b": 40.0,
-        "v_reset": -70.0,
-        "v_spike": 20.0,
         "R": 8.0,
-        "t_ref": 2.0,
     },
 }
 
@@ -226,7 +162,7 @@ class AdExNeuronTorch(BaseNeuron):
         w_init=None,
         dt=0.05,
         noise_std: float = 0.0,
-        v_floor: float = -130.0,
+        v_floor: Optional[float] = None,
         *,
         preset: Optional[str] = None,
     ):
@@ -261,8 +197,9 @@ class AdExNeuronTorch(BaseNeuron):
         self.w_init = 0.0 if w_init is None else w_init
         # Langevin noise intensity (additive, mV/sqrt(ms))
         self.noise_std = noise_std
-        # Physiological voltage floor (mV). Prevents non-physical hyperpolarization
-        # from large negative drive (e.g., noisy SA filter output). Default: -130 mV.
+        # Optional voltage floor (mV). None (default, D-ce22df3) integrates
+        # freely; a value clamps v from below, a guard against Euler blow-up
+        # when integrating strongly negative drive at a coarse step (D-007).
         self.v_floor = v_floor
 
     def reset_state(self) -> None:
@@ -460,12 +397,16 @@ class AdExNeuronTorch(BaseNeuron):
             ParamSpec(
                 "v_floor",
                 dtype="float",
-                default=-130.0,
+                default=None,
                 min_val=-200.0,
                 max_val=-50.0,
                 step=1.0,
                 unit="mV",
-                tooltip="Physiological voltage floor (clamp)",
+                tooltip="Voltage floor (clamp); auto means no clamp",
+                help="Unset by default (D-ce22df3). Set it (e.g. -130.0 mV) to "
+                "clamp v from below when integrating strongly negative input at "
+                "a coarse step.",
+                advanced=True,
             ),
         ]
 

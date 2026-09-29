@@ -31,6 +31,12 @@ drives the voltage into the clamp after every spike, and the clamp, a
 numerical guard, then shapes the dynamics. An earlier AdEx search without
 this rule found b = 56-120 "optimal" for exactly that reason.
 
+Where the results went (D-ce22df3, D-8dde454): the Izhikevich recipe uses its
+fitted ``d`` values. The AdEx recipe, pressure-simulation's model, is kept
+non-adapting, and the AdEx values below live in the opt-in presets
+``SA1_adapting``/``RA1_adapting``. The AdEx stages pin ``a`` for that reason:
+the default presets no longer carry it.
+
 What was found (results: ``benchmarks/results/afferent_fit/``):
 
     * The SA filter's ``k2`` (gain on the input's rate of change) sets SA's
@@ -82,7 +88,12 @@ STAGES: Dict[str, Dict[str, Any]] = {
     },
     "adex-sa": {
         "preset": "tactile_sa1_ra1_adex",
-        "fixed": {"SA.gain": 55, "SA.filter.k2": 8, "SA.model.v_reset": -70},
+        "fixed": {
+            "SA.gain": 55,
+            "SA.filter.k2": 8,
+            "SA.model.v_reset": -70,
+            "SA.model.a": 0.02,
+        },
         "grid": {
             "SA.model.b": [16, 24, 28, 32],
             "SA.model.tau_w": [90, 110, 125, 150],
@@ -103,7 +114,9 @@ STAGES: Dict[str, Dict[str, Any]] = {
             "SA.model.b": 28,
             "SA.model.tau_w": 110,
             "SA.model.v_reset": -70,
+            "SA.model.a": 0.02,
             "RA.model.v_reset": -70,
+            "RA.model.a": 2.0,
         },
         "grid": {"RA.gain": [50, 60, 70, 80, 110], "RA.model.b": [20, 30, 40]},
         "fit": "RA",

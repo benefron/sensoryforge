@@ -17,8 +17,9 @@ on two grids at 0.15 mm:
 * **41 x 41**, which has a receptor at the centre, so a stimulus centred on
   the origin is sampled at its true peak: the peak must be 1.0 within 1%.
   On 40 x 40 the nearest receptors are 0.075 mm off-centre in x and y, which
-  loses up to 3% for the unit types and 25% for ``gabor`` (sigma 0.3 mm,
-  wavelength 0.5 mm) -- a sampling loss, not an amplitude.
+  loses up to 3% for the unit types (``gabor`` lost 25% while its default
+  sigma was 0.3 mm and wavelength 0.5 mm, before D-407c639) -- a sampling
+  loss, not an amplitude.
 
 ``repeated_pattern`` sums six overlapping copies, so its sum is not 1.0; its
 per-copy amplitude is checked instead, by rendering one copy.
