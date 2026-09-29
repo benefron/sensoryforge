@@ -136,8 +136,8 @@ class StaticStimulus(BaseStimulus):
                 center_x=self.params.get("center_x", 0.0),
                 center_y=self.params.get("center_y", 0.0),
                 amplitude=self.params.get("amplitude", 1.0),
-                sigma=self.params.get("sigma", 0.3),
-                wavelength=self.params.get("wavelength", 0.5),
+                sigma=self.params.get("sigma", 1.0),
+                wavelength=self.params.get("wavelength", 1.0),
                 orientation=self.params.get("orientation", 0.0),
                 phase=self.params.get("phase", 0.0),
                 device=self.device,
@@ -941,8 +941,8 @@ class Stimulus:
     @staticmethod
     def gabor(
         amplitude: float = 1.0,
-        sigma: float = 0.3,
-        wavelength: float = 0.5,
+        sigma: float = 1.0,
+        wavelength: float = 1.0,
         orientation: float = 0.0,
         phase: float = 0.0,
         center: Tuple[float, float] = (0.0, 0.0),

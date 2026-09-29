@@ -94,8 +94,8 @@ class TestDescribeSilent:
             [SilentPopulation("SA", 0.000123), SilentPopulation("RA", None)]
         )
         assert "No spikes from 2 populations" in text
-        assert "SA: peak neuron input 0.000123 mA" in text
-        assert "RA: neuron input not recorded" in text
+        assert "SA: peak filtered drive 0.000123 mA" in text
+        assert "RA: drive not recorded" in text
         assert "input gain" in text
 
 
@@ -144,3 +144,11 @@ def test_on_a_real_engine_run(sa_gain, silent_names):
         assert pop.peak_input_ma == pytest.approx(
             float(results[pop.name]["filtered"].max())
         )
+
+
+def test_a_peak_at_or_below_zero_says_no_positive_drive_reached_the_neurons():
+    """The recorded drive is unfloored (D-43dc520); a non-positive peak means a
+    floored tactile neuron saw 0 mA, which the text must not hide."""
+    text = describe_silent([SilentPopulation("SA", -0.4)])
+    assert "peak filtered drive -0.4 mA" in text
+    assert "no positive drive reached the neurons" in text

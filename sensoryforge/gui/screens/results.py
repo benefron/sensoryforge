@@ -169,9 +169,11 @@ class ResultsScreen(QtWidgets.QWidget):
             checkbox = QtWidgets.QCheckBox(PANEL_TITLES[key])
             visible = settings.value(_SETTINGS_PREFIX + key, True, type=bool)
             checkbox.setChecked(bool(visible))
-            checkbox.toggled.connect(
-                lambda on, k=key: self._on_visibility_toggled(k, on)
-            )
+            # A bound method, which PyQt holds weakly, not a lambda over
+            # self, which would make a cycle only the collector frees
+            # (F-1d91063, F-085); the slot reads the key back from sender().
+            checkbox.setProperty("panel_key", key)
+            checkbox.toggled.connect(self._on_panel_checkbox_toggled)
             picker_layout.addWidget(checkbox)
             self._checkboxes[key] = checkbox
         picker_layout.addStretch(1)
@@ -283,6 +285,11 @@ class ResultsScreen(QtWidgets.QWidget):
     def silent_warning(self) -> str:
         """The silent-population warning on screen, or ``""`` when there is none."""
         return "" if self.silent_banner.isHidden() else self.silent_banner.text()
+
+    def _on_panel_checkbox_toggled(self, on: bool) -> None:
+        """A panel checkbox changed: show or hide the panel it names."""
+        key = self.sender().property("panel_key")
+        self._on_visibility_toggled(str(key), on)
 
     def _update_silent_banner(self, view: Optional[results_data.ResultsView]) -> None:
         """Name every spiking population in ``view`` that fired no spikes."""

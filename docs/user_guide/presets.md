@@ -35,7 +35,7 @@ sensoryforge run --preset tactile_sa1_ra1 --duration 1000
   own calibrated `input_gain` (SA 380, RA 410; see
   [Units and gains](units_and_gains.md#calibrated-gains-in-the-tactile-recipes)).
   `tactile_sa1_ra1_adex` is the same recipe on simple, non-adapting AdEx
-  neurons, pressure-simulation's model (SA 160, RA 260).
+  neurons, pressure-simulation's model (SA 160, RA 270).
 - **`tactile_stochastic_control`** — the named control arm (decision D-019 in
   `docs_root/LEDGER.md`): identical grid and populations, but with
   `innervation_method: gaussian` and `use_distance_weights: false` instead of

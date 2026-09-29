@@ -55,19 +55,27 @@ def gabor_texture_torch(
     center_y: float,
     *,
     amplitude: float = 1.0,
-    sigma: float = 0.3,
-    wavelength: float = 0.5,
+    sigma: float = 1.0,
+    wavelength: float = 1.0,
     orientation: float = 0.0,
     phase: float = 0.0,
+    signed: bool = False,
 ) -> torch.Tensor:
-    """Generate a localised sinusoidal (Gabor) texture."""
+    """Generate a localised sinusoidal (Gabor) texture.
+
+    Non-negative by default (D-0437899): ``amplitude * envelope * (1 +
+    cos(carrier)) / 2``, the raised-cosine form every other Gabor path
+    renders; ``signed=True`` gives the zero-mean signed form. Default sigma
+    and wavelength are 1.0 mm (D-407c639).
+    """
     dx = xx - center_x
     dy = yy - center_y
     cos_theta = math.cos(orientation)
     sin_theta = math.sin(orientation)
     x_rot = dx * cos_theta + dy * sin_theta
     envelope = torch.exp(-(dx**2 + dy**2) / (2 * sigma**2))
-    carrier = torch.cos(2 * math.pi * x_rot / max(wavelength, 1e-6) + phase)
+    angle = 2 * math.pi * x_rot / max(wavelength, 1e-6) + phase
+    carrier = torch.cos(angle) if signed else 0.5 * (1.0 + torch.cos(angle))
     return amplitude * envelope * carrier
 
 
@@ -307,10 +315,11 @@ class StimulusGenerator:
                 config.get("center_x", 0.0),
                 config.get("center_y", 0.0),
                 amplitude=config.get("amplitude", 1.0),
-                sigma=config.get("sigma", 0.3),
-                wavelength=config.get("wavelength", 0.5),
+                sigma=config.get("sigma", 1.0),
+                wavelength=config.get("wavelength", 1.0),
                 orientation=config.get("theta", 0.0),
                 phase=config.get("phase", 0.0),
+                signed=bool(config.get("signed", False)),
             )
         elif stim_type == "texture":
             kernel = int(config.get("kernel_size", 5))

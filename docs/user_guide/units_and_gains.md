@@ -99,7 +99,7 @@ different aims:
 
 | Recipe | Neurons | SA gain | RA gain |
 |---|---|---|---|
-| `tactile_sa1_ra1_adex` (AdEx) | no adaptation, 2 ms refractory period | 160 | 260 |
+| `tactile_sa1_ra1_adex` (AdEx) | no adaptation, 2 ms refractory period | 160 | 270 |
 | `tactile_sa1_ra1` (Izhikevich) | TouchSim-fitted adaptation (`d` SA 15, RA 24) | 380 | 410 |
 | `tactile_stochastic_control` | as `tactile_sa1_ra1` | 380 | 410 (so the control arm differs only in its receptive fields) |
 
@@ -113,7 +113,7 @@ the Kalman-filter inference assumes. Both gains put the firing threshold at
 
 Above threshold the rates are roughly proportional. Measured with a 1 mm probe:
 - SA's hold rate against pressure: 0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude (R² 0.97).
-- RA's onset rate against ramp speed: 62 to 208 Hz over 5 to 40 amplitude units per second (R² 0.86, flattening at the fastest ramps).
+- RA's onset rate against ramp speed: 63 to 208 Hz over 5 to 40 amplitude units per second (R² 0.86, flattening at the fastest ramps).
 
 A held benchmark stimulus therefore fires SA at about 125 Hz, above P5's 20–100 Hz band. That is accepted, so that weak pressures are not invisible to SA.
 

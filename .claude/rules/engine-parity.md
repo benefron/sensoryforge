@@ -47,7 +47,7 @@ identical output.
 - **Two recipes, two aims.** `tactile_sa1_ra1_adex` is pressure-simulation's model: non-adapting
   AdEx (`SA1_tonic`/`RA1_phasic`, a = b = 0), so each rate follows its present drive, which the
   Kalman-filter inference assumes, with gains that put each threshold at 10% of the benchmark
-  (SA 160, RA 260; D-ce22df3, D-8dde454, D-673e0ed). `tactile_sa1_ra1` keeps the TouchSim-fitted
+  (SA 160, RA 270; D-ce22df3, D-8dde454, D-673e0ed). `tactile_sa1_ra1` keeps the TouchSim-fitted
   Izhikevich adaptation (`d` 15/24; SA 380 at P5's 45 Hz held rate, RA 410 at TouchSim's RA
   sensitivity). The AdEx adaptation is opt-in (`SA1_adapting`/`RA1_adapting`). Re-run
   `scripts/calibrate_recipe_gains.py` if a filter or neuron preset changes; do not reset gains to a

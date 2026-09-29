@@ -108,13 +108,30 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ac51054 · CLOSED · finding · - · 2026-09-29
+the AdEx recipe's RA gain 260, merged in PR #17, was silent at 10% of the benchmark's rate of change because the low-threshold rule rounded its gain (262.7) down; low-threshold gains now round up, giving 270
+→ commit 995a001
+
+## F-6c2c916 · CLOSED · finding · - · 2026-09-29
+the pipeline strip's partial-wrapped session connections and ProblemList's strongly held prefix method each kept a dropped SensoryForgeApp alive until the cyclic collector ran; both now hold their owner weakly
+→ commit ef20023
+
+## F-c8d509b · CLOSED · finding · - · 2026-09-29
+the no-spike banner reported the run's pre-floor filtered drive as the 'peak neuron input', so a silent run could show a negative input the neuron never received; it now names it the peak filtered drive and says when no positive drive reached the neurons
+→ commit 74f0e3c
+
+## F-ac1d82d · CLOSED · finding · - · 2026-09-29
+the Gabor builder routes (Stimulus.gabor, StaticStimulus, gabor_texture, gabor_texture_torch, the legacy StimulusGenerator) kept the old 0.3 / 0.5 mm geometry after D-407c639, and gabor_texture_torch still rendered negative values by default
+→ commit 661f5e2
+
 ## F-4c73438 · STANDING · finding · - · 2026-09-29
 at its low-threshold gains (SA 160, RA 260) the non-adapting AdEx recipe's SA hold rate rises roughly linearly from about 10% of the benchmark pressure (0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude at a 1 mm probe, R^2 0.97) and its RA onset rate with ramp speed (62 to 208 Hz over 5 to 40 amplitude units per second, R^2 0.86)
 → commit 29be3f0
 
-## F-1d91063 · OPEN · finding · - · 2026-09-29
+## F-1d91063 · CLOSED · finding · - · 2026-09-29
 two GUI connections follow the reference-cycle pattern F-085 warned about -- screens/results.py connects a lambda over self to each panel checkbox, and results_map_panel.py passes the bound method self._on_clicked through plot_factory.connect
 → commit 29be3f0
+✓ closed by ef20023 fix(gui): free a window that ran without the cyclic collector
 
 ## F-155f231 · CLOSED · finding · - · 2026-09-29
 SimulationEngine.run with bundle_dir and return_intermediates=False raised KeyError: 'spikes' for an analog (DSL, no threshold) population, because it trimmed every result to its spikes, which would crash a BatchExecutor run of an analog config that writes bundles
@@ -125,6 +142,7 @@ the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of 
 · Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
 → commit df3320e
 ↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
+↔ 995a001 fix(presets): round the AdEx recipe's low-threshold RA gain up, to 270
 
 ## D-8dde454 · CLOSED · decision · - · 2026-09-28
 the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
@@ -153,6 +171,7 @@ RA's response to release as strong as to indentation (the RA filter is symmetric
 the named gabor stimulus's default sigma and wavelength become 1.0 mm (those of the layered gabor shape), so a default gabor spans many receptors of a 0.15 mm grid
 → commit 5251e45
 ↔ 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
+↔ 661f5e2 fix(stimuli): give every Gabor entry point the same 1 mm default
 
 ## D-6bae4df · CLOSED · decision · - · 2026-09-24
 for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
@@ -182,6 +201,7 @@ the current a tactile afferent population's neuron receives is floored at 0 mA (
 · Rejected: rectifying the SA filter output itself (clip_to_positive) | the recorded and decoded signal must stay signed (F-001)
 → commit 9e2b70a
 ↔ 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
+↔ 74f0e3c fix(gui): label the no-spike banner's number as the drive before the input floor
 
 ## D-f5853a4 · CLOSED · decision · - · 2026-09-24
 AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing configs are unchanged); the SA1_tonic and RA1_phasic presets use 2 ms, capping their rates near 500 Hz
@@ -248,6 +268,7 @@ the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers
 the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
 → commit abdf37f
 ✓ closed by 1286794 fix(gui): warn when a spiking population fires no spikes in a run
+↔ 74f0e3c fix(gui): label the no-spike banner's number as the drive before the input floor
 
 ## F-073fc19 · STANDING · finding · - · 2026-09-24
 before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
@@ -294,6 +315,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 ↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 ↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
 ↔ abdf37f docs: record the unit-amplitude defaults and close F-083
+↔ 661f5e2 fix(stimuli): give every Gabor entry point the same 1 mm default
 
 ## D-ea0f017 · CLOSED · decision · - · 2026-09-24
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)

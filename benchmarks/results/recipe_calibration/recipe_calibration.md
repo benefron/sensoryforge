@@ -85,14 +85,14 @@ RA sweep (RMS log error of the onset rate against TouchSim's RA):
 ## AdEx (`tactile_sa1_ra1_adex`)
 
 - **SA gain 160.0** (rule `low_threshold`, unrounded 157.0); confirmed: True
-- **RA gain 260.0** (rule `low_threshold`). TouchSim's RA onset fit, for reference: minimal-error interval (744.4, 744.4), amplitude per mm 0.212. P5's RA criteria at the chosen gain: met
+- **RA gain 270.0** (rule `low_threshold`). TouchSim's RA onset fit, for reference: minimal-error interval (744.4, 744.4), amplitude per mm 0.212. P5's RA criteria at the chosen gain: met
 
 At the chosen gains:
 
 | population | ramp_gaussian | moving_edge | braille | drifting_grating |
 |---|---|---|---|---|
 | SA | 125.0 Hz (CV 0.21) | 85.3 Hz (CV 0.32) | 75.0 Hz (CV 2.09) | 123.9 Hz (CV 0.25) |
-| RA | peak 200 Hz, hold 0 | peak 400 Hz, hold 13302 | peak 400 Hz, hold 1707 | peak 200 Hz, hold 18234 |
+| RA | peak 200 Hz, hold 0 | peak 400 Hz, hold 13752 | peak 400 Hz, hold 1727 | peak 200 Hz, hold 18976 |
 
 SA sweep (static-hold rate; the moving stimuli's rates for reference; P5 RA check at each gain, for reference):
 

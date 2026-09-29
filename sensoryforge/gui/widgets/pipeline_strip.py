@@ -159,13 +159,15 @@ class PipelineStrip(QtWidgets.QWidget):
         self._rows_layout.setSpacing(4)
         outer.addLayout(self._rows_layout)
 
-        session.configReplaced.connect(partial(self._rebuild))
+        # Bound methods, which PyQt holds weakly: a partial would hold this
+        # strip strongly from the session, a cycle only the collector frees.
+        session.configReplaced.connect(self._rebuild)
         session.configChanged.connect(self._on_config_changed)
         session.staleChanged.connect(self._update_status_label)
         # An edit can create or clear a problem in another row (a rename that
         # duplicates a name, a grid that inputs point at), so a change in the
         # validation result redraws every row.
-        session.validationChanged.connect(partial(self._on_validation_changed))
+        session.validationChanged.connect(self._on_validation_changed)
 
         self._rebuild()
 
