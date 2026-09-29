@@ -22,7 +22,7 @@
 #
 # Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md.
 #
-# ledger-template-version: 6
+# ledger-template-version: 8
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -71,7 +71,7 @@ if ENTRIES_MARKER not in orig:
 
 
 def git(*a):
-    return subprocess.run(['git', *a], capture_output=True, text=True).stdout
+    return subprocess.run(['git', *a], capture_output=True, text=True, encoding='utf-8', errors='replace').stdout
 
 
 SEP = '\x1e'

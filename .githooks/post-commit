@@ -10,7 +10,8 @@
 # re-entered hook returns immediately) and carries no trailers of its own (so a later
 # sync produces no change from it).
 #
-# ledger-template-version: 6
+# ledger-template-version: 8
+export PYTHONUTF8=1   # UTF-8 for Python on every platform (Windows defaults to its code page)
 set -u
 
 # 1. recursion guard (and the explicit opt-out for pipelines) -----------------

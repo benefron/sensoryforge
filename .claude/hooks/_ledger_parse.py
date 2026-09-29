@@ -46,7 +46,7 @@ every clone and branch, so two machines or two branches can never hand out one i
 rebase or squash-merge leaves the id intact. Legacy sequential ids (`F-014`) are still parsed
 everywhere and never renumbered.
 
-ledger-template-version: 6
+ledger-template-version: 8
 """
 import datetime
 import hashlib
@@ -599,6 +599,10 @@ GATE_HELP = """  Add one line at the end of the message, after a blank line — 
 ID_LED = re.compile(r'^[A-Z]{1,3}-[0-9A-Za-z]+\b')
 
 
+GATE_CAUGHT = []   # (kind, entry id) the gate refused this run: 'reproposal' (re-adopts a retired
+                   # framing or a rejected alternative) or 'restated' (restates a live entry)
+
+
 def check_msg(msgfile, root):
     """-> list of problems (empty = the commit may proceed)."""
     if os.environ.get('LEDGER_SKIP', '').lower() in ('1', 'true', 'yes') \
@@ -615,7 +619,7 @@ def check_msg(msgfile, root):
         if not line.startswith('#'):
             kept.append(line)
     import subprocess
-    author = subprocess.run(['git', 'var', 'GIT_AUTHOR_IDENT'], capture_output=True, text=True,
+    author = subprocess.run(['git', 'var', 'GIT_AUTHOR_IDENT'], capture_output=True, text=True, encoding='utf-8', errors='replace',
                             cwd=root).stdout
     return check_body('\n'.join(kept).strip(), root, author)
 
@@ -732,6 +736,7 @@ def check_body(body, root, author, structural_only=False):
                         break
                 if hit:
                     e, how, what = hit
+                    GATE_CAUGHT.append(('reproposal', e['id']))
                     problems.append(
                         f"`{k}: {v.strip()[:60]}` re-adopts what {e['id']} "
                         + ("retired" if how == 'retired' else "rejected")
@@ -740,6 +745,7 @@ def check_body(body, root, author, structural_only=False):
                     continue
             for e in live:
                 if e['type'] == typ and e['id'] not in mentioned and similar(tv, _toks(entry_text(e))):
+                    GATE_CAUGHT.append(('restated', e['id']))
                     problems.append(
                         f"`{k}: {v.strip()[:60]}` reads like {e['id']} (\"{entry_text(e)[:70]}\"). "
                         f"If this commit enacts or extends it: `Refs: {e['id']}` instead of a new entry. "
@@ -753,7 +759,11 @@ def check_body(body, root, author, structural_only=False):
 
 
 def cmd_check_msg(argv):
-    problems = check_msg(argv[0], argv[1] if len(argv) > 1 else os.getcwd())
+    root = argv[1] if len(argv) > 1 else os.getcwd()
+    problems = check_msg(argv[0], root)
+    if GATE_CAUGHT:            # counted at /ledger-tidy: re-litigation the gate stopped
+        now = round(datetime.datetime.now().timestamp(), 1)
+        _log_recall(root, [(now, '', '', 'gate-' + k, '', i) for k, i in dict.fromkeys(GATE_CAUGHT)])
     if problems:
         sys.stderr.write("\nliving-ledger: commit REJECTED — " + problems[0] + "\n")
         for p in problems[1:]:
@@ -767,7 +777,7 @@ def cmd_check_msg(argv):
 
 def _git(root, *args):
     import subprocess
-    return subprocess.run(['git', '-C', root, *args], capture_output=True, text=True).stdout
+    return subprocess.run(['git', '-C', root, *args], capture_output=True, text=True, encoding='utf-8', errors='replace').stdout
 
 
 def _counted_commits(root, rev_range):
@@ -1089,6 +1099,14 @@ def tidy_report(ledger, root, max_open=22):
         out.append("Nothing to tidy.")
         out.append('')
 
+    # 8b. re-litigation the ledger caught since the last tidy (this clone's log)
+    base_ts = float(_git(root, 'log', '-1', '--format=%ct', sha).strip() or 0) if sha else 0.0
+    caught = reproposal_report(root, base_ts, label or 'the log began')
+    if caught:
+        out.append("## Re-proposals caught")
+        out.extend(caught)
+        out.append('')
+
     # 9. prompt-time recall: is its threshold letting through what gets used?
     rec = recall_report(root)
     if rec:
@@ -1404,7 +1422,8 @@ CLI_HELP = """ledger — query this repo's ledger and the decision history in it
   ledger validate [N]         check the last N commits against the ledger's commit rules (20)
   ledger rules                regenerate .claude/rules/ledger/ from directives/constraints/rejected
   ledger tidy                 the tidy report      ledger share   records not shared yet
-  ledger recall-stats         how prompt-time recall is doing, and whether its threshold should move
+  ledger recall-stats         how recall is doing, whether its threshold should move, and the
+                              re-proposals the gate and recall caught
 
 Works for any agent or person that can run a shell command. Writing happens only through
 commit trailers (Decision:, Finding:, Opens:, … — see the ledger's own header)."""
@@ -1813,8 +1832,68 @@ def recall_report(root):
     return lines
 
 
+def reproposals(root, since=0.0):
+    """Re-litigation the ledger caught: commits the gate refused for re-adopting a retired
+    framing or rejected alternative, or for restating a live entry; and dead ends (retired or
+    superseded entries) that recall put in front of Claude and Claude then cited.
+    -> dict of counts and examples, or None when nothing is logged."""
+    path = os.path.join(recall_dir(root) or '', 'log.tsv')
+    try:
+        raw = [l.split('\t') for l in io.open(path, encoding='utf-8').read().splitlines()]
+    except OSError:
+        return None
+    rows = [c for c in raw if len(c) == 6 and _num(c[0]) >= since]
+    ledger = _ledger_path(root)
+    by_id = {e['id']: e for e in parse_entries(ledger)} if ledger and os.path.exists(ledger) else {}
+    dead = lambda i: i in by_id and (by_id[i]['type'] == 'retired' or by_id[i]['status'] == 'SUPERSEDED')
+    days = lambda kind: {(c[5], datetime.date.fromtimestamp(_num(c[0]))) for c in rows if c[3] == kind}
+    repro, restated = days('gate-reproposal'), days('gate-restated')
+    shown_dead = [c for c in rows if c[3] == 'shown' and dead(c[5])]
+    used = 0
+    turns = {}
+    for c in shown_dead:
+        tr = c[2]
+        if not tr:
+            continue
+        if tr not in turns:
+            turns[tr] = _transcript_turns(tr)
+        t, ts = turns[tr], _num(c[0])
+        hs = [j for j, (h, who, _) in enumerate(t) if who == 'human' and abs(h - ts) < 120]
+        if not hs:
+            continue
+        j = min(hs, key=lambda k: abs(t[k][0] - ts))
+        reply = []
+        for h, who, text in t[j + 1:]:
+            if who == 'human':
+                break
+            reply.append(text)
+        used += re.search(r'(?<![\w-])' + re.escape(c[5]) + r'(?![\w-])', '\n'.join(reply)) is not None
+    return dict(reproposals=len(repro), restated=len(restated), dead_shown=len(shown_dead), dead_used=used,
+                examples=sorted({i for i, _ in repro})[:5])
+
+
+def _num(x):
+    try:
+        return float(x)
+    except ValueError:
+        return 0.0
+
+
+def reproposal_report(root, since=0.0, label='logged'):
+    r = reproposals(root, since)
+    if not r:
+        return []
+    return [f"- Since {label}: the commit gate stopped {r['reproposals']} re-proposal"
+            f"{'s' if r['reproposals'] != 1 else ''} of a retired or rejected approach"
+            + (f" ({', '.join(r['examples'])})" if r['examples'] else '')
+            + f" and {r['restated']} restatement{'s' if r['restated'] != 1 else ''} of a live entry; "
+            f"recall showed {r['dead_shown']} dead end{'s' if r['dead_shown'] != 1 else ''} "
+            f"(retired or superseded), and Claude cited {r['dead_used']} of them."]
+
+
 def cmd_recall_stats(argv):
-    return "\n".join(recall_report(argv[0])) or "No recalls logged in this clone yet."
+    return "\n".join(recall_report(argv[0]) + reproposal_report(argv[0])) \
+        or "No recalls logged in this clone yet."
 
 
 def cmd_id(argv):
@@ -1822,6 +1901,11 @@ def cmd_id(argv):
 
 
 def main():
+    for stream in (sys.stdin, sys.stdout, sys.stderr):     # UTF-8 even where PYTHONUTF8 is unset
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
     if len(sys.argv) < 2:
         sys.exit(2)
     mode, rest = sys.argv[1], sys.argv[2:]

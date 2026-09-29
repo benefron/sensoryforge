@@ -12,7 +12,8 @@
 # EXEMPT_SUBJECTS / EXEMPT_AUTHORS regexes in .claude/ledger.conf (for pipelines and cron jobs
 # that commit). Escape hatch: git commit --no-verify.
 #
-# ledger-template-version: 6
+# ledger-template-version: 8
+export PYTHONUTF8=1   # UTF-8 for Python on every platform (Windows defaults to its code page)
 set -u
 MSGFILE="${1:-}"
 [ -n "$MSGFILE" ] && [ -f "$MSGFILE" ] || exit 0

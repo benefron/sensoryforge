@@ -5,7 +5,11 @@
 # per-repo hooks keep working on a clone that has never seen this skill. Keep it small,
 # dependency-free (git + coreutils only), and safe to source from any shell.
 #
-# ledger-template-version: 6
+# ledger-template-version: 8
+
+# Python reads stdin, stdout and git's output as UTF-8 on every platform. Without this, Python on
+# Windows decodes with the local code page and writes mojibake into the ledger ("—" -> "â€”").
+export PYTHONUTF8=1
 
 # --- repo / path resolution --------------------------------------------------
 
@@ -323,6 +327,8 @@ ll_changes_since() {
 # ll_version_changes <version>  ->  one line naming what that version added
 ll_version_changes() {
   case "$1" in
+    8) printf '%s\n' "the tidy report counts re-proposals caught: commits the gate refused for re-adopting a retired or rejected approach or restating a live entry, and dead ends recall surfaced that Claude then cited" ;;
+    7) printf '%s\n' "UTF-8 everywhere: on Windows the merge driver and the sync no longer write mojibake into the ledger (git output, stdin and stdout are read as UTF-8)" ;;
     6) printf '%s\n' "hooks that keep working when a checkout lost the executable bit (a repo committed from Windows), ledger files written with Unix line endings on every platform, and an upgrade commit that keeps the scripts executable" ;;
     5) printf '%s\n' "prompt-time recall: each message you type is matched against the whole ledger, and the entries it touches that the session digest did not show are put in front of Claude (threshold calibrated at /ledger-tidy); ledger search" ;;
     4) printf '%s\n' "content-hash ids (no more id collisions across branches and machines), sync derived from git with no per-machine bookmark, an entry-wise merge driver for the ledger, Supersedes:/Due:/Area: trailers, overdue and triage flags, ledger lint" ;;
