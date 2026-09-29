@@ -28,11 +28,14 @@ class SilentPopulation:
     Attributes:
         name: Population name, as keyed in the results dict.
         peak_input_ma: The largest value of the population's ``"filtered"``
-            result in mA -- the current its neurons received, after the
-            filter, ``input_gain`` and noise, before any ``input_floor`` --
-            over every neuron and time step. ``None`` when the results did
-            not keep ``"filtered"`` (a run without intermediates) or the
-            population has no neurons.
+            result in mA, over every neuron and time step: the drive after
+            the filter, ``input_gain`` and noise, but *before* any
+            ``input_floor`` (D-43dc520). The engine records ``filtered``
+            unfloored, so for a tactile afferent the neuron saw
+            ``max(filtered, 0)``, and a peak at or below 0 means it received
+            no positive input at all. ``None`` when the results did not keep
+            ``"filtered"`` (a run without intermediates) or the population has
+            no neurons.
     """
 
     name: str
@@ -102,12 +105,13 @@ def describe_silent(silent: Sequence[SilentPopulation]) -> str:
 
     Returns:
         ``""`` when ``silent`` is empty; otherwise a short paragraph naming
-        each population and its peak neuron input in mA.
+        each population and its peak filtered drive in mA, the drive before
+        any input floor (see :class:`SilentPopulation`).
 
     Example:
         >>> print(describe_silent([SilentPopulation("RA", 0.0031)]))
         No spikes from 1 population in this run:
-          RA: peak neuron input 0.0031 mA
+          RA: peak filtered drive 0.0031 mA
         Far below what the neurons need to fire? Raise the stimulus or input gain.
     """
     if not silent:
@@ -115,11 +119,15 @@ def describe_silent(silent: Sequence[SilentPopulation]) -> str:
     noun = "population" if len(silent) == 1 else "populations"
     lines = [f"No spikes from {len(silent)} {noun} in this run:"]
     for pop in silent:
-        peak = (
-            f"peak neuron input {pop.peak_input_ma:.3g} mA"
-            if pop.peak_input_ma is not None
-            else "neuron input not recorded"
-        )
+        if pop.peak_input_ma is None:
+            peak = "drive not recorded"
+        elif pop.peak_input_ma <= 0.0:
+            peak = (
+                f"peak filtered drive {pop.peak_input_ma:.3g} mA -- no positive "
+                "drive reached the neurons"
+            )
+        else:
+            peak = f"peak filtered drive {pop.peak_input_ma:.3g} mA"
         lines.append(f"  {pop.name}: {peak}")
     lines.append(
         "Far below what the neurons need to fire? Raise the stimulus or input gain."

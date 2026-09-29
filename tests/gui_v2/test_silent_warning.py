@@ -94,7 +94,7 @@ def test_a_silent_population_is_named_with_its_peak_input(qtbot):
 
     warning = screen.silent_warning()
     assert not screen.silent_banner.isHidden()
-    assert "SA: peak neuron input" in warning and "mA" in warning
+    assert "SA: peak filtered drive" in warning and "mA" in warning
     assert "RA" not in warning  # it fired
     assert "Leaky" not in warning  # analog: no threshold, nothing to fire
     peak = float(session.last_results.results["SA"]["filtered"].max())
@@ -159,7 +159,7 @@ def test_a_saved_bundle_of_a_silent_run_shows_it(qtbot, tmp_path):
     screen = _screen(qtbot, session)
 
     screen.open_bundle(tmp_path / "bundle")
-    assert "SA: peak neuron input" in screen.silent_warning()
+    assert "SA: peak filtered drive" in screen.silent_warning()
 
     screen.show_live_results()  # no live run yet
     assert screen.silent_warning() == ""
@@ -177,7 +177,7 @@ class TestQuickRun:
     def test_a_silent_population_is_named(self, qtbot):
         screen = self._quick_run(qtbot, Session(_config(sa_gain=SILENT_GAIN)), "SA")
         assert not screen.quick_warning.isHidden()
-        assert "SA: peak neuron input" in screen.quick_warning.text()
+        assert "SA: peak filtered drive" in screen.quick_warning.text()
 
     def test_a_firing_population_shows_no_warning(self, qtbot):
         screen = self._quick_run(qtbot, Session(_config(sa_gain=SILENT_GAIN)), "RA")
