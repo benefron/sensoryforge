@@ -2,17 +2,20 @@
 
 Each tactile recipe population has its own ``input_gain``, chosen by
 ``scripts/calibrate_recipe_gains.py`` (ledger D-ea0f017, D-d9bd411,
-D-8dde454). This test runs each recipe at its own preset gains through the
-four benchmark stimuli:
+D-8dde454, D-673e0ed). This test runs each recipe at its own preset gains
+through the four benchmark stimuli:
 
 * SA, Izhikevich recipe (rule ``p5_hold``): the held stimulus's SA rate lies
   in P5's 20-100 Hz band with an ISI CV below 0.5.
 * SA, AdEx recipe (rule ``low_threshold``): SA fires on the held benchmark at
   10% of its amplitude, so weak pressures are not invisible to it. The drive
   is linear in pressure, so the rendered frames are scaled by 0.1.
-* RA: silent during ``ramp_gaussian``'s static hold, from 30 ms after the ramp
-  (P5's physiological requirement). RA's sensitivity is set by TouchSim and
-  pinned by ``tests/validation/test_touchsim_comparison.py``.
+* RA, Izhikevich recipe (rule ``touchsim``): its sensitivity is matched to
+  TouchSim's RA and pinned by ``tests/validation/test_touchsim_comparison.py``.
+* RA, AdEx recipe (rule ``low_threshold``): RA fires during the benchmark's
+  ramp at 10% of its amplitude, i.e. at 10% of its rate of pressure change.
+* RA, both: silent during ``ramp_gaussian``'s static hold, from 30 ms after the
+  ramp (P5's physiological requirement).
 * Voltage (D-ce22df3): the recipes' neurons have no voltage clamp by default.
   Without it, the voltage must stay in a physiological range: above -150 mV
   on every stimulus, and above -110 mV during the static hold, where no
@@ -72,6 +75,16 @@ def _run(config, frames):
     return SimulationEngine(config).run(
         frames.unsqueeze(0), return_intermediates=True, seed=config.simulation.seed
     )
+
+
+def _ra_spikes(config, frames):
+    """RA spikes over the whole run. On ``ramp_gaussian`` only the ramp drives
+    RA (its hold is static), and near threshold the first spike comes late in
+    the 50 ms ramp, after the harness's 30 ms onset window -- the calibration
+    rule (``ra_fires_at``) counts the whole run for the same reason."""
+    results = _run(config, frames)
+    ra = next(p.name for p in config.populations if p.neuron_type == "RA")
+    return float(results[ra]["spikes"].sum())
 
 
 def _sa_hold_rate(calibration, config, frames, filtered_by):
@@ -142,6 +155,11 @@ def test_recipe_populations_fire_as_calibrated(calibration, drive, model):
         weak = frames_by["ramp_gaussian"] * calibration.SA_THRESHOLD_FRACTION
         rate = _sa_hold_rate(calibration, config, weak, filtered_by)
         assert rate > 0.0, "SA is silent at 10% of the held benchmark pressure"
+
+    if calibration.RA_RULES[model] == "low_threshold":
+        weak = frames_by["ramp_gaussian"] * calibration.SA_THRESHOLD_FRACTION
+        spikes = _ra_spikes(config, weak)
+        assert spikes > 0, "RA is silent at 10% of the benchmark's rate of change"
 
     ra_static_hold = [
         r["hold_count"] for r in rows if r["population"] == "RA" and r["hold_is_scored"]

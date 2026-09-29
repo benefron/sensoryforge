@@ -245,6 +245,17 @@ def two_sig(x: float) -> float:
     return float(f"{x:.2g}")
 
 
+def two_sig_up(x: float) -> float:
+    """Round *up* to two significant figures.
+
+    A low-threshold gain sits exactly at the firing threshold, so rounding it
+    down (262.7 -> 260) lands just below it and the population stays silent
+    at the pressure it is meant to fire at.
+    """
+    scale = 10.0 ** (math.floor(math.log10(abs(x))) - 1)
+    return float(math.ceil(x / scale) * scale)
+
+
 def sa_passes(rows: List[Dict[str, Any]], gain: float) -> bool:
     """The static hold's SA rate in P5's band, with ISI CV below 0.5."""
     lo, hi = SA_BAND_HZ
@@ -273,7 +284,11 @@ def sa_fires_at(config, gain: float, frames_by, filtered_by) -> bool:
 
 
 def ra_fires_at(config, gain: float, frames_by, filtered_by) -> bool:
-    """Whether the held ``ramp_gaussian``'s ramp makes RA spike at ``gain``."""
+    """Whether the held ``ramp_gaussian``'s ramp makes RA spike at ``gain``.
+
+    Any responsive-set spike in the run counts: only the ramp drives RA, and
+    near threshold its first spike comes late in the 50 ms ramp.
+    """
     for r in score(
         config,
         gain,
@@ -342,7 +357,10 @@ def calibrate(steps: int) -> Dict[str, Any]:
         if RA_RULES[model] == "low_threshold":
             # The TouchSim fit above is still run and reported, for reference.
             ra = choose_ra_gain_low_threshold(config, frames_by, filtered_by)
-        chosen = {"SA": two_sig(sa), "RA": two_sig(ra)}
+        chosen = {
+            "SA": (two_sig_up if SA_RULES[model] == "low_threshold" else two_sig)(sa),
+            "RA": (two_sig_up if RA_RULES[model] == "low_threshold" else two_sig)(ra),
+        }
         confirm = []
         for pop, g in chosen.items():
             if g is None:

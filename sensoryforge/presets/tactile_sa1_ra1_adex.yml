@@ -26,9 +26,12 @@
 # refractory period and no voltage clamp (D-ce22df3, D-f5853a4); set
 # model_params.preset to SA1_adapting / RA1_adapting for the adaptation fitted
 # to TouchSim's SA1/RA afferents (scripts/validation/fit_afferents.py).
-# Input gains come from scripts/calibrate_recipe_gains.py (report:
-# benchmarks/results/recipe_calibration/): SA's puts a held stimulus at 45 Hz,
-# the centre of P5's band (D-ea0f017); RA's matches TouchSim's RA sensitivity.
+# This is pressure-simulation's model (D-6bae4df). Input gains come from
+# scripts/calibrate_recipe_gains.py's low-threshold rule (report:
+# benchmarks/results/recipe_calibration/; D-8dde454, D-673e0ed): each puts the
+# population's firing threshold at 10% of the benchmark stimulus -- SA fires
+# from 10% of its pressure, RA from 10% of its rate of change -- so rates rise
+# roughly in proportion above it. A held benchmark drives SA above P5's band.
 metadata:
   name: Pressure-simulation recipe on AdEx (SA1/RA1)
   version: '1.0'
@@ -67,7 +70,7 @@ populations:
     normalize: l2
   neuron_model: AdEx
   filter_method: ra
-  input_gain: 260.0
+  input_gain: 270.0
   seed: 43
 simulation:
   device: cpu
