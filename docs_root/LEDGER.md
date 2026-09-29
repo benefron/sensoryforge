@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-c8d509b · CLOSED · finding · - · 2026-09-29
+the no-spike banner reported the run's pre-floor filtered drive as the 'peak neuron input', so a silent run could show a negative input the neuron never received; it now names it the peak filtered drive and says when no positive drive reached the neurons
+→ commit 74f0e3c
+
 ## F-ac1d82d · CLOSED · finding · - · 2026-09-29
 the Gabor builder routes (Stimulus.gabor, StaticStimulus, gabor_texture, gabor_texture_torch, the legacy StimulusGenerator) kept the old 0.3 / 0.5 mm geometry after D-407c639, and gabor_texture_torch still rendered negative values by default
 → commit 661f5e2
@@ -187,6 +191,7 @@ the current a tactile afferent population's neuron receives is floored at 0 mA (
 · Rejected: rectifying the SA filter output itself (clip_to_positive) | the recorded and decoded signal must stay signed (F-001)
 → commit 9e2b70a
 ↔ 4daea68 feat(neurons): floor afferent neuron input at zero; give AdEx a refractory period
+↔ 74f0e3c fix(gui): label the no-spike banner's number as the drive before the input floor
 
 ## D-f5853a4 · CLOSED · decision · - · 2026-09-24
 AdEx neurons get an absolute refractory period t_ref (default 0 ms, so existing configs are unchanged); the SA1_tonic and RA1_phasic presets use 2 ms, capping their rates near 500 Hz
@@ -253,6 +258,7 @@ the named gabor type's default geometry (sigma 0.3 mm, wavelength 0.5 mm) covers
 the GUI gives no warning when a population fires no spikes in a run, so a stimulus or gain that leaves a population silent looks like a working result
 → commit abdf37f
 ✓ closed by 1286794 fix(gui): warn when a spiking population fires no spikes in a run
+↔ 74f0e3c fix(gui): label the no-spike banner's number as the drive before the input floor
 
 ## F-073fc19 · STANDING · finding · - · 2026-09-24
 before this change the default gabor, texture and StaticStimulus gabor kind were the only stimuli rendering negative values (min -0.696, -0.885 at unit amplitude, -0.696 on a 40x40 grid at 0.15 mm); every other registered type and trapezoidal/step/ramp were already non-negative
