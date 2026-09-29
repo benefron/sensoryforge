@@ -8,6 +8,9 @@ under one key prefix, such as ``"grids.0"`` on the Sensors screen or
 
 from __future__ import annotations
 
+import inspect
+import weakref
+
 from typing import Callable, Optional, Union
 
 from PyQt5 import QtCore, QtWidgets
@@ -37,7 +40,12 @@ class ProblemList(QtWidgets.QLabel):
     ) -> None:
         super().__init__(parent)
         self._session = session
-        self._prefix = prefix
+        # A screen passes its own bound method; hold it weakly, or the list
+        # (the screen's child) and the screen keep each other alive in a
+        # cycle only the collector frees (F-1d91063, F-085).
+        self._prefix = (
+            weakref.WeakMethod(prefix) if inspect.ismethod(prefix) else prefix
+        )
         self.setObjectName("ProblemList")
         self.setWordWrap(True)
         self.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
@@ -51,7 +59,13 @@ class ProblemList(QtWidgets.QLabel):
 
     def messages(self) -> list:
         """The messages currently shown (empty when hidden)."""
-        prefix = self._prefix() if callable(self._prefix) else self._prefix
+        prefix = self._prefix
+        if isinstance(prefix, weakref.WeakMethod):
+            method = prefix()
+            if method is None:
+                return {}
+            prefix = method
+        prefix = prefix() if callable(prefix) else prefix
         if prefix is None:
             return []
         return errors_under(self._session.errors, prefix)

@@ -30,10 +30,12 @@ anywhere.
 from __future__ import annotations
 
 import functools
-from typing import Callable, List, Optional, Tuple
+import inspect
+import weakref
+from typing import Any, Callable, List, Optional, Tuple
 
 import pyqtgraph as pg
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from sensoryforge.gui import theme
 
@@ -205,24 +207,53 @@ def make_raster_item(color) -> pg.ScatterPlotItem:
     return pg.ScatterPlotItem(symbol="|", size=theme.RASTER_SIZE, pen=None, brush=brush)
 
 
+def _hold_weakly(value: Any) -> Tuple[bool, Any]:
+    """``(True, weakref)`` for a Qt object, ``(False, value)`` for anything else."""
+    if isinstance(value, (QtCore.QObject, QtWidgets.QGraphicsItem)):
+        return True, weakref.ref(value)
+    return False, value
+
+
+def _call_weakly(callback_ref, packed, *signal_args) -> None:
+    """Resolve the weakly held callback and arguments; skip the call if any died."""
+    callback = callback_ref()
+    if callback is None:
+        return
+    values = []
+    for weak, value in packed:
+        if weak:
+            value = value()
+            if value is None:
+                return
+        values.append(value)
+    callback(*values, *signal_args)
+
+
 def connect(
     signal, callback: Callable, *args, owner: Optional[object] = None
 ) -> Callable:
-    """Connect a pyqtgraph signal without risking a stale widget-closing slot.
+    """Connect a pyqtgraph signal without a reference cycle through the slot.
 
-    Wraps ``callback`` in ``functools.partial(callback, *args)`` -- never a
-    bound method, never a lambda closing over a widget -- and connects that
-    to ``signal``. With an ``owner`` (typically the ``pg.PlotWidget`` the
-    signal's item lives on) the connection is recorded on the owner itself,
-    so :func:`teardown` can disconnect it later and the record is freed with
+    The slot holds a bound-method ``callback`` through a
+    :class:`weakref.WeakMethod` and every Qt-object argument (a widget, a
+    plot, a view box, a graphics item) through a :func:`weakref.ref`, so
+    connecting a panel's own method, or passing the panel itself, cannot
+    make a cycle ``owner -> record -> slot -> panel -> owner`` that only the
+    cyclic collector would free (ledger F-1d91063; F-085 is what such a
+    cycle once did). Plain values (names, indices, numbers) are held as
+    given. Once any weakly held object has been freed the slot does nothing.
+    With an ``owner`` (typically the ``pg.PlotWidget`` the signal's item
+    lives on) the connection is recorded on the owner itself, so
+    :func:`teardown` can disconnect it later and the record is freed with
     the owner (ledger F-0eaa5d9); :func:`connections` lists it.
 
     Args:
         signal: A pyqtgraph/Qt bound signal (e.g. ``scatter.sigClicked``).
-        callback: A plain function (not a bound method of a widget) to
-            invoke on emission. Called as ``callback(*args, *signal_payload)``.
+        callback: The function to invoke on emission, a plain function or a
+            bound method (held weakly). Called as
+            ``callback(*args, *signal_payload)``.
         *args: Extra positional arguments bound ahead of the signal's own
-            emitted arguments.
+            emitted arguments; Qt objects among them are held weakly.
         owner: The object connections should be torn down with. It must
             take attributes (every Qt and pyqtgraph object does). If
             omitted, the connection is not recorded anywhere and
@@ -252,11 +283,20 @@ def connect(
                 f"plot_factory.connect owner must take attributes, got a "
                 f"{type(owner).__name__} with no __dict__"
             ) from None
-    slot = functools.partial(callback, *args)
+    if inspect.ismethod(callback):
+        callback_ref = weakref.WeakMethod(callback)
+    else:
+        callback_ref = functools.partial(_identity, callback)
+    packed = tuple(_hold_weakly(arg) for arg in args)
+    slot = functools.partial(_call_weakly, callback_ref, packed)
     signal.connect(slot)
     if record is not None:
         record.append((signal, slot))
     return slot
+
+
+def _identity(value: Any) -> Any:
+    return value
 
 
 def connections(owner: object) -> List[Tuple[object, Callable]]:

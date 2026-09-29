@@ -44,6 +44,7 @@ from sensoryforge.gui import theme  # noqa: E402
 from sensoryforge.gui.app import SensoryForgeApp  # noqa: E402
 from sensoryforge.gui.screens import sensors as sensors_module  # noqa: E402
 from sensoryforge.gui.session import Session  # noqa: E402
+from sensoryforge.gui.widgets import plot_factory  # noqa: E402
 from sensoryforge.gui.widgets.grid_preview import GridPreview  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -254,3 +255,48 @@ def test_collecting_a_closed_window_with_a_render_result_queued_does_not_crash()
     assert (
         result.returncode == 0 and "event loop survived" in result.stdout
     ), f"exit status {result.returncode}\n{result.stdout}\n{result.stderr[-3000:]}"
+
+
+def test_a_window_that_ran_and_showed_results_is_freed_without_the_collector(
+    qtbot, collector_off
+):
+    """After a run, every screen built (receptor preview, results map, rate
+    and raster panels, their plot_factory connections), reference counting
+    alone still frees the window (F-1d91063, F-085)."""
+    window, session = _window()
+    qtbot.addWidget(window)
+    window.run_bar.show_dialogs = False
+    session.config.grids[0].rows = session.config.grids[0].cols = 12
+    window.run_bar.duration_spin.setValue(60.0)
+    with qtbot.waitSignal(window.run_controller.finished, timeout=120000):
+        window.run_bar.run_button.click()
+    for row in range(window.stage_list.count()):
+        window.stage_list.setCurrentRow(row)
+        qtbot.wait(20)
+    results_screen = window._screens["results"]
+    assert plot_factory.connections(
+        results_screen.map_panel.plot
+    ), "the results map must hold click connections, or this test proves nothing"
+    parts = {
+        "results map panel": weakref.ref(results_screen.map_panel),
+        "results rate panel": weakref.ref(results_screen.rate_panel),
+        "results screen": weakref.ref(results_screen),
+    }
+    for screen in window._screens.values():
+        for child in screen.findChildren(GridPreview):
+            parts[f"{type(screen).__name__} grid preview"] = weakref.ref(child)
+    del results_screen, screen, child
+    alive = weakref.ref(window)
+
+    del window, session
+
+    held = [name for name, ref in parts.items() if ref() is not None]
+    assert not held, (
+        f"{held} outlived the window, held by reference cycles through their "
+        "plot_factory connections (F-1d91063); only the collector frees them"
+    )
+    assert alive() is None, (
+        "a SensoryForgeApp that ran and showed its results is still alive, "
+        "held only by a reference cycle through its screens' connections; the "
+        "collector will delete it later, possibly inside a slot (F-085)"
+    )
