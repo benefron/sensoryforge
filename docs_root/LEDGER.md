@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ac1d82d · CLOSED · finding · - · 2026-09-29
+the Gabor builder routes (Stimulus.gabor, StaticStimulus, gabor_texture, gabor_texture_torch, the legacy StimulusGenerator) kept the old 0.3 / 0.5 mm geometry after D-407c639, and gabor_texture_torch still rendered negative values by default
+→ commit 661f5e2
+
 ## F-4c73438 · STANDING · finding · - · 2026-09-29
 at its low-threshold gains (SA 160, RA 260) the non-adapting AdEx recipe's SA hold rate rises roughly linearly from about 10% of the benchmark pressure (0, 25, 45, 76, 103, 137, 171, 214 Hz from 0.1 to 2.0 of the benchmark amplitude at a 1 mm probe, R^2 0.97) and its RA onset rate with ramp speed (62 to 208 Hz over 5 to 40 amplitude units per second, R^2 0.86)
 → commit 29be3f0
@@ -153,6 +157,7 @@ RA's response to release as strong as to indentation (the RA filter is symmetric
 the named gabor stimulus's default sigma and wavelength become 1.0 mm (those of the layered gabor shape), so a default gabor spans many receptors of a 0.15 mm grid
 → commit 5251e45
 ↔ 63ec27a fix(stimuli): enlarge the named gabor's default geometry to 1 mm
+↔ 661f5e2 fix(stimuli): give every Gabor entry point the same 1 mm default
 
 ## D-6bae4df · CLOSED · decision · - · 2026-09-24
 for now SensoryForge's tactile models serve the pressure-simulation project and stay simple enough to implement in hardware (Izhikevich or AdEx, no new model terms); the requirement is that SA and RA both fire, SA's rate proportional to pressure and RA's to its rate of change; fixing AdEx's adaptation voltage range and other SensoryForge-specific extensions are deferred
@@ -294,6 +299,7 @@ every stimulus defaults to peak amplitude 1.0, pressure-simulation's convention:
 ↔ 5d3093d test(stimuli): pin unit peak and non-negativity for every stimulus default
 ↔ ab2f695 docs(stimuli): document the unit-peak default and the signed Gabor
 ↔ abdf37f docs: record the unit-amplitude defaults and close F-083
+↔ 661f5e2 fix(stimuli): give every Gabor entry point the same 1 mm default
 
 ## D-ea0f017 · CLOSED · decision · - · 2026-09-24
 SensoryForge's tactile recipes give SA and RA their own input gains, calibrated on the responsive-set rate against the P5 bands over the four benchmark stimuli, with the drive scale reconciled with pressure-simulation's design-time model (its C-032)
