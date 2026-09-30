@@ -24,6 +24,22 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ### Added
 
+- **Event encoders** (2026-10-01): two opt-in population models, next to the unchanged AdEx /
+  Izhikevich reference arms. `level_crossing` (RA) is a signed, event-camera-style
+  level-crossing unit: an ON event each time its drive has risen by `theta` since its last event,
+  an OFF event each time it has fallen by `theta`, the reference moving by `theta` per event;
+  parameters `theta` (mA), `refractory_ms`, `initial_reference` (`zero`/`first`), `noise_std`.
+  It runs on the drive before any derivative filter (`filter_method: none`), its input is not
+  floored at 0 mA, and the engine returns its signed counts under `events`, never `spikes`.
+  `sigma_delta` (SA) is a non-leaky integrate-and-fire unit with subtractive reset whose rate is
+  exactly `drive / theta` (no rheobase); parameters `theta` (mA*ms), `leak_tau_ms` (default
+  none), `refractory_ms`, `noise_std`. `load_design` accepts both. See
+  `docs/user_guide/event_encoders.md`.
+- **Bundle schema 2.1.0**: a signed event population's counts go to an `events` dataset
+  (`int16`, attribute `signed`), never `spikes`, so a 2.0 reader fails loudly instead of reading
+  an OFF event as a spike; every `config.json` population entry gains `readout` and `encoder`
+  (`{model, params}`), and an `events` population `event_encoding`. 2.0 readers load the rest
+  unchanged.
 - **Receptor (sensor) noise before innervation**: `SimulationConfig.receptor_noise_std`, in the
   stimulus's own (pressure) units -- one Gaussian source per receptor and record bin, added to the
   stimulus sampled on the receptor grid before any receptive-field bank, drawn once per run and

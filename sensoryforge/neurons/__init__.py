@@ -9,6 +9,8 @@ Available Models:
     MQIFNeuronTorch: Modified quadratic integrate-and-fire model
     FANeuronTorch: Fast adapting neuron model
     SANeuronTorch: Slowly adapting neuron model
+    LevelCrossingNeuron: Signed level-crossing event encoder (RA, ON/OFF events)
+    SigmaDeltaNeuron: Sigma-delta (non-leaky IF, subtractive reset) encoder (SA)
 
 All models inherit from torch.nn.Module and support batched processing,
 GPU acceleration, and configurable parameters.
@@ -26,6 +28,7 @@ from .adex import AdExNeuronTorch
 from .mqif import MQIFNeuronTorch
 from .fa import FANeuronTorch
 from .sa import SANeuronTorch
+from .event_encoders import LevelCrossingNeuron, SigmaDeltaNeuron
 
 __all__ = [
     "BaseNeuron",
@@ -34,4 +37,6 @@ __all__ = [
     "MQIFNeuronTorch",
     "FANeuronTorch",
     "SANeuronTorch",
+    "LevelCrossingNeuron",
+    "SigmaDeltaNeuron",
 ]

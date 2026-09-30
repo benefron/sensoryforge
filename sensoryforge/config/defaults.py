@@ -71,6 +71,11 @@ FILTER_DEFAULTS: Dict[str, Dict[str, float]] = {
 #: D-43dc520): tactile afferents, whose transduction current cannot reverse.
 AFFERENT_INPUT_FLOOR_BY_TYPE: Dict[str, float] = {"SA": 0.0, "RA": 0.0, "SA2": 0.0}
 
+#: Neuron models whose input is never floored by default: a DSL model may be
+#: an analog readout of a signed signal, and the signed level-crossing
+#: encoder's OFF events live in the falling half of its drive (2026-10-01).
+UNFLOORED_NEURON_MODELS = frozenset({"dsl", "level_crossing"})
+
 
 def resolve_input_floor(
     neuron_type: str, neuron_model: str, input_floor: Optional[float]
@@ -87,13 +92,14 @@ def resolve_input_floor(
         The floor in mA, or ``None`` when the neuron input is not bounded.
         By default a tactile afferent (SA, RA, SA2) on a built-in neuron
         model gets 0 mA; a DSL model, which may be an analog readout of a
-        signed signal, and every other type get no floor.
+        signed signal, the signed ``level_crossing`` encoder, and every other
+        type get no floor.
     """
     if input_floor is not None:
         return (
             None if math.isinf(input_floor) and input_floor < 0 else float(input_floor)
         )
-    if str(neuron_model).lower() == "dsl":
+    if str(neuron_model).lower() in UNFLOORED_NEURON_MODELS:
         return None
     return AFFERENT_INPUT_FLOOR_BY_TYPE.get(str(neuron_type).upper())
 

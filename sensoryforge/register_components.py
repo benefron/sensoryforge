@@ -28,6 +28,7 @@ from sensoryforge.neurons.mqif import MQIFNeuronTorch
 from sensoryforge.neurons.fa import FANeuronTorch
 from sensoryforge.neurons.sa import SANeuronTorch
 from sensoryforge.neurons.model_dsl import NeuronModel
+from sensoryforge.neurons.event_encoders import LevelCrossingNeuron, SigmaDeltaNeuron
 
 # Filters
 from sensoryforge.filters.sa_ra import SAFilterTorch, RAFilterTorch
@@ -97,6 +98,9 @@ def register_all() -> None:
     NEURON_REGISTRY.register("SA", SANeuronTorch)
     NEURON_REGISTRY.register("dsl", NeuronModel)
     NEURON_REGISTRY.register("DSL (Custom)", NeuronModel)  # GUI alias (distinct name)
+    # Event encoders (2026-10-01): signed level-crossing (RA) and sigma-delta (SA)
+    NEURON_REGISTRY.register("level_crossing", LevelCrossingNeuron)
+    NEURON_REGISTRY.register("sigma_delta", SigmaDeltaNeuron)
 
     # Register filters
     # Note: SAFilterTorch and RAFilterTorch don't inherit BaseFilter yet

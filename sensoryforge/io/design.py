@@ -41,6 +41,46 @@ from sensoryforge.config.schema import (
 #: filter method still gets a `neuron_type`.
 _NEURON_TYPE_BY_FILTER_METHOD: Dict[str, str] = {"sa": "SA", "ra": "RA"}
 
+#: The event encoders (2026-10-01) name their afferent class by model, since
+#: both run with ``filter_method: "none"`` (the level-crossing unit
+#: differentiates by construction; the sigma-delta unit integrates the level
+#: itself): ``level_crossing`` is the RA arm, ``sigma_delta`` the SA arm.
+#: Takes precedence over :data:`_NEURON_TYPE_BY_FILTER_METHOD`; an explicit
+#: ``neuron_type`` in the population record takes precedence over both.
+_NEURON_TYPE_BY_MODEL: Dict[str, str] = {"level_crossing": "RA", "sigma_delta": "SA"}
+
+
+def _check_event_encoder_params(prec: Dict[str, Any], where: str) -> None:
+    """Build an event-encoder population's model once, to fail at load time.
+
+    Args:
+        prec: One ``design.json["populations"][i]`` record whose
+            ``neuron_model`` is ``level_crossing`` or ``sigma_delta``.
+        where: Human-readable location of ``prec``, for the error message.
+
+    Raises:
+        ValueError: If ``model_params`` names a parameter the model lacks or
+            holds an invalid value (e.g. ``theta <= 0``).
+    """
+    from sensoryforge.neurons.event_encoders import (
+        LevelCrossingNeuron,
+        SigmaDeltaNeuron,
+    )
+
+    cls = {
+        "level_crossing": LevelCrossingNeuron,
+        "sigma_delta": SigmaDeltaNeuron,
+    }[str(prec["neuron_model"]).lower()]
+    try:
+        cls(**dict(prec["model_params"]))
+    except TypeError as exc:
+        raise ValueError(
+            f"load_design: {where}['model_params'] is not valid for "
+            f"neuron_model {prec['neuron_model']!r}: {exc}"
+        ) from None
+    except ValueError as exc:
+        raise ValueError(f"load_design: {where}['model_params']: {exc}") from None
+
 #: Required keys of one `design.json["populations"][i]` record -- everything
 #: `load_design` reads verbatim onto the emitted `PopulationConfig`.
 _REQUIRED_POPULATION_KEYS = (
@@ -159,7 +199,13 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
       ``sensoryforge.config.defaults.resolve_neuron_params`` keys the
       Izhikevich preset off ``neuron_type``, not ``filter_method`` -- a
       designed population with no ``neuron_type`` would silently keep the
-      dataclass default ("SA") for an RA population.
+      dataclass default ("SA") for an RA population. The event encoders
+      (``neuron_model`` ``"level_crossing"`` / ``"sigma_delta"``, whose
+      ``model_params`` are e.g. ``{"theta": 0.5, "refractory_ms": 1.0}``)
+      take their type from the model instead (RA / SA,
+      :data:`_NEURON_TYPE_BY_MODEL`), since both run with
+      ``filter_method: "none"``; an explicit ``neuron_type`` in the record
+      wins over both rules. Their ``model_params`` are checked at load time.
     * the design's receptor (sensor) noise, optional: a top-level
       ``receptor_noise_std`` (stimulus/pressure units, one source per
       receptor, shared by every population) becomes
@@ -192,8 +238,9 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
         FileNotFoundError: If ``design_dir/design.json`` or a population's
             ``.npz`` file does not exist.
         ValueError: If a required key is missing from ``decisions`` or from
-            a population record -- the message names the missing key -- or a
-            declared noise std is negative or not a number.
+            a population record -- the message names the missing key -- a
+            declared noise std is negative or not a number, or an event
+            encoder's ``model_params`` are invalid.
     """
     design_dir = Path(design_dir).expanduser().resolve()
     manifest = read_manifest(design_dir)
@@ -232,9 +279,17 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
             )
 
         filter_method = prec["filter_method"]
-        neuron_type = _NEURON_TYPE_BY_FILTER_METHOD.get(
-            str(filter_method).lower(), str(filter_method).upper()
-        )
+        model_key = str(prec["neuron_model"]).lower()
+        if prec.get("neuron_type"):
+            neuron_type = str(prec["neuron_type"])
+        elif model_key in _NEURON_TYPE_BY_MODEL:
+            neuron_type = _NEURON_TYPE_BY_MODEL[model_key]
+        else:
+            neuron_type = _NEURON_TYPE_BY_FILTER_METHOD.get(
+                str(filter_method).lower(), str(filter_method).upper()
+            )
+        if model_key in _NEURON_TYPE_BY_MODEL:
+            _check_event_encoder_params(prec, where)
 
         noise_seed = prec.get("noise_seed")
         populations.append(

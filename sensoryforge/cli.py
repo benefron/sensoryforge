@@ -444,6 +444,13 @@ def cmd_run(args: argparse.Namespace) -> int:
                     if "spikes" in pop_results:
                         total = int(pop_results["spikes"].sum().item())
                         print(f"{pop_name} spikes: {total}")
+                    elif "events" in pop_results:
+                        # A signed event encoder (level_crossing): report
+                        # ON and OFF separately, never a net "spike" total.
+                        events = pop_results["events"]
+                        n_on = int(events.clamp(min=0).sum().item())
+                        n_off = int((-events).clamp(min=0).sum().item())
+                        print(f"{pop_name} events: {n_on} ON, {n_off} OFF")
                     elif "state" in pop_results:
                         state = pop_results["state"]
                         print(
