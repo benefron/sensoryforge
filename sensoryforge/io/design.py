@@ -8,7 +8,10 @@ that hand-off boundary: :func:`load_design` turns the directory into a
 :class:`~sensoryforge.config.schema.SensoryForgeConfig` whose populations use
 the ``imported`` receptive-field builder
 (:class:`sensoryforge.core.rf_builders.imported.ImportedRFBuilder`) to read
-each population's ``.npz`` directly. This module does not touch ``H`` or
+each population's ``.npz`` directly, and simulates each population's
+declared noise: the exported ``noise_std`` as the sensor (receptor-current)
+noise and ``membrane_noise_std`` as the neuron's membrane noise (C-130). This
+module does not touch ``H`` or
 ``centers`` itself -- ``ImportedRFBuilder`` performs the y-slow -> x-slow
 column re-index and the ``[y, x]`` -> ``(x, y)`` centre flip when it reads
 the ``.npz`` (Phase 2 guardrail 4).
@@ -48,6 +51,35 @@ _REQUIRED_POPULATION_KEYS = (
     "model_params",
     "input_gain",
 )
+
+
+def _optional_noise_std(prec: Dict[str, Any], key: str, where: str) -> float:
+    """Read an optional, non-negative noise std from a population record.
+
+    Args:
+        prec: One ``design.json["populations"][i]`` record.
+        key: ``"noise_std"`` or ``"membrane_noise_std"``.
+        where: Human-readable location of ``prec``, for the error message.
+
+    Returns:
+        The value as a float; ``0.0`` when the key is absent or ``null`` (a
+        design written before pressure-simulation declared its noise).
+
+    Raises:
+        ValueError: If the value is negative or not a number.
+    """
+    value = prec.get(key)
+    if value is None:
+        return 0.0
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"load_design: {where}[{key!r}] must be a number, got {prec[key]!r}"
+        ) from None
+    if value < 0.0:
+        raise ValueError(f"load_design: {where}[{key!r}] must be >= 0, got {value!r}")
+    return value
 
 
 def read_manifest(design_dir: Union[str, Path]) -> Dict[str, Any]:
@@ -125,6 +157,17 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
       Izhikevich preset off ``neuron_type``, not ``filter_method`` -- a
       designed population with no ``neuron_type`` would silently keep the
       dataclass default ("SA") for an RA population.
+    * each population's declared noise (C-130), both optional: the exported
+      ``noise_std`` (mA, the receptor/sensor noise pressure-simulation
+      declares, already converted to the injected current after the gain)
+      becomes ``PopulationConfig.sensor_noise_std``, and
+      ``membrane_noise_std`` becomes ``PopulationConfig.membrane_noise_std``.
+      Both are always set explicitly (0.0 when absent), so a design with
+      sensor noise and no membrane noise runs exactly that. The exported
+      ``noise_seed`` becomes ``PopulationConfig.noise_seed``, so the noise
+      is reproducible per population independently of the run seed; with
+      no ``noise_seed`` it is drawn from the run's RNG, seeded by
+      ``decisions["seed"]``.
 
     Args:
         design_dir: Directory holding ``design.json`` and one
@@ -140,7 +183,8 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
         FileNotFoundError: If ``design_dir/design.json`` or a population's
             ``.npz`` file does not exist.
         ValueError: If a required key is missing from ``decisions`` or from
-            a population record -- the message names the missing key.
+            a population record -- the message names the missing key -- or a
+            declared noise std is negative or not a number.
     """
     design_dir = Path(design_dir).expanduser().resolve()
     manifest = read_manifest(design_dir)
@@ -183,6 +227,7 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
             str(filter_method).lower(), str(filter_method).upper()
         )
 
+        noise_seed = prec.get("noise_seed")
         populations.append(
             PopulationConfig(
                 name=prec["name"],
@@ -195,6 +240,11 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
                 neuron_model=prec["neuron_model"],
                 model_params=dict(prec["model_params"]),
                 input_gain=float(prec["input_gain"]),
+                sensor_noise_std=_optional_noise_std(prec, "noise_std", where),
+                membrane_noise_std=_optional_noise_std(
+                    prec, "membrane_noise_std", where
+                ),
+                noise_seed=None if noise_seed is None else int(noise_seed),
             )
         )
 

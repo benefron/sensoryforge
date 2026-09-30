@@ -93,7 +93,8 @@ def _set_combo(
 
 #: Neuron parameters the engine always sets itself (``build_neuron``): the
 #: integration step is ``simulation.integrate_dt_ms`` and the noise is the
-#: population's ``noise_std``. A form row for them would be ignored.
+#: population's membrane noise (``membrane_noise_std``, or the deprecated
+#: ``noise_std``). A form row for them would be ignored.
 RUN_OWNED_NEURON_PARAMS = frozenset({"dt", "noise_std"})
 
 
@@ -338,6 +339,8 @@ class ReadoutCard(_Card):
         # its own edits go through _write and do not rebuild.
         return rel_path.split(".")[0] in (
             "input_gain",
+            "sensor_noise_std",
+            "membrane_noise_std",
             "noise_std",
             "noise_seed",
             "readout",
@@ -363,14 +366,36 @@ class ReadoutCard(_Card):
         )
         form.addRow("Input gain:", gain_spin)
 
-        noise_spin = QtWidgets.QDoubleSpinBox()
-        noise_spin.setRange(0.0, 1000.0)
-        noise_spin.setDecimals(3)
-        noise_spin.setValue(pop_cfg.noise_std)
-        noise_spin.valueChanged.connect(
-            functools.partial(self._on_float, f"populations.{index}.noise_std")
+        # C-130: the sensor (receptor-current) noise and the membrane noise
+        # are separate keys. Each box shows the value that runs (the
+        # deprecated noise_std alias when the key is unset) and writes its
+        # own key.
+        sensor_spin = QtWidgets.QDoubleSpinBox()
+        sensor_spin.setRange(0.0, 1000.0)
+        sensor_spin.setDecimals(3)
+        sensor_spin.setValue(pop_cfg.effective_sensor_noise_std())
+        sensor_spin.setToolTip(
+            "Gaussian noise (std, mA) added to each neuron's input current "
+            "after the filter and the gain."
         )
-        form.addRow("Noise std:", noise_spin)
+        sensor_spin.valueChanged.connect(
+            functools.partial(self._on_float, f"populations.{index}.sensor_noise_std")
+        )
+        form.addRow("Sensor noise std (mA):", sensor_spin)
+
+        membrane_spin = QtWidgets.QDoubleSpinBox()
+        membrane_spin.setRange(0.0, 1000.0)
+        membrane_spin.setDecimals(3)
+        membrane_spin.setValue(pop_cfg.effective_membrane_noise_std())
+        membrane_spin.setToolTip(
+            "The neuron model's own membrane (Langevin) noise, its noise_std."
+        )
+        membrane_spin.valueChanged.connect(
+            functools.partial(
+                self._on_float, f"populations.{index}.membrane_noise_std"
+            )
+        )
+        form.addRow("Membrane noise std:", membrane_spin)
 
         seed_spin = QtWidgets.QSpinBox()
         seed_spin.setRange(-1, 2**31 - 1)

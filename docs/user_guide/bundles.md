@@ -128,6 +128,8 @@ enabled once both that combo and the stimulus combo are non-empty. One file,
       "enabled": true,
       "input_gain": 50.0,
       "noise_std": 0.0,
+      "sensor_noise_std": 0.0,
+      "membrane_noise_std": 0.0,
       "model_params": {},
       "filter_params": {},
       "selected_neuron": 0
@@ -142,7 +144,9 @@ enabled once both that combo and the stimulus combo are non-empty. One file,
 viewer's own gain spinboxes. It matches an entry to a population by exact `name`
 against `config.json`'s `populations[*].name` and silently drops any entry that
 doesn't match, so `name` here is the *raw* population name, not the filesystem-safe
-form `population_NN_<NAME>.pt` uses.
+form `population_NN_<NAME>.pt` uses. `noise_std` is the population's raw (deprecated)
+`noise_std` field; `sensor_noise_std` and `membrane_noise_std` are the two noise
+levels the run actually used (C-130).
 
 ## `data.h5`
 
@@ -234,6 +238,26 @@ same way; a positional config file, if also given, overrides either one through 
 same merge as `--preset`, K4). `--stimulus <name>` selects the stimulus type to
 render by name in `STIMULUS_REGISTRY` (`sensoryforge list-components` lists them),
 failing clearly on an unrecognised name rather than falling back to a default.
+
+### The design's declared noise is simulated
+
+A design declares its noise per population, and `load_design` runs exactly what it
+declares, as two separate noise sources (C-130):
+
+| `design.json` population key | becomes | what it is |
+|---|---|---|
+| `noise_std` (mA) | `PopulationConfig.sensor_noise_std` | the sensor (receptor) noise: independent Gaussian noise of this std added to each neuron's injected current after the filter and the gain. pressure-simulation has already converted its design-unit floor to mA at the design's gains. It is part of the recorded `filtered` current |
+| `membrane_noise_std` | `PopulationConfig.membrane_noise_std` | the neuron model's own membrane (Langevin) noise (AdEx/Izhikevich add N(0, std·√dt) mV per integration step) |
+| `noise_seed` | `PopulationConfig.noise_seed` | seeds that population's noise independently of the run seed, so a design run is reproducible |
+
+Both noise keys are always set on the loaded config (0 when absent), so a design with
+sensor noise and a membrane noise of 0 runs with a noiseless neuron. A design written
+before these keys existed runs noise-free, as before. `receptor_noise_var` (the
+design-unit floor the `noise_std` stands for) is metadata and is not read.
+
+Outside a design, the same two keys can be set on any population. The old single key
+`noise_std` is a deprecated alias that sets both at once; it still works, with a
+`FutureWarning`, and an explicit `sensor_noise_std` or `membrane_noise_std` overrides it.
 
 ### What lands in the bundle
 

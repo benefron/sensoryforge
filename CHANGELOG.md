@@ -18,6 +18,21 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
   amplitude × Gaussian window × (1 + cos(carrier)) / 2, the layered Gabor's raised cosine;
   `signed: true` (in the stimulus `params`, or `signed=True` in `gabor_texture()`,
   `GaborTexture` and `Stimulus.gabor()`) restores the zero-mean form exactly.
+- **A design directory's declared noise is simulated** (C-130). `load_design` reads each
+  population's exported `noise_std` as sensor noise, `membrane_noise_std` as membrane noise and
+  `noise_seed`; `sensoryforge run --design` previously ran every design noise-free.
+
+### Added
+
+- **Separate sensor and membrane noise keys** (C-130): `PopulationConfig.sensor_noise_std` (mA,
+  Gaussian noise on the injected current after the filter and gain) and `membrane_noise_std` (the
+  neuron model's Langevin noise). The GUI's Readout & noise card edits them separately.
+
+### Deprecated
+
+- **`PopulationConfig.noise_std`** sets both noise sources at once. It still works unchanged
+  (the presets and existing configs produce bit-identical spikes) and warns with a
+  `FutureWarning` when non-zero; an explicit `sensor_noise_std`/`membrane_noise_std` overrides it.
 
 ## [1.0.0] - 2026-09-17
 

@@ -426,6 +426,13 @@ def write_bundle(
                 "enabled": pop_by_name[name]["config"].enabled,
                 "input_gain": pop_by_name[name]["config"].input_gain,
                 "noise_std": pop_by_name[name]["config"].noise_std,
+                # C-130: the two noise sources the run actually used.
+                "sensor_noise_std": pop_by_name[name][
+                    "config"
+                ].effective_sensor_noise_std(),
+                "membrane_noise_std": pop_by_name[name][
+                    "config"
+                ].effective_membrane_noise_std(),
                 "model_params": dict(pop_by_name[name]["config"].model_params or {}),
                 "filter_params": dict(pop_by_name[name]["config"].filter_params or {}),
                 "selected_neuron": 0,

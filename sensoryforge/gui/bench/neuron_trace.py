@@ -53,14 +53,16 @@ def _build_neuron(pop_cfg: PopulationConfig, integrate_dt_ms: float):
             )
         dsl_model = NeuronModel.from_config(pop_cfg.dsl_config)
         return dsl_model.compile(
-            dt=integrate_dt_ms, device="cpu", noise_std=pop_cfg.noise_std
+            dt=integrate_dt_ms,
+            device="cpu",
+            noise_std=pop_cfg.effective_membrane_noise_std(),
         )
 
     params = resolve_neuron_params(
         model_name, pop_cfg.neuron_type, pop_cfg.model_params
     )
     params["dt"] = integrate_dt_ms
-    params["noise_std"] = pop_cfg.noise_std
+    params["noise_std"] = pop_cfg.effective_membrane_noise_std()
     return neuron_cls(**params)
 
 
