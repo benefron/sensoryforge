@@ -50,6 +50,74 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-c5facd5 · RA is a signed level-crossing unit · 2026-09-30
+
+**What was decided.** RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)
+
+**Why.** Ben's decision (dated 2026-10-01 in the brief; committed 2026-09-30). The reference RA arm
+(rectified derivative filter + AdEx) throws the sign of the change away and makes the decoder
+recover it; D-4e669b4 already records that RA answers release as strongly as indentation. A
+level-crossing unit keeps the sign in the event itself, and the running sum of events times theta
+reconstructs the drive to within one theta, so the encoding is invertible up to a quantum.
+Measured on this commit (`tests/unit/test_event_encoders.py`): a ramp of slope s gives ON events at
+s/theta (0.019/ms vs 0.020 over a 1 s ramp: the last partial quantum) and none on a hold; a falling
+ramp gives OFF events at the same rate; max |drive - sum*theta| = 0.9999 theta on a signed
+multi-scale drive; white noise gives 0 / 1e-6 / 1.8e-3 events per sample at sigma/theta = 0.1 / 0.2
+/ 0.3 (2.5e-2 at 0.4, 8.7e-2 at 0.5); a 2 ms refractory period gives exactly 0.5 events/ms.
+
+**Hardware.** A reference register, a comparator and a sign bit: FPGA-trivial, one cycle per
+sample; AER carries the polarity bit natively.
+
+**What was rejected.** (1) Recovering the sign later from the rectified RA filter (the current arm):
+the information is gone before the neuron. (2) Two unsigned ON/OFF populations: doubles the
+population and the wiring for what one sign bit carries. (3) Feeding the level-crossing unit the
+RA filter's output: that differentiates twice and discards the OFF half, so the unit runs with
+`filter_method: none` and its input is not floored at 0 mA. (4) Storing the signed counts in the
+bundle's `spikes` dataset: an existing reader would count -1 as a spike (or none); they go to a
+separate `events` dataset (bundle schema 2.1.0) and the engine key `events`.
+
+**Where it lives.** `sensoryforge/neurons/event_encoders.py` (`LevelCrossingNeuron`, registered
+`level_crossing`); `config/defaults.py` (`UNFLOORED_NEURON_MODELS`); `core/simulation_engine.py`
+(`SIGNED_EVENTS` -> key `events`); `io/bundle.py` (schema 2.1.0); `io/design.py`;
+`docs/user_guide/event_encoders.md`, `bundles.md`.
+
+**Ledger id + sha.** D-c5facd5 · `6124f87`
+
+**Validation pending.** Decoding: pressure-simulation's SGA-KF must consume signed events (its
+bundle reader currently requires `spikes` and fails loudly on an events population, by design).
+Choosing theta against the RA drive's noise floor (the sigma/theta table above) for a real design.
+
+## D-f0e2433 · SA gets a sigma-delta arm · 2026-09-30
+
+**What was decided.** SA gets a sigma-delta arm: a non-leaky integrate-and-fire unit with subtractive reset whose spike rate is linear in its input level; what matters is the time-scale separation (RA = fast signed change, SA = slow absolute level), not the biological mechanism (SensoryForge neuron_model sigma_delta, opt-in)
+
+**Why.** Ben's decision (dated 2026-10-01 in the brief; committed 2026-09-30). The design only
+needs SA to report the slow absolute level linearly; a subtractive-reset integrator discards no
+charge, so its count is the integral of the drive over theta and its rate is exactly drive/theta
+with no rheobase (unlike the AdEx arm, whose rheobase D-8dde454/D-673e0ed had to calibrate gains
+around). Measured on this commit: constant drives 0.2-20 mA at theta = 10 mA*ms give rate =
+drive/theta to better than 1e-3, and 0.01 mA still fires at 0.001/ms; a boxcar low-pass of the
+spikes recovers a 2 Hz, 1-9 mA sinusoid with quantisation RMS 0.85 / 0.39 / 0.20 / 0.083 / 0.041 mA
+at 5 / 10 / 20 / 50 / 100 ms windows (about theta/window; best against the raw drive 0.095 mA at
+50 ms); the quantisation error's power is 4.3e-3 / 12.6 / 4.4e3 / 4.8e3 in the 1-10 / 10-100 /
+100-1000 / 1000-5000 Hz bands, i.e. first-order noise-shaped (high-pass).
+
+**Hardware.** An accumulator, a comparator and a subtractor: FPGA-trivial, one cycle per sample.
+
+**What was rejected.** (1) A leaky IF by default: the leak adds a rheobase theta/tau and breaks
+linearity; kept as the opt-in `leak_tau_ms`. (2) Reset-to-zero: discards the residual charge each
+spike, so the rate is no longer exactly linear and the error is no longer noise-shaped.
+(3) Replacing the AdEx SA arm: it stays the default reference arm; nothing existing changes.
+
+**Where it lives.** `sensoryforge/neurons/event_encoders.py` (`SigmaDeltaNeuron`, registered
+`sigma_delta`); ordinary `spikes` in the engine and the bundle; `io/design.py`;
+`docs/user_guide/event_encoders.md`.
+
+**Ledger id + sha.** D-f0e2433 · `6124f87`
+
+**Validation pending.** Choosing theta per design (rate budget vs. quantisation error, via the
+window table above), and pressure-simulation's decoder reading sigma-delta rates.
+
 ## D-802e42b · Sensor noise lives in the sensors, before innervation · 2026-10-01
 
 **What was decided.** Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option.
@@ -418,4 +486,6 @@ Do not hand-edit between the markers.
 | 2026-09-28 | D-673e0ed | the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain | `df3320e` |
 | 2026-09-30 | D-5cdc524 | Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise | `7f7c6a3` |
 | 2026-09-30 | D-802e42b | Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option. | `9a3f550` |
+| 2026-09-30 | D-c5facd5 | RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm) | `6124f87` |
+| 2026-09-30 | D-f0e2433 | SA gets a sigma-delta arm: a non-leaky integrate-and-fire unit with subtractive reset whose spike rate is linear in its input level; what matters is the time-scale separation (RA = fast signed change, SA = slow absolute level), not the biological mechanism (SensoryForge neuron_model sigma_delta, opt-in) | `6124f87` |
 <!-- DECISIONS_LOG_END -->

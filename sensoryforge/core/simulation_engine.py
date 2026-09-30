@@ -903,7 +903,8 @@ class SimulationEngine:
             (mV). A population whose neuron model has no spike condition (an analog
             DSL model with no threshold, N1/N2) carries state (its readout trace)
             instead of spikes, and has no spikes key at all -- see
-            `_run_pop_from_drive`.
+            `_run_pop_from_drive`. A signed event encoder (level_crossing)
+            carries its signed ON/OFF counts under events instead of spikes.
 
         Examples:
             >>> from sensoryforge.config.schema import SensoryForgeConfig
@@ -1056,11 +1057,12 @@ class SimulationEngine:
             # The bundle needed intermediates internally; the public return
             # value still honours the caller's own return_intermediates.
             # Keep each population's readout: "spikes" for a spiking one,
-            # "state" for an analog one -- what the no-bundle path returns.
+            # "events" for a signed event encoder, "state" for an analog one
+            # -- what the no-bundle path returns.
             results = {
                 pop_name: {
                     key: pop_results[key]
-                    for key in ("spikes", "state")
+                    for key in ("spikes", "events", "state")
                     if key in pop_results
                 }
                 for pop_name, pop_results in results.items()
@@ -1236,7 +1238,10 @@ class SimulationEngine:
             DSL model with no threshold, ``forward()`` returns
             ``(state_trace, None)``), the dictionary carries ``"state"``
             (bin-end samples, ``[batch, time, num_neurons]``) instead, and
-            has no ``"spikes"`` key at all.
+            has no ``"spikes"`` key at all. When ``neuron_model`` is a signed
+            event encoder (class attribute ``SIGNED_EVENTS = True``, e.g.
+            ``level_crossing``) the counts are signed (+ON / -OFF, net per
+            bin) and carried under ``"events"`` instead of ``"spikes"``.
         """
         import torch as _torch  # local import to keep signature clean
 
@@ -1373,7 +1378,15 @@ class SimulationEngine:
                 :, :, -1, :
             ]
 
-        pop_results: Dict[str, Any] = {"spikes": spikes}
+        # A signed event encoder (``SIGNED_EVENTS = True``, e.g. the
+        # level-crossing unit) returns signed counts: +k ON / -k OFF events
+        # per bin (the net count when one bin holds both). They are carried
+        # under "events", never "spikes", so nothing that counts spikes can
+        # silently read an OFF event (-1) as a spike.
+        readout_key = (
+            "events" if getattr(neuron_model, "SIGNED_EVENTS", False) else "spikes"
+        )
+        pop_results: Dict[str, Any] = {readout_key: spikes}
         if return_intermediates:
             pop_results["drive"] = drive
             pop_results["filtered"] = filtered

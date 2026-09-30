@@ -86,6 +86,9 @@ def silent_populations(
     for name, pop_results in results.items():
         spikes = pop_results.get("spikes")
         if spikes is None:
+            # A signed event encoder (level_crossing): silent = no ON or OFF.
+            spikes = pop_results.get("events")
+        if spikes is None:
             continue
         if bool(torch.as_tensor(spikes).any()):
             continue

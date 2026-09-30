@@ -40,7 +40,9 @@ class PopulationView:
             a stable colour via ``theme.population_color(index, neuron_type)``.
         neuron_type: ``PopulationConfig.neuron_type`` (``"SA"``, ``"RA"``, ...).
         spikes: ``[T, N]`` sub-step spike counts, or ``None`` for an analog
-            population.
+            population. For a signed event population (``level_crossing``)
+            this is the unsigned event count ``|events|``, so every panel
+            that plots spikes plots its ON and OFF events alike.
         state: ``[T, N]`` analog readout trace, or ``None`` for a spiking
             population. Exactly one of ``spikes``/``state`` is not ``None``.
         drive: ``[T, N]`` innervation-weighted drive in mA, or ``None``.
@@ -54,6 +56,8 @@ class PopulationView:
             variable name (e.g. ``"v"``), read from ``PopulationConfig
             .dsl_config["state_vars"]``'s first key; ``"State"`` if that is
             not available. ``None`` for a spiking population.
+        events: ``[T, N]`` signed ON/OFF counts (+ON, -OFF) for a signed
+            event population, else ``None``.
     """
 
     name: str
@@ -68,6 +72,7 @@ class PopulationView:
     receptor_coords: Optional[torch.Tensor]
     weights: Optional[torch.Tensor]
     state_var_name: Optional[str] = None
+    events: Optional[torch.Tensor] = None
 
     @property
     def is_analog(self) -> bool:
@@ -205,12 +210,16 @@ def _population_views(
         maybe = (lambda t: _squeeze_batch(t)) if squeeze else (lambda t: t)
         bank = banks.get(name)
         state = maybe(raw.get("state"))
+        events = maybe(raw.get("events"))
+        spikes = maybe(raw.get("spikes"))
+        if spikes is None and events is not None:
+            spikes = events.abs().float()
         views.append(
             PopulationView(
                 name=name,
                 index=index,
                 neuron_type=neuron_types.get(name, "SA"),
-                spikes=maybe(raw.get("spikes")),
+                spikes=spikes,
                 state=state,
                 drive=maybe(raw.get("drive")),
                 filtered=maybe(raw.get("filtered")),
@@ -221,6 +230,7 @@ def _population_views(
                 state_var_name=(
                     state_var_names.get(name, "State") if state is not None else None
                 ),
+                events=events,
             )
         )
     return views

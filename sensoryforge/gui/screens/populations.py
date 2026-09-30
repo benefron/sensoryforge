@@ -403,11 +403,16 @@ class PopulationsScreen(QtWidgets.QWidget):
         self.quick_warning.setText(f"⚠ {warning}" if warning else "")
         self.quick_warning.setVisible(bool(warning))
         pop_results: Optional[Dict[str, Any]] = result.results.get(self._selected)
-        if pop_results is None or "spikes" not in pop_results:
+        # A signed event encoder carries "events" (+ON/-OFF); plot any event.
+        key = next(
+            (k for k in ("spikes", "events") if pop_results and k in pop_results),
+            None,
+        )
+        if key is None:
             self.quick_raster.setData([], [])
             return
-        counts = pop_results["spikes"][0].detach().cpu().numpy()
-        time_idx, neuron_idx = np.nonzero(counts > 0)
+        counts = pop_results[key][0].detach().cpu().numpy()
+        time_idx, neuron_idx = np.nonzero(counts != 0)
         dt_ms = result.config_snapshot.simulation.dt_ms
         self.quick_raster.setData(x=time_idx * dt_ms, y=neuron_idx)
 

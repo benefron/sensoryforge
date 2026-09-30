@@ -7,14 +7,14 @@ learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.0.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.1.0", kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt   # one file per population
     stimuli/
         stimulus.json         # tagged payload; pressure-simulation's schema where it maps
     neuron_modules/
         sensoryforge.json     # schema_version "1.0.0", kind "neuron_module"
-    data.h5                   # frames, time axis, per-population drive/filtered/spikes
+    data.h5                   # frames, time axis, per-population drive/filtered/spikes (or events/state)
 ```
 
 Write one with `sensoryforge run --bundle DIR` (see [CLI Reference](cli.md)), with
@@ -36,10 +36,10 @@ viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only 
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"2.0.0"`. `load_bundle` raises `ValueError` if the major version isn't `2`. |
+| `schema_version` | `"2.1.0"` (2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
 | `kind` | `"sensoryforge_bundle"`. |
 | `grid` | `{rows, cols, spacing_mm, center_mm, device}` of the run's primary grid. |
-| `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`. |
+| `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`; since 2.1.0 also `readout` (`"spikes"`, `"events"` or `"state"`), `encoder` (`{"model", "params"}`: the neuron model name and its own `to_dict()`, including `dt`) and, for an `events` population, `event_encoding` (below). |
 | `config` | The full canonical config (`SensoryForgeConfig.to_dict()`). |
 | `sensoryforge_version`, `created_at`, `bundle_created` | Provenance. |
 
@@ -298,3 +298,26 @@ extra provenance fields.
 writes a small bundle and reads it back through every path above (`load_bundle`, raw
 `h5py`, and `pandas`, when installed); `tests/docs/test_docs_examples.py` runs it as
 part of the test suite.
+
+## Signed event populations (schema 2.1.0)
+
+A population whose neuron model is a signed event encoder -- `level_crossing`, see
+[Event Encoders](event_encoders.md) -- produces signed counts: `+k` for k ON events (the drive
+rose by `k * theta`), `-k` for k OFF events, per record bin (the net count of the bin's
+integration sub-steps). These are **never** written under `spikes`:
+
+| Where | What |
+|---|---|
+| `data.h5` `/populations/<name>/events` | `[T, N]` `int16`, signed; attributes `signed = True`, `polarity` (text), `theta` (the quantum, in the drive's units) |
+| `config.json` population entry | `readout: "events"`, `encoder: {model: "level_crossing", params: {...}}`, `event_encoding: {dataset: "events", dtype: "int16", signed: true, polarity, per_bin}` |
+| `load_bundle(...).populations[name]` | an `events` tensor, and no `spikes` key |
+
+The separate dataset is the compatibility guard. A reader written for 2.0.0 that looks for
+`spikes` fails loudly on such a population (pressure-simulation's `design/channels.py`
+raises "missing 'filtered' or 'spikes'") instead of counting an OFF event (-1) as a spike or
+an absent spike. Bundles holding only spiking and analog populations differ from 2.0.0 only
+in the version string and the three added `config.json` entry fields, which 2.0.0 readers
+ignore. To recover the drive from an `events` dataset: `cumsum(events, axis=0) * theta`
+(plus the first sample if the encoder used `initial_reference: first`).
+
+`sigma_delta` populations are ordinary spiking populations: `spikes`, non-negative counts.

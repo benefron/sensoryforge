@@ -5,7 +5,7 @@ A bundle is a directory:
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.0.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.1.0", kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt
     stimuli/
@@ -14,6 +14,15 @@ bundle_dir/
         sensoryforge.json     # schema_version "1.0.0", kind "neuron_module" (J6)
     data.h5                   # /stimulus/frames, /time_ms, /populations/<name>/...
 ```
+
+Schema 2.1.0 (2026-10-01) adds signed event populations. A population whose
+neuron model is a signed event encoder (``level_crossing``) stores its signed
+ON/OFF counts in an ``events`` dataset (``int16``, attribute ``signed=True``),
+never in ``spikes``, so a 2.0 reader that looks for ``spikes`` fails loudly
+instead of counting an OFF event (-1) as a spike. Every population entry in
+``config.json`` gains ``readout`` (``"spikes"``, ``"events"`` or ``"state"``)
+and ``encoder`` (``{"model", "params"}``, the neuron model's own
+``to_dict()``); an ``events`` population also carries ``event_encoding``.
 
 ``config.json`` is a superset of pressure-simulation's ``1.0.0`` "mechanoreceptor
 bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
@@ -40,7 +49,17 @@ import sensoryforge
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"
+
+#: How a signed event population's ``events`` dataset is to be read
+#: (written into its ``config.json`` entry and as HDF5 attributes).
+SIGNED_EVENT_ENCODING = {
+    "dataset": "events",
+    "dtype": "int16",
+    "signed": True,
+    "polarity": "+k = k ON events (input rose by k*theta), -k = k OFF events",
+    "per_bin": "net signed count of the bin's integration sub-steps",
+}
 BUNDLE_KIND = "sensoryforge_bundle"
 _SCHEMA_MAJOR = SCHEMA_VERSION.split(".")[0]
 
@@ -63,6 +82,24 @@ def _squeeze_batch(t: torch.Tensor, *, what: str) -> torch.Tensor:
         f"write_bundle: expected {what} with a leading batch dim of size 1, "
         f"got shape {list(t.shape)}"
     )
+
+
+def _jsonable(value: Any) -> Any:
+    """``value`` with tensors/numpy scalars turned into plain JSON types."""
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().tolist()
+    if hasattr(value, "item") and callable(value.item):
+        try:
+            return value.item()
+        except (TypeError, ValueError):
+            return str(value)
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
 
 
 def _require_h5py():
@@ -88,7 +125,8 @@ class Bundle:
             or ``None`` if the bundle has no stimulus dataset.
         time_ms: ``[T]`` time axis in ms, or ``None``.
         populations: Population name -> dict of tensors (``drive``,
-            ``filtered``, and ``spikes`` or ``state``), each ``[T, N]``.
+            ``filtered``, and ``spikes``, ``events`` (signed, int16; schema
+            2.1) or ``state``), each ``[T, N]``.
         meta: ``dt_ms``, ``integrate_dt_ms``, ``seed``, ``sensoryforge_version``,
             ``config_yaml``, ``provenance`` (parsed from ``provenance_json``),
             and ``config_json`` (the raw ``config.json`` dict).
@@ -327,6 +365,28 @@ def write_bundle(
             bundle_dir / tensor_name,
         )
         weight_range = pop_cfg.weight_range or [0.05, 1.0]
+        pop_results_here = results[name]
+        if "spikes" in pop_results_here:
+            readout = "spikes"
+        elif "events" in pop_results_here:
+            readout = "events"
+        else:
+            readout = "state"
+        neuron_obj = pop.get("neuron")
+        encoder_params = (
+            dict(neuron_obj.to_dict())
+            if neuron_obj is not None and hasattr(neuron_obj, "to_dict")
+            else dict(pop_cfg.model_params or {})
+        )
+        extra_entry: Dict[str, Any] = {
+            "readout": readout,
+            "encoder": {
+                "model": pop_cfg.neuron_model,
+                "params": _jsonable(encoder_params),
+            },
+        }
+        if readout == "events":
+            extra_entry["event_encoding"] = dict(SIGNED_EVENT_ENCODING)
         pop_entries.append(
             {
                 "name": name,
@@ -343,6 +403,7 @@ def write_bundle(
                 },
                 "tensors": tensor_name,
                 "visible": pop_cfg.visible,
+                **extra_entry,
             }
         )
 
@@ -503,6 +564,21 @@ def write_bundle(
                     compression="gzip",
                     compression_opts=4,
                 )
+            elif "events" in pop_results:
+                # Schema 2.1: signed ON/OFF counts, in their own dataset so
+                # no spike reader can mistake -1 for a spike.
+                events = _squeeze_batch(pop_results["events"], what=f"{name} events")
+                ds = pop_grp.create_dataset(
+                    "events",
+                    data=events.detach().cpu().round().to(torch.int16).numpy(),
+                    compression="gzip",
+                    compression_opts=4,
+                )
+                ds.attrs["signed"] = True
+                ds.attrs["polarity"] = SIGNED_EVENT_ENCODING["polarity"]
+                theta = getattr(pop_by_name[name].get("neuron"), "theta", None)
+                if theta is not None:
+                    ds.attrs["theta"] = float(theta)
             elif "state" in pop_results:
                 state = _squeeze_batch(pop_results["state"], what=f"{name} state")
                 pop_grp.create_dataset(
@@ -514,7 +590,7 @@ def write_bundle(
             else:
                 raise ValueError(
                     f"write_bundle: population {name!r} results have "
-                    "neither 'spikes' nor 'state'"
+                    "none of 'spikes', 'events' or 'state'"
                 )
 
         provenance = {
