@@ -50,7 +50,48 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-802e42b · Sensor noise lives in the sensors, before innervation · 2026-10-01
+
+**What was decided.** Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option.
+
+**Why.** Ben's decision, 2026-10-01. D-5cdc524 called `sensor_noise_std` "sensor (receptor-current)
+noise", but it is added per population after the filter and the gain, so two populations reading
+the same receptors got independent noise, the noise was not shaped by the receptive field, and its
+units were mA rather than the pressure a receptor measures. SimulationEngine never applied the legacy
+pipeline's `ReceptorNoiseTorch`. A physical sensor's noise is in the receptor, before any pooling:
+SA and RA pooling the same receptors must see the same realisation, and a neuron's input noise must
+scale with its weights. Measured on this commit (`tests/unit/test_receptor_noise.py`): with
+one_to_one wiring and no filter the recorded current's noise is σ·gain (ratio 1.002); per neuron,
+pooled input noise / (σ·‖w‖₂) = 1.000 for gaussian banks (K = 12 and 20, max deviation 1.6 %) and
+1.003 / 1.000 for the imported design banks (sa / ra); the SA-RA input-noise cross-covariance matches
+σ² W_sa W_raᵀ (correlation error < 0.05). For unequal weights ‖w‖₂ is below √K·mean(w)
+(0.84 and 0.77 of it at K = 12 and 20), so √K is only the equal-weight special case.
+
+**What was rejected.** (1) Renaming `sensor_noise_std`: every config, bundle and pressure-simulation
+export (`noise_std` → `sensor_noise_std`) would change meaning; it keeps its name and is described as
+the neuron input (current) noise in docstrings, docs and the GUI label. (2) Noise on the stimulus
+pixel frame before sampling: on a non-grid arrangement bilinear sampling would smear one pixel's
+noise over several receptors, which is not one source per receptor. (3) A per-population receptor
+noise key: the noise belongs to the sensor sheet, so it is a single SimulationConfig field.
+
+**Where it lives.** `sensoryforge/config/schema.py` (`SimulationConfig.receptor_noise_std`,
+`receptor_noise_seed`, `effective_receptor_noise_std()`); `sensoryforge/core/simulation_engine.py`
+(`run`, `_add_receptor_noise`: drawn once per (grid, channel), cached, seed
+`receptor_noise_seed + 7919·grid_index + channel_index`); `sensoryforge/io/design.py` (`load_design`
+reads the design's top-level keys); `docs/user_guide/bundles.md`, `configuration_schema.md`,
+`units_and_gains.md`; `tests/unit/test_receptor_noise.py`. Unset or 0 is bit-identical to before
+(`tests/integration/test_noise_split_golden.py` still passes).
+
+**Ledger id + sha.** D-802e42b · `9a3f550`
+
+**Validation pending.** pressure-simulation must export a top-level `receptor_noise_std` (in its
+stimulus units) in `design.json` for designs to run with receptor noise; until then a design runs
+with none. Whether pressure-simulation's declared per-population `noise_std` (the current noise it
+derived from its receptor floor) should then drop to 0 is its decision.
+
 ## D-5cdc524 · Sensor noise and membrane noise are separate; a design's declared noise is simulated · 2026-09-30
+
+**Superseded in part by:** D-802e42b · 2026-10-01 (the naming only: sensor noise is the receptor noise before innervation; `sensor_noise_std` is the neuron input (current) noise)
 
 **What was decided.** Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise
 
@@ -376,4 +417,5 @@ Do not hand-edit between the markers.
 | 2026-09-28 | D-8dde454 | the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus | `67c45b5` |
 | 2026-09-28 | D-673e0ed | the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain | `df3320e` |
 | 2026-09-30 | D-5cdc524 | Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise | `7f7c6a3` |
+| 2026-09-30 | D-802e42b | Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option. | `9a3f550` |
 <!-- DECISIONS_LOG_END -->

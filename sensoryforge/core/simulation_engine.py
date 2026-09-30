@@ -232,8 +232,8 @@ def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
         # happens in _run_pop_from_drive.
         neuron_params["dt"] = simulation.integrate_dt_ms
         # C-130: the neuron's noise_std is the membrane (Langevin) noise
-        # only; the sensor noise is added to the current in
-        # _run_pop_from_drive.
+        # only; the neuron input (current) noise, sensor_noise_std, is
+        # added to the current in _run_pop_from_drive.
         neuron_params["noise_std"] = pop_cfg.effective_membrane_noise_std()
         neuron_model = neuron_cls(**neuron_params).to(device)
     return neuron_model
@@ -851,6 +851,12 @@ class SimulationEngine:
         Processes stimulus through all configured populations (innervation → filter →
         neuron) and returns spike trains and optionally intermediate activations.
 
+        When ``config.simulation.receptor_noise_std`` is set, the stimulus
+        sampled on each receptor grid gets one shared Gaussian noise
+        realisation (stimulus units, one source per receptor) before any
+        population's receptive-field bank -- see :meth:`_add_receptor_noise`.
+        The bundle's recorded ``stimulus`` stays the clean input.
+
         Args:
             stimulus: Stimulus tensor.
                 - Shape: `[time, height, width]` or `[batch, time, height, width]`
@@ -879,7 +885,8 @@ class SimulationEngine:
                 before stimulus sampling and the population loop, and is also what gets
                 recorded in the bundle (ignored unless *bundle_dir* is given). Distinct
                 from a population's own ``noise_seed`` (per-population membrane noise)
-                and ``seed`` (innervation wiring, F-006 open).
+                and ``seed`` (innervation wiring, F-006 open). Also seeds the
+                receptor noise when ``simulation.receptor_noise_seed`` is unset.
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
             progress_cb: If given, called once per population as
                 ``progress_cb(index, n_populations, population_name)``, immediately
@@ -922,6 +929,12 @@ class SimulationEngine:
         results = {}
         n_populations = len(self.populations)
 
+        # Receptor (sensor) noise, in stimulus units: one draw per receptor
+        # grid and channel for the whole run, cached here so every
+        # population reading that grid gets the same noisy receptor frames.
+        receptor_noise_std = self.config.simulation.effective_receptor_noise_std()
+        receptor_noise_cache: Dict[Tuple[str, Optional[str]], torch.Tensor] = {}
+
         for index, pop in enumerate(self.populations):
             pop_name = pop["name"]
             innervation = pop["innervation"]
@@ -952,6 +965,18 @@ class SimulationEngine:
                     ctx["receptor_coords"],
                     ctx["grid_manager"],
                 )
+                if receptor_noise_std > 0.0:
+                    receptor_response = self._add_receptor_noise(
+                        receptor_response,
+                        grid_name=ctx["target_grid_name"],
+                        channel=(
+                            None
+                            if stimulus.ndim != 5 or len(channels) <= 1
+                            else (ctx["channel"] or channels[0])
+                        ),
+                        std=receptor_noise_std,
+                        cache=receptor_noise_cache,
+                    )
                 # M3: an input's processing pipeline (empty by default --
                 # no allocation at all on the sugar/no-processing path)
                 # sits between receptor sampling and the receptive-field
@@ -981,7 +1006,8 @@ class SimulationEngine:
                 sensor_noise_std > 0 or membrane_noise_std > 0
             ):
                 # F-075: a per-population torch.Generator, seeded independently
-                # of the run seed, drives that population's sensor noise (and,
+                # of the run seed, drives that population's neuron input
+                # (current) noise, sensor_noise_std (and,
                 # via a reseed of the global RNG, its membrane noise).
                 # Not every device supports torch.Generator(device=...)
                 # (e.g. an unsupported backend); fall back to a CPU generator
@@ -1042,6 +1068,84 @@ class SimulationEngine:
 
         return results
 
+    def _add_receptor_noise(
+        self,
+        receptor_response: torch.Tensor,
+        *,
+        grid_name: str,
+        channel: Optional[str],
+        std: float,
+        cache: Dict[Tuple[str, Optional[str]], torch.Tensor],
+    ) -> torch.Tensor:
+        """Add the run's receptor (sensor) noise to sampled receptor frames.
+
+        One independent Gaussian source per receptor and record bin, in the
+        stimulus's own units (``SimulationConfig.receptor_noise_std``),
+        added before any receptive-field bank. The noise is drawn once per
+        ``(grid, channel)`` and cached for the rest of the run, so every
+        population reading that grid receives the *same* noisy receptor
+        frames (a shared realisation, correlated across populations exactly
+        as their shared receptors predict).
+
+        With ``SimulationConfig.receptor_noise_seed`` set, the draw comes
+        from a CPU ``torch.Generator`` seeded with ``receptor_noise_seed +
+        7919 * grid_index + channel_index`` (grid order of
+        ``config.grids``; channel order of that grid's ``channels``), so the
+        first grid's first channel uses the seed itself and the realisation
+        is identical on every device. Without a seed it is drawn from the
+        global RNG (seeded by the run seed).
+
+        Args:
+            receptor_response: Sampled stimulus ``[batch, time, M]`` in
+                stimulus units.
+            grid_name: The input's target grid name.
+            channel: The stimulus channel read (``None`` when the stimulus
+                has no channel axis).
+            std: Receptor noise std, stimulus units (> 0).
+            cache: The run's per-``(grid, channel)`` noise cache.
+
+        Returns:
+            ``receptor_response`` plus the shared noise, same shape.
+
+        Raises:
+            ValueError: If an earlier input drew noise for the same grid and
+                channel with a different receptor-frame shape.
+        """
+        key = (grid_name, channel)
+        noise = cache.get(key)
+        if noise is None:
+            seed = self.config.simulation.receptor_noise_seed
+            shape = tuple(receptor_response.shape)
+            if seed is None:
+                noise = torch.randn(
+                    shape,
+                    dtype=receptor_response.dtype,
+                    device=receptor_response.device,
+                )
+            else:
+                grid_names = list(self.grid_configs)
+                grid_index = (
+                    grid_names.index(grid_name) if grid_name in grid_names else 0
+                )
+                grid_cfg = self.grid_configs.get(grid_name)
+                channels = list(grid_cfg.channels) if grid_cfg is not None else []
+                channel_index = channels.index(channel) if channel in channels else 0
+                generator = torch.Generator(device="cpu").manual_seed(
+                    int(seed) + 7919 * grid_index + channel_index
+                )
+                noise = torch.randn(
+                    shape, generator=generator, dtype=receptor_response.dtype
+                ).to(receptor_response.device)
+            noise = noise * std
+            cache[key] = noise
+        elif noise.shape != receptor_response.shape:
+            raise ValueError(
+                f"receptor noise for grid {grid_name!r} (channel {channel!r}) was "
+                f"drawn with shape {list(noise.shape)}, but another input on the "
+                f"same grid sampled {list(receptor_response.shape)} receptor frames"
+            )
+        return receptor_response + noise
+
     @staticmethod
     def _run_pop_from_drive(
         drive: "torch.Tensor",
@@ -1087,7 +1191,8 @@ class SimulationEngine:
                 ``(v_trace, spikes)`` or just ``spikes``.
             input_gain: Multiplicative gain applied to the filtered drive before
                 the neuron model.  Default ``1.0`` (no scaling).
-            noise_std: Standard deviation (mA) of the sensor noise: Gaussian
+            noise_std: Standard deviation (mA) of the neuron input (current)
+                noise (``sensor_noise_std``; not the receptor noise): Gaussian
                 noise added to the current after the gain, per record bin
                 (``PopulationConfig.effective_sensor_noise_std()``). The
                 neuron's membrane noise is not this -- it is whatever

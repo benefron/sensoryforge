@@ -145,14 +145,15 @@ viewer's own gain spinboxes. It matches an entry to a population by exact `name`
 against `config.json`'s `populations[*].name` and silently drops any entry that
 doesn't match, so `name` here is the *raw* population name, not the filesystem-safe
 form `population_NN_<NAME>.pt` uses. `noise_std` is the population's raw (deprecated)
-`noise_std` field; `sensor_noise_std` and `membrane_noise_std` are the two noise
-levels the run actually used (C-130).
+`noise_std` field; `sensor_noise_std` (the neuron input current noise) and `membrane_noise_std` are
+the two per-population noise levels the run actually used (C-130); the run-wide
+receptor noise is `config.json`'s `config.simulation.receptor_noise_std`.
 
 ## `data.h5`
 
 | Path | Shape | Dtype | Notes |
 |---|---|---|---|
-| `/stimulus/frames` | `[T, H, W]` or `[T, C, H, W]` | float32 | gzip-4 compressed |
+| `/stimulus/frames` | `[T, H, W]` or `[T, C, H, W]` | float32 | gzip-4 compressed; the clean stimulus, without receptor noise |
 | `/time_ms` | `[T]` | float32 | `t = i * dt_ms` |
 | `/populations/<name>/drive` | `[T, N]` | float32 | mA, before the neuron model |
 | `/populations/<name>/filtered` | `[T, N]` | float32 | mA, after filter/gain/noise |
@@ -241,17 +242,29 @@ failing clearly on an unrecognised name rather than falling back to a default.
 
 ### The design's declared noise is simulated
 
-A design declares its noise per population, and `load_design` runs exactly what it
-declares, as two separate noise sources (C-130):
+A design declares its noise, and `load_design` runs exactly what it declares, as
+three separate noise sources. The first is a property of the sensor sheet, not of any
+population -- it is read from the top level of `design.json`:
+
+| `design.json` top-level key | becomes | what it is |
+|---|---|---|
+| `receptor_noise_std` (stimulus/pressure units) | `SimulationConfig.receptor_noise_std` | the receptor (sensor) noise: one independent Gaussian source per receptor and record bin, added to the stimulus on the receptor grid **before innervation**, drawn once and shared by every population. Pooling, filtering and gain propagate it: a neuron pooling receptors with weights `w` receives input noise of std `receptor_noise_std · ‖w‖₂` before its filter, and two populations pooling the same receptors carry correlated noise (covariance `σ² W_A W_Bᵀ`) |
+| `receptor_noise_seed` | `SimulationConfig.receptor_noise_seed` | seeds the receptor noise independently of the run seed |
+
+Absent (or `null`), there is no receptor noise. The bundle's `/stimulus/frames` stays
+the clean stimulus; the std and seed are recorded in `config.json`'s
+`config.simulation`.
+
+The other two are per population (C-130):
 
 | `design.json` population key | becomes | what it is |
 |---|---|---|
-| `noise_std` (mA) | `PopulationConfig.sensor_noise_std` | the sensor (receptor) noise: independent Gaussian noise of this std added to each neuron's injected current after the filter and the gain. pressure-simulation has already converted its design-unit floor to mA at the design's gains. It is part of the recorded `filtered` current |
+| `noise_std` (mA) | `PopulationConfig.sensor_noise_std` | the neuron input (current) noise -- despite the key's name, not the receptor noise above: independent Gaussian noise of this std added to each neuron's injected current after the filter and the gain. pressure-simulation has already converted its design-unit floor to mA at the design's gains. It is part of the recorded `filtered` current |
 | `membrane_noise_std` | `PopulationConfig.membrane_noise_std` | the neuron model's own membrane (Langevin) noise (AdEx/Izhikevich add N(0, std·√dt) mV per integration step) |
 | `noise_seed` | `PopulationConfig.noise_seed` | seeds that population's noise independently of the run seed, so a design run is reproducible |
 
 Both noise keys are always set on the loaded config (0 when absent), so a design with
-sensor noise and a membrane noise of 0 runs with a noiseless neuron. A design written
+neuron input noise and a membrane noise of 0 runs with a noiseless neuron. A design written
 before these keys existed runs noise-free, as before. `receptor_noise_var` (the
 design-unit floor the `noise_std` stands for) is metadata and is not read.
 

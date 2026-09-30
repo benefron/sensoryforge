@@ -9,8 +9,10 @@ that hand-off boundary: :func:`load_design` turns the directory into a
 the ``imported`` receptive-field builder
 (:class:`sensoryforge.core.rf_builders.imported.ImportedRFBuilder`) to read
 each population's ``.npz`` directly, and simulates each population's
-declared noise: the exported ``noise_std`` as the sensor (receptor-current)
-noise and ``membrane_noise_std`` as the neuron's membrane noise (C-130). This
+declared noise: a top-level ``receptor_noise_std`` (stimulus units) as the
+run's shared receptor (sensor) noise, each population's exported ``noise_std``
+as its neuron input (current) noise and ``membrane_noise_std`` as the neuron's
+membrane noise (C-130). This
 module does not touch ``H`` or
 ``centers`` itself -- ``ImportedRFBuilder`` performs the y-slow -> x-slow
 column re-index and the ``[y, x]`` -> ``(x, y)`` centre flip when it reads
@@ -58,7 +60,8 @@ def _optional_noise_std(prec: Dict[str, Any], key: str, where: str) -> float:
 
     Args:
         prec: One ``design.json["populations"][i]`` record.
-        key: ``"noise_std"`` or ``"membrane_noise_std"``.
+        key: ``"noise_std"``, ``"membrane_noise_std"`` or (on the manifest
+            itself) ``"receptor_noise_std"``.
         where: Human-readable location of ``prec``, for the error message.
 
     Returns:
@@ -157,10 +160,16 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
       Izhikevich preset off ``neuron_type``, not ``filter_method`` -- a
       designed population with no ``neuron_type`` would silently keep the
       dataclass default ("SA") for an RA population.
+    * the design's receptor (sensor) noise, optional: a top-level
+      ``receptor_noise_std`` (stimulus/pressure units, one source per
+      receptor, shared by every population) becomes
+      ``SimulationConfig.receptor_noise_std``, and a top-level
+      ``receptor_noise_seed`` becomes ``SimulationConfig.receptor_noise_seed``.
+      Absent (or ``null``) leaves both unset, so the run has no receptor
+      noise.
     * each population's declared noise (C-130), both optional: the exported
-      ``noise_std`` (mA, the receptor/sensor noise pressure-simulation
-      declares, already converted to the injected current after the gain)
-      becomes ``PopulationConfig.sensor_noise_std``, and
+      ``noise_std`` (mA, the neuron input (current) noise, added after the
+      filter and the gain) becomes ``PopulationConfig.sensor_noise_std``, and
       ``membrane_noise_std`` becomes ``PopulationConfig.membrane_noise_std``.
       Both are always set explicitly (0.0 when absent), so a design with
       sensor noise and no membrane noise runs exactly that. The exported
@@ -249,6 +258,12 @@ def load_design(design_dir: Union[str, Path]) -> SensoryForgeConfig:
         )
 
     simulation_kwargs: Dict[str, Any] = {}
+    if manifest.get("receptor_noise_std") is not None:
+        simulation_kwargs["receptor_noise_std"] = _optional_noise_std(
+            manifest, "receptor_noise_std", "design.json"
+        )
+    if manifest.get("receptor_noise_seed") is not None:
+        simulation_kwargs["receptor_noise_seed"] = int(manifest["receptor_noise_seed"])
     if "dt_ms" in decisions:
         simulation_kwargs["dt_ms"] = float(decisions["dt_ms"])
     if "seed" in decisions:

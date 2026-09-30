@@ -24,9 +24,19 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ### Added
 
+- **Receptor (sensor) noise before innervation**: `SimulationConfig.receptor_noise_std`, in the
+  stimulus's own (pressure) units -- one Gaussian source per receptor and record bin, added to the
+  stimulus sampled on the receptor grid before any receptive-field bank, drawn once per run and
+  shared by every population (they read the same noisy receptor frames), seeded by
+  `receptor_noise_seed`. Pooling, filter and gain propagate it: a neuron pooling receptors with
+  weights `w` gets input noise of std `σ·‖w‖₂`. `load_design` reads a design's top-level
+  `receptor_noise_std`/`receptor_noise_seed`; bundles record both in `config.json` and keep the
+  clean stimulus. Unset (the default) or 0 is bit-identical to before.
 - **Separate sensor and membrane noise keys** (C-130): `PopulationConfig.sensor_noise_std` (mA,
-  Gaussian noise on the injected current after the filter and gain) and `membrane_noise_std` (the
-  neuron model's Langevin noise). The GUI's Readout & noise card edits them separately.
+  Gaussian noise on the injected current after the filter and gain -- the neuron input (current)
+  noise, distinct from the receptor noise above) and `membrane_noise_std` (the neuron model's
+  Langevin noise). The GUI's Readout & noise card edits them separately; its box is now labelled
+  "Neuron input noise std (mA)".
 
 ### Deprecated
 

@@ -69,6 +69,13 @@ the neuron model:
 neuron_input = filter_output * input_gain + noise
 ```
 
+Here `noise` is the population's neuron input (current) noise,
+`sensor_noise_std` (mA). The receptor (sensor) noise,
+`simulation.receptor_noise_std`, enters earlier and in stimulus units: it is
+added to the stimulus on the receptor grid before innervation, so it reaches
+`filter_output` already pooled (std `σ·‖w‖₂` per neuron before the filter) and
+is then scaled by `input_gain` like the signal.
+
 It compensates for the N/mm² → mA convention gap.
 
 ### Default value: 50
@@ -206,16 +213,17 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 
 ## Reproducibility (seeds) {: #reproducibility-seeds }
 
-SensoryForge has three independent seeds, each covering a different source of
+SensoryForge has four independent seeds, each covering a different source of
 randomness (F-075):
 
 | Seed | Location | Controls |
 |---|---|---|
 | `SimulationConfig.seed` (run seed) | `simulation.seed` in the canonical config, or `sensoryforge run --seed` | Seeds `torch`/`numpy`/`random` once, at the start of `SimulationEngine.run()`, before stimulus sampling and the population loop. The broadest knob — reproduces anything in the run that draws from the *global* RNG and isn't independently seeded below. |
-| `PopulationConfig.noise_seed` | Per population, in `populations[].noise_seed` | Reproduces that one population's noise (`sensor_noise_std` and/or `membrane_noise_std` > 0; the deprecated `noise_std` sets both) independently of the run seed and of every other population: `SimulationEngine.run()` builds a `torch.Generator` from it and passes it into `_run_pop_from_drive`, which both draws the sensor noise (post-filter, post-gain, additive on the current) from that generator and reseeds the global RNG from the same value immediately before the neuron call (the built-in neuron models' own Langevin noise, driven by `membrane_noise_std`, has no generator parameter of its own). `None` (default) leaves that population's noise on the ambient global RNG, uncontrolled by either seed. |
+| `SimulationConfig.receptor_noise_seed` | Once per run, in `simulation.receptor_noise_seed` | Reproduces the receptor (sensor) noise, `simulation.receptor_noise_std` (stimulus units, one source per receptor, added before innervation and shared by every population), independently of the run seed: a CPU `torch.Generator` per grid and channel seeded from it. `None` draws it from the global RNG, i.e. from the run seed. |
+| `PopulationConfig.noise_seed` | Per population, in `populations[].noise_seed` | Reproduces that one population's noise (`sensor_noise_std` and/or `membrane_noise_std` > 0; the deprecated `noise_std` sets both) independently of the run seed and of every other population: `SimulationEngine.run()` builds a `torch.Generator` from it and passes it into `_run_pop_from_drive`, which both draws the neuron input (current) noise, `sensor_noise_std` (post-filter, post-gain, additive on the current) from that generator and reseeds the global RNG from the same value immediately before the neuron call (the built-in neuron models' own Langevin noise, driven by `membrane_noise_std`, has no generator parameter of its own). `None` (default) leaves that population's noise on the ambient global RNG, uncontrolled by either seed. |
 | `PopulationConfig.seed` | Per population, in `populations[].seed` | Seeds that population's innervation (receptive-field) wiring at build time. **F-006 is open**: this reseeds the *global* RNG and consumes it in a different order from pressure-simulation, so the same seed gives different wiring across the two repos; it does not affect noise or the neuron. |
 
-None of the three imply the others. A fully reproducible noisy run needs the
+None of the four imply the others. A fully reproducible noisy run needs the
 run seed for anything that isn't independently seeded, plus a `noise_seed`
 per population whose noise must be reproducible on its own (e.g. when
 sweeping other settings while holding one population's noise fixed). With no

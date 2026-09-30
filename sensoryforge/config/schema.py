@@ -454,8 +454,10 @@ class PopulationConfig:
         filter_method: Filter type (SA, RA, none/identity).
         filter_params: Filter-specific parameters dict.
         solver_config: Solver configuration dict (type, method, rtol, atol).
-        sensor_noise_std: Standard deviation (mA) of the sensor (receptor
-            current) noise: independent Gaussian noise added to every
+        sensor_noise_std: Standard deviation (mA) of the neuron input
+            (current) noise -- not the receptor (sensor) noise, which is
+            ``SimulationConfig.receptor_noise_std`` in stimulus units and
+            shared by every population. Independent Gaussian noise added to every
             neuron's injected current after the filter and the gain, once
             per record bin, before ``input_floor``. It appears in the
             recorded ``filtered`` drive. ``None`` (default) falls back to
@@ -476,7 +478,7 @@ class PopulationConfig:
         noise_mean: Unused by :class:`~sensoryforge.core.simulation_engine.SimulationEngine`
             (read only by the legacy adapter).
         noise_seed: Seeds this population's noise: a per-population
-            ``torch.Generator`` draws the sensor noise, and the global RNG is
+            ``torch.Generator`` draws the neuron input (current) noise, and the global RNG is
             reseeded from it (and restored afterwards) for the neuron's
             membrane noise. ``None`` draws both from the run's global RNG
             (seeded by ``SimulationConfig.seed``).
@@ -544,7 +546,7 @@ class PopulationConfig:
     # Solver (for DSL neurons)
     solver_config: Optional[Dict[str, Any]] = None
 
-    # Noise (C-130): the sensor (receptor-current) noise and the neuron's
+    # Noise (C-130): the neuron input (current) noise and the neuron's
     # membrane noise are separate keys; noise_std is the deprecated alias
     # that sets both. None means "not set" and is dropped by to_dict(), so
     # configs that do not use the new keys round-trip byte for byte.
@@ -606,7 +608,7 @@ class PopulationConfig:
             ]
             warnings.warn(
                 f"Population {self.name!r}: PopulationConfig.noise_std is "
-                "deprecated -- it sets both the sensor (receptor-current) "
+                "deprecated -- it sets both the neuron input (current) "
                 "noise and the neuron's membrane noise. Use sensor_noise_std "
                 "and membrane_noise_std instead"
                 + (
@@ -619,7 +621,7 @@ class PopulationConfig:
             )
 
     def effective_sensor_noise_std(self) -> float:
-        """The sensor (receptor-current) noise std this population runs with.
+        """The neuron input (current) noise std this population runs with.
 
         Returns:
             ``sensor_noise_std`` in mA when set, else the deprecated
@@ -1012,6 +1014,26 @@ class SimulationConfig:
             (innervation wiring, F-006 open) and ``PopulationConfig.noise_seed``
             (per-population membrane noise) -- see
             ``docs/user_guide/units_and_gains.md``.
+        receptor_noise_std: Standard deviation of the receptor (sensor)
+            noise, in the **stimulus's own units** (pressure), not mA:
+            independent Gaussian noise, one source per receptor and record
+            bin, added to the stimulus sampled on the receptor grid, before
+            any population's receptive-field bank. It is drawn once per run
+            and shared by every population, so populations that pool the
+            same receptors see the same noise realisation; each
+            population's pooling, filter and ``input_gain`` then propagate
+            it (a neuron pooling receptors with weights ``w`` receives
+            input noise of std ``receptor_noise_std * ||w||_2`` before its
+            filter). Distinct from ``PopulationConfig.sensor_noise_std``,
+            the per-population neuron input (current) noise added after the
+            filter and gain. ``None`` (default) or ``0`` means no receptor
+            noise, and ``None`` is dropped by :meth:`to_dict` so configs
+            that do not use it round-trip byte for byte. The bundle's
+            recorded ``stimulus`` stays the clean one.
+        receptor_noise_seed: Seeds the receptor noise independently of the
+            run seed (a CPU ``torch.Generator`` per receptor grid and
+            channel, so the draw is the same on every device). ``None``
+            draws it from the run's global RNG (seeded by ``seed``).
     """
 
     device: str = "cpu"
@@ -1021,6 +1043,8 @@ class SimulationConfig:
     duration_ms: Optional[float] = None
     dt: Optional[float] = None  # deprecated alias for dt_ms
     seed: Optional[int] = None
+    receptor_noise_std: Optional[float] = None
+    receptor_noise_seed: Optional[int] = None
 
     def __post_init__(self) -> None:
         """Resolve the deprecated ``dt`` alias, then validate (F-042).
@@ -1046,6 +1070,19 @@ class SimulationConfig:
             )
             self.dt_ms = self.dt
         validate_dt_ms(self.dt_ms, self.integrate_dt_ms)
+        if self.receptor_noise_std is not None and float(self.receptor_noise_std) < 0.0:
+            raise ValueError(
+                "SimulationConfig: receptor_noise_std must be >= 0, got "
+                f"{self.receptor_noise_std!r}"
+            )
+
+    def effective_receptor_noise_std(self) -> float:
+        """The receptor (sensor) noise std the run uses, in stimulus units.
+
+        Returns:
+            ``receptor_noise_std`` as a float, or ``0.0`` when unset.
+        """
+        return float(self.receptor_noise_std or 0.0)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict for YAML serialization."""
