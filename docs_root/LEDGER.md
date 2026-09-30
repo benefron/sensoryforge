@@ -111,6 +111,7 @@ when there are real new entries.
 ## D-5cdc524 · CLOSED · decision · - · 2026-09-30
 Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise
 → commit 7f7c6a3
+↔ 04777d7 docs(decisions): record the reasoning for separating sensor and membrane noise
 
 ## F-ac51054 · CLOSED · finding · - · 2026-09-29
 the AdEx recipe's RA gain 260, merged in PR #17, was silent at 10% of the benchmark's rate of change because the low-threshold rule rounded its gain (262.7) down; low-threshold gains now round up, giving 270
