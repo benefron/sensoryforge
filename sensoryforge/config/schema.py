@@ -454,9 +454,32 @@ class PopulationConfig:
         filter_method: Filter type (SA, RA, none/identity).
         filter_params: Filter-specific parameters dict.
         solver_config: Solver configuration dict (type, method, rtol, atol).
-        noise_std: Membrane noise standard deviation.
-        noise_mean: Membrane noise mean.
-        noise_seed: Random seed for noise.
+        sensor_noise_std: Standard deviation (mA) of the sensor (receptor
+            current) noise: independent Gaussian noise added to every
+            neuron's injected current after the filter and the gain, once
+            per record bin, before ``input_floor``. It appears in the
+            recorded ``filtered`` drive. ``None`` (default) falls back to
+            the deprecated ``noise_std``; see
+            :meth:`effective_sensor_noise_std`.
+        membrane_noise_std: The neuron's own membrane (Langevin) noise,
+            passed to the neuron model as its ``noise_std`` constructor
+            argument (AdEx/Izhikevich add N(0, noise_std * sqrt(dt)) mV per
+            integration step). It never appears in ``filtered``. ``None``
+            (default) falls back to the deprecated ``noise_std``; see
+            :meth:`effective_membrane_noise_std`.
+        noise_std: **Deprecated alias** that sets both the sensor and the
+            membrane noise to one value (the only noise key before the two
+            were separated, C-130). Still honoured, with a
+            ``FutureWarning`` when non-zero, so existing configs run
+            unchanged; an explicit ``sensor_noise_std`` or
+            ``membrane_noise_std`` overrides it for that noise source.
+        noise_mean: Unused by :class:`~sensoryforge.core.simulation_engine.SimulationEngine`
+            (read only by the legacy adapter).
+        noise_seed: Seeds this population's noise: a per-population
+            ``torch.Generator`` draws the sensor noise, and the global RNG is
+            reseeded from it (and restored afterwards) for the neuron's
+            membrane noise. ``None`` draws both from the run's global RNG
+            (seeded by ``SimulationConfig.seed``).
         color: RGBA color tuple [r, g, b, a].
         visible: Whether this population is visible in the GUI.
         enabled: Whether this population is enabled for simulation.
@@ -521,7 +544,12 @@ class PopulationConfig:
     # Solver (for DSL neurons)
     solver_config: Optional[Dict[str, Any]] = None
 
-    # Noise
+    # Noise (C-130): the sensor (receptor-current) noise and the neuron's
+    # membrane noise are separate keys; noise_std is the deprecated alias
+    # that sets both. None means "not set" and is dropped by to_dict(), so
+    # configs that do not use the new keys round-trip byte for byte.
+    sensor_noise_std: Optional[float] = None
+    membrane_noise_std: Optional[float] = None
     noise_std: float = 0.0
     noise_mean: float = 0.0
     noise_seed: Optional[int] = None
@@ -539,10 +567,13 @@ class PopulationConfig:
     def __post_init__(self) -> None:
         """Validate ``combine`` and the sugar/``inputs`` exclusivity (M1).
 
+        Also validates the noise keys and warns (``FutureWarning``) when the
+        deprecated ``noise_std`` alias is non-zero (C-130).
+
         Raises:
             ValueError: If ``combine`` is not ``"sum"``/``"concat"``, or
                 both ``inputs`` and one of the single-input sugar fields
-                are set away from their defaults.
+                are set away from their defaults, or a noise std is negative.
         """
         if self.combine not in ("sum", "concat"):
             raise ValueError(
@@ -561,6 +592,54 @@ class PopulationConfig:
                     f"single-input field(s) {set_sugar} are set -- use one "
                     "form or the other, not both."
                 )
+        for key in ("sensor_noise_std", "membrane_noise_std", "noise_std"):
+            value = getattr(self, key)
+            if value is not None and float(value) < 0.0:
+                raise ValueError(
+                    f"Population {self.name!r}: {key} must be >= 0, got {value!r}"
+                )
+        if self.noise_std:
+            overridden = [
+                key
+                for key in ("sensor_noise_std", "membrane_noise_std")
+                if getattr(self, key) is not None
+            ]
+            warnings.warn(
+                f"Population {self.name!r}: PopulationConfig.noise_std is "
+                "deprecated -- it sets both the sensor (receptor-current) "
+                "noise and the neuron's membrane noise. Use sensor_noise_std "
+                "and membrane_noise_std instead"
+                + (
+                    f" ({', '.join(overridden)} set explicitly and override it)."
+                    if overridden
+                    else "."
+                ),
+                FutureWarning,
+                stacklevel=3,
+            )
+
+    def effective_sensor_noise_std(self) -> float:
+        """The sensor (receptor-current) noise std this population runs with.
+
+        Returns:
+            ``sensor_noise_std`` in mA when set, else the deprecated
+            ``noise_std`` alias (0.0 by default).
+        """
+        if self.sensor_noise_std is not None:
+            return float(self.sensor_noise_std)
+        return float(self.noise_std or 0.0)
+
+    def effective_membrane_noise_std(self) -> float:
+        """The membrane (Langevin) noise std passed to the neuron model.
+
+        Returns:
+            ``membrane_noise_std`` when set, else the deprecated
+            ``noise_std`` alias (0.0 by default), in the neuron model's own
+            ``noise_std`` units.
+        """
+        if self.membrane_noise_std is not None:
+            return float(self.membrane_noise_std)
+        return float(self.noise_std or 0.0)
 
     def effective_inputs(self) -> List["PopulationInput"]:
         """This population's inputs as a uniform list (Wave M2).

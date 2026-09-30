@@ -68,6 +68,8 @@ _NON_RF_FIELDS = frozenset(
         "dsl_config",
         "readout",
         "input_gain",
+        "sensor_noise_std",
+        "membrane_noise_std",
         "noise_std",
         "noise_mean",
         "noise_seed",

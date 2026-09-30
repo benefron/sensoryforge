@@ -220,7 +220,8 @@ def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
         neuron_model = dsl_model.compile(
             dt=simulation.integrate_dt_ms,
             device=str(device),
-            noise_std=pop_cfg.noise_std,
+            # C-130: the neuron's own noise is the membrane noise only.
+            noise_std=pop_cfg.effective_membrane_noise_std(),
         )
     else:
         neuron_params = resolve_neuron_params(
@@ -230,7 +231,10 @@ def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
         # default 0.05 ms), not the record step dt_ms; sub-stepping
         # happens in _run_pop_from_drive.
         neuron_params["dt"] = simulation.integrate_dt_ms
-        neuron_params["noise_std"] = pop_cfg.noise_std
+        # C-130: the neuron's noise_std is the membrane (Langevin) noise
+        # only; the sensor noise is added to the current in
+        # _run_pop_from_drive.
+        neuron_params["noise_std"] = pop_cfg.effective_membrane_noise_std()
         neuron_model = neuron_cls(**neuron_params).to(device)
     return neuron_model
 
@@ -970,10 +974,15 @@ class SimulationEngine:
                 drive = drive.unsqueeze(1)
 
             pop_cfg = pop["config"]
+            sensor_noise_std = pop_cfg.effective_sensor_noise_std()
+            membrane_noise_std = pop_cfg.effective_membrane_noise_std()
             noise_generator = None
-            if pop_cfg.noise_seed is not None and pop_cfg.noise_std > 0:
+            if pop_cfg.noise_seed is not None and (
+                sensor_noise_std > 0 or membrane_noise_std > 0
+            ):
                 # F-075: a per-population torch.Generator, seeded independently
-                # of the run seed, drives that population's membrane noise.
+                # of the run seed, drives that population's sensor noise (and,
+                # via a reseed of the global RNG, its membrane noise).
                 # Not every device supports torch.Generator(device=...)
                 # (e.g. an unsupported backend); fall back to a CPU generator
                 # and let _run_pop_from_drive move the draw to drive's device.
@@ -991,7 +1000,7 @@ class SimulationEngine:
                 filter_module=filter_module,
                 neuron_model=neuron_model,
                 input_gain=pop_cfg.input_gain,
-                noise_std=pop_cfg.noise_std,
+                noise_std=sensor_noise_std,
                 return_intermediates=want_intermediates,
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
@@ -1078,8 +1087,12 @@ class SimulationEngine:
                 ``(v_trace, spikes)`` or just ``spikes``.
             input_gain: Multiplicative gain applied to the filtered drive before
                 the neuron model.  Default ``1.0`` (no scaling).
-            noise_std: Standard deviation of Gaussian noise added after gain.
-                Default ``0.0`` (no noise).
+            noise_std: Standard deviation (mA) of the sensor noise: Gaussian
+                noise added to the current after the gain, per record bin
+                (``PopulationConfig.effective_sensor_noise_std()``). The
+                neuron's membrane noise is not this -- it is whatever
+                ``neuron_model`` was constructed with. Default ``0.0`` (no
+                noise).
             input_floor: Lower bound (mA) on the current the neuron receives,
                 applied after gain and noise (D-43dc520). The returned
                 ``"filtered"`` is the signal before the bound, so it stays
@@ -1174,7 +1187,8 @@ class SimulationEngine:
         else:
             # F-075: the built-in neuron models (Izhikevich/AdEx/MQIF/FA)
             # draw their own membrane (Langevin) noise from the *global* RNG
-            # inside forward(), using this same noise_std -- there is no
+            # inside forward(), using their own noise_std (the population's
+            # membrane noise, C-130) -- there is no
             # generator parameter threaded into neuron_model. Reseed the
             # global RNG from noise_generator's own seed immediately before
             # the neuron call so that noise is reproducible too, matching

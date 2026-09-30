@@ -47,6 +47,25 @@ _DEFAULT_SA_NEURON = resolve_neuron_params("izhikevich", "SA", {})
 _DEFAULT_RA_NEURON = resolve_neuron_params("izhikevich", "RA", {})
 
 
+
+def _legacy_current_noise_std(pop: dict, default: float = 3.0) -> float:
+    """The legacy pipeline's per-population current noise std from a canonical record.
+
+    The legacy ``*_membrane_std`` noise is added to the filtered current, so it
+    is the canonical sensor noise: ``sensor_noise_std`` when set, else the
+    deprecated ``noise_std`` alias, else ``default`` (C-130).
+
+    Args:
+        pop: One canonical ``populations`` entry as a dict.
+        default: Legacy default when neither key is present.
+
+    Returns:
+        Noise standard deviation in mA.
+    """
+    if pop.get("sensor_noise_std") is not None:
+        return pop["sensor_noise_std"]
+    return pop.get("noise_std", default)
+
 class GeneralizedTactileEncodingPipeline(nn.Module):
     """Generalized tactile encoding pipeline with configurable parameters.
 
@@ -514,7 +533,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 legacy["filters"]["sa_k2"] = resolved_filter["k2"]
 
             # Map noise params
-            legacy["noise"]["sa_membrane_std"] = sa_pop.get("noise_std", 3.0)
+            # The legacy "membrane" noise is added to the filtered current,
+            # i.e. the canonical sensor noise (C-130).
+            legacy["noise"]["sa_membrane_std"] = _legacy_current_noise_std(sa_pop)
             legacy["noise"]["sa_membrane_mean"] = sa_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa_membrane_seed"] = sa_pop.get("noise_seed", 42)
 
@@ -562,7 +583,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 legacy["filters"]["ra_tau_ra"] = resolved_filter["tau_RA"]
                 legacy["filters"]["ra_k3"] = resolved_filter["k3"]
 
-            legacy["noise"]["ra_membrane_std"] = ra_pop.get("noise_std", 3.0)
+            # The legacy "membrane" noise is added to the filtered current,
+            # i.e. the canonical sensor noise (C-130).
+            legacy["noise"]["ra_membrane_std"] = _legacy_current_noise_std(ra_pop)
             legacy["noise"]["ra_membrane_mean"] = ra_pop.get("noise_mean", 0.0)
             legacy["noise"]["ra_membrane_seed"] = ra_pop.get("noise_seed", 43)
 
@@ -602,7 +625,9 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 "threshold", 30.0
             )
 
-            legacy["noise"]["sa2_membrane_std"] = sa2_pop.get("noise_std", 3.0)
+            # The legacy "membrane" noise is added to the filtered current,
+            # i.e. the canonical sensor noise (C-130).
+            legacy["noise"]["sa2_membrane_std"] = _legacy_current_noise_std(sa2_pop)
             legacy["noise"]["sa2_membrane_mean"] = sa2_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa2_membrane_seed"] = sa2_pop.get("noise_seed", 44)
 
