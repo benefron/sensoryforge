@@ -212,11 +212,11 @@ solver_config:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `sensor_noise_std` | float | `None` | Sensor (receptor-current) noise, std in mA: independent Gaussian noise added to each neuron's injected current after the filter and `input_gain`, once per record bin, before `input_floor`. It is part of the recorded `filtered` current. `None` falls back to `noise_std` (C-130) |
+| `sensor_noise_std` | float | `None` | Neuron input (current) noise, std in mA -- not the receptor (sensor) noise, which is `simulation.receptor_noise_std`: independent Gaussian noise added to each neuron's injected current after the filter and `input_gain`, once per record bin, before `input_floor`. It is part of the recorded `filtered` current. `None` falls back to `noise_std` (C-130) |
 | `membrane_noise_std` | float | `None` | The neuron model's own membrane (Langevin) noise, passed to it as its `noise_std` (AdEx/Izhikevich add N(0, `noise_std`·√dt) mV per integration step). Not part of `filtered`. `None` falls back to `noise_std` (C-130) |
 | `noise_std` | float | `0.0` | **Deprecated alias** that sets both `sensor_noise_std` and `membrane_noise_std` to one value -- the only noise key before the two were separated. Still honoured (a `FutureWarning` when non-zero), so existing configs run bit-identically; an explicit `sensor_noise_std` or `membrane_noise_std` overrides it for that source |
 | `noise_mean` | float | `0.0` | Read only by the legacy pipeline adapter; `SimulationEngine` ignores it |
-| `noise_seed` | int | `None` | Seeds this population's noise independently of the run seed: a per-population generator draws the sensor noise, and the global RNG is reseeded from it (and restored afterwards) for the membrane noise. `None` draws both from the run's RNG (`simulation.seed`) |
+| `noise_seed` | int | `None` | Seeds this population's noise independently of the run seed: a per-population generator draws the neuron input (current) noise, and the global RNG is reseeded from it (and restored afterwards) for the membrane noise. `None` draws both from the run's RNG (`simulation.seed`) |
 
 #### Visualization
 
@@ -354,7 +354,9 @@ Configuration for simulation settings.
 | `solver` | dict | `{"type": "euler"}` | Global solver config (`type`, `method`, `rtol`, `atol`) |
 | `duration_ms` | float | `None` | Simulation duration in ms (optional; inferred from the stimulus when omitted) |
 | `dt` | float | `None` | Deprecated alias for `dt_ms` (F-008/E10); emits `DeprecationWarning`; raises `ValueError` if both `dt` and a differing, non-default `dt_ms` are given |
-| `seed` | int | `None` | Run-level seed (F-075). When set, `SimulationEngine.run()` seeds `torch`/`numpy`/`random` at the start of the run, before stimulus sampling and the population loop. `None` (default) leaves the ambient RNG state untouched. `sensoryforge run --seed` sets this field before running. Distinct from a population's own `noise_seed` (per-population sensor and membrane noise) and `seed` (innervation wiring, F-006 open) — see [Reproducibility](units_and_gains.md#reproducibility-seeds) |
+| `seed` | int | `None` | Run-level seed (F-075). When set, `SimulationEngine.run()` seeds `torch`/`numpy`/`random` at the start of the run, before stimulus sampling and the population loop. `None` (default) leaves the ambient RNG state untouched. `sensoryforge run --seed` sets this field before running. Distinct from a population's own `noise_seed` (per-population neuron input and membrane noise) and `seed` (innervation wiring, F-006 open) — see [Reproducibility](units_and_gains.md#reproducibility-seeds) |
+| `receptor_noise_std` | float | `None` | Receptor (sensor) noise, std in the **stimulus's own units** (pressure), not mA: one independent Gaussian source per receptor and record bin, added to the stimulus sampled on the receptor grid before any population's receptive-field bank. Drawn once per run and shared by every population, so populations that pool the same receptors see the same realisation; pooling, filter and `input_gain` then propagate it (a neuron pooling receptors with weights `w` gets input noise of std `receptor_noise_std · ‖w‖₂` before its filter). `None`/`0` = none. The bundle's `stimulus` stays the clean input; this key (with its seed) is recorded in the bundle's `config.json` |
+| `receptor_noise_seed` | int | `None` | Seeds the receptor noise independently of the run seed (a CPU generator per grid and channel, seed `receptor_noise_seed + 7919·grid_index + channel_index`, so the first grid uses the seed itself and the draw is device-independent). `None` draws it from the run's RNG (`seed`) |
 
 ### Example
 

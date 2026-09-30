@@ -52,7 +52,7 @@ def _legacy_current_noise_std(pop: dict, default: float = 3.0) -> float:
     """The legacy pipeline's per-population current noise std from a canonical record.
 
     The legacy ``*_membrane_std`` noise is added to the filtered current, so it
-    is the canonical sensor noise: ``sensor_noise_std`` when set, else the
+    is the canonical neuron input (current) noise: ``sensor_noise_std`` when set, else the
     deprecated ``noise_std`` alias, else ``default`` (C-130).
 
     Args:
@@ -534,7 +534,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
 
             # Map noise params
             # The legacy "membrane" noise is added to the filtered current,
-            # i.e. the canonical sensor noise (C-130).
+            # i.e. the canonical neuron input (current) noise (C-130).
             legacy["noise"]["sa_membrane_std"] = _legacy_current_noise_std(sa_pop)
             legacy["noise"]["sa_membrane_mean"] = sa_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa_membrane_seed"] = sa_pop.get("noise_seed", 42)
@@ -584,7 +584,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
                 legacy["filters"]["ra_k3"] = resolved_filter["k3"]
 
             # The legacy "membrane" noise is added to the filtered current,
-            # i.e. the canonical sensor noise (C-130).
+            # i.e. the canonical neuron input (current) noise (C-130).
             legacy["noise"]["ra_membrane_std"] = _legacy_current_noise_std(ra_pop)
             legacy["noise"]["ra_membrane_mean"] = ra_pop.get("noise_mean", 0.0)
             legacy["noise"]["ra_membrane_seed"] = ra_pop.get("noise_seed", 43)
@@ -626,7 +626,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             )
 
             # The legacy "membrane" noise is added to the filtered current,
-            # i.e. the canonical sensor noise (C-130).
+            # i.e. the canonical neuron input (current) noise (C-130).
             legacy["noise"]["sa2_membrane_std"] = _legacy_current_noise_std(sa2_pop)
             legacy["noise"]["sa2_membrane_mean"] = sa2_pop.get("noise_mean", 0.0)
             legacy["noise"]["sa2_membrane_seed"] = sa2_pop.get("noise_seed", 44)

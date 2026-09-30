@@ -366,7 +366,7 @@ class ReadoutCard(_Card):
         )
         form.addRow("Input gain:", gain_spin)
 
-        # C-130: the sensor (receptor-current) noise and the membrane noise
+        # C-130: the neuron input (current) noise and the membrane noise
         # are separate keys. Each box shows the value that runs (the
         # deprecated noise_std alias when the key is unset) and writes its
         # own key.
@@ -381,7 +381,7 @@ class ReadoutCard(_Card):
         sensor_spin.valueChanged.connect(
             functools.partial(self._on_float, f"populations.{index}.sensor_noise_std")
         )
-        form.addRow("Sensor noise std (mA):", sensor_spin)
+        form.addRow("Neuron input noise std (mA):", sensor_spin)
 
         membrane_spin = QtWidgets.QDoubleSpinBox()
         membrane_spin.setRange(0.0, 1000.0)
