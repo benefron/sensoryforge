@@ -108,10 +108,16 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-802e42b · CLOSED · decision · - · 2026-09-30
+Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option.
+→ commit 9a3f550
+
 ## D-5cdc524 · CLOSED · decision · - · 2026-09-30
 Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise
 → commit 7f7c6a3
 ↔ 04777d7 docs(decisions): record the reasoning for separating sensor and membrane noise
+↔ d7db83d merge: separate sensor and membrane noise; designs simulate their declared sensor noise (s
+↔ 9a3f550 feat(engine): receptor (sensor) noise before innervation, shared by every population
 
 ## F-ac51054 · CLOSED · finding · - · 2026-09-29
 the AdEx recipe's RA gain 260, merged in PR #17, was silent at 10% of the benchmark's rate of change because the low-threshold rule rounded its gain (262.7) down; low-threshold gains now round up, giving 270
