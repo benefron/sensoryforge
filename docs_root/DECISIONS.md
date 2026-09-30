@@ -50,6 +50,41 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-5cdc524 · Sensor noise and membrane noise are separate; a design's declared noise is simulated · 2026-09-30
+
+**What was decided.** Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise
+
+**Why.** pressure-simulation now declares its sensor noise as a specification (its DECISIONS §110):
+each population record in `design.json` carries `noise_std` (mA, the declared design-unit floor
+converted to the injected current at the design's gains; 3.59 mA SA and 37.9 mA RA on the default
+40x40 design), `noise_seed`, and a separate `membrane_noise_std` (default 0). Two things stopped
+SensoryForge from running that (pressure-simulation's C-130): `load_design` ignored the noise keys, so
+every `run --design` was noise-free; and `PopulationConfig.noise_std` was the only noise key, used
+both as the post-gain current noise (`_run_pop_from_drive`) and as the neuron's Langevin noise
+(`build_neuron`), so "sensor noise on, membrane noise off" could not be expressed. The two are
+different physical things: one is the receptor's noise, which the design's information numbers
+assume and which shows up in the recorded `filtered` current; the other belongs to the spiking
+stage and never appears in `filtered`.
+
+**What was rejected.** (1) Keeping one key and accepting the coupling for noisy runs: a declared
+membrane noise of 0 would then be silently replaced by 3.59 mA-equivalent Langevin noise on SA.
+(2) Renaming `noise_std` outright: every existing config, bundle and preset override would change
+meaning or break. It stays as a deprecated alias that sets both (a `FutureWarning` when non-zero;
+an explicit new key overrides it), and `tests/integration/test_noise_split_golden.py` pins every
+preset and two alias configs to spikes recorded with the pre-change code.
+
+**Where it lives.** `sensoryforge/config/schema.py` (`PopulationConfig.sensor_noise_std`,
+`membrane_noise_std`, `effective_sensor_noise_std()`, `effective_membrane_noise_std()`);
+`sensoryforge/core/simulation_engine.py` (`build_neuron`, `run`); `sensoryforge/io/design.py`
+(`load_design`); `docs/user_guide/bundles.md` § "The design's declared noise is simulated";
+`tests/unit/test_sensor_noise_split.py`.
+
+**Ledger id + sha.** D-5cdc524 · `7f7c6a3`
+
+**Validation pending.** pressure-simulation's own sensor-noise parity test
+(`tests/design/test_sensor_noise.py`) pins the old coupling and must be updated when its pin moves
+to this commit; its `design.export.sensoryforge_config` workaround becomes redundant.
+
 ## D-673e0ed · The non-adapting AdEx RA also gets the low-threshold gain · 2026-09-28
 
 **What was decided.** the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain
