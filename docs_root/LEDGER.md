@@ -108,10 +108,19 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-c5facd5 · CLOSED · decision · - · 2026-09-30
+RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)
+→ commit 6124f87
+
+## D-f0e2433 · CLOSED · decision · - · 2026-09-30
+SA gets a sigma-delta arm: a non-leaky integrate-and-fire unit with subtractive reset whose spike rate is linear in its input level; what matters is the time-scale separation (RA = fast signed change, SA = slow absolute level), not the biological mechanism (SensoryForge neuron_model sigma_delta, opt-in)
+→ commit 6124f87
+
 ## D-802e42b · CLOSED · decision · - · 2026-09-30
 Sensor noise lives in the sensors: one noise source per receptor, in pressure (stimulus) units, added to the stimulus on the receptor grid before innervation, shared by every population; pooling, filtering and gain then propagate it. The existing per-population current noise (sensor_noise_std, added after filter and gain) is a different thing -- neuron input noise -- and stays as its own option.
 → commit 9a3f550
 ↔ 00e539e docs(decisions): record the reasoning for receptor noise before innervation
+↔ ee82192 merge: receptor noise on the receptor grid before innervation, shared by every population
 
 ## D-5cdc524 · CLOSED · decision · - · 2026-09-30
 Sensor (receptor-current) noise and membrane noise are separate SensoryForge parameters; a design directory's declared noise_std is simulated as sensor noise and membrane_noise_std as membrane noise
