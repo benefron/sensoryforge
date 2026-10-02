@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-e02e6f6 · STANDING · finding · tests/contract · 2026-10-02
+the world engine passes pressure-simulation's eight contract tests in SensoryForge's env (Python 3.11, torch 2.5.1) and in bio-encoding (Python 3.10, torch 2.2.2)
+→ commit f1f0f5f
+
 ## F-202cdd8 · STANDING · finding · - · 2026-10-02
 SimulationEngine.run seeds numpy with its seed argument, which rejects values at or above 2**32, so a 53-bit seed53 cannot be the run seed
 → commit f80d6d4
