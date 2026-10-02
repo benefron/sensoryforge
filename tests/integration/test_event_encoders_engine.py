@@ -5,7 +5,7 @@
   floored at 0 mA, so a falling edge produces OFF events; the per-bin events
   times theta reconstruct the gained drive to within theta.
 * A ``sigma_delta`` SA population returns ordinary counts under ``"spikes"``.
-* The bundle (schema 2.1.0) stores the signed counts in an ``events`` dataset
+* The bundle (schema 2.1.0 and later) stores the signed counts in an ``events`` dataset
   (int16, ``signed`` attribute) and records model, params and readout in
   ``config.json``; a spike reader looking for ``spikes`` finds none.
 * ``load_design`` accepts both models with their params.
@@ -124,7 +124,7 @@ def test_bundle_stores_signed_events_separately(run, tmp_path):
     bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
 
     cfg = json.loads((bundle_dir / "config.json").read_text())
-    assert cfg["schema_version"] == SCHEMA_VERSION == "2.1.0"
+    assert cfg["schema_version"] == SCHEMA_VERSION == "2.2.0"
     entries = {p["name"]: p for p in cfg["populations"]}
     ra, sa = entries["RA events"], entries["SA sigma-delta"]
     assert ra["readout"] == "events"

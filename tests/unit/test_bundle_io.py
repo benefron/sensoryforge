@@ -74,7 +74,8 @@ class TestWriteBundleLayout:
         with open(bundle_dir / "config.json") as f:
             cfg = json.load(f)
         # 2.1.0 (2026-10-01): signed event populations (level_crossing).
-        assert cfg["schema_version"] == "2.1.0"
+        # 2.2.0 (2026-10-02): sensoryforge_sha; world data-set entries.
+        assert cfg["schema_version"] == "2.2.0"
         assert cfg["kind"] == "sensoryforge_bundle"
         assert cfg["grid"] == {
             "rows": 8,

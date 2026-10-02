@@ -5,7 +5,7 @@ A bundle is a directory:
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.1.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.2.0", kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt
     stimuli/
@@ -23,6 +23,11 @@ instead of counting an OFF event (-1) as a spike. Every population entry in
 ``config.json`` gains ``readout`` (``"spikes"``, ``"events"`` or ``"state"``)
 and ``encoder`` (``{"model", "params"}``, the neuron model's own
 ``to_dict()``); an ``events`` population also carries ``event_encoding``.
+
+Schema 2.2.0 (2026-10-02, additive): every bundle records ``sensoryforge_sha``
+(``config.json``, ``data.h5`` attributes); a world data-set entry's
+``stimuli/stimulus.json`` is ``kind: sensoryforge_world_entry`` with the entry's
+record, and ``config.json`` gains ``world``.
 
 ``config.json`` is a superset of pressure-simulation's ``1.0.0`` "mechanoreceptor
 bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
@@ -48,8 +53,10 @@ import torch
 import sensoryforge
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
+from sensoryforge.provenance import source_info
 
-SCHEMA_VERSION = "2.1.0"
+SCHEMA_VERSION = "2.2.0"
+WORLD_ENTRY_KIND = "sensoryforge_world_entry"
 
 #: How a signed event population's ``events`` dataset is to be read
 #: (written into its ``config.json`` entry and as HDF5 attributes).
@@ -128,6 +135,7 @@ class Bundle:
             ``filtered``, and ``spikes``, ``events`` (signed, int16; schema
             2.1) or ``state``), each ``[T, N]``.
         meta: ``dt_ms``, ``integrate_dt_ms``, ``seed``, ``sensoryforge_version``,
+            ``sensoryforge_sha`` (the writing SensoryForge's commit; 2.2),
             ``config_yaml``, ``provenance`` (parsed from ``provenance_json``),
             and ``config_json`` (the raw ``config.json`` dict).
     """
@@ -172,7 +180,7 @@ def build_stimulus_payload(
     static Gaussian blob at the origin, and the viewer will encode that and
     draw plausible plots of the wrong stimulus.
 
-    Two kinds are emitted:
+    Three kinds are emitted:
 
     * ``"stimulus"`` at schema ``1.0.0`` -- pressure-simulation's own schema,
       used only for the stimulus types that regenerate there exactly
@@ -181,6 +189,9 @@ def build_stimulus_payload(
       frames and comparing them to the bundle's own, at zero tolerance.
     * ``"sensoryforge_stimulus"`` at this bundle's schema for everything else,
       with ``reconstructible_by_pressure_simulation`` set to ``False``.
+    * ``"sensoryforge_world_entry"`` (schema 2.2) for a world data-set entry
+      (``stimulus_config["kind"]``): the entry's record and its layer(s),
+      likewise not reconstructible by pressure-simulation.
 
     The envelope needs one correction to round-trip. pressure-simulation
     builds its time axis as ``arange(0, total_ms + dt/2, dt)``, so
@@ -210,6 +221,19 @@ def build_stimulus_payload(
         "center_y": (grid_section.get("center_mm") or [0.0, 0.0])[1],
     }
     stim_type = str(cfg.get("type", "")).strip().lower()
+
+    if cfg.get("kind") == WORLD_ENTRY_KIND:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "kind": WORLD_ENTRY_KIND,
+            "entry": cfg.get("entry"),
+            "layer": cfg.get("layer"),
+            "dt_ms": dt_ms,
+            "total_ms": total_ms,
+            "n_frames": int(n_frames),
+            "grid": grid,
+            "reconstructible_by_pressure_simulation": False,
+        }
 
     if stim_type in _PRESSURE_SIM_STIMULUS_TYPES:
         start = list(cfg.get("start", [0.0, 0.0]))
@@ -432,6 +456,14 @@ def write_bundle(
         "populations": pop_entries,
         "config": config.to_dict(),
     }
+    config_json["sensoryforge_sha"] = source_info()["sha"]
+    if stimulus_config and stimulus_config.get("kind") == WORLD_ENTRY_KIND:
+        entry = stimulus_config.get("entry") or {}
+        config_json["world"] = {
+            "world_id": entry.get("world_id"),
+            "dataset_id": entry.get("dataset_id"),
+            "entry": entry.get("entry"),
+        }
     if design_manifest is not None:
         # Verbatim -- read_manifest's own dict, not re-derived from `config`
         # (Phase 2a, T2: load_design already dropped anything config can't
@@ -526,6 +558,7 @@ def write_bundle(
         f.attrs["integrate_dt_ms"] = config.simulation.integrate_dt_ms
         f.attrs["seed"] = -1 if seed is None else int(seed)
         f.attrs["sensoryforge_version"] = sensoryforge.__version__
+        f.attrs["sensoryforge_sha"] = source_info()["sha"]
 
         stim_grp = f.create_group("stimulus")
         stim_grp.create_dataset(
@@ -670,6 +703,7 @@ def load_bundle(bundle_dir: Union[str, Path]) -> Bundle:
             raw_seed = f.attrs.get("seed", -1)
             meta["seed"] = None if int(raw_seed) < 0 else int(raw_seed)
             meta["sensoryforge_version"] = f.attrs.get("sensoryforge_version")
+            meta["sensoryforge_sha"] = f.attrs.get("sensoryforge_sha")
             if "meta" in f:
                 meta["config_yaml"] = f["meta"].attrs.get("config_yaml")
                 prov_json = f["meta"].attrs.get("provenance_json")
