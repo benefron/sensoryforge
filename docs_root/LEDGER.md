@@ -160,6 +160,7 @@ data sets offer both repeat semantics -- `repeats` (fresh draws and noise per re
 ## D-46a52e6 · CLOSED · decision · - · 2026-10-02
 the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
 → commit e766b8a
+↔ 529bf90 docs(world): user guide, contract for pressure-simulation, version 1.1.0
 
 ## D-c5facd5 · CLOSED · decision · - · 2026-09-30
 RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)
