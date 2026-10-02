@@ -16,6 +16,11 @@ A braille word is a ``braille`` pattern of ``disc`` shapes moving
 ``linear``; a bumpy texture is a ``random`` pattern of ``gaussian`` shapes; a
 sequence of probes is several layers with different onsets.
 
+A layer may also carry a **modulation** -- ``none``, ``sine`` (vibration) or
+``pulses`` (repeated indentation) -- that multiplies its envelope, and its
+timing may add a ``slide_ms`` (motion span ``slide``), several ``contacts``
+and the ``pause_ms`` between them. All default off.
+
 Every value is non-negative: shapes are pressures in ``[0, amplitude]`` (the
 grating and Gabor use a raised cosine, not a signed one). Coordinates are
 ``(x, y)`` in mm, times in ms, as everywhere in SensoryForge.
@@ -42,6 +47,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 
 from sensoryforge.stimuli.base import BaseStimulus, ParamSpec
+from sensoryforge.stimuli.episode import (
+    contact_terms,
+    pulse_modulation,
+    sine_modulation,
+    span_progress,
+)
 from sensoryforge.stimuli.texture import raised_cosine
 
 # --------------------------------------------------------------------- specs
@@ -49,7 +60,7 @@ from sensoryforge.stimuli.texture import raised_cosine
 
 def _label(name: str) -> str:
     """``diameter_mm`` -> ``Diameter``: the unit is shown in the box itself."""
-    for suffix in ("_mm", "_ms", "_deg"):
+    for suffix in ("_mm", "_ms", "_deg", "_hz"):
         if name.endswith(suffix):
             name = name[: -len(suffix)]
     return name.replace("_", " ").capitalize()
@@ -70,7 +81,7 @@ def _f(name, default, lo=None, hi=None, unit="", help_="", advanced=False):
     )
 
 
-def _i(name, default, lo=None, hi=None, help_=""):
+def _i(name, default, lo=None, hi=None, help_="", advanced=False):
     return ParamSpec(
         name,
         label=_label(name),
@@ -80,6 +91,7 @@ def _i(name, default, lo=None, hi=None, help_=""):
         max_val=hi,
         help=help_,
         tooltip=help_,
+        advanced=advanced,
     )
 
 
@@ -118,8 +130,28 @@ def _v(name, default, help_=""):
     )
 
 
+def _b(name, default, help_="", advanced=False):
+    """A boolean switch."""
+    return ParamSpec(
+        name,
+        label=_label(name),
+        dtype="bool",
+        default=default,
+        help=help_,
+        tooltip=help_,
+        advanced=advanced,
+    )
+
+
 _AMPLITUDE = _f("amplitude", 1.0, 0.0, 1.0e4, "", "Peak value of one element.")
 _ORIENTATION = _f("orientation_deg", 0.0, -360.0, 360.0, "deg", "Rotation.")
+_SIGNED = _b(
+    "signed",
+    False,
+    "Zero-mean carrier with negative lobes (cos, or +/-1 for square) "
+    "instead of the non-negative raised cosine.",
+    advanced=True,
+)
 
 #: Shape kind -> its parameters.
 SHAPES: Dict[str, List[ParamSpec]] = {
@@ -168,6 +200,7 @@ SHAPES: Dict[str, List[ParamSpec]] = {
             "Fraction of a period that is on " "(square profile).",
             advanced=True,
         ),
+        _SIGNED,
     ],
     "gabor": [
         _AMPLITUDE,
@@ -175,6 +208,7 @@ SHAPES: Dict[str, List[ParamSpec]] = {
         _f("wavelength_mm", 1.0, 0.001, 100.0, "mm", "Period of the stripes."),
         _ORIENTATION,
         _f("phase_deg", 0.0, -360.0, 360.0, "deg", "Phase of the stripes."),
+        _SIGNED,
     ],
 }
 
@@ -246,14 +280,18 @@ PATTERNS: Dict[str, List[ParamSpec]] = {
         ),
         _f("x_mm", 0.0, -1000.0, 1000.0, "mm", "Centre of the first cell."),
         _f("y_mm", 0.0, -1000.0, 1000.0, "mm", "Centre of the first cell."),
+        _s(
+            "dots", "", "Cells by dot number, e.g. '125 14'; when set it replaces text."
+        ),
     ],
 }
 
 _SPAN = _c(
     "span",
     "hold",
-    ["hold", "all"],
-    "Move during the hold only, or " "from onset to the end of the ramp down.",
+    ["hold", "all", "slide"],
+    "Move during the hold, from onset to the end of the ramp down, "
+    "or during the slide only.",
 )
 
 #: Motion kind -> its parameters.
@@ -292,8 +330,58 @@ TIMING_SPECS: List[ParamSpec] = [
         "ms",
         "Time at full amplitude; unset = " "until the ramp down ends the run.",
     ),
+    _f(
+        "slide_ms",
+        0.0,
+        0.0,
+        1.0e7,
+        "ms",
+        "Moving time after the hold (motion span 'slide').",
+        advanced=True,
+    ),
     _f("ramp_down_ms", 50.0, 0.0, 1.0e7, "ms", "Fall time (0 = a step)."),
+    _i(
+        "contacts",
+        1,
+        1,
+        10000,
+        "Touches: ramp up, hold, slide, ramp down repeat pause_ms apart.",
+        advanced=True,
+    ),
+    _f("pause_ms", 0.0, 0.0, 1.0e7, "ms", "Lift between contacts.", advanced=True),
 ]
+
+#: Modulation kind -> its parameters (temporal frequency on the contact).
+MODULATIONS: Dict[str, List[ParamSpec]] = {
+    "none": [],
+    "sine": [
+        _f("frequency_hz", 10.0, 0.001, 1.0e4, "Hz", "Vibration frequency."),
+        _f("depth", 1.0, 0.0, 1.0, "", "0 = none, 1 = from zero to peak."),
+        _f("phase_deg", 0.0, -360.0, 360.0, "deg", "Phase at each touch (0 = peak)."),
+    ],
+    "pulses": [
+        _f("rate_hz", 5.0, 0.001, 1.0e4, "Hz", "Taps per second."),
+        _f("duty", 0.5, 0.01, 0.99, "", "Fraction of each period pressed."),
+        _f("edge_ms", 0.0, 0.0, 1.0e4, "ms", "Rise and fall of each tap (0 = step)."),
+        _f("depth", 1.0, 0.0, 1.0, "", "0 = no taps, 1 = lift fully between taps."),
+    ],
+}
+
+
+def modulate_sine(tc: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
+    """``sine`` modulation; ``p`` holds tensors (see :data:`MODULATIONS`)."""
+    return sine_modulation(tc, p["frequency_hz"], p["depth"], p["phase_deg"])
+
+
+def modulate_pulses(tc: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
+    """``pulses`` modulation; ``p`` holds tensors (see :data:`MODULATIONS`)."""
+    return pulse_modulation(tc, p["rate_hz"], p["duty"], p["edge_ms"], p["depth"])
+
+
+_MODULATION_FUNCTIONS: Dict[str, Callable] = {
+    "sine": modulate_sine,
+    "pulses": modulate_pulses,
+}
 
 COMBINE_MODES = ("sum", "max")
 
@@ -360,12 +448,14 @@ def _stripes(across, p):
         + math.radians(float(p.get("phase_deg", 0.0))),
         2.0 * math.pi,
     )
+    signed = bool(p.get("signed", False))
     if p.get("profile", "sine") == "square":
         duty = float(p.get("duty", 0.5))
         # On for the part of each period centred on phase 0.
         centred = torch.minimum(phase, 2.0 * math.pi - phase)
-        return (centred <= math.pi * duty).to(across.dtype)
-    return raised_cosine(phase)
+        on = (centred <= math.pi * duty).to(across.dtype)
+        return 2.0 * on - 1.0 if signed else on
+    return torch.cos(phase) if signed else raised_cosine(phase)
 
 
 def _grating(x, y, p):
@@ -468,19 +558,37 @@ def _random_positions(p) -> Tuple[List[Tuple[float, float]], List[float]]:
     return positions, scales
 
 
-def _braille_positions(p) -> Tuple[List[Tuple[float, float]], List[float]]:
-    text = str(p.get("text", "")).lower()
-    pitch = float(p["dot_spacing_mm"])
-    step = float(p["cell_spacing_mm"])
-    x0, y0 = float(p.get("x_mm", 0.0)), float(p.get("y_mm", 0.0))
-    positions = []
-    for index, letter in enumerate(text):
+def _braille_cells(p) -> List[Tuple[int, str]]:
+    """``(cell index, dot numbers)`` per non-blank cell (``dots``, else ``text``)."""
+    dots = str(p.get("dots") or "").strip()
+    if dots:
+        cells = []
+        for index, cell in enumerate(dots.split()):
+            if any(ch not in "123456" for ch in cell) or len(set(cell)) != len(cell):
+                raise ValueError(
+                    f"braille pattern: cell {cell!r} must be distinct dot numbers "
+                    "1-6, e.g. '125'"
+                )
+            cells.append((index, cell))
+        return cells
+    cells = []
+    for index, letter in enumerate(str(p.get("text", "")).lower()):
         if letter == " ":
             continue
         if letter not in _BRAILLE:
             raise ValueError(f"braille pattern: no cell for {letter!r} (a-z only)")
+        cells.append((index, _BRAILLE[letter]))
+    return cells
+
+
+def _braille_positions(p) -> Tuple[List[Tuple[float, float]], List[float]]:
+    pitch = float(p["dot_spacing_mm"])
+    step = float(p["cell_spacing_mm"])
+    x0, y0 = float(p.get("x_mm", 0.0)), float(p.get("y_mm", 0.0))
+    positions = []
+    for index, cell in _braille_cells(p):
         cell_x = x0 + index * step
-        for dot in _BRAILLE[letter]:
+        for dot in cell:
             n = int(dot) - 1
             col, row = divmod(n, 3)  # 1-3 left column, 4-6 right; top to bottom
             positions.append((cell_x + (col - 0.5) * pitch, y0 + (1 - row) * pitch))
@@ -524,6 +632,42 @@ def pattern_positions(
 # -------------------------------------------------------------------- timing
 
 
+def _timing_values(timing, run_ms: float):
+    """``(onset, up, hold, slide, down, contacts, pause)`` with defaults filled."""
+    t = {**defaults(TIMING_SPECS), **(timing or {})}
+    onset = float(t["onset_ms"] or 0.0)
+    up = float(t["ramp_up_ms"] or 0.0)
+    down = float(t["ramp_down_ms"] or 0.0)
+    slide = float(t.get("slide_ms") or 0.0)
+    contacts = int(t.get("contacts") or 1)
+    pause = float(t.get("pause_ms") or 0.0)
+    if contacts < 1:
+        raise ValueError(f"timing: contacts must be >= 1, got {contacts}")
+    hold = t["hold_ms"]
+    if hold is None:
+        if contacts > 1:
+            raise ValueError("timing: contacts > 1 needs an explicit hold_ms")
+        hold = max(run_ms - onset - up - slide - down, 0.0)
+    return onset, up, float(hold), slide, down, contacts, pause
+
+
+def _is_single_contact(timing) -> bool:
+    """True for timing the pre-world code handled (no slide, one contact)."""
+    t = timing or {}
+    return float(t.get("slide_ms") or 0.0) == 0.0 and int(t.get("contacts") or 1) == 1
+
+
+def _contact_clock(timing, time_ms: torch.Tensor, run_ms: float):
+    """:func:`~sensoryforge.stimuli.episode.contact_terms` for one layer's timing."""
+    values = _timing_values(timing, run_ms)
+    as_t = [
+        torch.tensor(float(v), dtype=time_ms.dtype, device=time_ms.device)
+        for v in values
+    ]
+    onset, up, hold, slide, down, contacts, pause = as_t
+    return contact_terms(time_ms, onset, up, hold, slide, down, contacts, pause), values
+
+
 def layer_envelope(
     timing: Dict[str, Any], time_ms: torch.Tensor, run_ms: float
 ) -> torch.Tensor:
@@ -533,6 +677,9 @@ def layer_envelope(
     ``hold_ms`` (unset: until the ramp down ends at ``run_ms``); a linear ramp
     down over ``ramp_down_ms``; zero after.
     """
+    if not _is_single_contact(timing):
+        (env, _, _, _), _ = _contact_clock(timing, time_ms, run_ms)
+        return env
     t = {**defaults(TIMING_SPECS), **(timing or {})}
     onset = float(t["onset_ms"] or 0.0)
     up = float(t["ramp_up_ms"] or 0.0)
@@ -556,6 +703,21 @@ def _motion_fraction(
     timing, span: str, time_ms: torch.Tensor, run_ms: float
 ) -> torch.Tensor:
     """0 -> 1 progress of the motion over its span, ``[T]``."""
+    if span not in ("hold", "all", "slide"):
+        raise ValueError(f"motion span must be hold, all or slide, got {span!r}")
+    if span == "slide" or not _is_single_contact(timing):
+        (env, tau, k, local), values = _contact_clock(timing, time_ms, run_ms)
+        onset, up, hold, slide, down, contacts, pause = values
+        start, length = {
+            "hold": (up, hold),
+            "slide": (up + hold, slide),
+            "all": (0.0, up + hold + slide + down),
+        }[span]
+
+        def as_t(v):
+            return torch.tensor(float(v), dtype=time_ms.dtype, device=time_ms.device)
+
+        return span_progress(tau, k, local, as_t(contacts), as_t(start), as_t(length))
     t = {**defaults(TIMING_SPECS), **(timing or {})}
     onset = float(t["onset_ms"] or 0.0)
     up = float(t["ramp_up_ms"] or 0.0)
@@ -606,6 +768,51 @@ def motion_offsets(
     return points[idx] + frac * (points[idx + 1] - points[idx])
 
 
+def layer_modulation(
+    modulation, timing, time_ms: torch.Tensor, run_ms: float
+) -> Optional[torch.Tensor]:
+    """The layer's modulation over time ``[T]`` in ``[0, 1]``, or ``None``.
+
+    Measured from each contact's touch (see :mod:`sensoryforge.stimuli.episode`).
+    """
+    modulation = modulation or {"kind": "none"}
+    kind = modulation.get("kind", "none")
+    if kind == "none":
+        return None
+    if kind in _MODULATION_FUNCTIONS:
+        specs, fn = MODULATIONS[kind], _MODULATION_FUNCTIONS[kind]
+    else:
+        kernel = _world_kernel()
+        if kind not in kernel.MODULATION_KINDS or kind in MODULATIONS:
+            raise ValueError(
+                f"unknown modulation kind {kind!r}; known: "
+                f"{sorted(set(MODULATIONS) | set(kernel.MODULATION_KINDS))}"
+            )
+        specs, fn = (
+            kernel.MODULATION_KINDS[kind].specs,
+            kernel.MODULATION_KINDS[kind].fn,
+        )
+    params = {**defaults(specs), **modulation}
+    (_, tau, _, _), _ = _contact_clock(timing, time_ms, run_ms)
+    tensors = {
+        name: torch.tensor(float(value), dtype=time_ms.dtype, device=time_ms.device)
+        for name, value in params.items()
+        if name != "kind" and _is_number(value)
+    }
+    return fn(tau, tensors)
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _world_kernel():
+    """The world kernel registries (imported lazily; the kernel imports this module)."""
+    from sensoryforge.world import kernel
+
+    return kernel
+
+
 # ------------------------------------------------------------------- render
 
 
@@ -620,6 +827,11 @@ def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch
     amplitude = float(params["amplitude"])
     positions, scales = pattern_positions(layer.get("pattern") or {"kind": "single"})
     envelope = layer_envelope(layer.get("timing"), time_ms, run_ms)
+    modulation = layer_modulation(
+        layer.get("modulation"), layer.get("timing"), time_ms, run_ms
+    )
+    if modulation is not None:
+        envelope = envelope * modulation
     offsets = motion_offsets(layer.get("motion"), layer.get("timing"), time_ms, run_ms)
 
     def draw(dx: float, dy: float) -> torch.Tensor:
