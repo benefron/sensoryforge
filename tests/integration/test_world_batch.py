@@ -179,10 +179,11 @@ def test_a_failed_entry_is_recorded_and_the_exit_status_says_so(
         "--output",
         out,
         "--entries",
-        "0:4",
+        "2:5",  # fixed, sessions, then test/<class> by name: braille, dots, edges
     ]
     assert _batch(*argv) == 1
     rows = {r["entry"]: r for r in read_batch_index(out)}
+    assert sorted(rows) == ["test/braille/0000", "test/dots/0000", "test/edges/0000"]
     assert rows["test/edges/0000"]["status"] == "failed"
     assert "boom" in rows["test/edges/0000"]["error"]
     assert rows["test/dots/0000"]["status"] == "ok"

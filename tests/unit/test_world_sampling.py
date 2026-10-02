@@ -4,13 +4,24 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from sensoryforge.world.sampling import Draw, Session, sample, session
 from sensoryforge.world.schema import World, load_world
 
-WORLD = load_world(
+WORLD_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "worlds" / "tactile_small.yml"
 )
+WORLD = load_world(WORLD_PATH)
+
+
+def _reversed(value):
+    """Every mapping in ``value`` with its keys in reverse order (lists kept)."""
+    if isinstance(value, dict):
+        return {k: _reversed(value[k]) for k in reversed(list(value))}
+    if isinstance(value, list):
+        return [_reversed(v) for v in value]
+    return value
 
 
 def test_draw_i_does_not_depend_on_n():
@@ -19,6 +30,29 @@ def test_draw_i_does_not_depend_on_n():
     assert many[5].to_dict() == some[0].to_dict()
     assert many[150].to_dict() == some[1].to_dict()
     assert many[5].index == 5 and many[5].seed == 7
+
+
+def test_class_order_changes_neither_the_id_nor_the_draws():
+    raw = yaml.safe_load(WORLD_PATH.read_text())
+    flipped = World.from_dict(_reversed(raw))
+    assert list(raw["world"]["classes"])[0] == "dots"  # written in another order
+    assert flipped.world_id == WORLD.world_id
+    want = [d.to_dict() for d in sample(WORLD, n=300, seed=7)]
+    assert [d.to_dict() for d in sample(flipped, n=300, seed=7)] == want
+    held = sorted(WORLD.held_out) + ["dots", "edges"]
+    assert [d.to_dict() for d in sample(flipped, n=40, seed=2, classes=held)] == [
+        d.to_dict() for d in sample(WORLD, n=40, seed=2, classes=held[::-1])
+    ]
+    assert flipped.fixed_draw("braille_H").to_dict() == (
+        WORLD.fixed_draw("braille_H").to_dict()
+    )
+
+
+def test_class_lists_must_name_each_class_once():
+    with pytest.raises(ValueError, match="no classes to sample from"):
+        sample(WORLD, n=3, seed=0, classes=[])
+    with pytest.raises(ValueError, match="'dots'"):
+        sample(WORLD, n=3, seed=0, classes=["dots", "edges", "dots"])
 
 
 def test_exactly_one_of_n_and_indices():

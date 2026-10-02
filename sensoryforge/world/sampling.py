@@ -95,6 +95,32 @@ class Draw:
         )
 
 
+def class_pool(
+    world: World, classes: Optional[Sequence[str]] = None
+) -> List[ClassSpec]:
+    """The classes declared sampling weighs, sorted by name.
+
+    Args:
+        world: The world.
+        classes: Class or held-out class names, each once; ``None`` means
+            every class (held-out ones excluded).
+
+    Raises:
+        ValueError: For an empty list, a name given twice, or an unknown name.
+    """
+    if classes is None:
+        return [world.classes[name] for name in sorted(world.classes)]
+    names = [str(c) for c in classes]
+    if not names:
+        raise ValueError("no classes to sample from")
+    seen = set()
+    for name in names:
+        if name in seen:
+            raise ValueError(f"classes: {name!r} is named more than once")
+        seen.add(name)
+    return [world.class_spec(name) for name in sorted(names)]
+
+
 def sample(
     world: World,
     n: Optional[int] = None,
@@ -105,19 +131,26 @@ def sample(
 ) -> List[Draw]:
     """Draws from the world's declared distribution (spec §4.2).
 
-    Draw ``i`` depends only on ``(world, seed, i)`` and on ``classes``: ask
-    for ``indices=[i]`` to regenerate it alone.
+    Draw ``i`` depends only on ``(world, seed, i)`` and on the *set* of
+    ``classes``: ask for ``indices=[i]`` to regenerate it alone. Classes are
+    weighed in order of their names, so neither the order a world writes
+    its classes in nor the order ``classes`` lists them changes a draw.
 
     Args:
         world: The world.
         n: How many draws (indices ``0 .. n-1``); or give ``indices``.
         seed: The sampling seed.
         indices: Which draw indices to produce.
-        classes: Restrict to these classes (held-out ones allowed); their
-            weights are renormalised (equal if they sum to 0).
+        classes: Restrict to these classes (held-out ones allowed), each
+            named once; their weights are renormalised (equal if they sum
+            to 0). ``None`` means every (not held-out) class.
 
     Returns:
         One :class:`Draw` per index, in order.
+
+    Raises:
+        ValueError: For both or neither of ``n`` and ``indices``, an empty
+            or repeating ``classes``, or an unknown class.
     """
     if (n is None) == (indices is None):
         raise ValueError("give exactly one of n or indices")
@@ -126,13 +159,7 @@ def sample(
         if indices is None
         else np.asarray(list(indices), dtype=np.int64)
     )
-    pool = (
-        [world.class_spec(c) for c in classes]
-        if classes
-        else list(world.classes.values())
-    )
-    if not pool:
-        raise ValueError("no classes to sample from")
+    pool = class_pool(world, classes)
     seeds = rng.draw_seeds(seed, idx)
     weights = np.array([c.weight for c in pool], dtype=np.float64)
     if weights.sum() <= 0:

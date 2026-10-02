@@ -141,6 +141,23 @@ def _never_touch(w):
             lambda w: w["classes"]["orbit"]["layer"]["motion"].update(span="hold"),
             "drop 'span'",
         ),
+        # Two names for one field would make the result depend on key order.
+        (
+            lambda w: w["classes"]["dots"]["axes"].update(
+                {"shape.sigma_mm": {"range": [0.2, 0.3]}}
+            ),
+            "'shape.sigma_mm' and 'sigma_mm' both set shape.sigma_mm",
+        ),
+        (
+            lambda w: w["defaults"].update({"pattern.x_mm": {"range": [0, 0.1]}}),
+            "'pattern.x_mm' and 'x_mm' both set pattern.x_mm",
+        ),
+        (
+            lambda w: w["fixed_draws"].update(
+                bad={"class": "dots", "sigma_mm": 0.2, "shape.sigma_mm": 0.3}
+            ),
+            "'sigma_mm' is set twice",
+        ),
     ],
 )
 def test_invalid_worlds_are_named(mutate, message):

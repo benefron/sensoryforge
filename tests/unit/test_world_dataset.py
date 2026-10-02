@@ -38,7 +38,7 @@ def test_ids_and_counts():
     assert len(_split("sessions")) == 1 and len(_split("fixed")) == 1
     assert _split("train")[0].entry == "train/r0/00000"
     assert _split("validation")[1].entry == "validation/r0/00000.n1"
-    assert _split("test")[0].entry == "test/dots/0000"
+    assert _split("test")[0].entry == "test/braille/0000"  # classes by name
     assert _split("sessions")[0].entry == "sessions/000"
     assert _split("fixed")[0].entry == "fixed/braille_H"
 
@@ -107,6 +107,28 @@ def test_long_draws_are_marked_truncated():
         assert e.truncated == (e.item.end_ms > 120.0)
     assert all(e.duration_ms == 120.0 for e in ENTRIES if e.split != "sessions")
     assert _split("sessions")[0].duration_ms == 300.0
+
+
+def _reversed(value):
+    """Every mapping in ``value`` with its keys in reverse order (lists kept)."""
+    if isinstance(value, dict):
+        return {k: _reversed(value[k]) for k in reversed(list(value))}
+    if isinstance(value, list):
+        return [_reversed(v) for v in value]
+    return value
+
+
+def test_class_order_does_not_change_the_entries():
+    world = yaml.safe_load((WORLDS / "tactile_small.yml").read_text())
+    raw = copy.deepcopy(RAW)
+    raw["dataset"]["world"] = _reversed(world)
+    raw["dataset"]["world_id"] = SPEC.world.world_id
+    flipped = load_dataset(raw, base_dir=WORLDS)
+    assert flipped.dataset_id == SPEC.dataset_id
+    assert [e.to_dict() for e in build_dataset(flipped)] == [
+        e.to_dict() for e in ENTRIES
+    ]
+    assert skipped_probes(flipped) == skipped_probes(SPEC)
 
 
 def test_world_pin_mismatch_fails():

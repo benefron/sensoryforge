@@ -359,6 +359,11 @@ def stratify_class(
     return draws, labels
 
 
+def _by_name(classes: Dict[str, ClassSpec]) -> List[ClassSpec]:
+    """Classes in name order: a data set never depends on how a world lists them."""
+    return [classes[name] for name in sorted(classes)]
+
+
 def _probe_axes(cls: ClassSpec) -> List[AxisSpec]:
     return [
         a
@@ -408,20 +413,20 @@ def _split_items(
             yield f"{i:05d}", draw, {}, None
     elif split.kind in ("stratified", "held_out") and split.bins:
         classes = world.classes if split.kind == "stratified" else world.held_out
-        for cls in classes.values():
+        for cls in _by_name(classes):
             draws, labels = stratify_class(
                 world, cls, split.bins, split.per_bin, rng.seed53(split_seed, cls.name)
             )
             for i, (draw, label) in enumerate(zip(draws, labels)):
                 yield f"{cls.name}/{i:04d}", draw, label, None
     elif split.kind == "held_out":
-        held = list(world.held_out)
+        held = sorted(world.held_out)
         for i, draw in enumerate(
             sample(world, n=split.n, seed=split_seed, classes=held)
         ):
             yield f"{draw.class_name}/{i:04d}", draw, {}, None
     elif split.kind == "probes":
-        for cls in world.classes.values():
+        for cls in _by_name(world.classes):
             for axis in _probe_axes(cls):
                 for side in ("below", "above"):
                     side_seed = rng.seed53(split_seed, cls.name, axis.name, side)
@@ -520,7 +525,7 @@ def skipped_probes(spec: DatasetSpec) -> List[str]:
     for split in spec.splits:
         if split.kind != "probes":
             continue
-        for cls in spec.world.classes.values():
+        for cls in _by_name(spec.world.classes):
             for axis in _probe_axes(cls):
                 for side in ("below", "above"):
                     if axis.probe_values(side, split.bins, np.zeros(1)) is None:

@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -146,6 +146,17 @@ def load_world(source: Union[str, Path, Dict[str, Any], World]) -> World:
     return World.from_dict(data)
 
 
+def _named(mapping: Dict[Any, Any], where: str) -> List[Tuple[str, Any]]:
+    """``(name, value)`` pairs sorted by name; names that coincide fail."""
+    out: Dict[str, Any] = {}
+    for key, value in mapping.items():
+        name = str(key)
+        if name in out:
+            raise ValueError(f"{where}: {name!r} is given twice")
+        out[name] = value
+    return sorted(out.items(), key=lambda item: item[0])
+
+
 def _parse_world(data: Any) -> World:
     raw = data.get("world", data) if isinstance(data, dict) else None
     if not isinstance(raw, dict):
@@ -168,13 +179,15 @@ def _parse_world(data: Any) -> World:
     }
     if not raw.get("classes"):
         raise ValueError("world.classes: declare at least one class")
+    # Classes are kept sorted by name: nothing a world does may depend on the
+    # order its YAML writes them in (yaml.safe_dump re-sorts keys).
     classes = {
-        str(n): _parse_class(str(n), c, defaults, channels, held_out=False)
-        for n, c in raw["classes"].items()
+        n: _parse_class(n, c, defaults, channels, held_out=False)
+        for n, c in _named(raw["classes"], "world.classes")
     }
     held = {
-        str(n): _parse_class(str(n), c, defaults, channels, held_out=True)
-        for n, c in (raw.get("held_out") or {}).items()
+        n: _parse_class(n, c, defaults, channels, held_out=True)
+        for n, c in _named(raw.get("held_out") or {}, "world.held_out")
     }
     clash = set(classes) & set(held)
     if clash:
@@ -182,8 +195,8 @@ def _parse_world(data: Any) -> World:
     if sum(c.weight for c in classes.values()) <= 0:
         raise ValueError("world.classes: the weights sum to 0")
     fixed = {
-        str(n): _parse_fixed(str(n), f, classes, held)
-        for n, f in (raw.get("fixed_draws") or {}).items()
+        n: _parse_fixed(n, f, classes, held)
+        for n, f in _named(raw.get("fixed_draws") or {}, "world.fixed_draws")
     }
     units = raw.get("units") or {"space": "mm", "time": "ms"}
     world = World(
@@ -243,20 +256,31 @@ def _parse_class(
 
     axes: Dict[str, AxisSpec] = {}
     bindings: Dict[str, Ref] = {}
+    source: Dict[str, str] = {}
 
-    def bind(axis_name: str, ref: Ref, axis: AxisSpec) -> None:
+    def bind(axis_name: str, ref: Ref, axis: AxisSpec, origin: str) -> None:
+        # A later source (built-in < world default < class axis) replaces an
+        # earlier one; two names of one source binding one field would make
+        # the result depend on the order they are written in, so they fail.
         for other, other_ref in list(bindings.items()):
             if other_ref == ref and other != axis_name:
+                if source[other] == origin:
+                    raise ValueError(
+                        f"{where}: {other!r} and {axis_name!r} both set "
+                        f"{'.'.join(ref)} (from {origin}); keep one"
+                    )
                 del bindings[other]
                 del axes[other]
+                del source[other]
         lo, hi = kind.domain(ref, layer)
         axes[axis_name] = axis.with_domain(lo, hi)
         bindings[axis_name] = ref
+        source[axis_name] = origin
 
     for field_name, value in kind.builtin_defaults(layer).items():
         constant = AxisSpec(name=field_name, form="constant", value=value)
-        bind(field_name, kind.resolve(field_name, layer), constant)
-    for axis_name, axis in defaults.items():
+        bind(field_name, kind.resolve(field_name, layer), constant, "built-ins")
+    for axis_name, axis in sorted(defaults.items(), key=lambda item: item[0]):
         try:
             ref = kind.resolve(axis_name, layer)
         except UnknownField:
@@ -265,14 +289,13 @@ def _parse_class(
             raise ValueError(f"{where}: world default {exc}") from None
         if kind.fixed_in_layer(ref, raw_layer):
             continue
-        bind(axis_name, ref, axis)
-    for axis_name, spec in (raw.get("axes") or {}).items():
-        axis_name = str(axis_name)
+        bind(axis_name, ref, axis, "world.defaults")
+    for axis_name, spec in _named(raw.get("axes") or {}, f"{where}.axes"):
         try:
             ref = kind.resolve(axis_name, layer)
         except (UnknownField, AmbiguousField) as exc:
             raise ValueError(f"{where}.axes: {exc}") from None
-        bind(axis_name, ref, AxisSpec.from_dict(axis_name, spec))
+        bind(axis_name, ref, AxisSpec.from_dict(axis_name, spec), f"{where}.axes")
 
     cls = ClassSpec(
         name=name,
@@ -312,5 +335,7 @@ def _parse_fixed(
                 f"{where}: {key!r} is not an axis of class {class_name!r} "
                 f"(its axes: {sorted(spec.axes)})"
             )
+        if bound in values:
+            raise ValueError(f"{where}: axis {bound!r} is set twice")
         values[bound] = plain(value)
     return {"class": class_name, "values": dict(sorted(values.items()))}
