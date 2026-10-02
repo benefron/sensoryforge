@@ -129,6 +129,7 @@ the world engine is a new sensoryforge.world package with its own vectorised ren
 → commit e766b8a
 ↔ 8572d5d docs(world): implementation plan for the world engine
 ↔ 6c95baa feat(world): vectorised kernel with shape, pattern and modulation registries
+↔ 1597a2e feat(world): vectorised rendering of draws at arbitrary times
 
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
