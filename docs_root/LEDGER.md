@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-b18719c · OPEN · finding · - · 2026-10-02
+draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only on Apple Silicon (arm64, SF's env and bio-encoding); on x86-64 torch's SIMD and scalar exp/sin/cos may differ in the last bit — a Linux CI run settles it
+→ commit 67e3b60
+
+## F-5bd542f · OPEN · finding · - · 2026-10-02
+world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
+→ commit 67e3b60
+
+## F-398cbd1 · OPEN · finding · - · 2026-10-02
+fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
+→ commit 67e3b60
+
+## F-2f13dc9 · OPEN · finding · - · 2026-10-02
+batch --entries runs with the default task index all append to index/task_0000.jsonl, and --print-tasks does not forward --entries
+→ commit 67e3b60
+
 ## F-1ada1ea · CLOSED · finding · - · 2026-10-02
 a step release could leave full amplitude at t == end_ms, and in some float64 draws one step after it, so a draw was not exactly zero after its end
 → commit 510e184
