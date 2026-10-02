@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-963499b · CLOSED · finding · - · 2026-10-02
+sessions evaluated every draw over every session frame (J*K*S work and memory) and long movies ignored the element budget along time
+→ commit 0c2854a
+
 ## D-94c08c7 · CLOSED · decision · - · 2026-10-02
 a world class is a `layered` layer with random fields (axes bind to its shape, pattern, modulation and episode fields), so a draw is an ordinary layered stimulus and SensoryForge keeps one stimulus language
 → commit e766b8a
