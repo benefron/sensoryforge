@@ -364,7 +364,9 @@ Plugins register on import, through SF's existing plugin mechanism (`plugins:` /
    design's canvas; PS's in-process render, cast the same way, equals `data.h5:/stimulus/frames` bit
    for bit.
 4. **Equal to `layered`:** `render` of a draw equals `render_layers([draw.to_layer()], ...)` within
-   float32 tolerance (abs 1e-6 on peak-1 stimuli) for every built-in shape, pattern, motion and
+   float32 tolerance (abs 1e-5 on peak-1 stimuli; corrected from 1e-6 while planning:
+   `layered` computes time in float32, whose step near 100 ms is ~1e-5 ms, and a 2 ms pulse
+   edge turns that into ~5e-6 of value) for every built-in shape, pattern, motion and
    modulation. For hard-edged shapes (`disc` with `edge_mm: 0`, `flat` bar, `square` grating) the
    comparison excludes points within 1e-4 mm of an edge, where a last-bit difference in position
    flips a pixel between 0 and 1.
@@ -563,6 +565,7 @@ New package `sensoryforge/world/`, one job per module:
 | `distributions.py` | uniform, log_uniform, int, categorical, `braille_cells`; inverse CDFs; registry |
 | `sampling.py` | `Draw`, `sample`, `session`, fixed draws, timelines |
 | `kernel.py` | vectorised shapes, patterns, envelope, motion, modulation; their registries |
+| `kinds.py` | class kinds (`layered`, `quiet`): binding, timelines, `to_layer`, group rendering |
 | `render.py` | `Canvas`, `render`, `render_movie`, grouping and chunking |
 | `dataset.py` | `DatasetSpec`, `Entry`, splits, strata, probes, ids, manifest |
 | `runner.py` | the batch runner, index, `--print-tasks` |
