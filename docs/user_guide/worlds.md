@@ -51,7 +51,21 @@ sensoryforge world sample world.yml -n 3 --seed 7
 
 `validate` prints the world's id, then each class with its kind, weight and the axes it
 draws; `sample` prints one JSON record per draw. The world's id (`w-` and 12 hex digits)
-changes whenever any value changes, but not when only the `description` does.
+changes whenever any value changes, but not when only the `description` does, and not when
+the classes, axes or defaults are written in another order: classes are weighed in order
+of their names, so the draws do not change either.
+
+For a runnable world that uses every class kind, shape family, motion and modulation, see
+`tests/fixtures/worlds/tactile_small.yml` (and `tests/fixtures/worlds/dataset_small.yml`
+for a data set on it).
+
+A world is checked when it loads, and each problem is a `ValueError` naming where it is
+(`world.classes.twice.axes.contacts: ...`): `contacts` must be a whole number of at least 1;
+every value an axis can take, and every fixed-draw value, must lie inside its field's valid
+range (durations are never negative; a gaussian's `sigma_mm` lies within its `ParamSpec`'s
+0.001 to 50 mm);
+numeric fields need numbers, and PyYAML reads `3e-1` as text, so write `3.0e-1`; a key
+written twice, and a class name that could not name a directory, are refused.
 
 ## Axes
 
@@ -237,11 +251,12 @@ latest run of an entry winning. The command exits non-zero if any entry failed.
 ## Extending
 
 Everything a world uses is registered, not special-cased. A new shape needs a function of
-`(x, y, params)` and its parameter specs (the ring example from `tests/unit/test_world_kernel.py`):
+`(x, y, params)` and its parameter specs, `ParamSpec`s whose `min_val`/`max_val` are the
+values a world may draw (the ring example from `tests/unit/test_world_kernel.py`):
 
 ```python
 import torch
-from sensoryforge.stimuli import layered
+from sensoryforge.stimuli.base import ParamSpec
 from sensoryforge.world import register_shape
 
 def ring(x, y, p):
@@ -249,9 +264,11 @@ def ring(x, y, p):
     return torch.exp(-((r - p["radius_mm"]) ** 2) / (2.0 * p["width_mm"] ** 2))
 
 register_shape("ring", ring, [
-    layered._f("amplitude", 1.0, 0.0, 1.0e4),
-    layered._f("radius_mm", 1.0, 0.0, 10.0, "mm"),
-    layered._f("width_mm", 0.1, 0.001, 10.0, "mm"),
+    ParamSpec("amplitude", dtype="float", default=1.0, min_val=0.0, max_val=1.0e4),
+    ParamSpec("radius_mm", dtype="float", default=1.0, min_val=0.0, max_val=10.0,
+              unit="mm"),
+    ParamSpec("width_mm", dtype="float", default=0.1, min_val=0.001, max_val=10.0,
+              unit="mm"),
 ])
 ```
 
@@ -259,7 +276,8 @@ Then `shape: {kind: ring}` works in a world and in a layered stimulus. In the sa
 `register_pattern` and `register_modulation` add patterns and modulations,
 `register_distribution(name, sample, support)` adds a distribution for `{dist: name}` axes
 (give `support` when it is finite, so a test split can balance it), and
-`register_class_kind` adds a class kind next to `layered` and `quiet`.
+`register_class_kind(kind)` adds a class kind (a `ClassKind` instance) next to `layered` and
+`quiet`. Each refuses a name that is already registered unless you pass `replace=True`.
 
 A world can have several **channels** (`world: {channels: [a, b]}`); each class names the
 channel it draws on with `channel:`, and renders have shape `[n, K, C, *S]`. A batch run maps

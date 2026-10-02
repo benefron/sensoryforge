@@ -220,6 +220,25 @@ kinds, unknown or ambiguous axis names, `lo > hi`, `log_uniform` with `lo ≤ 0`
 zero weight sum, a held-out name equal to a class name, a fixed draw naming an unknown class or axis,
 a channel the world does not declare.
 
+Added in the final review (2026-10-02), also `ValueError`s naming the path:
+
+- `contacts` must be a whole number ≥ 1 (an int constant, an `int: true` range with lo ≥ 1, or a
+  list of ints ≥ 1);
+- every value an axis can take (constants, range bounds, categorical values, a finite registered
+  distribution's support) must lie inside its field's domain (`ClassKind.field_info`: durations ≥ 0,
+  `ParamSpec` `min_val`/`max_val`, a text field's `choices`); a fixed draw may leave the axis range
+  (flagged `out_of_range`) but not the domain;
+- numeric fields need numbers (not text, not bools; PyYAML reads `3e-1` as text), text fields text,
+  bool fields bools; NaN and infinity are refused in ranges, constants, values and weights;
+- the never-touches rule also catches touch/hold/slide/release axes that can only be 0;
+- files are read with the duplicate-key-refusing loader; every section must be a mapping (or a list
+  where a list is meant); two names for one field in one class's axes or in the defaults fail;
+- class, held-out class, fixed-draw and split names become directory names and must match
+  `^[A-Za-z0-9_][A-Za-z0-9_.-]*$`.
+
+Nothing a world does depends on the order its file writes classes, axes or defaults in: classes are
+parsed, weighed and iterated in order of their names (§4.2).
+
 ## 4. Sampling
 
 ### 4.1 Counter-based randomness
@@ -236,7 +255,8 @@ and adding an axis to a class does not change its other axes' values.
 
 ### 4.2 From u to values
 
-- class: by normalised weight (cumulative sum, first bin with `u < cum`).
+- class: by normalised weight (cumulative sum over the classes sorted by name, first bin with
+  `u < cum`); `classes=` names each class once, in any order.
 - `uniform`: `lo + u·(hi − lo)`; `log_uniform`: `exp(log lo + u·(log hi − log lo))`.
 - `int`: `lo + floor(u·(hi − lo + 1))`.
 - categorical: by weight, as for the class.
@@ -276,7 +296,8 @@ s     = session(world, duration_ms=10_000, seed=7, index=0)
   draw (with the world, for the class's fixed fields).
 - `timeline` is derived from `values` (phases of zero length omitted); `end_ms` is the end of the last
   release (for `quiet`, `quiet_ms`).
-- Time 0 is the start of the entry. Before 0 and after `end_ms` the draw renders exactly zero.
+- Time 0 is the start of the entry. Before 0 and from `end_ms` on (`t ≥ end_ms`, a step release
+  included) the draw renders exactly zero.
 - `sampling` is `declared`, `stratified`, `probe`, `fixed` or `session`.
 - Fixed draws have `seed`, `index`, `draw_seed` null.
 
@@ -339,15 +360,19 @@ whose positions depend on a per-draw seed, i.e. `random`, compute positions per 
 
 ### 5.4 Registries (extension points)
 
-- `register_shape(name, fn, specs, unbounded=False)`: `fn(x, y, params) -> tensor`, broadcasting over
-  leading dims, `params` a dict of tensors.
-- `register_pattern(name, fn, specs)`: `fn(params) -> (positions [P, 2], scales [P])` at placement 0.
-- `register_modulation(name, fn, specs)`: `fn(t_c, params) -> tensor in [0, 1]`.
-- `register_distribution(name, fn, support=None)`: `fn(u, spec) -> values`; `support` lists the
-  values of a finite distribution (used to stratify it).
-- `register_class_kind(name, cls)`: a class kind binds axis names and renders a group
-  (`render_group(draws, canvas, times, dtype, device) -> [g, K, *S]`). A kind that cannot vectorise may
-  loop over its draws; it must still satisfy §5.5.
+- `register_shape(name, fn, specs, unbounded=False, *, replace=False)`: `fn(x, y, params) -> tensor`,
+  broadcasting over leading dims, `params` a dict of tensors.
+- `register_pattern(name, fn, specs, *, replace=False)`: `fn(params) -> (positions [P, 2], scales [P])`
+  at placement 0.
+- `register_modulation(name, fn, specs, *, replace=False)`: `fn(t_c, params) -> tensor in [0, 1]`.
+- `register_distribution(name, fn, support=None, *, replace=False)`: `fn(u, spec) -> values`;
+  `support` lists the values of a finite distribution (used to stratify it).
+- `register_class_kind(kind, *, replace=False)`: `kind` is a `ClassKind` instance (a subclass of
+  `sensoryforge.world.kinds.ClassKind`) registered under `kind.name`. It binds axis names, describes
+  each field's type and domain (`field_info`) and renders a group
+  (`render_group(spec, draws, X, Y, times) -> [g, K, *S]`). A kind that cannot vectorise may loop
+  over its draws; it must still satisfy §5.5.
+- Every `register_*` refuses a name that is already registered unless `replace=True`.
 
 Plugins register on import, through SF's existing plugin mechanism (`plugins:` / the
 `sensoryforge.components` entry-point group).

@@ -50,6 +50,67 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## D-0fbb84a · Every population gets its own noise seed in a batch run · 2026-10-02
+
+**Supersedes:** 32-bit run seed, 53-bit noise seeds · 2026-10-02
+
+**What was decided.** the batch runner sets every population's noise_seed to seed53(noise, "population", i), whether or not the design set one, so no population's noise hangs on the 32-bit run seed
+
+**Why.** `SimulationEngine.run` seeds numpy's legacy global generator with its `seed` argument,
+which rejects values at or above 2**32 (F-202cdd8), so the runner passes `noise & 0xFFFFFFFF`.
+That run seed also seeds torch's global generator, which draws the sensor and membrane noise of
+any population without a `noise_seed` of its own. 32-bit seeds collide: the chance that two
+entries share one is about 1% at 10^4 entries and 69% at 10^5 (1 - exp(-n^2 / 2^33)), so two
+entries of a large data set could get the same noise realisation. The superseded section set a
+population's seed only when the design set one, which left every design without population seeds
+(the test fixture's among them) on the 32-bit seed. The engine uses a population's `noise_seed`
+only when that population has sensor or membrane noise, so setting it always changes nothing for
+a noiseless population. The receptor noise already took the full 53-bit seed
+(`simulation.receptor_noise_seed`).
+
+**What was rejected.** Keeping "when the design sets one" (the collisions above); seeding the
+engine's global generators from 53 bits (a change to the engine's own seeding, outside the world
+engine, that would change every seeded run).
+
+**Where it lives.** `sensoryforge/world/runner.py` (`run_dataset`, the per-entry seed block; the
+run seed is still `noise & 0xFFFFFFFF`); spec section 7.2 step 2; contract section 6;
+`tests/integration/test_world_batch.py::test_batch_writes_one_bundle_per_entry`.
+
+**Ledger id + sha.** D-0fbb84a · `aa88bd3`. The finding it rests on is F-202cdd8 · `f80d6d4`; the
+superseded section's "No ledger id" missed it.
+
+**Validation pending.** whether the engine should one day seed its global generators from the full
+53 bits (it would change every seeded run).
+
+## D-bed3c30 · A world's classes are weighed in order of their names · 2026-10-02
+
+**What was decided.** a world's classes are weighed and iterated in order of their names, so no draw, data-set entry or entry order depends on the order a world file writes its classes, axes or defaults in
+
+**Why.** `world_id` hashes the normalised world with sorted keys, but `sample` built its cumulative
+class weights in declared order. Reordering a world's classes, which `yaml.safe_dump` does by
+sorting keys, changed every declared draw while `world_id`, and with it a data set's `world_id`
+pin, stayed the same: the pin vouched for draws the world no longer gave. On the fixture world,
+reversing every mapping's key order left `w-cba7a3063f16` unchanged and changed the class each
+draw index picked. The data-set builder also looped over classes in declared order (stratified
+test, held-out and probe splits), so entry order followed the file too.
+
+**What was rejected.** Hashing the declared order into `world_id` (two files with the same content
+would get different ids, and a `safe_dump` round trip would break every pin); keeping declared
+order and documenting it (re-serialising a world is common, and the failure is silent).
+
+**Where it lives.** `sensoryforge/world/sampling.py` (`class_pool`: sorted by name; an empty
+`classes` list and a repeated name fail); `sensoryforge/world/schema.py` (classes, held-out
+classes, fixed draws, axes and defaults parsed in name order; two names of one source that bind
+one field fail); `sensoryforge/world/dataset.py` (`_by_name`);
+`tests/unit/test_world_sampling.py::test_class_order_changes_neither_the_id_nor_the_draws`,
+`tests/unit/test_world_dataset.py::test_class_order_does_not_change_the_entries`; the draws
+themselves are pinned by `test_world_sampling.py::test_the_fixture_worlds_draws_are_pinned`.
+
+**Ledger id + sha.** D-bed3c30 · `e6bf7f2`
+
+**Validation pending.** none — settled. It changed every declared draw of every world before
+v1.1.0 was tagged; nothing had pinned a draw yet, so the format tags stayed at `/1`.
+
 ## D-46a52e6 · The world engine ships as 1.1.0, tagged on its branch · 2026-10-02
 
 **What was decided.** the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
@@ -190,6 +251,8 @@ chunk but not the work, which was still draws x frames.
 renderer", records the speed).
 
 ## 32-bit run seed, 53-bit noise seeds · 2026-10-02
+
+**Superseded by:** D-0fbb84a · 2026-10-02
 
 No ledger id: recorded here only.
 

@@ -159,8 +159,8 @@ def render(
         items: Draws, sessions, or their records (records need ``world``).
         canvas: Where to render.
         times_ms: ``[K]`` times shared by every item, or ``[n, K]`` per item;
-            ms from each item's start. Times before 0 or after the item's end
-            render exactly zero.
+            ms from each item's start. Times before 0, or at or after the
+            item's end (``end_ms``), render exactly zero.
         dtype: ``torch.float32`` or ``torch.float64``.
         device: ``cpu``, ``cuda`` or ``mps`` (float32 only on MPS).
         world: The world records belong to.

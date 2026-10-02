@@ -40,7 +40,28 @@ explains each part; the rules that matter to a caller:
   (geometric for `log_uniform`); values outside a range are allowed and listed in the
   draw's `out_of_range`.
 - **Identity:** `world.world_id` is `w-` + 12 hex digits of SHA-256 over the normalised
-  world (everything except `description`).
+  world (everything except `description`). Draws depend on class **names**, never on the
+  order a file writes its classes, axes or defaults in: classes are weighed in order of
+  their names, so re-sorting a file (as `yaml.safe_dump` does) changes neither the id nor
+  any draw.
+- **Checked at load** (a `ValueError` naming the path, e.g.
+  `world.classes.twice.axes.contacts`):
+  - `contacts` is a whole number ≥ 1: an int constant, an `int: true` range with lo ≥ 1,
+    or a list of ints ≥ 1;
+  - every value an axis can take (a constant, both range bounds, each categorical value,
+    a finite registered distribution's values) and every fixed-draw value lies inside its
+    field's domain: durations, `quiet_ms` and `speed_mm_per_ms` ≥ 0; shape, pattern and
+    modulation fields within their `ParamSpec`'s `min_val`/`max_val`, text fields among
+    its `choices`. A fixed draw may leave the axis's range (it is then listed in
+    `out_of_range`) but not the field's domain;
+  - numeric fields take numbers, not text or booleans (PyYAML reads `3e-1` as the text
+    `'3e-1'`: write `3.0e-1`); text fields take text, switches `true`/`false`; NaN and
+    infinity are refused in ranges, constants, values and weights;
+  - a class whose touch, hold, slide and release can only be 0 never touches and fails;
+  - a key written twice in the file fails, as do two names for one field in one class's
+    axes or in the defaults (`sigma_mm` and `shape.sigma_mm`), and class, held-out class
+    and fixed-draw names that cannot name a directory (they must match
+    `^[A-Za-z0-9_][A-Za-z0-9_.-]*$`).
 
 ## 2. One draw's time course
 
@@ -51,7 +72,8 @@ Time 0 is the start of the entry. A draw is quiet for `delay_ms`, then `contacts
 re-touch lands where the last contact ended. A modulation multiplies the whole contact
 envelope, measured from each touch: `sine` (`frequency_hz`, `depth`, `phase_deg`;
 1 − depth·(1 − cos(2πft + φ))/2) or `pulses` (`rate_hz`, `duty`, `edge_ms`, `depth`). Before
-0, after the draw's `end_ms`, in lead-ins and in pauses the stimulus is **exactly 0**.
+0, from the draw's `end_ms` on (`t ≥ end_ms`, a step release included), in lead-ins and in
+pauses the stimulus is **exactly 0**.
 
 ## 3. Sampling
 
@@ -65,7 +87,9 @@ demo  = world.fixed_draw("braille_H")
 s     = session(world, duration_ms=10_000, seed=7, index=0)
 ```
 
-A draw's record (`draw.to_dict()`, rebuilt by `Draw.from_dict(record, world)`):
+`classes` names each class once (an empty list is an error); the order it lists them in
+does not matter. A draw's record (`draw.to_dict()`, rebuilt by
+`Draw.from_dict(record, world)`):
 `world_id, seed, index, draw_seed, class, sampling, values, timeline, end_ms, out_of_range`.
 `values` holds every axis, constants included. A session's record:
 `world_id, sampling: "session", seed, index, session_seed, duration_ms, items: [[start_ms,
@@ -99,6 +123,10 @@ movie  = render_movie(draw, canvas, dt_ms=1.0, duration_ms=500.0, dtype=torch.fl
 
 ## 5. Data sets
 
+The YAML below sketches the shape of a data-set file;
+`tests/fixtures/worlds/dataset_small.yml`, on the world
+`tests/fixtures/worlds/tactile_small.yml`, is a runnable example.
+
 ```yaml
 dataset:
   name: dev_set
@@ -127,6 +155,10 @@ dataset:
 - **Entry ids:** `train/r0/00017`, `validation/r0/00003.n1`, `test/dots/0042`,
   `probes/dots/sigma_mm-below/007`, `held_out/gratings/0003`, `sessions/002`,
   `fixed/braille_H`.
+- **Checked at load:** a key written twice fails; a split's keys must belong to its
+  kind (train/validation: `n`; test: `stratified`; probes: `per_bin`, `bins`; held_out:
+  `stratified` or `n`; sessions: `n`, `duration_ms`; fixed: `draws`; any split: `kind`,
+  `repeats`, `noise_repeats`); split names must match `^[A-Za-z0-9_][A-Za-z0-9_.-]*$`.
 - `sensoryforge dataset build dataset.yml --out DIR` writes `dataset.json` and
   `manifest.jsonl`. A row: `entry, split, repeat, noise_repeat, class, draw (the record),
   bins, probe, seeds {draw, noise}, duration_ms, truncated, world_id, dataset_id`. Bin labels
@@ -179,7 +211,7 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 
 | # | Guarantee | Test |
 |---|---|---|
-| 1 | Same world and seed give identical draws and frames in two processes; draw *i* alone equals draw *i* in a batch (bit for bit, same machine) | `tests/contract/test_world_contract.py::test_1_determinism_across_processes_and_batch_sizes`, `tests/unit/test_world_render.py::test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit` |
+| 1 | Same world and seed give identical draws and frames in two processes; draw *i* alone equals draw *i* in a batch (bit for bit on one machine; verified on Apple Silicon, see "Across machines") | `tests/contract/test_world_contract.py::test_1_determinism_across_processes_and_batch_sizes`, `tests/unit/test_world_render.py::test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit` |
 | 2 | A bundle's `/stimulus/frames` equals `render_movie(<the bundle's own record>, Canvas.from_grid_config(grid), dt, duration, dtype=float64).to(float32)` bit for bit, rendered on the CPU (the batch renders there on any `--device`) | `test_2_the_bundle_records_exactly_the_in_process_render` |
 | 3 | Frames rendered at `[t−τ, t, t+τ]` equal those steps of the movie (times `k·dt`) | `test_3_windows_agree_with_movies` |
 | 4 | Different noise seeds give different responses; the same seed gives identical spikes; the bundle records `simulation.receptor_noise_seed` equal to the entry's 53-bit noise seed | `test_4_noise_seeds` |
@@ -187,7 +219,10 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 | 6 | One draw on 40×40 and 80×80 at 0.15 mm agrees on the shared points to 1e-12 | `test_6_one_draw_on_40x40_and_80x80` |
 | 7 | Quiet stretches of a session are exactly 0 | `test_7_session_quiet_stretches_are_exactly_zero` |
 | 8 | Every bundle carries the design manifest, the world id, the entry's record and SensoryForge's sha | `test_8_every_bundle_carries_its_provenance` |
-| — | A world render equals the `layered` render of `draw.to_layer()` to 1e-5 (layered keeps time in float32) | `tests/unit/test_world_render.py::test_world_render_equals_layered` |
+| — | A world render equals the `layered` render of `draw.to_layer()` to 1e-5 (layered keeps time in float32) for every built-in shape, pattern, motion and modulation; for hard-edged shapes (`disc` with `edge_mm: 0`, `flat` bar, `square` grating) points within 1e-4 mm of an edge are excluded | `tests/unit/test_world_render.py::test_world_render_equals_layered`, `tests/unit/test_world_render.py::test_every_shape_pattern_and_motion_equals_layered` |
+| — | A draw is exactly 0 from its `end_ms` on, a step release included | `tests/unit/test_world_render.py::test_a_step_release_is_exactly_zero_from_end_ms` |
+| — | The fixture world's draws are pinned: sha256 of `sample(tactile_small, n=50, seed=7)`'s records, floats rounded to 10 significant digits; a change means every world's draws changed | `tests/unit/test_world_sampling.py::test_the_fixture_worlds_draws_are_pinned` |
+| — | Re-ordering a world's classes, axes or defaults changes neither `world_id`, nor any draw, nor a data set's entries | `tests/unit/test_world_sampling.py::test_class_order_changes_neither_the_id_nor_the_draws`, `tests/unit/test_world_dataset.py::test_class_order_does_not_change_the_entries` |
 
 A test named without a path is in `tests/contract/test_world_contract.py`.
 
@@ -195,6 +230,13 @@ A test named without a path is in `tests/contract/test_world_contract.py`.
 `log_uniform` values and rendered frames may differ in the last bit between platforms (the
 platform maths library), so a manifest's stored record is the canonical draw (as for
 SensoryForge's golden fixtures, F-071).
+
+Bit-for-bit batch invariance (guarantee 1: draw *i* alone equals draw *i* in a batch, and
+chunking changes no bit) is verified on Apple Silicon (arm64), in SensoryForge's env and in
+`bio-encoding`. On x86-64 it is unverified: torch's SIMD and scalar paths for `exp`, `sin`
+and `cos` can differ in the last bit there, so draw *i* alone and in a batch may differ by
+about 1 ulp; a Linux CI run settles it. Guarantee 2 (bundle equals render) compares with the
+CPU render, which is what the batch records on any machine and any `--device`.
 
 ## 9. Conventions pressure-simulation must map
 
