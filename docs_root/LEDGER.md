@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-bf695c7 · CLOSED · finding · - · 2026-10-02
+world and data-set files kept the last of a duplicated class or split key silently, let mis-shaped sections escape as AttributeError or TypeError tracebacks, accepted split keys of another split kind, and allowed class, fixed-draw and split names with path separators
+→ commit 5310f1c
+
 ## D-0fbb84a · CLOSED · decision · - · 2026-10-02
 the batch runner sets every population's noise_seed to seed53(noise, "population", i), whether or not the design set one, so no population's noise hangs on the 32-bit run seed
 → commit aa88bd3
