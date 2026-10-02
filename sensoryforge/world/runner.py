@@ -1,9 +1,11 @@
 """Run a data set through the sensor: one bundle per entry (spec §7).
 
 One process builds the engine once (receptive fields loaded once) and loops
-over its entries. Each entry is rendered in float64 on the design's canvas,
-cast to float32, simulated with its own noise seeds, and written to
-``<out>/.partial/<entry>/`` before an atomic rename to ``<out>/<entry>/``.
+over its entries. Each entry is rendered in float64 on the CPU on the design's
+canvas (whatever the engine's device, so a bundle's frames never depend on
+it), cast to float32, moved to the engine's device, simulated with its own
+noise seeds, and written to ``<out>/.partial/<entry>/`` before an atomic
+rename to ``<out>/<entry>/``.
 Each task appends to its own ``index/task_<i>.jsonl``, so array tasks never
 share a file.
 """
@@ -170,9 +172,6 @@ def run_dataset(
     n_grid_channels = len(grid.channels or ["value"])
     engine = SimulationEngine(config)
     canvas = Canvas.from_grid_config(grid)
-    render_device = (
-        torch.device("cpu") if engine.device.type == "mps" else engine.device
-    )
     base_noise = [pop.noise_seed for pop in config.populations]
     index_path = out / "index" / f"task_{task_index:04d}.jsonl"
     index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -199,16 +198,18 @@ def run_dataset(
                 pop.noise_seed = (
                     None if base is None else rng.seed53(noise, "population", i)
                 )
+            # Always the CPU: CUDA's float64 exp/sin/cos differ from the CPU's
+            # in the last bits, and a bundle must equal the CPU render.
             movie = render_movie(
                 entry.item,
                 canvas,
                 config.simulation.dt_ms,
                 entry.duration_ms,
                 dtype=torch.float64,
-                device=render_device,
+                device="cpu",
             )
             frames = to_grid_frames(movie, layout, n_grid_channels)
-            frames = frames.to(device=engine.device, dtype=torch.float32)
+            frames = frames.to(dtype=torch.float32).to(device=engine.device)
             partial = out / ".partial" / entry.entry
             if partial.exists():
                 shutil.rmtree(partial)

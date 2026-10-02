@@ -146,7 +146,9 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   over it). `--entries a:b` runs a slice; `--print-tasks` prints one command per task (rows
   for `experiments/lsf/make_manifest.py`).
 - Each entry: rendered with `render_movie(..., dtype=torch.float64)` on
-  `Canvas.from_grid_config(grids[0])`, cast to float32 and simulated. The entry's 53-bit
+  `Canvas.from_grid_config(grids[0])` **on the CPU**, whatever `--device` says (CUDA's
+  float64 `exp`/`sin`/`cos` differ from the CPU's in the last bits), cast to float32, moved
+  to the engine's device and simulated. The entry's 53-bit
   noise seed sets `simulation.receptor_noise_seed`; each population's `noise_seed`, if the
   design sets one, becomes `seed53(noise, "population", i)`. Both are recorded in the
   bundle's `config.json` (`config.simulation.receptor_noise_seed`,
@@ -174,7 +176,7 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 | # | Guarantee | Test |
 |---|---|---|
 | 1 | Same world and seed give identical draws and frames in two processes; draw *i* alone equals draw *i* in a batch (bit for bit, same machine) | `tests/contract/test_world_contract.py::test_1_determinism_across_processes_and_batch_sizes`, `tests/unit/test_world_render.py::test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit` |
-| 2 | A bundle's `/stimulus/frames` equals `render_movie(<the bundle's own record>, Canvas.from_grid_config(grid), dt, duration, dtype=float64).to(float32)` bit for bit | `test_2_the_bundle_records_exactly_the_in_process_render` |
+| 2 | A bundle's `/stimulus/frames` equals `render_movie(<the bundle's own record>, Canvas.from_grid_config(grid), dt, duration, dtype=float64).to(float32)` bit for bit, rendered on the CPU (the batch renders there on any `--device`) | `test_2_the_bundle_records_exactly_the_in_process_render` |
 | 3 | Frames rendered at `[t−τ, t, t+τ]` equal those steps of the movie (times `k·dt`) | `test_3_windows_agree_with_movies` |
 | 4 | Different noise seeds give different responses; the same seed gives identical spikes; the bundle records `simulation.receptor_noise_seed` equal to the entry's 53-bit noise seed | `test_4_noise_seeds` |
 | 5 | No draw seed in two splits; every numeric test bin holds `per_bin` per class (categorical ±1); probes labelled and outside the range | `test_5_splits_strata_and_probes` |

@@ -190,6 +190,43 @@ def test_a_failed_entry_is_recorded_and_the_exit_status_says_so(
     assert not (out / "test" / "edges" / "0000").exists()
 
 
+def test_frames_render_on_cpu_whatever_the_engine_device(
+    tmp_path, dataset_file, monkeypatch
+):
+    import torch
+
+    import sensoryforge.world.runner as runner
+
+    devices, received = [], []
+    real = runner.render_movie
+
+    def spy(item, *args, **kwargs):
+        devices.append(torch.device(kwargs.get("device", "cpu")))
+        return real(item, *args, **kwargs)
+
+    class OtherDeviceEngine:
+        """Stands in for an engine on another device ('meta' does no maths)."""
+
+        def __init__(self, config):
+            self.device = torch.device("meta")
+
+        def run(self, frames, bundle_dir, **kwargs):
+            received.append((frames.device, frames.dtype))
+            Path(bundle_dir).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(runner, "render_movie", spy)
+    monkeypatch.setattr(runner, "SimulationEngine", OtherDeviceEngine)
+    summary = runner.run_dataset(
+        load_design(FIXTURE),
+        load_dataset(dataset_file),
+        tmp_path / "out",
+        entry_range=slice(0, 3),
+    )
+    assert summary == {"ok": 3, "failed": 0, "skipped": 0}
+    assert [d.type for d in devices] == ["cpu"] * 3
+    assert received == [(torch.device("meta"), torch.float32)] * 3
+
+
 def test_a_sweep_batch_still_needs_its_config(capsys):
     assert _batch() == 1
     assert "batch needs a config" in capsys.readouterr().err

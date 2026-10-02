@@ -514,7 +514,9 @@ sensoryforge batch config.yml --dataset dataset.yml --output OUT --entries 0:100
 The process builds the `SimulationEngine` once (RF banks loaded once), then for each entry:
 
 1. renders `render_movie(draw or session, Canvas.from_grid_config(grids[0]), dt_ms, duration_ms,
-   dtype=float64)` on the engine's device, casts to float32. A single-channel world drives a
+   dtype=float64)` on the CPU, whatever the engine's device (CUDA's float64 `exp`/`sin`/`cos`
+   differ from the CPU's in the last bits, and a bundle must equal the CPU render), casts to
+   float32 and moves the frames to the engine's device. A single-channel world drives a
    single-channel grid whatever the names; with more than one channel, the world's channel names
    must all be among the grid's `channels` (else a `ValueError` before any entry runs), and the
    frames are `[T, C, H, W]` in the grid's channel order, unnamed planes zero;
