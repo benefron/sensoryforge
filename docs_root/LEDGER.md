@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-bed3c30 · CLOSED · decision · - · 2026-10-02
+a world's classes are weighed and iterated in order of their names, so no draw, data-set entry or entry order depends on the order a world file writes its classes, axes or defaults in
+→ commit e6bf7f2
+
 ## F-e02e6f6 · STANDING · finding · tests/contract · 2026-10-02
 the world engine passes pressure-simulation's eight contract tests in SensoryForge's env (Python 3.11, torch 2.5.1) and in bio-encoding (Python 3.10, torch 2.2.2)
 → commit f1f0f5f

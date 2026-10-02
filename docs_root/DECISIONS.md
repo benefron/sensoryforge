@@ -679,4 +679,5 @@ Do not hand-edit between the markers.
 | 2026-10-02 | D-cccbd6a | the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected) | `e766b8a` |
 | 2026-10-02 | D-d3605dd | data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations) | `e766b8a` |
 | 2026-10-02 | D-46a52e6 | the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges | `e766b8a` |
+| 2026-10-02 | D-bed3c30 | a world's classes are weighed and iterated in order of their names, so no draw, data-set entry or entry order depends on the order a world file writes its classes, axes or defaults in | `e6bf7f2` |
 <!-- DECISIONS_LOG_END -->
