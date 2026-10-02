@@ -172,3 +172,103 @@ def test_invalid_specs_are_named(mutate, message):
     mutate(raw["dataset"])
     with pytest.raises(ValueError, match=message):
         load_dataset(raw, base_dir=WORLDS)
+
+
+# ------------------------------------------- loading: YAML, mappings, keys, names
+
+
+def test_a_duplicated_split_key_in_yaml_is_refused(tmp_path):
+    path = tmp_path / "d.yml"
+    path.write_text(
+        "dataset:\n"
+        f"  world: {WORLDS / 'tactile_small.yml'}\n"
+        "  seed: 1\n"
+        "  duration_ms: 50\n"
+        "  splits:\n"
+        "    train: {n: 2}\n"
+        "    train: {n: 3}\n"
+    )
+    with pytest.raises(ValueError, match="Duplicate key 'train'"):
+        load_dataset(path)
+
+
+def _put(*path, value):
+    def mutate(d):
+        target = d
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+
+    return mutate
+
+
+@pytest.mark.parametrize(
+    "mutate, message",
+    [
+        # Mappings.
+        (
+            _put("splits", value=["train", "test"]),
+            r"dataset\.splits: expected a mapping",
+        ),
+        (
+            _put("splits", "train", value=5),
+            r"dataset\.splits\.train: expected a mapping",
+        ),
+        (
+            _put("splits", "test", "stratified", value=3),
+            r"dataset\.splits\.test\.stratified: expected a mapping",
+        ),
+        (
+            _put("splits", "held_out", "stratified", value=[2, 1]),
+            r"dataset\.splits\.held_out\.stratified: expected a mapping",
+        ),
+        (
+            _put("splits", "fixed", "draws", value="braille_H"),
+            r"dataset\.splits\.fixed\.draws: expected a list",
+        ),
+        # Keys that do not belong to the split's kind.
+        (
+            _put("splits", "train", value={"n": 3, "stratified": {"bins": 2}}),
+            r"dataset\.splits\.train: \['stratified'\].*declared",
+        ),
+        (
+            _put("splits", "test", value={"duration_ms": 100}),
+            r"dataset\.splits\.test: \['duration_ms'\].*stratified",
+        ),
+        (
+            _put("splits", "probes", "draws", value=["braille_H"]),
+            r"dataset\.splits\.probes: \['draws'\].*probes",
+        ),
+        (
+            _put("splits", "sessions", "per_bin", value=2),
+            r"dataset\.splits\.sessions: \['per_bin'\].*sessions",
+        ),
+        (
+            _put("splits", "fixed", "n", value=2),
+            r"dataset\.splits\.fixed: \['n'\].*fixed",
+        ),
+        (
+            _put("splits", "held_out", "n", value=2),
+            r"dataset\.splits\.held_out: give stratified or n, not both",
+        ),
+        # Names that become directories.
+        (
+            _put("splits", "my train", value={"kind": "declared", "n": 2}),
+            "'my train'",
+        ),
+        (
+            _put("splits", "a/b", value={"kind": "declared", "n": 2}),
+            "'a/b'",
+        ),
+    ],
+)
+def test_declarations_of_the_wrong_shape_are_named(mutate, message):
+    raw = copy.deepcopy(RAW)
+    mutate(raw["dataset"])
+    with pytest.raises(ValueError, match=message):
+        load_dataset(raw, base_dir=WORLDS)
+
+
+def test_a_top_level_that_is_not_a_mapping_is_named():
+    with pytest.raises(ValueError, match="a data set is a mapping"):
+        load_dataset({"dataset": ["train"]})

@@ -304,3 +304,113 @@ def test_a_yaml_exponent_without_a_point_is_named(tmp_path):
         load_world(path)
     path.write_text(path.read_text().replace("3e-1", "3.0e-1"))
     assert load_world(path).classes["dots"].axes["amplitude"].value == 0.3
+
+
+# ------------------------------------------- loading: YAML, mappings and names
+
+
+def test_a_duplicated_class_key_in_yaml_is_refused(tmp_path):
+    path = tmp_path / "w.yml"
+    path.write_text(
+        "world:\n"
+        "  classes:\n"
+        "    dots: {axes: {hold_ms: {value: 20}}}\n"
+        "    dots: {axes: {hold_ms: {value: 30}}}\n"
+    )
+    with pytest.raises(ValueError, match="Duplicate key 'dots'"):
+        load_world(path)
+
+
+def _set(path, value):
+    """A mutation that sets ``world[path[0]][path[1]]... = value``."""
+
+    def mutate(w):
+        target = w
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+
+    return mutate
+
+
+@pytest.mark.parametrize(
+    "mutate, message",
+    [
+        (_set(["classes"], ["dots", "edges"]), r"world\.classes: expected a mapping"),
+        (_set(["held_out"], ["gratings"]), r"world\.held_out: expected a mapping"),
+        (_set(["defaults"], [1, 2]), r"world\.defaults: expected a mapping"),
+        (_set(["fixed_draws"], "braille_H"), r"world\.fixed_draws: expected a mapping"),
+        (_set(["units"], ["mm", "ms"]), r"world\.units: expected a mapping"),
+        (_set(["channels"], "value"), r"world\.channels: expected a list"),
+        (_set(["classes", "dots"], 3), r"world\.classes\.dots: expected a mapping"),
+        (
+            _set(["classes", "dots", "axes"], ["sigma_mm"]),
+            r"world\.classes\.dots\.axes: expected a mapping",
+        ),
+        (
+            _set(["classes", "dots", "layer"], "gaussian"),
+            r"world\.classes\.dots\.layer: expected a mapping",
+        ),
+        (
+            _set(["classes", "dots", "layer", "shape"], [["kind", "gaussian"]]),
+            r"world\.classes\.dots\.layer\.shape: expected a mapping",
+        ),
+        (
+            _set(["classes", "braille", "layer", "pattern"], "braille"),
+            r"world\.classes\.braille\.layer\.pattern: expected a mapping",
+        ),
+        (
+            _set(["classes", "taps", "layer", "modulation"], 5),
+            r"world\.classes\.taps\.layer\.modulation: expected a mapping",
+        ),
+        (
+            _set(["classes", "orbit", "layer", "motion"], "circular"),
+            r"world\.classes\.orbit\.layer\.motion: expected a mapping",
+        ),
+        (
+            _set(["fixed_draws", "braille_H"], "braille"),
+            r"world\.fixed_draws\.braille_H: expected a mapping",
+        ),
+        (
+            _set(["classes", "dots", "axes", "sigma_mm"], [0.1, 0.2]),
+            r"world\.classes\.dots\.axes\.sigma_mm: expected a mapping",
+        ),
+        # Names that become directories.
+        (
+            lambda w: w["classes"].update({"my dots": w["classes"].pop("dots")}),
+            "'my dots'",
+        ),
+        (
+            lambda w: w["classes"].update({"a/b": w["classes"].pop("dots")}),
+            "'a/b'",
+        ),
+        (
+            lambda w: w["held_out"].update({".hidden": w["held_out"].pop("gratings")}),
+            "'.hidden'",
+        ),
+        (
+            lambda w: w["fixed_draws"].update(
+                {"../up": w["fixed_draws"].pop("wide_dot")}
+            ),
+            "'../up'",
+        ),
+    ],
+)
+def test_declarations_of_the_wrong_shape_are_named(mutate, message):
+    with pytest.raises(ValueError, match=message):
+        _world(mutate)
+
+
+def test_names_may_use_letters_digits_and_dot_dash_underscore():
+    def rename(w):
+        w["classes"]["2nd-dots_v1.0"] = w["classes"].pop("dots")
+        w["fixed_draws"]["wide_dot"]["class"] = "2nd-dots_v1.0"
+
+    assert "2nd-dots_v1.0" in _world(rename).classes
+
+
+def test_a_top_level_that_is_not_a_mapping_is_named():
+    with pytest.raises(ValueError, match="a world is a mapping"):
+        World.from_dict({"world": ["dots"]})
+    with pytest.raises(ValueError, match="a world is a mapping"):
+        World.from_dict(["dots"])

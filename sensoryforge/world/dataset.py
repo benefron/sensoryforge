@@ -4,18 +4,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import numbers
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
-import yaml
 
+from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.provenance import source_info
 from sensoryforge.world import rng
 from sensoryforge.world.distributions import AxisSpec
+from sensoryforge.world.kinds import expect_mapping
 from sensoryforge.world.sampling import Draw, Session, sample, session
-from sensoryforge.world.schema import ClassSpec, World, load_world
+from sensoryforge.world.schema import ClassSpec, World, check_name, load_world
 
 FORMAT = "sensoryforge-dataset/1"
 #: Split name -> its kind when the split gives no ``kind:``.
@@ -40,6 +42,16 @@ _SPLIT_KEYS = {
     "duration_ms",
     "draws",
 }
+#: The keys each split kind takes, besides kind, repeats and noise_repeats.
+_KIND_KEYS = {
+    "declared": {"n"},
+    "stratified": {"stratified"},
+    "probes": {"per_bin", "bins"},
+    "held_out": {"stratified", "n"},
+    "sessions": {"n", "duration_ms"},
+    "fixed": {"draws"},
+}
+_COMMON_KEYS = {"kind", "repeats", "noise_repeats"}
 _DATASET_KEYS = {"name", "world", "world_id", "seed", "duration_ms", "splits"}
 #: An int axis with more values than this cannot be stratified one bin per value.
 MAX_INT_STRATA = 64
@@ -99,15 +111,25 @@ def _positive_int(
     raw: Dict[str, Any], key: str, where: str, default: Optional[int] = None
 ) -> int:
     value = raw.get(key, default)
-    if value is None or int(value) < 1:
-        raise ValueError(f"{where}: {key} >= 1 required, got {value!r}")
+    whole = isinstance(value, numbers.Integral) and not isinstance(value, bool)
+    if not whole or value < 1:
+        raise ValueError(
+            f"{where}: {key} >= 1 required (a whole number), got {value!r}"
+        )
     return int(value)
 
 
 def _strata(raw: Dict[str, Any], where: str) -> Tuple[int, int]:
     strat = raw.get("stratified")
-    if not isinstance(strat, dict):
+    if strat is None:
         raise ValueError(f"{where}: give stratified: {{bins: B, per_bin: m}}")
+    strat = expect_mapping(strat, f"{where}.stratified")
+    unknown = set(strat) - {"bins", "per_bin"}
+    if unknown:
+        raise ValueError(
+            f"{where}.stratified: unknown keys {sorted(unknown)}; "
+            "it takes bins and per_bin"
+        )
     return (
         _positive_int(strat, "bins", f"{where}.stratified"),
         _positive_int(strat, "per_bin", f"{where}.stratified"),
@@ -118,7 +140,7 @@ def _parse_split(
     name: str, raw: Any, world: World, test_bins: Optional[int]
 ) -> SplitSpec:
     where = f"dataset.splits.{name}"
-    raw = dict(raw or {})
+    raw = dict(expect_mapping(raw, where))
     unknown = set(raw) - _SPLIT_KEYS
     if unknown:
         raise ValueError(
@@ -129,6 +151,13 @@ def _parse_split(
         raise ValueError(
             f"{where}: unknown kind {kind!r}; name the split one of "
             f"{sorted(SPLIT_KINDS)} or give kind: one of {sorted(_KINDS)}"
+        )
+    allowed = _COMMON_KEYS | _KIND_KEYS[kind]
+    foreign = set(raw) - allowed
+    if foreign:
+        raise ValueError(
+            f"{where}: {sorted(foreign)} do not belong to a {kind} split; "
+            f"it takes {sorted(allowed)}"
         )
     common = {
         "name": name,
@@ -150,6 +179,8 @@ def _parse_split(
     if kind == "held_out":
         if not world.held_out:
             raise ValueError(f"{where}: the world declares no held_out classes")
+        if "stratified" in raw and "n" in raw:
+            raise ValueError(f"{where}: give stratified or n, not both")
         if "stratified" in raw:
             bins, per_bin = _strata(raw, where)
             return SplitSpec(**common, bins=bins, per_bin=per_bin)
@@ -161,7 +192,12 @@ def _parse_split(
         return SplitSpec(
             **common, n=_positive_int(raw, "n", where), duration_ms=duration
         )
-    draws = tuple(str(d) for d in raw.get("draws") or [])
+    raw_draws = raw.get("draws")
+    if raw_draws is not None and not isinstance(raw_draws, (list, tuple)):
+        raise ValueError(
+            f"{where}.draws: expected a list of fixed-draw names, got {raw_draws!r}"
+        )
+    draws = tuple(str(d) for d in raw_draws or [])
     if not draws:
         raise ValueError(f"{where}: list the fixed draws, e.g. draws: [braille_H]")
     missing = [d for d in draws if d not in world.fixed]
@@ -193,7 +229,9 @@ def load_dataset(
         base = Path(base_dir) if base_dir is not None else Path.cwd()
     else:
         path = Path(source)
-        data = yaml.safe_load(path.read_text())
+        with open(path, "r", encoding="utf-8") as stream:
+            # Refuses a duplicated key (a split written twice).
+            data = load_yaml(stream)
         base = path.resolve().parent
     raw = data.get("dataset", data) if isinstance(data, dict) else None
     if not isinstance(raw, dict):
@@ -230,16 +268,19 @@ def load_dataset(
     duration_ms = float(raw.get("duration_ms", 0))
     if duration_ms <= 0:
         raise ValueError("dataset.duration_ms: required, > 0")
-    splits_raw = raw.get("splits") or {}
+    splits_raw = expect_mapping(raw.get("splits"), "dataset.splits")
     if not splits_raw:
         raise ValueError("dataset.splits: declare at least one split")
-    test_raw = splits_raw.get("test") or {}
-    test_bins = (
-        (test_raw.get("stratified") or {}).get("bins")
-        if isinstance(test_raw, dict)
-        else None
-    )
-    splits = [_parse_split(str(n), s, world, test_bins) for n, s in splits_raw.items()]
+    names = [check_name(str(n), "dataset.splits") for n in splits_raw]
+    if len(set(names)) != len(names):
+        raise ValueError(f"dataset.splits: a name is given twice in {names}")
+    test_raw = splits_raw.get("test")
+    strat = test_raw.get("stratified") if isinstance(test_raw, dict) else None
+    test_bins = strat.get("bins") if isinstance(strat, dict) else None
+    # Splits keep the order the spec gives (entries are ordered by split).
+    splits = [
+        _parse_split(n, s, world, test_bins) for n, s in zip(names, splits_raw.values())
+    ]
     name = str(raw.get("name", "dataset"))
     normal = {
         "format": FORMAT,

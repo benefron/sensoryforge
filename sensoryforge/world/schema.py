@@ -5,12 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import yaml
-
+from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.world.distributions import (
     AxisSpec,
     is_number,
@@ -24,6 +24,7 @@ from sensoryforge.world.kinds import (
     FieldInfo,
     Ref,
     UnknownField,
+    expect_mapping,
 )
 
 FORMAT = "sensoryforge-world/1"
@@ -39,6 +40,19 @@ _TOP_KEYS = {
     "fixed_draws",
 }
 _CLASS_KEYS = {"kind", "weight", "layer", "axes", "channel"}
+#: Names that become directory names (classes, held-out classes, fixed draws,
+#: data-set splits): no separators, no leading dot.
+NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+
+
+def check_name(name: str, where: str) -> str:
+    """``name`` if it can name a directory, else a ``ValueError`` naming ``where``."""
+    if not NAME_RE.match(name):
+        raise ValueError(
+            f"{where}: {name!r} names a directory, so it must start with a letter, "
+            "digit or '_' and use only letters, digits, '_', '.' and '-'"
+        )
+    return name
 
 
 @dataclass
@@ -147,19 +161,36 @@ def load_world(source: Union[str, Path, Dict[str, Any], World]) -> World:
     if isinstance(source, dict):
         return World.from_dict(source)
     path = Path(source)
-    data = yaml.safe_load(path.read_text())
+    with open(path, "r", encoding="utf-8") as stream:
+        # Refuses a duplicated key (a class written twice) instead of keeping
+        # the last one silently.
+        data = load_yaml(stream)
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a mapping with a 'world:' key")
     return World.from_dict(data)
 
 
-def _named(mapping: Dict[Any, Any], where: str) -> List[Tuple[str, Any]]:
-    """``(name, value)`` pairs sorted by name; names that coincide fail."""
+def _named(
+    mapping: Any, where: str, directories: bool = False
+) -> List[Tuple[str, Any]]:
+    """``(name, value)`` pairs of a mapping (``None``: none), sorted by name.
+
+    Args:
+        mapping: The parsed mapping.
+        where: The path errors name.
+        directories: The names become directory names (:func:`check_name`).
+
+    Raises:
+        ValueError: If it is not a mapping, two keys coincide as strings, or
+            (``directories``) a name cannot name a directory.
+    """
     out: Dict[str, Any] = {}
-    for key, value in mapping.items():
+    for key, value in expect_mapping(mapping, where).items():
         name = str(key)
         if name in out:
             raise ValueError(f"{where}: {name!r} is given twice")
+        if directories:
+            check_name(name, where)
         out[name] = value
     return sorted(out.items(), key=lambda item: item[0])
 
@@ -175,14 +206,19 @@ def _parse_world(data: Any) -> World:
         raise ValueError(
             f"world: unknown keys {sorted(unknown)}; allowed: {sorted(_TOP_KEYS)}"
         )
-    channels = [str(c) for c in (raw.get("channels") or ["value"])]
+    raw_channels = raw.get("channels")
+    if raw_channels is not None and not isinstance(raw_channels, (list, tuple)):
+        raise ValueError(
+            f"world.channels: expected a list of names, got {raw_channels!r}"
+        )
+    channels = [str(c) for c in (raw_channels or ["value"])]
     if len(set(channels)) != len(channels) or not all(channels):
         raise ValueError(
             f"world.channels: give distinct non-empty names, got {channels}"
         )
     defaults = {
         name: AxisSpec.from_dict(name, spec, where=f"world.defaults.{name}")
-        for name, spec in _named(raw.get("defaults") or {}, "world.defaults")
+        for name, spec in _named(raw.get("defaults"), "world.defaults")
     }
     if not raw.get("classes"):
         raise ValueError("world.classes: declare at least one class")
@@ -190,11 +226,11 @@ def _parse_world(data: Any) -> World:
     # order its YAML writes them in (yaml.safe_dump re-sorts keys).
     classes = {
         n: _parse_class(n, c, defaults, channels, held_out=False)
-        for n, c in _named(raw["classes"], "world.classes")
+        for n, c in _named(raw["classes"], "world.classes", directories=True)
     }
     held = {
         n: _parse_class(n, c, defaults, channels, held_out=True)
-        for n, c in _named(raw.get("held_out") or {}, "world.held_out")
+        for n, c in _named(raw.get("held_out"), "world.held_out", directories=True)
     }
     clash = set(classes) & set(held)
     if clash:
@@ -203,9 +239,14 @@ def _parse_world(data: Any) -> World:
         raise ValueError("world.classes: the weights sum to 0")
     fixed = {
         n: _parse_fixed(n, f, classes, held)
-        for n, f in _named(raw.get("fixed_draws") or {}, "world.fixed_draws")
+        for n, f in _named(
+            raw.get("fixed_draws"), "world.fixed_draws", directories=True
+        )
     }
-    units = raw.get("units") or {"space": "mm", "time": "ms"}
+    units = expect_mapping(raw.get("units"), "world.units") or {
+        "space": "mm",
+        "time": "ms",
+    }
     world = World(
         name=str(raw.get("name", "world")),
         description=str(raw.get("description", "")),
@@ -310,7 +351,7 @@ def _parse_class(
             continue
         path = f"world.defaults.{axis_name} (in class {name!r})"
         bind(axis_name, ref, axis, "world.defaults", path)
-    for axis_name, spec in _named(raw.get("axes") or {}, f"{where}.axes"):
+    for axis_name, spec in _named(raw.get("axes"), f"{where}.axes"):
         try:
             ref = kind.resolve(axis_name, layer)
         except (UnknownField, AmbiguousField) as exc:
@@ -340,7 +381,8 @@ def _parse_fixed(
     name: str, raw: Any, classes: Dict[str, ClassSpec], held: Dict[str, ClassSpec]
 ) -> Dict[str, Any]:
     where = f"world.fixed_draws.{name}"
-    if not isinstance(raw, dict) or "class" not in raw:
+    raw = expect_mapping(raw, where)
+    if "class" not in raw:
         raise ValueError(f"{where}: needs a 'class'")
     class_name = str(raw["class"])
     spec = classes.get(class_name) or held.get(class_name)

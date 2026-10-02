@@ -143,8 +143,24 @@ class ClassKind:
         raise NotImplementedError
 
 
+def expect_mapping(value: Any, where: str) -> Dict[Any, Any]:
+    """``value`` if it is a mapping, ``{}`` for ``None``; else a ``ValueError``.
+
+    Args:
+        value: A parsed YAML value.
+        where: The path the error names (``world.classes.dots.axes``).
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"{where}: expected a mapping, got {type(value).__name__} {value!r}"
+        )
+    return value
+
+
 def _fill(part: Any, default_kind: str, specs_fn, where: str) -> Dict[str, Any]:
-    part = dict(part or {"kind": default_kind})
+    part = dict(expect_mapping(part, where) or {"kind": default_kind})
     kind = part.get("kind", default_kind)
     try:
         specs = specs_fn(kind)
@@ -201,7 +217,7 @@ class LayeredKind(ClassKind):
     name = "layered"
 
     def normalise_layer(self, layer, where):
-        layer = dict(layer or {})
+        layer = dict(expect_mapping(layer, where))
         if "timing" in layer:
             raise ValueError(
                 f"{where}: set timing with the episode axes (delay_ms, touch_ms, "
@@ -230,7 +246,7 @@ class LayeredKind(ClassKind):
         }
         motion = layer.get("motion")
         if motion is not None:
-            motion = dict(motion)
+            motion = dict(expect_mapping(motion, f"{where}.motion"))
             kind = motion.get("kind", "none")
             if kind not in _MOTION_KINDS:
                 raise ValueError(
