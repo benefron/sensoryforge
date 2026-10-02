@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import yaml
@@ -199,6 +199,48 @@ def validate_config(config: Dict[str, Any]) -> bool:
     return True
 
 
+def _resolve_sensor_config(
+    args: argparse.Namespace,
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], str]:
+    """The sensor a command runs: a design directory, a preset or a config file.
+
+    A config file given with ``--design``/``--preset`` is deep-merged over it.
+
+    Returns:
+        ``(config dict, design manifest or None, a description for messages)``.
+
+    Raises:
+        ValueError: When none of the three is given.
+    """
+    preset_name = getattr(args, "preset", None)
+    design_dir = getattr(args, "design", None)
+    config_path = getattr(args, "config", None)
+    design_manifest: Optional[Dict[str, Any]] = None
+    if design_dir:
+        from sensoryforge.io.design import load_design, read_manifest
+
+        design_manifest = read_manifest(design_dir)
+        config = load_design(design_dir).to_dict()
+        if config_path:
+            config = _deep_merge_preset(config, load_config_file(config_path))
+    elif preset_name:
+        from sensoryforge.presets import load_preset
+
+        config = load_preset(preset_name)
+        if config_path:
+            config = _deep_merge_preset(config, load_config_file(config_path))
+    elif config_path:
+        config = load_config_file(config_path)
+    else:
+        raise ValueError(
+            "no config file and no --preset given (no --design given either)"
+        )
+    source_desc = config_path or (
+        f"--design {design_dir}" if design_dir else f"--preset {preset_name}"
+    )
+    return config, design_manifest, source_desc
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Run simulation from YAML config.
 
@@ -209,35 +251,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         Exit code (0 for success, 1 for error).
     """
     try:
-        # Load configuration -- a preset (K4), a design directory (Phase 2a
-        # T2; --design and --preset are mutually exclusive at the argparse
-        # level), a config file, or a combination (the preset/design as the
-        # base, the file's values overriding it via the same
-        # _deep_merge_preset path either way).
-        preset_name = getattr(args, "preset", None)
-        design_dir = getattr(args, "design", None)
-        design_manifest: Optional[Dict[str, Any]] = None
-        if design_dir:
-            from sensoryforge.io.design import load_design, read_manifest
-
-            design_manifest = read_manifest(design_dir)
-            config = load_design(design_dir).to_dict()
-            if args.config:
-                config = _deep_merge_preset(config, load_config_file(args.config))
-        elif preset_name:
-            from sensoryforge.presets import load_preset
-
-            config = load_preset(preset_name)
-            if args.config:
-                config = _deep_merge_preset(config, load_config_file(args.config))
-        elif args.config:
-            config = load_config_file(args.config)
-        else:
-            print(
-                "Error running simulation: no config file and no --preset "
-                "given (no --design given either)",
-                file=sys.stderr,
-            )
+        try:
+            config, design_manifest, source_desc = _resolve_sensor_config(args)
+        except ValueError as exc:
+            print(f"Error running simulation: {exc}", file=sys.stderr)
             return 1
 
         # --stimulus (Phase 2a T2): select the stimulus type to render by
@@ -295,9 +312,6 @@ def cmd_run(args: argparse.Namespace) -> int:
             # the requested duration; see _generate_trapezoidal_stimulus).
             stimulus_params["duration"] = args.duration
 
-        source_desc = args.config or (
-            f"--design {design_dir}" if design_dir else f"--preset {preset_name}"
-        )
         print(f"Loading pipeline from {source_desc}...")
 
         if is_canonical:
@@ -524,6 +538,23 @@ def cmd_batch(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for success, 1 for error).
     """
+    if getattr(args, "dataset", None):
+        return cmd_batch_dataset(args)
+    if args.design or args.preset:
+        print("Error: --design/--preset need --dataset", file=sys.stderr)
+        return 1
+    if not args.config:
+        print(
+            "Error: batch needs a config file (or --dataset with a sensor)",
+            file=sys.stderr,
+        )
+        return 1
+    if args.resume is True:
+        print(
+            "Error: --resume for a sweep batch needs the checkpoint path",
+            file=sys.stderr,
+        )
+        return 1
     try:
         # Load configuration
         config = load_config_file(args.config)
@@ -612,6 +643,88 @@ def cmd_batch(args: argparse.Namespace) -> int:
 
         traceback.print_exc()
         return 1
+
+
+def _parse_range(text: str) -> slice:
+    """``"a:b"`` -> ``slice(a, b)``."""
+    try:
+        start, stop = (int(part) for part in text.split(":"))
+    except ValueError:
+        raise ValueError(f"--entries must look like a:b, got {text!r}") from None
+    if start < 0 or stop < start:
+        raise ValueError(f"--entries needs 0 <= a <= b, got {text!r}")
+    return slice(start, stop)
+
+
+def _task_commands(args: argparse.Namespace) -> List[str]:
+    """One ``sensoryforge batch`` command per task, with absolute paths."""
+    import shlex
+
+    base = ["sensoryforge", "batch"]
+    if args.config:
+        base.append(shlex.quote(str(Path(args.config).resolve())))
+    if args.design:
+        base += ["--design", shlex.quote(str(Path(args.design).resolve()))]
+    if args.preset:
+        base += ["--preset", shlex.quote(args.preset)]
+    base += ["--dataset", shlex.quote(str(Path(args.dataset).resolve()))]
+    base += ["--output", shlex.quote(str(Path(args.output).resolve()))]
+    if args.splits:
+        base += ["--splits", shlex.quote(args.splits)]
+    if args.device:
+        base += ["--device", args.device]
+    if args.resume:
+        base.append("--resume")
+    return [
+        " ".join(base + ["--tasks", str(args.tasks), "--task-index", str(i)])
+        for i in range(args.tasks)
+    ]
+
+
+def cmd_batch_dataset(args: argparse.Namespace) -> int:
+    """``sensoryforge batch --dataset``: one bundle per data-set entry (spec §7)."""
+    from sensoryforge.world.dataset import load_dataset
+    from sensoryforge.world.runner import run_dataset
+
+    if not args.output:
+        print("Error: --output is required with --dataset", file=sys.stderr)
+        return 1
+    if args.print_tasks:
+        for line in _task_commands(args):
+            print(line)
+        return 0
+    try:
+        config_dict, design_manifest, source_desc = _resolve_sensor_config(args)
+        if args.device:
+            config_dict.setdefault("simulation", {})["device"] = args.device
+        config = SensoryForgeConfig.from_dict(config_dict)
+        spec = load_dataset(args.dataset)
+        splits = (
+            [s.strip() for s in args.splits.split(",") if s.strip()]
+            if args.splits
+            else None
+        )
+        entry_range = _parse_range(args.entries) if args.entries else None
+        summary = run_dataset(
+            config,
+            spec,
+            args.output,
+            design_manifest=design_manifest,
+            splits=splits,
+            tasks=args.tasks,
+            task_index=args.task_index or 0,
+            entry_range=entry_range,
+            resume=bool(args.resume),
+            log=print,
+        )
+    except (ValueError, OSError, KeyError, yaml.YAMLError) as exc:
+        print(f"Error running data set: {exc}", file=sys.stderr)
+        return 1
+    print(
+        f"{summary['ok']} ok, {summary['failed']} failed, {summary['skipped']} skipped "
+        f"({source_desc}, data set {spec.dataset_id} -> {args.output})"
+    )
+    return 1 if summary["failed"] else 0
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -1035,7 +1148,31 @@ def create_parser() -> argparse.ArgumentParser:
     batch_parser = subparsers.add_parser(
         "batch", help="Run batch execution from YAML config"
     )
-    batch_parser.add_argument("config", help="Path to batch YAML configuration file")
+    batch_parser.add_argument(
+        "config",
+        nargs="?",
+        help="Sweep batch YAML; with --dataset, an optional sensor config "
+        "merged over --design/--preset",
+    )
+    batch_sensor = batch_parser.add_mutually_exclusive_group()
+    batch_sensor.add_argument("--design", help="A design directory (with --dataset)")
+    batch_sensor.add_argument("--preset", help="A preset name (with --dataset)")
+    batch_parser.add_argument("--dataset", help="Run a world data set (dataset: YAML)")
+    batch_parser.add_argument(
+        "--splits", help="Comma-separated splits to run (with --dataset)"
+    )
+    batch_parser.add_argument(
+        "--tasks",
+        type=int,
+        default=1,
+        help="Split the entries into this many tasks (with --dataset)",
+    )
+    batch_parser.add_argument("--entries", help="Run entries a:b only (with --dataset)")
+    batch_parser.add_argument(
+        "--print-tasks",
+        action="store_true",
+        help="Print one 'sensoryforge batch' command per task and exit (with --dataset)",
+    )
     batch_parser.add_argument("--output", help="Override output directory from config")
     batch_parser.add_argument(
         "--device", choices=["cpu", "cuda", "mps"], help="Override device from config"
@@ -1046,7 +1183,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Validate configuration and show execution plan without running",
     )
     batch_parser.add_argument(
-        "--resume", help="Resume from checkpoint file (path to checkpoint.json)"
+        "--resume",
+        nargs="?",
+        const=True,
+        default=None,
+        help="Sweep batch: the checkpoint.json to resume from. With --dataset: "
+        "no value; skip entries whose bundle is complete.",
     )
     batch_parser.add_argument(
         "--task-index",

@@ -25,6 +25,7 @@ from sensoryforge.world.dataset import (
     write_dataset,
 )
 from sensoryforge.world.render import Canvas, movie_times, render, render_movie
+from sensoryforge.world.runner import read_batch_index, run_dataset
 
 __all__ = [
     "AxisSpec",
@@ -42,6 +43,7 @@ __all__ = [
     "load_manifest",
     "load_world",
     "movie_times",
+    "read_batch_index",
     "register_class_kind",
     "register_distribution",
     "register_modulation",
@@ -49,6 +51,7 @@ __all__ = [
     "register_shape",
     "render",
     "render_movie",
+    "run_dataset",
     "sample",
     "session",
     "write_dataset",
