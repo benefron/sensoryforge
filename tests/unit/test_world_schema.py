@@ -163,3 +163,144 @@ def _never_touch(w):
 def test_invalid_worlds_are_named(mutate, message):
     with pytest.raises(ValueError, match=message):
         _world(mutate)
+
+
+# ------------------------------------------- field values checked at load time
+
+
+def _axis(cls, name, spec, group="classes"):
+    def mutate(w):
+        w[group][cls].setdefault("axes", {})[name] = spec
+
+    return mutate
+
+
+def _fixed(**values):
+    def mutate(w):
+        w["fixed_draws"]["bad"] = values
+
+    return mutate
+
+
+def _never_touch_by_range(w):
+    w["defaults"].update(touch_ms={"value": 0}, release_ms={"range": [0, 0]})
+    w["classes"]["sliders"]["axes"].update(
+        hold_ms={"range": [0.0, 0.0]}, slide_ms={"values": [0, 0.0]}
+    )
+
+
+NAN, INF = float("nan"), float("inf")
+
+
+@pytest.mark.parametrize(
+    "mutate, message",
+    [
+        # B1: contacts is a whole number >= 1.
+        (_axis("twice", "contacts", {"range": [1, 3]}), "twice.axes.contacts.*whole"),
+        (_axis("twice", "contacts", {"value": 0}), "twice.axes.contacts"),
+        (_axis("twice", "contacts", {"value": 1.5}), "twice.axes.contacts.*whole"),
+        (_axis("twice", "contacts", {"value": 2.0}), "twice.axes.contacts.*whole"),
+        (
+            _axis("twice", "contacts", {"range": [0, 2], "int": True}),
+            "twice.axes.contacts",
+        ),
+        (_axis("twice", "contacts", {"values": [1, 2.5]}), "twice.axes.contacts"),
+        (_axis("twice", "contacts", {"values": [0, 1]}), "twice.axes.contacts"),
+        (
+            _axis("twice", "contacts", {"dist": "braille_cells"}),
+            "twice.axes.contacts",
+        ),
+        # B2: every bound axis lies inside its field's domain.
+        (
+            _axis("dots", "sigma_mm", {"range": [0.0, 0.4]}),
+            r"world\.classes\.dots\.axes\.sigma_mm.*domain",
+        ),
+        (_axis("dots", "hold_ms", {"range": [-5, 10]}), "dots.axes.hold_ms.*domain"),
+        (
+            _axis("edges", "orientation_deg", {"values": [0, 400]}),
+            "edges.axes.orientation_deg.*domain",
+        ),
+        (_axis("dots", "amplitude", {"value": 2.0e4}), "dots.axes.amplitude"),
+        (
+            _axis("taps", "rate_hz", {"range": [20, 2.0e4], "dist": "log_uniform"}),
+            "taps.axes.rate_hz",
+        ),
+        (
+            _axis("edges", "profile", {"values": ["gaussian", "flatt"]}),
+            "edges.axes.profile.*'flatt'",
+        ),
+        (
+            lambda w: w["defaults"].update(delay_ms={"range": [-1, 5]}),
+            r"world\.defaults\.delay_ms",
+        ),
+        (
+            lambda w: w["classes"]["dots"]["layer"]["shape"].update(amplitude=-1.0),
+            "dots.layer.*amplitude",
+        ),
+        (_axis("quiet", "quiet_ms", {"range": [-10, 20]}), "quiet.axes.quiet_ms"),
+        # B3: a fixed draw may leave the range but not the domain.
+        (_fixed(**{"class": "dots", "sigma_mm": 100.0}), "fixed_draws.bad.*sigma_mm"),
+        (_fixed(**{"class": "twice", "contacts": 1.5}), "fixed_draws.bad.*contacts"),
+        (_fixed(**{"class": "braille", "dots": 125}), "fixed_draws.bad.*dots.*text"),
+        (_fixed(**{"class": "dots", "hold_ms": NAN}), "fixed_draws.bad.*hold_ms"),
+        # B4: contact phases that can only be 0.
+        (_never_touch_by_range, "never touches"),
+        # B6: numeric fields need numbers; strings and bools need their type.
+        (_axis("dots", "amplitude", {"value": "3e-1"}), "dots.axes.amplitude.*3.0e-1"),
+        (_axis("dots", "sigma_mm", {"range": ["1e-1", 0.4]}), "sigma_mm.*number"),
+        (_axis("dots", "hold_ms", {"values": ["10", "20"]}), "dots.axes.hold_ms"),
+        (_axis("dots", "amplitude", {"value": True}), "dots.axes.amplitude"),
+        (_axis("braille", "dots", {"values": [125, 14]}), "braille.axes.dots.*text"),
+        (
+            _axis("gratings", "signed", {"values": ["yes"]}, group="held_out"),
+            "gratings.axes.signed.*true or false",
+        ),
+        (
+            _axis("gratings", "signed", {"range": [0, 1]}, group="held_out"),
+            "gratings.axes.signed",
+        ),
+        # B6: NaN and infinity, in ranges, constants, values and weights.
+        (_axis("dots", "sigma_mm", {"range": [NAN, 0.4]}), "sigma_mm.*finite"),
+        (_axis("dots", "hold_ms", {"value": INF}), "hold_ms.*finite"),
+        (_axis("dots", "hold_ms", {"values": [10, NAN]}), "hold_ms.*finite"),
+        (
+            _axis("dots", "hold_ms", {"values": [10, 20], "weights": [1, NAN]}),
+            "hold_ms.*weights.*finite",
+        ),
+        (lambda w: w["classes"]["dots"].update(weight=NAN), "dots.weight"),
+        (lambda w: w["classes"]["dots"].update(weight="1"), "dots.weight"),
+    ],
+)
+def test_field_values_are_checked_at_load(mutate, message):
+    with pytest.raises(ValueError, match=message):
+        _world(mutate)
+
+
+@pytest.mark.parametrize(
+    "spec", [{"value": 3}, {"range": [1, 3], "int": True}, {"values": [1, 2, 4]}]
+)
+def test_whole_contacts_load(spec):
+    axis = _world(_axis("twice", "contacts", spec)).classes["twice"].axes["contacts"]
+    assert axis.to_dict() == {
+        **spec,
+        **({"weights": [1.0] * 3} if "values" in spec else {}),
+    }
+
+
+def test_a_fixed_draw_outside_its_range_but_inside_its_domain_loads():
+    world = _world(_fixed(**{"class": "dots", "sigma_mm": 49.0, "hold_ms": 0}))
+    assert world.fixed_draw("bad").out_of_range == ("hold_ms", "sigma_mm")
+
+
+def test_a_yaml_exponent_without_a_point_is_named(tmp_path):
+    path = tmp_path / "w.yml"
+    path.write_text(
+        "world:\n"
+        "  classes:\n"
+        "    dots:\n"
+        "      axes: {hold_ms: {value: 20}, amplitude: {value: 3e-1}}\n"
+    )
+    with pytest.raises(ValueError, match="amplitude: needs a number, got '3e-1'"):
+        load_world(path)
+    path.write_text(path.read_text().replace("3e-1", "3.0e-1"))
+    assert load_world(path).classes["dots"].axes["amplitude"].value == 0.3

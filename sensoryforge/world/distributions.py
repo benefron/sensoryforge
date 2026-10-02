@@ -6,6 +6,7 @@ See spec §3.2 (forms), §4.2 (from ``u`` to values) and §6.2 (strata, probes).
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, replace
 from itertools import combinations
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -33,6 +34,36 @@ def plain(value: Any) -> Any:
     if isinstance(value, np.generic):
         return value.item()
     raise ValueError(f"axis values must be numbers or strings, got {value!r}")
+
+
+def is_number(value: Any) -> bool:
+    """True for an int or a float (not a bool)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+#: A number with an exponent but no decimal point, which PyYAML (YAML 1.1)
+#: reads as text: ``3e-1`` is the string ``'3e-1'``, ``3.0e-1`` the float.
+_EXPONENT_TEXT = re.compile(r"^[-+]?[0-9]+[eE][-+]?[0-9]+$")
+
+
+def text_number_hint(value: Any) -> str:
+    """A hint for a number YAML read as text (``'3e-1'``), else ``""``."""
+    if isinstance(value, str) and _EXPONENT_TEXT.match(value.strip()):
+        return (
+            " (YAML reads a number with an exponent but no decimal point as "
+            "text: write 3.0e-1, not 3e-1)"
+        )
+    return ""
+
+
+def _finite_number(value: Any, where: str, what: str) -> float:
+    """``value`` as a float, or ``ValueError`` if it is not a finite number."""
+    if not is_number(value):
+        hint = text_number_hint(value)
+        raise ValueError(f"{where}: {what} must be numbers, got {value!r}{hint}")
+    if not math.isfinite(value):
+        raise ValueError(f"{where}: {what} must be finite, got {value!r}")
+    return float(value)
 
 
 def _braille_cells() -> List[str]:
@@ -117,13 +148,23 @@ class AxisSpec:
     # ------------------------------------------------------------ parsing
 
     @classmethod
-    def from_dict(cls, name: str, spec: Any) -> "AxisSpec":
+    def from_dict(cls, name: str, spec: Any, where: Optional[str] = None) -> "AxisSpec":
         """Parse spec dict (value, range, values, or dist).
+
+        Range bounds and weights must be finite numbers; constants and
+        categorical values may be numbers or strings, and numbers must be
+        finite. Whether a value suits the field it binds is checked when the
+        world loads (:mod:`sensoryforge.world.schema`).
+
+        Args:
+            name: The axis name.
+            spec: Its declaration.
+            where: The path errors name (default ``axis '<name>'``).
 
         Raises:
             ValueError: Naming the axis and what is wrong.
         """
-        where = f"axis {name!r}"
+        where = where or f"axis {name!r}"
         if not isinstance(spec, dict):
             raise ValueError(
                 f"{where}: expected a mapping such as {{range: [lo, hi]}}, got {spec!r}"
@@ -137,7 +178,10 @@ class AxisSpec:
                 raise ValueError(
                     f"{where}: a constant takes only 'value', got {sorted(spec)}"
                 )
-            return cls(name=name, form="constant", value=plain(spec["value"]))
+            value = plain(spec["value"])
+            if is_number(value):
+                _finite_number(value, where, "constants")
+            return cls(name=name, form="constant", value=value)
         if "dist" in spec and spec["dist"] not in NUMERIC_DISTS and "range" not in spec:
             dist = spec["dist"]
             if dist not in DISTRIBUTIONS:
@@ -162,10 +206,18 @@ class AxisSpec:
                 f"{where}: unknown keys {sorted(unknown)}; allowed: {allowed}"
             )
         if "values" in spec:
+            if not isinstance(spec["values"] or [], (list, tuple)):
+                raise ValueError(f"{where}: 'values' must be a list")
             values = tuple(plain(v) for v in spec["values"] or [])
             if not values:
                 raise ValueError(f"{where}: 'values' is empty")
-            weights = tuple(float(w) for w in spec.get("weights", [1.0] * len(values)))
+            for v in values:
+                if is_number(v):
+                    _finite_number(v, where, "values")
+            raw_weights = spec.get("weights", [1.0] * len(values))
+            if not isinstance(raw_weights, (list, tuple)):
+                raise ValueError(f"{where}: 'weights' must be a list")
+            weights = tuple(_finite_number(w, where, "weights") for w in raw_weights)
             if len(weights) != len(values):
                 raise ValueError(
                     f"{where}: {len(weights)} weights for {len(values)} values"
@@ -179,7 +231,8 @@ class AxisSpec:
             bounds = spec["range"]
             if not isinstance(bounds, (list, tuple)) or len(bounds) != 2:
                 raise ValueError(f"{where}: range must be [lo, hi], got {bounds!r}")
-            lo, hi = float(bounds[0]), float(bounds[1])
+            lo = _finite_number(bounds[0], where, "range bounds")
+            hi = _finite_number(bounds[1], where, "range bounds")
             if lo > hi:
                 raise ValueError(f"{where}: lo > hi in range {bounds!r}")
             if spec.get("int"):

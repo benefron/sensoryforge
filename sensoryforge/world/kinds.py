@@ -8,6 +8,7 @@ in. A plugin adds a kind with :func:`register_class_kind`.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
@@ -64,6 +65,25 @@ _PARTS = ("shape", "pattern", "modulation")
 _MOTION_KINDS = ("none", "linear", "circular", "path")
 
 
+@dataclass(frozen=True)
+class FieldInfo:
+    """The values a field accepts; a world's axes are checked against it on load.
+
+    Attributes:
+        dtype: ``"number"`` (an int or a float, not a bool), ``"whole"`` (an
+            int), ``"str"``, ``"bool"``, or ``"any"`` (numbers are still
+            checked against ``lo``/``hi``).
+        lo: The smallest valid value (``None``: unbounded).
+        hi: The largest valid value (``None``: unbounded).
+        choices: The valid values of a ``str`` field (``None``: any text).
+    """
+
+    dtype: str = "any"
+    lo: Optional[float] = None
+    hi: Optional[float] = None
+    choices: Optional[Tuple[Any, ...]] = None
+
+
 class ClassKind:
     """Base class of class kinds; :class:`LayeredKind` is the worked example."""
 
@@ -86,6 +106,11 @@ class ClassKind:
     ) -> Tuple[Optional[float], Optional[float]]:
         """The valid range of a field (probes stay inside it)."""
         return (None, None)
+
+    def field_info(self, ref: Ref, layer: Optional[Dict[str, Any]]) -> FieldInfo:
+        """What values a field takes; by default any type within :meth:`domain`."""
+        lo, hi = self.domain(ref, layer)
+        return FieldInfo("any", lo, hi)
 
     def fixed_in_layer(self, ref: Ref, raw_layer: Any) -> bool:
         """True when the class's own layer sets this field (a world default yields)."""
@@ -136,6 +161,18 @@ def _fill(part: Any, default_kind: str, specs_fn, where: str) -> Dict[str, Any]:
         **defaults(specs),
         **{k: v for k, v in part.items() if k != "kind"},
     }
+
+
+def _only_zero(axis: Any) -> bool:
+    """True when an axis (already checked against its domain) can only give 0."""
+    if axis.form == "constant":
+        return isinstance(axis.value, (int, float)) and float(axis.value) == 0.0
+    if axis.form in ("numeric", "int"):
+        return axis.hi == 0.0
+    support = axis.support()
+    return support is not None and all(
+        isinstance(v, (int, float)) and float(v) == 0.0 for v in support
+    )
 
 
 def _group_params(dicts, view, dtype, device) -> Dict[str, Any]:
@@ -268,17 +305,37 @@ class LayeredKind(ClassKind):
             )
         return (hits[0], name)
 
-    def domain(self, ref, layer):
+    def _param_spec(self, ref, layer):
         part, field = ref
-        if part == "episode":
-            return _EPISODE_DOMAIN.get(field, (0.0, None))
         specs_fn = {
             "shape": kernel.shape_specs,
             "pattern": kernel.pattern_specs,
             "modulation": kernel.modulation_specs,
         }[part]
-        spec = next(s for s in specs_fn(layer[part]["kind"]) if s.name == field)
+        return next(s for s in specs_fn(layer[part]["kind"]) if s.name == field)
+
+    def domain(self, ref, layer):
+        part, field = ref
+        if part == "episode":
+            return _EPISODE_DOMAIN.get(field, (0.0, None))
+        spec = self._param_spec(ref, layer)
         return (spec.min_val, spec.max_val)
+
+    def field_info(self, ref, layer):
+        """Numbers for episode fields (``contacts``: whole); else the ParamSpec's.
+
+        Shape, pattern and modulation fields take their ``ParamSpec``'s type
+        (``float``/``int``: a number, ``str``: text from ``choices`` if any,
+        ``bool``: true or false) within its ``min_val``/``max_val``.
+        """
+        lo, hi = self.domain(ref, layer)
+        part, field = ref
+        if part == "episode":
+            return FieldInfo("whole" if field == "contacts" else "number", lo, hi)
+        spec = self._param_spec(ref, layer)
+        dtype = {"float": "number", "int": "number", "str": "str", "bool": "bool"}
+        choices = tuple(spec.choices) if spec.choices else None
+        return FieldInfo(dtype.get(spec.dtype, "any"), lo, hi, choices)
 
     def fixed_in_layer(self, ref, raw_layer):
         part, field = ref
@@ -286,7 +343,7 @@ class LayeredKind(ClassKind):
 
     def check(self, spec):
         phases = [spec.axes[field] for _, field in _CONTACT_PHASES]
-        if all(not a.is_random and float(a.value) == 0.0 for a in phases):
+        if all(_only_zero(a) for a in phases):
             raise ValueError(
                 f"class {spec.name!r}: touch_ms + hold_ms + slide_ms + release_ms is "
                 "always 0, so it never touches; give it a hold_ms"
@@ -463,6 +520,9 @@ class QuietKind(ClassKind):
 
     def domain(self, ref, layer):
         return (0.0, None)
+
+    def field_info(self, ref, layer):
+        return FieldInfo("number", 0.0, None)
 
     def end_ms(self, values):
         return float(values["quiet_ms"])

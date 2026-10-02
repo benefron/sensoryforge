@@ -49,8 +49,13 @@ def test_new_timing_fields_default_to_the_old_behaviour():
 def test_slide_moves_only_after_the_hold():
     layer = _layer(
         {"kind": "gaussian", "sigma_mm": 0.3},
-        {"onset_ms": 0, "ramp_up_ms": 0, "hold_ms": 20, "slide_ms": 20,
-         "ramp_down_ms": 0},
+        {
+            "onset_ms": 0,
+            "ramp_up_ms": 0,
+            "hold_ms": 20,
+            "slide_ms": 20,
+            "ramp_down_ms": 0,
+        },
         motion={"kind": "linear", "start": [0, 0], "end": [2, 0], "span": "slide"},
     )
     frames = render_layers([layer], XX, YY, dt_ms=1.0, total_ms=50.0)
@@ -63,8 +68,15 @@ def test_slide_moves_only_after_the_hold():
 def test_contacts_pause_and_retouch_where_the_last_ended():
     layer = _layer(
         {"kind": "gaussian", "sigma_mm": 0.3},
-        {"onset_ms": 0, "ramp_up_ms": 0, "hold_ms": 10, "slide_ms": 10,
-         "ramp_down_ms": 0, "contacts": 2, "pause_ms": 10},
+        {
+            "onset_ms": 0,
+            "ramp_up_ms": 0,
+            "hold_ms": 10,
+            "slide_ms": 10,
+            "ramp_down_ms": 0,
+            "contacts": 2,
+            "pause_ms": 10,
+        },
         motion={"kind": "linear", "start": [0, 0], "end": [2, 0], "span": "slide"},
     )
     frames = render_layers([layer], XX, YY, dt_ms=1.0, total_ms=60.0)
@@ -78,11 +90,48 @@ def test_contacts_pause_and_retouch_where_the_last_ended():
 def test_contacts_need_an_explicit_hold():
     layer = _layer(
         {"kind": "gaussian"},
-        {"onset_ms": 0, "ramp_up_ms": 0, "hold_ms": None, "ramp_down_ms": 0,
-         "contacts": 2},
+        {
+            "onset_ms": 0,
+            "ramp_up_ms": 0,
+            "hold_ms": None,
+            "ramp_down_ms": 0,
+            "contacts": 2,
+        },
     )
     with pytest.raises(ValueError, match="contacts > 1 needs an explicit hold_ms"):
         render_layers([layer], XX, YY, dt_ms=1.0, total_ms=50.0)
+
+
+@pytest.mark.parametrize("contacts", [0, -1])
+def test_contacts_below_one_are_refused(contacts):
+    layer = _layer(
+        {"kind": "gaussian"},
+        {
+            "onset_ms": 0,
+            "ramp_up_ms": 0,
+            "hold_ms": 10,
+            "ramp_down_ms": 0,
+            "contacts": contacts,
+        },
+    )
+    with pytest.raises(ValueError, match="contacts must be >= 1"):
+        render_layers([layer], XX, YY, dt_ms=1.0, total_ms=20.0)
+
+
+def test_unset_contacts_mean_one():
+    timing = {"onset_ms": 0, "ramp_up_ms": 2, "hold_ms": 10, "ramp_down_ms": 2}
+    want = render_layers(
+        [_layer({"kind": "gaussian"}, timing)], XX, YY, dt_ms=1.0, total_ms=20.0
+    )
+    for contacts in (None, 1):
+        got = render_layers(
+            [_layer({"kind": "gaussian"}, {**timing, "contacts": contacts})],
+            XX,
+            YY,
+            dt_ms=1.0,
+            total_ms=20.0,
+        )
+        assert torch.equal(got, want)
 
 
 def test_sine_modulation_swings_by_its_depth():
@@ -123,7 +172,13 @@ def test_contact_terms_and_progress_for_a_batch_of_parameters():
     t = torch.arange(0.0, 60.0, dtype=torch.float64).unsqueeze(0).expand(2, -1)
     col = lambda a, b: torch.tensor([[a], [b]], dtype=torch.float64)  # noqa: E731
     env, tau, k, local = contact_terms(
-        t, col(0, 5), col(0, 0), col(10, 10), col(10, 0), col(0, 0), col(2, 1),
+        t,
+        col(0, 5),
+        col(0, 0),
+        col(10, 10),
+        col(10, 0),
+        col(0, 0),
+        col(2, 1),
         col(10, 0),
     )
     assert float(env[0, 25]) == 0.0 and float(env[0, 30]) == 1.0
@@ -149,11 +204,17 @@ def test_signed_grating_has_negative_lobes():
     timing = {"onset_ms": 0, "ramp_up_ms": 0, "hold_ms": None, "ramp_down_ms": 0}
     raised = render_layers(
         [_layer({"kind": "grating", "wavelength_mm": 0.8}, timing)],
-        XX, YY, dt_ms=1.0, total_ms=2.0,
+        XX,
+        YY,
+        dt_ms=1.0,
+        total_ms=2.0,
     )
     signed = render_layers(
         [_layer({"kind": "grating", "wavelength_mm": 0.8, "signed": True}, timing)],
-        XX, YY, dt_ms=1.0, total_ms=2.0,
+        XX,
+        YY,
+        dt_ms=1.0,
+        total_ms=2.0,
     )
     assert float(raised.min()) >= 0.0
     assert float(signed.min()) < -0.99 and float(signed.max()) > 0.99

@@ -4,17 +4,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-from sensoryforge.world.distributions import AxisSpec, plain
+from sensoryforge.world.distributions import (
+    AxisSpec,
+    is_number,
+    plain,
+    text_number_hint,
+)
 from sensoryforge.world.kinds import (
     CLASS_KINDS,
     AmbiguousField,
     ClassKind,
+    FieldInfo,
     Ref,
     UnknownField,
 )
@@ -174,8 +181,8 @@ def _parse_world(data: Any) -> World:
             f"world.channels: give distinct non-empty names, got {channels}"
         )
     defaults = {
-        str(name): AxisSpec.from_dict(str(name), spec)
-        for name, spec in (raw.get("defaults") or {}).items()
+        name: AxisSpec.from_dict(name, spec, where=f"world.defaults.{name}")
+        for name, spec in _named(raw.get("defaults") or {}, "world.defaults")
     }
     if not raw.get("classes"):
         raise ValueError("world.classes: declare at least one class")
@@ -244,9 +251,12 @@ def _parse_class(
             raise ValueError(f"{where}: held-out classes take no weight")
         weight = 0.0
     else:
-        weight = float(raw.get("weight", 1.0))
-        if weight < 0:
-            raise ValueError(f"{where}.weight: must be >= 0, got {weight}")
+        raw_weight = raw.get("weight", 1.0)
+        if not is_number(raw_weight) or not math.isfinite(raw_weight) or raw_weight < 0:
+            raise ValueError(
+                f"{where}.weight: must be a finite number >= 0, got {raw_weight!r}"
+            )
+        weight = float(raw_weight)
     channel = str(raw.get("channel", channels[0]))
     if channel not in channels:
         raise ValueError(
@@ -257,8 +267,9 @@ def _parse_class(
     axes: Dict[str, AxisSpec] = {}
     bindings: Dict[str, Ref] = {}
     source: Dict[str, str] = {}
+    paths: Dict[str, str] = {}
 
-    def bind(axis_name: str, ref: Ref, axis: AxisSpec, origin: str) -> None:
+    def bind(axis_name: str, ref: Ref, axis: AxisSpec, origin: str, path: str) -> None:
         # A later source (built-in < world default < class axis) replaces an
         # earlier one; two names of one source binding one field would make
         # the result depend on the order they are written in, so they fail.
@@ -272,14 +283,22 @@ def _parse_class(
                 del bindings[other]
                 del axes[other]
                 del source[other]
+                del paths[other]
         lo, hi = kind.domain(ref, layer)
         axes[axis_name] = axis.with_domain(lo, hi)
         bindings[axis_name] = ref
         source[axis_name] = origin
+        paths[axis_name] = path
 
     for field_name, value in kind.builtin_defaults(layer).items():
         constant = AxisSpec(name=field_name, form="constant", value=value)
-        bind(field_name, kind.resolve(field_name, layer), constant, "built-ins")
+        ref = kind.resolve(field_name, layer)
+        path = (
+            f"{where}.layer.{ref[0]}.{ref[1]}"
+            if layer is not None and ref[0] in layer
+            else f"{where} (built-in {field_name})"
+        )
+        bind(field_name, ref, constant, "built-ins", path)
     for axis_name, axis in sorted(defaults.items(), key=lambda item: item[0]):
         try:
             ref = kind.resolve(axis_name, layer)
@@ -289,13 +308,19 @@ def _parse_class(
             raise ValueError(f"{where}: world default {exc}") from None
         if kind.fixed_in_layer(ref, raw_layer):
             continue
-        bind(axis_name, ref, axis, "world.defaults")
+        path = f"world.defaults.{axis_name} (in class {name!r})"
+        bind(axis_name, ref, axis, "world.defaults", path)
     for axis_name, spec in _named(raw.get("axes") or {}, f"{where}.axes"):
         try:
             ref = kind.resolve(axis_name, layer)
         except (UnknownField, AmbiguousField) as exc:
             raise ValueError(f"{where}.axes: {exc}") from None
-        bind(axis_name, ref, AxisSpec.from_dict(axis_name, spec), f"{where}.axes")
+        path = f"{where}.axes.{axis_name}"
+        axis = AxisSpec.from_dict(axis_name, spec, where=path)
+        bind(axis_name, ref, axis, f"{where}.axes", path)
+    for axis_name, axis in axes.items():
+        info = kind.field_info(bindings[axis_name], layer)
+        check_axis(paths[axis_name], axis, info)
 
     cls = ClassSpec(
         name=name,
@@ -337,5 +362,88 @@ def _parse_fixed(
             )
         if bound in values:
             raise ValueError(f"{where}: axis {bound!r} is set twice")
-        values[bound] = plain(value)
+        value = plain(value)
+        # Outside the axis's range is allowed (flagged out_of_range), outside
+        # the field's domain is not.
+        info = spec.kind_obj.field_info(ref, spec.layer)
+        check_value(f"{where}.{key}", value, info)
+        values[bound] = value
     return {"class": class_name, "values": dict(sorted(values.items()))}
+
+
+def _whole(info: FieldInfo) -> str:
+    at_least = "" if info.lo is None else f" >= {info.lo:g}"
+    return (
+        f"must be a whole number{at_least} "
+        "(an int constant, an int: true range or a list of ints)"
+    )
+
+
+_TYPE_WORDS = {"str": "text", "bool": "true or false"}
+
+
+def check_value(where: str, value: Any, info: FieldInfo) -> None:
+    """Raise ``ValueError`` unless ``value`` suits a field described by ``info``.
+
+    Args:
+        where: The path the error names.
+        value: A constant, range bound, categorical value or fixed-draw value.
+        info: The bound field's type and domain.
+    """
+    numeric = info.dtype in ("number", "whole")
+    if numeric or (info.dtype == "any" and is_number(value)):
+        if info.dtype == "whole" and not isinstance(value, int):
+            raise ValueError(f"{where}: {_whole(info)}, got {value!r}")
+        if not is_number(value):
+            hint = text_number_hint(value)
+            raise ValueError(f"{where}: needs a number, got {value!r}{hint}")
+        if not math.isfinite(value):
+            raise ValueError(f"{where}: {value!r} is not finite")
+        if (info.lo is not None and value < info.lo) or (
+            info.hi is not None and value > info.hi
+        ):
+            lo = "-inf" if info.lo is None else f"{info.lo:g}"
+            hi = "inf" if info.hi is None else f"{info.hi:g}"
+            raise ValueError(
+                f"{where}: {value!r} is outside the field's domain [{lo}, {hi}]"
+            )
+    elif info.dtype == "str":
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{where}: needs text, got {value!r}; quote it in YAML, "
+                f"e.g. '{value}'"
+            )
+        if info.choices and value not in info.choices:
+            raise ValueError(f"{where}: {value!r} is not one of {list(info.choices)}")
+    elif info.dtype == "bool":
+        if not isinstance(value, bool):
+            raise ValueError(f"{where}: needs true or false, got {value!r}")
+
+
+def check_axis(where: str, axis: AxisSpec, info: FieldInfo) -> None:
+    """Raise ``ValueError`` unless every value ``axis`` can take suits its field.
+
+    Constants, range bounds, categorical values and a registered
+    distribution's finite support are each checked with :func:`check_value`.
+    """
+    if axis.form == "constant":
+        check_value(where, axis.value, info)
+    elif axis.form in ("numeric", "int"):
+        if info.dtype in _TYPE_WORDS:
+            raise ValueError(
+                f"{where}: takes {_TYPE_WORDS[info.dtype]}, which a range cannot draw"
+            )
+        if info.dtype == "whole" and axis.form != "int":
+            raise ValueError(f"{where}: {_whole(info)}, got a float range")
+        for bound in (axis.lo, axis.hi):
+            check_value(where, int(bound) if axis.form == "int" else bound, info)
+    elif axis.form == "categorical":
+        for value in axis.values:
+            check_value(where, value, info)
+    else:
+        support = axis.support()
+        if support is not None:
+            for value in support:
+                check_value(where, value, info)
+        elif info.dtype == "whole":
+            raise ValueError(f"{where}: {_whole(info)}, got distribution {axis.dist!r}")

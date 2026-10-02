@@ -94,6 +94,12 @@ def test_midpoint_and_contains():
         ({"rang": [0, 1]}, "unknown keys"),
         ({"value": 1, "range": [0, 1]}, "takes only 'value'"),
         ({"range": [0.5, 2], "int": True}, "integer bounds"),
+        ({"range": ["1e-1", 1]}, "range bounds must be numbers.*3.0e-1"),
+        ({"range": [0, float("inf")]}, "range bounds must be finite"),
+        ({"range": [True, 2]}, "range bounds must be numbers"),
+        ({"value": float("nan")}, "constants must be finite"),
+        ({"values": [1, float("-inf")]}, "values must be finite"),
+        ({"values": [1, 2], "weights": ["1", 1]}, "weights must be numbers"),
     ],
 )
 def test_invalid_axes_are_named(spec, message):

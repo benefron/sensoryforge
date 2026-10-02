@@ -646,6 +646,15 @@ def pattern_positions(
 # -------------------------------------------------------------------- timing
 
 
+def _contacts(timing) -> int:
+    """``timing.contacts``: unset (missing or ``None``) means 1; below 1 fails."""
+    raw = (timing or {}).get("contacts")
+    contacts = 1 if raw is None else int(raw)
+    if contacts < 1:
+        raise ValueError(f"timing: contacts must be >= 1, got {raw!r}")
+    return contacts
+
+
 def _timing_values(timing, run_ms: float):
     """``(onset, up, hold, slide, down, contacts, pause)`` with defaults filled."""
     t = {**defaults(TIMING_SPECS), **(timing or {})}
@@ -653,10 +662,8 @@ def _timing_values(timing, run_ms: float):
     up = float(t["ramp_up_ms"] or 0.0)
     down = float(t["ramp_down_ms"] or 0.0)
     slide = float(t.get("slide_ms") or 0.0)
-    contacts = int(t.get("contacts") or 1)
+    contacts = _contacts(t)
     pause = float(t.get("pause_ms") or 0.0)
-    if contacts < 1:
-        raise ValueError(f"timing: contacts must be >= 1, got {contacts}")
     hold = t["hold_ms"]
     if hold is None:
         if contacts > 1:
@@ -668,7 +675,7 @@ def _timing_values(timing, run_ms: float):
 def _is_single_contact(timing) -> bool:
     """True for timing the pre-world code handled (no slide, one contact)."""
     t = timing or {}
-    return float(t.get("slide_ms") or 0.0) == 0.0 and int(t.get("contacts") or 1) == 1
+    return float(t.get("slide_ms") or 0.0) == 0.0 and _contacts(t) == 1
 
 
 def _contact_clock(timing, time_ms: torch.Tensor, run_ms: float):
