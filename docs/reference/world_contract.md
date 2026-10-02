@@ -149,12 +149,16 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   `Canvas.from_grid_config(grids[0])` **on the CPU**, whatever `--device` says (CUDA's
   float64 `exp`/`sin`/`cos` differ from the CPU's in the last bits), cast to float32, moved
   to the engine's device and simulated. The entry's 53-bit
-  noise seed sets `simulation.receptor_noise_seed`; each population's `noise_seed`, if the
-  design sets one, becomes `seed53(noise, "population", i)`. Both are recorded in the
-  bundle's `config.json` (`config.simulation.receptor_noise_seed`,
+  noise seed sets `simulation.receptor_noise_seed`, and every population's `noise_seed` is
+  set to `seed53(noise, "population", i)`, whether or not the design set one (the engine
+  uses a population's seed only when that population has sensor or membrane noise). Both
+  are recorded in the bundle's `config.json` (`config.simulation.receptor_noise_seed`,
   `config.populations[i].noise_seed`). The run seed passed to `SimulationEngine.run` is
   `noise & 0xFFFFFFFF`, the low 32 bits of the noise seed, because the engine seeds numpy's
-  legacy global generator, which accepts only 32-bit seeds.
+  legacy global generator, which accepts only 32-bit seeds; with the receptors and every
+  population seeded from 53 bits, no receptor, sensor or membrane noise depends on it (with
+  32-bit seeds, the chance that two entries share one is about 1% at 10^4 entries and 69%
+  at 10^5).
 - Output: `OUT/<entry id>/` (a schema-2.2.0 bundle, written atomically), `OUT/batch.json`,
   `OUT/index/task_<i>.jsonl` (`entry, bundle, status, error, seconds, finished_at,
   design_id, sensoryforge_sha, task`); `read_batch_index(OUT)` merges them. The exit status

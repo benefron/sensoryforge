@@ -172,7 +172,6 @@ def run_dataset(
     n_grid_channels = len(grid.channels or ["value"])
     engine = SimulationEngine(config)
     canvas = Canvas.from_grid_config(grid)
-    base_noise = [pop.noise_seed for pop in config.populations]
     index_path = out / "index" / f"task_{task_index:04d}.jsonl"
     index_path.parent.mkdir(parents=True, exist_ok=True)
     design_id = (design_manifest or {}).get("design_id")
@@ -194,10 +193,11 @@ def run_dataset(
         try:
             noise = int(entry.seeds["noise"])
             config.simulation.receptor_noise_seed = noise
-            for i, (pop, base) in enumerate(zip(config.populations, base_noise)):
-                pop.noise_seed = (
-                    None if base is None else rng.seed53(noise, "population", i)
-                )
+            # Every population gets its own 53-bit seed, set or not in the
+            # design: the engine uses it only when that population has noise,
+            # and no noise is then left to the 32-bit run seed below.
+            for i, pop in enumerate(config.populations):
+                pop.noise_seed = rng.seed53(noise, "population", i)
             # Always the CPU: CUDA's float64 exp/sin/cos differ from the CPU's
             # in the last bits, and a bundle must equal the CPU render.
             movie = render_movie(

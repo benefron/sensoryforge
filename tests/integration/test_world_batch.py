@@ -56,13 +56,13 @@ def test_batch_writes_one_bundle_per_entry(tmp_path, dataset_file):
         assert cfg["world"]["entry"] == e.entry
         sim = cfg["config"]["simulation"]
         assert sim["receptor_noise_seed"] == e.seeds["noise"]
-        for i, pop in enumerate(cfg["config"]["populations"]):
-            if base.populations[i].noise_seed is None:
-                assert pop.get("noise_seed") is None
-            else:
-                assert pop["noise_seed"] == rng.seed53(
-                    e.seeds["noise"], "population", i
-                )
+        # Every population gets its own 53-bit noise seed, whether or not the
+        # design set one: no noise may hang on the 32-bit run seed.
+        pops = cfg["config"]["populations"]
+        assert len(pops) == len(base.populations)
+        assert all(p.noise_seed is None for p in base.populations)
+        for i, pop in enumerate(pops):
+            assert pop["noise_seed"] == rng.seed53(e.seeds["noise"], "population", i)
         assert bundle.stimulus.shape[0] == int(round(e.duration_ms))
     info = json.loads((out / "batch.json").read_text())
     assert info["dataset_id"] == entries[0].dataset_id

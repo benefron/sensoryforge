@@ -520,8 +520,10 @@ The process builds the `SimulationEngine` once (RF banks loaded once), then for 
    single-channel grid whatever the names; with more than one channel, the world's channel names
    must all be among the grid's `channels` (else a `ValueError` before any entry runs), and the
    frames are `[T, C, H, W]` in the grid's channel order, unnamed planes zero;
-2. sets the entry's noise seed as `simulation.receptor_noise_seed` and the run seed, and replaces each
-   population's `noise_seed`, when set, by `H(noise seed, population index)`;
+2. sets the entry's noise seed as `simulation.receptor_noise_seed` and the run seed, and sets each
+   population's `noise_seed` to `H(noise seed, population index)`, whether or not the design set one
+   (the engine uses it only when that population has noise), so no population's noise is left to
+   the 32-bit run seed;
 3. runs `SimulationEngine.run` with the design manifest and the bundle written to
    `OUT/.partial/<entry>/`, then renames it to `OUT/<entry>/` (a bundle exists complete or not at all);
 4. appends a row to `OUT/index/task_<i>.jsonl` (the single-process run is task 0 of 1):
