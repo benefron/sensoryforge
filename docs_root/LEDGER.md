@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ccdf8d1 · CLOSED · finding · - · 2026-10-02
+a world accepted axis values its fields cannot take (fractional or zero contacts, values outside a field's domain, NaN and infinity, numbers YAML read as text, wrong-typed categories), so a draw's record could disagree with its frames; layered turned contacts 0 into 1
+→ commit af38086
+
 ## D-bed3c30 · CLOSED · decision · - · 2026-10-02
 a world's classes are weighed and iterated in order of their names, so no draw, data-set entry or entry order depends on the order a world file writes its classes, axes or defaults in
 → commit e6bf7f2
