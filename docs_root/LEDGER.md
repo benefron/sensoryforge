@@ -122,6 +122,7 @@ one episode is a quiet lead-in then touch, hold, slide, release, optionally repe
 ## D-37c5247 · CLOSED · decision · - · 2026-10-02
 quiet comes from every draw's lead-in and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with no separate gap mechanism or quiet-fraction target
 → commit e766b8a
+↔ 62dd175 feat(world): deterministic draws, fixed draws and sessions
 
 ## D-cccbd6a · CLOSED · decision · - · 2026-10-02
 the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected)
