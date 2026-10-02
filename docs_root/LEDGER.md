@@ -112,6 +112,7 @@ when there are real new entries.
 a world class is a `layered` layer with random fields (axes bind to its shape, pattern, modulation and episode fields), so a draw is an ordinary layered stimulus and SensoryForge keeps one stimulus language
 → commit e766b8a
 ↔ a926f6c feat(world): counter-based randomness and axis distributions
+↔ 8d4be66 feat(world): world schema with registered class kinds
 
 ## D-99d39b6 · CLOSED · decision · - · 2026-10-02
 one episode is a quiet lead-in then touch, hold, slide, release, optionally repeated as several contacts separated by pauses; motion happens only during slides; temporal frequency is a layer modulation (sine vibration, pulses for repeated indentation)
