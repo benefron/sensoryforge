@@ -21,7 +21,9 @@ from sensoryforge.world.schema import World
 
 Item = Union[Draw, Session]
 
-#: Elements per chunk of one group's ``[g, K, *S]`` output (float64: 64 MB).
+#: Elements in one ``render_group`` call's ``[g, k, *S]`` evaluation (float64:
+#: 64 MB; its intermediates are a small multiple). The full ``[n, K, ...]``
+#: output is not bounded: the caller sizes it by the items and times passed.
 DEFAULT_MAX_ELEMENTS = 2**23
 
 
@@ -116,22 +118,16 @@ def _as_item(item: Any, world: Optional[World]) -> Item:
     )
 
 
-def _jobs(
-    items: Sequence[Item], times: torch.Tensor
-) -> Iterator[Tuple[int, Draw, torch.Tensor]]:
-    """``(row, draw, local times)``: a session becomes one job per draw, windowed."""
-    for row, item in enumerate(items):
-        if isinstance(item, Session):
-            starts = [start for start, _ in item.items] + [item.duration_ms]
-            for j, (start, draw) in enumerate(item.items):
-                stop = min(starts[j + 1], item.duration_ms)
-                window = (times[row] >= start) & (times[row] < stop)
-                local = torch.where(
-                    window, times[row] - start, torch.full_like(times[row], -1.0)
-                )
-                yield row, draw, local
-        else:
-            yield row, item, times[row]
+def _session_windows(
+    session_item: Session, row_times: torch.Tensor
+) -> Iterator[Tuple[Draw, torch.Tensor, torch.Tensor]]:
+    """``(draw, indices, local times)``: each draw's frames inside its window."""
+    starts = [start for start, _ in session_item.items] + [session_item.duration_ms]
+    for j, (start, draw) in enumerate(session_item.items):
+        stop = min(starts[j + 1], session_item.duration_ms)
+        idx = ((row_times >= start) & (row_times < stop)).nonzero().flatten()
+        if idx.numel():
+            yield draw, idx, row_times[idx] - start
 
 
 def _group_key(draw: Draw) -> Tuple[Any, ...]:
@@ -168,7 +164,9 @@ def render(
         dtype: ``torch.float32`` or ``torch.float64``.
         device: ``cpu``, ``cuda`` or ``mps`` (float32 only on MPS).
         world: The world records belong to.
-        max_elements: Chunk budget per group, in output elements.
+        max_elements: Budget for each internal evaluation ``[g, k, *S]``
+            (draws x times x canvas), in elements; the output itself is
+            sized by the items and times passed.
 
     Returns:
         ``[n, K, *S]``, or ``[n, K, C, *S]`` when the world has ``C > 1`` channels.
@@ -205,23 +203,45 @@ def render(
     if n == 0 or k_count == 0:
         return out
 
-    groups: Dict[Tuple[Any, ...], List[Tuple[int, Draw, torch.Tensor]]] = {}
-    for job in _jobs(resolved, times):
-        groups.setdefault(_group_key(job[1]), []).append(job)
     X = canvas.xx.to(device=device, dtype=dtype)
     Y = canvas.yy.to(device=device, dtype=dtype)
-    per_chunk = max(1, int(max_elements) // max(1, k_count * X.numel()))
+    budget = int(max_elements)
+    time_block = min(k_count, max(1, budget // max(1, X.numel())))
+    per_chunk = max(1, budget // (time_block * max(1, X.numel())))
+
+    groups: Dict[Tuple[Any, ...], List[Tuple[int, Draw]]] = {}
+    for row, item in enumerate(resolved):
+        if isinstance(item, Session):
+            # Each draw is rendered only at the frames inside its window.
+            for draw, idx, local in _session_windows(item, times[row]):
+                spec = draw.spec
+                view = out[row, :, channels.index(spec.channel)] if multi else out[row]
+                for k0 in range(0, idx.numel(), time_block):
+                    k1 = k0 + time_block
+                    frames = spec.kind_obj.render_group(
+                        spec,
+                        [draw],
+                        X,
+                        Y,
+                        local[k0:k1].to(device=device, dtype=dtype).unsqueeze(0),
+                    )
+                    view.index_add_(0, idx[k0:k1].to(device), frames[0])
+        else:
+            groups.setdefault(_group_key(item), []).append((row, item))
     for members in groups.values():
         spec = members[0][1].spec
         target = out[:, :, channels.index(spec.channel)] if multi else out
         for start in range(0, len(members), per_chunk):
             chunk = members[start : start + per_chunk]
-            local = torch.stack([m[2] for m in chunk]).to(device=device, dtype=dtype)
-            frames = spec.kind_obj.render_group(
-                spec, [m[1] for m in chunk], X, Y, local
-            )
             rows = torch.tensor([m[0] for m in chunk], device=device)
-            target.index_add_(0, rows, frames)
+            draws = [m[1] for m in chunk]
+            for k0 in range(0, k_count, time_block):
+                k1 = min(k0 + time_block, k_count)
+                local = times[[m[0] for m in chunk], k0:k1].to(
+                    device=device, dtype=dtype
+                )
+                frames = spec.kind_obj.render_group(spec, draws, X, Y, local)
+                target[:, k0:k1].index_add_(0, rows, frames)
     return out
 
 

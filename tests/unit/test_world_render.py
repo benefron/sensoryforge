@@ -232,3 +232,46 @@ def test_canvas_from_a_grid_config_spans_the_stimulus_canvas():
     )
     assert canvas.shape == (8, 8) and canvas.xx.dtype == torch.float64
     assert Canvas.from_points(torch.tensor([[0.0, 0.0], [0.1, 0.2]])).shape == (2,)
+
+
+def _record_render_group(monkeypatch):
+    from sensoryforge.world.kinds import LayeredKind, QuietKind
+
+    calls = []
+    for cls in (LayeredKind, QuietKind):
+        original = cls.render_group
+
+        def wrapped(self, spec, draws, X, Y, times, _orig=original):
+            calls.append((len(draws), times.shape[1], X.numel()))
+            return _orig(self, spec, draws, X, Y, times)
+
+        monkeypatch.setattr(cls, "render_group", wrapped)
+    return calls
+
+
+def test_a_session_evaluates_each_frame_once(monkeypatch):
+    s = session(WORLD, duration_ms=600.0, seed=13)
+    calls = _record_render_group(monkeypatch)
+    frames = render_movie(s, CANVAS, 1.0, 600.0, dtype=torch.float64)
+    assert sum(g * k for g, k, _ in calls) <= 600
+    monkeypatch.undo()
+    for j, (start, draw) in enumerate(s.items):
+        stop = s.items[j + 1][0] if j + 1 < len(s.items) else 600.0
+        ks = [k for k in range(600) if start <= k < stop]
+        if not ks:
+            continue
+        local = torch.tensor([k - start for k in ks], dtype=torch.float64)
+        alone = render([draw], CANVAS, local, dtype=torch.float64)[0]
+        assert torch.equal(frames[ks], alone)
+
+
+def test_no_render_call_exceeds_the_element_budget(monkeypatch):
+    draws = sample(WORLD, n=3, seed=5)
+    times = movie_times(1.0, 300.0)
+    budget = 24 * 24 * 7
+    calls = _record_render_group(monkeypatch)
+    small = render(draws, CANVAS, times, dtype=torch.float64, max_elements=budget)
+    assert calls and all(g * k * n <= budget for g, k, n in calls)
+    monkeypatch.undo()
+    default = render(draws, CANVAS, times, dtype=torch.float64)
+    assert torch.equal(small, default)
