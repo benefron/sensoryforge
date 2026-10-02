@@ -1,0 +1,76 @@
+# A small world for SensoryForge's own tests: every class kind, shape family,
+# motion, modulation and contact pattern the world engine supports, at sizes
+# that fit an 8x8 grid at 0.15 mm (tests/fixtures/design_8x8) and durations
+# short enough to simulate quickly. The values are placeholders, not a
+# survey of natural touch.
+world:
+  name: tactile_small
+  description: a small world for SensoryForge's own tests
+  modality: tactile
+  units: {space: mm, time: ms}
+  defaults:
+    delay_ms:   {range: [0, 20]}
+    touch_ms:   {range: [5, 15]}
+    hold_ms:    {range: [20, 60]}
+    release_ms: {range: [5, 15]}
+    speed_mm_per_ms: {range: [0.005, 0.02], dist: log_uniform}
+    direction_deg:   {range: [0, 360], circular: true}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.3, 0.3]}
+    y_mm: {range: [-0.3, 0.3]}
+  classes:
+    dots:
+      weight: 0.2
+      layer: {shape: {kind: gaussian}}
+      axes: {sigma_mm: {range: [0.15, 0.45]}}
+    edges:
+      weight: 0.15
+      layer: {shape: {kind: bar, profile: gaussian, length_mm: 0}}
+      axes:
+        width_mm: {range: [0.05, 0.15]}
+        orientation_deg: {range: [0, 180], circular: true}
+    braille:
+      weight: 0.15
+      layer:
+        shape: {kind: gaussian, sigma_mm: 0.15}
+        pattern: {kind: braille, dot_spacing_mm: 0.35}
+      axes: {dots: {dist: braille_cells}}
+    sliders:
+      weight: 0.15
+      layer: {shape: {kind: gaussian, sigma_mm: 0.3}}
+      axes: {slide_ms: {range: [20, 40]}, hold_ms: {range: [5, 20]}}
+    orbit:
+      weight: 0.05
+      layer:
+        shape: {kind: gaussian, sigma_mm: 0.25}
+        motion: {kind: circular, radius_mm: 0.2, revolutions: 1}
+      axes: {slide_ms: {range: [20, 40]}}
+    taps:
+      weight: 0.1
+      layer:
+        shape: {kind: disc, diameter_mm: 0.6}
+        modulation: {kind: pulses, duty: 0.5, edge_ms: 2}
+      axes: {rate_hz: {range: [20, 80], dist: log_uniform}}
+    vibes:
+      weight: 0.1
+      layer:
+        shape: {kind: gaussian, sigma_mm: 0.4}
+        modulation: {kind: sine, depth: 0.3}
+      axes: {frequency_hz: {range: [50, 200]}}
+    twice:
+      weight: 0.05
+      layer: {shape: {kind: gaussian, sigma_mm: 0.3}}
+      axes: {contacts: {value: 2}, pause_ms: {range: [5, 15]}}
+    quiet:
+      kind: quiet
+      weight: 0.05
+      axes: {quiet_ms: {range: [20, 60]}}
+  held_out:
+    gratings:
+      layer: {shape: {kind: grating}}
+      axes:
+        wavelength_mm: {range: [0.3, 0.9]}
+        orientation_deg: {range: [0, 180], circular: true}
+  fixed_draws:
+    braille_H: {class: braille, dots: "125", hold_ms: 40, delay_ms: 0}
+    wide_dot: {class: dots, sigma_mm: 1.0}
