@@ -127,6 +127,7 @@ world and data-set files kept the last of a duplicated class or split key silent
 ## D-0fbb84a · CLOSED · decision · - · 2026-10-02
 the batch runner sets every population's noise_seed to seed53(noise, "population", i), whether or not the design set one, so no population's noise hangs on the 32-bit run seed
 → commit aa88bd3
+↔ cfaa775 docs(world): contract, spec, guide and decisions for the final-review fixes
 
 ## F-d55d062 · CLOSED · finding · - · 2026-10-02
 the batch runner rendered entries on the engine's device, so a CUDA run's bundle frames could differ in the last bits from the CPU render of the bundle's own record
@@ -139,6 +140,7 @@ a world accepted axis values its fields cannot take (fractional or zero contacts
 ## D-bed3c30 · CLOSED · decision · - · 2026-10-02
 a world's classes are weighed and iterated in order of their names, so no draw, data-set entry or entry order depends on the order a world file writes its classes, axes or defaults in
 → commit e6bf7f2
+↔ cfaa775 docs(world): contract, spec, guide and decisions for the final-review fixes
 
 ## F-e02e6f6 · STANDING · finding · tests/contract · 2026-10-02
 the world engine passes pressure-simulation's eight contract tests in SensoryForge's env (Python 3.11, torch 2.5.1) and in bio-encoding (Python 3.10, torch 2.2.2)
@@ -147,6 +149,7 @@ the world engine passes pressure-simulation's eight contract tests in SensoryFor
 ## F-202cdd8 · STANDING · finding · - · 2026-10-02
 SimulationEngine.run seeds numpy with its seed argument, which rejects values at or above 2**32, so a 53-bit seed53 cannot be the run seed
 → commit f80d6d4
+↔ cfaa775 docs(world): contract, spec, guide and decisions for the final-review fixes
 
 ## F-4b916ae · CLOSED · finding · - · 2026-10-02
 bundles recorded only sensoryforge_version 1.0.0, never the git sha of the SensoryForge that wrote them, so two bundles from different commits could not be told apart
