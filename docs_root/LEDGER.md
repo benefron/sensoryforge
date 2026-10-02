@@ -123,6 +123,7 @@ quiet comes from every draw's lead-in and tail, a `quiet` class and pauses betwe
 ## D-cccbd6a · CLOSED · decision · - · 2026-10-02
 the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected)
 → commit e766b8a
+↔ 8572d5d docs(world): implementation plan for the world engine
 
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
