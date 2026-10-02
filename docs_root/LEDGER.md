@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-8f0374c · STANDING · finding · - · 2026-10-02
+the world renderer draws pressure-simulation's 4.1 M RA design triples at 40x40 in float64 in 274 s on Apple M3 Pro (6 threads), within the 10-minute target
+→ commit 94e72b6
+
 ## F-963499b · CLOSED · finding · - · 2026-10-02
 sessions evaluated every draw over every session frame (J*K*S work and memory) and long movies ignored the element budget along time
 → commit 0c2854a
