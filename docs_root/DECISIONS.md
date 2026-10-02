@@ -50,82 +50,190 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
-## World engine (2026-10-02)
+## D-46a52e6 · The world engine ships as 1.1.0, tagged on its branch · 2026-10-02
 
-One section for the decisions that made the world engine (v1.1.0). The facts are the ledger
-entries named in each paragraph (commit `e766b8a` for the six decisions, `0c2854a` for the
-rendering fix); the design they come from is
-`docs/development/specs/2026-10-02-world-engine-design.md`, section 2.
+**What was decided.** the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
 
-**D-94c08c7 · A class is a layered layer, not a new vocabulary.** *Decided:* a world class is a
-`layered` layer with random fields, so a draw is an ordinary layered stimulus. *Why:* a draw
-resolves to `Draw.to_layer()`, which the GUI and `sensoryforge run` already take; SensoryForge
-keeps one stimulus language, and every shape, pattern and motion added to layered is available
-to worlds. *Rejected:* a world-specific vocabulary (two languages to keep equal and document)
-and arbitrary registered stimulus types (they have no common time course, so no common episode
-or axes).
-
-**D-99d39b6 · Touch, hold, slide, release, with contacts.** *Decided:* an episode is a quiet
-lead-in, then touch, hold, slide, release, optionally repeated as several contacts separated by
-pauses; motion happens only during slides; temporal frequency is a layer modulation (`sine`,
-`pulses`). *Why:* these are the phases a tactile stimulus has (an indentation, a held contact, a
-drag, a lift), and repeated contacts with pauses give re-touch and tapping without a second
-mechanism. Vibration and repeated indentation multiply the envelope instead of being new
-shapes, so they combine with every shape. Motion only while sliding keeps a held contact still,
-which is what "hold" means.
-
-**D-37c5247 · A session is draws end to end.** *Decided:* quiet comes from every draw's lead-in
-and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with
-no separate gap mechanism or quiet-fraction target. *Why:* the quiet share then follows from the
-world's own declaration and its class weights, and a session needs no parameters beyond a
-duration. A gap mechanism with a target would be a second knob that fights the weights.
-`quiet_fraction` is reported, not set.
-
-**D-cccbd6a · A separate renderer, pinned by tests.** *Decided:* a new `sensoryforge.world`
-package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only
-additive default-off fields; the sweep `BatchExecutor` is untouched. *Why:* the world renderer
-must evaluate thousands of draws at arbitrary times on arbitrary coordinates in float64, which
-`layered`'s frame-by-frame float32 path does not do. *Rejected:* rewriting `layered` on the new
-kernel, which risks last-bit changes to every layered render pressure-simulation's benchmarks
-use, and extending `BatchExecutor`, which brings its timestamped roots, checkpoint races,
-`--device` bug and exit-0-on-failure. The two renderers are held together by
-`tests/unit/test_world_render.py::test_world_render_equals_layered` and
-`tests/unit/test_layered_golden.py` (old layered stimuli render as before).
-
-**Tolerance correction.** The spec first asked for layered equality to 1e-6. It is 1e-5:
-layered keeps time in float32, so its frames differ from the float64 world render by float32
-rounding of the time axis. The test and the contract page say 1e-5.
-
-**D-d3605dd · Both repeat semantics.** *Decided:* data sets offer `repeats` (fresh draws and
-fresh noise per replicate) and `noise_repeats` (the same draws with *k* noise realisations).
-*Why:* they answer different questions: `repeats` enlarges the sample, `noise_repeats` measures
-how much of an error is noise on a fixed stimulus. Entry ids keep them apart (`train/r1/...`,
-`validation/r0/00003.n1`).
-
-**D-46a52e6 · A branch tag, not a merge.** *Decided:* the world engine ships as 1.1.0, tagged
-`v1.1.0` on its branch, with `main` and the `~/sensoryforge` checkout untouched until Ben
-merges. *Why:* pressure-simulation's `bio-encoding` environment runs `~/sensoryforge` as an
-editable install and another session simulates from it; a merge there changes what they import.
-A tag lets pressure-simulation pin a sha and run `tests/contract/test_world_contract.py`
+**Why.** pressure-simulation's `bio-encoding` environment runs `~/sensoryforge` as an editable
+install, and another session simulates from it; a merge into `main` there changes what they import
+mid-work. A tag lets pressure-simulation pin a sha and run `tests/contract/test_world_contract.py`
 against it without touching `main`. Ben merges once pressure-simulation's Phase 1b no longer
 simulates from `~/sensoryforge`.
 
-**Run seed.** The batch runner passes `seed = noise & 0xFFFFFFFF`, the low 32 bits of the
+**What was rejected.** Merging to `main` first (changes a live editable install under a running
+session); shipping unversioned (nothing for pressure-simulation to pin).
+
+**Where it lives.** `pyproject.toml` and `sensoryforge/__init__.py` (`1.1.0`), `CHANGELOG.md`,
+`docs/reference/world_contract.md` ("Getting it"); the tag itself is made by the controller after
+review.
+
+**Ledger id + sha.** D-46a52e6 · `e766b8a`
+
+**Validation pending.** pressure-simulation's Phase 2b installing the tag and running the contract
+tests; the merge to `main`, which is Ben's.
+
+## D-d3605dd · Data sets offer both repeat semantics · 2026-10-02
+
+**What was decided.** data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
+
+**Why.** They answer different questions: `repeats` enlarges the sample, `noise_repeats` measures
+how much of an error is noise on a fixed stimulus. Entry ids keep them apart (`train/r1/...`,
+`validation/r0/00003.n1`).
+
+**What was rejected.** Offering only one of them: with `repeats` alone the noise on a fixed stimulus
+cannot be separated from draw variation; with `noise_repeats` alone a data set cannot grow.
+
+**Where it lives.** `sensoryforge/world/dataset.py` (`SplitSpec.noise_repeats`, `repeats`,
+`build_dataset`); `tests/unit/test_world_dataset.py`.
+
+**Ledger id + sha.** D-d3605dd · `e766b8a`
+
+**Validation pending.** none — settled (the entry ids and seeds are pinned by contract test 5).
+
+## D-cccbd6a · A separate renderer, pinned by tests · 2026-10-02
+
+**What was decided.** the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected)
+
+**Why.** The world renderer must evaluate thousands of draws at arbitrary times on arbitrary
+coordinates in float64, which `layered`'s frame-by-frame float32 path does not do. The two
+renderers are held together by `tests/unit/test_world_render.py::test_world_render_equals_layered`
+and `tests/unit/test_layered_golden.py` (old layered stimuli render as before).
+
+**What was rejected.** Rewriting `layered` on the new kernel: it risks last-bit changes to every
+layered render pressure-simulation's benchmarks use. Extending `BatchExecutor`: it brings its
+timestamped roots, checkpoint races, `--device` bug and exit-0-on-failure.
+
+**Where it lives.** `sensoryforge/world/render.py`, `kernel.py`, `runner.py`;
+`sensoryforge/stimuli/layered.py` and `episode.py`; `.claude/rules/world-engine.md`.
+
+**Ledger id + sha.** D-cccbd6a · `e766b8a`
+
+**Validation pending.** none — settled; the equality tests run in every CI pass.
+
+## D-37c5247 · Quiet comes from the draws; a session is draws end to end · 2026-10-02
+
+**What was decided.** quiet comes from every draw's lead-in and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with no separate gap mechanism or quiet-fraction target
+
+**Why.** The quiet share then follows from the world's own declaration and its class weights, and a
+session needs no parameters beyond a duration. `quiet_fraction` is reported, not set.
+
+**What was rejected.** A gap mechanism with a quiet-fraction target: a second knob that fights the
+class weights.
+
+**Where it lives.** `sensoryforge/world/sampling.py` (`Session`, `session`, `quiet_fraction`),
+`sensoryforge/world/kinds.py` (`QuietKind`); contract test 7.
+
+**Ledger id + sha.** D-37c5247 · `e766b8a`
+
+**Validation pending.** whether pressure-simulation's Phase 2b needs a controllable quiet share;
+if so it is a new decision, not a change to this one.
+
+## D-99d39b6 · An episode is touch, hold, slide, release, with contacts · 2026-10-02
+
+**What was decided.** one episode is a quiet lead-in then touch, hold, slide, release, optionally repeated as several contacts separated by pauses; motion happens only during slides; temporal frequency is a layer modulation (sine vibration, pulses for repeated indentation)
+
+**Why.** These are the phases a tactile stimulus has (an indentation, a held contact, a drag, a
+lift), and repeated contacts with pauses give re-touch and tapping without a second mechanism.
+Vibration and repeated indentation multiply the envelope instead of being new shapes, so they
+combine with every shape. Motion only while sliding keeps a held contact still, which is what
+"hold" means.
+
+**What was rejected.** Vibration and taps as separate shapes (each shape would need its own copy);
+motion over the whole episode (a held contact would drift).
+
+**Where it lives.** `sensoryforge/stimuli/episode.py` (the timing math),
+`sensoryforge/stimuli/layered.py` (`slide_ms`, `contacts`, `pause_ms`, `modulation`),
+`sensoryforge/world/kernel.py`; `tests/unit/test_layered_episode.py`.
+
+**Ledger id + sha.** D-99d39b6 · `e766b8a`
+
+**Validation pending.** none — settled for 1.1.0.
+
+## D-94c08c7 · A world class is a layered layer with random fields · 2026-10-02
+
+**What was decided.** a world class is a `layered` layer with random fields (axes bind to its shape, pattern, modulation and episode fields), so a draw is an ordinary layered stimulus and SensoryForge keeps one stimulus language
+
+**Why.** A draw resolves to `Draw.to_layer()`, which the GUI and `sensoryforge run` already take,
+and every shape, pattern and motion added to layered is available to worlds.
+
+**What was rejected.** A world-specific vocabulary (two languages to keep equal and document), and
+arbitrary registered stimulus types (they have no common time course, so no common episode or
+axes).
+
+**Where it lives.** `sensoryforge/world/schema.py`, `kinds.py` (`LayeredKind`),
+`sampling.py` (`Draw.to_layer`).
+
+**Ledger id + sha.** D-94c08c7 · `e766b8a`
+
+**Validation pending.** none — settled.
+
+## F-963499b · Sessions render per draw, within the memory budget · 2026-10-02
+
+**What was decided.** a session's draws are each evaluated only at the times inside their own
+window, and every internal evaluation `[g, k, *S]` (draws x times x canvas) is bounded by
+`max_elements`, blocked along time as well as over draws. The ledger records this as a finding:
+"sessions evaluated every draw over every session frame (J*K*S work and memory) and long movies
+ignored the element budget along time".
+
+**Why.** Measured: a 10 s session went from about 11 s and 1.5 GB to 0.17 s. The output
+`[n, K, ...]` is still allocated whole and sized by the caller.
+
+**What was rejected.** Leaving sessions as they were with a smaller `max_elements`: it bounds the
+chunk but not the work, which was still draws x frames.
+
+**Where it lives.** `sensoryforge/world/render.py` (`render`, `time_block`/`per_chunk`);
+`docs/reference/world_contract.md` section 4; `tests/unit/test_world_render.py`.
+
+**Ledger id + sha.** F-963499b · `0c2854a`
+
+**Validation pending.** none — settled (the benchmark in `docs/reference/benchmarks.md`, "World
+renderer", records the speed).
+
+## 32-bit run seed, 53-bit noise seeds · 2026-10-02
+
+No ledger id: recorded here only.
+
+**What was decided.** The batch runner passes `seed = noise & 0xFFFFFFFF`, the low 32 bits of the
 entry's noise seed, to `SimulationEngine.run`; the full 53-bit noise seed sets
 `simulation.receptor_noise_seed`, and a design population's `noise_seed` becomes
-`seed53(noise, "population", i)`. *Why:* the engine seeds numpy's legacy global generator, which
-accepts only 32-bit seeds, so the run seed has to be truncated; the receptor and population
-generators take their full seeds from the config. Both are recorded in `config.json`, and
-`test_4_noise_seeds` checks the recorded receptor seed equals the entry's noise seed.
-*Rejected:* shrinking every seed to 32 bits, which would break the 53-bit JSON-safe seeds the
-manifest and the contract use.
+`seed53(noise, "population", i)`.
 
-**Session rendering (F-963499b, fix `0c2854a`).** A session's draws were each evaluated over
-every session frame, so work and memory grew with draws times frames, and long movies ignored
-the element budget along time. Each draw is now evaluated only at the times inside its own
-window, and the budget bounds each `[g, k, *S]` evaluation, so a 10 s session went from about
-11 s and 1.5 GB to 0.17 s. The output `[n, K, ...]` is still allocated whole and sized by the
-caller.
+**Why.** The engine seeds numpy's legacy global generator, which accepts only 32-bit seeds, so the
+run seed has to be truncated; the receptor and population generators take their full seeds from
+the config. Both are recorded in the bundle's `config.json`
+(`config.simulation.receptor_noise_seed`, `config.populations[i].noise_seed`).
+
+**What was rejected.** Shrinking every seed to 32 bits, which would break the 53-bit JSON-safe
+seeds the manifest and the contract use.
+
+**Where it lives.** `sensoryforge/world/runner.py` (`run_dataset`, the `seed=noise & 0xFFFFFFFF`
+line); contract section 6; `test_4_noise_seeds` checks the recorded receptor seed equals the
+entry's noise seed.
+
+**Ledger id + sha.** none · `f80d6d4`
+
+**Validation pending.** whether the engine should one day seed from the full 53 bits (a change to
+its generators; it would change every seeded run).
+
+## Layered equality is 1e-5, not 1e-6 · 2026-10-02
+
+No ledger id: recorded here only.
+
+**What was decided.** The world renderer equals the `layered` render of `draw.to_layer()` to 1e-5.
+The spec first asked for 1e-6.
+
+**Why.** `layered` keeps time in float32, so its frames differ from the float64 world render by
+float32 rounding of the time axis; 1e-6 is below that.
+
+**What was rejected.** Moving `layered` to float64 time to meet 1e-6: it risks last-bit changes to
+every existing layered render (see D-cccbd6a).
+
+**Where it lives.** `tests/unit/test_world_render.py::test_world_render_equals_layered`;
+`docs/reference/world_contract.md` section 8; the implementation plan (commit `8572d5d`).
+
+**Ledger id + sha.** none · `8572d5d`
+
+**Validation pending.** none — settled.
 
 ## D-c5facd5 · RA is a signed level-crossing unit · 2026-09-30
 
