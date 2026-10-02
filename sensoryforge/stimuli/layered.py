@@ -608,7 +608,21 @@ def pattern_positions(
     """
     kind = pattern.get("kind", "single")
     if kind not in PATTERNS:
-        raise ValueError(f"unknown pattern kind {kind!r}; known: {sorted(PATTERNS)}")
+        kernel = _world_kernel()
+        if kind not in kernel.PATTERN_KINDS:
+            raise ValueError(
+                f"unknown pattern kind {kind!r}; known: "
+                f"{sorted(set(PATTERNS) | set(kernel.PATTERN_KINDS))}"
+            )
+        registered = kernel.PATTERN_KINDS[kind]
+        p = {**defaults(registered.specs), **pattern}
+        positions, scales = registered.fn(
+            {k: v for k, v in p.items() if k not in ("kind", "x_mm", "y_mm")}
+        )
+        if registered.placement:
+            dx, dy = float(p.get("x_mm", 0.0)), float(p.get("y_mm", 0.0))
+            positions = [(x + dx, y + dy) for x, y in positions]
+        return list(positions), list(scales)
     p = {**defaults(PATTERNS[kind]), **pattern}
     if kind == "single":
         return [(float(p["x_mm"]), float(p["y_mm"]))], [1.0]
@@ -813,6 +827,30 @@ def _world_kernel():
     return kernel
 
 
+def _shape_kind(kind: str, like: torch.Tensor):
+    """``(fn, specs, unbounded)``: built in, else from the world kernel's registry."""
+    if kind in SHAPES:
+        return _SHAPE_FUNCTIONS[kind], SHAPES[kind], kind in _UNBOUNDED
+    kernel = _world_kernel()
+    if kind not in kernel.SHAPE_KINDS:
+        raise ValueError(
+            f"unknown shape kind {kind!r}; known: "
+            f"{sorted(set(SHAPES) | set(kernel.SHAPE_KINDS))}"
+        )
+    registered = kernel.SHAPE_KINDS[kind]
+
+    def fn(x, y, p):
+        tensors = {
+            k: torch.tensor(float(v), dtype=like.dtype, device=like.device)
+            if _is_number(v)
+            else v
+            for k, v in p.items()
+        }
+        return registered.fn(x, y, tensors)
+
+    return fn, registered.specs, registered.unbounded
+
+
 # ------------------------------------------------------------------- render
 
 
@@ -820,10 +858,8 @@ def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch
     """One layer's frames ``[T, H, W]``."""
     shape = layer.get("shape") or {"kind": "gaussian"}
     kind = shape.get("kind", "gaussian")
-    if kind not in SHAPES:
-        raise ValueError(f"unknown shape kind {kind!r}; known: {sorted(SHAPES)}")
-    params = {**defaults(SHAPES[kind]), **shape}
-    fn = _SHAPE_FUNCTIONS[kind]
+    fn, specs, unbounded = _shape_kind(kind, xx)
+    params = {**defaults(specs), **shape}
     amplitude = float(params["amplitude"])
     positions, scales = pattern_positions(layer.get("pattern") or {"kind": "single"})
     envelope = layer_envelope(layer.get("timing"), time_ms, run_ms)
@@ -835,7 +871,7 @@ def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch
     offsets = motion_offsets(layer.get("motion"), layer.get("timing"), time_ms, run_ms)
 
     def draw(dx: float, dy: float) -> torch.Tensor:
-        if kind in _UNBOUNDED:
+        if unbounded:
             return fn(xx - dx, yy - dy, params)
         frame = torch.zeros_like(xx)
         for (px, py), scale in zip(positions, scales):
