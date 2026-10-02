@@ -25,7 +25,7 @@
 # Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md, and a superseded
 # decision's prose section there gets its back-link — once, when the supersession is applied.
 #
-# ledger-template-version: 9
+# ledger-template-version: 10
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

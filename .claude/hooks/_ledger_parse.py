@@ -46,7 +46,7 @@ every clone and branch, so two machines or two branches can never hand out one i
 rebase or squash-merge leaves the id intact. Legacy sequential ids (`F-014`) are still parsed
 everywhere and never renumbered.
 
-ledger-template-version: 9
+ledger-template-version: 10
 """
 import datetime
 import hashlib
@@ -358,19 +358,29 @@ def match_record_section(text, eid, entry_txt):
     """The prose section of a decisions record that records entry `eid` -> dict(start, end,
     heading, by_text), or None.
 
-    A section matches when it names the id as a token, or contains the first ~60 normalised
-    characters of the entry's text (sections quote the ledger line). Lines that point at other
-    decisions (`**Superseded by:** …`, `**Supersedes:** …`) are not evidence. Of several matches:
-    the one with the text, then the one naming the id in its heading, then the earliest.
+    A section records an entry when it contains the first ~60 normalised characters of the
+    entry's text (sections quote the ledger line), names the id in its heading or in a bold
+    `**Decided (…)**` / `**Decision (…)**` label, or pairs the id with a commit sha
+    (`D-056 · \\`c0f21ce\\``, `D-036 · commit \\`5e54ad9\\``, as the record's "Ledger id + sha"
+    line does). A section that only mentions the id in its prose ("the cache D-022 called
+    for", "Related: D-031") is about another decision and never matches: in a real record, 12
+    of the 16 sections that matched a live decision by id alone were such mentions. Lines that
+    point at other decisions (`**Superseded by:** …`, `**Supersedes:** …`) are not evidence.
+    Of several matches: the one with the text, then the id in its heading, then the id paired
+    with a sha (a label can name another register's id: "Decided (the other repo's D-037 …)"), then
+    the earliest.
     """
     tok, key = id_token(eid), text_key(entry_txt)
+    paired = re.compile(tok.pattern + r'\s*·\s*(?:commit\s+)?`?[0-9a-f]{7,40}\b')
+    label = re.compile(r'(?m)^\s*\*\*(?:Decided|Decision)\b[^*\n]*?' + tok.pattern + r'[^*\n]*\*\*')
     best = None
     for i, (start, end, head) in enumerate(record_sections(text)):
         body = '\n'.join(l for l in text[start:end].splitlines() if not _RELATION_LINE.match(l))
         by_text = bool(key) and key in norm_prose(body)
-        if not (by_text or tok.search(body)):
+        by_sha = bool(paired.search(body))
+        if not (by_text or tok.search(head) or by_sha or label.search(body)):
             continue
-        rank = (by_text, bool(tok.search(head)), -i)
+        rank = (by_text, bool(tok.search(head)), by_sha, -i)
         if best is None or rank > best[0]:
             best = (rank, dict(start=start, end=end, heading=head, by_text=by_text))
     return best[1] if best else None

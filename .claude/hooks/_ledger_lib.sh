@@ -5,7 +5,7 @@
 # per-repo hooks keep working on a clone that has never seen this skill. Keep it small,
 # dependency-free (git + coreutils only), and safe to source from any shell.
 #
-# ledger-template-version: 9
+# ledger-template-version: 10
 
 # Python reads stdin, stdout and git's output as UTF-8 on every platform. Without this, Python on
 # Windows decodes with the local code page and writes mojibake into the ledger ("—" -> "â€”").
@@ -327,6 +327,7 @@ ll_changes_since() {
 # ll_version_changes <version>  ->  one line naming what that version added
 ll_version_changes() {
   case "$1" in
+    10) printf '%s\n' "a superseded decision's back-link goes only into the section that records it — one that quotes its text, names its id in its heading or a **Decided** label, or pairs the id with its sha — never into a section that merely mentions the id" ;;
     9) printf '%s\n' "a superseded decision's section in the decisions record gets a **Superseded by:** back-link from the sync, in the commit that supersedes it, and the tidy report lists superseded decisions whose section still has none" ;;
     8) printf '%s\n' "the tidy report counts re-proposals caught: commits the gate refused for re-adopting a retired or rejected approach or restating a live entry, and dead ends recall surfaced that Claude then cited" ;;
     7) printf '%s\n' "UTF-8 everywhere: on Windows the merge driver and the sync no longer write mojibake into the ledger (git output, stdin and stdout are read as UTF-8)" ;;

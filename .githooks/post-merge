@@ -5,7 +5,7 @@
 # it only SAYS so. The next commit's post-commit records them (the ledger is derived from
 # history, nothing is lost), and the session digest shows them meanwhile.
 #
-# ledger-template-version: 9
+# ledger-template-version: 10
 export PYTHONUTF8=1   # UTF-8 for Python on every platform (Windows defaults to its code page)
 set -u
 [ -n "${LEDGER_SYNC_IN_PROGRESS:-}" ] && exit 0
