@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-4b916ae · CLOSED · finding · - · 2026-10-02
+bundles recorded only sensoryforge_version 1.0.0, never the git sha of the SensoryForge that wrote them, so two bundles from different commits could not be told apart
+→ commit 48a5648
+
 ## F-8f0374c · STANDING · finding · - · 2026-10-02
 the world renderer draws pressure-simulation's 4.1 M RA design triples at 40x40 in float64 in 274 s on Apple M3 Pro (6 threads), within the 10-minute target
 → commit 94e72b6
