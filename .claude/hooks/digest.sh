@@ -10,7 +10,7 @@
 # ledger's size; the full file is grep-only. Overdue items come first, then open items in the
 # area being worked on (paths touched in the last 10 commits + the working tree).
 #
-# ledger-template-version: 8
+# ledger-template-version: 9
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

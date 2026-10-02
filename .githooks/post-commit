@@ -10,7 +10,7 @@
 # re-entered hook returns immediately) and carries no trailers of its own (so a later
 # sync produces no change from it).
 #
-# ledger-template-version: 8
+# ledger-template-version: 9
 export PYTHONUTF8=1   # UTF-8 for Python on every platform (Windows defaults to its code page)
 set -u
 
@@ -32,8 +32,9 @@ done
 SYNC="$ROOT/.claude/hooks/ledger-sync.sh"
 [ -f "$SYNC" ] || exit 0
 
-# 3. the two files the sync may write: the ledger (level 1) and the decisions log
-#    (level 2). Both are auto-committed together, and nothing else ever is.
+# 3. the two files the sync may write: the ledger (level 1) and the decisions record (level 2:
+#    its log, and back-links on superseded sections). Both are auto-committed together, and
+#    nothing else ever is.
 CONF="$ROOT/.claude/ledger.conf"
 LEDGER_REL=""
 DEC_REL=""

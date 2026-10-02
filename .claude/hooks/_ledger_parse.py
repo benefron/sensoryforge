@@ -46,7 +46,7 @@ every clone and branch, so two machines or two branches can never hand out one i
 rebase or squash-merge leaves the id intact. Legacy sequential ids (`F-014`) are still parsed
 everywhere and never renumbered.
 
-ledger-template-version: 8
+ledger-template-version: 9
 """
 import datetime
 import hashlib
@@ -273,6 +273,129 @@ def entry_due(e):
 
 def entry_pinned(e):
     return any(l == '· Pinned' for l in e['lines'])
+
+
+def entry_successors(e):
+    """-> (successor ids, sha) from the entry's newest `⤳ superseded by D-a, D-b in <sha> …` line;
+    ([], sha) for a bare `⤳ superseded in <sha>`, ([], '') when it was never superseded."""
+    for l in reversed(e['lines']):
+        m = re.match(r'^⤳ superseded(?: by (.*?))? in ([0-9a-f]{4,})\b', l)
+        if m:
+            return ID_RE.findall(m.group(1) or ''), m.group(2)
+    return [], ''
+
+
+# --- the decisions record (level 2): its prose sections, and back-links into them -------------
+# The record keeps one prose section per decision (by convention its heading or body names the
+# id, and it quotes the ledger line verbatim) above or below an auto-appended log. When a
+# decision is superseded, its section gains `**Superseded by:** …` — the sync writes it, the tidy
+# report lists sections still missing it. Both find the section with match_record_section.
+
+DEC_LOG_START, DEC_LOG_END = '<!-- DECISIONS_LOG_START -->', '<!-- DECISIONS_LOG_END -->'
+_MD_HEAD = re.compile(r'^(#{1,6})[ \t]+\S')
+_MD_FENCE = re.compile(r'^[ \t]*(```|~~~)')
+# lines that point at OTHER decisions: never evidence that a section records this one
+_RELATION_LINE = re.compile(r'^[\s>*_-]*(superseded by|supersedes)\b', re.I)
+_TRAILING = re.compile(r'^\s*$|^\s*([-*_])(\s*\1){2,}\s*$|^\s*<!--.*-->\s*$')
+_QUOTES = str.maketrans({'‘': "'", '’': "'", '‚': "'", '‛': "'",
+                         '“': '"', '”': '"', '„': '"', '‟': '"',
+                         '—': '-', '–': '-'})
+
+
+def norm_prose(text):
+    """Text as compared between the ledger and the record: straight quotes and dashes, no `*`
+    or backtick markup, whitespace collapsed, lower case."""
+    t = re.sub(r'[*`]', '', text.translate(_QUOTES))
+    return ' '.join(re.sub(r'-{2,}', '-', t).split()).lower()
+
+
+def record_sections(text):
+    """The prose sections of a decisions record -> [(start, end, heading line)], as offsets.
+
+    A section starts at a `## ` or `### ` heading and runs to the next heading of level 1-3 (a
+    `####` sub-part stays inside it), the log start marker, or the end of the file. The log
+    (between the markers, and the header rows of a log table just above them) is never part of
+    one; a heading inside a fenced code block is not one.
+    """
+    out, cur, pos, fence, in_log, table = [], None, 0, False, False, None
+    for raw in text.splitlines(True):
+        line = raw.rstrip('\r\n')
+        start, pos = pos, pos + len(raw)
+        if in_log:
+            in_log = DEC_LOG_END not in line
+            continue
+        m = None if fence or _MD_FENCE.match(line) else _MD_HEAD.match(line)
+        if DEC_LOG_START in line or (m and len(m.group(1)) <= 3):
+            if cur:
+                end = table if DEC_LOG_START in line and table is not None else start
+                out.append((cur[0], end, cur[1]))
+                cur = None
+            if DEC_LOG_START in line:
+                in_log = DEC_LOG_END not in line.split(DEC_LOG_START, 1)[1]
+            elif len(m.group(1)) >= 2:
+                cur = (start, line)
+        if _MD_FENCE.match(line):
+            fence = not fence
+        table = (start if table is None else table) if line.lstrip().startswith('|') else None
+    if cur:
+        out.append((cur[0], len(text), cur[1]))
+    return out
+
+
+def id_token(eid):
+    """A regex for the id as a whole token: `D-040`, `(P5, D-040)`, `D-040 ·` — not `D-0401`."""
+    return re.compile(r'(?<![\w-])' + re.escape(eid) + r'(?![\w-])')
+
+
+def text_key(entry_txt):
+    """The first ~60 normalised characters of an entry's text: how a section that quotes the
+    ledger line is recognised. '' when the text is too short to match on its own."""
+    k = norm_prose(entry_txt)[:60]
+    return k if len(k) >= 16 else ''
+
+
+def match_record_section(text, eid, entry_txt):
+    """The prose section of a decisions record that records entry `eid` -> dict(start, end,
+    heading, by_text), or None.
+
+    A section matches when it names the id as a token, or contains the first ~60 normalised
+    characters of the entry's text (sections quote the ledger line). Lines that point at other
+    decisions (`**Superseded by:** …`, `**Supersedes:** …`) are not evidence. Of several matches:
+    the one with the text, then the one naming the id in its heading, then the earliest.
+    """
+    tok, key = id_token(eid), text_key(entry_txt)
+    best = None
+    for i, (start, end, head) in enumerate(record_sections(text)):
+        body = '\n'.join(l for l in text[start:end].splitlines() if not _RELATION_LINE.match(l))
+        by_text = bool(key) and key in norm_prose(body)
+        if not (by_text or tok.search(body)):
+            continue
+        rank = (by_text, bool(tok.search(head)), -i)
+        if best is None or rank > best[0]:
+            best = (rank, dict(start=start, end=end, heading=head, by_text=by_text))
+    return best[1] if best else None
+
+
+def section_names(body, ids, texts):
+    """Does a section already name one of these entries — by id, or by its quoted text?"""
+    keys = [k for k in (text_key(t) for t in texts) if k]
+    norm = norm_prose(body)
+    return any(id_token(i).search(body) for i in ids) or any(k in norm for k in keys)
+
+
+def append_to_section(text, sec, line):
+    """Add `line` as the last paragraph of a section (one blank line before it). Trailing blank
+    lines, horizontal rules and HTML comments stay after it, so it never lands below the rule
+    that closes the section or inside what follows."""
+    lines = text[sec['start']:sec['end']].splitlines(True)
+    n = len(lines)
+    while n > 1 and _TRAILING.match(lines[n - 1]):
+        n -= 1
+    at = sec['start'] + sum(len(l) for l in lines[:n])
+    before = text[:at]
+    tail = '' if before.endswith('\n') else '\n'
+    after = text[at:]
+    return before + tail + '\n' + line + '\n' + ('' if after.startswith('\n') or not after else '\n') + after
 
 
 # --- rendering helpers ----------------------------------------------------------
@@ -1074,6 +1197,28 @@ def tidy_report(ledger, root, max_open=22):
         if not prose:
             thin.append(line(e, 'no reasoning in its commit body or DECISIONS.md', 'add a DECISIONS.md section, or accept as self-evident'))
     section('Decisions with no written reasoning', thin, cap=15)
+
+    # 6a. superseded decisions whose prose section still reads as current: the sync writes the
+    # back-link when it applies a Supersedes:, but not for sections written after that, sections
+    # the matcher missed then, or supersessions recorded before template v9
+    by_id = {e['id']: e for e in entries}
+    unlinked = []
+    for e in entries:
+        if e['type'] != 'decision' or e['status'] != 'SUPERSEDED' or not dec_text:
+            continue
+        sec = match_record_section(dec_text, e['id'], entry_text(e))
+        if not sec:
+            continue
+        body = dec_text[sec['start']:sec['end']]
+        succ, sha = entry_successors(e)
+        if re.search(r'(?i)superseded by', body) or (succ and section_names(
+                body, succ, [entry_text(by_id[i]) for i in succ if i in by_id])):
+            continue
+        name = ', '.join(succ) or (f'commit {sha}' if sha else '<what replaced it>')
+        unlinked.append(line(e, f'superseded by {name}; its section "{sec["heading"].lstrip("# ")[:50]}" '
+                                f'still reads as current',
+                             f'add "**Superseded by:** {name}" to its section in {dec_rel}', width=70))
+    section('Superseded decisions whose record section has no back-link', unlinked)
 
     # 6b. the paper's `lore stale`, and decisions taken on low confidence
     section('Directives and constraints whose code changed a lot since', stale_directives(root, ledger), cap=15)

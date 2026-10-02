@@ -9,7 +9,9 @@
 #                           `✓ closed by <sha>` line; a decision, retired framing or note never
 #                           closes — the gate refuses it; past the gate, it gets a
 #                           `· not closed by <sha>` line, reported once (close_refusal)
-#   Supersedes: D-x      -> D-x becomes SUPERSEDED, with `⤳ superseded by <new id>`
+#   Supersedes: D-x      -> D-x becomes SUPERSEDED, with `⤳ superseded by <new id>`; if D-x is a
+#                           decision and the decisions record has a section for it, that section
+#                           gains `**Superseded by:** <new id> (<date>, <sha>) — <its text>`
 #   Refs: F-x, D-y       -> a `↔ <sha> <subject>` backlink on each
 #   Due: Owner: Area: Pin: Date:                 -> modifiers of the entry trailer above them
 #   Rejected: Constraint: Directive: …           -> Lore trailers, recorded into that entry
@@ -20,9 +22,10 @@
 # from the same history, and a second run changes nothing. Each change is applied once: a closing
 # commit leaves its sha on the entry, so a hand re-open is never undone by a re-scan.
 #
-# Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md.
+# Decision:/Retires: rows are also appended to the level-2 log in DECISIONS.md, and a superseded
+# decision's prose section there gets its back-link — once, when the supersession is applied.
 #
-# ledger-template-version: 8
+# ledger-template-version: 9
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -60,7 +63,8 @@ sys.path.insert(0, sys.argv[4])
 from _ledger_parse import (ID_RE, HDR, ENTRIES_MARKER, KINDS, RELATE_KEYS, MODIFIER_KEYS,
                            LORE_KEYS, hash_id, norm_text, is_legacy, trailer_lines, parse_blocks,
                            split_ledger, entry_text, entry_commit, supersede_ids, insert_by_date,
-                           external_prefixes, close_refusal)
+                           external_prefixes, close_refusal, match_record_section, section_names,
+                           append_to_section)
 
 LEDGER, RANGE, MAX, _, DECISIONS, LEDGER_REL, DECISIONS_REL, REPO = sys.argv[1:9]
 EXT = external_prefixes(REPO)
@@ -219,6 +223,7 @@ def edit_block(text, eid, status_from, status_to, line, applied):
 
 
 seen = set()
+superseded = []   # (id, sha, subject, successor ids): supersessions THIS run applied to the ledger
 for kind, tid, sha, subject, extra in closes:
     if (kind, tid, sha) in seen:
         continue
@@ -249,9 +254,12 @@ for kind, tid, sha, subject, extra in closes:
                               lambda l, h=sha: l.startswith(f'✓ closed by {h}'))
     else:
         what = f'superseded by {extra}' if extra else 'superseded'
+        before = s
         s, found = edit_block(s, tid, ('OPEN', 'CLOSED', 'STANDING'), 'SUPERSEDED',
                               f'⤳ {what} in {sha} {subj}'.rstrip(),
                               lambda l, h=sha: l.startswith('⤳ ') and f' in {h}' in l)
+        if s != before:
+            superseded.append((tid, sha, subject, ID_RE.findall(extra)))
     if not found:
         sys.stderr.write(f'living-ledger: {kind} {tid} in {sha} names no ledger entry — ignored.\n')
 
@@ -261,14 +269,46 @@ s = re.sub(r'\n{3,}', '\n\n', s)
 if s != orig:
     io.open(LEDGER, 'w', encoding='utf-8', newline='\n').write(s)
 
-# --- level 2: append the dated fact to the decisions log --------------------------
-if log_rows and DECISIONS:
-    START, END = '<!-- DECISIONS_LOG_START -->', '<!-- DECISIONS_LOG_END -->'
+# --- level 2: the decisions record ------------------------------------------------
+# (a) a superseded decision's prose section gains a back-link, so it stops reading as current.
+#     Only for supersessions this run applied (the `⤳` line it just wrote): each change is made
+#     once, so a back-link removed by hand stays removed. Skipped when the section already names
+#     the successor (a back-link written by hand, or a planned-then-enacted section that already
+#     describes the survivor), when the entry is not a decision, or when no section records it —
+#     the tidy report lists the superseded decisions still missing one.
+# (b) the dated fact of each new decision is appended to the log. Nothing is written between
+#     the log markers except (b).
+date_of = {c[0]: c[1] for c in commits}
+if DECISIONS and (log_rows or superseded):
     try:
         d = io.open(DECISIONS, encoding='utf-8').read()
     except OSError:
         d = ''
-    if START in d and END in d:
+    d0 = d
+    by_id = {e['id']: e for e in parse_blocks(split_ledger(s)[1]) if e['id']}
+    short = lambda t, n=120: (lambda t: t if len(t) <= n else t[:n - 1].rstrip() + '…')(' '.join(t.split()))
+    for tid, sha, subject, succ in superseded:
+        x = by_id.get(tid)
+        if not x or x['type'] != 'decision':
+            continue
+        sec = match_record_section(d, tid, entry_text(x))
+        if not sec:
+            continue
+        body = d[sec['start']:sec['end']]
+        texts = [entry_text(by_id[i]) for i in succ if i in by_id]
+        if succ:
+            if section_names(body, succ, texts):
+                continue
+            line = (f"**Superseded by:** {', '.join(succ)} ({date_of.get(sha, '')}, {sha}) — "
+                    f"{short('; '.join(t for t in texts if t))}").rstrip(' —')
+        else:                                   # replaced by no decision: point at the commit
+            if re.search(rf'(?im)^\W*superseded by\b.*\b{re.escape(sha)}', body):
+                continue
+            line = f"**Superseded by:** commit {sha} ({date_of.get(sha, '')}) — {short(subject)}".rstrip(' —')
+        d = append_to_section(d, sec, line)
+
+    START, END = '<!-- DECISIONS_LOG_START -->', '<!-- DECISIONS_LOG_END -->'
+    if log_rows and START in d and END in d:
         head, _, rest = d.partition(START)
         rows, _, tail = rest.partition(END)
         added = []
@@ -283,6 +323,8 @@ if log_rows and DECISIONS:
                 added.append(f'| {date} | {eid} | {text.replace("|", chr(92) + "|").strip()} | `{sha}` |')
         if added:
             rows = '\n' + rows.strip('\n') + ('\n' if rows.strip('\n') else '') + '\n'.join(added) + '\n'
-            io.open(DECISIONS, 'w', encoding='utf-8', newline='\n').write(head + START + rows + END + tail)
+            d = head + START + rows + END + tail
+    if d != d0:
+        io.open(DECISIONS, 'w', encoding='utf-8', newline='\n').write(d)
 PY
 exit 0
