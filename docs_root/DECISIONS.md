@@ -50,6 +50,83 @@ And on the section it replaces, add one line — nothing else changes:
 <!-- newest first; written by hand -->
 <!-- SECTIONS_START -->
 
+## World engine (2026-10-02)
+
+One section for the decisions that made the world engine (v1.1.0). The facts are the ledger
+entries named in each paragraph (commit `e766b8a` for the six decisions, `0c2854a` for the
+rendering fix); the design they come from is
+`docs/development/specs/2026-10-02-world-engine-design.md`, section 2.
+
+**D-94c08c7 · A class is a layered layer, not a new vocabulary.** *Decided:* a world class is a
+`layered` layer with random fields, so a draw is an ordinary layered stimulus. *Why:* a draw
+resolves to `Draw.to_layer()`, which the GUI and `sensoryforge run` already take; SensoryForge
+keeps one stimulus language, and every shape, pattern and motion added to layered is available
+to worlds. *Rejected:* a world-specific vocabulary (two languages to keep equal and document)
+and arbitrary registered stimulus types (they have no common time course, so no common episode
+or axes).
+
+**D-99d39b6 · Touch, hold, slide, release, with contacts.** *Decided:* an episode is a quiet
+lead-in, then touch, hold, slide, release, optionally repeated as several contacts separated by
+pauses; motion happens only during slides; temporal frequency is a layer modulation (`sine`,
+`pulses`). *Why:* these are the phases a tactile stimulus has (an indentation, a held contact, a
+drag, a lift), and repeated contacts with pauses give re-touch and tapping without a second
+mechanism. Vibration and repeated indentation multiply the envelope instead of being new
+shapes, so they combine with every shape. Motion only while sliding keeps a held contact still,
+which is what "hold" means.
+
+**D-37c5247 · A session is draws end to end.** *Decided:* quiet comes from every draw's lead-in
+and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with
+no separate gap mechanism or quiet-fraction target. *Why:* the quiet share then follows from the
+world's own declaration and its class weights, and a session needs no parameters beyond a
+duration. A gap mechanism with a target would be a second knob that fights the weights.
+`quiet_fraction` is reported, not set.
+
+**D-cccbd6a · A separate renderer, pinned by tests.** *Decided:* a new `sensoryforge.world`
+package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only
+additive default-off fields; the sweep `BatchExecutor` is untouched. *Why:* the world renderer
+must evaluate thousands of draws at arbitrary times on arbitrary coordinates in float64, which
+`layered`'s frame-by-frame float32 path does not do. *Rejected:* rewriting `layered` on the new
+kernel, which risks last-bit changes to every layered render pressure-simulation's benchmarks
+use, and extending `BatchExecutor`, which brings its timestamped roots, checkpoint races,
+`--device` bug and exit-0-on-failure. The two renderers are held together by
+`tests/unit/test_world_render.py::test_world_render_equals_layered` and
+`tests/unit/test_layered_golden.py` (old layered stimuli render as before).
+
+**Tolerance correction.** The spec first asked for layered equality to 1e-6. It is 1e-5:
+layered keeps time in float32, so its frames differ from the float64 world render by float32
+rounding of the time axis. The test and the contract page say 1e-5.
+
+**D-d3605dd · Both repeat semantics.** *Decided:* data sets offer `repeats` (fresh draws and
+fresh noise per replicate) and `noise_repeats` (the same draws with *k* noise realisations).
+*Why:* they answer different questions: `repeats` enlarges the sample, `noise_repeats` measures
+how much of an error is noise on a fixed stimulus. Entry ids keep them apart (`train/r1/...`,
+`validation/r0/00003.n1`).
+
+**D-46a52e6 · A branch tag, not a merge.** *Decided:* the world engine ships as 1.1.0, tagged
+`v1.1.0` on its branch, with `main` and the `~/sensoryforge` checkout untouched until Ben
+merges. *Why:* pressure-simulation's `bio-encoding` environment runs `~/sensoryforge` as an
+editable install and another session simulates from it; a merge there changes what they import.
+A tag lets pressure-simulation pin a sha and run `tests/contract/test_world_contract.py`
+against it without touching `main`. Ben merges once pressure-simulation's Phase 1b no longer
+simulates from `~/sensoryforge`.
+
+**Run seed.** The batch runner passes `seed = noise & 0xFFFFFFFF`, the low 32 bits of the
+entry's noise seed, to `SimulationEngine.run`; the full 53-bit noise seed sets
+`simulation.receptor_noise_seed`, and a design population's `noise_seed` becomes
+`seed53(noise, "population", i)`. *Why:* the engine seeds numpy's legacy global generator, which
+accepts only 32-bit seeds, so the run seed has to be truncated; the receptor and population
+generators take their full seeds from the config. Both are recorded in `config.json`, and
+`test_4_noise_seeds` checks the recorded receptor seed equals the entry's noise seed.
+*Rejected:* shrinking every seed to 32 bits, which would break the 53-bit JSON-safe seeds the
+manifest and the contract use.
+
+**Session rendering (F-963499b, fix `0c2854a`).** A session's draws were each evaluated over
+every session frame, so work and memory grew with draws times frames, and long movies ignored
+the element budget along time. Each draw is now evaluated only at the times inside its own
+window, and the budget bounds each `[g, k, *S]` evaluation, so a 10 s session went from about
+11 s and 1.5 GB to 0.17 s. The output `[n, K, ...]` is still allocated whole and sized by the
+caller.
+
 ## D-c5facd5 · RA is a signed level-crossing unit · 2026-09-30
 
 **What was decided.** RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)

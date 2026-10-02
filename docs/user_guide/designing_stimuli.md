@@ -38,6 +38,55 @@ stimulus:
 A braille cell can also be drawn by hand with a `grid` pattern of 3 rows × 2 columns and
 a `mask` such as `"10 10 01"` (row by row, top to bottom).
 
+## Slides, repeated contacts and vibration
+
+A layer's timing and a layer's `modulation` can describe more than one press. Every field
+below defaults off, and a stimulus that does not use them renders exactly as before
+(`tests/unit/test_layered_golden.py` pins this). The examples follow
+`tests/unit/test_layered_episode.py`.
+
+**A slide.** `timing.slide_ms` adds a stretch after the hold during which the pattern moves,
+when the motion has `span: slide`. The contact then ramps down.
+
+```yaml
+- shape:   {kind: gaussian, sigma_mm: 0.3}
+  motion:  {kind: linear, start: [0, 0], end: [2, 0], span: slide}
+  timing:  {onset_ms: 0, ramp_up_ms: 0, hold_ms: 20, slide_ms: 20, ramp_down_ms: 0}
+```
+
+**Repeated contacts.** `timing.contacts` repeats the touch, hold, slide and release,
+`pause_ms` apart (the pause is exactly zero). Motion is spread over all the contacts, so each
+re-touch starts where the last one ended. `contacts` above 1 needs an explicit `hold_ms`.
+
+```yaml
+- shape:   {kind: gaussian, sigma_mm: 0.3}
+  motion:  {kind: linear, start: [0, 0], end: [2, 0], span: slide}
+  timing:  {onset_ms: 0, ramp_up_ms: 0, hold_ms: 10, slide_ms: 10, ramp_down_ms: 0,
+           contacts: 2, pause_ms: 10}
+```
+
+**Vibration and taps.** `modulation` multiplies the envelope, counted from each touch:
+`{kind: sine, frequency_hz, depth, phase_deg}` swings the amplitude between 1 and 1 − depth,
+and `{kind: pulses, rate_hz, duty, edge_ms, depth}` repeats indentation.
+
+```yaml
+- shape:      {kind: gaussian, sigma_mm: 0.5}
+  modulation: {kind: sine, frequency_hz: 50, depth: 0.5}
+  timing:     {onset_ms: 0, ramp_up_ms: 0, hold_ms: 100, ramp_down_ms: 0}
+- shape:      {kind: disc, diameter_mm: 0.6}
+  modulation: {kind: pulses, rate_hz: 50, duty: 0.5, edge_ms: 2}
+  timing:     {onset_ms: 0, ramp_up_ms: 0, hold_ms: 100, ramp_down_ms: 0}
+```
+
+**Braille by dots.** A `braille` pattern takes `dots: "125 14"`, cells separated by spaces,
+each a string of dot numbers 1 to 6 (1 to 3 down the left column, 4 to 6 down the right), as
+an alternative to `text`.
+
+**Signed carriers.** `signed: true` on a `grating` or `gabor` shape uses `cos` in place of
+the raised cosine `(1 + cos) / 2`, so the lobes between the stripes are negative.
+
+Worlds draw these fields from ranges, see [Worlds and data sets](worlds.md).
+
 ## In the GUI
 
 On the **Stimulus** screen choose the type **layered**. The layer list has Add,

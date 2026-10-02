@@ -21,9 +21,9 @@ A layer may also carry a **modulation** -- ``none``, ``sine`` (vibration) or
 timing may add a ``slide_ms`` (motion span ``slide``), several ``contacts``
 and the ``pause_ms`` between them. All default off.
 
-Every value is non-negative: shapes are pressures in ``[0, amplitude]`` (the
-grating and Gabor use a raised cosine, not a signed one). Coordinates are
-``(x, y)`` in mm, times in ms, as everywhere in SensoryForge.
+Shapes are non-negative pressures in ``[0, amplitude]`` unless ``signed: true``
+(grating, gabor), which uses the signed cosine in place of the raised cosine.
+Coordinates are ``(x, y)`` in mm, times in ms, as everywhere in SensoryForge.
 
 Config form (``StimulusConfig`` with ``type: layered``)::
 
@@ -841,9 +841,11 @@ def _shape_kind(kind: str, like: torch.Tensor):
 
     def fn(x, y, p):
         tensors = {
-            k: torch.tensor(float(v), dtype=like.dtype, device=like.device)
-            if _is_number(v)
-            else v
+            k: (
+                torch.tensor(float(v), dtype=like.dtype, device=like.device)
+                if _is_number(v)
+                else v
+            )
             for k, v in p.items()
         }
         return registered.fn(x, y, tensors)

@@ -106,6 +106,22 @@ state variable's name) in place of the spike raster for such a population. Spiki
 
 Every population's receptive fields are one `ReceptiveFieldBank` (`core/rf_bank.py`: buffers `weights [N, M]`, `neuron_centers [N, 2]`, `receptor_coords [M, 2]`, a `provenance` dict; `save()`/`load()` as `.pt`). Banks are built by registered builders — `BaseInnervation` subclasses in `INNERVATION_REGISTRY` whose `build()` returns a bank — through one function, `innervation.build_population_bank()`, used by `SimulationEngine`, the three legacy pipelines and the GUI. `template` (`core/rf_builders/template.py`, D-020: sigma = d/pi, pitch = d, derived neuron count) and `imported` (`rf_builders/imported.py`) derive their own neuron centres (`DERIVES_NEURON_CENTERS = True`). `PopulationConfig.innervation_params` is merged last into the builder parameters; `BaseInnervation.filter_params()` keeps the keys each builder takes. `SimulationEngine.builder_params()` passes `max_sigma_distance=0` on the grid path (that path never had a cutoff; gaussian weights are bit-identical to earlier releases, pinned by `tests/fixtures/rf_engine_golden_weights.pt`). `InnervationModule`/`FlatInnervationModule` are deprecated wrappers over a bank (removal in Phase 4). See `docs/user_guide/receptive_fields.md` and `docs/developer_guide/add_rf_builder.md`.
 
+### Worlds and data sets (v1.1.0)
+
+`sensoryforge/world/` declares stimulus **worlds** (`world:` YAML: classes of layered
+stimuli whose fields are drawn from axes), samples them deterministically
+(`sample(world, n, seed)`: counter-based splitmix64 hashing, so draw *i* never depends on
+*n*), renders any draws at any times on any coordinates (`render`, vectorised, float32/64,
+CPU/CUDA, kept equal to `layered` by tests), builds data sets (`dataset:` YAML: seeded
+splits, a stratified test split, probes, held-out classes, sessions, fixed draws;
+`sensoryforge dataset build`), and runs them (`sensoryforge batch --dataset`, one bundle per
+entry, `--tasks/--task-index`, `--print-tasks`, `--resume`). Layered gained default-off
+fields (`slide_ms`, `contacts`, `pause_ms`, `modulation`, braille `dots`, `signed`); their
+timing math is `stimuli/episode.py`. Bundles are schema 2.2.0 (SF's sha in every bundle;
+world entries carry their record). pressure-simulation's contract:
+`docs/reference/world_contract.md`, pinned by `tests/contract/test_world_contract.py`; see
+`.claude/rules/world-engine.md` before changing any of it.
+
 ### Execution Engines
 
 There are two pipeline classes. **`SimulationEngine` is the canonical path** for all new development:

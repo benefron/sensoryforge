@@ -127,6 +127,7 @@ nav:
     - Analog Readouts: user_guide/analog_readouts.md
     - Event Encoders: user_guide/event_encoders.md
     - Designing Stimuli: user_guide/designing_stimuli.md
+    - Worlds and Data Sets: user_guide/worlds.md
     - Extended Stimuli: user_guide/extended_stimuli.md
     - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
@@ -150,6 +151,7 @@ nav:
     - Pipeline: api_reference/pipeline.md
     - Neurons: api_reference/neurons.md
     - Benchmarks: reference/benchmarks.md
+    - World Engine Contract: reference/world_contract.md
 
   - Contributing: contributing.md
 

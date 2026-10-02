@@ -7,7 +7,7 @@ learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.1.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.2.0", kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt   # one file per population
     stimuli/
@@ -36,12 +36,14 @@ viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only 
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"2.1.0"` (2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
+| `schema_version` | `"2.2.0"` (2.1.0 before the provenance fields, 2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
 | `kind` | `"sensoryforge_bundle"`. |
 | `grid` | `{rows, cols, spacing_mm, center_mm, device}` of the run's primary grid. |
 | `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`; since 2.1.0 also `readout` (`"spikes"`, `"events"` or `"state"`), `encoder` (`{"model", "params"}`: the neuron model name and its own `to_dict()`, including `dt`) and, for an `events` population, `event_encoding` (below). |
 | `config` | The full canonical config (`SensoryForgeConfig.to_dict()`). |
 | `sensoryforge_version`, `created_at`, `bundle_created` | Provenance. |
+| `sensoryforge_sha` | Since 2.2.0: the commit of the SensoryForge that wrote the bundle (also a `data.h5` root attribute). |
+| `world` | Since 2.2.0, world data-set entries only: `{world_id, dataset_id, entry}`. |
 
 ## `population_NN_<NAME>.pt`
 
@@ -67,7 +69,7 @@ or foreign payload it does not raise. It silently returns a static Gaussian blob
 origin, and its viewer will encode that and draw entirely plausible plots of a stimulus
 you never ran.
 
-Two kinds are written.
+Three kinds are written.
 
 `kind: "stimulus"`, `schema_version: "1.0.0"` is pressure-simulation's own schema. It is
 used only for the stimulus types that regenerate there exactly: `gaussian`, `point` and
@@ -79,7 +81,14 @@ regenerates the frames from the written payload and compares them to the bundle'
 passed no stimulus config at all. It carries `reconstructible_by_pressure_simulation: false`,
 so nothing downstream mistakes it for a payload that can be replayed there.
 
-Both kinds keep the caller's original dict verbatim under a `sensoryforge` key, so no
+`kind: "sensoryforge_world_entry"` (since 2.2.0) is written for an entry of a world data set
+([Worlds and data sets](worlds.md)). It carries the entry's manifest row (`entry`), the draw as
+a layered layer (`layer`; for a session, a list of `[start_ms, layer]` pairs), `dt_ms`,
+`total_ms`, `n_frames` and `grid`, and `reconstructible_by_pressure_simulation: false`.
+The [World engine contract](../reference/world_contract.md) says what a bundle's frames are
+guaranteed to equal.
+
+The first two kinds keep the caller's original dict verbatim under a `sensoryforge` key, so no
 information is lost in translation.
 
 Two details of the translation are worth knowing if you write a payload by hand. The field
@@ -161,7 +170,7 @@ receptor noise is `config.json`'s `config.simulation.receptor_noise_std`.
 | `/populations/<name>/state` | `[T, N]` | float32 | analog readouts (Wave N; not yet populated) |
 
 Root attributes: `dt_ms`, `integrate_dt_ms`, `seed` (`-1` if none was given),
-`sensoryforge_version`. The `/meta` group carries `config_yaml` (the full config as
+`sensoryforge_version`, `sensoryforge_sha` (since 2.2.0). The `/meta` group carries `config_yaml` (the full config as
 YAML text) and `provenance_json` (every population's bank provenance, JSON-encoded).
 
 ### Spikes are per-bin counts, not a binary raster

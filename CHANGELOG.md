@@ -4,7 +4,7 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); dates are commit dates from
 `docs_root/LEDGER.md`, the project's decision/finding record.
 
-## [Unreleased]
+## [1.1.0] - 2026-10-02
 
 ### Changed (behaviour — re-run any saved results after upgrading)
 
@@ -23,6 +23,22 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
   `noise_seed`; `sensoryforge run --design` previously ran every design noise-free.
 
 ### Added
+
+- **The world engine** (`sensoryforge.world`): declared stimulus worlds (`world:` YAML, classes of
+  layered stimuli whose fields are drawn from axes), deterministic sampling (draw *i* never
+  depends on *n*), vectorised rendering at any times on any coordinates, data sets with seeded
+  splits (train, validation, a stratified test split, probes, held-out classes, sessions, fixed
+  draws), `sensoryforge batch --dataset` (one bundle per entry; `--tasks`, `--task-index`,
+  `--print-tasks`, `--resume`, `--splits`, `--entries`), `sensoryforge dataset build` and
+  `sensoryforge world validate|sample`. See [Worlds and data sets](docs/user_guide/worlds.md).
+- **New default-off layered fields**: `timing.slide_ms` (motion span `slide`), `timing.contacts`
+  and `pause_ms`, `modulation` (`sine`, `pulses`), braille `dots`, and `signed` on `grating`
+  and `gabor`. Layered stimuli that do not use them render as before.
+- **Bundle schema 2.2.0** (additive): every bundle records `sensoryforge_sha`; a world entry's
+  `stimuli/stimulus.json` has `kind: sensoryforge_world_entry`, and `config.json` gains `world`.
+- **The world engine contract** (`docs/reference/world_contract.md`): what 1.1.0 guarantees to
+  pressure-simulation, with the test that pins each guarantee
+  (`tests/contract/test_world_contract.py`).
 
 - **Event encoders** (2026-10-01): two opt-in population models, next to the unchanged AdEx /
   Izhikevich reference arms. `level_crossing` (RA) is a signed, event-camera-style
