@@ -146,6 +146,7 @@ the world engine is a new sensoryforge.world package with its own vectorised ren
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
 → commit e766b8a
+↔ 655efe0 feat(world): data sets with seeded splits, stratified test, probes and a manifest
 
 ## D-46a52e6 · CLOSED · decision · - · 2026-10-02
 the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
