@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
+from sensoryforge.stimuli.episode import contact_terms, span_progress
 from sensoryforge.stimuli.layered import MOTIONS, defaults
 from sensoryforge.world import kernel
 
@@ -135,6 +136,26 @@ def _fill(part: Any, default_kind: str, specs_fn, where: str) -> Dict[str, Any]:
         **defaults(specs),
         **{k: v for k, v in part.items() if k != "kind"},
     }
+
+
+def _group_params(dicts, view, dtype, device) -> Dict[str, Any]:
+    """Per-draw parameter dicts -> one dict: numbers become tensors of shape ``view``.
+
+    Non-numeric values (strings, bools) are equal across a group (the
+    renderer groups by them) and pass through as plain values.
+    """
+    out: Dict[str, Any] = {}
+    for key in dicts[0]:
+        if key == "kind":
+            continue
+        values = [d[key] for d in dicts]
+        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            out[key] = torch.tensor(
+                [float(v) for v in values], dtype=dtype, device=device
+            ).view(view)
+        else:
+            out[key] = values[0]
+    return out
 
 
 class LayeredKind(ClassKind):
@@ -340,6 +361,86 @@ class LayeredKind(ClassKind):
             "timing": timing,
             "modulation": parts["modulation"],
         }
+
+    def render_group(self, spec, draws, X, Y, times):
+        """Frames ``[g, K, *S]``: amplitude x envelope x modulation x sum of shapes.
+
+        Args:
+            spec: The class.
+            draws: The group's draws (same class, same non-numeric values).
+            X, Y: Canvas coordinates ``[*S]`` in mm, in the output dtype/device.
+            times: ``[g, K]`` ms since each draw's start (negative: before it).
+        """
+        dtype, device = X.dtype, X.device
+        g, k_count = times.shape
+        ones = (1,) * X.ndim
+        lead = (g, k_count) + ones
+        per_draw = (g, 1) + ones
+
+        def column(name: str) -> torch.Tensor:
+            values = [float(d.values[name]) for d in draws]
+            return torch.tensor(values, dtype=dtype, device=device).view(g, 1)
+
+        ep = {name: column(name) for name in EPISODE_FIELDS}
+        env, tau, k, local = contact_terms(
+            times,
+            ep["delay_ms"],
+            ep["touch_ms"],
+            ep["hold_ms"],
+            ep["slide_ms"],
+            ep["release_ms"],
+            ep["contacts"],
+            ep["pause_ms"],
+        )
+        parts = [self.part_values(spec, d.values) for d in draws]
+        modulation = kernel.MODULATION_KINDS[spec.layer["modulation"]["kind"]]
+        if modulation.fn is not None:
+            params = _group_params(
+                [p["modulation"] for p in parts], (g, 1), dtype, device
+            )
+            env = env * modulation.fn(tau, params)
+        progress = span_progress(
+            tau,
+            k,
+            local,
+            ep["contacts"],
+            ep["touch_ms"] + ep["hold_ms"],
+            ep["slide_ms"],
+        )
+        motion = spec.layer.get("motion")
+        if motion is None:
+            travel = ep["speed_mm_per_ms"] * ep["contacts"] * ep["slide_ms"]
+            theta = torch.deg2rad(ep["direction_deg"])
+            off_x = progress * (travel * torch.cos(theta))
+            off_y = progress * (travel * torch.sin(theta))
+        else:
+            offsets = kernel.motion_offsets(motion, progress)
+            off_x, off_y = offsets[..., 0], offsets[..., 1]
+        off_x, off_y = off_x.reshape(lead), off_y.reshape(lead)
+
+        shape = kernel.SHAPE_KINDS[spec.layer["shape"]["kind"]]
+        params = _group_params([p["shape"] for p in parts], per_draw, dtype, device)
+        amplitude = params.pop("amplitude")
+        if shape.unbounded:
+            total = shape.fn(X - off_x, Y - off_y, params)
+        else:
+            pos, scales = kernel.pattern_batch(
+                spec.layer["pattern"]["kind"],
+                [p["pattern"] for p in parts],
+                dtype,
+                device,
+            )
+            total = torch.zeros(
+                (g, k_count) + tuple(X.shape), dtype=dtype, device=device
+            )
+            for slot in range(pos.shape[1]):
+                px = pos[:, slot, 0].reshape(per_draw)
+                py = pos[:, slot, 1].reshape(per_draw)
+                weight = scales[:, slot].reshape(per_draw)
+                total = total + weight * shape.fn(
+                    X - px - off_x, Y - py - off_y, params
+                )
+        return amplitude * env.reshape(lead) * total
 
 
 class QuietKind(ClassKind):
