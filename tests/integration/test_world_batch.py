@@ -227,6 +227,30 @@ def test_frames_render_on_cpu_whatever_the_engine_device(
     assert received == [(torch.device("meta"), torch.float32)] * 3
 
 
+def test_atomic_json_temp_names_differ_across_hosts_tasks_and_processes(
+    tmp_path, monkeypatch
+):
+    import os
+    import socket
+
+    import sensoryforge.world.runner as runner
+
+    moved = []
+    real = os.replace
+    monkeypatch.setattr(
+        runner.os, "replace", lambda src, dst: (moved.append(src), real(src, dst))
+    )
+    monkeypatch.setattr(socket, "gethostname", lambda: "node-17.cluster/a b")
+    target = tmp_path / "batch.json"
+    runner._write_json_atomic(target, {"a": 1}, task_index=7)
+    assert json.loads(target.read_text()) == {"a": 1}
+    (tmp,) = moved
+    name = Path(tmp).name
+    assert name.startswith(".batch.json.") and name.endswith(".tmp")
+    assert "node-17.cluster_a_b" in name and ".t7." in name
+    assert f".p{os.getpid()}." in name
+
+
 def test_a_sweep_batch_still_needs_its_config(capsys):
     assert _batch() == 1
     assert "batch needs a config" in capsys.readouterr().err

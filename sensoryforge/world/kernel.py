@@ -62,8 +62,20 @@ PATTERN_KINDS: Dict[str, PatternKind] = {}
 MODULATION_KINDS: Dict[str, ModulationKind] = {}
 
 
+def _check_free(table: Dict[str, Any], name: str, what: str, replace: bool) -> None:
+    if name in table and not replace:
+        raise ValueError(
+            f"{what} {name!r} is already registered; pass replace=True to replace it"
+        )
+
+
 def register_shape(
-    name: str, fn: ShapeFn, specs: Sequence[ParamSpec], unbounded: bool = False
+    name: str,
+    fn: ShapeFn,
+    specs: Sequence[ParamSpec],
+    unbounded: bool = False,
+    *,
+    replace: bool = False,
 ) -> None:
     """Register a shape kind for worlds and layered stimuli.
 
@@ -74,21 +86,43 @@ def register_shape(
             tensors broadcasting against them; strings and bools are plain.
         specs: Its parameters; must include ``amplitude``.
         unbounded: Drawn once over the plane, not at each pattern position.
+        replace: Replace a shape already registered under ``name``.
+
+    Raises:
+        ValueError: If ``specs`` lacks ``amplitude``, or the name is taken
+            and ``replace`` is false.
     """
     if not any(s.name == "amplitude" for s in specs):
         raise ValueError(f"shape {name!r}: its specs must include 'amplitude'")
+    _check_free(SHAPE_KINDS, name, "shape", replace)
     SHAPE_KINDS[name] = ShapeKind(fn=fn, specs=list(specs), unbounded=bool(unbounded))
 
 
-def register_pattern(name: str, fn: PatternFn, specs: Sequence[ParamSpec]) -> None:
-    """Register a pattern kind: ``fn(params) -> (positions, scales)``, mm, at 0."""
+def register_pattern(
+    name: str, fn: PatternFn, specs: Sequence[ParamSpec], *, replace: bool = False
+) -> None:
+    """Register a pattern kind: ``fn(params) -> (positions, scales)``, mm, at 0.
+
+    Raises:
+        ValueError: If the name is taken and ``replace`` is false.
+    """
+    _check_free(PATTERN_KINDS, name, "pattern", replace)
     PATTERN_KINDS[name] = PatternKind(fn=fn, specs=list(specs))
 
 
 def register_modulation(
-    name: str, fn: Optional[ModulationFn], specs: Sequence[ParamSpec]
+    name: str,
+    fn: Optional[ModulationFn],
+    specs: Sequence[ParamSpec],
+    *,
+    replace: bool = False,
 ) -> None:
-    """Register a modulation: ``fn(tc, params) -> [0, 1]``; ``tc`` ms since touch."""
+    """Register a modulation: ``fn(tc, params) -> [0, 1]``; ``tc`` ms since touch.
+
+    Raises:
+        ValueError: If the name is taken and ``replace`` is false.
+    """
+    _check_free(MODULATION_KINDS, name, "modulation", replace)
     MODULATION_KINDS[name] = ModulationKind(fn=fn, specs=list(specs))
 
 

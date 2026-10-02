@@ -91,6 +91,8 @@ def register_distribution(
     name: str,
     sample: Callable[[np.ndarray, "AxisSpec"], List[Any]],
     support: Optional[Callable[["AxisSpec"], List[Any]]] = None,
+    *,
+    replace: bool = False,
 ) -> None:
     """Register a distribution usable as ``{dist: <name>}`` on an axis.
 
@@ -99,9 +101,19 @@ def register_distribution(
         sample: ``sample(u, axis) -> values``, ``u`` a float64 array in ``[0, 1)``.
         support: ``support(axis) -> values`` for a finite distribution (needed
             to stratify it), else ``None``.
+        replace: Replace a distribution already registered under ``name``.
+
+    Raises:
+        ValueError: For ``uniform``/``log_uniform`` (built in, never
+            replaced), or a taken name when ``replace`` is false.
     """
     if name in NUMERIC_DISTS:
         raise ValueError(f"{name!r} is a built-in numeric distribution")
+    if name in DISTRIBUTIONS and not replace:
+        raise ValueError(
+            f"distribution {name!r} is already registered; "
+            "pass replace=True to replace it"
+        )
     DISTRIBUTIONS[name] = Distribution(sample=sample, support=support)
 
 

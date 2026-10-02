@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from sensoryforge.world import rng
-from sensoryforge.world.distributions import BRAILLE_CELLS, AxisSpec
+from sensoryforge.world.distributions import (
+    BRAILLE_CELLS,
+    DISTRIBUTIONS,
+    AxisSpec,
+    register_distribution,
+)
 
 U = rng.uniforms(rng.draw_seeds(3, np.arange(20000)), "u")
 
@@ -105,3 +110,17 @@ def test_midpoint_and_contains():
 def test_invalid_axes_are_named(spec, message):
     with pytest.raises(ValueError, match=message):
         AxisSpec.from_dict("x", spec)
+
+
+def test_a_taken_distribution_name_needs_replace():
+    original = DISTRIBUTIONS["braille_cells"]
+    with pytest.raises(ValueError, match="'braille_cells' is already registered"):
+        register_distribution("braille_cells", lambda u, axis: list(u))
+    assert DISTRIBUTIONS["braille_cells"] is original
+    try:
+        register_distribution("braille_cells", lambda u, axis: list(u), replace=True)
+        assert DISTRIBUTIONS["braille_cells"] is not original
+    finally:
+        DISTRIBUTIONS["braille_cells"] = original
+    with pytest.raises(ValueError, match="built-in numeric"):
+        register_distribution("uniform", lambda u, axis: list(u), replace=True)

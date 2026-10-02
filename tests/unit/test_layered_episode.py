@@ -1,4 +1,4 @@
-"""Layered stimuli: slides, several contacts, modulation, braille cells, signed carriers."""
+"""Layered stimuli: slides, contacts, modulation, braille cells, signed carriers."""
 
 import pytest
 import torch

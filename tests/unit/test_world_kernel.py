@@ -161,3 +161,38 @@ def test_an_unknown_modulation_kind_in_a_layered_stimulus_is_a_value_error():
     layer["modulation"] = {"kind": "sinus"}
     with pytest.raises(ValueError, match="unknown modulation kind 'sinus'"):
         layered.render_layers([layer], X.float(), Y.float(), dt_ms=1.0, total_ms=2.0)
+
+
+@pytest.mark.parametrize(
+    "register, table, name, args",
+    [
+        (
+            kernel.register_shape,
+            kernel.SHAPE_KINDS,
+            "gaussian",
+            (lambda x, y, p: x, layered.SHAPES["gaussian"]),
+        ),
+        (
+            kernel.register_pattern,
+            kernel.PATTERN_KINDS,
+            "grid",
+            (lambda p: ([], []), layered.PATTERNS["grid"]),
+        ),
+        (
+            kernel.register_modulation,
+            kernel.MODULATION_KINDS,
+            "sine",
+            (None, layered.MODULATIONS["sine"]),
+        ),
+    ],
+)
+def test_a_taken_name_needs_replace(register, table, name, args):
+    original = table[name]
+    with pytest.raises(ValueError, match=f"{name!r} is already registered"):
+        register(name, *args)
+    assert table[name] is original
+    try:
+        register(name, *args, replace=True)
+        assert table[name] is not original
+    finally:
+        table[name] = original

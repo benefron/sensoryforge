@@ -52,7 +52,11 @@ STACKS = {
     ),
     "bar_flat": ([_layer({"kind": "bar", "profile": "flat"}, timing=_T)], "sum"),
     "grating_sine": (
-        [_layer({"kind": "grating", "wavelength_mm": 0.8, "phase_deg": 40.0}, timing=_T)],
+        [
+            _layer(
+                {"kind": "grating", "wavelength_mm": 0.8, "phase_deg": 40.0}, timing=_T
+            )
+        ],
         "sum",
     ),
     "grating_square": (
@@ -64,8 +68,13 @@ STACKS = {
         [
             _layer(
                 {"kind": "gaussian", "sigma_mm": 0.2},
-                pattern={"kind": "grid", "rows": 2, "cols": 3, "spacing_mm": 0.8,
-                         "mask": "101 011"},
+                pattern={
+                    "kind": "grid",
+                    "rows": 2,
+                    "cols": 3,
+                    "spacing_mm": 0.8,
+                    "mask": "101 011",
+                },
                 timing=_T,
             )
         ],
@@ -75,8 +84,11 @@ STACKS = {
         [
             _layer(
                 {"kind": "gaussian", "sigma_mm": 0.2},
-                pattern={"kind": "list", "positions": [[0.5, 0.5], [-0.5, 0.2]],
-                         "amplitudes": [1.0, 0.5]},
+                pattern={
+                    "kind": "list",
+                    "positions": [[0.5, 0.5], [-0.5, 0.2]],
+                    "amplitudes": [1.0, 0.5],
+                },
                 timing=_T,
             )
         ],
@@ -86,8 +98,14 @@ STACKS = {
         [
             _layer(
                 {"kind": "gaussian", "sigma_mm": 0.15},
-                pattern={"kind": "random", "count": 6, "width_mm": 3.0,
-                         "height_mm": 3.0, "seed": 3, "amplitude_jitter": 0.3},
+                pattern={
+                    "kind": "random",
+                    "count": 6,
+                    "width_mm": 3.0,
+                    "height_mm": 3.0,
+                    "seed": 3,
+                    "amplitude_jitter": 0.3,
+                },
                 timing=_T,
             )
         ],
@@ -97,8 +115,13 @@ STACKS = {
         [
             _layer(
                 {"kind": "gaussian", "sigma_mm": 0.15},
-                pattern={"kind": "braille", "text": "hi", "dot_spacing_mm": 0.4,
-                         "cell_spacing_mm": 1.2, "x_mm": -0.6},
+                pattern={
+                    "kind": "braille",
+                    "text": "hi",
+                    "dot_spacing_mm": 0.4,
+                    "cell_spacing_mm": 1.2,
+                    "x_mm": -0.6,
+                },
                 timing=_T,
             )
         ],
@@ -118,8 +141,12 @@ STACKS = {
         [
             _layer(
                 {"kind": "gaussian", "sigma_mm": 0.3},
-                motion={"kind": "linear", "start": [0.0, -1.0], "end": [0.0, 1.0],
-                        "span": "all"},
+                motion={
+                    "kind": "linear",
+                    "start": [0.0, -1.0],
+                    "end": [0.0, 1.0],
+                    "span": "all",
+                },
                 timing=_T,
             )
         ],
@@ -167,7 +194,11 @@ def render_all():
     for name in sorted(PRESETS):
         chosen = preset(name, TOTAL_MS)
         frames = render_layers(
-            chosen["layers"], XX, YY, dt_ms=1.0, total_ms=TOTAL_MS,
+            chosen["layers"],
+            XX,
+            YY,
+            dt_ms=1.0,
+            total_ms=TOTAL_MS,
             combine=chosen["combine"],
         )
         out[f"preset_{name}"] = frames[::EVERY].clone()

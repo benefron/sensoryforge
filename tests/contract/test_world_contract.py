@@ -166,6 +166,8 @@ def test_3_windows_agree_with_movies():
     movie = render(draws, canvas, movie_times(1.0, 120.0), dtype=torch.float64)
     triples = torch.tensor([[42.0, 50.0, 58.0]] * 8, dtype=torch.float64)
     windows = render(draws, canvas, triples, dtype=torch.float64)
+    # Not a comparison of zeros: every one of these draws touches at these times.
+    assert bool((windows.flatten(1).abs().sum(1) > 0).all())
     for j, step in enumerate((42, 50, 58)):
         assert torch.equal(windows[:, j], movie[:, step])
 
@@ -242,6 +244,8 @@ def test_6_one_draw_on_40x40_and_80x80():
     times = torch.tensor([30.0, 60.0], dtype=torch.float64)
     small = render(draws, Canvas.from_grid(40, 40, 0.15), times, dtype=torch.float64)
     large = render(draws, Canvas.from_grid(80, 80, 0.15), times, dtype=torch.float64)
+    # Not a comparison of zeros: every one of these draws touches at these times.
+    assert bool((small.flatten(1).abs().sum(1) > 0).all())
     torch.testing.assert_close(small, large[:, :, 20:60, 20:60], atol=1e-12, rtol=0)
 
 

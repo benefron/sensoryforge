@@ -7,6 +7,7 @@ import pytest
 import torch
 
 from sensoryforge.config.schema import GridConfig
+from sensoryforge.stimuli import layered
 from sensoryforge.stimuli.canvas import stimulus_canvas
 from sensoryforge.stimuli.layered import render_layers
 from sensoryforge.world import (
@@ -43,6 +44,199 @@ def test_world_render_equals_layered(class_name):
     frames = render(draws, CANVAS, movie_times(DT, total), dtype=torch.float64)
     for i, draw in enumerate(draws):
         torch.testing.assert_close(frames[i], _layered(draw, total), atol=1e-5, rtol=0)
+
+
+#: What the fixture world lacks: grid, list and random patterns, declared
+#: linear and path motion, gabor, a signed square grating, a hard disc and a
+#: flat bar (the last three hard-edged).
+EXTRA = World.from_dict(
+    {
+        "world": {
+            "defaults": {
+                "delay_ms": {"range": [0, 20]},
+                "touch_ms": {"range": [5, 15]},
+                "hold_ms": {"range": [20, 60]},
+                "release_ms": {"range": [5, 15]},
+                "speed_mm_per_ms": {"range": [0.005, 0.02], "dist": "log_uniform"},
+                "direction_deg": {"range": [0, 360], "circular": True},
+                "amplitude": {"range": [0.5, 1.0]},
+                "x_mm": {"range": [-0.2, 0.2]},
+                "y_mm": {"range": [-0.2, 0.2]},
+            },
+            "classes": {
+                "grid_dots": {
+                    "layer": {
+                        "shape": {"kind": "gaussian", "sigma_mm": 0.08},
+                        "pattern": {"kind": "grid", "rows": 2, "cols": 3},
+                    },
+                    "axes": {
+                        "spacing_mm": {"range": [0.2, 0.3]},
+                        "mask": {"values": ["", "101 011", "111 010"]},
+                    },
+                },
+                "list_dots": {
+                    "layer": {
+                        "shape": {"kind": "gaussian"},
+                        "pattern": {
+                            "kind": "list",
+                            "positions": [[-0.3, 0.1], [0.25, -0.2], [0.0, 0.3]],
+                            "amplitudes": [1.0, 0.6, 0.8],
+                        },
+                    },
+                    "axes": {"sigma_mm": {"range": [0.05, 0.15]}},
+                },
+                "random_dots": {
+                    "layer": {
+                        "shape": {"kind": "gaussian", "sigma_mm": 0.07},
+                        "pattern": {
+                            "kind": "random",
+                            "count": 6,
+                            "width_mm": 0.8,
+                            "height_mm": 0.8,
+                            "min_distance_mm": 0.1,
+                            "amplitude_jitter": 0.3,
+                        },
+                    },
+                    "axes": {"seed": {"range": [0, 1000], "int": True}},
+                },
+                "linear_slide": {
+                    "layer": {
+                        "shape": {"kind": "gaussian", "sigma_mm": 0.15},
+                        "motion": {
+                            "kind": "linear",
+                            "start": [-0.3, 0],
+                            "end": [0.3, 0.2],
+                        },
+                    },
+                    "axes": {
+                        "slide_ms": {"range": [20, 40]},
+                        "hold_ms": {"range": [5, 20]},
+                    },
+                },
+                "path_slide": {
+                    "layer": {
+                        "shape": {"kind": "gaussian", "sigma_mm": 0.15},
+                        "motion": {
+                            "kind": "path",
+                            "waypoints": [[-0.3, -0.3], [0.3, -0.3], [0.3, 0.3]],
+                        },
+                    },
+                    "axes": {
+                        "slide_ms": {"range": [20, 40]},
+                        "hold_ms": {"range": [5, 20]},
+                        "contacts": {"value": 2},
+                        "pause_ms": {"range": [5, 10]},
+                    },
+                },
+                "gabor": {
+                    "layer": {"shape": {"kind": "gabor"}},
+                    "axes": {
+                        "sigma_mm": {"range": [0.2, 0.4]},
+                        "wavelength_mm": {"range": [0.2, 0.5]},
+                        "orientation_deg": {"range": [0, 180]},
+                        "phase_deg": {"range": [0, 360]},
+                        "signed": {"values": [True, False]},
+                    },
+                },
+                "square_signed": {
+                    "layer": {
+                        "shape": {
+                            "kind": "grating",
+                            "profile": "square",
+                            "signed": True,
+                        }
+                    },
+                    "axes": {
+                        "wavelength_mm": {"range": [0.3, 0.6]},
+                        "duty": {"range": [0.2, 0.7]},
+                        "orientation_deg": {"range": [0, 180]},
+                        "phase_deg": {"range": [0, 360]},
+                        "slide_ms": {"range": [10, 20]},
+                    },
+                },
+                "hard_disc": {
+                    "layer": {
+                        "shape": {"kind": "disc", "edge_mm": 0},
+                        "pattern": {"kind": "grid", "rows": 1, "cols": 2},
+                    },
+                    "axes": {
+                        "diameter_mm": {"range": [0.2, 0.4]},
+                        "spacing_mm": {"range": [0.4, 0.5]},
+                        "slide_ms": {"range": [10, 20]},
+                    },
+                },
+                "flat_bar": {
+                    "layer": {"shape": {"kind": "bar", "profile": "flat"}},
+                    "axes": {
+                        "width_mm": {"range": [0.1, 0.3]},
+                        "length_mm": {"range": [0.3, 0.8]},
+                        "orientation_deg": {"range": [0, 180]},
+                        "slide_ms": {"range": [10, 20]},
+                    },
+                },
+            },
+        }
+    }
+)
+HARD = {"square_signed", "hard_disc", "flat_bar"}
+EDGE_MM = 1e-4
+
+
+def _edge_band(draw, total_ms):
+    """``[T, *S]``: canvas points within 1e-4 mm of a hard edge at each frame.
+
+    Computed from the draw's geometry in float64: the element positions,
+    the motion offset at each frame, and the shape's edges (a disc's rim, a
+    flat bar's sides and ends, a square grating's stripe borders).
+    """
+    layer = draw.to_layer()
+    shape = layer["shape"]
+    times = movie_times(DT, total_ms)
+    offsets = layered.motion_offsets(layer["motion"], layer["timing"], times, total_ms)
+    if offsets is None:
+        offsets = torch.zeros(len(times), 2, dtype=torch.float64)
+    X, Y = CANVAS.xx.unsqueeze(0), CANVAS.yy.unsqueeze(0)
+    ox, oy = offsets[:, 0].view(-1, 1, 1), offsets[:, 1].view(-1, 1, 1)
+    if shape["kind"] == "grating":
+        theta = math.radians(shape["orientation_deg"])
+        across = (X - ox) * math.cos(theta) + (Y - oy) * math.sin(theta)
+        wavelength = shape["wavelength_mm"]
+        phase = torch.remainder(
+            2.0 * math.pi * across / wavelength + math.radians(shape["phase_deg"]),
+            2.0 * math.pi,
+        )
+        centred = torch.minimum(phase, 2.0 * math.pi - phase)
+        gap = (centred - math.pi * shape["duty"]).abs() * wavelength / (2.0 * math.pi)
+        return gap < EDGE_MM
+    band = torch.zeros((len(times),) + CANVAS.shape, dtype=torch.bool)
+    positions, _ = layered.pattern_positions(layer["pattern"])
+    for px, py in positions:
+        x, y = X - px - ox, Y - py - oy
+        if shape["kind"] == "disc":
+            rim = torch.sqrt(x**2 + y**2) - shape["diameter_mm"] / 2.0
+            band |= rim.abs() < EDGE_MM
+        else:
+            theta = math.radians(shape["orientation_deg"])
+            across = x * math.sin(theta) + y * math.cos(theta)
+            along = x * math.cos(theta) - y * math.sin(theta)
+            band |= (across.abs() - shape["width_mm"] / 2.0).abs() < EDGE_MM
+            band |= (along.abs() - shape["length_mm"] / 2.0).abs() < EDGE_MM
+    return band
+
+
+@pytest.mark.parametrize("class_name", sorted(EXTRA.classes))
+def test_every_shape_pattern_and_motion_equals_layered(class_name):
+    draws = sample(EXTRA, n=4, seed=22, classes=[class_name])
+    total = math.ceil(max(d.end_ms for d in draws)) + 5.0
+    frames = render(draws, CANVAS, movie_times(DT, total), dtype=torch.float64)
+    assert float(frames.abs().amax()) > 0.1
+    for i, draw in enumerate(draws):
+        want = _layered(draw, total)
+        keep = torch.ones_like(want, dtype=torch.bool)
+        if class_name in HARD:
+            keep = ~_edge_band(draw, total)
+            assert float(keep.double().mean()) > 0.95
+        torch.testing.assert_close(frames[i][keep], want[keep], atol=1e-5, rtol=0)
 
 
 def test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit():
@@ -99,6 +293,48 @@ def test_quiet_is_exactly_zero():
                 pause_from + d.values["pause_ms"] - 1e-9
             )
             assert torch.count_nonzero(frames[i, first : last + 1]) == 0
+
+
+STEP_RELEASE = World.from_dict(
+    {
+        "world": {
+            "defaults": {
+                "delay_ms": {"range": [0, 20]},
+                "touch_ms": {"range": [0, 15]},
+                "hold_ms": {"range": [5, 60]},
+                "release_ms": {"value": 0},
+                "x_mm": {"range": [-0.2, 0.2]},
+                "y_mm": {"range": [-0.2, 0.2]},
+            },
+            "classes": {
+                "dots": {"layer": {"shape": {"kind": "gaussian", "sigma_mm": 0.3}}},
+                "twice": {
+                    "layer": {"shape": {"kind": "gaussian", "sigma_mm": 0.3}},
+                    "axes": {"contacts": {"value": 2}, "pause_ms": {"range": [3, 9]}},
+                },
+                "slides": {
+                    "layer": {"shape": {"kind": "gaussian", "sigma_mm": 0.3}},
+                    "axes": {
+                        "slide_ms": {"range": [5, 20]},
+                        "speed_mm_per_ms": {"value": 0.01},
+                    },
+                },
+            },
+        }
+    }
+)
+
+
+@pytest.mark.parametrize("dtype", [torch.float64, torch.float32])
+def test_a_step_release_is_exactly_zero_from_end_ms(dtype):
+    draws = sample(STEP_RELEASE, n=300, seed=4)
+    ends = torch.tensor([d.end_ms for d in draws], dtype=torch.float64)
+    after = torch.nextafter(ends, torch.tensor(math.inf, dtype=torch.float64))
+    at_end = render(draws, CANVAS, torch.stack([ends, after], 1), dtype=dtype)
+    assert torch.count_nonzero(at_end) == 0
+    # Not vacuous: half a millisecond earlier every draw is still touching.
+    before = render(draws, CANVAS, (ends - 0.5).unsqueeze(1), dtype=dtype)
+    assert bool((before.flatten(1).abs().amax(1) > 0.1).all())
 
 
 def test_a_session_renders_each_draw_from_its_start():

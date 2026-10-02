@@ -472,6 +472,13 @@ class LayeredKind(ClassKind):
                 [p["modulation"] for p in parts], (g, 1), dtype, device
             )
             env = env * modulation.fn(tau, params)
+        # Exactly zero from the draw's own end on: with a step release the
+        # clock above can put t == end_ms (or, in float64, one step after it)
+        # a rounding short of the release and keep full amplitude there.
+        end = torch.tensor(
+            [self.end_ms(d.values) for d in draws], dtype=dtype, device=device
+        ).view(g, 1)
+        env = torch.where(times >= end, torch.zeros_like(env), env)
         progress = span_progress(
             tau,
             k,

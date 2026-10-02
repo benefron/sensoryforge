@@ -1171,7 +1171,10 @@ def create_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "--print-tasks",
         action="store_true",
-        help="Print one 'sensoryforge batch' command per task and exit (with --dataset)",
+        help=(
+            "Print one 'sensoryforge batch' command per task and exit "
+            "(with --dataset)"
+        ),
     )
     batch_parser.add_argument("--output", help="Override output directory from config")
     batch_parser.add_argument(

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
+import socket
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,8 +110,14 @@ def stimulus_payload(entry: Entry) -> Dict[str, Any]:
     return {"kind": WORLD_ENTRY_KIND, "entry": entry.to_dict(), "layer": layer}
 
 
-def _write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+def _write_json_atomic(path: Path, data: Dict[str, Any], task_index: int = 0) -> None:
+    """Write ``data`` as JSON to ``path`` through a temporary file and a rename.
+
+    The temporary name holds the host, the task index and the pid: array tasks
+    on different hosts can share an output directory (and a pid).
+    """
+    host = re.sub(r"[^A-Za-z0-9_.-]", "_", socket.gethostname()) or "host"
+    tmp = path.with_name(f".{path.name}.{host}.t{task_index}.p{os.getpid()}.tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=True, default=str))
     os.replace(tmp, path)
 
@@ -166,6 +174,7 @@ def run_dataset(
             "config": config.to_dict(),
             "sensoryforge": provenance,
         },
+        task_index=task_index,
     )
     grid = config.grids[0]
     layout = channel_layout(spec.world, grid)

@@ -1,5 +1,6 @@
 """Sampling: independence from n, weights, ranges, records, fixed draws, sessions."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -134,3 +135,27 @@ def test_a_zero_length_draw_stops_a_session():
     )
     with pytest.raises(ValueError, match="zero length"):
         session(world, 100.0, seed=0)
+
+
+#: sha256 of the fixture world's first 50 draws under seed 7, every float
+#: rounded to 10 significant digits (so a last-bit difference in a
+#: log_uniform value between platforms cannot change it). A change here
+#: means every world's draws changed: say so, bump the format tag and update
+#: the contract page (see .claude/rules/world-engine.md).
+DRAWS_DIGEST = "e437c6a29c3f169dd77626b3ea4608a7e16bc46e85afb068a553573718b73767"
+
+
+def _rounded(value):
+    if isinstance(value, float):
+        return float(f"{value:.10g}")
+    if isinstance(value, dict):
+        return {k: _rounded(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rounded(v) for v in value]
+    return value
+
+
+def test_the_fixture_worlds_draws_are_pinned():
+    records = [_rounded(d.to_dict()) for d in sample(WORLD, n=50, seed=7)]
+    text = json.dumps(records, sort_keys=True).encode("utf-8")
+    assert hashlib.sha256(text).hexdigest() == DRAWS_DIGEST
