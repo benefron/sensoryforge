@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-1ada1ea · CLOSED · finding · - · 2026-10-02
+a step release could leave full amplitude at t == end_ms, and in some float64 draws one step after it, so a draw was not exactly zero after its end
+→ commit 510e184
+
+## F-59c26ee · CLOSED · finding · - · 2026-10-02
+array tasks on different hosts writing one output directory could share batch.json's temporary file name, which held only the pid
+→ commit 510e184
+
+## F-8012dbe · CLOSED · finding · - · 2026-10-02
+register_shape, register_pattern, register_modulation and register_distribution silently replaced a kind already registered under the same name
+→ commit 510e184
+
 ## F-bf695c7 · CLOSED · finding · - · 2026-10-02
 world and data-set files kept the last of a duplicated class or split key silently, let mis-shaped sections escape as AttributeError or TypeError tracebacks, accepted split keys of another split kind, and allowed class, fixed-draw and split names with path separators
 → commit 5310f1c
