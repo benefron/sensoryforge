@@ -115,6 +115,7 @@ a world class is a `layered` layer with random fields (axes bind to its shape, p
 ## D-99d39b6 · CLOSED · decision · - · 2026-10-02
 one episode is a quiet lead-in then touch, hold, slide, release, optionally repeated as several contacts separated by pauses; motion happens only during slides; temporal frequency is a layer modulation (sine vibration, pulses for repeated indentation)
 → commit e766b8a
+↔ 6777b4f feat(stimuli): layered slides, contacts, modulation, braille cells and signed carriers
 
 ## D-37c5247 · CLOSED · decision · - · 2026-10-02
 quiet comes from every draw's lead-in and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with no separate gap mechanism or quiet-fraction target
