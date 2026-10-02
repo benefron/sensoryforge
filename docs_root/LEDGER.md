@@ -108,6 +108,30 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-94c08c7 · CLOSED · decision · - · 2026-10-02
+a world class is a `layered` layer with random fields (axes bind to its shape, pattern, modulation and episode fields), so a draw is an ordinary layered stimulus and SensoryForge keeps one stimulus language
+→ commit e766b8a
+
+## D-99d39b6 · CLOSED · decision · - · 2026-10-02
+one episode is a quiet lead-in then touch, hold, slide, release, optionally repeated as several contacts separated by pauses; motion happens only during slides; temporal frequency is a layer modulation (sine vibration, pulses for repeated indentation)
+→ commit e766b8a
+
+## D-37c5247 · CLOSED · decision · - · 2026-10-02
+quiet comes from every draw's lead-in and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with no separate gap mechanism or quiet-fraction target
+→ commit e766b8a
+
+## D-cccbd6a · CLOSED · decision · - · 2026-10-02
+the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected)
+→ commit e766b8a
+
+## D-d3605dd · CLOSED · decision · - · 2026-10-02
+data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
+→ commit e766b8a
+
+## D-46a52e6 · CLOSED · decision · - · 2026-10-02
+the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
+→ commit e766b8a
+
 ## D-c5facd5 · CLOSED · decision · - · 2026-09-30
 RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)
 → commit 6124f87
