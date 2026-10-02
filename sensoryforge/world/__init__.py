@@ -16,6 +16,14 @@ from sensoryforge.world.kernel import (
 from sensoryforge.world.kinds import ClassKind, register_class_kind
 from sensoryforge.world.schema import ClassSpec, World, load_world
 from sensoryforge.world.sampling import Draw, Session, fixed_draw, sample, session
+from sensoryforge.world.dataset import (
+    DatasetSpec,
+    Entry,
+    build_dataset,
+    load_dataset,
+    load_manifest,
+    write_dataset,
+)
 from sensoryforge.world.render import Canvas, movie_times, render, render_movie
 
 __all__ = [
@@ -23,10 +31,15 @@ __all__ = [
     "Canvas",
     "ClassKind",
     "ClassSpec",
+    "DatasetSpec",
     "Draw",
+    "Entry",
     "Session",
     "World",
+    "build_dataset",
     "fixed_draw",
+    "load_dataset",
+    "load_manifest",
     "load_world",
     "movie_times",
     "register_class_kind",
@@ -38,4 +51,5 @@ __all__ = [
     "render_movie",
     "sample",
     "session",
+    "write_dataset",
 ]

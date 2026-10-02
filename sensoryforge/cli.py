@@ -11,11 +11,13 @@ Example:
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 import torch
+import yaml
 
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
@@ -894,6 +896,56 @@ def cmd_visualize(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_dataset(args: argparse.Namespace) -> int:
+    """``sensoryforge dataset build SPEC --out DIR``: write the manifest."""
+    from sensoryforge.world.dataset import build_dataset, load_dataset, write_dataset
+
+    if args.dataset_command != "build":
+        print("usage: sensoryforge dataset build SPEC --out DIR", file=sys.stderr)
+        return 1
+    try:
+        spec = load_dataset(args.spec)
+        entries = build_dataset(spec)
+        out = write_dataset(spec, entries, args.out)
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        print(f"Error building data set: {exc}", file=sys.stderr)
+        return 1
+    print(
+        f"{spec.dataset_id}: {len(entries)} entries on world "
+        f"{spec.world.world_id} -> {out}"
+    )
+    return 0
+
+
+def cmd_world(args: argparse.Namespace) -> int:
+    """``sensoryforge world validate WORLD`` / ``world sample WORLD -n N --seed S``."""
+    from sensoryforge.world import load_world, sample
+
+    if args.world_command not in ("validate", "sample"):
+        print("usage: sensoryforge world {validate,sample} WORLD", file=sys.stderr)
+        return 1
+    try:
+        world = load_world(args.world)
+        if args.world_command == "validate":
+            print(f"{world.world_id}  {world.name}  channels={world.channels}")
+            groups = (("class", world.classes), ("held out", world.held_out))
+            for group, table in groups:
+                for name, cls in table.items():
+                    axes = ", ".join(a.name for a in cls.random_axes) or "-"
+                    weight = "" if cls.held_out else f" weight={cls.weight:g}"
+                    print(f"  {group} {name} ({cls.kind}){weight}: {axes}")
+            for name in world.fixed:
+                print(f"  fixed draw {name}")
+            return 0
+        classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
+        for draw in sample(world, n=args.n, seed=args.seed, classes=classes):
+            print(json.dumps(draw.to_dict(), sort_keys=True))
+        return 0
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser for CLI.
 
@@ -1008,6 +1060,31 @@ def create_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # Data sets and worlds
+    dataset_parser = subparsers.add_parser(
+        "dataset", help="Build a data set's manifest from a world (no simulation)"
+    )
+    dataset_sub = dataset_parser.add_subparsers(dest="dataset_command")
+    build_parser = dataset_sub.add_parser(
+        "build", help="Write dataset.json and manifest.jsonl"
+    )
+    build_parser.add_argument("spec", help="Data-set YAML (a 'dataset:' mapping)")
+    build_parser.add_argument("--out", required=True, help="Output directory")
+
+    world_parser = subparsers.add_parser("world", help="Inspect a world file")
+    world_sub = world_parser.add_subparsers(dest="world_command")
+    validate_world = world_sub.add_parser(
+        "validate", help="Print the world's id, classes and axes"
+    )
+    validate_world.add_argument("world", help="World YAML (a 'world:' mapping)")
+    sample_world = world_sub.add_parser("sample", help="Print draws as JSON lines")
+    sample_world.add_argument("world", help="World YAML")
+    sample_world.add_argument("-n", type=int, default=10, help="How many draws")
+    sample_world.add_argument("--seed", type=int, default=0, help="Sampling seed")
+    sample_world.add_argument(
+        "--classes", help="Comma-separated classes to sample from"
+    )
+
     # Validate command
     validate_parser = subparsers.add_parser(
         "validate", help="Validate YAML config without running"
@@ -1087,6 +1164,8 @@ def main() -> int:
         "list-presets": cmd_list_presets,
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
+        "dataset": cmd_dataset,
+        "world": cmd_world,
     }
 
     handler = commands.get(args.command)

@@ -1,0 +1,14 @@
+# A data set on the test world, small enough to build in a second.
+dataset:
+  name: small
+  world: tactile_small.yml
+  seed: 20261002
+  duration_ms: 120
+  splits:
+    train:      {n: 6, repeats: 2}
+    validation: {n: 4, noise_repeats: 2}
+    test:       {stratified: {bins: 2, per_bin: 2}}
+    probes:     {per_bin: 1}
+    held_out:   {stratified: {bins: 2, per_bin: 1}}
+    sessions:   {n: 1, duration_ms: 300}
+    fixed:      {draws: [braille_H]}
