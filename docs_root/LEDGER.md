@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-d55d062 · CLOSED · finding · - · 2026-10-02
+the batch runner rendered entries on the engine's device, so a CUDA run's bundle frames could differ in the last bits from the CPU render of the bundle's own record
+→ commit af132d5
+
 ## F-ccdf8d1 · CLOSED · finding · - · 2026-10-02
 a world accepted axis values its fields cannot take (fractional or zero contacts, values outside a field's domain, NaN and infinity, numbers YAML read as text, wrong-typed categories), so a draw's record could disagree with its frames; layered turned contacts 0 into 1
 → commit af38086
