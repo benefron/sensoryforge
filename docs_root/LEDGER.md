@@ -133,16 +133,19 @@ a world class is a `layered` layer with random fields (axes bind to its shape, p
 → commit e766b8a
 ↔ a926f6c feat(world): counter-based randomness and axis distributions
 ↔ 8d4be66 feat(world): world schema with registered class kinds
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-99d39b6 · CLOSED · decision · - · 2026-10-02
 one episode is a quiet lead-in then touch, hold, slide, release, optionally repeated as several contacts separated by pauses; motion happens only during slides; temporal frequency is a layer modulation (sine vibration, pulses for repeated indentation)
 → commit e766b8a
 ↔ 6777b4f feat(stimuli): layered slides, contacts, modulation, braille cells and signed carriers
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-37c5247 · CLOSED · decision · - · 2026-10-02
 quiet comes from every draw's lead-in and tail, a `quiet` class and pauses between contacts; a session is draws laid end to end with no separate gap mechanism or quiet-fraction target
 → commit e766b8a
 ↔ 62dd175 feat(world): deterministic draws, fixed draws and sessions
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-cccbd6a · CLOSED · decision · - · 2026-10-02
 the world engine is a new sensoryforge.world package with its own vectorised renderer kept equal to `layered` by tests; `layered` gains only additive default-off fields and the old sweep BatchExecutor stays untouched (rewriting `layered` on the new kernel, or extending BatchExecutor, were rejected)
@@ -151,16 +154,19 @@ the world engine is a new sensoryforge.world package with its own vectorised ren
 ↔ 6c95baa feat(world): vectorised kernel with shape, pattern and modulation registries
 ↔ 1597a2e feat(world): vectorised rendering of draws at arbitrary times
 ↔ f80d6d4 feat(cli): batch --dataset runs a world data set, one bundle per entry
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
 → commit e766b8a
 ↔ 655efe0 feat(world): data sets with seeded splits, stratified test, probes and a manifest
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-46a52e6 · CLOSED · decision · - · 2026-10-02
 the world engine ships as version 1.1.0, tagged v1.1.0 on its branch, with main and the ~/sensoryforge checkout left untouched until Ben merges
 → commit e766b8a
 ↔ 529bf90 docs(world): user guide, contract for pressure-simulation, version 1.1.0
+↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
 
 ## D-c5facd5 · CLOSED · decision · - · 2026-09-30
 RA is a signed level-crossing unit, event-camera style: it emits an ON event when its input has risen by a threshold theta since its last event and an OFF event when it has fallen by theta, moving its reference by theta each time; the sign is carried by the event, not recovered later (SensoryForge neuron_model level_crossing, opt-in; AdEx and the rectified RA filter stay as the reference arm)
