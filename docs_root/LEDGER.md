@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-202cdd8 · STANDING · finding · - · 2026-10-02
+SimulationEngine.run seeds numpy with its seed argument, which rejects values at or above 2**32, so a 53-bit seed53 cannot be the run seed
+→ commit f80d6d4
+
 ## F-4b916ae · CLOSED · finding · - · 2026-10-02
 bundles recorded only sensoryforge_version 1.0.0, never the git sha of the SensoryForge that wrote them, so two bundles from different commits could not be told apart
 → commit 48a5648
@@ -142,6 +146,7 @@ the world engine is a new sensoryforge.world package with its own vectorised ren
 ↔ 8572d5d docs(world): implementation plan for the world engine
 ↔ 6c95baa feat(world): vectorised kernel with shape, pattern and modulation registries
 ↔ 1597a2e feat(world): vectorised rendering of draws at arbitrary times
+↔ f80d6d4 feat(cli): batch --dataset runs a world data set, one bundle per entry
 
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
