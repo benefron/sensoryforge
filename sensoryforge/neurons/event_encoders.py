@@ -148,9 +148,7 @@ class LevelCrossingNeuron(BaseNeuron):
         self.initial_reference = initial_reference
         self.noise_std = float(noise_std)
 
-    def forward(
-        self, input_current: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input_current: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Encode a drive as signed level-crossing events.
 
         Args:
@@ -175,9 +173,7 @@ class LevelCrossingNeuron(BaseNeuron):
         batch, steps, n = input_current.shape
         device = input_current.device
         dtype = (
-            input_current.dtype
-            if input_current.is_floating_point()
-            else torch.float32
+            input_current.dtype if input_current.is_floating_point() else torch.float32
         )
         x_all = input_current.to(dtype)
         if self.noise_std > 0.0:
@@ -364,9 +360,7 @@ class SigmaDeltaNeuron(BaseNeuron):
         self.refractory_ms = float(refractory_ms)
         self.noise_std = float(noise_std)
 
-    def forward(
-        self, input_current: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input_current: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Encode a drive as sigma-delta spike counts.
 
         Args:
@@ -390,9 +384,7 @@ class SigmaDeltaNeuron(BaseNeuron):
         batch, steps, n = input_current.shape
         device = input_current.device
         dtype = (
-            input_current.dtype
-            if input_current.is_floating_point()
-            else torch.float32
+            input_current.dtype if input_current.is_floating_point() else torch.float32
         )
         x_all = input_current.to(dtype)
         if self.noise_std > 0.0:

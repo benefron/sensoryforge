@@ -391,9 +391,7 @@ class ReadoutCard(_Card):
             "The neuron model's own membrane (Langevin) noise, its noise_std."
         )
         membrane_spin.valueChanged.connect(
-            functools.partial(
-                self._on_float, f"populations.{index}.membrane_noise_std"
-            )
+            functools.partial(self._on_float, f"populations.{index}.membrane_noise_std")
         )
         form.addRow("Membrane noise std:", membrane_spin)
 

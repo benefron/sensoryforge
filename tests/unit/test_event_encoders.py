@@ -128,8 +128,10 @@ def test_level_crossing_signed_sum_reconstructs_within_theta():
         start = 0.0 if ref0 == "zero" else float(x[0])
         recon = start + torch.cumsum(ev, 0) * THETA
         err = float((x - recon).abs().max()) / THETA
-        print(f"\nlevel-crossing reconstruction ({ref0}): max |x - sum*theta| = "
-              f"{err:.4f} theta")
+        print(
+            f"\nlevel-crossing reconstruction ({ref0}): max |x - sum*theta| = "
+            f"{err:.4f} theta"
+        )
         assert err < 1.0
     # The step emits several events in one step, as one signed count.
     assert float(ev.abs().max()) >= 4
@@ -166,8 +168,10 @@ def test_level_crossing_refractory_respected():
     isi = idx.diff().double() * DT
     assert float(isi.min()) >= refractory - 1e-9
     rate = len(idx) / (n * DT)
-    print(f"\nlevel-crossing refractory {refractory} ms: rate {rate:.3f}/ms, "
-          f"min ISI {float(isi.min()):.2f} ms")
+    print(
+        f"\nlevel-crossing refractory {refractory} ms: rate {rate:.3f}/ms, "
+        f"min ISI {float(isi.min()):.2f} ms"
+    )
     assert rate == pytest.approx(1.0 / refractory, rel=1e-2)
 
 
@@ -231,8 +235,10 @@ def test_sigma_delta_lowpass_reconstructs_slow_sinusoid():
         e_raw = float(np.sqrt(np.mean((est[sl] - x[sl]) ** 2)))
         e_q = float(np.sqrt(np.mean((est[sl] - smooth[sl]) ** 2)))
         errs[window_ms] = (e_raw, e_q)
-        print(f"\nsigma-delta window {window_ms} ms: rms vs drive {e_raw:.3f} mA, "
-              f"vs smoothed drive {e_q:.3f} mA")
+        print(
+            f"\nsigma-delta window {window_ms} ms: rms vs drive {e_raw:.3f} mA, "
+            f"vs smoothed drive {e_q:.3f} mA"
+        )
     # Quantisation error falls roughly as 1/window...
     assert errs[100][1] < errs[10][1] / 5
     # ...and a 50 ms window recovers the 2 Hz, 4 mA sinusoid to < 5%.
@@ -249,7 +255,9 @@ def test_sigma_delta_quantisation_error_is_high_pass():
     for lo, hi in bands:
         m = (freq_khz >= lo) & (freq_khz < hi)
         means.append(float(power[m].mean()))
-        print(f"\nsigma-delta error power {lo*1000:.0f}-{hi*1000:.0f} Hz: {means[-1]:.3g}")
+        print(
+            f"\nsigma-delta error power {lo*1000:.0f}-{hi*1000:.0f} Hz: {means[-1]:.3g}"
+        )
     # Measured: 4.3e-3, 12.6, 4.4e3, 4.8e3 -- rising by >= 100x per decade
     # below 100 Hz (first-order noise shaping), flat once past the rate.
     assert means[0] < means[1] < means[2]

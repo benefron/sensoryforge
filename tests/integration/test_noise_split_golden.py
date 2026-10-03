@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 import torch
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "noise_split_golden.pt"
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "dev"))
@@ -56,21 +55,21 @@ def test_case_reproduces_pre_split_golden(golden, case_name):
         if key.endswith("/spikes"):
             got_dense, want_dense = got.to_dense(), want.to_dense()
             if same_platform:
-                assert torch.equal(got_dense, want_dense), (
-                    f"{case_name} {key}: not bit-identical"
-                )
+                assert torch.equal(
+                    got_dense, want_dense
+                ), f"{case_name} {key}: not bit-identical"
             else:
                 mismatched = int((got_dense != want_dense).sum())
                 allowed = max(5, int(0.005 * max(1, int(want_dense.sum()))))
-                assert mismatched <= allowed, (
-                    f"{case_name} {key}: {mismatched} bins differ (allowed {allowed})"
-                )
+                assert (
+                    mismatched <= allowed
+                ), f"{case_name} {key}: {mismatched} bins differ (allowed {allowed})"
         else:
             assert got["shape"] == want["shape"]
             if same_platform:
-                assert got["sha256"] == want["sha256"], (
-                    f"{case_name} {key}: filtered current not bit-identical"
-                )
+                assert (
+                    got["sha256"] == want["sha256"]
+                ), f"{case_name} {key}: filtered current not bit-identical"
             else:
                 assert got["sum"] == pytest.approx(want["sum"], rel=1e-4, abs=1e-3)
                 assert got["sq_sum"] == pytest.approx(want["sq_sum"], rel=1e-4)

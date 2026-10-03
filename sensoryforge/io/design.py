@@ -81,6 +81,7 @@ def _check_event_encoder_params(prec: Dict[str, Any], where: str) -> None:
     except ValueError as exc:
         raise ValueError(f"load_design: {where}['model_params']: {exc}") from None
 
+
 #: Required keys of one `design.json["populations"][i]` record -- everything
 #: `load_design` reads verbatim onto the emitted `PopulationConfig`.
 _REQUIRED_POPULATION_KEYS = (

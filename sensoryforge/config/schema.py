@@ -475,11 +475,13 @@ class PopulationConfig:
             ``FutureWarning`` when non-zero, so existing configs run
             unchanged; an explicit ``sensor_noise_std`` or
             ``membrane_noise_std`` overrides it for that noise source.
-        noise_mean: Unused by :class:`~sensoryforge.core.simulation_engine.SimulationEngine`
+        noise_mean: Unused by
+            :class:`~sensoryforge.core.simulation_engine.SimulationEngine`
             (read only by the legacy adapter).
         noise_seed: Seeds this population's noise: a per-population
-            ``torch.Generator`` draws the neuron input (current) noise, and the global RNG is
-            reseeded from it (and restored afterwards) for the neuron's
+            ``torch.Generator`` draws the neuron input (current) noise, and
+            the global RNG is reseeded from it (and restored afterwards) for
+            the neuron's
             membrane noise. ``None`` draws both from the run's global RNG
             (seeded by ``SimulationConfig.seed``).
         color: RGBA color tuple [r, g, b, a].

@@ -38,7 +38,9 @@ GAIN = 5.0
 
 def _config():
     return SensoryForgeConfig(
-        grids=[GridConfig(name="Main", arrangement="grid", rows=6, cols=6, spacing=0.2)],
+        grids=[
+            GridConfig(name="Main", arrangement="grid", rows=6, cols=6, spacing=0.2)
+        ],
         populations=[
             PopulationConfig(
                 name="RA events",
@@ -148,7 +150,9 @@ def test_bundle_stores_signed_events_separately(run, tmp_path):
 
     loaded = load_bundle(bundle_dir)
     ev = loaded.populations["RA events"]["events"]
-    assert torch.equal(ev.to(torch.int16), results["RA events"]["events"][0].to(torch.int16))
+    assert torch.equal(
+        ev.to(torch.int16), results["RA events"]["events"][0].to(torch.int16)
+    )
     assert int(ev.min()) < 0
     assert "spikes" not in loaded.populations["RA events"]
 

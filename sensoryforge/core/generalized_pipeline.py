@@ -47,13 +47,12 @@ _DEFAULT_SA_NEURON = resolve_neuron_params("izhikevich", "SA", {})
 _DEFAULT_RA_NEURON = resolve_neuron_params("izhikevich", "RA", {})
 
 
-
 def _legacy_current_noise_std(pop: dict, default: float = 3.0) -> float:
     """The legacy pipeline's per-population current noise std from a canonical record.
 
     The legacy ``*_membrane_std`` noise is added to the filtered current, so it
-    is the canonical neuron input (current) noise: ``sensor_noise_std`` when set, else the
-    deprecated ``noise_std`` alias, else ``default`` (C-130).
+    is the canonical neuron input (current) noise: ``sensor_noise_std`` when set,
+    else the deprecated ``noise_std`` alias, else ``default`` (C-130).
 
     Args:
         pop: One canonical ``populations`` entry as a dict.
@@ -65,6 +64,7 @@ def _legacy_current_noise_std(pop: dict, default: float = 3.0) -> float:
     if pop.get("sensor_noise_std") is not None:
         return pop["sensor_noise_std"]
     return pop.get("noise_std", default)
+
 
 class GeneralizedTactileEncodingPipeline(nn.Module):
     """Generalized tactile encoding pipeline with configurable parameters.
