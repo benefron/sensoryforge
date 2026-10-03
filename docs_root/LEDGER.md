@@ -108,13 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-0ad5aa6 · STANDING · finding · docs/reference · 2026-10-03
+on Linux x86-64 (GitHub ubuntu-latest, Python 3.10 and 3.11, CPU torch 2.14.1, torch on one thread) every world-engine and contract test passes, including bit-for-bit batch invariance and the pinned draw digest (CI run 37127486533)
+→ commit b2f4bee
+
+## F-3658a63 · OPEN · finding · docs/reference · 2026-10-03
+batch bit-invariance on x86-64 is not yet shown with several torch threads or with torch 2.2.2 (pressure-simulation's bio-encoding version); the CI suite runs torch single-threaded
+→ commit b2f4bee
+
 ## F-b17c562 · CLOSED · finding · - · 2026-10-03
 CI's lint job failed on main because seven files predating v1.1.0 were not black-formatted and three docstring lines exceeded flake8's 88 columns
 → commit 3e041b6
 
-## F-b18719c · OPEN · finding · - · 2026-10-02
+## F-b18719c · SUPERSEDED · finding · - · 2026-10-02
 draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only on Apple Silicon (arm64, SF's env and bio-encoding); on x86-64 torch's SIMD and scalar exp/sin/cos may differ in the last bit — a Linux CI run settles it
 → commit 67e3b60
+⤳ superseded in b2f4bee docs(world): the contract records the Linux x86-64 CI result for batch invariance
 
 ## F-5bd542f · OPEN · finding · - · 2026-10-02
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
