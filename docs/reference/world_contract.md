@@ -211,7 +211,7 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 
 | # | Guarantee | Test |
 |---|---|---|
-| 1 | Same world and seed give identical draws and frames in two processes; draw *i* alone equals draw *i* in a batch (bit for bit on one machine; verified on Apple Silicon, see "Across machines") | `tests/contract/test_world_contract.py::test_1_determinism_across_processes_and_batch_sizes`, `tests/unit/test_world_render.py::test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit` |
+| 1 | Same world and seed give identical draws and frames in two processes; draw *i* alone equals draw *i* in a batch (bit for bit on one machine; verified on Apple Silicon and, single-threaded, on Linux x86-64 — see "Across machines") | `tests/contract/test_world_contract.py::test_1_determinism_across_processes_and_batch_sizes`, `tests/unit/test_world_render.py::test_draw_i_alone_equals_draw_i_in_a_batch_bit_for_bit` |
 | 2 | A bundle's `/stimulus/frames` equals `render_movie(<the bundle's own record>, Canvas.from_grid_config(grid), dt, duration, dtype=float64).to(float32)` bit for bit, rendered on the CPU (the batch renders there on any `--device`) | `test_2_the_bundle_records_exactly_the_in_process_render` |
 | 3 | Frames rendered at `[t−τ, t, t+τ]` equal those steps of the movie (times `k·dt`) | `test_3_windows_agree_with_movies` |
 | 4 | Different noise seeds give different responses; the same seed gives identical spikes; the bundle records `simulation.receptor_noise_seed` equal to the entry's 53-bit noise seed | `test_4_noise_seeds` |
@@ -233,10 +233,13 @@ SensoryForge's golden fixtures, F-071).
 
 Bit-for-bit batch invariance (guarantee 1: draw *i* alone equals draw *i* in a batch, and
 chunking changes no bit) is verified on Apple Silicon (arm64), in SensoryForge's env and in
-`bio-encoding`. On x86-64 it is unverified: torch's SIMD and scalar paths for `exp`, `sin`
-and `cos` can differ in the last bit there, so draw *i* alone and in a batch may differ by
-about 1 ulp; a Linux CI run settles it. Guarantee 2 (bundle equals render) compares with the
-CPU render, which is what the batch records on any machine and any `--device`.
+`bio-encoding`, and on Linux x86-64 (GitHub's `ubuntu-latest` runners, Python 3.10 and 3.11,
+CPU torch 2.14.1), where every world and contract test passed. The test suite runs torch on
+one thread (`OMP_NUM_THREADS=1`), so on x86-64 it is not yet shown with several threads or with
+torch 2.2.2: there torch's SIMD and scalar paths for `exp`, `sin` and `cos` could still differ
+in the last bit at thread-chunk boundaries, so draw *i* alone and in a batch might differ by
+about 1 ulp. Guarantee 2 (bundle equals render) compares with the CPU render, which is what
+the batch records on any machine and any `--device`.
 
 ## 9. Conventions pressure-simulation must map
 
