@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-b17c562 · CLOSED · finding · - · 2026-10-03
+CI's lint job failed on main because seven files predating v1.1.0 were not black-formatted and three docstring lines exceeded flake8's 88 columns
+→ commit 3e041b6
+
 ## F-b18719c · OPEN · finding · - · 2026-10-02
 draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only on Apple Silicon (arm64, SF's env and bio-encoding); on x86-64 torch's SIMD and scalar exp/sin/cos may differ in the last bit — a Linux CI run settles it
 → commit 67e3b60
