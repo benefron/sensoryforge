@@ -48,3 +48,9 @@ world:
         seed: {range: [0, 16777215], int: true, stratify: false}
         background: {range: [0.6, 1.0]}
         components: {range: [16, 64], int: true}
+    dots:
+      weight: 1
+      layer:
+        shape: {kind: dot_array, sigma_mm: 0.12, spacing_mm: 0.7, arrangement: hexagonal}
+      axes:
+        orientation_deg: {range: [0, 180], circular: true}

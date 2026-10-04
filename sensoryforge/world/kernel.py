@@ -343,3 +343,4 @@ def motion_offsets(motion: Dict[str, Any], progress: torch.Tensor) -> torch.Tens
 from sensoryforge.world import surfaces  # noqa: E402
 
 register_shape("self_affine", surfaces.self_affine, surfaces.SELF_AFFINE_SPECS)
+register_shape("dot_array", surfaces.dot_array, surfaces.DOT_ARRAY_SPECS)

@@ -204,3 +204,98 @@ def self_affine(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Te
         )
         total = total + weight[:, j].view(view) * torch.cos(phase)
     return total
+
+
+# ------------------------------------------------------------------ dot_array
+
+#: Most lattice sites summed each way around the nearest one.
+DOT_NEIGHBOURS_MAX = 32
+
+DOT_ARRAY_SPECS = [
+    _spec("amplitude", "float", 1.0, 0.0, 1.0e4, help_="peak of one isolated dot"),
+    _spec("sigma_mm", "float", 0.2, 0.001, 50.0, "mm", "spread of one dot"),
+    _spec("spacing_mm", "float", 2.0, 0.01, 1000.0, "mm", "distance along a row"),
+    _spec(
+        "row_spacing_mm",
+        "float",
+        0.0,
+        0.0,
+        1000.0,
+        "mm",
+        "distance between rows; 0 = spacing_mm (square) or spacing_mm * sqrt(3) / 2"
+        " (hexagonal)",
+    ),
+    _spec("orientation_deg", "float", 0.0, -3600.0, 3600.0, "deg", "lattice rotation"),
+    ParamSpec(
+        "arrangement",
+        label="Arrangement",
+        dtype="str",
+        default="square",
+        choices=["square", "hexagonal"],
+        help="square, or hexagonal (every other row offset by half a spacing)",
+        tooltip="square, or hexagonal (every other row offset by half a spacing)",
+    ),
+]
+
+
+def dot_array(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
+    """A lattice of Gaussian bumps, each peaking at 1, overlaps summed.
+
+    In the lattice frame (rotated by ``orientation_deg`` about the element's
+    centre) each point is wrapped to its nearest site in every nearby row, and
+    the bumps of the ``m`` sites each way are summed, ``m = ceil(7.5 sigma /
+    min(a, b))`` (truncation below 1e-12 of the peak). The loop runs to the
+    group's largest ``m``; each draw's surplus terms are masked to exact zeros
+    and terms accumulate in a fixed order from zero, so a draw renders the
+    same alone or in a batch.
+
+    Args:
+        x, y: mm offsets from the element's centre, ``[g, K, *S]`` (world) or
+            ``[*S]`` (layered).
+        p: ``sigma_mm``, ``spacing_mm``, ``row_spacing_mm``, ``orientation_deg``
+            (tensors broadcasting against ``x``) and ``arrangement`` (a string).
+
+    Returns:
+        Values, same shape as ``x``; multiply by ``amplitude``.
+
+    Raises:
+        ValueError: If a dot is so wide for its spacing that more than
+            ``DOT_NEIGHBOURS_MAX`` sites each way are needed.
+    """
+    arrangement = p.get("arrangement", "square")
+    if arrangement not in ("square", "hexagonal"):
+        raise ValueError(
+            "dot_array arrangement must be 'square' or 'hexagonal', "
+            f"got {arrangement!r}"
+        )
+    hexagonal = arrangement == "hexagonal"
+    sigma, a, row = p["sigma_mm"], p["spacing_mm"], p["row_spacing_mm"]
+    default_b = a * (math.sqrt(3.0) / 2.0) if hexagonal else a
+    b = torch.where(row > 0, row, default_b)
+    m = torch.ceil(7.5 * sigma / torch.minimum(a, b))
+    m_max = int(m.max().item())
+    if m_max > DOT_NEIGHBOURS_MAX:
+        raise ValueError(
+            f"dot_array needs {m_max} lattice sites each way (limit "
+            f"{DOT_NEIGHBOURS_MAX}): sigma_mm={float(sigma.max()):g} is too wide "
+            f"for spacing_mm={float(a.min()):g}"
+        )
+    theta = torch.deg2rad(p["orientation_deg"])
+    cos_t, sin_t = torch.cos(theta), torch.sin(theta)
+    u = x * cos_t + y * sin_t
+    v = y * cos_t - x * sin_t
+    j0 = torch.round(v / b)
+    inv = 1.0 / (2.0 * sigma**2)
+    total = torch.zeros_like(x)
+    for dj in range(-m_max, m_max + 1):
+        j = j0 + dj
+        off = 0.5 * a * torch.remainder(j, 2.0) if hexagonal else 0.0
+        i0 = torch.round((u - off) / a)
+        dv = v - j * b
+        row_on = m >= abs(dj)
+        for di in range(-m_max, m_max + 1):
+            du = u - off - (i0 + di) * a
+            bump = torch.exp(-(du**2 + dv**2) * inv)
+            on = row_on & (m >= abs(di))
+            total = total + torch.where(on, bump, torch.zeros_like(bump))
+    return total
