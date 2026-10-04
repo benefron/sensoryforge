@@ -998,4 +998,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-0c2b6a3 | self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's share of the Persson power; RMS amplitude/sqrt(2) kept (P7 still provisional) | `7421092` |
 | 2026-10-04 | D-096e081 | clamp_min's domain is [-1e4, 0], since a floor above 0 would lift every point in contact to it, a jump at contact onset | `7421092` |
 | 2026-10-04 | D-3a10bce | a registered distribution without a finite support binds a number field only when it declares bounds=, checked against the field's domain | `7421092` |
+| 2026-10-04 | D-7d51fbe | release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed | `8757ca9` |
 <!-- DECISIONS_LOG_END -->

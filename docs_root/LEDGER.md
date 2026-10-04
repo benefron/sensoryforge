@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7d51fbe · CLOSED · decision · - · 2026-10-04
+release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed
+→ commit 8757ca9
+
 ## F-abc9e64 · CLOSED · finding · - · 2026-10-04
 the contract and DECISIONS called model-session gaps near-exponential with mean about gap_mean_ms; they are the uniform spacings of the quiet budget (CV 0.72, median 5.2 s at a 6 s mean, none longer than the budget)
 → commit 0d6c48a
@@ -155,6 +159,7 @@ the reviewer's charter-like data set fails at load since its dot_array spacing_m
 ## D-47d4dac · CLOSED · decision · - · 2026-10-04
 release the world 174 addendum as v1.2.0, tagged locally only and not pushed
 → commit 85a8a32
+↔ 8757ca9 chore(release): SensoryForge 1.2.1 -- the whole-branch review's fixes
 
 ## F-31d0900 · CLOSED · finding · docs/reference · 2026-10-04
 contract said clamp_min binds as an axis name; only background does
