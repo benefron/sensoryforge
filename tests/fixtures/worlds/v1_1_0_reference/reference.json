@@ -1,0 +1,31 @@
+{
+  "dataset": {
+    "dataset_id": "d-c481e9780660",
+    "manifest_digest": "be7dbc32b557fa8c7cd7524a35938b940d523fa4c3e075c1d9211da2cc6c04ea"
+  },
+  "platform": {
+    "machine": "arm64",
+    "sys_platform": "darwin"
+  },
+  "session": {
+    "digest": "28a2ec7cf651a933b65d2e8d4a359f0f01082acb8dcec629693a80d117db344a",
+    "duration_ms": 300.0,
+    "index": 0,
+    "seed": 7,
+    "world": "tactile_small"
+  },
+  "worlds": {
+    "every_element_v1_1": {
+      "draws_digest": "8fdc52fac520a6f6699343a5de5b517aed96a93c6cc4526a267b6a9da8bc62c5",
+      "frames_sha256": "7ad6c502f6c4eebd45116f7ec579fe8d218e2741a15a4b0d6957d2d92570178c",
+      "normal_form_sha256": "bbbeee8544f0ac4fcac59c804b1e2a2dab08ac1c033ea38b18a4f6ef8b10274b",
+      "world_id": "w-c61866b48dc5"
+    },
+    "tactile_small": {
+      "draws_digest": "e437c6a29c3f169dd77626b3ea4608a7e16bc46e85afb068a553573718b73767",
+      "frames_sha256": "9ce987376ad34cd6a94a5853d2337cf54b84b9866955afbdfd3110047b7679df",
+      "normal_form_sha256": "e796e719bd5f978162181438d034f67ced5550bc483f7a0141aed821103ef504",
+      "world_id": "w-cba7a3063f16"
+    }
+  }
+}

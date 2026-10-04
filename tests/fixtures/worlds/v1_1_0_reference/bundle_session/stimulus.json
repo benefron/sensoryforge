@@ -1,0 +1,509 @@
+{
+  "schema_version": "2.2.0",
+  "kind": "sensoryforge_world_entry",
+  "entry": {
+    "entry": "sessions/000",
+    "split": "sessions",
+    "repeat": 0,
+    "noise_repeat": 0,
+    "class": null,
+    "draw": {
+      "world_id": "w-cba7a3063f16",
+      "sampling": "session",
+      "seed": 2292815848790928,
+      "index": 0,
+      "session_seed": 37528560248027,
+      "duration_ms": 300.0,
+      "items": [
+        [
+          0.0,
+          {
+            "world_id": "w-cba7a3063f16",
+            "seed": 37528560248027,
+            "index": 0,
+            "draw_seed": 8331458123413685,
+            "class": "vibes",
+            "sampling": "declared",
+            "values": {
+              "amplitude": 0.5824095009114422,
+              "contacts": 1,
+              "delay_ms": 16.374271963693914,
+              "direction_deg": 83.83995386760706,
+              "frequency_hz": 161.32926244098422,
+              "hold_ms": 53.44933669790731,
+              "pause_ms": 0.0,
+              "release_ms": 5.6579367815105455,
+              "slide_ms": 0.0,
+              "speed_mm_per_ms": 0.005098009933771307,
+              "touch_ms": 5.486343267731019,
+              "x_mm": -0.11428194755716647,
+              "y_mm": -0.18874426838629982
+            },
+            "timeline": [
+              [
+                "quiet",
+                0.0,
+                16.374271963693914
+              ],
+              [
+                "touch",
+                16.374271963693914,
+                21.860615231424934
+              ],
+              [
+                "hold",
+                21.860615231424934,
+                75.30995192933224
+              ],
+              [
+                "release",
+                75.30995192933224,
+                80.96788871084279
+              ]
+            ],
+            "end_ms": 80.96788871084279,
+            "out_of_range": []
+          }
+        ],
+        [
+          80.96788871084279,
+          {
+            "world_id": "w-cba7a3063f16",
+            "seed": 37528560248027,
+            "index": 1,
+            "draw_seed": 6690601074712698,
+            "class": "taps",
+            "sampling": "declared",
+            "values": {
+              "amplitude": 0.6381134445320485,
+              "contacts": 1,
+              "delay_ms": 10.932524645894057,
+              "direction_deg": 307.18196155800695,
+              "hold_ms": 58.31333278726564,
+              "pause_ms": 0.0,
+              "rate_hz": 40.09807112644676,
+              "release_ms": 8.401518380841848,
+              "slide_ms": 0.0,
+              "speed_mm_per_ms": 0.011137556900435473,
+              "touch_ms": 6.73583055077602,
+              "x_mm": 0.06855592007233513,
+              "y_mm": 0.24045327294419744
+            },
+            "timeline": [
+              [
+                "quiet",
+                0.0,
+                10.932524645894057
+              ],
+              [
+                "touch",
+                10.932524645894057,
+                17.668355196670078
+              ],
+              [
+                "hold",
+                17.668355196670078,
+                75.98168798393571
+              ],
+              [
+                "release",
+                75.98168798393571,
+                84.38320636477756
+              ]
+            ],
+            "end_ms": 84.38320636477756,
+            "out_of_range": []
+          }
+        ],
+        [
+          165.35109507562035,
+          {
+            "world_id": "w-cba7a3063f16",
+            "seed": 37528560248027,
+            "index": 2,
+            "draw_seed": 7887667491348538,
+            "class": "dots",
+            "sampling": "declared",
+            "values": {
+              "amplitude": 0.5859223005687624,
+              "contacts": 1,
+              "delay_ms": 2.3353863063552205,
+              "direction_deg": 40.267425363285,
+              "hold_ms": 40.113046653946576,
+              "pause_ms": 0.0,
+              "release_ms": 5.534832418540927,
+              "sigma_mm": 0.37750360308615294,
+              "slide_ms": 0.0,
+              "speed_mm_per_ms": 0.014603658937121483,
+              "touch_ms": 6.602783843060132,
+              "x_mm": -0.24606015197186248,
+              "y_mm": -0.04207536688248992
+            },
+            "timeline": [
+              [
+                "quiet",
+                0.0,
+                2.3353863063552205
+              ],
+              [
+                "touch",
+                2.3353863063552205,
+                8.938170149415352
+              ],
+              [
+                "hold",
+                8.938170149415352,
+                49.051216803361925
+              ],
+              [
+                "release",
+                49.051216803361925,
+                54.586049221902854
+              ]
+            ],
+            "end_ms": 54.586049221902854,
+            "out_of_range": []
+          }
+        ],
+        [
+          219.93714429752322,
+          {
+            "world_id": "w-cba7a3063f16",
+            "seed": 37528560248027,
+            "index": 3,
+            "draw_seed": 7338028696895,
+            "class": "taps",
+            "sampling": "declared",
+            "values": {
+              "amplitude": 0.7647247143738176,
+              "contacts": 1,
+              "delay_ms": 18.81098733721903,
+              "direction_deg": 225.52887293302206,
+              "hold_ms": 33.4100360270269,
+              "pause_ms": 0.0,
+              "rate_hz": 47.84451134330734,
+              "release_ms": 11.843049766634305,
+              "slide_ms": 0.0,
+              "speed_mm_per_ms": 0.006465260440562807,
+              "touch_ms": 10.009729075244262,
+              "x_mm": 0.2959309586143221,
+              "y_mm": -0.2190199037419781
+            },
+            "timeline": [
+              [
+                "quiet",
+                0.0,
+                18.81098733721903
+              ],
+              [
+                "touch",
+                18.81098733721903,
+                28.82071641246329
+              ],
+              [
+                "hold",
+                28.82071641246329,
+                62.23075243949019
+              ],
+              [
+                "release",
+                62.23075243949019,
+                74.0738022061245
+              ]
+            ],
+            "end_ms": 74.0738022061245,
+            "out_of_range": []
+          }
+        ],
+        [
+          294.0109465036477,
+          {
+            "world_id": "w-cba7a3063f16",
+            "seed": 37528560248027,
+            "index": 4,
+            "draw_seed": 7430499315353082,
+            "class": "sliders",
+            "sampling": "declared",
+            "values": {
+              "amplitude": 0.8236969743305305,
+              "contacts": 1,
+              "delay_ms": 10.809613313802405,
+              "direction_deg": 66.01973747520027,
+              "hold_ms": 18.95108079068741,
+              "pause_ms": 0.0,
+              "release_ms": 7.5149050768377865,
+              "slide_ms": 27.696989818229028,
+              "speed_mm_per_ms": 0.005518962593042423,
+              "touch_ms": 10.882444317167153,
+              "x_mm": -0.1515054573048952,
+              "y_mm": 0.17519907894226566
+            },
+            "timeline": [
+              [
+                "quiet",
+                0.0,
+                10.809613313802405
+              ],
+              [
+                "touch",
+                10.809613313802405,
+                21.692057630969558
+              ],
+              [
+                "hold",
+                21.692057630969558,
+                40.64313842165697
+              ],
+              [
+                "slide",
+                40.64313842165697,
+                68.340128239886
+              ],
+              [
+                "release",
+                68.340128239886,
+                75.85503331672379
+              ]
+            ],
+            "end_ms": 75.85503331672378,
+            "out_of_range": []
+          }
+        ]
+      ],
+      "truncated": true,
+      "quiet_fraction": 0.18147407916504843,
+      "end_ms": 300.0
+    },
+    "bins": {},
+    "probe": null,
+    "seeds": {
+      "draw": 37528560248027,
+      "noise": 4315771385552639
+    },
+    "duration_ms": 300.0,
+    "truncated": true,
+    "world_id": "w-cba7a3063f16",
+    "dataset_id": "d-c481e9780660"
+  },
+  "layer": [
+    [
+      0.0,
+      {
+        "shape": {
+          "kind": "gaussian",
+          "amplitude": 0.5824095009114422,
+          "sigma_mm": 0.4
+        },
+        "pattern": {
+          "kind": "single",
+          "x_mm": -0.11428194755716647,
+          "y_mm": -0.18874426838629982
+        },
+        "motion": {
+          "kind": "linear",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            0.0,
+            0.0
+          ],
+          "span": "slide"
+        },
+        "timing": {
+          "onset_ms": 16.374271963693914,
+          "ramp_up_ms": 5.486343267731019,
+          "hold_ms": 53.44933669790731,
+          "slide_ms": 0.0,
+          "ramp_down_ms": 5.6579367815105455,
+          "contacts": 1,
+          "pause_ms": 0.0
+        },
+        "modulation": {
+          "kind": "sine",
+          "frequency_hz": 161.32926244098422,
+          "depth": 0.3,
+          "phase_deg": 0.0
+        }
+      }
+    ],
+    [
+      80.96788871084279,
+      {
+        "shape": {
+          "kind": "disc",
+          "amplitude": 0.6381134445320485,
+          "diameter_mm": 0.6,
+          "edge_mm": 0.1
+        },
+        "pattern": {
+          "kind": "single",
+          "x_mm": 0.06855592007233513,
+          "y_mm": 0.24045327294419744
+        },
+        "motion": {
+          "kind": "linear",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            0.0,
+            -0.0
+          ],
+          "span": "slide"
+        },
+        "timing": {
+          "onset_ms": 10.932524645894057,
+          "ramp_up_ms": 6.73583055077602,
+          "hold_ms": 58.31333278726564,
+          "slide_ms": 0.0,
+          "ramp_down_ms": 8.401518380841848,
+          "contacts": 1,
+          "pause_ms": 0.0
+        },
+        "modulation": {
+          "kind": "pulses",
+          "rate_hz": 40.09807112644676,
+          "duty": 0.5,
+          "edge_ms": 2,
+          "depth": 1.0
+        }
+      }
+    ],
+    [
+      165.35109507562035,
+      {
+        "shape": {
+          "kind": "gaussian",
+          "amplitude": 0.5859223005687624,
+          "sigma_mm": 0.37750360308615294
+        },
+        "pattern": {
+          "kind": "single",
+          "x_mm": -0.24606015197186248,
+          "y_mm": -0.04207536688248992
+        },
+        "motion": {
+          "kind": "linear",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            0.0,
+            0.0
+          ],
+          "span": "slide"
+        },
+        "timing": {
+          "onset_ms": 2.3353863063552205,
+          "ramp_up_ms": 6.602783843060132,
+          "hold_ms": 40.113046653946576,
+          "slide_ms": 0.0,
+          "ramp_down_ms": 5.534832418540927,
+          "contacts": 1,
+          "pause_ms": 0.0
+        },
+        "modulation": {
+          "kind": "none"
+        }
+      }
+    ],
+    [
+      219.93714429752322,
+      {
+        "shape": {
+          "kind": "disc",
+          "amplitude": 0.7647247143738176,
+          "diameter_mm": 0.6,
+          "edge_mm": 0.1
+        },
+        "pattern": {
+          "kind": "single",
+          "x_mm": 0.2959309586143221,
+          "y_mm": -0.2190199037419781
+        },
+        "motion": {
+          "kind": "linear",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            -0.0,
+            -0.0
+          ],
+          "span": "slide"
+        },
+        "timing": {
+          "onset_ms": 18.81098733721903,
+          "ramp_up_ms": 10.009729075244262,
+          "hold_ms": 33.4100360270269,
+          "slide_ms": 0.0,
+          "ramp_down_ms": 11.843049766634305,
+          "contacts": 1,
+          "pause_ms": 0.0
+        },
+        "modulation": {
+          "kind": "pulses",
+          "rate_hz": 47.84451134330734,
+          "duty": 0.5,
+          "edge_ms": 2,
+          "depth": 1.0
+        }
+      }
+    ],
+    [
+      294.0109465036477,
+      {
+        "shape": {
+          "kind": "gaussian",
+          "amplitude": 0.8236969743305305,
+          "sigma_mm": 0.3
+        },
+        "pattern": {
+          "kind": "single",
+          "x_mm": -0.1515054573048952,
+          "y_mm": 0.17519907894226566
+        },
+        "motion": {
+          "kind": "linear",
+          "start": [
+            0.0,
+            0.0
+          ],
+          "end": [
+            0.06212510590021583,
+            0.13966473543806016
+          ],
+          "span": "slide"
+        },
+        "timing": {
+          "onset_ms": 10.809613313802405,
+          "ramp_up_ms": 10.882444317167153,
+          "hold_ms": 18.95108079068741,
+          "slide_ms": 27.696989818229028,
+          "ramp_down_ms": 7.5149050768377865,
+          "contacts": 1,
+          "pause_ms": 0.0
+        },
+        "modulation": {
+          "kind": "none"
+        }
+      }
+    ]
+  ],
+  "dt_ms": 1.0,
+  "total_ms": 299.0,
+  "n_frames": 300,
+  "grid": {
+    "rows": 8,
+    "cols": 8,
+    "spacing": 0.15,
+    "center_x": 0.0,
+    "center_y": 0.0
+  },
+  "reconstructible_by_pressure_simulation": false
+}

@@ -6,6 +6,7 @@ number. docs/reference/world_contract.md cites them.
 """
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -284,3 +285,22 @@ def test_8_every_bundle_carries_its_provenance(batch_run):
     rows = read_batch_index(batch_run["out"])
     assert {r["sensoryforge_sha"] for r in rows} == {sha}
     assert {r["design_id"] for r in rows} == {manifest["design_id"]}
+
+
+def test_9_old_worlds_and_bundles_are_unchanged():
+    """v1.1.0's worlds, data sets and bundles keep their ids, records and frames.
+
+    The checks live in ``tests/unit/test_world_v1_1_compat.py`` (the invisible-
+    until-used rule); this runs them as part of the contract.
+    """
+    path = ROOT / "tests" / "unit" / "test_world_v1_1_compat.py"
+    spec = importlib.util.spec_from_file_location("world_v1_1_compat_checks", path)
+    checks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checks)
+    checks.test_old_world_ids_and_normal_forms_are_unchanged()
+    checks.test_old_draw_records_are_unchanged()
+    checks.test_old_session_record_is_unchanged()
+    checks.test_old_dataset_id_and_manifest_are_unchanged()
+    checks.test_old_frames_are_unchanged()
+    for bundle in checks.BUNDLES:
+        checks.test_a_v1_1_bundle_record_rebuilds_and_rerenders_bit_equal(bundle)
