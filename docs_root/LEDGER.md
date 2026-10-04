@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-abc9e64 · CLOSED · finding · - · 2026-10-04
+the contract and DECISIONS called model-session gaps near-exponential with mean about gap_mean_ms; they are the uniform spacings of the quiet budget (CV 0.72, median 5.2 s at a 6 s mean, none longer than the budget)
+→ commit 0d6c48a
+
+## F-0fe6de0 · CLOSED · finding · - · 2026-10-04
+guarantee 11 claimed the fraction when the episodes' contact share is at least f; it holds for the contact share within D in sessions whose episodes end before D
+→ commit 0d6c48a
+
+## F-67ab8d1 · STANDING · finding · - · 2026-10-04
+with the other repo's values guarantee 11 covers every exploration (short-episode) session and 57.7 % of handling (long-episode) sessions, 128 of 222; 24 of the 94 uncovered end below f
+→ commit 0d6c48a
+
+## F-3fe9e9c · OPEN · finding · - · 2026-10-04
+a model session cannot hold both its declared contact fraction and exponential gaps when it holds few gaps; which to keep exact (exponential gaps with the fraction on average, or longer sessions) is the other project's owner's decision
+→ commit 0d6c48a
+
 ## D-0c2b6a3 · CLOSED · decision · - · 2026-10-04
 self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's share of the Persson power; RMS amplitude/sqrt(2) kept (P7 still provisional)
 → commit 7421092
@@ -160,6 +176,7 @@ dot_array differs in scope from the brief, which covered arrays by grid; grid is
 sessions are budgeted (P8 a), gap count capped by the episode boundaries
 → commit 771bd06
 ↔ 9082178 docs(world): v1.2.0 contract, guide, changelog, decisions and rules
+↔ 0d6c48a docs(world): session gaps as built, guarantee 11 within D, notes for the other repo
 
 ## D-80d1fcd · CLOSED · decision · - · 2026-10-04
 groups are resolved into class axes at load (P1 option A), not kept as a runtime concept
