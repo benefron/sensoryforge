@@ -14,7 +14,16 @@ world:
     x_mm: {range: [-0.2, 0.2]}
     y_mm: {range: [-0.2, 0.2]}
     unit_mm: {value: 0.05}
+  groups:
+    press:
+      touch_ms: {range: [8, 14]}
+      hold_ms: {range: [20, 40]}
+      release_ms: {same_as: touch_ms}
   classes:
+    grouped_press:
+      weight: 1
+      use: [press]
+      layer: {shape: {kind: gaussian, sigma_mm: 0.15}}
     bg_dots:
       weight: 1
       layer: {shape: {kind: gaussian, sigma_mm: 0.2}}

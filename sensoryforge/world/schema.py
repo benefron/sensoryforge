@@ -35,11 +35,12 @@ _TOP_KEYS = {
     "units",
     "channels",
     "defaults",
+    "groups",
     "classes",
     "held_out",
     "fixed_draws",
 }
-_CLASS_KEYS = {"kind", "weight", "layer", "axes", "channel"}
+_CLASS_KEYS = {"kind", "weight", "layer", "axes", "channel", "use"}
 #: Names that become directory names (classes, held-out classes, fixed draws,
 #: data-set splits): no separators, no leading dot.
 NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
@@ -220,16 +221,29 @@ def _parse_world(data: Any) -> World:
         name: AxisSpec.from_dict(name, spec, where=f"world.defaults.{name}")
         for name, spec in _named(raw.get("defaults"), "world.defaults")
     }
+    groups: Dict[str, Dict[str, AxisSpec]] = {}
+    for group_name, group_raw in _named(
+        raw.get("groups"), "world.groups", directories=True
+    ):
+        group_where = f"world.groups.{group_name}"
+        if not isinstance(group_raw, dict):
+            raise ValueError(f"{group_where}: expected a mapping of axes")
+        groups[group_name] = {
+            axis_name: AxisSpec.from_dict(
+                axis_name, spec, where=f"{group_where}.{axis_name}"
+            )
+            for axis_name, spec in _named(group_raw, group_where)
+        }
     if not raw.get("classes"):
         raise ValueError("world.classes: declare at least one class")
     # Classes are kept sorted by name: nothing a world does may depend on the
     # order its YAML writes them in (yaml.safe_dump re-sorts keys).
     classes = {
-        n: _parse_class(n, c, defaults, channels, held_out=False)
+        n: _parse_class(n, c, defaults, channels, held_out=False, groups=groups)
         for n, c in _named(raw["classes"], "world.classes", directories=True)
     }
     held = {
-        n: _parse_class(n, c, defaults, channels, held_out=True)
+        n: _parse_class(n, c, defaults, channels, held_out=True, groups=groups)
         for n, c in _named(raw.get("held_out"), "world.held_out", directories=True)
     }
     clash = set(classes) & set(held)
@@ -270,6 +284,7 @@ def _parse_class(
     defaults: Dict[str, AxisSpec],
     channels: List[str],
     held_out: bool,
+    groups: Optional[Dict[str, Dict[str, AxisSpec]]] = None,
 ) -> ClassSpec:
     where = f"world.{'held_out' if held_out else 'classes'}.{name}"
     if not isinstance(raw, dict):
@@ -351,6 +366,37 @@ def _parse_class(
             continue
         path = f"world.defaults.{axis_name} (in class {name!r})"
         bind(axis_name, ref, axis, "world.defaults", path)
+    groups = groups or {}
+    used = raw.get("use")
+    if used is None:
+        used = []
+    if not isinstance(used, (list, tuple)):
+        raise ValueError(f"{where}.use: expected a list of group names, got {used!r}")
+    used = [str(g) for g in used]
+    if len(set(used)) != len(used):
+        raise ValueError(f"{where}.use: a group is named twice in {used}")
+    set_by: Dict[Ref, str] = {}
+    for group_name in used:
+        if group_name not in groups:
+            raise ValueError(
+                f"{where}.use: unknown group {group_name!r}; "
+                f"the world's groups: {sorted(groups)}"
+            )
+        for axis_name, axis in groups[group_name].items():
+            path = f"world.groups.{group_name}.{axis_name} (in class {name!r})"
+            try:
+                ref = kind.resolve(axis_name, layer)
+            except (UnknownField, AmbiguousField) as exc:
+                raise ValueError(f"{path}: {exc}") from None
+            if ref in set_by:
+                raise ValueError(
+                    f"{where}.use: groups {set_by[ref]!r} and {group_name!r} "
+                    f"both set {'.'.join(ref)}; keep one"
+                )
+            set_by[ref] = group_name
+            if kind.fixed_in_layer(ref, raw_layer):
+                continue
+            bind(axis_name, ref, axis, "world.groups", path)
     for axis_name, spec in _named(raw.get("axes"), f"{where}.axes"):
         try:
             ref = kind.resolve(axis_name, layer)
