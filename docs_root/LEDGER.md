@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-cb8576b · STANDING · finding · tests · 2026-10-04
+the guard's exact check keyed on (sys.platform, machine) alone reported a false break under torch 2.2.2 (diffs <= 8.3e-16).
+→ commit 8f84040
+
 ## F-b726a7d · STANDING · finding · tests · 2026-10-04
 v1.1.0 and this branch before any code change give byte-identical world ids, draws, session record, manifest and frames on tactile_small and every_element_v1_1
 → commit b38a61c
