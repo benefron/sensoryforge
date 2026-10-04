@@ -3,9 +3,9 @@
 One process builds the engine once (receptive fields loaded once) and loops
 over its entries. Each entry is rendered in float64 on the CPU on the design's
 canvas (whatever the engine's device, so a bundle's frames never depend on
-it), cast to float32, moved to the engine's device, simulated with its own
-noise seeds, and written to ``<out>/.partial/<entry>/`` before an atomic
-rename to ``<out>/<entry>/``.
+it) in time chunks, cast to float32 chunk by chunk, moved to the engine's
+device, simulated with its own noise seeds, and written to
+``<out>/.partial/<entry>/`` before an atomic rename to ``<out>/<entry>/``.
 Each task appends to its own ``index/task_<i>.jsonl``, so array tasks never
 share a file.
 """
@@ -30,9 +30,12 @@ from sensoryforge.io.bundle import WORLD_ENTRY_KIND
 from sensoryforge.provenance import source_info
 from sensoryforge.world import rng
 from sensoryforge.world.dataset import DatasetSpec, Entry, build_dataset
-from sensoryforge.world.render import Canvas, render_movie
+from sensoryforge.world.render import Canvas, movie_times, render
 from sensoryforge.world.sampling import Session
 from sensoryforge.world.schema import World
+
+#: Float64 elements one chunk of an entry's movie may hold (``[k, C, H, W]``).
+CHUNK_ELEMENTS = 2**25
 
 #: What one failing entry may raise without stopping the run.
 _ENTRY_ERRORS = (RuntimeError, ValueError, OSError, KeyError, IndexError, TypeError)
@@ -98,6 +101,58 @@ def to_grid_frames(
     for c, target in enumerate(layout):
         out[:, target] = movie[:, c]
     return out
+
+
+def render_frames(
+    item: Any,
+    canvas: Canvas,
+    dt_ms: float,
+    duration_ms: float,
+    layout: Optional[List[int]],
+    n_grid_channels: int,
+    *,
+    chunk_elements: Optional[int] = None,
+) -> torch.Tensor:
+    """An entry's float32 frames on the CPU, rendered in time chunks.
+
+    Each chunk is rendered in float64 (``movie_times(...)[k0:k1]``), placed in
+    the grid's channels and cast to float32 straight into the frame buffer, so
+    the float64 movie of a long entry is never held whole. Every frame depends
+    only on its own time, so the result equals ``render_movie(...)`` cast to
+    float32, bit for bit.
+
+    Args:
+        item: A draw or session.
+        canvas: Where to render.
+        dt_ms: Frame step, ms.
+        duration_ms: Entry length, ms.
+        layout: From ``channel_layout``.
+        n_grid_channels: The grid's channel count.
+        chunk_elements: Float64 elements per chunk (default ``CHUNK_ELEMENTS``).
+
+    Returns:
+        ``[T, H, W]`` or ``[T, C_grid, H, W]``, float32.
+    """
+    times = movie_times(dt_ms, duration_ms)
+    budget = int(CHUNK_ELEMENTS if chunk_elements is None else chunk_elements)
+    planes = n_grid_channels if layout is not None else 1
+    per_frame = max(1, canvas.xx.numel() * max(planes, 1))
+    step = max(1, budget // per_frame)
+    buffer: Optional[torch.Tensor] = None
+    for k0 in range(0, times.numel(), step):
+        k1 = min(k0 + step, times.numel())
+        movie = render([item], canvas, times[k0:k1], dtype=torch.float64, device="cpu")[
+            0
+        ]
+        frames = to_grid_frames(movie, layout, n_grid_channels).to(torch.float32)
+        if buffer is None:
+            buffer = torch.empty(
+                (times.numel(),) + tuple(frames.shape[1:]), dtype=torch.float32
+            )
+        buffer[k0:k1] = frames
+    if buffer is None:  # unreachable: movie_times has at least one step
+        raise ValueError("render_frames: no frames")
+    return buffer
 
 
 def stimulus_payload(entry: Entry) -> Dict[str, Any]:
@@ -209,16 +264,15 @@ def run_dataset(
                 pop.noise_seed = rng.seed53(noise, "population", i)
             # Always the CPU: CUDA's float64 exp/sin/cos differ from the CPU's
             # in the last bits, and a bundle must equal the CPU render.
-            movie = render_movie(
+            frames = render_frames(
                 entry.item,
                 canvas,
                 config.simulation.dt_ms,
                 entry.duration_ms,
-                dtype=torch.float64,
-                device="cpu",
+                layout,
+                n_grid_channels,
             )
-            frames = to_grid_frames(movie, layout, n_grid_channels)
-            frames = frames.to(dtype=torch.float32).to(device=engine.device)
+            frames = frames.to(device=engine.device)
             partial = out / ".partial" / entry.entry
             if partial.exists():
                 shutil.rmtree(partial)

@@ -162,14 +162,14 @@ def test_a_failed_entry_is_recorded_and_the_exit_status_says_so(
 ):
     import sensoryforge.world.runner as runner
 
-    real = runner.render_movie
+    real = runner.render_frames
 
     def flaky(item, *args, **kwargs):
         if getattr(item, "class_name", None) == "edges":
             raise ValueError("boom")
         return real(item, *args, **kwargs)
 
-    monkeypatch.setattr(runner, "render_movie", flaky)
+    monkeypatch.setattr(runner, "render_frames", flaky)
     out = tmp_path / "out"
     argv = [
         "--design",
@@ -198,11 +198,11 @@ def test_frames_render_on_cpu_whatever_the_engine_device(
     import sensoryforge.world.runner as runner
 
     devices, received = [], []
-    real = runner.render_movie
+    real = runner.render
 
-    def spy(item, *args, **kwargs):
+    def spy(items, *args, **kwargs):
         devices.append(torch.device(kwargs.get("device", "cpu")))
-        return real(item, *args, **kwargs)
+        return real(items, *args, **kwargs)
 
     class OtherDeviceEngine:
         """Stands in for an engine on another device ('meta' does no maths)."""
@@ -214,7 +214,7 @@ def test_frames_render_on_cpu_whatever_the_engine_device(
             received.append((frames.device, frames.dtype))
             Path(bundle_dir).mkdir(parents=True, exist_ok=True)
 
-    monkeypatch.setattr(runner, "render_movie", spy)
+    monkeypatch.setattr(runner, "render", spy)
     monkeypatch.setattr(runner, "SimulationEngine", OtherDeviceEngine)
     summary = runner.run_dataset(
         load_design(FIXTURE),
