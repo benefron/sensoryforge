@@ -8,7 +8,7 @@ import torch
 from sensoryforge.stimuli import layered
 from sensoryforge.stimuli.episode import contact_terms
 from sensoryforge.world import Canvas, World, kernel, render, sample
-from sensoryforge.world.surfaces import curved_contact
+from sensoryforge.world.surfaces import curved_contact, step_edge
 
 UNIT = 0.05
 RADIUS = 0.8
@@ -268,7 +268,7 @@ def test_non_indenter_shapes_are_unchanged():
     # the v1.1.0 guard (test_world_v1_1_compat.py) holds the bytes; here the
     # registered kinds carry the flag off and layered's built-ins are not indenters
     for name, kind in kernel.SHAPE_KINDS.items():
-        assert kind.indenter is (name == "curved_contact")
+        assert kind.indenter is (name in ("curved_contact", "step_edge"))
 
 
 def test_a_cylinder_and_a_sphere_differ():
@@ -283,3 +283,153 @@ def test_unknown_form_raises():
     x, y = _line(5)
     with pytest.raises(ValueError, match="form"):
         curved_contact(x, y, _p(1.0, form="cone"))
+
+
+# ------------------------------------------------------------------ step_edge
+
+RHO = 0.5
+
+
+def _sp(depth, rho=RHO, unit=UNIT, theta=0.0):
+    t = lambda v: torch.tensor(float(v), dtype=torch.float64)  # noqa
+    return {
+        "depth": t(depth),
+        "shoulder_radius_mm": t(rho),
+        "unit_mm": t(unit),
+        "orientation_deg": t(theta),
+    }
+
+
+def test_step_edge_is_a_registered_indenter():
+    kind = kernel.SHAPE_KINDS["step_edge"]
+    assert kind.indenter and not kind.unbounded
+
+
+def test_plate_side_is_the_depth():
+    x = torch.tensor([-3.0, -1.0, -1e-9, 0.0], dtype=torch.float64)
+    got = step_edge(x, torch.zeros_like(x), _sp(1.7, theta=90.0))
+    # theta = 90: across = x, so the plate lies where x <= 0
+    torch.testing.assert_close(got, torch.full_like(x, 1.7), atol=0, rtol=0)
+
+
+def test_shoulder_profile_is_circular():
+    depth = 4.0  # delta = 0.2 < rho
+    p = torch.tensor([0.05, 0.1, 0.2, 0.3], dtype=torch.float64)
+    got = step_edge(p, torch.zeros_like(p), _sp(depth, theta=90.0))
+    sag = RHO - torch.sqrt(RHO**2 - p**2)
+    torch.testing.assert_close(got, depth - sag / UNIT, atol=1e-12, rtol=0)
+
+
+@pytest.mark.parametrize("depth", [1.0, 4.0, 8.0])
+def test_contact_ends_where_the_shoulder_rises_above_the_depth(depth):
+    delta = depth * UNIT
+    x = torch.linspace(1e-4, 1.2 * RHO, 20001, dtype=torch.float64)
+    got = step_edge(x, torch.zeros_like(x), _sp(depth, theta=90.0))
+    if delta < RHO:
+        a = math.sqrt(2.0 * RHO * delta - delta**2)
+        assert bool((got[x < a - 1e-4] > 0).all())
+        assert bool((got[x > a + 1e-4] == 0).all())
+    else:
+        # the contact runs to the end of the shoulder, then drops to 0
+        below = x < RHO - 1e-9
+        assert bool((got[below] > 0).all())
+        last = step_edge(
+            torch.tensor([RHO * (1 - 1e-12)], dtype=torch.float64),
+            torch.zeros(1, dtype=torch.float64),
+            _sp(depth, theta=90.0),
+        )
+        assert float(last) == pytest.approx(depth - RHO / UNIT, abs=1e-6)
+        assert bool((got[x >= RHO] == 0).all())
+
+
+def test_a_sharp_step_is_a_hard_edge():
+    x = torch.tensor([-0.2, -1e-9, 1e-9, 0.2], dtype=torch.float64)
+    got = step_edge(x, torch.zeros_like(x), _sp(2.0, rho=0.0, theta=90.0))
+    assert got.tolist() == [2.0, 2.0, 0.0, 0.0]
+
+
+def test_orientation_flips_the_plate_side():
+    x = torch.tensor([-0.3, 0.3], dtype=torch.float64)
+    z = torch.zeros_like(x)
+    a = step_edge(x, z, _sp(2.0, rho=0.0, theta=90.0))
+    b = step_edge(x, z, _sp(2.0, rho=0.0, theta=270.0))
+    assert a.tolist() == [2.0, 0.0]
+    assert b.tolist() == [0.0, 2.0]
+
+
+def test_a_step_is_constant_along_its_edge():
+    t = torch.linspace(-0.5, 0.5, 11, dtype=torch.float64)
+    x = torch.full_like(t, 0.1)
+    got = step_edge(x, t, _sp(4.0, theta=90.0))
+    assert bool((got == got[0]).all())
+
+
+def test_step_depth_zero_is_exactly_zero():
+    x, y = _line(101)
+    got = step_edge(x, y, _sp(0.0, theta=90.0))
+    assert bool((got == 0).all())
+    draw = sample(_step_world(), n=1, seed=3)[0]
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    assert bool((frames[TIMES < 10] == 0).all())
+    assert bool((frames[TIMES >= draw.end_ms] == 0).all())
+    assert float(frames.abs().max()) > 0
+
+
+def _step_world():
+    return World.from_dict(
+        {
+            "world": {
+                "classes": {
+                    "c": {
+                        "layer": {
+                            "shape": {
+                                "kind": "step_edge",
+                                "shoulder_radius_mm": RHO,
+                                "unit_mm": UNIT,
+                            },
+                            "clamp_min": 0.0,
+                        },
+                        "axes": {
+                            **EPISODE,
+                            "amplitude": {"value": 0.8},
+                            "orientation_deg": {"value": 90.0},
+                        },
+                    }
+                }
+            }
+        }
+    )
+
+
+def test_step_layered_equals_the_world_renderer():
+    world = World.from_dict(
+        {
+            "world": {
+                "classes": {
+                    "c": {
+                        "layer": {
+                            "shape": {
+                                "kind": "step_edge",
+                                "shoulder_radius_mm": 0.3,
+                                "unit_mm": UNIT,
+                            },
+                            "clamp_min": 0.0,
+                        },
+                        "axes": {
+                            **EPISODE,
+                            "amplitude": {"value": 0.8},
+                            "orientation_deg": {"value": 40.0},
+                            "background": {"value": 0.2},
+                        },
+                    }
+                }
+            }
+        }
+    )
+    draw = sample(world, n=1, seed=2)[0]
+    total = math.ceil(draw.end_ms) + 5.0
+    times = torch.arange(0, total, 1.0, dtype=torch.float64)
+    frames = render([draw], CANVAS, times, dtype=torch.float64)[0]
+    torch.testing.assert_close(
+        frames, _layered_curved(draw, CANVAS, total)[: len(times)], atol=1e-5, rtol=0
+    )

@@ -359,3 +359,9 @@ register_shape(
     surfaces.CURVED_CONTACT_SPECS,
     indenter=True,
 )
+register_shape(
+    "step_edge",
+    surfaces.step_edge,
+    surfaces.STEP_EDGE_SPECS,
+    indenter=True,
+)

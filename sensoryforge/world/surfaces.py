@@ -380,3 +380,76 @@ def curved_contact(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch
     sag = r2 / (radius + root)
     value = (p["depth"] - sag / p["unit_mm"]).clamp(min=0.0)
     return torch.where(inside, value, torch.zeros_like(value))
+
+
+# ------------------------------------------------------------------- step_edge
+
+STEP_EDGE_SPECS = [
+    _spec(
+        "amplitude",
+        "float",
+        1.0,
+        0.0,
+        1.0e4,
+        help_="depth of the plate's indentation, in units (unit_mm mm each)",
+    ),
+    _spec(
+        "shoulder_radius_mm",
+        "float",
+        2.0,
+        0.0,
+        1000.0,
+        "mm",
+        "radius of the rounded shoulder (0 = a sharp step)",
+    ),
+    _spec(
+        "orientation_deg",
+        "float",
+        0.0,
+        -3600.0,
+        3600.0,
+        "deg",
+        "edge direction (the bar convention: across = x sin t + y cos t); "
+        "the plate lies where across <= 0",
+    ),
+    _spec(
+        "unit_mm",
+        "float",
+        1.0,
+        0.001,
+        100.0,
+        "mm",
+        "millimetres of indentation per unit of amplitude",
+    ),
+]
+
+
+def step_edge(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
+    """Indentation by a flat plate that ends in a rounded shoulder.
+
+    With ``q = x sin t + y cos t`` (``t`` the orientation) and ``rho`` the
+    shoulder radius, the indentation is ``depth`` where ``q <= 0`` (the plate),
+    ``max(0, depth - (rho - sqrt(rho**2 - q**2)) / unit_mm)`` for
+    ``0 < q < rho`` (the shoulder), and 0 for ``q >= rho``. Depth 0 gives
+    exactly 0 everywhere.
+
+    Args:
+        x, y: mm offsets from the contact's centre, any shape.
+        p: ``depth`` (units, ``amplitude x envelope x modulation``, broadcasting
+            against ``x``), ``shoulder_radius_mm``, ``unit_mm`` and
+            ``orientation_deg`` (tensors).
+
+    Returns:
+        Indentation in units, same shape as ``x``.
+    """
+    theta = torch.deg2rad(p["orientation_deg"])
+    q = x * torch.sin(theta) + y * torch.cos(theta)
+    rho = p["shoulder_radius_mm"]
+    depth = p["depth"]
+    root = torch.sqrt((rho**2 - q**2).clamp(min=0.0))
+    denom = (rho + root).clamp(min=1e-30)  # rho = 0 never reaches the shoulder
+    sag = q**2 / denom  # rho - sqrt(rho**2 - q**2), free of cancellation
+    shoulder = (depth - sag / p["unit_mm"]).clamp(min=0.0)
+    plate = depth + torch.zeros_like(shoulder)
+    value = torch.where(q <= 0, plate, shoulder)
+    return torch.where((q > 0) & (q >= rho), torch.zeros_like(value), value)

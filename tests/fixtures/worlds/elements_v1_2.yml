@@ -69,3 +69,10 @@ world:
         amplitude: {range: [0.6, 1.5]}
         orientation_deg: {range: [0, 180], circular: true}
         background: {range: [0.1, 0.3]}
+    step:
+      weight: 1
+      layer:
+        shape: {kind: step_edge, shoulder_radius_mm: 0.5}
+      axes:
+        amplitude: {range: [0.6, 1.5]}
+        orientation_deg: {range: [0, 360], circular: true}
