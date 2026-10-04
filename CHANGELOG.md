@@ -4,6 +4,50 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); dates are commit dates from
 `docs_root/LEDGER.md`, the project's decision/finding record.
 
+## [1.2.1] - 2026-10-04
+
+The fixes from the whole-branch review of 1.2.0. Old worlds, data sets and 1.1.0 bundles stay
+bit-equal (the contract's test 9). Elements new in 1.2.0 may change their output: nothing pins
+1.2.0 yet.
+
+### Changed (behaviour — re-render any `self_affine` surfaces made with 1.2.0)
+
+- **`self_affine` renders different surfaces** for the same fields and seed (D-0c2b6a3). Its
+  cosines now sit one per equal stratum of the wavenumber scale `ξ` (`q²` below the roll-off,
+  `ln q` above), each with its stratum's share of the declared Persson power, so every octave
+  between roll-off and cut-off carries components in every surface; 1.2.0 put almost none in
+  the fine band of any one surface (with 256 cosines, cut-off 0.3 mm, roll-off 10 mm and
+  H = 1: 1.2 cosines with wavelengths 0.3–1 mm per surface, now 77). The expected spectrum and
+  RMS (`amplitude / √2`) are unchanged; `self_affine_table` returns `[N, 4]` (an amplitude
+  column).
+- **Worlds that could fail at render now fail at load**, naming the class and axes:
+  `dot_array`'s 32-site limit on the worst case of `sigma_mm` over the spacing; `self_affine`
+  with a `cutoff_mm` that can reach `rolloff_mm` (1.2.0 rendered a flat spectrum silently; the
+  shape also refuses it at render); `clamp_min` outside [−1e4, 0] and a layer `background`
+  above 1e4 (D-096e081); a continuous registered distribution whose values leave its field's
+  domain (`biased_direction` on a grating's `duty`). The shape checks also run on fixed draws
+  and, when a data set loads, on probe values: a data set whose probes reach such a case fails
+  at load (set `probes: false` on that axis).
+- **A registered distribution without a finite support** must declare
+  `register_distribution(..., bounds=)` to bind a number field (D-3a10bce); `biased_direction`
+  declares [0, 360].
+
+### Added
+
+- `register_shape(..., check=)`: a load-time check over several fields of a shape, given the
+  values each can take (`FieldValues`); `ClassKind.check_values` runs it.
+
+### Documentation
+
+- The session gaps are the uniform spacings of the quiet budget, not exponential (coefficient
+  of variation 0.72 with the other project's values, never longer than the budget); a declared
+  contact fraction and exponential gaps cannot both hold exactly in a session with few gaps,
+  and which to keep exact is open (contract section 10.8, `docs_root/DECISIONS.md`).
+- Guarantee 11 is stated for the contact share within the session's duration, in sessions
+  whose episodes end before it, with the counterexample pinned.
+- Contract section 9: geometric indenter footprints (not Hertz), a `background` in `defaults`
+  reaches indenters, a long roll-off shows partly as an offset, `session()` defaults to seed 0.
+
 ## [1.2.0] - 2026-10-04
 
 Nothing changes for existing worlds, data sets or bundles: every addition is optional, present
