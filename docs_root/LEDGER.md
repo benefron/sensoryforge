@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-b726a7d · STANDING · finding · tests · 2026-10-04
+v1.1.0 and this branch before any code change give byte-identical world ids, draws, session record, manifest and frames on tactile_small and every_element_v1_1
+→ commit b38a61c
+
 ## F-e9f7b0e · OPEN · finding · docs/development · 2026-10-04
 the world §174 addendum plan's nine provisional decisions (P1-P9: contact types, "touches for", tied fall, lateral-bias family, indenter semantics, background floor, self-affine scale, session layout, dot arrays) await the supervisor's or Ben's answer
 → commit 6b7c43a
