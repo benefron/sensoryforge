@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-1b2d1c1 · CLOSED · decision · - · 2026-10-04
+lateral scan bias is an angular central Gaussian solved from the travel ratio (P4a, provisional)
+→ commit 19d7a32
+
 ## D-32d7d70 · CLOSED · decision · - · 2026-10-04
 the background is its own draw sharing the contact envelope, with the layer total floored at clamp_min where the envelope is positive (P6, provisional).
 → commit 6c0daf3
