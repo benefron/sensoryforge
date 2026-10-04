@@ -932,4 +932,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-80d1fcd | groups are resolved into class axes at load (P1 option A), not kept as a runtime concept | `2487d37` |
 | 2026-10-04 | D-6b0215f | sessions are budgeted (P8 a), gap count capped by the episode boundaries | `771bd06` |
 | 2026-10-04 | D-822574c | "touches for" is the plateau hold_ms, no contact_ms field (P2 a, provisional) | `9082178` |
+| 2026-10-04 | D-47d4dac | release the world 174 addendum as v1.2.0, tagged locally only and not pushed | `85a8a32` |
 <!-- DECISIONS_LOG_END -->

@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-47d4dac · CLOSED · decision · - · 2026-10-04
+release the world 174 addendum as v1.2.0, tagged locally only and not pushed
+→ commit 85a8a32
+
 ## F-31d0900 · CLOSED · finding · docs/reference · 2026-10-04
 contract said clamp_min binds as an axis name; only background does
 → commit 95d1e61
