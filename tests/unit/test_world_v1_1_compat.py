@@ -12,8 +12,9 @@ clean copy of tag v1.1.0 by ``tests/fixtures/make_world_v1_1_reference.py``
 
 **A failure here means an old world changed.** Do not update the reference and
 do not loosen a tolerance: fix the change so that a file without the new key
-renders and hashes as before. Frame hashes are exact only on macOS arm64,
-where the reference was made; elsewhere frames are compared to a tolerance
+renders and hashes as before. Frame hashes are exact only on macOS arm64 with
+the torch version the reference was made under (float64 frames differ by
+~1e-16 across torch versions); elsewhere frames are compared to a tolerance
 (F-071).
 """
 
@@ -54,6 +55,7 @@ DATASET_FILE = WORLDS / "dataset_small.yml"
 ON_REFERENCE_PLATFORM = (
     sys.platform == REFERENCE["platform"]["sys_platform"]
     and platform.machine() == REFERENCE["platform"]["machine"]
+    and torch.__version__ == REFERENCE["platform"]["torch"]
 )
 BUNDLES = ("bundle_test", "bundle_session")
 

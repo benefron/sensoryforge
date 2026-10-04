@@ -5,7 +5,8 @@
   },
   "platform": {
     "machine": "arm64",
-    "sys_platform": "darwin"
+    "sys_platform": "darwin",
+    "torch": "2.5.1"
   },
   "session": {
     "digest": "28a2ec7cf651a933b65d2e8d4a359f0f01082acb8dcec629693a80d117db344a",
