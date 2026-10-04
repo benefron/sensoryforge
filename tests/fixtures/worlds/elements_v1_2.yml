@@ -13,6 +13,7 @@ world:
     amplitude:  {range: [0.5, 1.0]}
     x_mm: {range: [-0.2, 0.2]}
     y_mm: {range: [-0.2, 0.2]}
+    unit_mm: {value: 0.05}
   classes:
     bg_dots:
       weight: 1
@@ -57,13 +58,13 @@ world:
     sphere:
       weight: 1
       layer:
-        shape: {kind: curved_contact, form: sphere, radius_mm: 0.8, unit_mm: 0.05}
+        shape: {kind: curved_contact, form: sphere, radius_mm: 0.8}
       axes:
         amplitude: {range: [0.6, 1.5]}
     cylinder:
       weight: 1
       layer:
-        shape: {kind: curved_contact, form: cylinder, radius_mm: 0.8, unit_mm: 0.05}
+        shape: {kind: curved_contact, form: cylinder, radius_mm: 0.8}
       axes:
         amplitude: {range: [0.6, 1.5]}
         orientation_deg: {range: [0, 180], circular: true}
