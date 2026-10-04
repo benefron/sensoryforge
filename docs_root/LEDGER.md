@@ -167,6 +167,7 @@ the world §174 addendum plan's nine provisional decisions (P1-P9: contact types
 ## F-29e949e · OPEN · finding · docs/development · 2026-10-04
 a 120 s session at 80x80 and 1 ms is 3.1 GB of float32 stimulus that the simulation engine holds whole; the addendum chunks only the rendering
 → commit 6b7c43a
+↔ 5b53366 feat(world): render long entries in time chunks [structural]
 
 ## F-0ad5aa6 · STANDING · finding · docs/reference · 2026-10-03
 on Linux x86-64 (GitHub ubuntu-latest, Python 3.10 and 3.11, CPU torch 2.14.1, torch on one thread) every world-engine and contract test passes, including bit-for-bit batch invariance and the pinned draw digest (CI run 37127486533)
