@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7d5e5bc · CLOSED · decision · - · 2026-10-04
+letter_text recovers int(u * 2**53) as the draw's bits and maps cells x lines sub-uniforms through the cumulative weights
+→ commit 5d658d3
+
 ## D-fda02f9 · CLOSED · decision · - · 2026-10-04
 step_edge is an indenter shape, value d on the plate, d minus the circular sag on the shoulder, 0 past it
 → commit 5cfab52

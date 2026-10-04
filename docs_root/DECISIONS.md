@@ -751,4 +751,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-072fed4 | dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional) | `7e16d00` |
 | 2026-10-04 | D-84200e4 | indenters are depth-driven, the footprint growing during the rise (P5, provisional) | `956af6c` |
 | 2026-10-04 | D-fda02f9 | step_edge is an indenter shape, value d on the plate, d minus the circular sag on the shoulder, 0 past it | `5cfab52` |
+| 2026-10-04 | D-7d5e5bc | letter_text recovers int(u * 2**53) as the draw's bits and maps cells x lines sub-uniforms through the cumulative weights | `5d658d3` |
 <!-- DECISIONS_LOG_END -->
