@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-b0be6a6 · CLOSED · decision · - · 2026-10-04
+a press falls as it rose through same_as, an axis link (P3a, provisional)
+→ commit 62cb959
+
 ## D-1b2d1c1 · CLOSED · decision · - · 2026-10-04
 lateral scan bias is an angular central Gaussian solved from the travel ratio (P4a, provisional)
 → commit 19d7a32

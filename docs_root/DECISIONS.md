@@ -746,4 +746,5 @@ Do not hand-edit between the markers.
 | 2026-10-02 | D-0fbb84a | the batch runner sets every population's noise_seed to seed53(noise, "population", i), whether or not the design set one, so no population's noise hangs on the 32-bit run seed | `aa88bd3` |
 | 2026-10-04 | D-32d7d70 | the background is its own draw sharing the contact envelope, with the layer total floored at clamp_min where the envelope is positive (P6, provisional). | `6c0daf3` |
 | 2026-10-04 | D-1b2d1c1 | lateral scan bias is an angular central Gaussian solved from the travel ratio (P4a, provisional) | `19d7a32` |
+| 2026-10-04 | D-b0be6a6 | a press falls as it rose through same_as, an axis link (P3a, provisional) | `62cb959` |
 <!-- DECISIONS_LOG_END -->
