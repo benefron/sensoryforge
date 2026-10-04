@@ -281,9 +281,27 @@ PATTERNS: Dict[str, List[ParamSpec]] = {
         _f("x_mm", 0.0, -1000.0, 1000.0, "mm", "Centre of the first cell."),
         _f("y_mm", 0.0, -1000.0, 1000.0, "mm", "Centre of the first cell."),
         _s(
-            "dots", "", "Cells by dot number, e.g. '125 14'; when set it replaces text."
+            "dots",
+            "",
+            "Cells by dot number, e.g. '125 14'; when set it replaces text. "
+            "A '/' starts a new line (in text too).",
+        ),
+        _f(
+            "line_spacing_mm",
+            10.0,
+            0.1,
+            1000.0,
+            "mm",
+            "Distance between lines (line L sits at y - L * spacing).",
         ),
     ],
+}
+
+#: Fields added to an existing kind after v1.1.0: a normalised layer leaves
+#: them out unless the file sets them (so old world ids do not change), and
+#: reads them with the spec's default. ``{(part, kind): (field, ...)}``.
+ADDED_FIELDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
+    ("pattern", "braille"): ("line_spacing_mm",),
 }
 
 _SPAN = _c(
@@ -558,26 +576,34 @@ def _random_positions(p) -> Tuple[List[Tuple[float, float]], List[float]]:
     return positions, scales
 
 
-def _braille_cells(p) -> List[Tuple[int, str]]:
-    """``(cell index, dot numbers)`` per non-blank cell (``dots``, else ``text``)."""
+def _braille_cells(p) -> List[Tuple[int, int, str]]:
+    """``(line, cell index, dot numbers)`` per non-blank cell.
+
+    Cells come from ``dots``, else ``text``; a ``/`` starts a new line and the
+    cell index restarts on each line (a space counts as an empty cell).
+    """
     dots = str(p.get("dots") or "").strip()
     if dots:
         cells = []
-        for index, cell in enumerate(dots.split()):
-            if any(ch not in "123456" for ch in cell) or len(set(cell)) != len(cell):
-                raise ValueError(
-                    f"braille pattern: cell {cell!r} must be distinct dot numbers "
-                    "1-6, e.g. '125'"
-                )
-            cells.append((index, cell))
+        for line, chunk in enumerate(dots.split("/")):
+            for index, cell in enumerate(chunk.split()):
+                if any(ch not in "123456" for ch in cell) or len(set(cell)) != len(
+                    cell
+                ):
+                    raise ValueError(
+                        f"braille pattern: cell {cell!r} must be distinct dot "
+                        "numbers 1-6, e.g. '125'"
+                    )
+                cells.append((line, index, cell))
         return cells
     cells = []
-    for index, letter in enumerate(str(p.get("text", "")).lower()):
-        if letter == " ":
-            continue
-        if letter not in _BRAILLE:
-            raise ValueError(f"braille pattern: no cell for {letter!r} (a-z only)")
-        cells.append((index, _BRAILLE[letter]))
+    for line, chunk in enumerate(str(p.get("text", "")).lower().split("/")):
+        for index, letter in enumerate(chunk):
+            if letter == " ":
+                continue
+            if letter not in _BRAILLE:
+                raise ValueError(f"braille pattern: no cell for {letter!r} (a-z only)")
+            cells.append((line, index, _BRAILLE[letter]))
     return cells
 
 
@@ -585,13 +611,15 @@ def _braille_positions(p) -> Tuple[List[Tuple[float, float]], List[float]]:
     pitch = float(p["dot_spacing_mm"])
     step = float(p["cell_spacing_mm"])
     x0, y0 = float(p.get("x_mm", 0.0)), float(p.get("y_mm", 0.0))
+    line_step = float(p["line_spacing_mm"])
     positions = []
-    for index, cell in _braille_cells(p):
+    for line, index, cell in _braille_cells(p):
         cell_x = x0 + index * step
+        line_y = y0 if line == 0 else y0 - line * line_step
         for dot in cell:
             n = int(dot) - 1
             col, row = divmod(n, 3)  # 1-3 left column, 4-6 right; top to bottom
-            positions.append((cell_x + (col - 0.5) * pitch, y0 + (1 - row) * pitch))
+            positions.append((cell_x + (col - 0.5) * pitch, line_y + (1 - row) * pitch))
     return positions, [1.0] * len(positions)
 
 

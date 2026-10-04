@@ -37,6 +37,13 @@ def plain(value: Any) -> Any:
     raise ValueError(f"axis values must be numbers or strings, got {value!r}")
 
 
+def _option(value: Any) -> Any:
+    """A registered distribution's option: a scalar, or a tuple of scalars."""
+    if isinstance(value, (list, tuple)):
+        return tuple(plain(v) for v in value)
+    return plain(value)
+
+
 def is_number(value: Any) -> bool:
     """True for an int or a float (not a bool)."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -225,6 +232,93 @@ register_distribution(
 )
 
 
+_LETTER_KEYS = {"letters", "weights", "cells", "lines"}
+_ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+
+
+def _letter_options(axis: "AxisSpec") -> Tuple[str, np.ndarray, int, int]:
+    """``(letters, cumulative weights, cells, lines)`` of a ``letter_text`` axis."""
+    # Imported here: layered imports the world kernel lazily, never the reverse.
+    from sensoryforge.stimuli.layered import _BRAILLE
+
+    opts = dict(axis.options)
+    unknown = set(opts) - _LETTER_KEYS
+    if unknown:
+        raise ValueError(
+            f"letter_text: unknown options {sorted(unknown)}; "
+            f"allowed: {sorted(_LETTER_KEYS)}"
+        )
+    letters = opts.get("letters", _ALPHABET)
+    if not isinstance(letters, str) or not letters:
+        raise ValueError(
+            f"letter_text: letters must be non-empty text, got {letters!r}"
+        )
+    bad = sorted({ch for ch in letters if ch != " " and ch not in _BRAILLE})
+    if bad:
+        raise ValueError(
+            f"letter_text: letters {bad} have no braille cell (a-z and space only)"
+        )
+    raw = opts.get("weights", (1.0,) * len(letters))
+    if not isinstance(raw, tuple):
+        raise ValueError(f"letter_text: weights must be a list, got {raw!r}")
+    if len(raw) != len(letters):
+        raise ValueError(f"letter_text: {len(raw)} weights for {len(letters)} letters")
+    w = np.array(
+        [_finite_number(v, "letter_text", "weights") for v in raw], dtype=np.float64
+    )
+    if (w < 0).any() or w.sum() <= 0:
+        raise ValueError("letter_text: weights must be >= 0 with a positive sum")
+    counts = []
+    for name in ("cells", "lines"):
+        n = opts.get(name, 1)
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ValueError(f"letter_text: {name} must be an int >= 1, got {n!r}")
+        counts.append(n)
+    cells, lines = counts
+    if cells * lines > 1 and axis.stratify:
+        raise ValueError(
+            "letter_text: several letters per draw have no finite support, so "
+            "the axis cannot be stratified; declare it with stratify: false"
+        )
+    return letters, np.cumsum(w) / w.sum(), cells, lines
+
+
+def _sample_letter_text(u: np.ndarray, axis: "AxisSpec") -> List[str]:
+    """Text drawn letter by letter: ``cells`` letters on each of ``lines`` lines.
+
+    The draw's 53 bits are recovered exactly from ``u`` and expanded to one
+    sub-uniform per letter, each mapped through the cumulative weights; lines
+    are joined with ``/``.
+    """
+    from sensoryforge.world import rng
+
+    letters, cum, cells, lines = _letter_options(axis)
+    n = cells * lines
+    bits = np.floor(np.asarray(u, dtype=np.float64) * float(rng.SEED_LIMIT))
+    out = []
+    for b in bits.astype(np.int64).tolist():
+        sub = rng.uniforms(rng.draw_seeds(b, range(n)), "letter")
+        idx = np.minimum(np.searchsorted(cum, sub, side="right"), len(letters) - 1)
+        chars = [letters[i] for i in idx]
+        out.append(
+            "/".join("".join(chars[r * cells : (r + 1) * cells]) for r in range(lines))
+        )
+    return out
+
+
+def _letter_support(axis: "AxisSpec") -> Optional[List[str]]:
+    letters, _, cells, lines = _letter_options(axis)
+    return list(letters) if cells * lines == 1 else None
+
+
+register_distribution(
+    "letter_text",
+    _sample_letter_text,
+    _letter_support,
+    check=_letter_options,
+)
+
+
 def fill_links(axes: Dict[str, "AxisSpec"], values: Dict[str, Any]) -> None:
     """Set every link axis of ``axes`` in ``values`` to its target's value (in place).
 
@@ -333,7 +427,7 @@ class AxisSpec:
                 )
             options = tuple(
                 sorted(
-                    (k, plain(v))
+                    (k, _option(v))
                     for k, v in spec.items()
                     if k not in {"dist", "circular", "probes", "stratify"}
                 )
@@ -415,7 +509,10 @@ class AxisSpec:
         elif self.form == "categorical":
             out = {"values": list(self.values), "weights": list(self.weights)}
         else:
-            out = {"dist": self.dist, **dict(self.options)}
+            out = {
+                "dist": self.dist,
+                **{k: list(v) if isinstance(v, tuple) else v for k, v in self.options},
+            }
         if self.circular:
             out["circular"] = True
         if not self.probes:
@@ -478,7 +575,8 @@ class AxisSpec:
             return list(range(int(self.lo), int(self.hi) + 1))
         if self.form == "registered":
             dist = DISTRIBUTIONS[self.dist]
-            return None if dist.support is None else list(dist.support(self))
+            found = None if dist.support is None else dist.support(self)
+            return None if found is None else list(found)
         return None
 
     # --------------------------------------------------- strata and probes

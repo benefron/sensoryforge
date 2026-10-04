@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 
 from sensoryforge.stimuli.episode import contact_terms, span_progress
-from sensoryforge.stimuli.layered import MOTIONS, defaults
+from sensoryforge.stimuli.layered import ADDED_FIELDS, MOTIONS, defaults
 from sensoryforge.world import kernel
 
 Ref = Tuple[str, str]
@@ -162,7 +162,9 @@ def expect_mapping(value: Any, where: str) -> Dict[Any, Any]:
     return value
 
 
-def _fill(part: Any, default_kind: str, specs_fn, where: str) -> Dict[str, Any]:
+def _fill(
+    part: Any, default_kind: str, specs_fn, where: str, part_name: str = ""
+) -> Dict[str, Any]:
     part = dict(expect_mapping(part, where) or {"kind": default_kind})
     kind = part.get("kind", default_kind)
     try:
@@ -175,9 +177,10 @@ def _fill(part: Any, default_kind: str, specs_fn, where: str) -> Dict[str, Any]:
         raise ValueError(
             f"{where}: {kind!r} has no fields {sorted(extra)}; it has {sorted(names)}"
         )
+    added = ADDED_FIELDS.get((part_name, kind), ())
     return {
         "kind": kind,
-        **defaults(specs),
+        **defaults([s for s in specs if s.name not in added]),
         **{k: v for k, v in part.items() if k != "kind"},
     }
 
@@ -248,16 +251,25 @@ class LayeredKind(ClassKind):
                     raise ValueError(f"{where}.{key}: must be >= 0, got {value!r}")
         out: Dict[str, Any] = {
             "shape": _fill(
-                layer.get("shape"), "gaussian", kernel.shape_specs, f"{where}.shape"
+                layer.get("shape"),
+                "gaussian",
+                kernel.shape_specs,
+                f"{where}.shape",
+                "shape",
             ),
             "pattern": _fill(
-                layer.get("pattern"), "single", kernel.pattern_specs, f"{where}.pattern"
+                layer.get("pattern"),
+                "single",
+                kernel.pattern_specs,
+                f"{where}.pattern",
+                "pattern",
             ),
             "modulation": _fill(
                 layer.get("modulation"),
                 "none",
                 kernel.modulation_specs,
                 f"{where}.modulation",
+                "modulation",
             ),
             "motion": None,
         }

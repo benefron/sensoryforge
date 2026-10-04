@@ -76,3 +76,16 @@ world:
       axes:
         amplitude: {range: [0.6, 1.5]}
         orientation_deg: {range: [0, 360], circular: true}
+    braille_text:
+      weight: 1
+      layer:
+        shape: {kind: gaussian, sigma_mm: 0.05}
+        pattern:
+          kind: braille
+          dot_spacing_mm: 0.1
+          cell_spacing_mm: 0.3
+          line_spacing_mm: 0.4
+          x_mm: -0.3
+          y_mm: 0.2
+      axes:
+        text: {dist: letter_text, cells: 2, lines: 2, stratify: false}
