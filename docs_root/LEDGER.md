@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-e9f7b0e · OPEN · finding · docs/development · 2026-10-04
+the world §174 addendum plan's nine provisional decisions (P1-P9: contact types, "touches for", tied fall, lateral-bias family, indenter semantics, background floor, self-affine scale, session layout, dot arrays) await the supervisor's or Ben's answer
+→ commit 6b7c43a
+
+## F-29e949e · OPEN · finding · docs/development · 2026-10-04
+a 120 s session at 80x80 and 1 ms is 3.1 GB of float32 stimulus that the simulation engine holds whole; the addendum chunks only the rendering
+→ commit 6b7c43a
+
 ## F-0ad5aa6 · STANDING · finding · docs/reference · 2026-10-03
 on Linux x86-64 (GitHub ubuntu-latest, Python 3.10 and 3.11, CPU torch 2.14.1, torch on one thread) every world-engine and contract test passes, including bit-for-bit batch invariance and the pinned draw digest (CI run 37127486533)
 → commit b2f4bee
@@ -219,6 +227,7 @@ the world engine is a new sensoryforge.world package with its own vectorised ren
 ↔ 1597a2e feat(world): vectorised rendering of draws at arbitrary times
 ↔ f80d6d4 feat(cli): batch --dataset runs a world data set, one bundle per entry
 ↔ 673f1c1 docs(decisions): one section per world-engine decision, in the file's template
+↔ 6b7c43a docs(world): plan for the world §174 addendum (v1.2.0)
 
 ## D-d3605dd · CLOSED · decision · - · 2026-10-02
 data sets offer both repeat semantics -- `repeats` (fresh draws and noise per replicate) and `noise_repeats` (same draws, k noise realisations)
