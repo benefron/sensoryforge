@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-31d0900 · CLOSED · finding · docs/reference · 2026-10-04
+contract said clamp_min binds as an axis name; only background does
+→ commit 95d1e61
+
+## F-6df100a · CLOSED · finding · docs/reference · 2026-10-04
+guarantee 11, P8 and D-6b0215f claimed the contact fraction in every session; it holds only when episodes' contact share is at least f
+→ commit 95d1e61
+
+## F-0816719 · STANDING · finding · docs/reference · 2026-10-04
+dot_array differs in scope from the brief, which covered arrays by grid; grid is finite and a scan carries it off the patch
+→ commit 95d1e61
+
 ## D-822574c · CLOSED · decision · - · 2026-10-04
 "touches for" is the plateau hold_ms, no contact_ms field (P2 a, provisional)
 → commit 9082178
