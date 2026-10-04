@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-84200e4 · CLOSED · decision · - · 2026-10-04
+indenters are depth-driven, the footprint growing during the rise (P5, provisional)
+→ commit 956af6c
+
 ## D-072fed4 · CLOSED · decision · - · 2026-10-04
 dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional)
 → commit 7e16d00

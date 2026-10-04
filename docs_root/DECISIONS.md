@@ -749,4 +749,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-b0be6a6 | a press falls as it rose through same_as, an axis link (P3a, provisional) | `62cb959` |
 | 2026-10-04 | D-81193aa | self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional) | `f276323` |
 | 2026-10-04 | D-072fed4 | dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional) | `7e16d00` |
+| 2026-10-04 | D-84200e4 | indenters are depth-driven, the footprint growing during the rise (P5, provisional) | `956af6c` |
 <!-- DECISIONS_LOG_END -->
