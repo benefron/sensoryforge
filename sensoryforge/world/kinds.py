@@ -538,7 +538,33 @@ class LayeredKind(ClassKind):
         shape = kernel.SHAPE_KINDS[spec.layer["shape"]["kind"]]
         params = _group_params([p["shape"] for p in parts], per_draw, dtype, device)
         amplitude = params.pop("amplitude")
-        if shape.unbounded:
+        if shape.indenter:
+            # a rigid indenter is pressed to depth amplitude x envelope x
+            # modulation (the end mask is already in env); the shape returns
+            # the indentation, so it is not multiplied by the amplitude again.
+            depth = amplitude * env.reshape(lead)
+            if shape.unbounded:
+                total = shape.fn(X - off_x, Y - off_y, {**params, "depth": depth})
+            else:
+                pos, scales = kernel.pattern_batch(
+                    spec.layer["pattern"]["kind"],
+                    [p["pattern"] for p in parts],
+                    dtype,
+                    device,
+                )
+                total = torch.zeros(
+                    (g, k_count) + tuple(X.shape), dtype=dtype, device=device
+                )
+                for slot in range(pos.shape[1]):
+                    px = pos[:, slot, 0].reshape(per_draw)
+                    py = pos[:, slot, 1].reshape(per_draw)
+                    weight = scales[:, slot].reshape(per_draw)
+                    total = total + shape.fn(
+                        X - px - off_x,
+                        Y - py - off_y,
+                        {**params, "depth": depth * weight},
+                    )
+        elif shape.unbounded:
             total = shape.fn(X - off_x, Y - off_y, params)
         else:
             pos, scales = kernel.pattern_batch(
@@ -559,6 +585,8 @@ class LayeredKind(ClassKind):
                 )
         layer_level = [p["layer"] for p in parts]
         if not any(layer_level):
+            if shape.indenter:
+                return total
             return amplitude * env.reshape(lead) * total
         # background / clamp_min: the background shares the contact envelope
         # and modulation, ignores pattern and motion; the floor applies only
@@ -569,7 +597,10 @@ class LayeredKind(ClassKind):
             device=device,
         ).view(per_draw)
         env = env.reshape(lead)
-        frames = env * (amplitude * total + background)
+        if shape.indenter:
+            frames = env * background + total
+        else:
+            frames = env * (amplitude * total + background)
         if "clamp_min" in spec.layer:
             floor = float(spec.layer["clamp_min"])
             frames = torch.where(

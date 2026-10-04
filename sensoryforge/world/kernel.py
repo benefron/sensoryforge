@@ -34,6 +34,7 @@ class ShapeKind:
     fn: ShapeFn
     specs: List[ParamSpec]
     unbounded: bool = False
+    indenter: bool = False
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,7 @@ def register_shape(
     specs: Sequence[ParamSpec],
     unbounded: bool = False,
     *,
+    indenter: bool = False,
     replace: bool = False,
 ) -> None:
     """Register a shape kind for worlds and layered stimuli.
@@ -86,6 +88,11 @@ def register_shape(
             tensors broadcasting against them; strings and bools are plain.
         specs: Its parameters; must include ``amplitude``.
         unbounded: Drawn once over the plane, not at each pattern position.
+        indenter: The shape is a rigid indenter. It is evaluated at the depth
+            ``amplitude x envelope x modulation`` (in units), passed as
+            ``params["depth"]`` (broadcasting against ``x``; a tensor, not
+            multiplied again), and returns the indentation itself. Its
+            ``amplitude`` is the peak depth; ``fn`` must be exactly 0 at depth 0.
         replace: Replace a shape already registered under ``name``.
 
     Raises:
@@ -95,7 +102,9 @@ def register_shape(
     if not any(s.name == "amplitude" for s in specs):
         raise ValueError(f"shape {name!r}: its specs must include 'amplitude'")
     _check_free(SHAPE_KINDS, name, "shape", replace)
-    SHAPE_KINDS[name] = ShapeKind(fn=fn, specs=list(specs), unbounded=bool(unbounded))
+    SHAPE_KINDS[name] = ShapeKind(
+        fn=fn, specs=list(specs), unbounded=bool(unbounded), indenter=bool(indenter)
+    )
 
 
 def register_pattern(
@@ -344,3 +353,9 @@ from sensoryforge.world import surfaces  # noqa: E402
 
 register_shape("self_affine", surfaces.self_affine, surfaces.SELF_AFFINE_SPECS)
 register_shape("dot_array", surfaces.dot_array, surfaces.DOT_ARRAY_SPECS)
+register_shape(
+    "curved_contact",
+    surfaces.curved_contact,
+    surfaces.CURVED_CONTACT_SPECS,
+    indenter=True,
+)

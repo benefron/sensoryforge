@@ -1,0 +1,285 @@
+"""Indenter shapes and ``curved_contact`` (P5): depth-driven, exact geometry."""
+
+import math
+
+import pytest
+import torch
+
+from sensoryforge.stimuli import layered
+from sensoryforge.stimuli.episode import contact_terms
+from sensoryforge.world import Canvas, World, kernel, render, sample
+from sensoryforge.world.surfaces import curved_contact
+
+UNIT = 0.05
+RADIUS = 0.8
+CANVAS = Canvas.from_grid(rows=41, cols=41, spacing_mm=0.02)
+TIMES = torch.arange(0, 140, 1.0, dtype=torch.float64)
+
+EPISODE = {
+    "delay_ms": {"value": 10},
+    "touch_ms": {"value": 40},
+    "hold_ms": {"value": 30},
+    "release_ms": {"value": 20},
+    "contacts": {"value": 2},
+    "pause_ms": {"value": 6},
+}
+
+
+def _world(shape=None, layer_extra=None, axes=None):
+    layer = {
+        "shape": {
+            "kind": "curved_contact",
+            "form": "sphere",
+            "radius_mm": RADIUS,
+            "unit_mm": UNIT,
+            **(shape or {}),
+        },
+        **(layer_extra or {}),
+    }
+    return World.from_dict(
+        {
+            "world": {
+                "classes": {
+                    "c": {
+                        "layer": layer,
+                        "axes": {
+                            **EPISODE,
+                            "amplitude": {"value": 0.8},
+                            **(axes or {}),
+                        },
+                    }
+                }
+            }
+        }
+    )
+
+
+def _env(draw, times=TIMES):
+    v = draw.values
+    t = times.view(1, -1)
+    col = lambda name: torch.tensor([[float(v[name])]], dtype=torch.float64)  # noqa
+    env, _, _, _ = contact_terms(
+        t,
+        col("delay_ms"),
+        col("touch_ms"),
+        col("hold_ms"),
+        col("slide_ms"),
+        col("release_ms"),
+        col("contacts"),
+        col("pause_ms"),
+    )
+    return env[0]
+
+
+def _p(depth, form="sphere", radius=RADIUS, unit=UNIT, theta=0.0):
+    t = lambda v: torch.tensor(float(v), dtype=torch.float64)  # noqa
+    return {
+        "depth": t(depth),
+        "radius_mm": t(radius),
+        "unit_mm": t(unit),
+        "orientation_deg": t(theta),
+        "form": form,
+    }
+
+
+def _line(n=2001, half=1.0):
+    x = torch.linspace(-half, half, n, dtype=torch.float64)
+    return x, torch.zeros_like(x)
+
+
+def _centre_index():
+    return CANVAS.xx.shape[0] // 2, CANVAS.xx.shape[1] // 2
+
+
+def _draw():
+    return sample(_world(), n=1, seed=3)[0]
+
+
+def test_registered_as_an_indenter_and_others_are_not():
+    assert kernel.SHAPE_KINDS["curved_contact"].indenter
+    assert not kernel.SHAPE_KINDS["curved_contact"].unbounded
+    for name in ("gaussian", "disc", "bar", "grating", "gabor", "self_affine"):
+        assert not kernel.SHAPE_KINDS[name].indenter
+
+
+def test_centre_depth_equals_amplitude_times_envelope():
+    draw = _draw()
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    i, j = _centre_index()
+    assert abs(float(CANVAS.xx[i, j])) < 1e-12 and abs(float(CANVAS.yy[i, j])) < 1e-12
+    want = 0.8 * _env(draw)
+    torch.testing.assert_close(frames[:, i, j], want, atol=1e-12, rtol=0)
+    assert float(want.max()) == pytest.approx(0.8)
+
+
+@pytest.mark.parametrize("form", ["sphere", "cylinder"])
+@pytest.mark.parametrize("depth", [0.4, 1.0, 2.0])
+def test_contact_radius_follows_the_geometry(form, depth):
+    # delta = d * unit_mm; the value reaches 0 at a = sqrt(2 R delta - delta^2)
+    delta = depth * UNIT
+    a = math.sqrt(2.0 * RADIUS * delta - delta**2)
+    x, y = _line()
+    # a cylinder along y (orientation 90): across = x sin(90) + y cos(90) = x
+    theta = 90.0 if form == "cylinder" else 0.0
+    value = curved_contact(x, y, _p(depth, form, theta=theta))
+    inside = x.abs() < a - 1e-6
+    outside = x.abs() > a + 1e-6
+    assert bool((value[inside] > 0).all())
+    assert bool((value[outside] == 0).all())
+    # the value itself: d - sag/unit, with sag = R - sqrt(R^2 - r^2)
+    probe = torch.tensor([0.0, 0.5 * a, 0.9 * a], dtype=torch.float64)
+    got = curved_contact(probe, torch.zeros_like(probe), _p(depth, form, theta=theta))
+    sag = RADIUS - torch.sqrt(RADIUS**2 - probe**2)
+    torch.testing.assert_close(got, depth - sag / UNIT, atol=1e-9, rtol=0)
+    # exactly zero at and beyond the contact radius
+    edge = torch.tensor([a * (1 + 1e-9), 1.5 * a, RADIUS * 1.2], dtype=torch.float64)
+    zero = curved_contact(edge, torch.zeros_like(edge), _p(depth, form, theta=theta))
+    assert bool((zero == 0).all())
+
+
+def test_the_footprint_grows_during_the_rise():
+    draw = _draw()
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    env = _env(draw)
+    # first rise: delay 10, touch 40; half the rise is t = 30 (env 0.5)
+    k_half = int(torch.argmin((TIMES - 30.0).abs()))
+    k_full = int(torch.argmax(env))
+    assert float(env[k_half]) == pytest.approx(0.5)
+    want = curved_contact(CANVAS.xx, CANVAS.yy, _p(0.8 * 0.5))
+    torch.testing.assert_close(frames[k_half], want, atol=1e-12, rtol=0)
+    area_half = int((frames[k_half] > 0).sum())
+    area_full = int((frames[k_full] > 0).sum())
+    assert 0 < area_half < area_full
+    # radius of the contact at half depth, from the geometry
+    delta = 0.8 * 0.5 * UNIT
+    a_half = math.sqrt(2.0 * RADIUS * delta - delta**2)
+    x = CANVAS.xx[:, 0]
+    reach = float(x[frames[k_half][:, _centre_index()[1]] > 0].abs().max())
+    assert a_half - 0.02 <= reach <= a_half + 1e-9
+
+
+def test_a_cylinder_is_constant_along_its_axis():
+    world = _world({"form": "cylinder", "orientation_deg": 0.0})
+    draw = sample(world, n=1, seed=1)[0]
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    k = int(torch.argmax(_env(draw)))
+    frame = frames[k]
+    # orientation 0: across = y, the axis runs along x (down the rows of the grid)
+    # xx runs down the rows and yy along the columns: across = y varies by column
+    across_profile = frame[0]
+    for row in (5, 20, 35):
+        assert torch.equal(frame[row], across_profile)
+    assert float(frame.max()) > 0 and not torch.equal(
+        frame[:, 0], frame[:, _centre_index()[1]]
+    )
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {},
+        {"layer_extra": {"clamp_min": 0.0}},
+        {"axes": {"background": {"value": 0.3}}},
+        {"layer_extra": {"clamp_min": 0.0}, "axes": {"background": {"value": 0.3}}},
+    ],
+)
+def test_depth_zero_is_exactly_zero(extra):
+    draw = sample(_world(**extra), n=1, seed=5)[0]
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    env = _env(draw)
+    assert bool((env == 0).any())
+    quiet = env == 0
+    assert bool((frames[quiet] == 0).all())
+    # also: lead-in (t < 10), the pause between contacts, and after end_ms
+    assert bool((frames[TIMES < 10] == 0).all())
+    assert bool((frames[TIMES >= draw.end_ms] == 0).all())
+    assert float(frames.abs().max()) > 0
+
+
+def test_background_adds_its_own_draw_and_the_floor_holds():
+    draw = sample(_world(axes={"background": {"value": 0.3}}), n=1, seed=5)[0]
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    env = _env(draw)
+    i, j = _centre_index()
+    torch.testing.assert_close(frames[:, i, j], env * (0.8 + 0.3), atol=1e-12, rtol=0)
+    # outside the contact only the background remains
+    torch.testing.assert_close(frames[:, 0, 0], env * 0.3, atol=1e-12, rtol=0)
+
+
+def _layered_curved(draw, canvas, total):
+    return layered.render_layers(
+        [draw.to_layer()],
+        canvas.xx.float(),
+        canvas.yy.float(),
+        dt_ms=1.0,
+        total_ms=total,
+    ).double()
+
+
+@pytest.mark.parametrize("form", ["sphere", "cylinder"])
+def test_layered_equals_the_world_renderer(form):
+    world = _world(
+        {"form": form, "orientation_deg": 30.0},
+        layer_extra={
+            "clamp_min": 0.0,
+            "pattern": {"kind": "grid", "rows": 2, "cols": 2, "spacing_mm": 0.4},
+        },
+        axes={"background": {"value": 0.2}},
+    )
+    draw = sample(world, n=1, seed=2)[0]
+    total = math.ceil(draw.end_ms) + 5.0
+    times = torch.arange(0, total, 1.0, dtype=torch.float64)
+    frames = render([draw], CANVAS, times, dtype=torch.float64)[0]
+    torch.testing.assert_close(
+        frames, _layered_curved(draw, CANVAS, total)[: len(times)], atol=1e-5, rtol=0
+    )
+
+
+def test_a_registered_indenter_works_in_a_layered_stimulus():
+    def cone(x, y, p):
+        r = torch.sqrt(x**2 + y**2)
+        return (p["depth"] - r).clamp(min=0.0)
+
+    specs = [layered._f("amplitude", 1.0, 0.0, 10.0)]
+    kernel.register_shape("test_cone", cone, specs, indenter=True)
+    try:
+        assert kernel.SHAPE_KINDS["test_cone"].indenter
+        layer = layered.default_layer()
+        layer["shape"] = {"kind": "test_cone", "amplitude": 0.5}
+        layer["timing"] = {
+            "onset_ms": 0,
+            "ramp_up_ms": 10,
+            "hold_ms": 10,
+            "ramp_down_ms": 10,
+        }
+        c = torch.linspace(-1.0, 1.0, 9)
+        xx, yy = c.view(-1, 1).expand(9, 9), c.view(1, -1).expand(9, 9)
+        frames = layered.render_layers([layer], xx, yy, dt_ms=1.0, total_ms=30.0)
+        # at t = 5 the ramp is at 0.5: the depth is 0.5 * 0.5
+        want = cone(xx, yy, {"depth": torch.tensor(0.25)})
+        torch.testing.assert_close(frames[5], want, atol=1e-6, rtol=0)
+        assert float(frames[5].max()) == pytest.approx(0.25)
+        assert bool((frames[29] <= 0.5 / 10 + 1e-6).all())
+    finally:
+        del kernel.SHAPE_KINDS["test_cone"]
+
+
+def test_non_indenter_shapes_are_unchanged():
+    # the v1.1.0 guard (test_world_v1_1_compat.py) holds the bytes; here the
+    # registered kinds carry the flag off and layered's built-ins are not indenters
+    for name, kind in kernel.SHAPE_KINDS.items():
+        assert kind.indenter is (name == "curved_contact")
+
+
+def test_a_cylinder_and_a_sphere_differ():
+    x, y = torch.tensor([0.0, 0.1]), torch.tensor([0.0, 0.1])
+    a = curved_contact(x.double(), y.double(), _p(1.0, "sphere"))
+    b = curved_contact(x.double(), y.double(), _p(1.0, "cylinder"))
+    assert float(a[0]) == float(b[0]) == 1.0
+    assert float(a[1]) != float(b[1])
+
+
+def test_unknown_form_raises():
+    x, y = _line(5)
+    with pytest.raises(ValueError, match="form"):
+        curved_contact(x, y, _p(1.0, form="cone"))

@@ -54,3 +54,17 @@ world:
         shape: {kind: dot_array, sigma_mm: 0.12, spacing_mm: 0.7, arrangement: hexagonal}
       axes:
         orientation_deg: {range: [0, 180], circular: true}
+    sphere:
+      weight: 1
+      layer:
+        shape: {kind: curved_contact, form: sphere, radius_mm: 0.8, unit_mm: 0.05}
+      axes:
+        amplitude: {range: [0.6, 1.5]}
+    cylinder:
+      weight: 1
+      layer:
+        shape: {kind: curved_contact, form: cylinder, radius_mm: 0.8, unit_mm: 0.05}
+      axes:
+        amplitude: {range: [0.6, 1.5]}
+        orientation_deg: {range: [0, 180], circular: true}
+        background: {range: [0.1, 0.3]}

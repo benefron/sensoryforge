@@ -835,9 +835,9 @@ def _world_kernel():
 
 
 def _shape_kind(kind: str, like: torch.Tensor):
-    """``(fn, specs, unbounded)``: built in, else from the world kernel's registry."""
+    """``(fn, specs, unbounded, indenter)``: built in, else the world kernel's registry."""
     if kind in SHAPES:
-        return _SHAPE_FUNCTIONS[kind], SHAPES[kind], kind in _UNBOUNDED
+        return _SHAPE_FUNCTIONS[kind], SHAPES[kind], kind in _UNBOUNDED, False
     kernel = _world_kernel()
     if kind not in kernel.SHAPE_KINDS:
         raise ValueError(
@@ -857,7 +857,7 @@ def _shape_kind(kind: str, like: torch.Tensor):
         }
         return registered.fn(x, y, tensors)
 
-    return fn, registered.specs, registered.unbounded
+    return fn, registered.specs, registered.unbounded, registered.indenter
 
 
 # ------------------------------------------------------------------- render
@@ -888,11 +888,45 @@ def _render_with_background(layer, draw, amplitude, envelope, offsets, xx):
     return frames
 
 
+def _render_indenter(
+    layer, fn, params, positions, scales, unbounded, envelope, offsets, xx, yy
+):
+    """Frames of an indenter shape: evaluated at depth ``amplitude x envelope``.
+
+    ``frame = background x envelope + sum of shapes at that depth`` (the shape
+    returns the indentation itself), floored by ``clamp_min`` where the
+    envelope is positive; exactly 0 where it is not.
+    """
+    amplitude = float(params["amplitude"])
+    background = float(layer.get("background", 0.0))
+    frames = torch.zeros(envelope.numel(), *xx.shape, dtype=xx.dtype, device=xx.device)
+    for k in torch.nonzero(envelope > 0).flatten().tolist():
+        dx, dy = (0.0, 0.0) if offsets is None else map(float, offsets[k])
+        depth = amplitude * envelope[k]
+        if unbounded:
+            total = fn(xx - dx, yy - dy, {**params, "depth": depth})
+        else:
+            total = torch.zeros_like(xx)
+            for (px, py), scale in zip(positions, scales):
+                total = total + fn(
+                    xx - px - dx, yy - py - dy, {**params, "depth": depth * scale}
+                )
+        frames[k] = envelope[k] * background + total
+    if "clamp_min" in layer:
+        floor = float(layer["clamp_min"])
+        frames = torch.where(
+            envelope.view(-1, 1, 1) > 0,
+            frames.clamp(min=floor),
+            torch.zeros_like(frames),
+        )
+    return frames
+
+
 def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch.Tensor:
     """One layer's frames ``[T, H, W]``."""
     shape = layer.get("shape") or {"kind": "gaussian"}
     kind = shape.get("kind", "gaussian")
-    fn, specs, unbounded = _shape_kind(kind, xx)
+    fn, specs, unbounded, indenter = _shape_kind(kind, xx)
     params = {**defaults(specs), **shape}
     amplitude = float(params["amplitude"])
     positions, scales = pattern_positions(layer.get("pattern") or {"kind": "single"})
@@ -903,6 +937,10 @@ def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch
     if modulation is not None:
         envelope = envelope * modulation
     offsets = motion_offsets(layer.get("motion"), layer.get("timing"), time_ms, run_ms)
+    if indenter:
+        return _render_indenter(
+            layer, fn, params, positions, scales, unbounded, envelope, offsets, xx, yy
+        )
 
     def draw(dx: float, dy: float) -> torch.Tensor:
         if unbounded:

@@ -299,3 +299,84 @@ def dot_array(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tens
             on = row_on & (m >= abs(di))
             total = total + torch.where(on, bump, torch.zeros_like(bump))
     return total
+
+
+# -------------------------------------------------------------- curved_contact
+
+CURVED_CONTACT_SPECS = [
+    _spec(
+        "amplitude",
+        "float",
+        1.0,
+        0.0,
+        1.0e4,
+        help_="peak indentation depth, in units (unit_mm mm each)",
+    ),
+    _spec("radius_mm", "float", 20.0, 0.1, 1000.0, "mm", "radius of curvature"),
+    ParamSpec(
+        "form",
+        label="Form",
+        dtype="str",
+        default="sphere",
+        choices=["sphere", "cylinder"],
+        help="a sphere, or a cylinder whose axis lies along orientation_deg",
+        tooltip="a sphere, or a cylinder whose axis lies along orientation_deg",
+    ),
+    _spec(
+        "orientation_deg",
+        "float",
+        0.0,
+        -3600.0,
+        3600.0,
+        "deg",
+        "cylinder axis direction (the bar convention: across = x sin t + y cos t)",
+    ),
+    _spec(
+        "unit_mm",
+        "float",
+        1.0,
+        0.001,
+        100.0,
+        "mm",
+        "millimetres of indentation per unit of amplitude",
+    ),
+]
+
+
+def curved_contact(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
+    """Indentation by a convex rigid sphere or cylinder pressed to depth ``depth``.
+
+    With ``r`` the distance from the centre (sphere) or from the axis
+    (cylinder), the sag of the surface is ``R - sqrt(R**2 - r**2)`` (written
+    ``r**2 / (R + sqrt(R**2 - r**2))``, free of cancellation for large ``R``)
+    and the indentation is ``max(0, depth - sag / unit_mm)`` for ``r <= R``,
+    0 beyond. Depth 0 gives exactly 0 everywhere.
+
+    Args:
+        x, y: mm offsets from the contact's centre, any shape.
+        p: ``depth`` (units, ``amplitude x envelope x modulation``, broadcasting
+            against ``x``), ``radius_mm``, ``unit_mm``, ``orientation_deg``
+            (tensors) and ``form`` (a string).
+
+    Returns:
+        Indentation in units, same shape as ``x``.
+
+    Raises:
+        ValueError: If ``form`` is not ``sphere`` or ``cylinder``.
+    """
+    form = p.get("form", "sphere")
+    if form == "sphere":
+        r2 = x**2 + y**2
+    elif form == "cylinder":
+        theta = torch.deg2rad(p["orientation_deg"])
+        r2 = (x * torch.sin(theta) + y * torch.cos(theta)) ** 2
+    else:
+        raise ValueError(
+            f"curved_contact form must be sphere or cylinder, got {form!r}"
+        )
+    radius = p["radius_mm"]
+    inside = r2 <= radius**2
+    root = torch.sqrt((radius**2 - r2).clamp(min=0.0))
+    sag = r2 / (radius + root)
+    value = (p["depth"] - sag / p["unit_mm"]).clamp(min=0.0)
+    return torch.where(inside, value, torch.zeros_like(value))
