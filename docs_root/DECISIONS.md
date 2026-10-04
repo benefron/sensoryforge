@@ -48,6 +48,183 @@ And on the section it replaces, add one line — nothing else changes:
 # Sections
 
 <!-- newest first; written by hand -->
+
+## D-6b0215f · Sessions are budgeted · 2026-10-04
+
+**What was decided.** sessions are budgeted (P8 a), gap count capped by the episode boundaries
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P8, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** The charter world declares a share of each session in contact. Drawing episodes until their contact time reaches f x D and spending the rest as G = min(n + 1, max(1, round(Q / gap_mean_ms))) gaps meets the declared fraction in every session, up to the last episode's overshoot, and keeps each session's record a pure function of (world, seed, index). Gap lengths are the spacings of Q cut at sorted uniforms, near-exponential with mean about gap_mean_ms. This supersedes the v1.1.0 spec's decision 5 (no gap mechanism, no quiet-fraction target) for worlds that declare `sessions:`; other worlds keep it.
+
+**What was rejected.** (b) A renewal process (alternating bouts and exponential gaps): gaps exactly exponential but the fraction holds only on average, and it needs a new `exponential` distribution.
+
+**Where it lives.** `sensoryforge/world/sampling.py` (`_model_session`), `sensoryforge/world/schema.py` (`SessionModel`); contract section 10.8; test 11.
+
+**Ledger id + sha.** D-6b0215f · `771bd06`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-80d1fcd · Groups are resolved into class axes at load · 2026-10-04
+
+**What was decided.** groups are resolved into class axes at load (P1 option A), not kept as a runtime concept
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P1, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** One class per feature x contact type keeps a class a single stratum, so the other repo reports per contact type and per feature without extra machinery; `groups:` / `use:` only saves typing. Resolving at load means `World.to_dict()` has no `groups` or `use` key and draws and ids equal those of the same world written out.
+
+**What was rejected.** (B) Class variants (a categorical variant axis choosing a group of axes per draw): larger, with sampling, strata per variant and entry ids to change.
+
+**Where it lives.** `sensoryforge/world/schema.py`; `tests/unit/test_world_groups.py`; contract section 10.7.
+
+**Ledger id + sha.** D-80d1fcd · `2487d37`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-7d5e5bc · letter_text recovers the draw's bits · 2026-10-04
+
+**What was decided.** letter_text recovers int(u * 2**53) as the draw's bits and maps cells x lines sub-uniforms through the cumulative weights
+
+**Status.** Not one of the plan's open questions P1 to P9; an implementation choice made in the plan's Task 9.
+
+**Why.** A registered distribution receives one uniform per draw. The draw's 53 random bits are exactly recoverable from that uniform, and expand to one sub-uniform per letter, so a multi-line text depends only on the draw. Several letters per draw have no finite support, so the axis needs `stratify: false`.
+
+**What was rejected.** Giving distributions several uniforms per draw: it would change `rng` and every draw of every world.
+
+**Where it lives.** `sensoryforge/world/distributions.py` (`_sample_letter_text`); `tests/unit/test_world_braille_lines.py`; contract section 10.6.
+
+**Ledger id + sha.** D-7d5e5bc · `5d658d3`
+
+**Validation pending.** none, settled.
+
+## D-fda02f9 · step_edge is an indenter shape · 2026-10-04
+
+**What was decided.** step_edge is an indenter shape, value d on the plate, d minus the circular sag on the shoulder, 0 past it
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P5, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** A step with a rounded shoulder is a rigid plate pressed to depth d, so it follows the same depth-driven rule as `curved_contact` (P5): the shoulder footprint grows during the rise and depth 0 renders exactly 0.
+
+**What was rejected.** A separable shoulder shape scaled by the envelope: it would misstate the contact area during ramps.
+
+**Where it lives.** `sensoryforge/world/surfaces.py` (`step_edge`); `tests/unit/test_world_indenters.py`; contract section 10.2.
+
+**Ledger id + sha.** D-fda02f9 · `5cfab52`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-84200e4 · Indenters are depth-driven · 2026-10-04
+
+**What was decided.** indenters are depth-driven, the footprint growing during the rise (P5, provisional)
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P5, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** `ShapeKind.indenter` evaluates the shape at depth amplitude x envelope x modulation and takes its value as the indentation; the footprint is max(0, d - sag / unit_mm) and grows during a press. Both elements are defined by physical radii, and a fixed footprint scaled by the envelope would misstate the contact area during ramps.
+
+**What was rejected.** (b) A separable shape with a fixed footprint at peak depth, like every other shape. Concave surfaces (the survey's 20 to 40 mm) are not built: convex sphere and cylinder only.
+
+**Where it lives.** `sensoryforge/world/kernel.py` (`ShapeKind.indenter`), `sensoryforge/world/kinds.py`, `sensoryforge/stimuli/layered.py` (`_render_indenter`), `sensoryforge/world/surfaces.py`; contract section 10.2.
+
+**Ledger id + sha.** D-84200e4 · `956af6c`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-072fed4 · Dot arrays on a square or hexagonal lattice · 2026-10-04
+
+**What was decided.** dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional)
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P9, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** Each point sums the Gaussian bumps of the lattice sites near it (as a `grid` of `gaussian`s would), so the array fills the patch and is translated by x_mm/y_mm. The neighbour loop runs to the batch's maximum with surplus terms masked to exact zeros, so a draw renders the same alone or in a batch.
+
+**What was rejected.** Another bump profile: not asked for.
+
+**Where it lives.** `sensoryforge/world/surfaces.py` (`dot_array`); `tests/unit/test_world_dot_array.py`; contract section 10.3.
+
+**Ledger id + sha.** D-072fed4 · `7e16d00`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-81193aa · Self-affine textures use the Persson spectrum · 2026-10-04
+
+**What was decided.** self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional)
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P7, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** Persson's isotropic spectrum (flat below the roll-off, q^-2(H+1) to the cut-off) as a sum of `components` cosines with radial wavenumbers by stratified inverse CDF, directions and phases from the shape's own seed: zero mean, a pure function of position, the same on any canvas. RMS = amplitude/sqrt(2), the RMS of a unit-peak signed sinusoid, so a self-affine and a periodic texture of equal amplitude carry equal power.
+
+**What was rejected.** RMS = amplitude, or 3 x RMS = amplitude (the other scales offered). A two-dimensional weave (`plaid`) is not built.
+
+**Where it lives.** `sensoryforge/world/surfaces.py` (`self_affine`); `tests/unit/test_world_self_affine.py`; contract section 10.3.
+
+**Ledger id + sha.** D-81193aa · `f276323`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-b0be6a6 · A press falls as it rose through same_as · 2026-10-04
+
+**What was decided.** a press falls as it rose through same_as, an axis link (P3a, provisional)
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P3, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** The survey says the fall mirrors the rise. `{same_as: touch_ms}` makes an axis copy another of the same draw; links are validated at load, refused in fixed draws and filled after the other axes in every sampling path.
+
+**What was rejected.** (b) An independent draw of the fall from the same range: expressible today but not what the survey says.
+
+**Where it lives.** `sensoryforge/world/sampling.py`, `sensoryforge/world/distributions.py` (`fill_links`), `sensoryforge/world/schema.py`; contract section 10.4.
+
+**Ledger id + sha.** D-b0be6a6 · `62cb959`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-1b2d1c1 · Lateral scan bias is an angular central Gaussian · 2026-10-04
+
+**What was decided.** lateral scan bias is an angular central Gaussian solved from the travel ratio (P4a, provisional)
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P4, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** theta = axis + atan2(sin 2 pi u, s cos 2 pi u): one uniform per draw, monotone in u (so it stratifies into equal-probability bins), with the stretch s solved in closed form from the declared travel ratio. A 2e6-point quadrature of E|cos| / E|sin| at R = 2.5 gave 2.5000000 (s = 3.876253), run for this task.
+
+**What was rejected.** (b) An axial von Mises with kappa solved for the ratio (no closed inverse CDF); (c) a mixture of lateral sweeps and uniform directions.
+
+**Where it lives.** `sensoryforge/world/distributions.py` (`biased_direction`); `tests/unit/test_world_biased_direction.py`; contract section 10.5.
+
+**Ledger id + sha.** D-1b2d1c1 · `19d7a32`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## D-32d7d70 · The background is its own draw sharing the contact envelope · 2026-10-04
+
+**What was decided.** the background is its own draw sharing the contact envelope, with the layer total floored at clamp_min where the envelope is positive (P6, provisional).
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P6, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** Every contact in the charter world rests on a background level drawn from the feature range, with features and zero-mean relief riding on it. The background rises and falls with the contact envelope and modulation, is not moved by motion, and the floor keeps relief from dipping below zero (the skin leaves contact; no negative indentation).
+
+**What was rejected.** No floor, with the other repo keeping relief amplitude below the background: not expressible, the schema has no joint constraints.
+
+**Where it lives.** `sensoryforge/stimuli/layered.py`, `sensoryforge/world/kinds.py`; `tests/unit/test_world_background.py`; contract section 10.1.
+
+**Ledger id + sha.** D-32d7d70 · `6c0daf3`
+
+**Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
+
+## P2 · "touches for" is the plateau hold_ms · 2026-10-04
+
+**What was decided.** "Touches for" in the charter world is the plateau `hold_ms` of an episode (rise, touch, fall expressed as `touch_ms`, `hold_ms`, `release_ms`); no `contact_ms` field is added.
+
+**Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P2, answered as the plan recommends); Ben has not yet confirmed it.
+
+**Why.** The survey's wording reads rise, touch and fall as three phases, which v1.1.0 already expresses; nothing new in SensoryForge is needed.
+
+**What was rejected.** (b) A total contact time `contact_ms` with the hold derived as max(0, contact - touch - slide - release): one more episode field, and taps whose rise plus fall exceeds the drawn contact would lose their plateau.
+
+**Where it lives.** Nothing in code: the other repo's world file declares `hold_ms`. Contract section 10.11.
+
+**Ledger id + sha.** recorded by the `Decision:` trailer of the commit that adds this section (see the log below)
+
+**Validation pending.** Ben's confirmation of the provisional answer.
+
 <!-- SECTIONS_START -->
 
 ## D-0fbb84a · Every population gets its own noise seed in a batch run · 2026-10-02

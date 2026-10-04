@@ -4,6 +4,33 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); dates are commit dates from
 `docs_root/LEDGER.md`, the project's decision/finding record.
 
+## [1.2.0] - 2026-10-04
+
+Nothing changes for existing worlds, data sets or bundles: every addition is optional, present
+in a normalised world, a record or a bundle only when a file uses it, and the format tags
+(`sensoryforge-world/1`, `sensoryforge-dataset/1`) and bundle schema 2.2.0 are unchanged
+(pinned by the contract's test 9).
+
+### Added
+
+- **A background contact and a floor** (`background`, `clamp_min` on a layer, in `layered` and
+  the world renderer): the background shares the contact envelope; the total is floored where
+  the envelope is positive.
+- **`biased_direction`**, a registered direction distribution set by a travel ratio and an
+  axis (the angular central Gaussian); registered distributions gain `quantile` and `check`,
+  and quantile distributions are stratified into equal-probability bins.
+- **Axis features**: `stratify: false` (i.i.d. in stratified splits) and `{same_as: <axis>}`
+  (one axis copies another of the same draw).
+- **New shapes**: `self_affine` (Persson spectrum, RMS amplitude/sqrt(2)), `dot_array` (square or
+  hexagonal lattice of Gaussian dots) and the depth-driven indenters `curved_contact` (sphere,
+  cylinder) and `step_edge` (`register_shape(..., indenter=True)`).
+- **Braille** `line_spacing_mm`, `/` line breaks and the `letter_text` distribution.
+- **`groups:` and `use:`**, reusable axis groups (sugar resolved at load).
+- **`sessions:`**, a session model with a declared length and contact fraction, mean gap and
+  session types (`sample(weights=)`; `session(duration_ms=None)`).
+- **Long entries render in time chunks** in `sensoryforge batch`, bit-equal to an unchunked render.
+- Contract guarantees 9 to 11 and `docs/reference/world_contract.md` section 10.
+
 ## [1.1.0] - 2026-10-02
 
 ### Changed (behaviour — re-run any saved results after upgrading)

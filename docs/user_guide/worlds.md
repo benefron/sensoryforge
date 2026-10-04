@@ -172,11 +172,140 @@ times × canvas), but the output is allocated whole and sized by what you pass, 
 large jobs in slices. On an Apple M3 Pro with 6 threads, 4.1 M triples at 40×40 in float64
 take about 4.6–4.7 min (`docs/reference/benchmarks.md`).
 
+## Elements added in v1.2.0
+
+Each of these is optional and changes nothing for a world that does not use it. The values
+below are placeholders sized for small canvases. Exact formulas are in the
+[contract](../reference/world_contract.md#10-what-v120-adds).
+
+### A background under the contact
+
+`background` is a level over the whole patch that rises and falls with the same contact
+envelope as the feature (it does not move with the pattern). `clamp_min` floors the layer's
+total where the envelope is positive, so zero-mean relief riding on the background never
+presses below zero.
+
+```yaml
+relief:
+  layer:
+    shape: {kind: grating, signed: true, wavelength_mm: 0.4}
+    clamp_min: 0.0
+  axes:
+    background: {range: [0.2, 0.5]}
+    orientation_deg: {range: [0, 180], circular: true}
+```
+
+### Scans across the finger
+
+`biased_direction` draws a scan direction whose lateral travel is `travel_ratio` times the
+travel along the other axis; `axis_deg` is the lateral axis (0° = +x).
+
+```yaml
+axes:
+  slide_ms: {range: [20, 40]}
+  speed_mm_per_ms: {range: [0.001, 0.004]}
+  direction_deg: {dist: biased_direction, travel_ratio: 2.5, axis_deg: 0}
+```
+
+### Linked axes, unstratified axes and groups
+
+```yaml
+groups:
+  press:                                   # sugar: the class holds the resolved axes
+    touch_ms: {range: [8, 14]}
+    hold_ms: {range: [20, 40]}
+    release_ms: {same_as: touch_ms}        # a press falls as it rose
+classes:
+  grouped_press:
+    use: [press]
+    layer: {shape: {kind: gaussian, sigma_mm: 0.15}}
+  rough:
+    layer: {shape: {kind: self_affine}}
+    axes:
+      seed: {range: [0, 16777215], int: true, stratify: false}  # i.i.d., never binned
+```
+
+### Textures and arrays
+
+`self_affine` fills the patch with zero-mean random relief (Hurst exponent `hurst`, roll-off
+wavelength `rolloff_mm`, nothing finer than `cutoff_mm`, its own `seed`; RMS =
+`amplitude / √2`). `dot_array` is a lattice of Gaussian dots (`arrangement: square` or
+`hexagonal`).
+
+```yaml
+rough:
+  layer:
+    shape: {kind: self_affine, hurst: 0.8, rolloff_mm: 0.6, cutoff_mm: 0.12, components: 64}
+    clamp_min: 0.0
+  axes:
+    seed: {range: [0, 16777215], int: true, stratify: false}
+    background: {range: [0.6, 1.0]}
+dots:
+  layer:
+    shape: {kind: dot_array, sigma_mm: 0.12, spacing_mm: 0.7, arrangement: hexagonal}
+  axes: {orientation_deg: {range: [0, 180], circular: true}}
+```
+
+### Indenters
+
+`curved_contact` (a convex `sphere` or `cylinder` of `radius_mm`) and `step_edge` (a plate
+ending in a rounded shoulder of `shoulder_radius_mm`) are pressed to the depth
+`amplitude × envelope × modulation`, in units of `unit_mm` millimetres, so the contact patch
+grows as the press rises and is exactly 0 at depth 0.
+
+```yaml
+defaults: {unit_mm: {value: 0.05}}
+classes:
+  sphere:
+    layer: {shape: {kind: curved_contact, form: sphere, radius_mm: 0.8}}
+    axes: {amplitude: {range: [0.6, 1.5]}}
+  step:
+    layer: {shape: {kind: step_edge, shoulder_radius_mm: 0.5}}
+    axes:
+      amplitude: {range: [0.6, 1.5]}
+      orientation_deg: {range: [0, 360], circular: true}
+```
+
+### Braille text on several lines
+
+`line_spacing_mm` sets the distance between lines, `/` starts a new line, and `letter_text`
+draws letters by weight (`letters`, `weights`, `cells` per line, `lines`).
+
+```yaml
+braille_text:
+  layer:
+    shape: {kind: gaussian, sigma_mm: 0.05}
+    pattern: {kind: braille, dot_spacing_mm: 0.1, cell_spacing_mm: 0.3, line_spacing_mm: 0.4}
+  axes:
+    text: {dist: letter_text, cells: 2, lines: 2, stratify: false}
+```
+
+### Sessions with a declared contact fraction
+
+A `sessions:` section declares the length and contact fraction as axes, the mean gap, and
+optional types with their own class mixes. A session is episodes from its type until their
+contact time reaches the fraction, and the quiet time left is spent as gaps between
+episodes (which render exactly 0). See [Sessions](#sessions).
+
+```yaml
+sessions:
+  duration_ms: {range: [300, 600]}
+  contact_fraction: {range: [0.2, 0.5]}
+  gap_mean_ms: 40
+  types:
+    taps:     {weight: 3, classes: {grouped_press: 2, tied_press: 1}}
+    textures: {weight: 1, classes: {rough: 1, dots: 1}}
+```
+
+A runnable world with one class per element is `tests/fixtures/worlds/elements_v1_2.yml`
+(a data set on it: `tests/fixtures/worlds/dataset_v1_2.yml`).
+
 ## Sessions
 
 `session(world, duration_ms=10_000, seed=7, index=0)` lays draws end to end, in the order the
 world samples them, until the duration is full; the last draw is cut off and the session
-records `truncated`. Its `quiet_fraction` is the share of the session with nothing touching (quiet draws,
+records `truncated`. A world that declares `sessions:` draws sessions by its own model
+(above). Its `quiet_fraction` is the share of the session with nothing touching (quiet draws,
 lead-ins and pauses). A session renders like a draw: `render([s], canvas, times)`. Only the draws that
 overlap a time are evaluated there, which keeps a ten-second session cheap.
 

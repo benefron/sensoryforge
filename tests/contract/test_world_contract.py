@@ -327,3 +327,74 @@ def test_9_old_worlds_and_bundles_are_unchanged():
     checks.test_old_frames_are_unchanged()
     for bundle in checks.BUNDLES:
         checks.test_a_v1_1_bundle_record_rebuilds_and_rerenders_bit_equal(bundle)
+
+
+ELEMENTS = WORLDS / "elements_v1_2.yml"
+
+
+def test_10_every_v1_2_element_renders_equal_to_layered_and_on_both_grids():
+    """One class per v1.2 element: world render = layered, 40x40 = 80x80."""
+    import math
+
+    from sensoryforge.stimuli.layered import render_layers
+
+    world = load_world(ELEMENTS)
+    names = sorted(n for n in world.classes if world.classes[n].kind != "quiet")
+    assert len(names) == 11
+    canvas = Canvas.from_grid(rows=24, cols=24, spacing_mm=0.05)
+    coarse = Canvas.from_grid(rows=41, cols=41, spacing_mm=0.15)
+    fine = Canvas.from_grid(rows=81, cols=81, spacing_mm=0.075)
+    # xx runs down the rows and yy along the columns (Canvas.from_grid)
+    ir = torch.stack([(fine.xx[:, 0] - x).abs().argmin() for x in coarse.xx[:, 0]])
+    ic = torch.stack([(fine.yy[0] - y).abs().argmin() for y in coarse.yy[0]])
+    for name in names:
+        draws = sample(world, n=2, seed=21, classes=[name])
+        total = math.ceil(max(d.end_ms for d in draws)) + 5.0
+        times = movie_times(1.0, total)
+        frames = render(draws, canvas, times, dtype=torch.float64)
+        assert torch.count_nonzero(frames) > 0, name
+        for i, draw in enumerate(draws):
+            ref = render_layers(
+                [draw.to_layer()],
+                canvas.xx.float(),
+                canvas.yy.float(),
+                dt_ms=1.0,
+                total_ms=total,
+            ).double()
+            torch.testing.assert_close(frames[i], ref, atol=1e-5, rtol=0)
+        draw = draws[0]
+        times = movie_times(1.0, math.ceil(draw.end_ms) + 2.0)
+        a = render([draw], coarse, times, dtype=torch.float64)[0]
+        b = render([draw], fine, times, dtype=torch.float64)[0]
+        torch.testing.assert_close(a, b[:, ir][:, :, ic], atol=1e-12, rtol=0)
+
+
+def test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero():
+    """A ``sessions:`` session reaches its contact fraction; its gaps render 0."""
+    world = load_world(ELEMENTS)
+    canvas = Canvas.from_grid(8, 8, 0.15)
+    gaps_seen = 0
+    for index in range(8):
+        s = session(world, seed=5, index=index)
+        target = s.contact_fraction
+        assert target is not None and s.session_type is not None
+        longest = max(d.end_ms for _, d in s.items)
+        realised = s.contact_ms / s.duration_ms
+        # the fraction is met up to the last episode's overshoot (and a
+        # session cut at its length cannot exceed it)
+        assert target - 1e-9 <= realised <= target + longest / s.duration_ms + 1e-9
+        assert realised == pytest.approx(1.0 - s.quiet_fraction)
+        holes = []
+        t = 0.0
+        for start, draw in s.items:
+            holes.append((t, start))
+            t = start + draw.end_ms
+        holes.append((t, s.duration_ms))
+        holes = [(a, b) for a, b in holes if b - a > 1e-9]
+        gaps_seen += len(holes)
+        times = movie_times(1.0, s.duration_ms)
+        frames = render_movie(s, canvas, 1.0, s.duration_ms, dtype=torch.float64)
+        for a, b in holes:
+            inside = (times >= a) & (times < b)
+            assert torch.count_nonzero(frames[inside]) == 0
+    assert gaps_seen > 0

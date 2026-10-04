@@ -639,3 +639,15 @@ Plus `sensoryforge/provenance.py`. Changes to existing modules: `stimuli/layered
 A GUI world screen (a draw opens in the Stimulus screen as a layered stimulus); the replay class (R11),
 which `register_class_kind` leaves room for; multi-layer classes; moving `layered` onto the new kernel
 (approach B); batching several entries through one engine call (`write_bundle` requires B = 1).
+
+
+## Addendum, v1.2.0 (2026-10-04)
+
+The addendum plan (`docs/development/plans/2026-10-04-world-174-addendum.md`) adds world
+elements for pressure-simulation's charter world and keeps everything above for worlds that
+do not use them. **Decision 5 ("no gap mechanism, no quiet-fraction target") is superseded for
+worlds that declare a `sessions:` section**: such a session declares its length and contact
+fraction, draws episodes until the fraction is met and spends the remaining quiet budget as
+gaps between episodes (budgeted layout, P8 a). Worlds without `sessions:` keep decision 5 and
+their v1.1.0 sessions bit for bit. The elements, their formulas and the provisional answers
+P1 to P9 are in `docs/reference/world_contract.md`, section 10.
