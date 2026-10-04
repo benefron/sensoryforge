@@ -835,7 +835,7 @@ def _world_kernel():
 
 
 def _shape_kind(kind: str, like: torch.Tensor):
-    """``(fn, specs, unbounded, indenter)``: built in, else the world kernel's registry."""
+    """``(fn, specs, unbounded, indenter)``: built in, else the kernel registry."""
     if kind in SHAPES:
         return _SHAPE_FUNCTIONS[kind], SHAPES[kind], kind in _UNBOUNDED, False
     kernel = _world_kernel()
