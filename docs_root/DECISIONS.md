@@ -161,6 +161,8 @@ And on the section it replaces, add one line — nothing else changes:
 
 **Validation pending.** Ben's confirmation of the provisional answer; changing it changes only the named element.
 
+**Superseded by:** D-0c2b6a3, D-096e081, D-3a10bce (2026-10-04, 7421092) — self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's s…
+
 ## D-b0be6a6 · A press falls as it rose through same_as · 2026-10-04
 
 **What was decided.** a press falls as it rose through same_as, an axis link (P3a, provisional)
@@ -933,4 +935,7 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-6b0215f | sessions are budgeted (P8 a), gap count capped by the episode boundaries | `771bd06` |
 | 2026-10-04 | D-822574c | "touches for" is the plateau hold_ms, no contact_ms field (P2 a, provisional) | `9082178` |
 | 2026-10-04 | D-47d4dac | release the world 174 addendum as v1.2.0, tagged locally only and not pushed | `85a8a32` |
+| 2026-10-04 | D-0c2b6a3 | self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's share of the Persson power; RMS amplitude/sqrt(2) kept (P7 still provisional) | `7421092` |
+| 2026-10-04 | D-096e081 | clamp_min's domain is [-1e4, 0], since a floor above 0 would lift every point in contact to it, a jump at contact onset | `7421092` |
+| 2026-10-04 | D-3a10bce | a registered distribution without a finite support binds a number field only when it declares bounds=, checked against the field's domain | `7421092` |
 <!-- DECISIONS_LOG_END -->

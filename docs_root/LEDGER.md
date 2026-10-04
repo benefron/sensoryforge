@@ -108,6 +108,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-0c2b6a3 · CLOSED · decision · - · 2026-10-04
+self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's share of the Persson power; RMS amplitude/sqrt(2) kept (P7 still provisional)
+→ commit 7421092
+
+## D-096e081 · CLOSED · decision · - · 2026-10-04
+clamp_min's domain is [-1e4, 0], since a floor above 0 would lift every point in contact to it, a jump at contact onset
+→ commit 7421092
+
+## D-3a10bce · CLOSED · decision · - · 2026-10-04
+a registered distribution without a finite support binds a number field only when it declares bounds=, checked against the field's domain
+→ commit 7421092
+
+## F-5704ee5 · CLOSED · finding · - · 2026-10-04
+dot_array's 32-site limit was checked only at render; now at world load (axes, fixed draws) and data-set load (probes)
+→ commit 7421092
+
+## F-63db668 · CLOSED · finding · - · 2026-10-04
+self_affine with cutoff_mm >= rolloff_mm rendered a flat spectrum silently; now refused at load and at render
+→ commit 7421092
+
+## F-b5e342a · CLOSED · finding · - · 2026-10-04
+continuous registered distributions were never checked against their field's domain (biased_direction bound to duty loaded)
+→ commit 7421092
+
+## F-3034ad0 · STANDING · finding · - · 2026-10-04
+the reviewer's charter-like data set fails at load since its dot_array spacing_mm probes reach 0.01 mm (797 sites each way); in v1.2.0 it would have failed at render
+→ commit 7421092
+
 ## D-47d4dac · CLOSED · decision · - · 2026-10-04
 release the world 174 addendum as v1.2.0, tagged locally only and not pushed
 → commit 85a8a32
@@ -157,9 +185,10 @@ indenters are depth-driven, the footprint growing during the rise (P5, provision
 dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional)
 → commit 7e16d00
 
-## D-81193aa · CLOSED · decision · - · 2026-10-04
+## D-81193aa · SUPERSEDED · decision · - · 2026-10-04
 self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional)
 → commit f276323
+⤳ superseded by D-0c2b6a3, D-096e081, D-3a10bce in 7421092 fix(world): self_affine fills every octave in every surface; load-time checks
 
 ## D-b0be6a6 · CLOSED · decision · - · 2026-10-04
 a press falls as it rose through same_as, an axis link (P3a, provisional)
