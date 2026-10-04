@@ -863,6 +863,31 @@ def _shape_kind(kind: str, like: torch.Tensor):
 # ------------------------------------------------------------------- render
 
 
+def _render_with_background(layer, draw, amplitude, envelope, offsets, xx):
+    """Frames of a layer with a ``background`` level and/or a ``clamp_min`` floor.
+
+    ``frame = envelope * (amplitude * shapes + background)``; with ``clamp_min``
+    the frame is floored where the envelope is positive and stays exactly 0
+    elsewhere. The background ignores pattern and motion.
+    """
+    background = float(layer.get("background", 0.0))
+    frames = torch.zeros(envelope.numel(), *xx.shape, dtype=xx.dtype, device=xx.device)
+    if offsets is None:
+        frames = envelope.view(-1, 1, 1) * (amplitude * draw(0.0, 0.0) + background)
+    else:
+        for k in torch.nonzero(envelope > 0).flatten().tolist():
+            shapes = draw(float(offsets[k, 0]), float(offsets[k, 1]))
+            frames[k] = envelope[k] * (amplitude * shapes + background)
+    if "clamp_min" in layer:
+        floor = float(layer["clamp_min"])
+        frames = torch.where(
+            envelope.view(-1, 1, 1) > 0,
+            frames.clamp(min=floor),
+            torch.zeros_like(frames),
+        )
+    return frames
+
+
 def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch.Tensor:
     """One layer's frames ``[T, H, W]``."""
     shape = layer.get("shape") or {"kind": "gaussian"}
@@ -887,6 +912,8 @@ def render_layer(layer: Dict[str, Any], xx, yy, time_ms, run_ms: float) -> torch
             frame = frame + scale * fn(xx - px - dx, yy - py - dy, params)
         return frame
 
+    if "background" in layer or "clamp_min" in layer:
+        return _render_with_background(layer, draw, amplitude, envelope, offsets, xx)
     frames = torch.zeros(time_ms.numel(), *xx.shape, dtype=xx.dtype, device=xx.device)
     if offsets is None:
         frames = draw(0.0, 0.0).unsqueeze(0) * envelope.view(-1, 1, 1)

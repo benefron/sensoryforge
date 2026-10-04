@@ -62,6 +62,9 @@ _CONTACT_PHASES = (
     ("release", "release_ms"),
 )
 _PARTS = ("shape", "pattern", "modulation")
+#: Layer-level numbers (not part of shape, pattern or modulation): a uniform
+#: ``background`` contact level and a ``clamp_min`` floor on the layer total.
+_LAYER_KEYS = ("background", "clamp_min")
 _MOTION_KINDS = ("none", "linear", "circular", "path")
 
 
@@ -223,12 +226,26 @@ class LayeredKind(ClassKind):
                 f"{where}: set timing with the episode axes (delay_ms, touch_ms, "
                 "hold_ms, slide_ms, release_ms, contacts, pause_ms), not layer.timing"
             )
-        unknown = set(layer) - {"shape", "pattern", "motion", "modulation"}
+        unknown = (
+            set(layer) - {"shape", "pattern", "motion", "modulation"} - set(_LAYER_KEYS)
+        )
         if unknown:
             raise ValueError(
                 f"{where}: unknown parts {sorted(unknown)}; "
-                "a layer has shape, pattern, motion, modulation"
+                "a layer has shape, pattern, motion, modulation "
+                "(and the numbers background, clamp_min)"
             )
+        for key in _LAYER_KEYS:
+            if key in layer:
+                value = layer[key]
+                if (
+                    not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                    or not math.isfinite(value)
+                ):
+                    raise ValueError(f"{where}.{key}: must be a finite number")
+                if key == "background" and value < 0:
+                    raise ValueError(f"{where}.{key}: must be >= 0, got {value!r}")
         out: Dict[str, Any] = {
             "shape": _fill(
                 layer.get("shape"), "gaussian", kernel.shape_specs, f"{where}.shape"
@@ -244,6 +261,9 @@ class LayeredKind(ClassKind):
             ),
             "motion": None,
         }
+        for key in _LAYER_KEYS:
+            if key in layer:
+                out[key] = layer[key]
         motion = layer.get("motion")
         if motion is not None:
             motion = dict(expect_mapping(motion, f"{where}.motion"))
@@ -281,7 +301,7 @@ class LayeredKind(ClassKind):
         names = self._names(layer)
         bare = set().union(*names.values())
         dotted = {f"{p}.{n}" for p in _PARTS for n in names[p]}
-        return sorted(set(EPISODE_FIELDS) | bare | dotted)
+        return sorted(set(EPISODE_FIELDS) | bare | dotted | {"background"})
 
     def builtin_defaults(self, layer):
         out = dict(_EPISODE_DEFAULTS)
@@ -297,6 +317,8 @@ class LayeredKind(ClassKind):
         names = self._names(layer)
         if name == "amplitude":
             return ("shape", "amplitude")
+        if name == "background":
+            return ("layer", "background")
         if name in ("x_mm", "y_mm"):
             if name in names["pattern"]:
                 return ("pattern", name)
@@ -334,6 +356,8 @@ class LayeredKind(ClassKind):
         part, field = ref
         if part == "episode":
             return _EPISODE_DOMAIN.get(field, (0.0, None))
+        if part == "layer":
+            return (0.0, 1.0e4)
         spec = self._param_spec(ref, layer)
         return (spec.min_val, spec.max_val)
 
@@ -348,6 +372,8 @@ class LayeredKind(ClassKind):
         part, field = ref
         if part == "episode":
             return FieldInfo("whole" if field == "contacts" else "number", lo, hi)
+        if part == "layer":
+            return FieldInfo("number", lo, hi)
         spec = self._param_spec(ref, layer)
         dtype = {"float": "number", "int": "number", "str": "str", "bool": "bool"}
         choices = tuple(spec.choices) if spec.choices else None
@@ -355,6 +381,8 @@ class LayeredKind(ClassKind):
 
     def fixed_in_layer(self, ref, raw_layer):
         part, field = ref
+        if part == "layer":
+            return field in (raw_layer or {})
         return part in _PARTS and field in ((raw_layer or {}).get(part) or {})
 
     def check(self, spec):
@@ -393,8 +421,14 @@ class LayeredKind(ClassKind):
         return out
 
     def part_values(self, spec, values) -> Dict[str, Dict[str, Any]]:
-        """The class's shape, pattern, modulation dicts with these axis values set."""
+        """The class's shape, pattern, modulation dicts with these axis values set.
+
+        A ``"layer"`` entry carries the layer-level numbers (``background``,
+        ``clamp_min``) the class sets or an axis binds; it is empty for a class
+        that uses neither.
+        """
         parts = {part: dict(spec.layer[part]) for part in _PARTS}
+        parts["layer"] = {k: spec.layer[k] for k in _LAYER_KEYS if k in spec.layer}
         for name, value in values.items():
             part, field = spec.bindings[name]
             if part in parts:
@@ -427,13 +461,15 @@ class LayeredKind(ClassKind):
                 "end": [travel * math.cos(theta), travel * math.sin(theta)],
                 "span": "slide",
             }
-        return {
+        out = {
             "shape": parts["shape"],
             "pattern": parts["pattern"],
             "motion": motion,
             "timing": timing,
             "modulation": parts["modulation"],
         }
+        out.update(parts["layer"])
+        return out
 
     def render_group(self, spec, draws, X, Y, times):
         """Frames ``[g, K, *S]``: amplitude x envelope x modulation x sum of shapes.
@@ -520,7 +556,25 @@ class LayeredKind(ClassKind):
                 total = total + weight * shape.fn(
                     X - px - off_x, Y - py - off_y, params
                 )
-        return amplitude * env.reshape(lead) * total
+        layer_level = [p["layer"] for p in parts]
+        if not any(layer_level):
+            return amplitude * env.reshape(lead) * total
+        # background / clamp_min: the background shares the contact envelope
+        # and modulation, ignores pattern and motion; the floor applies only
+        # where the envelope is positive, so quiet stays exactly zero.
+        background = torch.tensor(
+            [float(lv.get("background", 0.0)) for lv in layer_level],
+            dtype=dtype,
+            device=device,
+        ).view(per_draw)
+        env = env.reshape(lead)
+        frames = env * (amplitude * total + background)
+        if "clamp_min" in spec.layer:
+            floor = float(spec.layer["clamp_min"])
+            frames = torch.where(
+                env > 0, frames.clamp(min=floor), torch.zeros_like(frames)
+            )
+        return frames
 
 
 class QuietKind(ClassKind):

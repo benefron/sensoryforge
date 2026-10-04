@@ -1,0 +1,28 @@
+# A test world with one class per v1.2 element (grows task by task). Values
+# are placeholders sized for SensoryForge's small canvases and 8x8 design.
+world:
+  name: elements_v1_2
+  description: one class per v1.2 world element
+  modality: tactile
+  units: {space: mm, time: ms}
+  defaults:
+    delay_ms:   {range: [0, 20]}
+    touch_ms:   {range: [5, 15]}
+    hold_ms:    {range: [20, 60]}
+    release_ms: {range: [5, 15]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.2, 0.2]}
+    y_mm: {range: [-0.2, 0.2]}
+  classes:
+    bg_dots:
+      weight: 1
+      layer: {shape: {kind: gaussian, sigma_mm: 0.2}}
+      axes: {background: {range: [0.1, 0.4]}}
+    relief:
+      weight: 1
+      layer:
+        shape: {kind: grating, signed: true, wavelength_mm: 0.4}
+        clamp_min: 0.0
+      axes:
+        background: {range: [0.2, 0.5]}
+        orientation_deg: {range: [0, 180], circular: true}
