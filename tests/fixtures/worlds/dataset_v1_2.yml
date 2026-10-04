@@ -1,0 +1,9 @@
+# A data set on the v1.2 test world: sessions of the world's own lengths.
+dataset:
+  name: dataset_v1_2
+  world: elements_v1_2.yml
+  seed: 5
+  duration_ms: 120
+  splits:
+    sessions: {n: 3}
+    long_sessions: {kind: sessions, n: 2, duration_ms: 250}

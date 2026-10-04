@@ -186,6 +186,9 @@ def _parse_split(
             return SplitSpec(**common, bins=bins, per_bin=per_bin)
         return SplitSpec(**common, n=_positive_int(raw, "n", where))
     if kind == "sessions":
+        if "duration_ms" not in raw and world.sessions is not None:
+            # The world's sessions: section draws each session's own length.
+            return SplitSpec(**common, n=_positive_int(raw, "n", where))
         duration = float(raw.get("duration_ms", 0))
         if duration <= 0:
             raise ValueError(f"{where}: duration_ms must be > 0")
@@ -526,12 +529,15 @@ def build_dataset(spec: DatasetSpec) -> List[Entry]:
                 prefix = f"{split.name}/r{repeat}"
             else:
                 prefix = split.name
-            duration = (
-                split.duration_ms if split.kind == "sessions" else spec.duration_ms
-            )
             for stem, item, bins, probe in _split_items(spec, split, split_seed):
                 base = f"{prefix}/{stem}"
                 is_session = isinstance(item, Session)
+                if split.kind != "sessions":
+                    duration = spec.duration_ms
+                elif split.duration_ms is not None:
+                    duration = split.duration_ms
+                else:
+                    duration = item.duration_ms
                 draw_seed = item.session_seed if is_session else item.draw_seed
                 for noise_repeat in range(split.noise_repeats):
                     entry_id = (

@@ -39,7 +39,9 @@ _TOP_KEYS = {
     "classes",
     "held_out",
     "fixed_draws",
+    "sessions",
 }
+_SESSION_KEYS = {"duration_ms", "contact_fraction", "gap_mean_ms", "types"}
 _CLASS_KEYS = {"kind", "weight", "layer", "axes", "channel", "use"}
 #: Names that become directory names (classes, held-out classes, fixed draws,
 #: data-set splits): no separators, no leading dot.
@@ -104,6 +106,39 @@ class ClassSpec:
 
 
 @dataclass
+class SessionModel:
+    """The world's ``sessions:`` section (spec addendum, Task 11).
+
+    Attributes:
+        duration_ms: Axis of a session's length, ms (values > 0).
+        contact_fraction: Axis of the share of a session spent in contact,
+            in [0, 1].
+        gap_mean_ms: Mean length of a quiet gap, ms (> 0).
+        types: ``name -> {"weight": w, "classes": {class: w}}``, sorted by
+            name; empty when the world declares no session types.
+    """
+
+    duration_ms: AxisSpec
+    contact_fraction: AxisSpec
+    gap_mean_ms: float
+    types: Dict[str, Dict[str, Any]]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """The normalised section (``types`` only when there are some)."""
+        out: Dict[str, Any] = {
+            "duration_ms": self.duration_ms.to_dict(),
+            "contact_fraction": self.contact_fraction.to_dict(),
+            "gap_mean_ms": self.gap_mean_ms,
+        }
+        if self.types:
+            out["types"] = {
+                name: {"weight": t["weight"], "classes": dict(t["classes"])}
+                for name, t in self.types.items()
+            }
+        return out
+
+
+@dataclass
 class World:
     """A declared stimulus world (spec §3). Build it with :func:`load_world`."""
 
@@ -116,6 +151,7 @@ class World:
     held_out: Dict[str, ClassSpec]
     fixed: Dict[str, Dict[str, Any]]
     world_id: str = ""
+    sessions: Optional[SessionModel] = None
 
     def class_spec(self, name: str) -> ClassSpec:
         """A class or held-out class by name."""
@@ -130,7 +166,7 @@ class World:
 
     def to_dict(self) -> Dict[str, Any]:
         """The normalised world; its canonical JSON is what :attr:`world_id` hashes."""
-        return {
+        out: Dict[str, Any] = {
             "format": FORMAT,
             "name": self.name,
             "modality": self.modality,
@@ -142,6 +178,9 @@ class World:
                 n: {"class": f["class"], **f["values"]} for n, f in self.fixed.items()
             },
         }
+        if self.sessions is not None:
+            out["sessions"] = self.sessions.to_dict()
+        return out
 
     def fixed_draw(self, name: str):
         """The named fixed draw (see :func:`sensoryforge.world.sampling.fixed_draw`)."""
@@ -257,6 +296,11 @@ def _parse_world(data: Any) -> World:
             raw.get("fixed_draws"), "world.fixed_draws", directories=True
         )
     }
+    sessions = (
+        _parse_sessions(raw["sessions"], classes, held)
+        if raw.get("sessions") is not None
+        else None
+    )
     units = expect_mapping(raw.get("units"), "world.units") or {
         "space": "mm",
         "time": "ms",
@@ -270,12 +314,126 @@ def _parse_world(data: Any) -> World:
         classes=classes,
         held_out=held,
         fixed=fixed,
+        sessions=sessions,
     )
     canonical = json.dumps(
         world.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
     )
     world.world_id = "w-" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:12]
     return world
+
+
+def _axis_values(axis: AxisSpec) -> List[float]:
+    """Every value (or both bounds) a session axis can take."""
+    if axis.form == "constant":
+        return [axis.value]
+    if axis.form in ("numeric", "int"):
+        return [axis.lo, axis.hi]
+    return list(axis.values)
+
+
+def _session_axis(
+    raw: Dict[str, Any], key: str, lo: float, hi: Optional[float], open_lo: bool
+) -> AxisSpec:
+    """A session axis (constant, range or list) with its bounds checked."""
+    where = f"world.sessions.{key}"
+    if key not in raw:
+        raise ValueError(f"world.sessions: needs {key}")
+    axis = AxisSpec.from_dict(key, raw[key], where=where)
+    if axis.form not in ("constant", "numeric", "int", "categorical"):
+        raise ValueError(
+            f"{where}: takes a constant, a range or a list of values, "
+            f"not {axis.form!r} (same_as and distributions are not allowed)"
+        )
+    low = ">" if open_lo else ">="
+    domain = f"{low} {lo:g}" if hi is None else f"in [{lo:g}, {hi:g}]"
+    for value in _axis_values(axis):
+        if not is_number(value) or not math.isfinite(value):
+            raise ValueError(f"{where}: needs numbers, got {value!r}")
+        bad = value <= lo if open_lo else value < lo
+        if bad or (hi is not None and value > hi):
+            raise ValueError(f"{where}: {value!r} must be {domain}")
+    return axis
+
+
+def _type_weight(raw: Any, where: str) -> float:
+    if not is_number(raw) or not math.isfinite(raw) or raw < 0:
+        raise ValueError(f"{where}: must be a finite number >= 0, got {raw!r}")
+    return float(raw)
+
+
+def _parse_sessions(
+    raw: Any, classes: Dict[str, ClassSpec], held: Dict[str, ClassSpec]
+) -> SessionModel:
+    """The ``sessions:`` section, validated against the world's classes."""
+    where = "world.sessions"
+    raw = expect_mapping(raw, where)
+    unknown = set(raw) - _SESSION_KEYS
+    if unknown:
+        raise ValueError(
+            f"{where}: unknown keys {sorted(unknown)}; "
+            f"allowed: {sorted(_SESSION_KEYS)}"
+        )
+    duration = _session_axis(raw, "duration_ms", 0.0, None, open_lo=True)
+    fraction = _session_axis(raw, "contact_fraction", 0.0, 1.0, open_lo=False)
+    if "gap_mean_ms" not in raw:
+        raise ValueError(f"{where}: needs gap_mean_ms")
+    gap = raw["gap_mean_ms"]
+    if not is_number(gap):
+        raise ValueError(
+            f"{where}.gap_mean_ms: needs a number (ms) > 0, got {gap!r}"
+            f"{text_number_hint(gap)}"
+        )
+    if not math.isfinite(gap) or gap <= 0:
+        raise ValueError(
+            f"{where}.gap_mean_ms: must be a finite number > 0, got {gap!r}"
+        )
+    types: Dict[str, Dict[str, Any]] = {}
+    if raw.get("types") is not None:
+        named = _named(raw["types"], f"{where}.types", directories=True)
+        if not named:
+            raise ValueError(f"{where}.types: declare at least one type, or omit it")
+        for type_name, type_raw in named:
+            type_where = f"{where}.types.{type_name}"
+            type_raw = expect_mapping(type_raw, type_where)
+            extra = set(type_raw) - {"weight", "classes"}
+            if extra:
+                raise ValueError(
+                    f"{type_where}: unknown keys {sorted(extra)}; "
+                    "allowed: ['classes', 'weight']"
+                )
+            if "classes" not in type_raw:
+                raise ValueError(f"{type_where}: needs classes: {{<class>: weight}}")
+            weight = _type_weight(type_raw.get("weight", 1.0), f"{type_where}.weight")
+            class_where = f"{type_where}.classes"
+            members: Dict[str, float] = {}
+            for class_name, class_weight in _named(type_raw["classes"], class_where):
+                if class_name in held:
+                    raise ValueError(
+                        f"{class_where}: {class_name!r} is held out; a session "
+                        "type draws from the world's own classes"
+                    )
+                if class_name not in classes:
+                    raise ValueError(
+                        f"{class_where}: unknown class {class_name!r}; "
+                        f"the world's classes: {sorted(classes)}"
+                    )
+                members[class_name] = _type_weight(
+                    class_weight, f"{class_where}.{class_name}"
+                )
+            if not members:
+                raise ValueError(f"{class_where}: name at least one class")
+            if sum(members.values()) <= 0:
+                raise ValueError(f"{class_where}: the weights sum to 0")
+            types[type_name] = {"weight": weight, "classes": members}
+        if sum(t["weight"] for t in types.values()) <= 0:
+            raise ValueError(f"{where}.types: the weights sum to 0")
+    return SessionModel(
+        duration_ms=duration,
+        contact_fraction=fraction,
+        gap_mean_ms=float(gap),
+        types=types,
+    )
 
 
 def _parse_class(

@@ -265,6 +265,29 @@ def test_7_session_quiet_stretches_are_exactly_zero():
     assert torch.count_nonzero(frames[contact]) > 0
 
 
+def test_7_model_session_quiet_stretches_are_exactly_zero():
+    model_world = load_world(
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "worlds"
+        / "elements_v1_2.yml"
+    )
+    s = session(model_world, seed=3, index=1)
+    assert s.session_type is not None
+    times = movie_times(1.0, s.duration_ms)
+    frames = render_movie(
+        s, Canvas.from_grid(8, 8, 0.15), 1.0, s.duration_ms, dtype=torch.float64
+    )
+    contact = torch.zeros(len(times), dtype=torch.bool)
+    for start, draw in s.items:
+        for phase, a, b in draw.timeline:
+            if phase in ("touch", "hold", "slide", "release"):
+                contact |= (times >= start + a) & (times < start + b)
+    assert (~contact).any() and contact.any()
+    assert torch.count_nonzero(frames[~contact]) == 0
+    assert torch.count_nonzero(frames[contact]) > 0
+
+
 def test_8_every_bundle_carries_its_provenance(batch_run):
     manifest = read_manifest(FIXTURE)
     sha = source_info()["sha"]

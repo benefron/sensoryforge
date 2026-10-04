@@ -1049,6 +1049,16 @@ def cmd_world(args: argparse.Namespace) -> int:
                     print(f"  {group} {name} ({cls.kind}){weight}: {axes}")
             for name in world.fixed:
                 print(f"  fixed draw {name}")
+            if world.sessions is not None:
+                model = world.sessions.to_dict()
+                print(
+                    f"  sessions: duration_ms={model['duration_ms']} "
+                    f"contact_fraction={model['contact_fraction']} "
+                    f"gap_mean_ms={model['gap_mean_ms']:g}"
+                )
+                for name, kind in model.get("types", {}).items():
+                    mix = ", ".join(f"{c}={w:g}" for c, w in kind["classes"].items())
+                    print(f"    session type {name} weight={kind['weight']:g}: {mix}")
             return 0
         classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
         for draw in sample(world, n=args.n, seed=args.seed, classes=classes):

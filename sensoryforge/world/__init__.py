@@ -14,7 +14,7 @@ from sensoryforge.world.kernel import (
     register_shape,
 )
 from sensoryforge.world.kinds import ClassKind, register_class_kind
-from sensoryforge.world.schema import ClassSpec, World, load_world
+from sensoryforge.world.schema import ClassSpec, SessionModel, World, load_world
 from sensoryforge.world.sampling import Draw, Session, fixed_draw, sample, session
 from sensoryforge.world.dataset import (
     DatasetSpec,
@@ -36,6 +36,7 @@ __all__ = [
     "Draw",
     "Entry",
     "Session",
+    "SessionModel",
     "World",
     "build_dataset",
     "fixed_draw",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -129,6 +129,7 @@ def sample(
     *,
     indices: Optional[Iterable[int]] = None,
     classes: Optional[Sequence[str]] = None,
+    weights: Optional[Mapping[str, float]] = None,
 ) -> List[Draw]:
     """Draws from the world's declared distribution (spec §4.2).
 
@@ -145,27 +146,42 @@ def sample(
         classes: Restrict to these classes (held-out ones allowed), each
             named once; their weights are renormalised (equal if they sum
             to 0). ``None`` means every (not held-out) class.
+        weights: ``class -> weight`` overriding the classes' own weights: the
+            classes are the mapping's keys (held-out ones allowed), weighed
+            in order of their names, renormalised (equal if they sum to 0).
+            ``None`` runs the declared weights. Not combined with ``classes``.
 
     Returns:
         One :class:`Draw` per index, in order.
 
     Raises:
         ValueError: For both or neither of ``n`` and ``indices``, an empty
-            or repeating ``classes``, or an unknown class.
+            or repeating ``classes``, an unknown class, or both ``classes``
+            and ``weights``.
     """
     if (n is None) == (indices is None):
         raise ValueError("give exactly one of n or indices")
+    if weights is not None and classes is not None:
+        raise ValueError("give classes or weights, not both")
     idx = (
         np.arange(int(n), dtype=np.int64)
         if indices is None
         else np.asarray(list(indices), dtype=np.int64)
     )
-    pool = class_pool(world, classes)
+    if weights is None:
+        pool = class_pool(world, classes)
+        class_weights = np.array([c.weight for c in pool], dtype=np.float64)
+    else:
+        pool = class_pool(world, list(weights))
+        class_weights = np.array(
+            [float(weights[c.name]) for c in pool], dtype=np.float64
+        )
+        if (class_weights < 0).any() or not np.isfinite(class_weights).all():
+            raise ValueError("weights must be finite numbers >= 0")
     seeds = rng.draw_seeds(seed, idx)
-    weights = np.array([c.weight for c in pool], dtype=np.float64)
-    if weights.sum() <= 0:
-        weights = np.ones(len(pool))
-    cum = np.cumsum(weights) / weights.sum()
+    if class_weights.sum() <= 0:
+        class_weights = np.ones(len(pool))
+    cum = np.cumsum(class_weights) / class_weights.sum()
     chosen = np.minimum(
         np.searchsorted(cum, rng.uniforms(seeds, "class"), side="right"), len(pool) - 1
     )
@@ -240,6 +256,10 @@ class Session:
             ``sample(world, indices=[k], seed=session_seed)``.
         duration_ms: The session's length.
         items: ``((start_ms, draw), ...)``; the last draw may run past the end.
+            Quiet gaps are the holes between items (they render exactly 0).
+        session_type: The type drawn (a world with ``sessions: types:`` only).
+        contact_fraction: The declared target share in contact (a world with
+            ``sessions:`` only).
     """
 
     world: World = field(repr=False, compare=False)
@@ -248,6 +268,8 @@ class Session:
     session_seed: int
     duration_ms: float
     items: Tuple[Tuple[float, Draw], ...]
+    session_type: Optional[str] = None
+    contact_fraction: Optional[float] = None
 
     @property
     def end_ms(self) -> float:
@@ -257,6 +279,8 @@ class Session:
     @property
     def truncated(self) -> bool:
         """True when the last draw is cut at ``duration_ms``."""
+        if not self.items:
+            return False
         start, last = self.items[-1]
         return start + last.end_ms > self.duration_ms
 
@@ -279,7 +303,7 @@ class Session:
 
     def to_dict(self) -> Dict[str, Any]:
         """The JSON-ready record."""
-        return {
+        out: Dict[str, Any] = {
             "world_id": self.world.world_id,
             "sampling": "session",
             "seed": self.seed,
@@ -291,6 +315,11 @@ class Session:
             "quiet_fraction": self.quiet_fraction,
             "end_ms": self.end_ms,
         }
+        if self.session_type is not None:
+            out["session_type"] = self.session_type
+        if self.contact_fraction is not None:
+            out["contact_fraction"] = self.contact_fraction
+        return out
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], world: World) -> "Session":
@@ -310,17 +339,51 @@ class Session:
             session_seed=int(data["session_seed"]),
             duration_ms=float(data["duration_ms"]),
             items=items,
+            session_type=data.get("session_type"),
+            contact_fraction=(
+                None
+                if data.get("contact_fraction") is None
+                else float(data["contact_fraction"])
+            ),
         )
 
 
-def session(world: World, duration_ms: float, seed: int, index: int = 0) -> Session:
-    """Draws from the world laid end to end until ``duration_ms`` is filled.
+def session(
+    world: World,
+    duration_ms: Optional[float] = None,
+    seed: int = 0,
+    index: int = 0,
+) -> Session:
+    """A session: draws laid end to end over ``duration_ms``.
+
+    A world without a ``sessions:`` section lays draws end to end until
+    ``duration_ms`` is filled (spec §4.5). With one, the session is budgeted
+    (see :func:`_model_session`): its length and target contact fraction come
+    from the section's axes, episodes come from its type's class mix until
+    their contact time reaches ``contact_fraction * duration_ms``, and the
+    rest of the length is spent as quiet gaps.
+
+    Args:
+        world: The world.
+        duration_ms: The session's length, ms. Required for a world without
+            ``sessions:``; with one, ``None`` draws it from the section's
+            ``duration_ms`` axis and a number overrides that.
+        seed: The sampling seed.
+        index: The session's index under that seed.
 
     Raises:
-        ValueError: If a draw has zero length (the session would never fill).
+        ValueError: For a length <= 0 or missing, or a draw of zero length
+            (the session would never fill).
     """
-    if duration_ms <= 0:
+    if duration_ms is not None and duration_ms <= 0:
         raise ValueError(f"duration_ms must be > 0, got {duration_ms}")
+    if world.sessions is not None:
+        return _model_session(world, duration_ms, seed, index)
+    if duration_ms is None:
+        raise ValueError(
+            "duration_ms is required: this world declares no sessions: section "
+            "(world.sessions.duration_ms)"
+        )
     session_seed = rng.seed53(seed, index)
     items: List[Tuple[float, Draw]] = []
     t = 0.0
@@ -342,4 +405,99 @@ def session(world: World, duration_ms: float, seed: int, index: int = 0) -> Sess
         session_seed=int(session_seed),
         duration_ms=float(duration_ms),
         items=tuple(items),
+    )
+
+
+def _contact_ms(draw: Draw) -> float:
+    return sum(b - a for phase, a, b in draw.timeline if phase in _CONTACT_PHASES)
+
+
+def _model_session(
+    world: World, duration_ms: Optional[float], seed: int, index: int
+) -> Session:
+    """A budgeted session of a world that declares ``sessions:``.
+
+    With ``s = seed53(seed, index)``: the type comes from its weights
+    (``uniforms([s], "session_type")``), the length ``D`` and the target
+    contact fraction ``f`` from their axes (slots ``duration_ms`` and
+    ``contact_fraction``). Episodes ``k = 0, 1, ...`` are
+    ``sample(indices=[k], seed=s, weights=<the type's classes>)`` until their
+    contact time reaches ``f * D`` or their total length reaches ``D``. The
+    quiet budget ``Q = max(0, D - E)`` is spent as ``G = min(n + 1,
+    max(1, round(Q / gap_mean_ms)))`` gaps at distinct episode boundaries,
+    their lengths the spacings of ``Q`` cut at sorted uniforms.
+    """
+    model = world.sessions
+    assert model is not None
+    session_seed = rng.seed53(seed, index)
+    one = np.array([session_seed], dtype=np.uint64)
+    session_type: Optional[str] = None
+    weights: Optional[Dict[str, float]] = None
+    if model.types:
+        names = sorted(model.types)
+        type_weights = np.array([model.types[n]["weight"] for n in names], dtype=float)
+        cum = np.cumsum(type_weights) / type_weights.sum()
+        pick = int(
+            min(
+                np.searchsorted(
+                    cum, rng.uniforms(one, "session_type")[0], side="right"
+                ),
+                len(names) - 1,
+            )
+        )
+        session_type = names[pick]
+        weights = dict(model.types[session_type]["classes"])
+    total = (
+        float(model.duration_ms.sample(rng.uniforms(one, "duration_ms"))[0])
+        if duration_ms is None
+        else float(duration_ms)
+    )
+    target = float(
+        model.contact_fraction.sample(rng.uniforms(one, "contact_fraction"))[0]
+    )
+    episodes: List[Draw] = []
+    contact = 0.0
+    length = 0.0
+    k = 0
+    while length < total and contact < target * total:
+        draw = sample(world, indices=[k], seed=session_seed, weights=weights)[0]
+        if draw.end_ms <= 0:
+            raise ValueError(
+                f"session draw {k} (class {draw.class_name!r}) has zero length; "
+                "give its class a positive duration"
+            )
+        episodes.append(draw)
+        contact += _contact_ms(draw)
+        length += draw.end_ms
+        k += 1
+    n = len(episodes)
+    quiet = max(0.0, total - length)
+    gap_at: Dict[int, float] = {}
+    if quiet > 0:
+        count = min(n + 1, max(1, int(round(quiet / model.gap_mean_ms))))
+        boundaries = sorted(
+            int(b)
+            for b in rng.permutation(n + 1, session_seed, "gap_boundaries")[:count]
+        )
+        cuts = np.sort(
+            rng.uniforms(rng.draw_seeds(session_seed, np.arange(count - 1)), "gap_cut")
+        )
+        edges = quiet * np.concatenate([[0.0], cuts, [1.0]])
+        for boundary, gap in zip(boundaries, np.diff(edges).tolist()):
+            gap_at[boundary] = gap
+    items: List[Tuple[float, Draw]] = []
+    t = 0.0
+    for j in range(n):
+        t += gap_at.get(j, 0.0)
+        items.append((t, episodes[j]))
+        t += episodes[j].end_ms
+    return Session(
+        world=world,
+        seed=int(seed),
+        index=int(index),
+        session_seed=int(session_seed),
+        duration_ms=total,
+        items=tuple(items),
+        session_type=session_type,
+        contact_fraction=target,
     )

@@ -98,3 +98,14 @@ world:
           y_mm: 0.2
       axes:
         text: {dist: letter_text, cells: 2, lines: 2, stratify: false}
+  sessions:
+    duration_ms: {range: [300, 600]}
+    contact_fraction: {range: [0.2, 0.5]}
+    gap_mean_ms: 40
+    types:
+      taps:
+        weight: 3
+        classes: {grouped_press: 2, tied_press: 1, lateral_slide: 1}
+      textures:
+        weight: 1
+        classes: {rough: 1, dots: 1, relief: 1}
