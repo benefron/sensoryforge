@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-80d1fcd · CLOSED · decision · - · 2026-10-04
+groups are resolved into class axes at load (P1 option A), not kept as a runtime concept
+→ commit 2487d37
+
 ## D-7d5e5bc · CLOSED · decision · - · 2026-10-04
 letter_text recovers int(u * 2**53) as the draw's bits and maps cells x lines sub-uniforms through the cumulative weights
 → commit 5d658d3
