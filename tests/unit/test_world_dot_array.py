@@ -6,7 +6,8 @@ import pytest
 import torch
 
 from sensoryforge.stimuli import layered
-from sensoryforge.world import kernel
+from sensoryforge.world import World, kernel
+from sensoryforge.world.dataset import load_dataset
 from sensoryforge.world.kernel import _gaussian
 from sensoryforge.world.surfaces import dot_array
 
@@ -164,3 +165,107 @@ def test_too_wide_a_dot_for_its_spacing_is_refused():
     x, y = _canvas(n=5)
     with pytest.raises(ValueError, match="sigma_mm.*spacing_mm"):
         dot_array(x, y, _p(sigma_mm=10.0, spacing_mm=0.1))
+
+
+# ------------------------------------------- the site limit, checked at load
+
+
+def _dots(shape, axes, fixed=None):
+    """A world mapping with one dot-array class ``dots``."""
+    return {
+        "world": {
+            "classes": {
+                "dots": {
+                    "layer": {"shape": {"kind": "dot_array", **shape}},
+                    "axes": {"hold_ms": {"value": 10.0}, **axes},
+                }
+            },
+            "fixed_draws": fixed or {},
+        }
+    }
+
+
+def test_a_world_that_can_exceed_the_site_limit_fails_at_load_naming_class_and_axis():
+    # m = ceil(7.5 * 10 / 1.3) = 58 sites each way at the range's worst case;
+    # v1.2.0 loaded this world and failed only when such a draw was rendered
+    with pytest.raises(
+        ValueError,
+        match=r"world\.classes\.dots\.axes\.sigma_mm.*58 lattice sites.*limit 32",
+    ):
+        World.from_dict(
+            _dots({"spacing_mm": 1.3}, {"sigma_mm": {"range": [0.1, 10.0]}})
+        )
+
+
+def test_the_worst_spacing_names_the_spacing_axis():
+    # m = ceil(7.5 * 0.5 / 0.05) = 75
+    with pytest.raises(
+        ValueError, match=r"world\.classes\.dots\.axes\.spacing_mm.*75 lattice sites"
+    ):
+        World.from_dict(
+            _dots({"sigma_mm": 0.5}, {"spacing_mm": {"range": [0.05, 2.0]}})
+        )
+
+
+def test_the_load_check_takes_the_hexagonal_row_spacing():
+    # rows of a hexagonal lattice are spacing * sqrt(3)/2 apart: sigma 1.0 over
+    # spacing 0.25 needs ceil(7.5 / 0.2165) = 35 sites (square: 30, allowed)
+    shape = {"sigma_mm": 1.0, "spacing_mm": 0.25}
+    World.from_dict(_dots({**shape, "arrangement": "square"}, {}))
+    with pytest.raises(ValueError, match=r"35 lattice sites"):
+        World.from_dict(_dots({**shape, "arrangement": "hexagonal"}, {}))
+    with pytest.raises(ValueError, match=r"35 lattice sites"):
+        World.from_dict(
+            _dots(shape, {"arrangement": {"values": ["square", "hexagonal"]}})
+        )
+
+
+def test_a_row_spacing_range_reaching_zero_fails_at_load():
+    with pytest.raises(ValueError, match=r"axes\.row_spacing_mm.*close to 0"):
+        World.from_dict(_dots({}, {"row_spacing_mm": {"range": [0.0, 2.0]}}))
+
+
+def test_a_world_within_the_site_limit_loads():
+    # m = ceil(7.5 * 1.0 / 0.3) = 25
+    world = World.from_dict(
+        _dots({"spacing_mm": 0.3}, {"sigma_mm": {"range": [0.1, 1.0]}})
+    )
+    assert "dots" in world.classes
+
+
+def test_a_fixed_draw_beyond_the_site_limit_fails_at_load():
+    # outside its axis range but inside the field's domain: allowed until v1.2.0
+    with pytest.raises(
+        ValueError, match=r"world\.fixed_draws\.wide.*sigma_mm.*38 lattice sites"
+    ):
+        World.from_dict(
+            _dots(
+                {"spacing_mm": 1.0},
+                {"sigma_mm": {"range": [0.1, 0.2]}},
+                fixed={"wide": {"class": "dots", "sigma_mm": 5.0}},
+            )
+        )
+
+
+def test_probes_that_can_exceed_the_site_limit_fail_at_dataset_load():
+    axes = {"spacing_mm": {"range": [0.3, 2.0]}}
+
+    def spec():
+        return {
+            "dataset": {
+                "world": _dots({"sigma_mm": 1.0}, axes),
+                "seed": 1,
+                "duration_ms": 20,
+                "splits": {"probes": {"per_bin": 1, "bins": 5}},
+            }
+        }
+
+    # the declared worst case needs ceil(7.5 / 0.3) = 25 sites, but the
+    # 'below' probes of spacing_mm reach the field's lowest value, 0.01 mm
+    with pytest.raises(
+        ValueError,
+        match=r"dataset\.splits\.probes.*dots.*spacing_mm.*below.*750 lattice sites",
+    ):
+        load_dataset(spec())
+    axes["spacing_mm"]["probes"] = False
+    load_dataset(spec())

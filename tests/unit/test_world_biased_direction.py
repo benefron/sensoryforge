@@ -127,3 +127,96 @@ def test_bad_options_fail_at_load_naming_the_path(options, message):
 def test_braille_cells_is_still_stratified_by_support():
     axis = AxisSpec.from_dict("cells", {"dist": "braille_cells"})
     assert axis.support() is not None and len(axis.support()) == 63
+
+
+# ------------------------- continuous distributions against their field's domain
+
+
+def _one_class(layer, axes):
+    return {
+        "world": {
+            "classes": {
+                "c": {"layer": layer, "axes": {"hold_ms": {"value": 10.0}, **axes}}
+            }
+        }
+    }
+
+
+def test_biased_direction_declares_its_bounds():
+    from sensoryforge.world.distributions import DISTRIBUTIONS
+
+    axis = _axis(travel_ratio=2.5, axis_deg=30.0)
+    assert DISTRIBUTIONS["biased_direction"].bounds(axis) == (0.0, 360.0)
+
+
+def test_a_continuous_distribution_outside_its_fields_domain_fails_at_load():
+    # biased_direction draws [0, 360); grating duty takes [0.01, 0.99]. v1.2.0
+    # loaded this world and rendered nonsense duties.
+    world = _one_class(
+        {"shape": {"kind": "grating", "profile": "square"}},
+        {"duty": {"dist": "biased_direction", "travel_ratio": 2.0}},
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"world\.classes\.c\.axes\.duty: .*biased_direction.*\[0, 360\]"
+        r".*domain \[0\.01, 0\.99\]",
+    ):
+        load_world(world)
+
+
+def test_a_continuous_distribution_inside_its_fields_domain_loads():
+    world = _one_class(
+        {"shape": {"kind": "grating"}},
+        {"orientation_deg": {"dist": "biased_direction", "travel_ratio": 2.0}},
+    )
+    assert load_world(world).classes["c"].axes["orientation_deg"].dist == (
+        "biased_direction"
+    )
+
+
+def test_a_numeric_distribution_cannot_bind_a_text_field():
+    world = _one_class(
+        {"shape": {"kind": "gaussian"}, "pattern": {"kind": "braille"}},
+        {"text": {"dist": "biased_direction", "travel_ratio": 2.0}},
+    )
+    with pytest.raises(ValueError, match=r"axes\.text: .*biased_direction.*numbers"):
+        load_world(world)
+
+
+def test_a_continuous_distribution_without_bounds_cannot_bind_a_number_field():
+    # multi-letter text has no finite support and declares no bounds
+    world = _one_class(
+        {"shape": {"kind": "gaussian"}},
+        {"sigma_mm": {"dist": "letter_text", "cells": 2, "stratify": False}},
+    )
+    with pytest.raises(
+        ValueError, match=r"axes\.sigma_mm: .*letter_text.*declares no bounds"
+    ):
+        load_world(world)
+
+
+def test_a_registered_distribution_with_bounds_is_checked_against_the_domain():
+    from sensoryforge.world.distributions import DISTRIBUTIONS, register_distribution
+
+    register_distribution(
+        "_t_wide",
+        lambda u, axis: (0.5 + 99.5 * np.asarray(u)).tolist(),
+        quantile=True,
+        bounds=lambda axis: (0.5, 100.0),
+    )
+    try:
+        # gaussian sigma_mm takes [0.001, 50]
+        with pytest.raises(
+            ValueError, match=r"axes\.sigma_mm: .*_t_wide.*\[0\.5, 100\]"
+        ):
+            load_world(
+                _one_class(
+                    {"shape": {"kind": "gaussian"}}, {"sigma_mm": {"dist": "_t_wide"}}
+                )
+            )
+        # bar width_mm takes [0.001, 100]
+        load_world(
+            _one_class({"shape": {"kind": "bar"}}, {"width_mm": {"dist": "_t_wide"}})
+        )
+    finally:
+        DISTRIBUTIONS.pop("_t_wide")

@@ -85,73 +85,138 @@ SELF_AFFINE_SPECS = [
 ]
 
 
-def _radial_wavenumbers(u: np.ndarray, hurst: float, q0: float, q1: float):
-    """Inverse CDF of the radial density proportional to ``q C(q)`` on ``[0, q1]``.
+def _check_cutoff(rolloff_mm: float, cutoff_mm: float) -> None:
+    """Refuse a cut-off at or above the roll-off (no self-affine part left)."""
+    if not cutoff_mm < rolloff_mm:
+        raise ValueError(
+            f"self_affine cutoff_mm ({cutoff_mm:g} mm) must be below rolloff_mm "
+            f"({rolloff_mm:g} mm): the spectrum is flat up to the roll-off and "
+            "cut at the cut-off, so it would have no self-affine part"
+        )
 
-    ``C`` is flat below ``q0`` and ``(q / q0) ** (-2 (H + 1))`` from ``q0`` to
-    ``q1``. When ``q1 <= q0`` the flat piece alone runs to ``q1``.
+
+def _components(v: np.ndarray, hurst: float, q0: float, q1: float):
+    """Radial wavenumbers and amplitudes of the ``N`` components of one surface.
+
+    The wavenumbers ``[0, q1]`` are mapped to ``xi = (q**2/q0**2 - 1) / 2``
+    below the roll-off ``q0`` (equal steps of ``xi`` are equal areas of the
+    wavevector plane, where the spectrum is flat) and ``xi = ln(q / q0)`` above
+    it (equal steps are equal ratios, where the spectrum is self-affine); the
+    two pieces meet with equal slope at ``q0``. In units of ``C0 q0**2`` the
+    declared radial power ``q C(q) dq`` is ``dxi`` below ``q0`` and
+    ``exp(-2 H xi) dxi`` above it, up to ``xi1 = ln(q1 / q0)``.
+
+    ``[-1/2, xi1]`` is cut into ``N`` strata of equal width and stratum ``j``
+    holds one component: its wavenumber is drawn from the declared power
+    restricted to the stratum (the inverse CDF at ``v_j``), its amplitude is
+    ``sqrt(m_j / M)``, ``m_j`` the stratum's power and ``M`` the total. So the
+    powers ``a_j**2 / 2`` sum to 1/2 in every surface, every stratum (and so
+    every octave between roll-off and cut-off, once ``N`` exceeds a few per
+    octave) carries a component in every surface, and the expected spectrum is
+    the declared one.
 
     Args:
-        u: Stratified uniforms in ``[0, 1)``, shape ``[N]``.
+        v: Uniforms in ``[0, 1)``, one per stratum, shape ``[N]``.
         hurst: Hurst exponent in ``[0, 1]``.
         q0: Roll-off wavenumber, rad/mm.
-        q1: Cutoff wavenumber, rad/mm.
+        q1: Cut-off wavenumber, rad/mm, ``> q0``.
 
     Returns:
-        Wavenumbers ``[N]`` in rad/mm, float64.
+        ``(q, a)``: wavenumbers in rad/mm and amplitudes, float64 ``[N]``.
     """
-    if q1 <= q0:
-        return q1 * np.sqrt(u)
-    a1 = 0.5 * q0**2
-    if hurst < 1e-9:
-        a2 = q0**2 * math.log(q1 / q0)
+    n = v.shape[0]
+    width = 0.5 + math.log(q1 / q0)
+    edges = -0.5 + width * np.arange(n + 1, dtype=np.float64) / n
+    lo, hi = edges[:-1], edges[1:]
+    flat = np.clip(np.minimum(hi, 0.0) - lo, 0.0, None)  # power below q0
+    a, b = np.maximum(lo, 0.0), np.maximum(hi, 0.0)  # the self-affine piece
+    k = 2.0 * hurst
+    if k > 0.0:
+        start = np.exp(-k * a)
+        power = start * -np.expm1(-k * (b - a)) / k
     else:
-        a2 = q0**2 * (1.0 - (q0 / q1) ** (2.0 * hurst)) / (2.0 * hurst)
-    m = u * (a1 + a2)
-    low = np.sqrt(2.0 * np.minimum(m, a1))
-    m2 = np.maximum(m - a1, 0.0)
-    if hurst < 1e-9:
-        high = q0 * np.exp(m2 / q0**2)
+        power = b - a
+    mass = flat + power
+    target = v * mass  # the stratum's power below the component
+    rest = np.maximum(target - flat, 0.0)
+    if k > 0.0:
+        above = a - np.log1p(-k * rest / start) / k
     else:
-        high = q0 * (1.0 - 2.0 * hurst * m2 / q0**2) ** (-1.0 / (2.0 * hurst))
-    return np.where(m <= a1, low, np.minimum(high, q1))
+        above = a + rest
+    xi = np.where(target <= flat, lo + target, above)
+    q = np.where(
+        xi <= 0.0,
+        q0 * np.sqrt(1.0 + 2.0 * np.minimum(xi, 0.0)),
+        q0 * np.exp(np.maximum(xi, 0.0)),
+    )
+    return np.minimum(q, q1), np.sqrt(mass / mass.sum())
 
 
 def self_affine_table(
     seed: int, hurst: float, rolloff_mm: float, cutoff_mm: float, components: int
 ) -> np.ndarray:
-    """The cosines of one self-affine surface: ``[N, 3]`` of ``qx, qy, phase``.
+    """The cosines of one self-affine surface: ``[N, 4]`` of ``qx, qy, phase, a``.
 
-    ``h(x, y) = N**-0.5 * sum_j cos(qx_j x + qy_j y + phase_j)`` (x, y in mm).
-    Radial wavenumbers come from a stratified inverse CDF (stratum ``j`` at
-    ``(j + v_j) / N``), directions and phases are uniform; all uniforms are
-    ``sensoryforge.world.rng`` values keyed by ``(seed, j, slot)``.
+    ``h(x, y) = sum_j a_j cos(qx_j x + qy_j y + phase_j)`` (x, y in mm), with
+    ``sum_j a_j**2 = 1``. Radial wavenumbers and amplitudes come from
+    :func:`_components` (one component per stratum, at ``v_j``); directions
+    and phases are uniform; all uniforms are ``sensoryforge.world.rng`` values
+    keyed by ``(seed, j, slot)``.
 
     Args:
         seed: The surface's seed, ``0 <= seed <= 2**24 - 1``.
         hurst: Hurst exponent in ``[0, 1]``.
         rolloff_mm: Roll-off wavelength, mm.
-        cutoff_mm: Cutoff wavelength, mm.
+        cutoff_mm: Cutoff wavelength, mm, below ``rolloff_mm``.
         components: Number of cosines ``N``.
 
     Returns:
-        Float64 array ``[N, 3]``; ``qx``, ``qy`` in rad/mm, ``phase`` in rad.
+        Float64 array ``[N, 4]``; ``qx``, ``qy`` in rad/mm, ``phase`` in rad,
+        ``a`` the amplitude.
+
+    Raises:
+        ValueError: If ``cutoff_mm >= rolloff_mm``.
     """
     n = int(components)
     key = (int(seed), float(hurst), float(rolloff_mm), float(cutoff_mm), n)
     if key not in _TABLE_CACHE:
+        _check_cutoff(float(rolloff_mm), float(cutoff_mm))
         if len(_TABLE_CACHE) >= _CACHE_LIMIT:
             _TABLE_CACHE.clear()
         seeds = rng.draw_seeds(int(seed), np.arange(n))
         v = rng.uniforms(seeds, "self_affine.stratum")
         psi = 2.0 * math.pi * rng.uniforms(seeds, "self_affine.direction")
         phase = 2.0 * math.pi * rng.uniforms(seeds, "self_affine.phase")
-        u = (np.arange(n) + v) / n
-        q = _radial_wavenumbers(
-            u, float(hurst), 2.0 * math.pi / rolloff_mm, 2.0 * math.pi / cutoff_mm
+        q, amp = _components(
+            v, float(hurst), 2.0 * math.pi / rolloff_mm, 2.0 * math.pi / cutoff_mm
         )
-        _TABLE_CACHE[key] = np.stack([q * np.cos(psi), q * np.sin(psi), phase], axis=1)
+        _TABLE_CACHE[key] = np.stack(
+            [q * np.cos(psi), q * np.sin(psi), phase, amp], axis=1
+        )
     return _TABLE_CACHE[key]
+
+
+def check_self_affine(values: Dict[str, Any], path) -> None:
+    """Load-time check: every draw's ``cutoff_mm`` lies below its ``rolloff_mm``.
+
+    Args:
+        values: ``FieldValues`` of each shape field in the class.
+        path: ``path(field)``, where the field is declared.
+
+    Raises:
+        ValueError: Naming both fields, if the largest cut-off can reach the
+            smallest roll-off.
+    """
+    cutoff = values["cutoff_mm"].largest()
+    rolloff = values["rolloff_mm"].smallest()
+    if cutoff is None or rolloff is None or cutoff < rolloff:
+        return
+    raise ValueError(
+        f"{path('cutoff_mm')}, {path('rolloff_mm')}: cutoff_mm (up to {cutoff:g} "
+        f"mm) must be below rolloff_mm (down to {rolloff:g} mm) in every draw: "
+        "the spectrum is flat up to the roll-off and cut at the cut-off, so it "
+        "would have no self-affine part"
+    )
 
 
 def _per_draw(value: Any) -> list:
@@ -164,9 +229,10 @@ def _per_draw(value: Any) -> list:
 def self_affine(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:
     """Self-affine relief, signed, zero mean, RMS ``1 / sqrt(2)`` per unit amplitude.
 
-    The component loop runs to the group's largest ``components``; each draw's
-    surplus terms have weight exactly 0, and terms accumulate in a fixed order
-    from zero, so a draw renders the same alone or in a batch.
+    The sum of :func:`self_affine_table`'s cosines, each weighted by its
+    amplitude. The component loop runs to the group's largest ``components``;
+    each draw's surplus terms have weight exactly 0, and terms accumulate in a
+    fixed order from zero, so a draw renders the same alone or in a batch.
 
     Args:
         x, y: mm offsets from the element's centre, ``[g, K, *S]`` (world) or
@@ -176,6 +242,9 @@ def self_affine(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Te
 
     Returns:
         Values, same shape as ``x``; multiply by ``amplitude``.
+
+    Raises:
+        ValueError: If a draw's ``cutoff_mm`` is not below its ``rolloff_mm``.
     """
     cols = [
         _per_draw(p[k])
@@ -191,8 +260,8 @@ def self_affine(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Te
     table = np.zeros((g, size, 3), dtype=np.float64)
     weight = np.zeros((g, size), dtype=np.float64)
     for i, (t, n) in enumerate(zip(tables, counts)):
-        table[i, :n] = t
-        weight[i, :n] = n**-0.5
+        table[i, :n] = t[:, :3]
+        weight[i, :n] = t[:, 3]
     table = torch.tensor(table, dtype=x.dtype, device=x.device)
     weight = torch.tensor(weight, dtype=x.dtype, device=x.device)
     view = (g,) + (1,) * (x.ndim - 1) if x.ndim > 2 else ()
@@ -236,6 +305,52 @@ DOT_ARRAY_SPECS = [
         tooltip="square, or hexagonal (every other row offset by half a spacing)",
     ),
 ]
+
+
+def check_dot_array(values: Dict[str, Any], path) -> None:
+    """Load-time check: no draw needs more than ``DOT_NEIGHBOURS_MAX`` sites each way.
+
+    The render needs ``m = ceil(7.5 sigma / min(a, b))`` sites each way (``a``
+    the spacing, ``b`` the row spacing: ``row_spacing_mm`` when positive, else
+    ``a`` or, hexagonal, ``a sqrt(3) / 2``). The worst case is the largest
+    sigma over the smallest ``a`` and ``b`` the fields can take.
+
+    Args:
+        values: ``FieldValues`` of each shape field in the class.
+        path: ``path(field)``, where the field is declared.
+
+    Raises:
+        ValueError: Naming ``sigma_mm`` and the spacing field that sets the
+            worst case, if that case needs more than the limit.
+    """
+    sigma = values["sigma_mm"].largest()
+    spacing = values["spacing_mm"].smallest()
+    if sigma is None or spacing is None:
+        return
+    rows = values["row_spacing_mm"]
+    hexagonal = values["arrangement"].may_be("hexagonal")
+    worst, field = spacing, "spacing_mm"
+    if rows.may_be(0.0):
+        default = spacing * (math.sqrt(3.0) / 2.0) if hexagonal else spacing
+        if default < worst:
+            worst = default
+    positive = rows.smallest_positive()
+    if positive is not None and positive <= 0.0:
+        raise ValueError(
+            f"{path('row_spacing_mm')}: row_spacing_mm can come arbitrarily close "
+            "to 0 (a range starting at 0), so dot_array could need any number of "
+            "lattice sites; use 0 alone (the default rows) or a range above 0"
+        )
+    if positive is not None and positive < worst:
+        worst, field = positive, "row_spacing_mm"
+    m = math.ceil(7.5 * sigma / worst)
+    if m > DOT_NEIGHBOURS_MAX:
+        raise ValueError(
+            f"{path('sigma_mm')}, {path(field)}: dot_array can need {m} lattice "
+            f"sites each way (limit {DOT_NEIGHBOURS_MAX}): sigma_mm up to "
+            f"{sigma:g} mm is too wide for lattice rows or sites down to "
+            f"{worst:g} mm apart"
+        )
 
 
 def dot_array(x: torch.Tensor, y: torch.Tensor, p: Dict[str, Any]) -> torch.Tensor:

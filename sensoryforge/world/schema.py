@@ -6,13 +6,17 @@ import hashlib
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.world.distributions import (
+    DISTRIBUTIONS,
     AxisSpec,
+    FieldValues,
+    class_field_values,
+    fill_links,
     is_number,
     plain,
     text_number_hint,
@@ -71,6 +75,8 @@ class ClassSpec:
         axes: Every bound name -> its axis, constants included.
         bindings: Every bound name -> ``(part, field)``.
         held_out: True for a held-out class.
+        paths: Every bound name -> where its axis is declared (for error
+            messages; not part of the declaration, the record or the id).
     """
 
     name: str
@@ -81,6 +87,7 @@ class ClassSpec:
     axes: Dict[str, AxisSpec]
     bindings: Dict[str, Ref]
     held_out: bool = False
+    paths: Dict[str, str] = field(default_factory=dict, repr=False, compare=False)
 
     @property
     def kind_obj(self) -> ClassKind:
@@ -598,8 +605,12 @@ def _parse_class(
         axes=dict(sorted(axes.items())),
         bindings=dict(sorted(bindings.items())),
         held_out=held_out,
+        paths=dict(sorted(paths.items())),
     )
     kind.check(cls)
+    # rules over several fields together (a shape's registered check), on
+    # every value the axes can take
+    kind.check_values(cls, class_field_values(cls.axes), paths.__getitem__)
     return cls
 
 
@@ -615,6 +626,7 @@ def _parse_fixed(
     if spec is None:
         raise ValueError(f"{where}: unknown class {class_name!r}")
     values: Dict[str, Any] = {}
+    keys: Dict[str, str] = {}
     for key, value in raw.items():
         if key == "class":
             continue
@@ -641,6 +653,17 @@ def _parse_fixed(
         info = spec.kind_obj.field_info(ref, spec.layer)
         check_value(f"{where}.{key}", value, info)
         values[bound] = value
+        keys[bound] = str(key)
+    # the draw's every value (the others at their midpoints, as fixed_draw
+    # sets them) against the rules over several fields together
+    full = {n: a.midpoint() for n, a in spec.axes.items() if a.form != "link"}
+    full.update(values)
+    fill_links(spec.axes, full)
+    spec.kind_obj.check_values(
+        spec,
+        {n: FieldValues.exactly(v) for n, v in full.items()},
+        lambda n: f"{where}.{keys[n]}" if n in keys else f"{where} ({n})",
+    )
     return {"class": class_name, "values": dict(sorted(values.items()))}
 
 
@@ -698,6 +721,9 @@ def check_axis(where: str, axis: AxisSpec, info: FieldInfo) -> None:
 
     Constants, range bounds, categorical values and a registered
     distribution's finite support are each checked with :func:`check_value`.
+    A registered distribution without a finite support is checked by its
+    declared ``bounds``: the interval must lie in a number field's domain;
+    without bounds it may bind only a field that is not a number.
     """
     if axis.form == "constant":
         check_value(where, axis.value, info)
@@ -718,5 +744,30 @@ def check_axis(where: str, axis: AxisSpec, info: FieldInfo) -> None:
         if support is not None:
             for value in support:
                 check_value(where, value, info)
-        elif info.dtype == "whole":
+            return
+        if info.dtype == "whole":
             raise ValueError(f"{where}: {_whole(info)}, got distribution {axis.dist!r}")
+        declared = DISTRIBUTIONS[axis.dist].bounds
+        if declared is None:
+            if info.dtype == "number":
+                raise ValueError(
+                    f"{where}: distribution {axis.dist!r} has no finite support and "
+                    "declares no bounds, so its values cannot be checked against "
+                    "this number field (register it with bounds=)"
+                )
+            return
+        lo, hi = declared(axis)
+        if info.dtype in _TYPE_WORDS:
+            raise ValueError(
+                f"{where}: takes {_TYPE_WORDS[info.dtype]}, but distribution "
+                f"{axis.dist!r} draws numbers in [{lo:g}, {hi:g}]"
+            )
+        if (info.lo is not None and lo < info.lo) or (
+            info.hi is not None and hi > info.hi
+        ):
+            flo = "-inf" if info.lo is None else f"{info.lo:g}"
+            fhi = "inf" if info.hi is None else f"{info.hi:g}"
+            raise ValueError(
+                f"{where}: distribution {axis.dist!r} draws values in "
+                f"[{lo:g}, {hi:g}], outside the field's domain [{flo}, {fhi}]"
+            )

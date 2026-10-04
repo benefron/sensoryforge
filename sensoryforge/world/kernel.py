@@ -25,6 +25,10 @@ Positions = Tuple[List[Tuple[float, float]], List[float]]
 ShapeFn = Callable[[torch.Tensor, torch.Tensor, Dict[str, Any]], torch.Tensor]
 PatternFn = Callable[[Dict[str, Any]], Positions]
 ModulationFn = Callable[[torch.Tensor, Dict[str, Any]], torch.Tensor]
+#: ``check(values, path)``: ``values`` maps each shape field to the
+#: :class:`~sensoryforge.world.distributions.FieldValues` it can take in a
+#: class, ``path(field)`` names where the field is declared.
+ShapeCheck = Callable[[Dict[str, Any], Callable[[str], str]], None]
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,7 @@ class ShapeKind:
     specs: List[ParamSpec]
     unbounded: bool = False
     indenter: bool = False
+    check: Optional[ShapeCheck] = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +82,7 @@ def register_shape(
     unbounded: bool = False,
     *,
     indenter: bool = False,
+    check: Optional[ShapeCheck] = None,
     replace: bool = False,
 ) -> None:
     """Register a shape kind for worlds and layered stimuli.
@@ -93,6 +99,13 @@ def register_shape(
             ``params["depth"]`` (broadcasting against ``x``; a tensor, not
             multiplied again), and returns the indentation itself. Its
             ``amplitude`` is the peak depth; ``fn`` must be exactly 0 at depth 0.
+        check: ``check(values, path)``, a load-time check of a rule that
+            involves several fields together (each field is already checked
+            against its own domain). ``values[field]`` is the
+            :class:`~sensoryforge.world.distributions.FieldValues` the field
+            can take in the class (or in a fixed draw, or in a data set's
+            probes), ``path(field)`` names where it is declared; raise
+            ``ValueError`` starting with the paths it blames.
         replace: Replace a shape already registered under ``name``.
 
     Raises:
@@ -103,7 +116,11 @@ def register_shape(
         raise ValueError(f"shape {name!r}: its specs must include 'amplitude'")
     _check_free(SHAPE_KINDS, name, "shape", replace)
     SHAPE_KINDS[name] = ShapeKind(
-        fn=fn, specs=list(specs), unbounded=bool(unbounded), indenter=bool(indenter)
+        fn=fn,
+        specs=list(specs),
+        unbounded=bool(unbounded),
+        indenter=bool(indenter),
+        check=check,
     )
 
 
@@ -351,8 +368,18 @@ def motion_offsets(motion: Dict[str, Any], progress: torch.Tensor) -> torch.Tens
 
 from sensoryforge.world import surfaces  # noqa: E402
 
-register_shape("self_affine", surfaces.self_affine, surfaces.SELF_AFFINE_SPECS)
-register_shape("dot_array", surfaces.dot_array, surfaces.DOT_ARRAY_SPECS)
+register_shape(
+    "self_affine",
+    surfaces.self_affine,
+    surfaces.SELF_AFFINE_SPECS,
+    check=surfaces.check_self_affine,
+)
+register_shape(
+    "dot_array",
+    surfaces.dot_array,
+    surfaces.DOT_ARRAY_SPECS,
+    check=surfaces.check_dot_array,
+)
 register_shape(
     "curved_contact",
     surfaces.curved_contact,

@@ -14,7 +14,13 @@ import numpy as np
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.provenance import source_info
 from sensoryforge.world import rng
-from sensoryforge.world.distributions import DISTRIBUTIONS, AxisSpec, fill_links
+from sensoryforge.world.distributions import (
+    DISTRIBUTIONS,
+    AxisSpec,
+    FieldValues,
+    class_field_values,
+    fill_links,
+)
 from sensoryforge.world.kinds import expect_mapping
 from sensoryforge.world.sampling import Draw, Session, sample, session
 from sensoryforge.world.schema import ClassSpec, World, check_name, load_world
@@ -284,6 +290,9 @@ def load_dataset(
     splits = [
         _parse_split(n, s, world, test_bins) for n, s in zip(names, splits_raw.values())
     ]
+    for split in splits:
+        if split.kind == "probes":
+            _check_probes(world, split)
     name = str(raw.get("name", "dataset"))
     normal = {
         "format": FORMAT,
@@ -430,6 +439,46 @@ def _probe_axes(cls: ClassSpec) -> List[AxisSpec]:
         for a in cls.random_axes
         if a.form == "numeric" and not a.circular and a.probes
     ]
+
+
+def _check_probes(world: World, split: SplitSpec) -> None:
+    """Check each probed axis's probe values against the rules over several
+    fields together (a shape's registered ``check``), when the data set loads.
+
+    Probes draw one bin-width outside an axis's range (inside its field's
+    domain), so a world whose declared ranges pass can still have probes that
+    a shape cannot render.
+
+    Raises:
+        ValueError: Naming the split, the class and the probed axis.
+    """
+    for cls in _by_name(world.classes):
+        base = class_field_values(cls.axes)
+        for axis in _probe_axes(cls):
+            probed = {axis.name} | {
+                n
+                for n, a in cls.axes.items()
+                if a.form == "link" and a.link == axis.name
+            }
+            for side in ("below", "above"):
+                ends = axis.probe_values(side, split.bins, np.array([0.0, 1.0]))
+                if ends is None:
+                    continue
+                probe = FieldValues(lo=min(ends), hi=max(ends))
+
+                def path(name: str, side: str = side) -> str:
+                    where = cls.paths.get(name, f"{cls.name}.{name}")
+                    return f"{where} (its {side} probes)" if name in probed else where
+
+                try:
+                    cls.kind_obj.check_values(
+                        cls, {**base, **{n: probe for n in probed}}, path
+                    )
+                except ValueError as exc:
+                    raise ValueError(
+                        f"dataset.splits.{split.name}: {exc}; give that axis "
+                        "probes: false, or narrow its range"
+                    ) from None
 
 
 def _probe_draws(

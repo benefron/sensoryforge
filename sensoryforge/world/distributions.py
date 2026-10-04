@@ -86,12 +86,18 @@ BRAILLE_CELLS: List[str] = _braille_cells()
 
 @dataclass(frozen=True)
 class Distribution:
-    """A registered distribution: values from ``u``, and its finite support if any."""
+    """A registered distribution: values from ``u``, and its finite support if any.
+
+    A distribution without a finite support may declare ``bounds``: the
+    closed interval holding every number it draws, which the loader checks
+    against the domain of the field the axis binds.
+    """
 
     sample: Callable[[np.ndarray, "AxisSpec"], List[Any]]
     support: Optional[Callable[["AxisSpec"], List[Any]]] = None
     quantile: bool = False
     check: Optional[Callable[["AxisSpec"], None]] = None
+    bounds: Optional[Callable[["AxisSpec"], Tuple[float, float]]] = None
 
 
 DISTRIBUTIONS: Dict[str, Distribution] = {}
@@ -105,6 +111,7 @@ def register_distribution(
     replace: bool = False,
     quantile: bool = False,
     check: Optional[Callable[["AxisSpec"], None]] = None,
+    bounds: Optional[Callable[["AxisSpec"], Tuple[float, float]]] = None,
 ) -> None:
     """Register a distribution usable as ``{dist: <name>}`` on an axis.
 
@@ -119,6 +126,11 @@ def register_distribution(
             into ``bins`` equal-probability strata on the ``u`` scale.
         check: ``check(axis)`` validates the axis' options when it loads;
             raise ``ValueError`` (the loader prefixes the path).
+        bounds: ``bounds(axis) -> (lo, hi)`` for a distribution of numbers
+            without a finite support: every value it draws lies in
+            ``[lo, hi]``. The loader checks the interval against the bound
+            field's domain; such a distribution binds a number field only
+            when it declares its bounds.
 
     Raises:
         ValueError: For ``uniform``/``log_uniform`` (built in, never
@@ -132,7 +144,11 @@ def register_distribution(
             "pass replace=True to replace it"
         )
     DISTRIBUTIONS[name] = Distribution(
-        sample=sample, support=support, quantile=quantile, check=check
+        sample=sample,
+        support=support,
+        quantile=quantile,
+        check=check,
+        bounds=bounds,
     )
 
 
@@ -229,6 +245,7 @@ register_distribution(
     _sample_biased_direction,
     quantile=True,
     check=_biased_options,
+    bounds=lambda axis: (0.0, 360.0),
 )
 
 
@@ -317,6 +334,81 @@ register_distribution(
     _letter_support,
     check=_letter_options,
 )
+
+
+@dataclass(frozen=True)
+class FieldValues:
+    """The values one field can take in a class: a finite set, or an interval.
+
+    Load-time checks that involve several fields together (a registered
+    shape's ``check``) read the extremes from it.
+
+    Attributes:
+        values: Every value, when there are finitely many; else ``None``.
+        lo, hi: Otherwise the closed interval ``[lo, hi]`` of numbers; both
+            ``None`` when nothing is known about the values.
+        integer: The interval holds only its integers.
+    """
+
+    values: Optional[Tuple[Any, ...]] = None
+    lo: Optional[float] = None
+    hi: Optional[float] = None
+    integer: bool = False
+
+    @classmethod
+    def exactly(cls, value: Any) -> "FieldValues":
+        """The one value ``value``."""
+        return cls(values=(value,))
+
+    @property
+    def known(self) -> bool:
+        """False when nothing is known about the values."""
+        return self.values is not None or self.lo is not None
+
+    def _numbers(self) -> List[float]:
+        return [float(v) for v in self.values or () if is_number(v)]
+
+    def largest(self) -> Optional[float]:
+        """The largest number, or ``None`` if none is known."""
+        if self.values is not None:
+            numbers = self._numbers()
+            return max(numbers) if numbers else None
+        return self.hi
+
+    def smallest(self) -> Optional[float]:
+        """The smallest number, or ``None`` if none is known."""
+        if self.values is not None:
+            numbers = self._numbers()
+            return min(numbers) if numbers else None
+        return self.lo
+
+    def smallest_positive(self) -> Optional[float]:
+        """The infimum of the positive values (``0.0`` for an interval of
+        reals starting at 0); ``None`` if no positive value is possible."""
+        if self.values is not None:
+            positive = [v for v in self._numbers() if v > 0]
+            return min(positive) if positive else None
+        if self.hi is None or self.hi <= 0:
+            return None
+        if self.lo > 0:
+            return self.lo
+        return 1.0 if self.integer else 0.0
+
+    def may_be(self, value: Any) -> bool:
+        """Whether ``value`` is possible (True when nothing is known)."""
+        if self.values is not None:
+            return value in self.values
+        if not self.known:
+            return True
+        return is_number(value) and self.lo <= value <= self.hi
+
+
+def class_field_values(axes: Dict[str, "AxisSpec"]) -> Dict[str, FieldValues]:
+    """``{axis name: FieldValues}`` for a class's axes, a link as its target."""
+    return {
+        name: (axes[axis.link] if axis.form == "link" else axis).field_values()
+        for name, axis in axes.items()
+    }
 
 
 def fill_links(axes: Dict[str, "AxisSpec"], values: Dict[str, Any]) -> None:
@@ -578,6 +670,29 @@ class AxisSpec:
             found = None if dist.support is None else dist.support(self)
             return None if found is None else list(found)
         return None
+
+    def field_values(self) -> FieldValues:
+        """The values this axis can take (a link's are its target's).
+
+        Raises:
+            ValueError: For a link (resolve it to its target first).
+        """
+        if self.form == "link":
+            raise ValueError(f"axis {self.name!r} is a link: it copies {self.link!r}")
+        if self.form == "constant":
+            return FieldValues.exactly(self.value)
+        if self.form == "numeric":
+            return FieldValues(lo=self.lo, hi=self.hi)
+        if self.form == "int":
+            return FieldValues(lo=self.lo, hi=self.hi, integer=True)
+        support = self.support()
+        if support is not None:
+            return FieldValues(values=tuple(support))
+        bounds = DISTRIBUTIONS[self.dist].bounds
+        if bounds is not None:
+            lo, hi = bounds(self)
+            return FieldValues(lo=float(lo), hi=float(hi))
+        return FieldValues()
 
     # --------------------------------------------------- strata and probes
 

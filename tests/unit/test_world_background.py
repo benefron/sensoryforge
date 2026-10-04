@@ -187,3 +187,26 @@ def test_a_layer_background_must_be_nonnegative_and_clamp_min_a_number():
         _world({"shape": {"kind": "gaussian"}, "background": -1.0}, {})
     with pytest.raises(ValueError, match="clamp_min"):
         _world({"shape": {"kind": "gaussian"}, "clamp_min": "zero"}, {})
+
+
+@pytest.mark.parametrize("value", [0.1, 1.0, -1.0e5])
+def test_clamp_min_must_lie_in_its_domain(value):
+    """``clamp_min`` lies in [-1e4, 0]: a floor above 0 would lift every
+    point in contact to it, so the frame would jump from 0 at contact onset."""
+    with pytest.raises(
+        ValueError, match=r"world\.classes\.c\.layer\.clamp_min: .*\[-10000, 0\]"
+    ):
+        _world({"shape": {"kind": "gaussian"}, "clamp_min": value}, {})
+
+
+@pytest.mark.parametrize("value", [0.0, -0.5, -1.0e4])
+def test_clamp_min_in_its_domain_loads(value):
+    world = _world({"shape": {"kind": "gaussian"}, "clamp_min": value}, {})
+    assert world.classes["c"].layer["clamp_min"] == value
+
+
+def test_a_layer_background_above_its_domain_fails():
+    with pytest.raises(
+        ValueError, match=r"world\.classes\.c\.layer\.background: .*\[0, 10000\]"
+    ):
+        _world({"shape": {"kind": "gaussian"}, "background": 2.0e4}, {})

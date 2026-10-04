@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 
 from sensoryforge.stimuli.episode import contact_terms, span_progress
 from sensoryforge.stimuli.layered import ADDED_FIELDS, MOTIONS, defaults
 from sensoryforge.world import kernel
+from sensoryforge.world.distributions import FieldValues
 
 Ref = Tuple[str, str]
 
@@ -65,6 +66,11 @@ _PARTS = ("shape", "pattern", "modulation")
 #: Layer-level numbers (not part of shape, pattern or modulation): a uniform
 #: ``background`` contact level and a ``clamp_min`` floor on the layer total.
 _LAYER_KEYS = ("background", "clamp_min")
+#: Their domains. ``background`` is a contact level, bounded like an
+#: amplitude; ``clamp_min`` is at most 0, because the floor applies wherever
+#: the envelope is positive: a floor above 0 would lift every point in contact
+#: to it, so the frame would jump from 0 to the floor at contact onset.
+_LAYER_DOMAIN = {"background": (0.0, 1.0e4), "clamp_min": (-1.0e4, 0.0)}
 _MOTION_KINDS = ("none", "linear", "circular", "path")
 
 
@@ -121,6 +127,21 @@ class ClassKind:
 
     def check(self, spec: Any) -> None:
         """Kind-specific validation of a parsed class."""
+
+    def check_values(
+        self, spec: Any, values: Dict[str, Any], path: Callable[[str], str]
+    ) -> None:
+        """Validate rules that involve several fields' values together.
+
+        Called when a world loads, for each class (``values`` from its axes),
+        for each fixed draw (its exact values) and, when a data set loads, for
+        each probed axis (its probe values in place of its range).
+
+        Args:
+            spec: The class.
+            values: ``{axis name: FieldValues}`` for every axis of the class.
+            path: ``path(axis name)``, where the axis is declared.
+        """
 
     def end_ms(self, values: Dict[str, Any]) -> float:
         """When a draw with these values ends, ms."""
@@ -247,8 +268,18 @@ class LayeredKind(ClassKind):
                     or not math.isfinite(value)
                 ):
                     raise ValueError(f"{where}.{key}: must be a finite number")
-                if key == "background" and value < 0:
-                    raise ValueError(f"{where}.{key}: must be >= 0, got {value!r}")
+                lo, hi = _LAYER_DOMAIN[key]
+                if not lo <= value <= hi:
+                    why = (
+                        " (a floor above 0 would lift every point in contact to "
+                        "it, a jump from 0 at contact onset)"
+                        if key == "clamp_min"
+                        else ""
+                    )
+                    raise ValueError(
+                        f"{where}.{key}: {value!r} is outside its domain "
+                        f"[{lo:g}, {hi:g}]{why}"
+                    )
         out: Dict[str, Any] = {
             "shape": _fill(
                 layer.get("shape"),
@@ -369,7 +400,7 @@ class LayeredKind(ClassKind):
         if part == "episode":
             return _EPISODE_DOMAIN.get(field, (0.0, None))
         if part == "layer":
-            return (0.0, 1.0e4)
+            return _LAYER_DOMAIN[field]
         spec = self._param_spec(ref, layer)
         return (spec.min_val, spec.max_val)
 
@@ -405,6 +436,31 @@ class LayeredKind(ClassKind):
                 f"class {spec.name!r}: touch_ms + hold_ms + slide_ms + release_ms is "
                 "always 0, so it never touches; give it a hold_ms"
             )
+
+    def check_values(self, spec, values, path):
+        """Run the shape's registered ``check`` on the values its fields can take.
+
+        A shape field bound to an axis takes that axis's values (named by
+        ``path``); a field the layer fixes takes its one value (named by its
+        place in the layer).
+        """
+        shape = kernel.SHAPE_KINDS[spec.layer["shape"]["kind"]]
+        if shape.check is None:
+            return
+        where = f"world.{'held_out' if spec.held_out else 'classes'}.{spec.name}"
+        bound = {ref: name for name, ref in spec.bindings.items()}
+        fields: Dict[str, FieldValues] = {}
+        paths: Dict[str, str] = {}
+        for s in shape.specs:
+            name = bound.get(("shape", s.name))
+            if name is None:
+                value = spec.layer["shape"].get(s.name, s.default)
+                fields[s.name] = FieldValues.exactly(value)
+                paths[s.name] = f"{where}.layer.shape.{s.name}"
+            else:
+                fields[s.name] = values[name]
+                paths[s.name] = path(name)
+        shape.check(fields, paths.__getitem__)
 
     def end_ms(self, values):
         contacts = int(values["contacts"])
