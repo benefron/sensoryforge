@@ -360,8 +360,30 @@ def _parse_class(
         axis = AxisSpec.from_dict(axis_name, spec, where=path)
         bind(axis_name, ref, axis, f"{where}.axes", path)
     for axis_name, axis in axes.items():
+        if axis.form == "link":
+            continue
         info = kind.field_info(bindings[axis_name], layer)
         check_axis(paths[axis_name], axis, info)
+    for axis_name, axis in axes.items():
+        if axis.form != "link":
+            continue
+        target = axes.get(axis.link)
+        if target is None:
+            raise ValueError(
+                f"{paths[axis_name]}: same_as names {axis.link!r}, which is not "
+                f"an axis of class {name!r} (its axes: {sorted(axes)})"
+            )
+        if axis.link == axis_name:
+            raise ValueError(
+                f"{paths[axis_name]}: an axis cannot be the same as itself"
+            )
+        if target.form == "link":
+            raise ValueError(
+                f"{paths[axis_name]}: same_as names {axis.link!r}, which is itself "
+                "a link; point at an axis that is drawn"
+            )
+        info = kind.field_info(bindings[axis_name], layer)
+        check_axis(f"{paths[axis_name]} (copying {axis.link!r})", target, info)
 
     cls = ClassSpec(
         name=name,
@@ -401,6 +423,11 @@ def _parse_fixed(
             raise ValueError(
                 f"{where}: {key!r} is not an axis of class {class_name!r} "
                 f"(its axes: {sorted(spec.axes)})"
+            )
+        if spec.axes[bound].form == "link":
+            raise ValueError(
+                f"{where}: {key!r} is a link (same_as {spec.axes[bound].link!r}); "
+                "set the axis it copies instead"
             )
         if bound in values:
             raise ValueError(f"{where}: axis {bound!r} is set twice")

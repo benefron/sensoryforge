@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 
 from sensoryforge.world import rng
+from sensoryforge.world.distributions import fill_links
 from sensoryforge.world.schema import ClassSpec, World
 
 _CONTACT_PHASES = {"touch", "hold", "slide", "release"}
@@ -181,12 +182,15 @@ def sample(
                 else [axis.value] * rows.size
             )
             for name, axis in cls.axes.items()
+            if axis.form != "link"
         }
         for j, row in enumerate(rows.tolist()):
+            values = {name: columns[name][j] for name in columns}
+            fill_links(cls.axes, values)
             draws[row] = Draw(
                 world=world,
                 class_name=cls.name,
-                values={name: columns[name][j] for name in cls.axes},
+                values={name: values[name] for name in cls.axes},
                 seed=int(seed),
                 index=int(idx[row]),
                 draw_seed=int(seeds[row]),
@@ -204,12 +208,17 @@ def fixed_draw(world: World, name: str) -> Draw:
         raise ValueError(f"no fixed draw {name!r}; the world has {sorted(world.fixed)}")
     entry = world.fixed[name]
     spec = world.class_spec(entry["class"])
-    values = {axis_name: axis.midpoint() for axis_name, axis in spec.axes.items()}
+    values = {
+        axis_name: axis.midpoint()
+        for axis_name, axis in spec.axes.items()
+        if axis.form != "link"
+    }
     outside = []
     for axis_name, value in entry["values"].items():
         values[axis_name] = value
         if not spec.axes[axis_name].contains(value):
             outside.append(axis_name)
+    fill_links(spec.axes, values)
     return Draw(
         world=world,
         class_name=spec.name,

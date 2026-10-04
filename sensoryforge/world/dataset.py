@@ -14,7 +14,7 @@ import numpy as np
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.provenance import source_info
 from sensoryforge.world import rng
-from sensoryforge.world.distributions import DISTRIBUTIONS, AxisSpec
+from sensoryforge.world.distributions import DISTRIBUTIONS, AxisSpec, fill_links
 from sensoryforge.world.kinds import expect_mapping
 from sensoryforge.world.sampling import Draw, Session, sample, session
 from sensoryforge.world.schema import ClassSpec, World, check_name, load_world
@@ -359,8 +359,14 @@ def stratify_class(
     columns: Dict[str, List[Any]] = {}
     labels: List[Dict[str, Any]] = [{} for _ in range(n)]
     for name, axis in cls.axes.items():
+        if axis.form == "link":
+            continue
         if not axis.is_random:
             columns[name] = [axis.value] * n
+            continue
+        if not axis.stratify:
+            # Drawn i.i.d. from its own slot: no bin, no label, no size limit.
+            columns[name] = axis.sample(rng.uniforms(seeds, name))
             continue
         order = rng.permutation(n, class_seed, name)
         support = axis.support()
@@ -390,11 +396,16 @@ def stratify_class(
                 f"class {cls.name!r}: axis {name!r} uses distribution {axis.dist!r}, "
                 "which declares no finite support, so it cannot be stratified"
             )
+    values_list = []
+    for j in range(n):
+        row = {k: columns[k][j] for k in columns}
+        fill_links(cls.axes, row)
+        values_list.append({k: row[k] for k in cls.axes})
     draws = [
         Draw(
             world=world,
             class_name=cls.name,
-            values={k: columns[k][j] for k in cls.axes},
+            values=values_list[j],
             seed=int(class_seed),
             index=j,
             draw_seed=int(seeds[j]),
@@ -428,17 +439,24 @@ def _probe_draws(
         return None
     columns: Dict[str, List[Any]] = {}
     for name, other in cls.axes.items():
+        if other.form == "link":
+            continue
         if name == axis.name:
             columns[name] = values
         elif other.is_random:
             columns[name] = other.sample(rng.uniforms(seeds, name))
         else:
             columns[name] = [other.value] * n
+    rows = []
+    for j in range(n):
+        row = {k: columns[k][j] for k in columns}
+        fill_links(cls.axes, row)
+        rows.append({k: row[k] for k in cls.axes})
     return [
         Draw(
             world=world,
             class_name=cls.name,
-            values={k: columns[k][j] for k in cls.axes},
+            values=rows[j],
             seed=int(seed),
             index=j,
             draw_seed=int(seeds[j]),

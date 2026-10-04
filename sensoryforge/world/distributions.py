@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-FORMS = ("constant", "numeric", "int", "categorical", "registered")
+FORMS = ("constant", "numeric", "int", "categorical", "registered", "link")
 NUMERIC_DISTS = ("uniform", "log_uniform")
 _AXIS_KEYS = {
     "value",
@@ -24,6 +24,7 @@ _AXIS_KEYS = {
     "weights",
     "circular",
     "probes",
+    "stratify",
 }
 
 
@@ -224,6 +225,17 @@ register_distribution(
 )
 
 
+def fill_links(axes: Dict[str, "AxisSpec"], values: Dict[str, Any]) -> None:
+    """Set every link axis of ``axes`` in ``values`` to its target's value (in place).
+
+    A link's target is never itself a link (checked when the world loads), so
+    one pass after the other axes are filled is enough.
+    """
+    for name, axis in axes.items():
+        if axis.form == "link":
+            values[name] = values[axis.link]
+
+
 @dataclass(frozen=True)
 class AxisSpec:
     """One axis of a world class (spec §3.2).
@@ -237,6 +249,10 @@ class AxisSpec:
         values, weights: The categories and their weights (``categorical``).
         circular: An angle: no out-of-range probes.
         probes: False to switch probes off for this axis.
+        stratify: False to draw the axis i.i.d. in stratified splits (no bin
+            label, no limit on an int axis's size).
+        link: For form ``link``: the name of the axis whose value this axis
+            copies within the same draw (``{same_as: <axis>}``).
         options: Extra keys passed to a registered distribution.
         domain: ``(lo, hi)`` valid values of the bound field; probes stay inside.
     """
@@ -251,6 +267,8 @@ class AxisSpec:
     weights: Tuple[float, ...] = ()
     circular: bool = False
     probes: bool = True
+    stratify: bool = True
+    link: str = ""
     options: Tuple[Tuple[str, Any], ...] = ()
     domain: Tuple[Optional[float], Optional[float]] = (None, None)
 
@@ -278,10 +296,25 @@ class AxisSpec:
             raise ValueError(
                 f"{where}: expected a mapping such as {{range: [lo, hi]}}, got {spec!r}"
             )
+        if "same_as" in spec:
+            target = spec["same_as"]
+            if set(spec) != {"same_as"} or not isinstance(target, str) or not target:
+                raise ValueError(
+                    f"{where}: a link is declared as exactly "
+                    f"{{same_as: <axis name>}}, got {spec!r}"
+                )
+            return cls(name=name, form="link", link=target)
         flags = {
             "circular": bool(spec.get("circular", False)),
             "probes": bool(spec.get("probes", True)),
         }
+        if "stratify" in spec:
+            if not isinstance(spec["stratify"], bool):
+                raise ValueError(
+                    f"{where}: stratify must be true or false, got {spec['stratify']!r}"
+                )
+            if not spec["stratify"]:
+                flags["stratify"] = False
         if "value" in spec:
             if set(spec) != {"value"}:
                 raise ValueError(
@@ -302,7 +335,7 @@ class AxisSpec:
                 sorted(
                     (k, plain(v))
                     for k, v in spec.items()
-                    if k not in {"dist", "circular", "probes"}
+                    if k not in {"dist", "circular", "probes", "stratify"}
                 )
             )
             axis = cls(
@@ -373,6 +406,8 @@ class AxisSpec:
         """The normalised declaration (what the world id hashes)."""
         if self.form == "constant":
             return {"value": self.value}
+        if self.form == "link":
+            return {"same_as": self.link}
         if self.form == "numeric":
             out: Dict[str, Any] = {"range": [self.lo, self.hi], "dist": self.dist}
         elif self.form == "int":
@@ -385,6 +420,8 @@ class AxisSpec:
             out["circular"] = True
         if not self.probes:
             out["probes"] = False
+        if not self.stratify:
+            out["stratify"] = False
         return out
 
     def with_domain(self, lo: Optional[float], hi: Optional[float]) -> "AxisSpec":
@@ -395,8 +432,8 @@ class AxisSpec:
 
     @property
     def is_random(self) -> bool:
-        """False for a constant."""
-        return self.form != "constant"
+        """False for a constant and for a link (which copies another axis)."""
+        return self.form not in ("constant", "link")
 
     @property
     def _log(self) -> bool:
@@ -411,6 +448,8 @@ class AxisSpec:
     def sample(self, u: np.ndarray) -> List[Any]:
         """One value per ``u`` (declared sampling, spec §4.2)."""
         u = np.asarray(u, dtype=np.float64)
+        if self.form == "link":
+            raise ValueError(f"axis {self.name!r} is a link: it copies {self.link!r}")
         if self.form == "constant":
             return [self.value] * u.size
         if self.form == "numeric":
@@ -533,6 +572,8 @@ class AxisSpec:
 
     def midpoint(self) -> Any:
         """The value a fixed draw takes when it does not set this axis."""
+        if self.form == "link":
+            raise ValueError(f"axis {self.name!r} is a link: it copies {self.link!r}")
         if self.form == "constant":
             return self.value
         if self.form == "numeric":

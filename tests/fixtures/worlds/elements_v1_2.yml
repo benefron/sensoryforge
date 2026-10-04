@@ -33,3 +33,9 @@ world:
         slide_ms: {range: [20, 40]}
         speed_mm_per_ms: {range: [0.001, 0.004]}
         direction_deg: {dist: biased_direction, travel_ratio: 2.5, axis_deg: 0}
+    tied_press:
+      weight: 1
+      layer: {shape: {kind: gaussian, sigma_mm: 0.2}}
+      axes:
+        release_ms: {same_as: touch_ms}
+        contacts: {range: [2, 4], int: true}

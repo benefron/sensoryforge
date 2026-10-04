@@ -387,6 +387,7 @@ class LayeredKind(ClassKind):
 
     def check(self, spec):
         phases = [spec.axes[field] for _, field in _CONTACT_PHASES]
+        phases = [spec.axes[a.link] if a.form == "link" else a for a in phases]
         if all(_only_zero(a) for a in phases):
             raise ValueError(
                 f"class {spec.name!r}: touch_ms + hold_ms + slide_ms + release_ms is "
