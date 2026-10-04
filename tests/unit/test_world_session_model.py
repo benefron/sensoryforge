@@ -193,6 +193,47 @@ def test_sessions_are_deterministic_and_differ_by_index():
     assert session(WORLD, seed=2, index=3).to_dict() != a
 
 
+def test_session_defaults_to_seed_0():
+    assert session(WORLD).to_dict() == session(WORLD, seed=0, index=0).to_dict()
+
+
+@pytest.mark.parametrize("gap_mean, count", [(250.0, 2), (125.0, 4)])
+def test_gaps_are_uniform_spacings_of_the_quiet_budget(gap_mean, count):
+    """The quiet budget ``Q`` is cut at ``G - 1`` sorted uniforms: each gap is
+    ``Q`` times a Beta(1, G - 1) share (CV ``sqrt((G - 1)/(G + 1))``, never
+    longer than ``Q``), i.e. exponential gaps conditioned on summing to ``Q``,
+    not exponential gaps (contract section 10.8).
+
+    Placeholder world: 10 ms taps, D = 1000 ms, f = 0.5, so every session
+    has 50 taps, Q = 500 ms and G = round(500 / gap_mean) gaps.
+    """
+    from scipy import stats
+
+    world = _world(
+        lambda raw: (
+            raw.update(
+                defaults={"hold_ms": {"value": 10.0}},
+                classes={"a": {"layer": {"shape": {"kind": "gaussian"}}}},
+                held_out={},
+            ),
+            raw["sessions"].update(
+                duration_ms={"value": 1000.0},
+                contact_fraction={"value": 0.5},
+                gap_mean_ms=gap_mean,
+            ),
+        )
+    )
+    first = []
+    for i in range(400):
+        s = session(world, seed=3, index=i)
+        gaps = _gaps(s)
+        assert len(s.items) == 50 and len(gaps) == count
+        assert sum(gaps) == pytest.approx(500.0)
+        first.append(gaps[0] / 500.0)
+    # the first gap of each session (sessions are independent): Beta(1, G - 1)
+    assert stats.kstest(first, "beta", args=(1, count - 1)).pvalue > 0.001
+
+
 def test_a_session_record_round_trips():
     s = session(WORLD, seed=8, index=2)
     record = json.loads(json.dumps(s.to_dict()))

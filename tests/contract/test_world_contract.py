@@ -369,21 +369,31 @@ def test_10_every_v1_2_element_renders_equal_to_layered_and_on_both_grids():
         torch.testing.assert_close(a, b[:, ir][:, :, ic], atol=1e-12, rtol=0)
 
 
+_CONTACT = ("touch", "hold", "slide", "release")
+
+
+def _episode_contact_ms(draw):
+    return sum(b - a for phase, a, b in draw.timeline if phase in _CONTACT)
+
+
 def test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero():
-    """A ``sessions:`` session reaches its contact fraction; its gaps render 0."""
+    """A ``sessions:`` session whose episodes end before its duration ``D``
+    has a contact share within ``D`` of at least ``f``, exceeding it by less
+    than its last episode's contact time over ``D``; its gaps render 0."""
     world = load_world(ELEMENTS)
     canvas = Canvas.from_grid(8, 8, 0.15)
-    gaps_seen = 0
+    gaps_seen = covered = 0
     for index in range(8):
         s = session(world, seed=5, index=index)
         target = s.contact_fraction
         assert target is not None and s.session_type is not None
-        longest = max(d.end_ms for _, d in s.items)
+        length = sum(d.end_ms for _, d in s.items)
         realised = s.contact_ms / s.duration_ms
-        # the fraction is met up to the last episode's overshoot (and a
-        # session cut at its length cannot exceed it)
-        assert target - 1e-9 <= realised <= target + longest / s.duration_ms + 1e-9
         assert realised == pytest.approx(1.0 - s.quiet_fraction)
+        if length < s.duration_ms:
+            covered += 1
+            last = _episode_contact_ms(s.items[-1][1]) / s.duration_ms
+            assert target - 1e-9 <= realised <= target + last + 1e-9, index
         holes = []
         t = 0.0
         for start, draw in s.items:
@@ -397,4 +407,53 @@ def test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero():
         for a, b in holes:
             inside = (times >= a) & (times < b)
             assert torch.count_nonzero(frames[inside]) == 0
-    assert gaps_seen > 0
+    assert gaps_seen > 0 and covered > 0
+
+
+def test_11_a_session_cut_at_its_duration_is_outside_the_guarantee():
+    """Guarantee 11 covers sessions whose episodes end before ``D``; a
+    session whose last episode runs past ``D`` is cut there, and its contact
+    share within ``D`` can fall below ``f`` even when its episodes' own
+    contact share is at least ``f``.
+
+    The same case as ``session(<the other repo's charter-like world>,
+    seed=17, index=586)`` (f = 0.895, episodes' share 0.900, share within D
+    0.863), in a placeholder world: two episodes that pause between contacts
+    (contact share 40/130), then a long hold that runs past D.
+    """
+    gauss = {"shape": {"kind": "gaussian", "sigma_mm": 0.2}}
+    world = load_world(
+        {
+            "world": {
+                "name": "cut_at_d",
+                "classes": {
+                    "paused": {
+                        "layer": gauss,
+                        "axes": {
+                            "hold_ms": {"value": 10.0},
+                            "contacts": {"value": 4},
+                            "pause_ms": {"value": 30.0},
+                        },
+                    },
+                    "long": {
+                        "layer": gauss,
+                        "axes": {"hold_ms": {"range": [200, 400]}},
+                    },
+                },
+                "sessions": {
+                    "duration_ms": {"value": 400.0},
+                    "contact_fraction": {"value": 0.6},
+                    "gap_mean_ms": 50.0,
+                },
+            }
+        }
+    )
+    s = session(world, seed=0, index=4)
+    assert [d.class_name for _, d in s.items] == ["paused", "paused", "long"]
+    length = sum(d.end_ms for _, d in s.items)
+    episodes_share = sum(_episode_contact_ms(d) for _, d in s.items) / length
+    realised = s.contact_ms / s.duration_ms
+    assert length > s.duration_ms and s.truncated  # not covered: no gap
+    assert episodes_share >= s.contact_fraction  # v1.2.0's wording claimed f
+    assert realised == pytest.approx(0.55)  # 80 ms + 140 ms of 400 ms
+    assert realised < s.contact_fraction

@@ -206,6 +206,29 @@ def test_background_adds_its_own_draw_and_the_floor_holds():
     torch.testing.assert_close(frames[:, 0, 0], env * 0.3, atol=1e-12, rtol=0)
 
 
+def test_a_default_background_reaches_an_indenter():
+    """A ``background`` set in ``defaults`` binds every layered class, the
+    indenters included (contract section 9)."""
+    shape = {"kind": "curved_contact", "radius_mm": RADIUS, "unit_mm": UNIT}
+    world = World.from_dict(
+        {
+            "world": {
+                "defaults": {"background": {"value": 0.3}},
+                "classes": {
+                    "c": {
+                        "layer": {"shape": shape},
+                        "axes": {**EPISODE, "amplitude": {"value": 0.8}},
+                    }
+                },
+            }
+        }
+    )
+    draw = sample(world, n=1, seed=5)[0]
+    assert draw.values["background"] == 0.3
+    frames = render([draw], CANVAS, TIMES, dtype=torch.float64)[0]
+    torch.testing.assert_close(frames[:, 0, 0], _env(draw) * 0.3, atol=1e-12, rtol=0)
+
+
 def _layered_curved(draw, canvas, total):
     return layered.render_layers(
         [draw.to_layer()],

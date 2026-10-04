@@ -49,6 +49,64 @@ And on the section it replaces, add one line — nothing else changes:
 
 <!-- newest first; written by hand -->
 
+## Open · Exact contact fraction or exponential gaps · 2026-10-04
+
+**What is open.** A model session (`sessions:`) cannot hold both its declared contact fraction and exponential gaps exactly when it holds only a few gaps. Which to keep exact is the other project's owner's decision (Ben's); SensoryForge does not change the session construction until it is taken.
+
+**Status.** Open. Recorded by the `Opens:` trailer of the commit that adds this section (the v1.2.1 documentation fixes).
+
+**Why it is open.** The budgeted layout (D-6b0215f, P8 a) spends the quiet budget Q = max(0, D - E) as G = min(n + 1, max(1, round(Q / gap_mean_ms))) gaps, the spacings of Q at G - 1 sorted uniforms. Exponential gaps conditioned on summing to Q are exactly these spacings, so the fraction is met per session, but each gap is Q times a Beta(1, G - 1) share: CV sqrt((G - 1)/(G + 1)) = 0 / 0.58 / 0.71 / 0.82 for G = 1 / 2 / 3 / 5, never longer than Q. Measured on the reviewer's charter-like world (the other repo's values: contact fraction U[0.55, 0.95], gap_mean_ms 6000, sessions 30-120 s), seed 17, sessions 0-399: G is 1 in 26 % of exploration sessions and 0 in 42 % of handling sessions (whose episodes fill D first); the pooled gaps have mean 5.9 s, median 5.2 s (an exponential of mean 6 s: 4.2 s) and CV 0.72 (an exponential's: 1.0).
+
+**The alternatives.** (a) Exact exponential gaps with the fraction met only on average: a renewal process alternating bouts sized from f with gaps drawn from a registered `exponential` distribution (not built; P8 b, rejected in D-6b0215f for exactly this reason). (b) Longer sessions: the layout unchanged, but more gaps per session make the conditioned gaps closer to exponential (CV 0.905 at G = 10), which the other repo sets through its `duration_ms` and `gap_mean_ms`. (c) Keep the layout as is and state its distribution (the v1.2.1 documentation does this; it is the default until the owner answers).
+
+**Where it lives.** `sensoryforge/world/sampling.py` (`_model_session`); contract section 10.8 ("What the gaps are"); `tests/unit/test_world_session_model.py::test_gaps_are_uniform_spacings_of_the_quiet_budget`.
+
+**Validation pending.** The owner's choice; then a change limited to `_model_session` and its tests (and an `exponential` distribution for (a)).
+
+## D-3a10bce · A continuous registered distribution declares its bounds · 2026-10-04
+
+**What was decided.** a registered distribution without a finite support binds a number field only when it declares bounds=, checked against the field's domain
+
+**Why.** The whole-branch review of v1.2.0 found that the loader checked a registered distribution against its field only through its finite support, so a continuous one was never checked: `biased_direction` (values in [0, 360)) bound to a square grating's `duty` (domain 0.01-0.99) loaded and rendered nonsense duties. `register_distribution(..., bounds=)` declares the interval of the values; `check_axis` checks it like a range against the field's domain (`biased_direction` declares [0, 360]). A support-less distribution with no bounds cannot be checked against a number field, so it may not bind one; bounds on a text field are refused. The same bounds give the load-time shape checks the values such an axis can take.
+
+**What was rejected.** Sampling the distribution at load to guess its range: not exact (a quantile function wrapped modulo 360, like `biased_direction`'s, has its extremes inside (0, 1)). Leaving undeclared distributions unchecked on number fields: it keeps the hole the review found. Built-in worlds are unaffected (v1.1.0's only registered distribution, `braille_cells`, has a finite support); a plugin distribution without a finite support that binds a number field needs `bounds=` from v1.2.1 on (CHANGELOG).
+
+**Where it lives.** `sensoryforge/world/distributions.py` (`Distribution.bounds`, `register_distribution`, `AxisSpec.field_values`), `sensoryforge/world/schema.py` (`check_axis`); `tests/unit/test_world_biased_direction.py`; contract section 10.5.
+
+**Ledger id + sha.** D-3a10bce · `7421092`
+
+**Validation pending.** none, settled.
+
+## D-096e081 · clamp_min's domain is [-1e4, 0] · 2026-10-04
+
+**What was decided.** clamp_min's domain is [-1e4, 0], since a floor above 0 would lift every point in contact to it, a jump at contact onset
+
+**Why.** `clamp_min` accepted any finite value (review of v1.2.0). The floor applies wherever the contact envelope is positive (D-32d7d70), so a positive floor lifts the first instant of every contact from 0 to the floor: the frame jumps at contact onset and offset, which the touch and release ramps exist to prevent. A negative floor lies between no floor (signed shapes may already go negative) and 0, so it is consistent with the layer language. The lower bound mirrors the 1e4 bound of `amplitude` and `background`; the layer's `background` is now checked against its own axis domain [0, 1e4] by the same table.
+
+**What was rejected.** Only 0 (the use the other repo has): it would refuse floors that are harmless. Any finite value: the jump at onset.
+
+**Where it lives.** `sensoryforge/world/kinds.py` (`_LAYER_DOMAIN`, `LayeredKind.normalise_layer`); `tests/unit/test_world_background.py`; contract section 10.1.
+
+**Ledger id + sha.** D-096e081 · `7421092`
+
+**Validation pending.** none, settled.
+
+## D-0c2b6a3 · self_affine components on equal strata of xi · 2026-10-04
+
+**Supersedes:** D-81193aa · 2026-10-04 (its synthesis only; the automatic back-link on D-81193aa also names D-096e081 and D-3a10bce, recorded in the same commit, which do not supersede it)
+
+**What was decided.** self_affine puts its N components on equal strata of xi (q^2 below the roll-off, ln q above), each with its stratum's share of the Persson power; RMS amplitude/sqrt(2) kept (P7 still provisional)
+
+**Why.** v1.2.0 gave each of the N cosines equal power and drew their radial wavenumbers by a stratified inverse CDF of q C(q). The ensemble spectrum was right, but the power of a Persson spectrum sits near the roll-off, so a single surface had almost no fine structure: with 256 cosines, cut-off 0.3 mm and roll-off 10 mm, 1.18 (H = 1) to 7.72 (H = 0.6) cosines per surface had wavelengths of 0.3-1 mm, the band the other repo reads its resolution from. The new layout maps q to xi = (q^2/q0^2 - 1)/2 below the roll-off q0 (equal steps are equal areas of the wavevector plane, the natural measure where the spectrum is flat) and xi = ln(q/q0) above it (equal ratios, the natural measure where it is self-affine); the two meet with equal slope at q0, and the declared radial power is d(xi) below q0 and exp(-2 H xi) d(xi) above. N strata of equal width each hold one cosine with amplitude sqrt(m_j / M) (its stratum's share of the power) at a wavenumber drawn from the declared power within the stratum. The expected spectrum is the declared one exactly, the powers sum to 1/2 in every surface, and every octave between roll-off and cut-off holds at least floor(N ln 2 / W) - 1 cosines in every surface (W = 1/2 + ln(q1/q0)). Derived, not fitted: nothing in it is tuned. Measured (200 seeds, v1.2.0 -> v1.2.1): cosines with wavelengths 0.3-1 mm per surface 1.18 -> 76.9 (H 1, roll-off 10 mm); CV of that band's power per surface 0.326 -> 0.009 from each surface's own table, 0.223 -> 0.127 from a rendered 6.4 mm patch; on the test's placeholder band (0.1-0.3 mm, roll-off 4 mm, cut-off 0.1 mm) 0.084 / 0.169 / 0.808 -> 0.010 / 0.012 / 0.014 at H = 0.6 / 0.8 / 1.0, within the derived bounds 0.065 / 0.074 / 0.084. Ensemble slopes on the reviewer's script: -3.190 / -3.590 / -3.990 against -3.2 / -3.6 / -4.0 (v1.2.0: -3.171 / -3.606 / -4.138).
+
+**What was rejected.** Wavenumbers evenly spaced in log q from q0 with the flat part as its own block: the split of the N cosines between the two pieces would have been a free choice; the C1 scale xi fixes it (a half unit of xi below q0, ln(q1/q0) above). Per-component importance weights at the jittered wavenumber (a(q_j)^2 proportional to q^2 C(q)): unbiased, but the per-surface variance would then vary with the jitter; the stratum's own power keeps it exactly 1/2. More cosines with the old layout: the fine band's share grows only linearly in N.
+
+**Where it lives.** `sensoryforge/world/surfaces.py` (`_components`, `self_affine_table`, `self_affine`); `tests/unit/test_world_self_affine.py`; contract section 10.3.
+
+**Ledger id + sha.** D-0c2b6a3 · `7421092`
+
+**Validation pending.** Ben's confirmation of P7 (the RMS convention), unchanged by this; the synthesis is settled by its known-answer tests.
+
 ## D-6b0215f · Sessions are budgeted · 2026-10-04
 
 **What was decided.** sessions are budgeted (P8 a), gap count capped by the episode boundaries
@@ -56,6 +114,8 @@ And on the section it replaces, add one line — nothing else changes:
 **Status.** Provisional: taken on Ben's behalf by the supervisor on 2026-10-04 (the plan's open question P8, answered as the plan recommends); Ben has not yet confirmed it.
 
 **Why.** The charter world declares a share of each session in contact. Drawing episodes until their contact time reaches f x D and spending the rest as G = min(n + 1, max(1, round(Q / gap_mean_ms))) gaps meets the declared fraction, up to the last episode's overshoot, in every session whose episodes' contact share is at least f (corrected 2026-10-04: when the episodes' own non-contact time, delay lead-ins and pauses between contacts, exceeds 1 - f of their length, the session fills D first and ends below f; with `contact_fraction` 0.97-0.99 on the fixture 199 of 200 sessions fell below target; whether to change the model is open), and keeps each session's record a pure function of (world, seed, index). Gap lengths are the spacings of Q cut at sorted uniforms, near-exponential with mean about gap_mean_ms. This supersedes the v1.1.0 spec's decision 5 (no gap mechanism, no quiet-fraction target) for worlds that declare `sessions:`; other worlds keep it.
+
+**Corrected 2026-10-04 (v1.2.1, the whole-branch review).** Two statements above are wrong; the construction is unchanged. (1) The gaps are not near-exponential: given Q and G, each gap is Q times a Beta(1, G - 1) share (coefficient of variation sqrt((G - 1)/(G + 1)), none longer than Q), i.e. exponential gaps conditioned on summing to Q. With the other repo's values (contact fraction U[0.55, 0.95], gap_mean_ms 6000, sessions 30-120 s; 400 sessions) the gaps' CV is 0.72 (an exponential's: 1.0), their median 5.2 s, no gap is longer than its session's quiet budget, and 42 % of the long-episode sessions have no gap at all. (2) "episodes' contact share at least f" is not enough for the fraction: a session whose last episode runs past D is cut there (charter-like session 586: f 0.895, episodes' share 0.900, share within D 0.863). The guarantee holds in sessions whose episodes end before D (contract guarantee 11, reworded). See "Open · Exact contact fraction or exponential gaps" above.
 
 **What was rejected.** (b) A renewal process (alternating bouts and exponential gaps): gaps exactly exponential but the fraction holds only on average, and it needs a new `exponential` distribution.
 

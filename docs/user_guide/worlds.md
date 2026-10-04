@@ -176,14 +176,16 @@ take about 4.6–4.7 min (`docs/reference/benchmarks.md`).
 
 Each of these is optional and changes nothing for a world that does not use it. The values
 below are placeholders sized for small canvases. Exact formulas are in the
-[contract](../reference/world_contract.md#10-what-v120-adds).
+[contract](../reference/world_contract.md#10-what-v120-adds); v1.2.1 changed `self_affine`'s
+surfaces and added checks at load (the contract's section 10.13).
 
 ### A background under the contact
 
 `background` is a level over the whole patch that rises and falls with the same contact
 envelope as the feature (it does not move with the pattern). `clamp_min` floors the layer's
 total where the envelope is positive, so zero-mean relief riding on the background never
-presses below zero.
+presses below zero. `clamp_min` lies in [−1e4, 0] (a floor above 0 would jump from 0 at
+contact onset); a `background` set in `defaults` reaches every layered class, indenters too.
 
 ```yaml
 relief:
@@ -229,8 +231,14 @@ classes:
 
 `self_affine` fills the patch with zero-mean random relief (Hurst exponent `hurst`, roll-off
 wavelength `rolloff_mm`, nothing finer than `cutoff_mm`, its own `seed`; RMS =
-`amplitude / √2`). `dot_array` is a lattice of Gaussian dots (`arrangement: square` or
-`hexagonal`).
+`amplitude / √2`). Since v1.2.1 every octave between roll-off and cut-off carries components
+in every surface, not only on average; `cutoff_mm` must stay below `rolloff_mm` for every value
+the axes can draw, or the world fails to load. A roll-off longer than the patch shows partly
+as an offset across it (wavelengths longer than the patch do not vary within it; numbers in
+the contract's section 9). `dot_array` is a lattice of Gaussian dots (`arrangement: square`
+or `hexagonal`); a class whose widest dot over its closest spacing would need more than 32
+lattice sites each way fails to load, and so does a data set whose probes reach such a case
+(give that axis `probes: false`).
 
 ```yaml
 rough:
@@ -284,8 +292,13 @@ braille_text:
 
 A `sessions:` section declares the length and contact fraction as axes, the mean gap, and
 optional types with their own class mixes. A session is episodes from its type until their
-contact time reaches the fraction, and the quiet time left is spent as gaps between
-episodes (which render exactly 0). See [Sessions](#sessions).
+contact time reaches the fraction, and the quiet time left (the quiet budget) is cut into
+`round(budget / gap_mean_ms)` gaps between episodes (which render exactly 0). The gaps are the
+uniform spacings of that budget, not exponential: with only a few gaps per session they vary
+less than exponential gaps would (coefficient of variation 0.72 instead of 1 with 30–120 s
+sessions and a 6 s mean) and none is longer than the budget. A session whose episodes fill its
+length before reaching the fraction has no gap and is cut at its end, so it can end below the
+fraction. See the contract, section 10.8, and [Sessions](#sessions).
 
 ```yaml
 sessions:
@@ -302,7 +315,8 @@ A runnable world with one class per element is `tests/fixtures/worlds/elements_v
 
 ## Sessions
 
-`session(world, duration_ms=10_000, seed=7, index=0)` lays draws end to end, in the order the
+`session(world, duration_ms=10_000, seed=7, index=0)` (`seed` defaults to 0: pass your own)
+lays draws end to end, in the order the
 world samples them, until the duration is full; the last draw is cut off and the session
 records `truncated`. A world that declares `sessions:` draws sessions by its own model
 (above). Its `quiet_fraction` is the share of the session with nothing touching (quiet draws,

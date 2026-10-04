@@ -1,17 +1,17 @@
 # World engine contract
 
 This page is what pressure-simulation's Phase 2b is written against: what SensoryForge
-**v1.2.0** guarantees about declared worlds, sampling, rendering, data sets and batch runs,
+**v1.2.1** guarantees about declared worlds, sampling, rendering, data sets and batch runs,
 and the SensoryForge test that pins each guarantee. Where this page and the code disagree,
-the tests decide. v1.2.0 adds the world elements of pressure-simulation's charter world
-(its §174) and changes nothing for a world, data set or bundle that does not use them
-(section 10).
+the tests decide. v1.2.0 added the world elements of pressure-simulation's charter world
+(its §174) and changed nothing for a world, data set or bundle that does not use them
+(section 10); v1.2.1 fixes what the whole-branch review of v1.2.0 found (section 10.13).
 
 ## Getting it
 
 ```bash
 conda run -n bio-encoding pip install --no-deps --force-reinstall \
-  "sensoryforge @ git+file:///Users/benefron/sensoryforge@v1.2.0"
+  "sensoryforge @ git+file:///Users/benefron/sensoryforge@v1.2.1"
 ```
 
 The in-process API needs Python ≥ 3.10, torch ≥ 2.2, numpy, PyYAML and h5py; it is tested
@@ -201,7 +201,7 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   `OUT/index/task_<i>.jsonl` (`entry, bundle, status, error, seconds, finished_at,
   design_id, sensoryforge_sha, task`); `read_batch_index(OUT)` merges them. The exit status
   is non-zero if any entry failed.
-- Until v1.2.0 is merged into `~/sensoryforge`'s `main`, the `sensoryforge` env's CLI is
+- Until v1.2.1 is merged into `~/sensoryforge`'s `main`, the `sensoryforge` env's CLI is
   older; run the batch from `bio-encoding` with `python -m sensoryforge.cli batch …`.
 - An entry's movie is rendered in time chunks (at most 2**25 float64 elements each, cast
   to float32 chunk by chunk), so a long session never holds its whole float64 movie; the
@@ -235,7 +235,7 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 | — | The fixture world's draws are pinned: sha256 of `sample(tactile_small, n=50, seed=7)`'s records, floats rounded to 10 significant digits; a change means every world's draws changed | `tests/unit/test_world_sampling.py::test_the_fixture_worlds_draws_are_pinned` |
 | 9 | A world or data-set file that uses no v1.2 key keeps its normalised form, `world_id`, `dataset_id`, draw records, session record, manifest and frames, and a v1.1.0 bundle's recorded stimulus rebuilds and re-renders, bit for bit (frames bit-exact on the machine, system and torch version of the recording, golden tolerance elsewhere) | `test_9_old_worlds_and_bundles_are_unchanged`, `tests/unit/test_world_v1_1_compat.py` |
 | 10 | Every v1.2 element (one class each in `tests/fixtures/worlds/elements_v1_2.yml`) renders equal to `layered` to 1e-5, and one draw on 41×41 at 0.15 mm and 81×81 at 0.075 mm (the same 6 mm, nested points) agrees to 1e-12 | `test_10_every_v1_2_element_renders_equal_to_layered_and_on_both_grids`, `tests/unit/test_world_v1_2_render.py` |
-| 11 | A session of a world that declares `sessions:` meets its declared contact fraction (up to its last episode's overshoot) when its episodes' contact share is at least that fraction (a session whose episodes' own non-contact time, delay lead-ins and pauses between contacts, exceeds 1 - f of their length fills D first and ends below f, section 10.8), and its gaps render exactly 0 | `test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero`, `test_7_model_session_quiet_stretches_are_exactly_zero`, `tests/unit/test_world_session_model.py` |
+| 11 | In a session of a world that declares `sessions:` whose episodes end before its duration `D` (quiet budget `Q > 0`, so it has at least one gap), the contact share within `D` (`contact_ms / D`, the record's `1 − quiet_fraction`) is at least the declared fraction `f` and exceeds it by less than the last episode's contact time over `D`; its gaps render exactly 0. A session whose episodes reach or run past `D` (`Q = 0`: no gap, the last episode cut at `D`) is not covered: its share within `D` can fall below `f` even when its episodes' own contact share is at least `f` (section 10.8) | `test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero`, `test_11_a_session_cut_at_its_duration_is_outside_the_guarantee`, `test_7_model_session_quiet_stretches_are_exactly_zero`, `tests/unit/test_world_session_model.py` |
 | — | Draw *i* alone equals draw *i* in any batch or chunk, bit for bit, for every v1.2 element (masked loops in `dot_array` and `self_affine` included) | `tests/unit/test_world_v1_2_render.py::test_v1_2_draw_alone_equals_draw_in_a_batch` |
 | — | Re-ordering a world's classes, axes or defaults changes neither `world_id`, nor any draw, nor a data set's entries | `tests/unit/test_world_sampling.py::test_class_order_changes_neither_the_id_nor_the_draws`, `tests/unit/test_world_dataset.py::test_class_order_does_not_change_the_entries` |
 
@@ -246,7 +246,8 @@ A test named without a path is in `tests/contract/test_world_contract.py`.
 platform maths library), so a manifest's stored record is the canonical draw (as for
 SensoryForge's golden fixtures, F-071). Added in v1.2.0: `biased_direction` values use `atan2`,
 `sin`, `cos` and a root solve, and `self_affine`, `dot_array`, `curved_contact` and `step_edge`
-frames use `cos`, `exp` and `sqrt`, so they too may differ in the last bit between platforms
+frames use `cos`, `exp` and `sqrt` (`self_affine`'s components also `expm1` and `log1p`, since
+v1.2.1), so they too may differ in the last bit between platforms
 (libm); `letter_text` and every integer or categorical value stay bit-identical. A test that
 needs equality across machines compares records, not floats.
 
@@ -269,6 +270,21 @@ the batch records on any machine and any `--device`.
 - Braille cells are dot numbers 1–6 (1–3 down the left column, 4–6 down the right), dot
   pitch `dot_spacing_mm`, centred on the cell.
 - Batch frames are float32 (the engine's dtype); render in float64 and cast to compare.
+- Indenter footprints are **geometric**: a sphere or cylinder of radius `R` pressed to the
+  depth `δ = d·unit_mm` touches out to `a = √(2Rδ − δ²)`, where the rigid surface meets the
+  undeformed plane, not Hertz's elastic contact radius `√(Rδ)` (R = 10 mm, δ = 1 mm: 4.36 mm,
+  not 3.16 mm). Pinned by `tests/unit/test_world_indenters.py::test_contact_radius_follows_the_geometry`.
+- A `background` set in `defaults` binds every layered class, the indenters included (their
+  frame is `envelope × background + indentation`). Pinned by
+  `tests/unit/test_world_indenters.py::test_a_default_background_reaches_an_indenter`.
+- A `self_affine` roll-off longer than the patch renders partly as an offset (and a slope)
+  across it: wavelengths longer than the patch do not vary within it. With `hurst` 0.8 on a
+  6 mm patch (40×40 at 0.15 mm), the mean |patch mean| over 64 surfaces is 0.03, 0.12 and
+  0.41 of the RMS (`amplitude/√2`) at roll-offs of 0.5, 2 and 10 mm, and the spread within
+  the patch is 1.01, 1.00 and 0.86 of it. Pinned qualitatively by
+  `tests/unit/test_world_self_affine.py::test_a_rolloff_longer_than_the_patch_shows_as_an_offset`.
+- `session(world)` defaults to `seed=0, index=0`: pass your own seed. Pinned by
+  `tests/unit/test_world_session_model.py::test_session_defaults_to_seed_0`.
 
 ## 10. What v1.2.0 adds
 
@@ -281,7 +297,9 @@ of §174's values is written into SensoryForge; the fixtures use placeholders.
 ### 10.1 The background and the floor (`background`, `clamp_min`)
 
 A layer may carry `background` (a uniform level over the whole patch, domain 0 to 1e4, an axis
-name like any other) and `clamp_min` (a floor on the layer's total). The frame is
+name like any other) and `clamp_min` (a floor on the layer's total, domain −1e4 to 0, checked
+at load since v1.2.1: a floor above 0 would lift every point in contact to it, so the frame
+would jump from 0 to the floor at contact onset). The frame is
 `envelope × (amplitude × shapes + background)`, so the background is its own draw, rises and
 falls with the same contact envelope and modulation, and is **not** moved by the pattern or by
 motion. The floor applies only where the envelope is positive; elsewhere the frame is exactly 0.
@@ -315,20 +333,45 @@ Both are registered with `unbounded=False`, so `x_mm`/`y_mm` translate them.
 
 - `self_affine`: a zero-mean random relief with **Persson's isotropic spectrum** (flat below
   `q0 = 2π / rolloff_mm`, ∝ `q^(−2(H+1))` above, zero above `q1 = 2π / cutoff_mm`),
-  synthesised as a sum of `components` cosines (16–4096, default 256; radial wavenumbers by
-  a stratified inverse CDF of `q·C(q)`, uniform directions and phases drawn from the shape's
-  own `seed`, 0 to 2²⁴ − 1). Fields: `hurst` (0–1), `rolloff_mm`, `cutoff_mm`, `components`,
-  `seed`, `amplitude`. **The RMS is `amplitude / √2`** (the RMS of a unit-peak signed
-  sinusoid, so a self-affine and a periodic texture of equal amplitude carry equal power).
-  It is a continuous function of position (the same on any canvas) and signed: use it with
-  `background` and `clamp_min`. `seed` and `components` are exact as float32 integers (bounded
-  by 2²⁴ − 1); draw `seed` with `stratify: false`.
+  synthesised as a sum of `components` cosines (16–4096, default 256) with uniform directions
+  and phases drawn from the shape's own `seed` (0 to 2²⁴ − 1). Fields: `hurst` (0–1),
+  `rolloff_mm`, `cutoff_mm`, `components`, `seed`, `amplitude`. **The RMS is
+  `amplitude / √2`** (the RMS of a unit-peak signed sinusoid, so a self-affine and a periodic
+  texture of equal amplitude carry equal power). It is a continuous function of position (the
+  same on any canvas) and signed: use it with `background` and `clamp_min`. `seed` and
+  `components` are exact as float32 integers (bounded by 2²⁴ − 1); draw `seed` with
+  `stratify: false`. **`cutoff_mm` must lie below `rolloff_mm` in every draw** (the largest
+  cut-off any axis can draw below the smallest roll-off): a world, fixed draw or data-set probe
+  that breaks this fails at load naming both fields, and the shape refuses it at render (until
+  v1.2.1 it rendered a flat spectrum silently).
+  **The components (v1.2.1).** Wavenumbers are mapped to `ξ = (q²/q0² − 1)/2` below the
+  roll-off (equal steps are equal areas of the wavevector plane, where the spectrum is flat)
+  and `ξ = ln(q/q0)` above it (equal steps are equal ratios, where it is self-affine); the
+  pieces meet with equal slope at `q0`, and the declared radial power `q·C(q)·dq` is `dξ` below
+  `q0` and `e^(−2Hξ)·dξ` above (in units of `C(0)·q0²`). `[−½, ln(q1/q0)]` is cut into
+  `components` strata of equal width; stratum `j` holds one cosine, its wavenumber drawn from the
+  declared power within the stratum, its amplitude `√(m_j / M)` (`m_j` the stratum's power, `M`
+  the total). So the expected spectrum is the declared one, the powers sum to ½ in every surface
+  (RMS `amplitude/√2` on the plane), and every stratum, hence every octave between roll-off and
+  cut-off (at least `⌊N·ln 2 / W⌋ − 1` cosines per octave, `W = ½ + ln(q1/q0)`), carries
+  components in every surface. v1.2.0 gave each cosine equal power and drew wavenumbers by a
+  stratified inverse CDF of `q·C(q)`, which put most of them near the roll-off: with 256
+  cosines, cut-off 0.3 mm and roll-off 10 mm, 1.2 (H = 1) to 7.7 (H = 0.6) of them had
+  wavelengths of 0.3–1 mm in a surface; v1.2.1 puts 77 there (pinned by
+  `test_every_octave_carries_components_in_every_surface`,
+  `test_fine_band_power_varies_little_between_surfaces`,
+  `test_expected_band_power_is_the_declared_spectrum`, `test_spectral_slope_matches_hurst`,
+  `test_every_surface_has_variance_one_half` in `tests/unit/test_world_self_affine.py`).
 - `dot_array`: a lattice of Gaussian bumps (each peaking at `amplitude`, overlaps summed):
   `sigma_mm`, `spacing_mm` (along a row), `row_spacing_mm` (0 = `spacing_mm`, or
   `spacing_mm·√3/2` for hexagonal), `arrangement: square | hexagonal` (hexagonal: every other
-  row offset by half a spacing), `orientation_deg`. Terms beyond `ceil(7.5σ / min(a, b))`
-  sites are dropped (below 1e-12 of the peak); more than 32 sites each way is a `ValueError`
-  naming `sigma_mm` and `spacing_mm`.
+  row offset by half a spacing), `orientation_deg`. Terms beyond `m = ceil(7.5σ / min(a, b))`
+  sites are dropped (below 1e-12 of the peak). **At most 32 sites each way**, checked at load
+  since v1.2.1 on the worst case the class can draw (the largest `sigma_mm` over the smallest
+  spacing or row spacing, hexagonal rows included; a `row_spacing_mm` range starting at 0 is
+  refused), on each fixed draw, and, when a data set loads, on each probed axis's probe values
+  (probes reach one bin-width outside a range, down to the field's lowest value): the error
+  names the class and the axes. The render keeps its own check.
 
 Both loops run to the batch's maximum and mask each draw's surplus terms to exact zeros
 (section 10.10).
@@ -352,6 +395,13 @@ stretch `s` solved from the declared travel ratio `R = E|cos θ| / E|sin θ|` by
 draw, monotone in `u`; `R = 1` is uniform, `R < 1` stretches the perpendicular axis. Values
 are degrees in [0, 360). `axis_deg` is the lateral axis (0° = +x). It is a quantile
 distribution: stratified splits cut it into equal-probability bins.
+
+Since v1.2.1 a registered distribution without a finite support declares `bounds=` (the
+interval of its values; `biased_direction`: [0, 360]) and the loader checks it against the
+domain of the field the axis binds, as it checks a range: `biased_direction` on a grating's
+`duty` (0.01–0.99) fails at load. Without bounds such a distribution cannot bind a number
+field; bounds on a text field are refused. Distributions with a finite support
+(`braille_cells`, one-letter `letter_text`) are checked value by value, as before.
 
 ### 10.6 Braille lines and `letter_text`
 
@@ -386,18 +436,51 @@ sessions:
 ```
 
 A session draws its type by weight, its length `D` and target fraction `f` from their axes,
-then episodes (`sample(weights=` the type's classes`)`) until their contact time reaches
-`f × D` or their length reaches `D`. The quiet budget `Q = max(0, D − length)` is spent as
+then `n` episodes (`sample(weights=` the type's classes`)`) until their contact time (touch,
+hold, slide, release) reaches `f × D` or their total length `E` reaches `D`. The quiet budget
+`Q = max(0, D − E)` (about `(1 − f) × D` less the last episode's overshoot when the episodes
+are all contact; less when they have lead-ins or pauses) is spent as
 `G = min(n + 1, max(1, round(Q / gap_mean_ms)))` **gaps at distinct episode boundaries**, their
-lengths the spacings of `Q` cut at sorted uniforms (near-exponential, mean ≈ `gap_mean_ms`;
-no exponential distribution is registered). The declared fraction is met in every session up to
-the last episode's overshoot; a session whose episodes already fill `D` before reaching `f` is
-cut at `D`. The session record gains `session_type` and `contact_fraction` (only for these
-worlds); `quiet_fraction` is the realised quiet share. Gaps are holes between items and render
-exactly 0. `session(world, duration_ms=None, ...)` draws the length; a `sessions` split
-without `duration_ms` takes each session's own. **This supersedes the v1.1.0 spec's decision 5
+lengths the spacings of `Q` cut at `G − 1` sorted uniforms. The session record gains
+`session_type` and `contact_fraction` (only for these worlds); `quiet_fraction` is the
+realised quiet share. Gaps are holes between items and render exactly 0.
+`session(world, duration_ms=None, ...)` draws the length; a `sessions` split without
+`duration_ms` takes each session's own. **This supersedes the v1.1.0 spec's decision 5
 ("no gap mechanism, no quiet-fraction target") for worlds that declare `sessions:`;** all
 others keep v1.1.0's sessions bit for bit.
+
+**What the gaps are.** Given `Q` and `G`, each gap is `Q` times a Beta(1, G − 1) share: mean
+`Q / G`, coefficient of variation `√((G − 1)/(G + 1))` (0 for one gap, 0.58 for two, 0.71 for
+three, 0.82 for five; the exponential's 1 only as `G` grows), and no gap is longer than `Q`.
+These are exactly independent exponential gaps conditioned on summing to `Q`, the price of
+meeting the declared fraction in each session; they are **not** exponential, and no
+exponential distribution is registered (pinned by
+`test_gaps_are_uniform_spacings_of_the_quiet_budget`). Measured with the other repo's values
+(contact fraction uniform in 0.55–0.95, `gap_mean_ms` 6000, sessions 30–120 s; the reviewer's
+world, seed 17, sessions 0–399): the pooled gaps have mean 5.9 s, median 5.2 s (an
+exponential of mean 6 s: 4.2 s) and CV 0.72 (exponential: 1.0); no gap is longer than its
+session's quiet budget; and in the session type of long episodes (handling: grasps up to 75 s,
+repeated presses) 42 % of sessions have no gap at all, because their episodes fill `D` before
+their contact reaches `f × D`. **A declared contact fraction and exponential gaps cannot both
+hold exactly in a session that holds only a few gaps:** the fraction fixes the gaps' total,
+and only many gaps per session make the conditioned gaps look exponential. Which of the two to
+keep exact is open (`docs_root/DECISIONS.md`, "Exact contact fraction or exponential gaps"):
+exponential gaps with the fraction met only on average (a renewal process, not built), or
+longer sessions, which hold more gaps.
+
+**What the fraction is (guarantee 11).** In a session whose episodes end before `D` (`Q > 0`,
+so it has a gap) the contact share within `D` is at least `f` and exceeds it by less than the
+last episode's contact time over `D`: the episodes stopped on reaching `f × D` before `D`. A
+session whose episodes reach or run past `D` (`Q = 0`) is cut at `D` and is not covered: its
+share within `D` may be above or below `f`, and can be below `f` even when its episodes' own
+contact share is at least `f`. `session(<the reviewer's charter-like world>, seed=17,
+index=586)` has `f` = 0.895 and an episode contact share of 0.900, but its last episode, a
+34.1 s grasp starting after 71.5 s of episodes with pauses, is cut at `D` = 77.3 s, leaving
+0.863 (the same case is pinned in a placeholder world by
+`test_11_a_session_cut_at_its_duration_is_outside_the_guarantee`). With the other repo's
+values the guarantee covers every session of the short-episode type (exploration, 178 of 400)
+and 57.7 % of the long-episode type (handling, 128 of 222); 24 of the 94 handling sessions it
+does not cover end below `f`.
 
 ### 10.9 Rendering long entries in chunks
 
@@ -428,8 +511,8 @@ These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 | P4 | The lateral bias is the angular central Gaussian solved from the travel ratio |
 | P5 | Indenters are depth-driven (the footprint grows in the rise); convex sphere and cylinder only |
 | P6 | The background is its own draw sharing the contact envelope; the total is floored at 0 |
-| P7 | Self-affine textures use the Persson spectrum from 256 cosines, RMS = amplitude/√2 |
-| P8 | The declared contact fraction is met in every session whose episodes' contact share is at least f (otherwise the session fills D first and ends below f, 10.8); gaps close to exponential (budgeted layout) |
+| P7 | Self-affine textures use the Persson spectrum from 256 cosines, RMS = amplitude/√2 (since v1.2.1 one cosine per equal stratum of `ξ`, each with its stratum's share of the power, 10.3) |
+| P8 | Budgeted sessions: the declared contact fraction is met within `D` in every session whose episodes end before `D` (guarantee 11; a session whose episodes reach `D` is cut there and may end below f, 10.8); the gaps are the uniform spacings of the quiet budget, not exponential (whether to keep the fraction or exponential gaps exact is open, 10.8) |
 | P9 | Dot arrays on a square or hexagonal lattice of Gaussian bumps |
 
 ### 10.12 Differences from the other repo's list (its brief, section 8)
@@ -439,7 +522,7 @@ These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 | A direction distribution set by the travel ratio and the finger axis | `biased_direction` (10.5) |
 | One axis bound to another | `same_as` (10.4); not allowed in `fixed_draws` |
 | A background layer under every contact | `background` on a layer, plus `clamp_min`; not a second layer, and it ignores pattern and motion (10.1) |
-| An exponential `dist`; a session declared by its in-contact fraction | No exponential distribution: `sessions:` declares the fraction and the gaps are the near-exponential budgeted spacings (10.8) |
+| An exponential `dist`; a session declared by its in-contact fraction | No exponential distribution: `sessions:` declares the fraction and the gaps are the uniform spacings of the quiet budget (exponential gaps conditioned on their total: CV 0.72 with the other repo's values, not 1; 10.8) |
 | Session types with their own mixes and weights; a duration range | `sessions: types:` and a `duration_ms` axis (10.8) |
 | A step edge | `step_edge`, depth-driven, with an orientation (10.2) |
 | A curved contact, radius 5–40 mm | `curved_contact`: sphere or cylinder, convex only; the survey's concave 20–40 mm surfaces are not built (10.2) |
@@ -448,3 +531,20 @@ These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 | Contact types per feature | One class per feature × contact type, `groups:` / `use:` as shorthand (10.7) |
 | Dot arrays 1.3-8.5 mm apart (brief: covered by `grid`) | `grid` is a finite list of positions and a scan moves it off the patch; use `dot_array` (10.3) |
 | (not in the brief) | `stratify: false` (10.4), chunked rendering (10.9) |
+
+### 10.13 What v1.2.1 changes
+
+The whole-branch review of v1.2.0 found these; each is pinned by the tests named in its
+section. Old worlds, data sets and v1.1.0 bundles are unchanged (guarantee 9).
+
+- **`self_affine` output changes** for every draw: one cosine per equal stratum of `ξ`, each
+  with its stratum's share of the power, so every octave carries components in every surface
+  (10.3). Same seeds, same fields, same expected spectrum and RMS; different surfaces.
+- **Checks at load** that v1.2.0 left to render time or skipped: `dot_array`'s 32-site limit
+  (10.3), `self_affine`'s `cutoff_mm < rolloff_mm` (10.3), `clamp_min`'s domain [−1e4, 0]
+  (10.1), and a continuous registered distribution's declared `bounds` against its field's
+  domain (10.5). The shape checks also run on fixed draws and, when a data set loads, on probe
+  values; a shape declares one with `register_shape(..., check=)`.
+- **Documentation**: the session gaps' real distribution and the open choice between an exact
+  fraction and exponential gaps (10.8); guarantee 11 reworded to the contact share within `D`
+  (section 8, 10.8); the notes for pressure-simulation in section 9.
