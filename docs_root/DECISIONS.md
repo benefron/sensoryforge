@@ -750,4 +750,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-81193aa | self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional) | `f276323` |
 | 2026-10-04 | D-072fed4 | dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional) | `7e16d00` |
 | 2026-10-04 | D-84200e4 | indenters are depth-driven, the footprint growing during the rise (P5, provisional) | `956af6c` |
+| 2026-10-04 | D-fda02f9 | step_edge is an indenter shape, value d on the plate, d minus the circular sag on the shoulder, 0 past it | `5cfab52` |
 <!-- DECISIONS_LOG_END -->

@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-fda02f9 · CLOSED · decision · - · 2026-10-04
+step_edge is an indenter shape, value d on the plate, d minus the circular sag on the shoulder, 0 past it
+→ commit 5cfab52
+
 ## F-627b862 · STANDING · finding · tests/fixtures · 2026-10-04
 a world default for a field only some classes have is skipped in the other classes, not an error (schema.py:343-347).
 → commit e5d5b58
