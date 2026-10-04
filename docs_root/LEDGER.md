@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-072fed4 · CLOSED · decision · - · 2026-10-04
+dot arrays on a square or hexagonal lattice of Gaussian bumps (P9, provisional)
+→ commit 7e16d00
+
 ## D-81193aa · CLOSED · decision · - · 2026-10-04
 self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional)
 → commit f276323
