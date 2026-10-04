@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-32d7d70 · CLOSED · decision · - · 2026-10-04
+the background is its own draw sharing the contact envelope, with the layer total floored at clamp_min where the envelope is positive (P6, provisional).
+→ commit 6c0daf3
+
 ## F-cb8576b · STANDING · finding · tests · 2026-10-04
 the guard's exact check keyed on (sys.platform, machine) alone reported a false break under torch 2.2.2 (diffs <= 8.3e-16).
 → commit 8f84040
