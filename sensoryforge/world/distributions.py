@@ -82,6 +82,8 @@ class Distribution:
 
     sample: Callable[[np.ndarray, "AxisSpec"], List[Any]]
     support: Optional[Callable[["AxisSpec"], List[Any]]] = None
+    quantile: bool = False
+    check: Optional[Callable[["AxisSpec"], None]] = None
 
 
 DISTRIBUTIONS: Dict[str, Distribution] = {}
@@ -93,6 +95,8 @@ def register_distribution(
     support: Optional[Callable[["AxisSpec"], List[Any]]] = None,
     *,
     replace: bool = False,
+    quantile: bool = False,
+    check: Optional[Callable[["AxisSpec"], None]] = None,
 ) -> None:
     """Register a distribution usable as ``{dist: <name>}`` on an axis.
 
@@ -102,6 +106,11 @@ def register_distribution(
         support: ``support(axis) -> values`` for a finite distribution (needed
             to stratify it), else ``None``.
         replace: Replace a distribution already registered under ``name``.
+        quantile: True if ``sample(u, axis)`` is a quantile function of ``u``
+            (continuous, monotone in ``u``): the axis can then be stratified
+            into ``bins`` equal-probability strata on the ``u`` scale.
+        check: ``check(axis)`` validates the axis' options when it loads;
+            raise ``ValueError`` (the loader prefixes the path).
 
     Raises:
         ValueError: For ``uniform``/``log_uniform`` (built in, never
@@ -114,7 +123,9 @@ def register_distribution(
             f"distribution {name!r} is already registered; "
             "pass replace=True to replace it"
         )
-    DISTRIBUTIONS[name] = Distribution(sample=sample, support=support)
+    DISTRIBUTIONS[name] = Distribution(
+        sample=sample, support=support, quantile=quantile, check=check
+    )
 
 
 def _sample_braille_cells(u: np.ndarray, axis: "AxisSpec") -> List[str]:
@@ -124,6 +135,92 @@ def _sample_braille_cells(u: np.ndarray, axis: "AxisSpec") -> List[str]:
 
 register_distribution(
     "braille_cells", _sample_braille_cells, lambda axis: list(BRAILLE_CELLS)
+)
+
+
+def _travel_stretch(ratio: float) -> float:
+    """The stretch ``s > 1`` whose angular central Gaussian has travel ratio ``ratio``.
+
+    The expected travel along the long axis over the expected travel across it
+    is ``R(s) = s * atan(k) / artanh(k / s)`` with ``k = sqrt(s**2 - 1)``;
+    ``R`` rises from 1 at ``s = 1``. Solved by 200 bisection steps on
+    ``[1, 1e6]``.
+
+    Args:
+        ratio: The travel ratio, ``> 1``.
+
+    Returns:
+        ``s`` (dimensionless).
+    """
+
+    def travel(s: float) -> float:
+        k = math.sqrt(s * s - 1.0)
+        return s * math.atan(k) / math.atanh(k / s)
+
+    lo, hi = 1.0, 1.0e6
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if mid <= lo or mid >= hi:
+            break
+        if mid * mid - 1.0 <= 0.0 or travel(mid) < ratio:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+_STRETCH_CACHE: Dict[float, float] = {}
+
+
+def _stretch(ratio: float) -> float:
+    if ratio not in _STRETCH_CACHE:
+        _STRETCH_CACHE[ratio] = _travel_stretch(ratio)
+    return _STRETCH_CACHE[ratio]
+
+
+def _biased_options(axis: "AxisSpec") -> Tuple[float, float]:
+    opts = dict(axis.options)
+    unknown = set(opts) - {"travel_ratio", "axis_deg"}
+    if unknown:
+        raise ValueError(
+            f"biased_direction: unknown options {sorted(unknown)}; "
+            "allowed: ['axis_deg', 'travel_ratio']"
+        )
+    if "travel_ratio" not in opts:
+        raise ValueError("biased_direction: needs travel_ratio")
+    ratio = _finite_number(opts["travel_ratio"], "biased_direction", "travel_ratio")
+    if ratio <= 0:
+        raise ValueError(f"biased_direction: travel_ratio must be > 0, got {ratio}")
+    axis_deg = _finite_number(opts.get("axis_deg", 0.0), "biased_direction", "axis_deg")
+    return ratio, axis_deg
+
+
+def _sample_biased_direction(u: np.ndarray, axis: "AxisSpec") -> List[float]:
+    """Angles (degrees, in [0, 360)) of an anisotropic Gaussian velocity.
+
+    ``theta = axis + atan2(sin 2 pi u, s cos 2 pi u)``: the angular central
+    Gaussian stretched ``s`` times along ``axis_deg`` (0 deg = +x), with ``s``
+    solved from the declared ``travel_ratio``. A ratio below 1 stretches the
+    perpendicular axis; 1 is uniform. One uniform per draw, monotone in ``u``.
+    """
+    ratio, axis_deg = _biased_options(axis)
+    u = np.asarray(u, dtype=np.float64)
+    if ratio == 1.0:
+        return ((axis_deg + 360.0 * u) % 360.0).tolist()
+    if ratio > 1.0:
+        s, base = _stretch(ratio), axis_deg
+    else:
+        s, base = _stretch(1.0 / ratio), axis_deg + 90.0
+    phi = 2.0 * np.pi * u
+    theta = base + np.degrees(np.arctan2(np.sin(phi), s * np.cos(phi)))
+    return (theta % 360.0).tolist()
+
+
+register_distribution(
+    "biased_direction",
+    _sample_biased_direction,
+    quantile=True,
+    check=_biased_options,
 )
 
 
@@ -208,9 +305,16 @@ class AxisSpec:
                     if k not in {"dist", "circular", "probes"}
                 )
             )
-            return cls(
+            axis = cls(
                 name=name, form="registered", dist=dist, options=options, **flags
             )
+            check = DISTRIBUTIONS[dist].check
+            if check is not None:
+                try:
+                    check(axis)
+                except ValueError as exc:
+                    raise ValueError(f"{where}: {exc}") from None
+            return axis
         unknown = set(spec) - _AXIS_KEYS
         if unknown:
             allowed = sorted(_AXIS_KEYS)
@@ -364,6 +468,20 @@ class AxisSpec:
             t_hi - t_lo
         )
         return np.clip(self._from_scale(t), self.lo, self.hi).tolist()
+
+    def quantile_values(
+        self, labels: np.ndarray, bins: int, u: np.ndarray
+    ) -> List[Any]:
+        """``sample((b + u') / bins)``: values in equal-probability strata."""
+        v = (np.asarray(labels, dtype=np.float64) + np.asarray(u)) / bins
+        return DISTRIBUTIONS[self.dist].sample(v, self)
+
+    def quantile_label(self, b: int, bins: int) -> str:
+        """``"[sample(b/bins), sample((b+1)/bins))"``, 6 significant digits."""
+        edges = DISTRIBUTIONS[self.dist].sample(
+            np.array([b / bins, (b + 1) / bins]), self
+        )
+        return f"[{edges[0]:.6g}, {edges[1]:.6g})"
 
     def bin_label(self, b: int, bins: int) -> str:
         """``"[a, b)"`` (``"[a, b]"`` for the last bin), 6 significant digits."""

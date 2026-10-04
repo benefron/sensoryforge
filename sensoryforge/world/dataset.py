@@ -14,7 +14,7 @@ import numpy as np
 from sensoryforge.config.yaml_utils import load_yaml
 from sensoryforge.provenance import source_info
 from sensoryforge.world import rng
-from sensoryforge.world.distributions import AxisSpec
+from sensoryforge.world.distributions import DISTRIBUTIONS, AxisSpec
 from sensoryforge.world.kinds import expect_mapping
 from sensoryforge.world.sampling import Draw, Session, sample, session
 from sensoryforge.world.schema import ClassSpec, World, check_name, load_world
@@ -380,6 +380,11 @@ def stratify_class(
             columns[name] = axis.stratum_values(picks, bins, rng.uniforms(seeds, name))
             for j, b in enumerate(picks):
                 labels[j][name] = axis.bin_label(int(b), bins)
+        elif axis.form == "registered" and DISTRIBUTIONS[axis.dist].quantile:
+            picks = np.repeat(np.arange(bins), per_bin)[order]
+            columns[name] = axis.quantile_values(picks, bins, rng.uniforms(seeds, name))
+            for j, b in enumerate(picks):
+                labels[j][name] = axis.quantile_label(int(b), bins)
         else:
             raise ValueError(
                 f"class {cls.name!r}: axis {name!r} uses distribution {axis.dist!r}, "
