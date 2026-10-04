@@ -36,7 +36,8 @@ explains each part; the rules that matter to a caller:
   `slide_ms`, `release_ms`, `contacts`, `pause_ms`, `speed_mm_per_ms`, `direction_deg`),
   `amplitude`, `x_mm`/`y_mm`, then a shape, pattern or modulation field by bare name, or a
   dotted path (`shape.width_mm`). Ambiguous or unknown names fail at load time. A layer's
-  own keys `background` and `clamp_min` bind as axis names too (v1.2.0, section 10.1).
+  own key `background` binds as an axis name too; `clamp_min` is a fixed layer key and does
+  not (v1.2.0, section 10.1).
   An axis may also be `{same_as: <axis>}` (it copies another axis of the same draw) and
   any axis may say `stratify: false` (v1.2.0, section 10.4).
 - Precedence: a class's own axes, then the fields its layer fixes, then the world's
@@ -234,7 +235,7 @@ entry (the manifest row), layer (the draw as a layered layer; a session: [[start
 | — | The fixture world's draws are pinned: sha256 of `sample(tactile_small, n=50, seed=7)`'s records, floats rounded to 10 significant digits; a change means every world's draws changed | `tests/unit/test_world_sampling.py::test_the_fixture_worlds_draws_are_pinned` |
 | 9 | A world or data-set file that uses no v1.2 key keeps its normalised form, `world_id`, `dataset_id`, draw records, session record, manifest and frames, and a v1.1.0 bundle's recorded stimulus rebuilds and re-renders, bit for bit (frames bit-exact on the machine, system and torch version of the recording, golden tolerance elsewhere) | `test_9_old_worlds_and_bundles_are_unchanged`, `tests/unit/test_world_v1_1_compat.py` |
 | 10 | Every v1.2 element (one class each in `tests/fixtures/worlds/elements_v1_2.yml`) renders equal to `layered` to 1e-5, and one draw on 41×41 at 0.15 mm and 81×81 at 0.075 mm (the same 6 mm, nested points) agrees to 1e-12 | `test_10_every_v1_2_element_renders_equal_to_layered_and_on_both_grids`, `tests/unit/test_world_v1_2_render.py` |
-| 11 | A session of a world that declares `sessions:` meets its declared contact fraction (up to its last episode's overshoot), and its gaps render exactly 0 | `test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero`, `test_7_model_session_quiet_stretches_are_exactly_zero`, `tests/unit/test_world_session_model.py` |
+| 11 | A session of a world that declares `sessions:` meets its declared contact fraction (up to its last episode's overshoot) when its episodes' contact share is at least that fraction (a session whose episodes' own non-contact time, delay lead-ins and pauses between contacts, exceeds 1 - f of their length fills D first and ends below f, section 10.8), and its gaps render exactly 0 | `test_11_model_sessions_meet_their_declared_fraction_and_gaps_are_zero`, `test_7_model_session_quiet_stretches_are_exactly_zero`, `tests/unit/test_world_session_model.py` |
 | — | Draw *i* alone equals draw *i* in any batch or chunk, bit for bit, for every v1.2 element (masked loops in `dot_array` and `self_affine` included) | `tests/unit/test_world_v1_2_render.py::test_v1_2_draw_alone_equals_draw_in_a_batch` |
 | — | Re-ordering a world's classes, axes or defaults changes neither `world_id`, nor any draw, nor a data set's entries | `tests/unit/test_world_sampling.py::test_class_order_changes_neither_the_id_nor_the_draws`, `tests/unit/test_world_dataset.py::test_class_order_does_not_change_the_entries` |
 
@@ -428,7 +429,7 @@ These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 | P5 | Indenters are depth-driven (the footprint grows in the rise); convex sphere and cylinder only |
 | P6 | The background is its own draw sharing the contact envelope; the total is floored at 0 |
 | P7 | Self-affine textures use the Persson spectrum from 256 cosines, RMS = amplitude/√2 |
-| P8 | The declared contact fraction is met in every session; gaps close to exponential (budgeted layout) |
+| P8 | The declared contact fraction is met in every session whose episodes' contact share is at least f (otherwise the session fills D first and ends below f, 10.8); gaps close to exponential (budgeted layout) |
 | P9 | Dot arrays on a square or hexagonal lattice of Gaussian bumps |
 
 ### 10.12 Differences from the other repo's list (its brief, section 8)
@@ -445,4 +446,5 @@ These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 | A seeded self-affine surface, zero mean | `self_affine` with its own `seed`, RMS amplitude/√2 (10.3) |
 | Braille line spacing | `line_spacing_mm` and `/` (10.6); letters by frequency with `letter_text` |
 | Contact types per feature | One class per feature × contact type, `groups:` / `use:` as shorthand (10.7) |
-| (not in the brief) | `dot_array` (10.3), `stratify: false` (10.4), chunked rendering (10.9) |
+| Dot arrays 1.3-8.5 mm apart (brief: covered by `grid`) | `grid` is a finite list of positions and a scan moves it off the patch; use `dot_array` (10.3) |
+| (not in the brief) | `stratify: false` (10.4), chunked rendering (10.9) |
