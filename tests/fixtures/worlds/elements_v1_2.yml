@@ -39,3 +39,12 @@ world:
       axes:
         release_ms: {same_as: touch_ms}
         contacts: {range: [2, 4], int: true}
+    rough:
+      weight: 1
+      layer:
+        shape: {kind: self_affine, hurst: 0.8, rolloff_mm: 0.6, cutoff_mm: 0.12, components: 64}
+        clamp_min: 0.0
+      axes:
+        seed: {range: [0, 16777215], int: true, stratify: false}
+        background: {range: [0.6, 1.0]}
+        components: {range: [16, 64], int: true}

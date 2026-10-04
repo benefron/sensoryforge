@@ -336,3 +336,10 @@ def motion_offsets(motion: Dict[str, Any], progress: torch.Tensor) -> torch.Tens
     raise ValueError(
         f"unknown motion kind {kind!r}; known: none, linear, circular, path"
     )
+
+
+# ------------------------------------------------------ patch-filling surfaces
+
+from sensoryforge.world import surfaces  # noqa: E402
+
+register_shape("self_affine", surfaces.self_affine, surfaces.SELF_AFFINE_SPECS)
