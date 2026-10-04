@@ -747,4 +747,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-32d7d70 | the background is its own draw sharing the contact envelope, with the layer total floored at clamp_min where the envelope is positive (P6, provisional). | `6c0daf3` |
 | 2026-10-04 | D-1b2d1c1 | lateral scan bias is an angular central Gaussian solved from the travel ratio (P4a, provisional) | `19d7a32` |
 | 2026-10-04 | D-b0be6a6 | a press falls as it rose through same_as, an axis link (P3a, provisional) | `62cb959` |
+| 2026-10-04 | D-81193aa | self-affine textures use the Persson spectrum from cosines, RMS amplitude/sqrt(2) (P7, provisional) | `f276323` |
 <!-- DECISIONS_LOG_END -->
