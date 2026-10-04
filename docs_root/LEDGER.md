@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6b0215f · CLOSED · decision · - · 2026-10-04
+sessions are budgeted (P8 a), gap count capped by the episode boundaries
+→ commit 771bd06
+
 ## D-80d1fcd · CLOSED · decision · - · 2026-10-04
 groups are resolved into class axes at load (P1 option A), not kept as a runtime concept
 → commit 2487d37
