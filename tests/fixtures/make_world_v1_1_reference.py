@@ -20,7 +20,8 @@ Run it on a clean copy of tag v1.1.0 and on the working tree; the two
 The script lives in the working tree and reads its fixtures from there; the
 ``sensoryforge`` package it imports is whichever ``PYTHONPATH`` names. The
 frames are float64 and their sha256 is exact only on the platform recorded in
-``reference.json`` (macOS arm64, and the recorded torch version); elsewhere the tests compare to a tolerance.
+``reference.json`` (macOS arm64, and the recorded torch version); elsewhere the
+tests compare to a tolerance.
 """
 
 import argparse
