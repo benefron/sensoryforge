@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-627b862 · STANDING · finding · tests/fixtures · 2026-10-04
+a world default for a field only some classes have is skipped in the other classes, not an error (schema.py:343-347).
+→ commit e5d5b58
+
 ## D-84200e4 · CLOSED · decision · - · 2026-10-04
 indenters are depth-driven, the footprint growing during the rise (P5, provisional)
 → commit 956af6c
