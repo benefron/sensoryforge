@@ -931,4 +931,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-7d5e5bc | letter_text recovers int(u * 2**53) as the draw's bits and maps cells x lines sub-uniforms through the cumulative weights | `5d658d3` |
 | 2026-10-04 | D-80d1fcd | groups are resolved into class axes at load (P1 option A), not kept as a runtime concept | `2487d37` |
 | 2026-10-04 | D-6b0215f | sessions are budgeted (P8 a), gap count capped by the episode boundaries | `771bd06` |
+| 2026-10-04 | D-822574c | "touches for" is the plateau hold_ms, no contact_ms field (P2 a, provisional) | `9082178` |
 <!-- DECISIONS_LOG_END -->

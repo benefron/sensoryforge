@@ -108,9 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-822574c · CLOSED · decision · - · 2026-10-04
+"touches for" is the plateau hold_ms, no contact_ms field (P2 a, provisional)
+→ commit 9082178
+
 ## D-6b0215f · CLOSED · decision · - · 2026-10-04
 sessions are budgeted (P8 a), gap count capped by the episode boundaries
 → commit 771bd06
+↔ 9082178 docs(world): v1.2.0 contract, guide, changelog, decisions and rules
 
 ## D-80d1fcd · CLOSED · decision · - · 2026-10-04
 groups are resolved into class axes at load (P1 option A), not kept as a runtime concept
