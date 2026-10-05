@@ -490,16 +490,29 @@ def test_4_level_crossing_pays_a_fast_ramp_out_late_without_a_leak(dead_steps):
     assert abs(float(x[0, -1, 0] - ref[0, -1, 0])) < theta
 
 
-@pytest.mark.parametrize("dead_steps", [1, 2, 4])
-def test_4_level_crossing_with_a_leak_loses_part_of_a_pending_step(dead_steps):
-    theta, tau, dx = 0.5, 1.0, 4.3 * 0.5
-    lam = DELTA / tau
+def _pending_step_events(dx, theta, lam, dead_steps, paused):
+    """Event sub-steps of a held step; the leak runs on every sub-step unless paused."""
     expected, c = [], dx
     while c >= theta * CROSSING:
         assert abs(c / theta - CROSSING) > 1e-6, "choose another step"
         expected.append(1 + len(expected) * dead_steps)
-        c = (1 - lam) ** dead_steps * (c - theta)
+        c = ((1 - lam) if paused else (1 - lam) ** dead_steps) * (c - theta)
     assert abs(c / theta - CROSSING) > 1e-6
+    return expected
+
+
+@pytest.mark.parametrize(
+    "tau,dead_steps", [(1.0, 1), (1.0, 2), (1.0, 4), (0.25, 2), (0.25, 4)]
+)
+def test_4_level_crossing_with_a_leak_loses_part_of_a_pending_step(tau, dead_steps):
+    theta, dx = 0.5, 4.3 * 0.5
+    lam = DELTA / tau
+    expected = _pending_step_events(dx, theta, lam, dead_steps, paused=False)
+    if tau < 1.0:
+        # the leak keeps running while the neuron is refractory: a leak paused on
+        # blocked sub-steps would give a different list
+        paused = _pending_step_events(dx, theta, lam, dead_steps, paused=True)
+        assert paused != expected, "choose another step"
     assert len(expected) >= 2
     steps = int(20 * tau / DELTA)
     x = torch.full((1, steps, 1), dx, dtype=torch.float64)
