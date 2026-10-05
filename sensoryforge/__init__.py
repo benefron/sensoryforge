@@ -26,7 +26,7 @@ Example:
     >>> # Create and run sensory encoding pipeline
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 __author__ = "Ben Efron"
 __license__ = "MIT"
 
