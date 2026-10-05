@@ -25,13 +25,15 @@ event, not recovered later.
 
 ```
 d   = x - ref
-k   = sign(d) * floor(|d| / theta)     # signed event count this step
+k   = sign(d) * floor(|d| / theta + 1e-5)   # signed event count this step
 ref = ref + k * theta
+ref = ref + (dt / tau) * (x - ref)          # only with reference_leak_tau_ms = tau (v1.3.0)
 ```
 
-A step that moves the input by several `theta` emits several events at once, as one signed
-count. The running sum of events times `theta` tracks the input to within `theta`, so the
-encoding is invertible up to one quantum.
+`x` is the step's input (the held drive plus comparator noise) and `1e-5` is the crossing
+tolerance, in thetas. A step that moves the input by several `theta` emits several events at
+once, as one signed count. Without a leak the running sum of events times `theta` tracks the
+input to within `theta`, so the encoding is invertible up to one quantum.
 
 | Parameter | Default | Unit | Meaning |
 |---|---|---|---|
@@ -39,10 +41,43 @@ encoding is invertible up to one quantum.
 | `refractory_ms` | 0 | ms | minimum interval between two events of one neuron; 0 = none (several events per step allowed) |
 | `initial_reference` | `"zero"` | -- | `"zero"`: reference starts at 0; `"first"`: at the first input sample (report changes only) |
 | `noise_std` | 0 | mA | comparator noise added to the input each step |
+| `reference_leak_tau_ms` | none | ms | since v1.3.0: the reference relaxes toward the input with this time constant (a change-only unit); none = no leak, the v1.2.1 unit bit for bit. Must be a finite number `>= dt` |
 
-With a refractory period the unit emits at most one event per `refractory_ms` and the
-reference still moves by one `theta` per event, so a change faster than
-`theta / refractory_ms` is paid out late rather than lost (slew-rate limited).
+With a refractory period the unit emits at most one event per `refractory_ms` (`R =
+max(1, round(refractory_ms / dt))` steps) and the reference still moves by one `theta` per
+event, so without a leak a change faster than `theta / refractory_ms` is paid out late rather
+than lost (slew-rate limited).
+
+### The leaky reference (`reference_leak_tau_ms`, v1.3.0)
+
+With `reference_leak_tau_ms = tau` the last line runs after the step's events, so the unit
+forgets a held level and reports **change only**:
+
+- **A held level is forgotten.** With `x` held, `x - ref` shrinks by `1 - dt / tau` per step
+  (time constant about `tau`). Two steps of `0.6 theta` separated by a long hold make one ON
+  event without the leak and none with it.
+- **A step still fires at once.** A jump of `dx` emits `floor(|dx| / theta + 1e-5)` events of
+  its sign on that step; the residual then only decays, so the unit falls silent.
+- **A steady slope fires iff `s > theta (1 - 1e-5) / tau`.** The difference the comparator
+  sees settles at `s * tau`. For `x_n = s n dt` the first event is at step
+  `n* = ceil(ln(1 - theta (1 - 1e-5) / (s tau)) / ln(1 - dt / tau))` (for `tau > dt`), and
+  `n* dt` lies in `[T' (1 - dt / tau), T' + dt)`, where
+  `T' = -tau ln(1 - theta (1 - 1e-5) / (s tau))` is the continuous interval.
+- **The engine holds each record bin's drive** over its `n_sub = dt_ms / dt` steps, so events
+  fall on a bin's first step and a slope fires iff `s > theta (1 - 1e-5) (1 - rho) / dt_ms`
+  with `rho = (1 - dt / tau)^n_sub`, slightly below `theta / tau` (by a factor of about
+  `1 - dt_ms / (2 tau)`).
+- **The dead time with a leak.** The leak keeps running while the neuron is refractory, so
+  part of a pending change leaks away instead of being paid out late: after a step `dx`, event
+  `j` (at step `1 + j R`) fires iff `c_j >= theta (1 - 1e-5)`, with `c_0 = dx` and
+  `c_(j+1) = (1 - dt / tau)^R (c_j - theta)`.
+
+Why this form: of the simple discretisations, only the leak applied after the reset with the
+factor `dt / tau` both fires a steady slope iff `s > theta / tau` and fires a step of `dx` as
+`floor(dx / theta)` events at once (a leak before the comparison shrinks a step by
+`1 - dt / tau`; the factor `1 - exp(-dt / tau)` moves the threshold). It is also the sigma-delta
+leak's own factor. The [Event converter contract](../reference/converter_contract.md) states
+each of these exactly, with the test that pins it.
 
 **Input: the drive before any derivative filter.** Use `filter_method: none`. The unit
 differentiates by construction; feeding it the rectified RA filter's output would
@@ -81,9 +116,10 @@ A non-leaky integrate-and-fire unit with subtractive reset -- a first-order sigm
 modulator:
 
 ```
-u = u + dt * x
-n = floor(u / theta)          # spikes this step
-u = u - n * theta             # subtract, never reset to zero
+u = u + dt * x                          # with a leak: u + dt * x - (dt / leak_tau_ms) * u
+n = max(floor(u / theta + 1e-5), 0)     # spikes this step
+u = u - n * theta                       # subtract, never reset to zero
+u = min(u, theta)                       # only when refractory_ms > 0 (anti-windup)
 ```
 
 No charge is ever discarded, so the spike count up to time `t` is the integral of the drive
@@ -96,7 +132,7 @@ train recovers a slow drive.
 |---|---|---|---|
 | `theta` | 100.0 | mA*ms | charge per spike; rate = drive / theta per ms (default: 10 Hz per mA) |
 | `leak_tau_ms` | none | ms | optional accumulator leak; adds a rheobase `theta / leak_tau_ms` and breaks exact linearity |
-| `refractory_ms` | 0 | ms | minimum inter-spike interval (caps the rate at `1 / refractory_ms`); while refractory the accumulator is clipped at `theta` (anti-windup) |
+| `refractory_ms` | 0 | ms | minimum inter-spike interval (caps the rate at `1 / refractory_ms`); whenever it is above 0 the accumulator is clipped at `theta` after every step, refractory or not (anti-windup), so a dead time loses charge rather than paying it out late, and a dropped drive gives at most one more spike |
 | `noise_std` | 0 | mA | noise added to the input each step |
 
 A sigma-delta SA population also runs with `filter_method: none` (it integrates the level
@@ -122,6 +158,15 @@ level-crossing event is one address plus one bit.
 ## In a design directory
 
 `load_design` accepts `neuron_model: "level_crossing"` or `"sigma_delta"` with their
-parameters in `model_params` (checked at load time). Because both run with
-`filter_method: "none"`, the population's `neuron_type` is taken from the model
-(`level_crossing` -> RA, `sigma_delta` -> SA) unless the record names one itself.
+parameters in `model_params` (checked at load time: a key the model does not take, or a bad
+value such as `reference_leak_tau_ms: 0`, refuses the design, naming the population's index).
+Because both run with `filter_method: "none"`, the population's `neuron_type` is taken from
+the model (`level_crossing` -> RA, `sigma_delta` -> SA) unless the record names one itself.
+
+`model_params` holds only the constructor's arguments; the engine sets `dt` (from
+`simulation.integrate_dt_ms`) and `noise_std` itself. Keys a design writes **beside**
+`model_params` in a population record (for example a declared `sub_step_ms` or
+`input_floor_ma`) are not read: SensoryForge ignores population keys it does not know. What
+a run actually used is in the bundle: `encoder.params` (the unit's `to_dict()`, `dt`
+included) and, since bundle schema 2.3.0, `encoder.input_floor_ma` (see
+[Data Bundles](bundles.md)).

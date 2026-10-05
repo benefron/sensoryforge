@@ -117,8 +117,9 @@ splits, a stratified test split, probes, held-out classes, sessions, fixed draws
 `sensoryforge dataset build`), and runs them (`sensoryforge batch --dataset`, one bundle per
 entry, `--tasks/--task-index`, `--print-tasks`, `--resume`). Layered gained default-off
 fields (`slide_ms`, `contacts`, `pause_ms`, `modulation`, braille `dots`, `signed`); their
-timing math is `stimuli/episode.py`. Bundles are schema 2.2.0 (SF's sha in every bundle;
-world entries carry their record). pressure-simulation's contract:
+timing math is `stimuli/episode.py`. Bundles are schema 2.3.0 (since 2.2.0 SF's sha in every
+bundle, world entries carry their record; since 2.3.0, v1.3.0, every population's
+`encoder.input_floor_ma`). pressure-simulation's contract:
 `docs/reference/world_contract.md`, pinned by `tests/contract/test_world_contract.py`; see
 `.claude/rules/world-engine.md` before changing any of it. v1.2.0 adds, all invisible until used
 (test 9): a layer `background` and `clamp_min`, `biased_direction`, `stratify: false` and
@@ -126,6 +127,15 @@ world entries carry their record). pressure-simulation's contract:
 are depth-driven, `register_shape(..., indenter=True)`), braille `line_spacing_mm` and
 `letter_text`, `groups:`/`use:`, the `sessions:` model and chunked rendering of long entries
 (`world/surfaces.py` holds the new shapes).
+
+### Event converters (v1.3.0)
+
+`neurons/event_encoders.py` holds the two event converters pressure-simulation emulates bit for
+bit: `level_crossing` (signed RA, optional `reference_leak_tau_ms`, v1.3.0) and `sigma_delta`
+(SA). Their updates, the engine's steps before them and the design/bundle keys are a contract:
+`docs/reference/converter_contract.md`, pinned by `tests/contract/test_converter_contract.py`
+(test 1 holds the leak-off unit to v1.2.1 bit for bit, frozen loops and an engine golden).
+Never change a converter's arithmetic on a path that does not use a new parameter.
 
 ### Execution Engines
 

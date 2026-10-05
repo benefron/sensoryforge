@@ -1,17 +1,20 @@
 # World engine contract
 
 This page is what pressure-simulation's Phase 2b is written against: what SensoryForge
-**v1.2.1** guarantees about declared worlds, sampling, rendering, data sets and batch runs,
+**v1.3.0** guarantees about declared worlds, sampling, rendering, data sets and batch runs,
 and the SensoryForge test that pins each guarantee. Where this page and the code disagree,
 the tests decide. v1.2.0 added the world elements of pressure-simulation's charter world
 (its §174) and changed nothing for a world, data set or bundle that does not use them
 (section 10); v1.2.1 fixes what the whole-branch review of v1.2.0 found (section 10.13).
+v1.3.0 changes nothing for worlds and data sets: it adds an optional leaky reference to the
+level-crossing converter and records each converter's input floor in the bundle (schema
+2.3.0, section 7), stated in the [Event converter contract](converter_contract.md).
 
 ## Getting it
 
 ```bash
 conda run -n bio-encoding pip install --no-deps --force-reinstall \
-  "sensoryforge @ git+file:///Users/benefron/sensoryforge@v1.2.1"
+  "sensoryforge @ git+file:///Users/benefron/sensoryforge@v1.3.0"
 ```
 
 The in-process API needs Python ≥ 3.10, torch ≥ 2.2, numpy, PyYAML and h5py; it is tested
@@ -197,11 +200,11 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   population seeded from 53 bits, no receptor, sensor or membrane noise depends on it (with
   32-bit seeds, the chance that two entries share one is about 1% at 10^4 entries and 69%
   at 10^5).
-- Output: `OUT/<entry id>/` (a schema-2.2.0 bundle, written atomically), `OUT/batch.json`,
+- Output: `OUT/<entry id>/` (a schema-2.3.0 bundle, written atomically), `OUT/batch.json`,
   `OUT/index/task_<i>.jsonl` (`entry, bundle, status, error, seconds, finished_at,
   design_id, sensoryforge_sha, task`); `read_batch_index(OUT)` merges them. The exit status
   is non-zero if any entry failed.
-- Until v1.2.1 is merged into `~/sensoryforge`'s `main`, the `sensoryforge` env's CLI is
+- Until v1.3.0 is merged into `~/sensoryforge`'s `main`, the `sensoryforge` env's CLI is
   older; run the batch from `bio-encoding` with `python -m sensoryforge.cli batch …`.
 - An entry's movie is rendered in time chunks (at most 2**25 float64 elements each, cast
   to float32 chunk by chunk), so a long session never holds its whole float64 movie; the
@@ -209,9 +212,13 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   simulation engine still holds the whole float32 stimulus: a 120 s session at 80×80 and
   1 ms is about 3.1 GB, and that stays open.
 
-## 7. Bundles (schema 2.2.0)
+## 7. Bundles (schema 2.3.0)
 
-Additive over 2.1.0: `config.json` gains `sensoryforge_sha` and, for an entry,
+Schema 2.3.0 (v1.3.0) adds to every population's `config.json` entry
+`encoder.input_floor_ma` (the floor its converter received, `null` = none) and, for a
+`level_crossing` population, `encoder.params.reference_leak_tau_ms` (`null` = no leak); a
+world entry's records, frames and `stimuli/stimulus.json` are otherwise unchanged (its
+`schema_version` reads 2.3.0). Schema 2.2.0, additive over 2.1.0: `config.json` gains `sensoryforge_sha` and, for an entry,
 `world: {world_id, dataset_id, entry}`; `data.h5` attributes gain `sensoryforge_sha`;
 `stimuli/stimulus.json` for an entry is `{schema_version, kind: "sensoryforge_world_entry",
 entry (the manifest row), layer (the draw as a layered layer; a session: [[start, layer],

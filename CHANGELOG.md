@@ -4,6 +4,39 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); dates are commit dates from
 `docs_root/LEDGER.md`, the project's decision/finding record.
 
+## [1.3.0] - 2026-10-05
+
+A leaky reference for the level-crossing converter, and bundles that record each converter's
+input floor. Nothing changes for existing designs, worlds or data sets: with the leak off (the
+default) the level-crossing unit, the sigma-delta unit and everything the engine does before
+them run as in 1.2.1, bit for bit (the converter contract's test 1, against a golden recorded
+at 1.2.1), and the world contract's guarantees 1–11 hold unchanged.
+
+### Added
+
+- **`LevelCrossingNeuron(reference_leak_tau_ms=None)`** (`model_params.reference_leak_tau_ms`
+  in a design or config). When set to τ (ms), after each sub-step's events the reference
+  relaxes toward the input by `dt / τ` (also while refractory), so a held level is forgotten and
+  only changes faster than `θ / τ` make events: a change-only RA. A step still fires its
+  `⌊Δx/θ⌋` events at once; a steady slope fires iff `s > θ(1 − 1e-5)/τ`; with a dead time part
+  of a pending change leaks away instead of being paid out late. `None`, or a finite number
+  `≥ dt`; anything else raises `ValueError` naming the parameter, also at `load_design`.
+- **Bundle schema 2.3.0** (additive): every population's `encoder.input_floor_ma`, the floor
+  (mA) the run applied to its neuron input or `null` for none, taken from the engine's own
+  `resolve_input_floor` call; a level-crossing population's `encoder.params` carries
+  `reference_leak_tau_ms` (`null` = no leak). `load_bundle` reads any 2.x bundle. A world
+  entry's `stimuli/stimulus.json` carries the same schema number; its records and frames are
+  unchanged.
+- **The event converter contract** (`docs/reference/converter_contract.md`): both converters'
+  updates exactly, the engine's steps before them, the design and bundle keys, and the test
+  that pins each guarantee (`tests/contract/test_converter_contract.py`).
+
+### Documentation
+
+- The sigma-delta unit's anti-windup clip applies on every sub-step whenever
+  `refractory_ms > 0`, refractory or not; the docstring and the user guide said "while the
+  neuron is refractory". The code is unchanged; the words now match it.
+
 ## [1.2.1] - 2026-10-04
 
 The fixes from the whole-branch review of 1.2.0. Old worlds, data sets and 1.1.0 bundles stay

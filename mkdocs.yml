@@ -152,6 +152,7 @@ nav:
     - Neurons: api_reference/neurons.md
     - Benchmarks: reference/benchmarks.md
     - World Engine Contract: reference/world_contract.md
+    - Event Converter Contract: reference/converter_contract.md
 
   - Contributing: contributing.md
 

@@ -49,6 +49,36 @@ And on the section it replaces, add one line — nothing else changes:
 
 <!-- newest first; written by hand -->
 
+## D-2eb488e · A leaky reference for the level-crossing converter · 2026-10-05
+
+**What was decided.** the level-crossing converter takes an optional reference_leak_tau_ms: after each sub-step's events the reference relaxes toward the input by dt/tau (also while refractory), so only changes faster than theta/tau make events; None skips the line and is the v1.2.1 unit bit for bit (provisional, the other project's ruling 6)
+
+**Status.** Provisional: ruled by the other project's supervisor on its owner's (Ben's) behalf on 2026-10-05 (pressure-simulation §176, ruling 6: a leaky reference, built here, committed and tagged locally only). Ben has not yet confirmed it.
+
+**Why.** Pressure-simulation's Phase 3 compares three encoder arms at a matched event budget, splitting a slow amplitude channel (SA) from a fast change channel (RA); one arm needs an RA that reports change only. A leak on the reference gives that with one declared number, so the two RA arms differ by τ alone. The form is the other project's brief's (section 1.2), derived there and pinned here by known answers: `r += (δ/τ)(x − r)` after the event line. Its fixed point for a steady slope is `sτ`, so the unit fires iff `s > θ(1 − 1e-5)/τ`; a step still fires its `⌊Δx/θ⌋` events at once and then falls silent; with the engine's held bins the threshold is `θ(1 − 1e-5)(1 − ρ)/dt_ms`, `ρ = (1 − δ/τ)^n_sub`; with a dead time the leak keeps running, so event j after a step fires iff `cⱼ ≥ θ(1 − 1e-5)`, `cⱼ₊₁ = (1 − δ/τ)ᴿ(cⱼ − θ)`. All of these hold exactly in `tests/contract/test_converter_contract.py` (tests 2–4). With `None` the line is skipped (no multiplication by zero, which could flip the sign of a zero), and the unit equals v1.2.1's frozen loop (`torch.equal`, AST-identical copy of the tag's code) and the engine golden recorded on `git archive v1.2.1` (test 1).
+
+**What was rejected.** The three other simple discretisations (brief, section 1.2): a leak before the comparison shrinks a step by `1 − δ/τ` and puts the difference's fixed point at `s(τ − δ)`; the factor `1 − e^(−δ/τ)` moves the fixed point off `sτ`. A zero time constant as "no leak": refused, so no leak has one spelling (`None`), and τ below `dt` (a leak above 1 per step) is refused too. A new model name for the leaky unit: the model stays `level_crossing`, so `load_design` and the bundle need no new path.
+
+**Where it lives.** `sensoryforge/neurons/event_encoders.py` (`LevelCrossingNeuron.__init__`, `forward`, `_reference_leak`, `to_dict`, `get_param_spec`); `docs/reference/converter_contract.md` section 2; `docs/user_guide/event_encoders.md`.
+
+**Ledger id + sha.** D-2eb488e · `6b4d00c`
+
+**Validation pending.** Ben's confirmation of the provisional ruling; pressure-simulation's own parity tests against its emulator when it pins v1.3.0 (its brief, section 4).
+
+## D-3ced5a0 · Bundles record the floor each converter received · 2026-10-05
+
+**What was decided.** bundle schema 2.3.0 records encoder.input_floor_ma on every population, the floor its converter received (null = none), taken from the engine's own resolve_input_floor call and kept on the population
+
+**Why.** Pressure-simulation's SA reading has a floored-noise term that so far assumed SensoryForge's default floor; with the floor in the bundle it reads the value the run applied (its brief, section 2.2). `SimulationEngine.run` already resolved the floor once per population for `_run_pop_from_drive`; it now keeps that same value on the population (`pop["input_floor"]`) and `write_bundle` records it, so there is one resolution of the rule (the engine-parity rule) and the record cannot drift from what ran. Pinned by test 5: 0.0 for a sigma-delta SA and an AdEx SA, `null` for a level-crossing RA, 0.5 for an explicit 0.5, `null` for `-inf`. The schema moves to 2.3.0 because the record is additive and `load_bundle` reads any 2.x.
+
+**What was rejected.** Calling `resolve_input_floor` again inside `write_bundle`: a second derivation of what the run applied, which could disagree with it if the configuration changed between the run and the write. A default for an engine population with no recorded floor: `write_bundle` refuses it instead of writing a guess (every in-repo caller writes from an engine that ran). Resolving the floor once at build time: it would change when the floor is read for a configuration edited between build and run (the world runner edits seeds on a built engine), a behaviour change this release does not make.
+
+**Where it lives.** `sensoryforge/core/simulation_engine.py` (`run`), `sensoryforge/io/bundle.py` (`SCHEMA_VERSION`, `_input_floor_ma`, `write_bundle`); `docs/user_guide/bundles.md`; `docs/reference/converter_contract.md` section 4.
+
+**Ledger id + sha.** D-3ced5a0 · `6b4d00c`
+
+**Validation pending.** none, settled.
+
 ## Open · Exact contact fraction or exponential gaps · 2026-10-04
 
 **What is open.** A model session (`sessions:`) cannot hold both its declared contact fraction and exponential gaps exactly when it holds only a few gaps. Which to keep exact is the other project's owner's decision (Ben's); SensoryForge does not change the session construction until it is taken.

@@ -387,8 +387,9 @@ class SigmaDeltaNeuron(BaseNeuron):
     ``theta``, subtracting ``theta`` rather than resetting to zero::
 
         u <- u + dt * x               (optionally - dt * u / leak_tau_ms)
-        n = floor(u / theta)          (spikes this step, >= 0)
+        n = max(floor(u / theta + 1e-5), 0)   (spikes this step)
         u <- u - n * theta
+        u <- min(u, theta)            (only when refractory_ms > 0)
 
     Because no charge is ever discarded, the spike count up to time ``t`` is
     ``floor(integral of x / theta)``: for a constant drive the rate is exactly
@@ -401,9 +402,11 @@ class SigmaDeltaNeuron(BaseNeuron):
     ``leak_tau_ms`` (default none) makes the accumulator leaky, which adds a
     rheobase ``theta / leak_tau_ms`` and breaks the exact linearity.
     ``refractory_ms`` caps the rate at ``1 / refractory_ms``: at most one spike
-    per ``refractory_ms``; while the neuron is refractory its accumulator is
-    clipped at ``theta`` (anti-windup), so it saturates cleanly instead of
-    bursting when the drive drops.
+    per ``refractory_ms``. Whenever ``refractory_ms > 0`` the accumulator is
+    clipped at ``theta`` after **every** step, refractory or not (anti-windup),
+    so it saturates cleanly instead of bursting when the drive drops: a dead
+    time loses charge, it does not pay it out late, and a dropped drive gives
+    at most one more spike.
 
     Negative drive discharges the accumulator (it can go below zero); a
     tactile SA population's input is floored at 0 mA by default anyway.

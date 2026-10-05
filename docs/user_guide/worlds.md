@@ -376,7 +376,7 @@ sensoryforge batch --design designs/ra_v1 --dataset dataset.yml --output runs/sm
 ```
 
 simulates every entry through the sensor and writes one data bundle per entry to
-`runs/small/<entry id>/` ([Data Bundles](bundles.md), schema 2.2.0). The sensor comes from
+`runs/small/<entry id>/` ([Data Bundles](bundles.md), schema 2.3.0). The sensor comes from
 `--design`, `--preset` or a config file. Useful options:
 
 - `--splits test,probes` runs only those splits; `--entries 100:200` runs a slice.
