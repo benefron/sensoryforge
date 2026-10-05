@@ -1,0 +1,66 @@
+{
+  "arrays": {
+    "ra__drive": {
+      "abs_sum": 810.9677473306656,
+      "dtype": "float32",
+      "sha256": "1a5b5c1ece3b55a178df5d35db486b59438b10c181c7519bf86793adeb42963e",
+      "shape": [
+        80,
+        4
+      ]
+    },
+    "ra__events": {
+      "abs_sum": 487.0,
+      "dtype": "int16",
+      "sha256": "9b67bf6ffae5e849af83010d07da0812ec00ad4bca4efc78ee0d8f29b92c7279",
+      "shape": [
+        80,
+        4
+      ]
+    },
+    "ra__filtered": {
+      "abs_sum": 40548.38732266426,
+      "dtype": "float32",
+      "sha256": "ff38a51e513ff0527d27833ceb037f6807df6b073a658cd50044791bb64c836d",
+      "shape": [
+        80,
+        4
+      ]
+    },
+    "sa__drive": {
+      "abs_sum": 1259.223746732343,
+      "dtype": "float32",
+      "sha256": "82050857772939cca8db108e00d3e14a4aed6c1359076f0da401db699b553e38",
+      "shape": [
+        80,
+        9
+      ]
+    },
+    "sa__filtered": {
+      "abs_sum": 62961.18742792308,
+      "dtype": "float32",
+      "sha256": "36a6969f6b2971045735e49ad102420bede432da8508666b677e45ce3a1c3e26",
+      "shape": [
+        80,
+        9
+      ]
+    },
+    "sa__spikes": {
+      "abs_sum": 1255.0,
+      "dtype": "int16",
+      "sha256": "3f412b180ade9b3cf1c729aa83cd3bfbcda73cf377106500dd9ef58e5f422970",
+      "shape": [
+        80,
+        9
+      ]
+    }
+  },
+  "duration_ms": 80,
+  "platform": {
+    "machine": "arm64",
+    "sys_platform": "darwin",
+    "torch": "2.5.1"
+  },
+  "stimulus": "ramp_gaussian",
+  "what": "sensoryforge run --design converter_v1_2_1/design at v1.2.1"
+}

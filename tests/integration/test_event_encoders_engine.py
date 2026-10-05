@@ -126,7 +126,7 @@ def test_bundle_stores_signed_events_separately(run, tmp_path):
     bundle_dir = write_bundle(tmp_path / "bundle", config, engine, results, stimulus)
 
     cfg = json.loads((bundle_dir / "config.json").read_text())
-    assert cfg["schema_version"] == SCHEMA_VERSION == "2.2.0"
+    assert cfg["schema_version"] == SCHEMA_VERSION == "2.3.0"
     entries = {p["name"]: p for p in cfg["populations"]}
     ra, sa = entries["RA events"], entries["SA sigma-delta"]
     assert ra["readout"] == "events"

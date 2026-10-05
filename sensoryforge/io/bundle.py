@@ -5,7 +5,7 @@ A bundle is a directory:
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.2.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.3.0", kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt
     stimuli/
@@ -28,6 +28,14 @@ Schema 2.2.0 (2026-10-02, additive): every bundle records ``sensoryforge_sha``
 (``config.json``, ``data.h5`` attributes); a world data-set entry's
 ``stimuli/stimulus.json`` is ``kind: sensoryforge_world_entry`` with the entry's
 record, and ``config.json`` gains ``world``.
+
+Schema 2.3.0 (2026-10-05, v1.3.0, additive): every population's ``encoder``
+gains ``input_floor_ma``, the floor (mA) the engine applied to that
+population's neuron input, or ``null`` for none -- the value
+:meth:`SimulationEngine.run` resolved and kept on the population, not a second
+derivation; a ``level_crossing`` population's ``encoder.params`` gains
+``reference_leak_tau_ms`` (through the unit's ``to_dict()``; ``null`` = no
+leak). See ``docs/reference/converter_contract.md``.
 
 ``config.json`` is a superset of pressure-simulation's ``1.0.0`` "mechanoreceptor
 bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
@@ -55,7 +63,7 @@ from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.provenance import source_info
 
-SCHEMA_VERSION = "2.2.0"
+SCHEMA_VERSION = "2.3.0"
 WORLD_ENTRY_KIND = "sensoryforge_world_entry"
 
 #: How a signed event population's ``events`` dataset is to be read
@@ -107,6 +115,33 @@ def _jsonable(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     return str(value)
+
+
+def _input_floor_ma(pop: Dict[str, Any], name: str) -> Optional[float]:
+    """The floor (mA) the run applied to a population's neuron input (2.3.0).
+
+    Args:
+        pop: The population's entry in ``engine.populations``;
+            :meth:`SimulationEngine.run` keeps the value its own
+            ``resolve_input_floor`` call returned there, under
+            ``"input_floor"``.
+        name: The population's name, for the error message.
+
+    Returns:
+        The floor in mA, or ``None`` when the input was not floored.
+
+    Raises:
+        ValueError: If the population carries no recorded floor (its engine
+            never ran it), since the bundle records what was applied, not a
+            second derivation of it.
+    """
+    if "input_floor" not in pop:
+        raise ValueError(
+            f"write_bundle: population {name!r} has no recorded input floor; "
+            "write the bundle from an engine that ran it (SimulationEngine.run)"
+        )
+    floor = pop["input_floor"]
+    return None if floor is None else float(floor)
 
 
 def _require_h5py():
@@ -297,8 +332,9 @@ def write_bundle(
             and, as YAML, into ``data.h5``'s ``/meta`` group).
         engine: The :class:`~sensoryforge.core.simulation_engine.SimulationEngine`
             that produced *results* -- duck-typed: needs ``.populations``, a
-            list of ``{"name", "config", "bank"}`` dicts (as the engine
-            builds them).
+            list of ``{"name", "config", "bank", "input_floor"}`` dicts (as
+            the engine builds them; ``"input_floor"`` is the floor
+            :meth:`SimulationEngine.run` applied, schema 2.3.0).
         results: :meth:`SimulationEngine.run` output, keyed by population
             name; each value must include ``"drive"`` and ``"filtered"``
             (i.e. the run that produced it used ``return_intermediates=True``)
@@ -331,7 +367,8 @@ def write_bundle(
         FileExistsError: If *bundle_dir* exists, is non-empty, and
             ``overwrite`` is ``False``.
         ValueError: If a population in *results* is missing ``"drive"``/
-            ``"filtered"``, or a tensor has an unexpected batch dimension.
+            ``"filtered"``, a tensor has an unexpected batch dimension, or a
+            population of *engine* carries no recorded ``"input_floor"``.
         ImportError: If ``h5py`` is not installed.
     """
     h5py = _require_h5py()
@@ -407,6 +444,7 @@ def write_bundle(
             "encoder": {
                 "model": pop_cfg.neuron_model,
                 "params": _jsonable(encoder_params),
+                "input_floor_ma": _input_floor_ma(pop, name),
             },
         }
         if readout == "events":

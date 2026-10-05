@@ -75,7 +75,8 @@ class TestWriteBundleLayout:
             cfg = json.load(f)
         # 2.1.0 (2026-10-01): signed event populations (level_crossing).
         # 2.2.0 (2026-10-02): sensoryforge_sha; world data-set entries.
-        assert cfg["schema_version"] == "2.2.0"
+        # 2.3.0 (2026-10-05): every encoder's input_floor_ma.
+        assert cfg["schema_version"] == "2.3.0"
         assert cfg["kind"] == "sensoryforge_bundle"
         assert cfg["grid"] == {
             "rows": 8,

@@ -1,4 +1,5 @@
-"""Bundle schema 2.2.0: the sha in every bundle; world entries carry their record."""
+"""Bundle schema 2.2.0 (still in 2.3.0): the sha in every bundle; world entries
+carry their record."""
 
 import json
 from pathlib import Path
@@ -30,7 +31,7 @@ def test_every_bundle_records_sensoryforge_sha(tmp_path):
     bundle = _run(tmp_path, {"type": "gaussian"})
     sha = source_info()["sha"]
     cfg = json.loads((bundle / "config.json").read_text())
-    assert SCHEMA_VERSION == "2.2.0" and cfg["schema_version"] == "2.2.0"
+    assert SCHEMA_VERSION == "2.3.0" and cfg["schema_version"] == "2.3.0"
     assert cfg["sensoryforge_sha"] == sha and "world" not in cfg
     with h5py.File(bundle / "data.h5", "r") as f:
         assert f.attrs["sensoryforge_sha"] == sha
@@ -56,7 +57,7 @@ def test_a_world_entry_bundle_carries_its_record(tmp_path):
     }
     payload = json.loads((bundle / "stimuli" / "stimulus.json").read_text())
     assert payload["kind"] == "sensoryforge_world_entry"
-    assert payload["schema_version"] == "2.2.0"
+    assert payload["schema_version"] == "2.3.0"
     assert payload["entry"] == entry and payload["layer"] == layer
     assert payload["n_frames"] == 10
     assert payload["reconstructible_by_pressure_simulation"] is False

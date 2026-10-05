@@ -1022,6 +1022,14 @@ class SimulationEngine:
                         pop_cfg.noise_seed
                     )
 
+            # The floor this population's neuron (converter) receives,
+            # resolved once and kept on the population, so the bundle records
+            # the value the run applied (encoder.input_floor_ma, schema
+            # 2.3.0) instead of deriving it a second time.
+            input_floor = resolve_input_floor(
+                pop_cfg.neuron_type, pop_cfg.neuron_model, pop_cfg.input_floor
+            )
+            pop["input_floor"] = input_floor
             pop_results = self._run_pop_from_drive(
                 drive=drive,
                 filter_module=filter_module,
@@ -1032,9 +1040,7 @@ class SimulationEngine:
                 dt_ms=self.config.simulation.dt_ms,
                 integrate_dt_ms=self.config.simulation.integrate_dt_ms,
                 noise_generator=noise_generator,
-                input_floor=resolve_input_floor(
-                    pop_cfg.neuron_type, pop_cfg.neuron_model, pop_cfg.input_floor
-                ),
+                input_floor=input_floor,
             )
             results[pop_name] = pop_results
 
