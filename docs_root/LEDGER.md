@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-2eb488e · CLOSED · decision · - · 2026-10-05
+the level-crossing converter takes an optional reference_leak_tau_ms: after each sub-step's events the reference relaxes toward the input by dt/tau (also while refractory), so only changes faster than theta/tau make events; None skips the line and is the v1.2.1 unit bit for bit (provisional, the other project's ruling 6)
+→ commit 6b4d00c
+
+## D-3ced5a0 · CLOSED · decision · - · 2026-10-05
+bundle schema 2.3.0 records encoder.input_floor_ma on every population, the floor its converter received (null = none), taken from the engine's own resolve_input_floor call and kept on the population
+→ commit 6b4d00c
+
 ## D-7d51fbe · CLOSED · decision · - · 2026-10-04
 release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed
 → commit 8757ca9
