@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-40e2072 · CLOSED · finding · tests/contract · 2026-10-05
+the leak-keeps-running-while-refractory rule is now held by a test that a paused-leak mutant fails.
+→ commit cae47dd
+
 ## D-70e4086 · CLOSED · decision · - · 2026-10-05
 release the leaky-reference level-crossing converter and bundle schema 2.3.0 as v1.3.0, tagged locally only and not pushed
 → commit 23ab440
