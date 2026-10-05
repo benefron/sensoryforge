@@ -1031,4 +1031,5 @@ Do not hand-edit between the markers.
 | 2026-10-04 | D-7d51fbe | release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed | `8757ca9` |
 | 2026-10-05 | D-2eb488e | the level-crossing converter takes an optional reference_leak_tau_ms: after each sub-step's events the reference relaxes toward the input by dt/tau (also while refractory), so only changes faster than theta/tau make events; None skips the line and is the v1.2.1 unit bit for bit (provisional, the other project's ruling 6) | `6b4d00c` |
 | 2026-10-05 | D-3ced5a0 | bundle schema 2.3.0 records encoder.input_floor_ma on every population, the floor its converter received (null = none), taken from the engine's own resolve_input_floor call and kept on the population | `6b4d00c` |
+| 2026-10-05 | D-70e4086 | release the leaky-reference level-crossing converter and bundle schema 2.3.0 as v1.3.0, tagged locally only and not pushed | `23ab440` |
 <!-- DECISIONS_LOG_END -->

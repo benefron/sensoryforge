@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-70e4086 · CLOSED · decision · - · 2026-10-05
+release the leaky-reference level-crossing converter and bundle schema 2.3.0 as v1.3.0, tagged locally only and not pushed
+→ commit 23ab440
+
 ## F-37d6c4d · CLOSED · finding · - · 2026-10-05
 the sigma-delta docstring and user guide said its anti-windup clip applies while the neuron is refractory; the code clips after every sub-step whenever refractory_ms > 0, and the words now say so (no behaviour change)
 → commit 30f5f4f
@@ -116,11 +120,13 @@ the sigma-delta docstring and user guide said its anti-windup clip applies while
 the level-crossing converter takes an optional reference_leak_tau_ms: after each sub-step's events the reference relaxes toward the input by dt/tau (also while refractory), so only changes faster than theta/tau make events; None skips the line and is the v1.2.1 unit bit for bit (provisional, the other project's ruling 6)
 → commit 6b4d00c
 ↔ 30f5f4f docs(converters): the event converter contract, the leaky reference, bundle schema 2.3.0 [
+↔ 23ab440 chore(release): SensoryForge 1.3.0 -- a leaky reference for the level-crossing converter
 
 ## D-3ced5a0 · CLOSED · decision · - · 2026-10-05
 bundle schema 2.3.0 records encoder.input_floor_ma on every population, the floor its converter received (null = none), taken from the engine's own resolve_input_floor call and kept on the population
 → commit 6b4d00c
 ↔ 30f5f4f docs(converters): the event converter contract, the leaky reference, bundle schema 2.3.0 [
+↔ 23ab440 chore(release): SensoryForge 1.3.0 -- a leaky reference for the level-crossing converter
 
 ## D-7d51fbe · CLOSED · decision · - · 2026-10-04
 release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed
