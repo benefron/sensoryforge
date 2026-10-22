@@ -134,6 +134,7 @@ bundle schema 2.3.0 records encoder.input_floor_ma on every population, the floo
 
 ## D-7d51fbe · CLOSED · decision · - · 2026-10-04
 release the whole-branch review's fixes as v1.2.1, tagged locally only and not pushed
+· tidied 2026-10-22: kept -- a distinct release (v1.2.1) from D-47d4dac, not a duplicate
 → commit 8757ca9
 
 ## F-abc9e64 · CLOSED · finding · - · 2026-10-04
@@ -150,6 +151,7 @@ with the other repo's values guarantee 11 covers every exploration (short-episod
 
 ## F-3fe9e9c · OPEN · finding · - · 2026-10-04
 a model session cannot hold both its declared contact fraction and exponential gaps when it holds few gaps; which to keep exact (exponential gaps with the fraction on average, or longer sessions) is the other project's owner's decision
+· tidied 2026-10-22: kept open -- the choice it names is the other project's owner's and has not been made
 → commit 0d6c48a
 
 ## D-0c2b6a3 · CLOSED · decision · - · 2026-10-04
@@ -182,6 +184,7 @@ the reviewer's charter-like data set fails at load since its dot_array spacing_m
 
 ## D-47d4dac · CLOSED · decision · - · 2026-10-04
 release the world 174 addendum as v1.2.0, tagged locally only and not pushed
+· tidied 2026-10-22: kept -- a distinct release (v1.2.0) from D-7d51fbe, not a duplicate
 → commit 85a8a32
 ↔ 8757ca9 chore(release): SensoryForge 1.2.1 -- the whole-branch review's fixes
 
@@ -262,6 +265,7 @@ the world §174 addendum plan's nine provisional decisions (P1-P9: contact types
 
 ## F-29e949e · OPEN · finding · docs/development · 2026-10-04
 a 120 s session at 80x80 and 1 ms is 3.1 GB of float32 stimulus that the simulation engine holds whole; the addendum chunks only the rendering
+· tidied 2026-10-22: kept open -- the Phase A11 scale tests will hit this limit; not a closed fact
 → commit 6b7c43a
 ↔ 5b53366 feat(world): render long entries in time chunks [structural]
 
@@ -448,6 +452,7 @@ SimulationEngine.run with bundle_dir and return_intermediates=False raised KeyEr
 ## D-673e0ed · CLOSED · decision · - · 2026-09-28
 the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of the benchmark stimulus's rate of pressure change (10x the lowest gain at which the held benchmark's ramp makes RA fire) -- instead of matching TouchSim's RA sensitivity, so RA's rate stays proportional to the rate of change over the benchmark range; the Izhikevich recipe keeps the TouchSim-matched RA gain
 · Rejected: the TouchSim-matched AdEx RA gain (740) | it compresses RA's onset rate to 149-320 Hz near the refractory ceiling over the benchmark ramp speeds (R^2 0.81 against speed)
+· tidied 2026-10-22: kept -- complementary to D-8dde454 (each recipe's gain rule), not a contradiction
 → commit df3320e
 ↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
 ↔ 995a001 fix(presets): round the AdEx recipe's low-threshold RA gain up, to 270
@@ -455,6 +460,7 @@ the AdEx recipe's RA gain is set like its SA gain -- RA fires from about 10% of 
 ## D-8dde454 · CLOSED · decision · - · 2026-09-28
 the Izhikevich recipe keeps its TouchSim-fitted spike-frequency adaptation (d 15 for SA, 24 for RA), because without it SA is too steep to be graded; the AdEx recipe, pressure-simulation's model, stays non-adapting, with SA's gain set so SA fires from about 10% of the benchmark pressure (10x the lowest gain at which a held benchmark stimulus fires), accepting rates above P5's band for a held stimulus
 · Rejected: keeping P5's 45 Hz held-stimulus gain for the non-adapting AdEx | its SA is then silent below about 40% of the benchmark pressure, so weak pressures are invisible to SA
+· tidied 2026-10-22: kept -- complementary to D-673e0ed (each recipe's gain rule), not a contradiction
 → commit 67c45b5
 ↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 ↔ 29be3f0 feat(neurons): simple non-adapting AdEx by default; adaptation and the clamp opt-in
