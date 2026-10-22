@@ -200,20 +200,31 @@ TACTILE_WORDS = re.compile(
 )
 
 
-#: The one core module that names a modality: it registers the built-in metric packs.
+#: The core modules that name a modality: ``registry.py`` registers the built-in metric
+#: packs, ``declared/__init__.py`` imports the built-in declared adapter.
 NAMES_PACKS = "registry.py"
+NAMES_ADAPTER = Path("declared") / "__init__.py"
 
 
 def _core_sources() -> List[Path]:
     files = sorted((EVAL / "audit").rglob("*.py"))
     files += sorted(p for p in EVAL.glob("*.py") if p.name != NAMES_PACKS)
+    for sub in ("compare", "declared"):
+        files += sorted(
+            p
+            for p in (EVAL / sub).rglob("*.py")
+            if p.relative_to(EVAL) != NAMES_ADAPTER
+        )
     return files
 
 
-def test_the_core_audit_uses_no_tactile_word():
+def test_the_core_stages_use_no_tactile_word():
     files = _core_sources()
     assert any(p.name == "reader.py" for p in files)
-    assert not any(p.name == NAMES_PACKS for p in files)  # the one exemption
+    assert not any(p.name == NAMES_PACKS for p in files)  # the two exemptions
+    assert not any(p.relative_to(EVAL) == NAMES_ADAPTER for p in files)
+    assert any(p.relative_to(EVAL) == Path("compare") / "run.py" for p in files)
+    assert any(p.relative_to(EVAL) == Path("declared") / "base.py" for p in files)
     hits = [
         f"{p.relative_to(REPO)}:{n}: {m.group(0)}"
         for p in files
@@ -221,7 +232,7 @@ def test_the_core_audit_uses_no_tactile_word():
         for m in [TACTILE_WORDS.search(line)]
         if m
     ]
-    assert not hits, "tactile words in the core audit:\n" + "\n".join(hits)
+    assert not hits, "tactile words in the core stages:\n" + "\n".join(hits)
 
 
 @pytest.mark.parametrize(

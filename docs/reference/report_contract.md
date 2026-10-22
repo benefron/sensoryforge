@@ -293,8 +293,10 @@ shape.
 - **Centroid and weights.** `w = |x|` for every value, including values at or below
   `zero_tolerance`; a frame is a centroid candidate only when it is active, so its weight sum
   is positive.
-- **`core.frames.direction`.** The net displacement counts as 0 when it is at most `1e-9`
-  of the layout's largest extent, so a static blob does not get a direction from rounding.
+- **`core.frames.direction`.** The net displacement counts as 0 when it is at most `1e-6`
+  of the layout's largest extent (the *motion floor*), so a static blob does not get a
+  direction from float32 rounding of its scaled frames, which moves its centroid by up to
+  about `1e-7` of the extent. The slowest motion worth reporting is about `2e-5` of it.
   The angle is in [0, 360).
 - **`core.frames.dominant_frequency`.** A bout whose mean-removed signal swings by at most
   `1e-9` of the signal's own largest magnitude carries no power (the value is `null`). Ties
@@ -327,7 +329,7 @@ first `p0` and last `p1`.
 | `tactile.episode.rise_time` | time | `(p0 − a) · dt` |
 | `tactile.episode.plateau_time` | time | `(p1 − p0 + 1) · dt` |
 | `tactile.episode.fall_time` | time | `(b − 1 − p1) · dt` |
-| `tactile.motion.speed` | space/time | mean speed of the centroid steps within plateaus whose length exceeds `motion_tolerance`; null if none |
+| `tactile.motion.speed` | space/time | mean speed of the centroid steps that move (longer than the motion floor, section 6.5), within the bouts, if their total length exceeds `motion_tolerance`; null if none |
 
 These are the world's episode phases (touch, hold and slide, release), read back from the
 frames. They mean what their names say only for an unmodulated envelope. Under a modulation
@@ -348,11 +350,14 @@ name, unit or shape; they are listed for the review at R-A4.
   them. With a tolerance of 1 the whole bout is plateau.
 - **Averaging.** Rise, plateau and fall are counted in frames per bout, averaged over the
   entry's bouts, then multiplied by `dt`.
-- **Speed.** A plateau's path is the sum of its centroid steps (consecutive frames, the
-  `core.frames.centroid_*` weighting). It *moves* when that path is longer than
-  `motion_tolerance`, so with the default 0 a plateau that does not move at all is left out.
-  The value pools the steps of the moving plateaus: total step length over the number of
-  steps times `dt`. It is null when no plateau moves, and its `resolution` is null.
+- **Speed** (changed at R-A4, D2; it first pooled the plateau's steps). A *moving step* is
+  the centroid step between two consecutive frames of a bout (the `core.frames.centroid_*`
+  weighting) that is longer than the motion floor of section 6.5 (`1e-6` of the layout's
+  largest extent). The value pools the moving steps of all the entry's bouts: their total
+  length over their number times `dt`. The plateau plays no part, so a still hold before a
+  slide does not dilute it, and the changing envelope of a shape crossing the lattice does
+  not shorten it. It is null when the total length of the moving steps is not longer than
+  `motion_tolerance` (with the default 0: when nothing moves), and its `resolution` is null.
 - **Units.** `drive` and `filtered` are stated as `mA` with the source
   `docs/user_guide/units_and_gains.md`; a data set that names another unit for either fails
   the audit with a unit conflict (section 3).
@@ -413,14 +418,14 @@ each item at its start time.
 |---|---|---|---|
 | `core.frames.duration` | the row's `duration_ms` | manifest | never |
 | `core.frames.onset_time` | start of the first contact interval | timeline | no contact within the duration |
-| `core.frames.offset_time` | end of the last contact interval | timeline | no contact |
-| `core.frames.active_time`, `active_fraction` | total length of the intervals (over the duration) | timeline | never |
-| `core.frames.bouts`, `gap_mean`, `gap_max` | count of the merged intervals, and the gaps between them | timeline | `gap_*`: fewer than two |
+| `core.frames.offset_time` | end of the last contact interval | timeline | no contact; modulation reaches 0 |
+| `core.frames.active_time`, `active_fraction` | total length of the intervals (over the duration) | timeline | modulation reaches 0 |
+| `core.frames.bouts`, `gap_mean`, `gap_max` | count of the merged intervals, and the gaps between them | timeline | modulation reaches 0; `gap_*`: fewer than two |
 | `core.frames.peak` | `amplitude` (+ `background`) | shape peak (§9) | modulated; several shapes; `clamp_min` above 0 |
 | `core.frames.centroid_x`, `_y` | `x_mm`, `y_mm` | position | an unbounded shape; motion |
 | `core.frames.direction`, `tactile.motion.speed` | `direction_deg`, `speed_mm_per_ms` | motion | no motion or `slide_ms` 0; an unbounded shape |
 | `core.frames.dominant_frequency` | `frequency_hz / 1000` (`sine`), `rate_hz / 1000` (`pulses`) in 1/ms | modulation | no modulation |
-| `tactile.episode.rise_time`, `plateau_time`, `fall_time` | `touch_ms`, `hold_ms + slide_ms`, `release_ms` | timeline | modulated |
+| `tactile.episode.rise_time`, `plateau_time`, `fall_time` | `touch_ms`, `hold_ms + slide_ms`, `release_ms` | timeline | modulated; motion |
 
 Data-set level: each group's `n_entries` is the manifest's count (it shows entries the batch
 lost). The world declares nothing about responses, so no `core.response.*` or `core.input.*`
@@ -436,6 +441,12 @@ shape. The reasons below are the strings counted under `omitted`.
   `release`), in the unrounded ms the world gives, clipped to `duration_ms` and merged when
   one ends where the next starts. A draw with no contact within the duration has no onset
   or offset (`no contact`) and declares 0 for `active_time` and `bouts`.
+- **A modulation that reaches 0** (R-A4, D4). A `sine` or `pulses` modulation with `depth`
+  1 or more (the default is 1) renders exactly 0 between taps, which cuts the contact into
+  bouts the timeline cannot see. The adapter then leaves out `offset_time`, `active_time`,
+  `active_fraction`, `bouts`, `gap_mean` and `gap_max` (`modulation reaches 0`); `onset_time`
+  stays, since the first tap starts the contact. Declaring them by counting taps is a
+  possible later addition.
 - **Peak.** Declared as `amplitude` (times the pattern element's weight, plus `background`)
   for the shapes whose kernel peaks at 1: gaussian, disc, bar and grating. Any other shape
   is left out (`shape not known`, or `indenter` for a depth-driven shape). Other left-out
@@ -454,16 +465,26 @@ shape. The reasons below are the strings counted under `omitted`.
   class without its own motion slides at the draw's `speed_mm_per_ms` towards its
   `direction_deg` (taken modulo 360); a class that declares a linear motion slides along it,
   with the travel spread over every contact's slide. Left out: `no motion`, `motion not
-  linear`, `unbounded shape`, `shape not known`, `background`, `session`. Note that
-  `tactile.motion.speed` pools the centroid steps of the *plateau*, which includes the still
-  hold before the slide, while the declared speed is the speed *during* the slide: the two
-  differ by the share of the plateau that is hold, and the comparison shows that as a raw
-  difference.
+  linear`, `unbounded shape`, `shape not known`, `background`, `session`. The declared
+  speed is the speed *during* the slide, and `tactile.motion.speed` pools the steps that
+  move (section 7.1), so the raw difference measures how well the slide is rendered and
+  sampled. Where the canvas cuts the shape off (a σ 0.3 mm Gaussian on a 1.05 mm canvas is
+  cut at about ±1.75 σ) the weighted centroid moves at about 0.6–0.7 of the true speed and
+  is pulled towards the middle, so speed, direction and centroid read low there; the
+  adapter does not know the sensor extent and still declares them (open, see the review R-A4,
+  finding 7).
 - **Frequency.** `frequency_hz / 1000` (sine) or `rate_hz / 1000` (pulses), in 1/ms; a
   modulation kind the adapter does not know is left out (`modulation not known`).
 - **Episode phases.** `touch_ms`, `hold_ms + slide_ms`, `release_ms`, per contact. Left out
-  when `modulated`, when the draw is `truncated` by the duration, when contacts `merge` into
-  fewer bouts than `contacts` (a zero pause), and for a `session`.
+  when `modulated`, when the shape moves (`motion`: the envelope `max |x|` of a moving shape
+  changes as it crosses the lattice and the canvas edge, so it has no flat plateau), when the
+  draw is `truncated` by the duration, when contacts `merge` into fewer bouts than `contacts`
+  (a zero pause), and for a `session`.
+- **The sampled peak** (R-A4, finding 6). `core.frames.peak` is the declared shape peak. The
+  sensors sample the kernel at lattice points, so the measured peak reaches `amplitude` only
+  when the centre falls on a sensor; the measured value is below the declared one in every
+  pair, by up to the kernel's change over half a sensor spacing. This is the definition of the
+  `shape peak` basis, not a fault.
 - **Channels.** A world with more than one channel gets one value per channel, each from
   the draws that drive that channel; a channel nothing drives declares `active_time` 0 and
   `bouts` 0 and leaves the rest out (`no contact`).
@@ -537,10 +558,12 @@ Choices made while building A4 (none changes a metric id, unit or an existing fi
   the entry pairs whose difference was computed. A declared id the audit does not carry is
   listed in `unpaired.declared_only` and still pairs, as `missing_measured`, in each entry.
 - **Input paths** are written relative to the output folder.
-- **Summaries cover different entries.** A group row pairs the audit's summary of *all* its
-  entries with the declared summary of the entries the declaration determines, so their
-  `n` and their means differ when values are left out. This is why the optional
-  `distributions` block exists.
+- **Summaries cover the same entries** (R-A4, D5). For each key and group, the stage
+  summarises the *measured* values of the entries whose declared row carries that key, with
+  the audit's summariser (`audit/summary.py`) and `histogram_bins`, and pairs that with the
+  declared summary. The measured `n` is then the declared `n` minus the group's
+  `missing_measured`, and a difference in a mean or quantile is not a difference of
+  populations. `audit.json` keeps the summaries of all the entries.
 - **`distributions` (optional, added in A4, the tag stays).** For each declared value key
   and each group (`dataset`, then `class` and `split` labels): over the entries whose
   difference was computed, `n_pairs`, `diff_mean`, `diff_abs_mean`, `ks`, `wasserstein` and

@@ -129,45 +129,71 @@ def _slide(n_hold=6, dt_frames=1):
     return x
 
 
-def test_speed_is_the_centroid_step_over_dt_within_the_plateau():
-    x = _slide(
-        n_hold=5
-    )  # plateau frames 5..9, four steps of one sensor = 2 space units
+def test_speed_is_the_centroid_step_over_dt_of_the_moving_steps():
+    x = _slide(n_hold=5)  # four steps of one sensor = 2 space units each
     m = _measure(x, dt=0.5)
     assert m["plateau_time"] == 5 * 0.5
     assert m["speed"] == pytest.approx(2.0 / 0.5)
 
 
-def test_motion_outside_the_plateau_is_not_counted():
-    """The rise frame sits far from the plateau; the plateau itself holds still."""
+def test_a_still_hold_before_the_slide_does_not_dilute_the_speed():
+    """The hold's zero steps are not moving steps, so they are left out of the mean."""
+    x = _frames(40)
+    for k in range(6):  # hold 6 frames on one sensor
+        x[5 + k, 2 * COLS] = 1.0
+    for k in range(1, 5):  # then slide along dim 1, 2 space units per frame
+        x[10 + k, 2 * COLS + k] = 1.0
+    m = _measure(x, dt=1.0)
+    assert m["speed"] == pytest.approx(2.0)
+
+
+def test_a_jump_in_the_rise_counts_as_movement_of_the_entry():
     x = _frames(30)
     x[3:12, CENTRE] = [0.2, 0.5, 1, 1, 1, 1, 1, 0.5, 0.2]
     x[3, 0] = 0.2  # a distant sensor in the first frame: the centroid jumps there
-    m = _measure(x)
-    assert m["plateau_time"] == 5.0
-    assert m["speed"] is None
+    assert _measure(x)["speed"] is not None
+    assert _measure(x, motion=100.0)["speed"] is None
 
 
 def test_a_still_plateau_has_no_speed():
     x = _envelope([1, 1, 1, 1], start=3)
     assert _measure(x)["speed"] is None
+    # a still shape through float32 ramps has no speed either
+    ramped = _envelope(np.float32(0.1) * np.arange(1, 11, dtype=np.float32), start=2)
+    assert _measure(ramped)["speed"] is None
 
 
 def test_motion_tolerance_sets_how_long_a_path_counts_as_moving():
-    x = _slide(n_hold=5)  # the path is 8 space units
+    x = _slide(n_hold=5)  # the moving path is 8 space units
     assert _measure(x, motion=7.9)["speed"] == pytest.approx(2.0)
     assert _measure(x, motion=8.0)["speed"] is None
 
 
-def test_speed_pools_the_steps_of_the_moving_plateaus():
+def test_speed_pools_the_moving_steps_of_all_bouts():
     x = _frames(60)
     for k, j in enumerate((0, 1, 2)):  # two steps of 2 space units
         x[5 + k, 2 * COLS + j] = 1.0
     for k, j in enumerate((0, 2, 4)):  # two steps of 4 space units
         x[30 + k, 2 * COLS + j] = 1.0
     assert _measure(x, dt=1.0)["speed"] == pytest.approx((2 + 2 + 4 + 4) / 4)
-    # only the faster bout's path (8) is longer than 6: the slower one is left out
-    assert _measure(x, dt=1.0, motion=6.0)["speed"] == pytest.approx(4.0)
+    # the tolerance applies to the entry's total moving path (12), not to each bout's
+    assert _measure(x, dt=1.0, motion=11.9)["speed"] == pytest.approx(3.0)
+    assert _measure(x, dt=1.0, motion=12.0)["speed"] is None
+
+
+def test_a_small_shape_on_a_wide_canvas_reads_its_true_speed():
+    """A sigma-0.3 gaussian with float32 ramps, sliding at 0.02 per frame, 12 wide."""
+    g = np.linspace(-6.0, 6.0, 61)
+    coords = np.array([[a, b] for a in g for b in g])
+    n_t, speed = 60, 0.02
+    x = np.zeros((n_t, coords.shape[0]), dtype=np.float32)
+    for t in range(5, 55):
+        ramp = min(1.0, (t - 4) / 10.0, (55 - t) / 10.0)
+        cx = (t - 5) * speed
+        d2 = (coords[:, 0] - cx) ** 2 + coords[:, 1] ** 2
+        x[t] = ramp * np.exp(-d2 / (2 * 0.3**2))
+    m = measure_channel(x, coords, 1.0, 0.01, 0.0)
+    assert m["speed"] == pytest.approx(speed, rel=0.05)
 
 
 def test_the_space_unit_scales_the_speed():

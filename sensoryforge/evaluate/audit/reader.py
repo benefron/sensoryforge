@@ -199,11 +199,18 @@ def read_manifest_labels(path: Path) -> Dict[str, EntryRow]:
     return rows
 
 
-def read_index(folder: Path) -> Dict[str, Dict[str, Any]]:
+def read_index(
+    folder: Path, skipped: Optional[List[Tuple[str, int]]] = None
+) -> Dict[str, Dict[str, Any]]:
     """Read ``index/task_*.jsonl``, the last row per entry winning.
+
+    A line that is not a JSON object is skipped, so one corrupt line costs only the
+    entry it described (which then falls back to its bundle) and the audit goes on.
 
     Args:
         folder: The data-set folder.
+        skipped: If given, ``(file name, line number)`` of each skipped line is
+            appended to it.
 
     Returns:
         ``{entry: {column: value}}`` restricted to ``allowlist.INDEX_COLUMNS``. A later
@@ -212,10 +219,17 @@ def read_index(folder: Path) -> Dict[str, Dict[str, Any]]:
     out: Dict[str, Dict[str, Any]] = {}
     for path in sorted((folder / "index").glob("task_*.jsonl")):
         with open(path, "r", encoding="utf-8") as fh:
-            for line in fh:
+            for number, line in enumerate(fh, 1):
                 if not line.strip():
                     continue
-                raw = json.loads(line)
+                try:
+                    raw = json.loads(line)
+                except ValueError:  # JSONDecodeError is a ValueError
+                    raw = None
+                if not isinstance(raw, dict):
+                    if skipped is not None:
+                        skipped.append((path.name, number))
+                    continue
                 row = {k: raw.get(k) for k in allowlist.INDEX_COLUMNS}
                 entry = row["entry"]
                 if not isinstance(entry, str):
@@ -329,7 +343,9 @@ class DatasetReader:
         self._user_units = dict(user_units or {})
         self._pack_units = tuple(pack_units)
         labels = read_manifest_labels(self.manifest)
-        index = read_index(self.folder)
+        #: ``(index file, line number)`` of each index line that was not JSON.
+        self.index_skipped: List[Tuple[str, int]] = []
+        index = read_index(self.folder, self.index_skipped)
         self.index_only: List[str] = sorted(set(index) - set(labels))
         self._rows: Dict[str, EntryRow] = {}
         for entry in sorted(labels):

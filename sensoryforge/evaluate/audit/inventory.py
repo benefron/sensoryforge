@@ -40,6 +40,8 @@ class Inventory:
         populations: ``(name, readout, n_units)`` shared by all opened entries.
         units: Resolved units by quantity (``None`` when no entry opened).
         index_only: Entry ids the index lists and the manifest does not.
+        index_skipped: ``(index file, line number)`` of each index line that was not
+            JSON and was skipped.
     """
 
     reader: DatasetReader
@@ -50,6 +52,7 @@ class Inventory:
     populations: Tuple[Tuple[str, str, int], ...]
     units: Optional[Dict[str, Optional[Dict[str, str]]]]
     index_only: List[str] = field(default_factory=list)
+    index_skipped: List[Tuple[str, int]] = field(default_factory=list)
 
     @property
     def n_entries(self) -> int:
@@ -220,4 +223,5 @@ def inventory(reader: DatasetReader) -> Inventory:
         populations=() if ref is None else ref.populations,
         units=None if ref is None else reader.units,
         index_only=reader.index_only,
+        index_skipped=reader.index_skipped,
     )

@@ -71,9 +71,14 @@ knows the episode's touch, hold and release times, has something measured to be 
 | `tactile.episode.rise_time` | time | from the start of a bout to the first frame on its plateau |
 | `tactile.episode.plateau_time` | time | the plateau: first to last frame near the bout's peak |
 | `tactile.episode.fall_time` | time | from the end of the plateau to the end of the bout |
-| `tactile.motion.speed` | space/time | the mean centroid speed within the plateaus that move |
+| `tactile.motion.speed` | space/time | the mean speed of the centroid steps that move, in the entry's bouts |
 
-Each is measured per bout on the **envelope**, the largest absolute value over the sensors
+Speed is the pooled length of the centroid steps between consecutive frames that are
+longer than the *motion floor* (`1e-6` of the layout's largest extent, so float32 rounding of
+a still shape is not motion), over their number times `dt`; the plateau plays no part. It is
+null when nothing moves.
+
+The three phases are measured per bout on the **envelope**, the largest absolute value over the sensors
 in each frame, and averaged over the entry's bouts. A bout that only rises or only falls has
 a fall or rise of 0; a bout with a flat top is all plateau. The frames lie at the data's own
 step, so a phase is a whole number of frames times `dt` and carries `dt` as its resolution.
@@ -97,7 +102,7 @@ the import wall and is free to use tactile words, where the core is not.
 | `core` | `zero_tolerance` | 0 | a frame value is active when its magnitude exceeds this (frame unit) |
 | `core` | `histogram_bins` | 32 | bins of every summary's histogram |
 | `tactile` | `plateau_tolerance` | 0.01 | a frame is on the plateau when its envelope is within this share of the bout's peak |
-| `tactile` | `motion_tolerance` | 0 | a plateau counts as moving when its centroid path is longer than this (space unit) |
+| `tactile` | `motion_tolerance` | 0 | the entry counts as moving when its moving centroid steps total more than this (space unit) |
 
 Pass them with `--param core.zero_tolerance=0.01` or `params={"core": {...}}`. They are
 recorded under `params` in `audit.json`.

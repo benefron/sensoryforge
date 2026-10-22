@@ -66,10 +66,12 @@ the entry pairs by pairing.
 
 `dataset` and `groupings` pair the two sides' **summaries** statistic by statistic (`n`,
 `mean`, `std`, `min`, `q05` to `q95`, `max`) for the data set, each class and each split.
-Read the `n` rows first. The two summaries cover different entries when the declaration
-leaves a value out (a modulated draw has no declared peak, a still draw has no speed), so
-their means differ for that reason alone. The statistics of the *same entries* are in
-`distributions`.
+Both summaries cover the **same entries**: the measured one is taken over the measured
+values of the entries whose declared row carries the key, so when the declaration leaves a
+value out (a modulated draw has no declared peak, a still draw has no speed) the
+measured `n` is the declared `n` minus that group's `missing_measured`, and a difference in
+a mean is not a difference of populations. `audit.json` still holds the summaries of all the
+entries. The per-entry differences of those entries are in `distributions`.
 
 `distributions` (optional field, the tag is unchanged) has, for each metric and each group,
 over the entries whose difference was computed:

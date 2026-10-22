@@ -36,14 +36,16 @@ def measure_channel(
     plateau_tolerance: float,
     motion_tolerance: float,
 ) -> Dict[str, Optional[float]]:
-    """The episode phases and plateau speed of one channel.
+    """The episode phases and moving speed of one channel.
 
     A bout covers frames ``[a, b)`` and peaks at ``p = max e``. Its plateau is the
     frames with ``e >= (1 - plateau_tolerance) * p``, from the first (``p0``) to the
     last (``p1``) of them. Rise, plateau and fall are ``(p0 - a)``,
     ``(p1 - p0 + 1)`` and ``(b - 1 - p1)`` frames, in time, averaged over the bouts.
-    Speed is the mean length of the centroid steps inside the plateaus, divided by
-    ``dt``, over the plateaus whose path length exceeds ``motion_tolerance``.
+    Speed is the pooled length of the centroid steps that move (a step between
+    consecutive frames of a bout longer than ``frame_metrics.MOVE_FLOOR`` of the
+    layout's largest extent), divided by their number times ``dt``; the plateau plays
+    no part. It is ``None`` unless their total length exceeds ``motion_tolerance``.
 
     Args:
         x: One channel's frames ``[T, M]``.
@@ -51,12 +53,12 @@ def measure_channel(
         dt: Frame step in the time unit.
         plateau_tolerance: Share of a bout's peak a frame may fall short of and stay on
             the plateau.
-        motion_tolerance: Least path length (space unit) a plateau needs to count as
-            moving.
+        motion_tolerance: Least total path length (space unit) of the moving steps
+            for the entry to count as moving.
 
     Returns:
         ``{"rise_time", "plateau_time", "fall_time", "speed"}`` (time unit; space/time),
-        ``None`` where undefined (no bout; no moving plateau).
+        ``None`` where undefined (no bout; no motion).
     """
     out: Dict[str, Optional[float]] = {
         "rise_time": None,
@@ -68,38 +70,38 @@ def measure_channel(
     bouts = frame_metrics.runs(env > 0.0)
     if bouts.shape[0] == 0:
         return out
-    rise, plateau, fall, steps = [], [], [], []
+    rise, plateau, fall, moving = [], [], [], []
+    floor_len = frame_metrics.MOVE_FLOOR * max(
+        float(np.ptp(coords, axis=0).max()), 1e-300
+    )
     for a, b in bouts:
         seg = env[a:b]
-        floor = (1.0 - plateau_tolerance) * float(seg.max())
-        held = np.flatnonzero(seg >= floor)
+        held = np.flatnonzero(seg >= (1.0 - plateau_tolerance) * float(seg.max()))
         p0, p1 = int(a + held[0]), int(a + held[-1])
         rise.append(p0 - a)
         plateau.append(p1 - p0 + 1)
         fall.append(b - 1 - p1)
-        if p1 > p0:
-            frames = np.arange(p0, p1 + 1)
-            cen = frame_metrics.centroids(x, frames, coords)["centroid"]
+        if b - a > 1:
+            cen = frame_metrics.centroids(x, np.arange(a, b), coords)["centroid"]
             length = np.linalg.norm(np.diff(cen, axis=0), axis=1)
-            if float(length.sum()) > motion_tolerance:
-                steps.append(length)
+            moving.append(length[length > floor_len])
     out["rise_time"] = float(np.mean(rise)) * dt
     out["plateau_time"] = float(np.mean(plateau)) * dt
     out["fall_time"] = float(np.mean(fall)) * dt
-    if steps:
-        pooled = np.concatenate(steps)
+    pooled = np.concatenate(moving) if moving else np.zeros(0)
+    if pooled.size and float(pooled.sum()) > motion_tolerance:
         out["speed"] = float(pooled.sum()) / (pooled.size * dt)
     return out
 
 
 class TactilePack(MetricPack):
-    """Episode phases and plateau speed, read from the frames.
+    """Episode phases and moving speed, read from the frames.
 
     Args:
         plateau_tolerance: A frame belongs to a bout's plateau when its envelope is at
             least ``(1 - plateau_tolerance)`` of the bout's peak (default 0.01).
-        motion_tolerance: A plateau counts as moving when the path of its centroid is
-            longer than this (space unit; default 0, any movement at all).
+        motion_tolerance: An entry counts as moving when the total path of its moving
+            centroid steps is longer than this (space unit; default 0).
 
     Raises:
         ValueError: If ``plateau_tolerance`` is outside [0, 1] or ``motion_tolerance``
@@ -149,7 +151,8 @@ class TactilePack(MetricPack):
                 default=0.0,
                 min_val=0.0,
                 unit="space unit",
-                help="A plateau counts as moving when its centroid path is longer.",
+                help="An entry counts as moving when its moving centroid steps total "
+                "more than this.",
             ),
         ]
 

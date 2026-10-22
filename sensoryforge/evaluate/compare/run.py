@@ -18,11 +18,13 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
+from sensoryforge.evaluate.audit.summary import summarise_values
 from sensoryforge.evaluate.compare.distribution import distribution_entry
 from sensoryforge.evaluate.compare.pairing import (
     COMPUTED,
     PAIRINGS,
     STATS,
+    is_number,
     pair_values,
 )
 from sensoryforge.evaluate.stage_io import (
@@ -94,8 +96,8 @@ def pair_summaries(
     """Pair two groups' summaries statistic by statistic.
 
     Args:
-        measured: The audit's summaries of the group, or ``None`` when the audit has no
-            such group.
+        measured: Summaries of the measured values of the entries the declared summaries
+            cover, or ``None`` when the audit has no such group.
         declared: The declared side's summaries of the group.
         measured_units: ``{metric id: unit symbol or None}`` of the audit.
         declared_units: The same for the declared side.
@@ -124,17 +126,25 @@ def pair_summaries(
 
 
 class _PairColumns:
-    """Per metric key, the entries that declare it and their paired values."""
+    """Per metric key, the entries that declare it and their paired values.
+
+    ``raw`` is the measured value of every such entry whether or not a difference was
+    computed (NaN when the audit has none), for the group summaries (contract 9.1).
+    """
 
     def __init__(self) -> None:
         self.entry = array("q")
         self.measured = array("d")
         self.declared = array("d")
+        self.raw = array("d")
 
-    def add(self, entry: int, measured: float, declared: float) -> None:
+    def add(
+        self, entry: int, measured: float, declared: float, raw: float = np.nan
+    ) -> None:
         self.entry.append(entry)
         self.measured.append(measured)
         self.declared.append(declared)
+        self.raw.append(raw)
 
 
 def run_compare(
@@ -210,11 +220,15 @@ def run_compare(
                 row = {k: row[k] for k in _PAIR_ORDER if k in row}
                 pairs.append(row)
                 col = columns.setdefault(key, _PairColumns())
+                value = measured.get(key)
+                raw = float(value) if is_number(value) else np.nan
                 if pair["pairing"] in COMPUTED:
                     n_pairs[key[0]] = n_pairs.get(key[0], 0) + 1
-                    col.add(index, float(pair["measured"]), float(pair["declared"]))
+                    col.add(
+                        index, float(pair["measured"]), float(pair["declared"]), raw
+                    )
                 else:
-                    col.add(index, np.nan, np.nan)
+                    col.add(index, np.nan, np.nan, raw)
             yield {
                 "entry": drow["entry"],
                 "split": drow["split"],
@@ -245,25 +259,58 @@ def run_compare(
         "declared_only": [i for i in d_order if i not in set(a_ids)],
     }
 
-    def group_pairs(measured_group: Any, declared_group: Mapping[str, Any]) -> Any:
+    splits = np.array([m[0] for m in entry_meta], dtype=object)
+    classes = np.array([m[1] for m in entry_meta], dtype=object)
+
+    def measured_summaries(
+        keys: Sequence[Key], selection: Optional[np.ndarray]
+    ) -> List[Dict[str, Any]]:
+        """The audit's summariser over the measured values of the declared set.
+
+        Per key, the values of the entries (of the group) whose declared row carries
+        that key, so a measured and a declared statistic summarise the same entries.
+        """
+        out = []
+        for key in keys:
+            col = columns.get(key)
+            if col is None:
+                values = np.zeros(0)
+            else:
+                values = np.frombuffer(col.raw, dtype=np.float64)
+                if selection is not None:
+                    values = values[selection[np.frombuffer(col.entry, dtype=np.int64)]]
+            gone = np.isnan(values)
+            out.append(
+                summarise_values(values[~gone], int(gone.sum()), histogram_bins, *key)
+            )
+        return out
+
+    def group_pairs(
+        measured_group: Any,
+        declared_group: Mapping[str, Any],
+        selection: Optional[np.ndarray],
+    ) -> Any:
+        keys = [_key(s) for s in declared_group["summaries"]]
         return pair_summaries(
-            None if measured_group is None else measured_group["summaries"],
+            None if measured_group is None else measured_summaries(keys, selection),
             declared_group["summaries"],
             a_units,
             d_units,
         )
 
-    dataset = group_pairs(a["dataset"], d["dataset"])
+    dataset = group_pairs(a["dataset"], d["dataset"], None)
     groupings = {
         kind: {
-            label: group_pairs(a["groupings"][kind].get(label), group)
+            label: group_pairs(
+                a["groupings"][kind].get(label),
+                group,
+                (classes if kind == "class" else splits) == label,
+            )
             for label, group in d["groupings"][kind].items()
         }
         for kind in ("class", "split")
     }
 
-    splits = np.array([m[0] for m in entry_meta], dtype=object)
-    classes = np.array([m[1] for m in entry_meta], dtype=object)
     ordered_keys = sorted(
         columns,
         key=lambda k: (d_order.get(k[0], len(d_order)), k[0], k[1] or 0, k[2] or ""),

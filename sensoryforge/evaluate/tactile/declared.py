@@ -61,6 +61,17 @@ _CATALOGUE: Tuple[Tuple[str, str, str], ...] = (
     ("tactile.episode.fall_time", "time", "timeline"),
 )
 
+#: The timeline metrics that a modulation reaching 0 inside a contact makes unknowable
+#: (onset stays: the first tap starts the contact).
+_TIMELINE_EXTENT = (
+    "offset_time",
+    "active_time",
+    "active_fraction",
+    "bouts",
+    "gap_mean",
+    "gap_max",
+)
+
 #: A declared number, or the reason it is left out.
 Outcome = Union[float, int, str]
 
@@ -139,6 +150,16 @@ def _shape_problem(layer: Mapping[str, Any]) -> Optional[str]:
     if shape["kind"] not in _CENTRED_SHAPES:
         return "indenter" if registered.indenter else "shape not known"
     return None
+
+
+def _reaches_zero(layer: Mapping[str, Any]) -> bool:
+    """True when the draw's modulation takes the frames to exactly 0 inside a contact.
+
+    A sine or a pulse train with ``depth`` 1 does (``1 - depth * ...`` reaches 0); any
+    other modulation is not known to, so the timeline basis is left alone for it.
+    """
+    mod = layer["modulation"]
+    return mod["kind"] in ("sine", "pulses") and float(mod.get("depth", 1.0)) >= 1.0
 
 
 def _moves(layer: Mapping[str, Any], slide: float) -> bool:
@@ -282,6 +303,13 @@ class TactileAdapter(DeclaredAdapter):
             out[f"core.frames.{key}"] = (
                 stat(gaps) if gaps else _Omit("fewer than two bouts")
             )
+        # Frames that go to 0 inside a contact cut it into bouts the timeline cannot see.
+        if any(
+            layer is not None and _reaches_zero(layer)
+            for layer in (d.to_layer() for _s, d in mine)
+        ):
+            for key in _TIMELINE_EXTENT:
+                out[f"core.frames.{key}"] = _Omit("modulation reaches 0")
         rest = [i for i, _e, _b in _CATALOGUE if i not in out]
         if is_session:
             reason = "session"
@@ -395,6 +423,8 @@ class TactileAdapter(DeclaredAdapter):
         phase_reason: Optional[str] = None
         if modulated:
             phase_reason = "modulated"
+        elif moves:  # the envelope of a moving shape is not flat across the canvas
+            phase_reason = "motion"
         elif draw.end_ms > duration:
             phase_reason = "truncated"
         elif len(spans) != int(timing["contacts"]):

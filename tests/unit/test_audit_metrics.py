@@ -148,6 +148,34 @@ def test_static_frames_have_no_direction():
     assert _measure(x)["direction"] is None
 
 
+def _gaussian_with_ramps(speed, n_t=40):
+    """A sigma-0.3 float32 gaussian on an 8 x 8, 1.05 mm canvas, drifting ``speed`` per
+    frame along x and y, with scaled (7 up, 9 down) ramps."""
+    g = np.linspace(-0.525, 0.525, 8)
+    coords = np.array([[a, b] for a in g for b in g])
+    x = np.zeros((n_t, coords.shape[0]), dtype=np.float32)
+    for t in range(2, n_t - 2):
+        ramp = min(1.0, (t - 1) / 7.0, (n_t - 2 - t) / 9.0)
+        d2 = (coords[:, 0] - 0.13 - speed * t) ** 2 + (
+            coords[:, 1] + 0.07 - speed * t
+        ) ** 2
+        x[t] = np.float32(ramp) * np.exp(-d2 / (2 * 0.3**2)).astype(np.float32)
+    return x, coords
+
+
+def test_a_still_float32_shape_with_ramps_has_no_direction():
+    """Float32 rounding of the scaled frame jitters the centroid by far less than the floor."""
+    x, coords = _gaussian_with_ramps(0.0)
+    assert fm.measure_channel(x, coords, 1.0, 0.0)["direction"] is None
+
+
+def test_a_slowly_moving_float32_shape_gives_its_direction():
+    x, coords = _gaussian_with_ramps(1e-3)  # 1e-3 per frame along x and y
+    m = fm.measure_channel(x, coords, 1.0, 0.0)
+    # the canvas clips the shape unevenly, so the angle is near 45, not exactly
+    assert m["direction"] == pytest.approx(45.0, abs=3.0)
+
+
 def test_dominant_frequency_of_a_sine_bout():
     n, dt = 64, 0.5
     t = np.arange(n) * dt

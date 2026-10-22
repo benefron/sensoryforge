@@ -59,14 +59,22 @@ error: it means the world says nothing definite there.
 | `core.frames.peak` | `amplitude` of a shape that peaks at 1 (gaussian, disc, bar, grating), plus `background` | modulated, several shapes, another shape, the peak is cut off by the duration, no contact |
 | `core.frames.centroid_x`, `centroid_y` | the pattern's placement | an unbounded shape (grating, a bar with no length), any motion during the entry, several shapes, a `background`, another shape |
 | `core.frames.direction`, `tactile.motion.speed` | the direction and speed of a linear slide | no slide within the duration, a motion that is not linear, an unbounded shape, a `background` |
+| `core.frames.offset_time`, `active_time`, `active_fraction`, `bouts`, `gap_mean`, `gap_max` | the merged contact intervals | a modulation that reaches 0 (a `sine` or `pulses` at `depth` 1, the default): the frames are 0 between taps, which the timeline cannot see. `onset_time` stays |
 | `core.frames.dominant_frequency` | `frequency_hz / 1000` (sine) or `rate_hz / 1000` (pulses), in 1/ms | no modulation |
-| `tactile.episode.rise_time`, `plateau_time`, `fall_time` | `touch_ms`, `hold_ms + slide_ms`, `release_ms` | modulated, the draw is cut off by the duration, contacts that merge into one bout |
+| `tactile.episode.rise_time`, `plateau_time`, `fall_time` | `touch_ms`, `hold_ms + slide_ms`, `release_ms` | modulated, the shape moves (the envelope of a moving shape is not flat), the draw is cut off by the duration, contacts that merge into one bout |
 
 The **contact intervals** are the draw's timeline phases touch, hold, slide and release,
 clipped to the entry's duration and merged where they touch; a pause or quiet stretch
 separates two bouts. For a session the same rule is applied to each item at its start time,
 and everything that needs one draw's shape (peak, centroid, motion, frequency, phases) is
 left out with the reason `session`.
+
+A declared slide speed is the speed *during* the slide; the measured one is the speed of the
+steps that move, so the raw difference shows how well the slide is rendered and sampled. A
+shape the canvas cuts off (a σ 0.3 mm Gaussian on a 1.05 mm canvas) reads slower and pulled
+towards the middle, and the adapter does not know the canvas, so it still declares centroid,
+direction and speed there (open: R-A4, finding 7). The measured peak is below the declared
+one by design: the sensors sample the kernel at lattice points.
 
 Times are the unrounded milliseconds of the world's timeline. The audit samples frames at
 `k * dt`, so a raw difference of up to about `dt` between a declared and a measured time is

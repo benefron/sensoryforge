@@ -191,9 +191,11 @@ def test_a_slide_declares_direction_and_speed_but_not_a_centroid(rules):
     v, o = _short(values), _short(omitted)
     assert v["frames.direction"] == 30.0
     assert v["motion.speed"] == 0.01
-    assert v["episode.plateau_time"] == 40.0  # hold + slide
     assert v["frames.offset_time"] == 60.0
     assert o["frames.centroid_x"] == o["frames.centroid_y"] == "motion"
+    # the envelope of a moving shape is not flat, so the phases are not declared
+    for gone in ("rise_time", "plateau_time", "fall_time"):
+        assert o[f"episode.{gone}"] == "motion"
 
 
 def test_a_circular_motion_has_no_direction_or_speed(rules):
@@ -201,6 +203,7 @@ def test_a_circular_motion_has_no_direction_or_speed(rules):
     o = _short(omitted)
     assert o["frames.direction"] == o["motion.speed"] == "motion not linear"
     assert o["frames.centroid_x"] == "motion"
+    assert o["episode.plateau_time"] == "motion"
 
 
 def test_modulation_gives_the_frequency_and_leaves_out_level_and_phases(rules):
@@ -214,6 +217,25 @@ def test_modulation_gives_the_frequency_and_leaves_out_level_and_phases(rules):
         assert _short(vibe_omitted)[gone] == "modulated"
     assert vibe["core.frames.centroid_x"] == 0.2  # modulation does not move it
     assert vibe["core.frames.onset_time"] == 10.0  # nor does it change the timeline
+
+
+def test_a_modulation_that_reaches_zero_leaves_out_the_timeline_extent(rules):
+    """A pulse train at the default depth 1 is exactly 0 between taps (D4)."""
+    values, omitted = _declare(rules, "f_taps")
+    o = _short(omitted)
+    for gone in ("offset_time", "active_time", "active_fraction", "bouts"):
+        assert o[f"frames.{gone}"] == "modulation reaches 0"
+    assert o["frames.gap_mean"] == o["frames.gap_max"] == "modulation reaches 0"
+    assert values["core.frames.onset_time"] == 10.0  # the first tap starts the contact
+    assert values["core.frames.duration"] == 200.0
+    assert values["core.frames.dominant_frequency"] == pytest.approx(0.04)
+
+
+def test_a_modulation_that_stays_above_zero_keeps_the_timeline(rules):
+    values, _ = _declare(rules, "f_vibe")  # sine at depth 0.3
+    assert values["core.frames.bouts"] == 1
+    assert values["core.frames.active_time"] == 30.0
+    assert values["core.frames.offset_time"] == 40.0
 
 
 def test_several_shapes_leave_out_peak_and_centroid(rules):
@@ -396,6 +418,16 @@ def _rows(root):
     return [json.loads(x) for x in lines]
 
 
+_EXTENT = {
+    "offset_time",
+    "active_time",
+    "active_fraction",
+    "bouts",
+    "gap_mean",
+    "gap_max",
+}
+
+
 def _sweep(row):
     """Contact intervals by an event sweep over the manifest's own timeline records."""
     record, duration = row["draw"], row["duration_ms"]
@@ -433,6 +465,9 @@ def test_the_timeline_values_are_rederived_from_the_manifest_alone(shipped):
         spans = _sweep(row)
         total = sum(b - a for a, b in spans)
         assert v["core.frames.duration"] == row["duration_ms"]
+        if "core.frames.bouts" not in v:  # a modulation reaching 0 (D4)
+            assert not {i for i in v if i.rsplit(".", 1)[1] in _EXTENT}
+            continue
         assert v["core.frames.bouts"] == len(spans)
         assert v["core.frames.active_time"] == pytest.approx(total, abs=1e-9)
         assert v["core.frames.active_fraction"] == pytest.approx(

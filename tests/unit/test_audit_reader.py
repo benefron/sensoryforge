@@ -487,6 +487,24 @@ def test_index_rows_without_a_manifest_entry_are_listed_not_counted(data):
     assert reader.index_only == ["ghost/0001"] and len(reader.rows) == 12
 
 
+def test_a_corrupt_index_line_is_skipped_and_counted_and_the_audit_goes_on(data):
+    path = next((data / "index").glob("task_*.jsonl"))
+    lines = path.read_text().splitlines()
+    victim = json.loads(lines[0])["entry"]
+    path.write_text("\n".join(['{"entry": "cut off', *lines[1:], "[1, 2]"]) + "\n")
+    reader = DatasetReader(data)
+    assert reader.index_skipped == [(path.name, 1), (path.name, len(lines) + 1)]
+    assert len(reader.rows) == 12
+    # the entry whose index row was lost still reads, from its bundle
+    inv = inventory(reader)
+    assert victim not in {f["entry"] for f in inv.failures}
+    assert inv.index_skipped == reader.index_skipped
+    # and a lost row for an entry with no bundle fails only that entry
+    shutil.rmtree(data / victim)
+    failed = {f["entry"]: f for f in inventory(DatasetReader(data)).failures}
+    assert failed[victim]["stage"] == "read"
+
+
 def test_manifest_problems_are_loud(data, tmp_path):
     with pytest.raises(FileNotFoundError):
         DatasetReader(tmp_path / "nothing")

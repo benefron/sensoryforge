@@ -16,8 +16,9 @@ import numpy as np
 
 #: Frames per block when a quantity needs a ``[block, M, D]`` temporary.
 _BLOCK = 256
-#: A net centroid displacement below this share of the layout's extent is zero.
-_MOVE_FLOOR = 1e-9
+#: A centroid displacement below this share of the layout's largest extent is zero
+#: (float32 centroid noise on a still shape is at most about 1e-7 of it).
+MOVE_FLOOR = 1e-6
 #: A signal whose swing is below this share of its own size carries no power.
 _POWER_FLOOR = 1e-9
 _AXES = ("x", "y", "z")
@@ -184,7 +185,7 @@ def measure_channel(
         if dims >= 2:
             move = cen[-1, :2] - cen[0, :2]
             extent = float(np.ptp(coords, axis=0).max())
-            if float(np.hypot(*move)) > _MOVE_FLOOR * max(extent, 1e-300):
+            if float(np.hypot(*move)) > MOVE_FLOOR * max(extent, 1e-300):
                 angle = float(np.degrees(np.arctan2(move[1], move[0])) % 360.0)
                 out["direction"] = 0.0 if angle >= 360.0 else angle
         longest = int(np.argmax(lengths))

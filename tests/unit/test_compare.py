@@ -402,6 +402,62 @@ def test_group_and_data_set_rows_pair_the_summaries_stat_by_stat(by_hand):
     assert set(result["groupings"]["split"]) == {"sessions", "test", "train"}
 
 
+def test_group_summaries_cover_the_same_entries_on_both_sides(tmp_path):
+    """The audit measures 3 entries; the declaration fixes the key for only 2 of them."""
+    key = ("core.frames.centroid_x", None, None)
+    measured = {"e1": 1.0, "e2": 2.0, "e3": 9.0}
+    declared = {"e1": 1.0, "e2": 2.0}  # e3's declaration leaves the centroid out
+    label = {"split": "train", "class": "a", "repeat": 0, "noise_repeat": 0}
+    audit_rows = [
+        {"entry": e, **label, "bundle": e, "values": [{"id": key[0], "value": v}]}
+        for e, v in measured.items()
+    ]
+    declared_rows = [
+        (
+            {"entry": e, **label, "values": [{"id": key[0], "value": declared[e]}]}
+            if e in declared
+            else {"entry": e, **label, "values": []}
+        )
+        for e in measured
+    ]
+
+    def groups(rows):
+        table = ValueTable([key], 4)
+        for row in rows:
+            table.add(
+                row["split"],
+                row["class"],
+                {(v["id"], None, None): v["value"] for v in row["values"]},
+            )
+        dataset, by_class, by_split = table.groups()
+        return dataset, {"class": by_class, "split": by_split}
+
+    a_data, a_groups = groups(audit_rows)
+    d_data, d_groups = groups(declared_rows)
+    audit = _write_stage(
+        tmp_path / "audit",
+        "sensoryforge-audit/1",
+        [_metric(key[0], "mm", resolution=None)],
+        audit_rows,
+        {"dataset": a_data, "groupings": a_groups},
+    )
+    declared_json = _write_stage(
+        tmp_path / "declared",
+        "sensoryforge-declared/1",
+        [_metric(key[0], "mm")],
+        declared_rows,
+        {"dataset": d_data, "groupings": d_groups},
+    )
+    result = run_compare(audit, declared_json, tmp_path / "out", created_at=STAMP)
+    for pairs in (result["dataset"], result["groupings"]["class"]["a"]):
+        by_stat = {p["stat"]: p for p in pairs}
+        # e3's 9.0 is not in the measured summary: the two sets are the same two entries
+        assert by_stat["n"]["measured"] == by_stat["n"]["declared"] == 2
+        assert by_stat["mean"]["measured"] == by_stat["mean"]["declared"] == 1.5
+        assert by_stat["max"]["diff"] == 0.0
+        assert all(p["diff"] == 0 for p in pairs)
+
+
 def test_a_group_the_audit_lacks_pairs_as_missing_measured(by_hand):
     audit, declared, root = by_hand
     doc = json.loads(audit.read_text())
