@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-35016af · CLOSED · decision · - · 2026-10-22
+new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
+→ commit 1e61060
+
+## D-4671314 · CLOSED · decision · - · 2026-10-22
+the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view
+→ commit 1e61060
+
 ## F-40e2072 · CLOSED · finding · tests/contract · 2026-10-05
 the leak-keeps-running-while-refractory rule is now held by a test that a paused-leak mutant fails.
 → commit cae47dd
@@ -493,6 +501,7 @@ for now SensoryForge's tactile models serve the pressure-simulation project and 
 ↔ 5251e45 decide: simple neurons by default; adaptation and the clamp opt-in; keep RA's symmetric re
 ↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 ↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
+↔ 1e61060 docs: record the modality-neutral aim and the roadmap's working method
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
