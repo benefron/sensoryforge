@@ -171,6 +171,7 @@ def test_a_view_carries_only_allowlisted_fields(toy_dataset):
         "layout",
         "populations",
         "units",
+        "seconds",
     }
     assert {f.name for f in dataclasses.fields(PopulationView)} == {
         "name",

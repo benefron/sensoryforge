@@ -3,8 +3,9 @@
 !!! note "Status: accepted (roadmap task A1, reviewed and approved 2026-10-22)"
     This page fixes the formats the evaluation stages exchange before any of them is written.
     The audit's reader layer (A2a, see the [audit reader](../developer_guide/audit_reader.md))
-    implements section 2; the metrics follow in A2b–A2c, the declared side in A3, the
-    comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
+    implements section 2; the core metrics, the summariser and `audit.json` (A2b–A2c, see
+    [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
+    declared side follows in A3, the comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
     this page makes, all approved as written.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
@@ -272,6 +273,44 @@ Per-entry runtime: `core.run.seconds` (time in `s`, origin `data`: the index's `
 | `core.dataset.silent_entries` | count | entries with no active frame |
 | `core.dataset.duplicate_frames` | count | entries with `noise_repeat` 0 and at least one active frame whose `core.frames.digest` equals that of an earlier such entry (by id). Noise repeats share their draw's frames by design and are left out |
 
+### 6.5 How the audit applies these definitions
+
+Where a definition above leaves a detail open, the audit (A2b, A2c) does this. These are
+implementation choices, listed for the review at R-A4; none changes a metric's name, unit or
+shape.
+
+- **Activity per channel and across channels.** `core.frames.*` use the channel's own active
+  frames. `core.response.*` windows and the onset use the *union* of the channels' active
+  frames ("any channel", 6.3). `core.dataset.silent_entries` counts entries whose every channel
+  has `core.frames.bouts` 0. `core.dataset.duplicate_frames` compares the tuple of an entry's
+  channel digests.
+- **Times.** Frame `k` is at `k · dt`, not read from `/time_ms`. `core.response.latency` is the
+  index of the first spike or event at or after the onset frame, minus the onset index, times
+  `dt`.
+- **Centroid and weights.** `w = |x|` for every value, including values at or below
+  `zero_tolerance`; a frame is a centroid candidate only when it is active, so its weight sum
+  is positive.
+- **`core.frames.direction`.** The net displacement counts as 0 when it is at most `1e-9`
+  of the layout's largest extent, so a static blob does not get a direction from rounding.
+  The angle is in [0, 360).
+- **`core.frames.dominant_frequency`.** A bout whose mean-removed signal swings by at most
+  `1e-9` of the signal's own largest magnitude carries no power (the value is `null`). Ties
+  go to the lowest frequency. The metric definition's `resolution` is `null`, because the
+  true resolution, `1 / (bout length · dt)`, differs per entry.
+- **Rates.** `core.response.rate_*` are per time unit (1/ms for ms data), not per second.
+- **Inter-spike intervals.** `core.response.isi_cv` uses the population standard deviation
+  (ddof 0) of a unit's intervals, in frames; a unit needs at least 3 spikes.
+- **Events.** `core.response.events_on` sums the positive counts, `events_off` the magnitude of
+  the negative counts. An event readout that is not signed has `events_off` 0.
+- **Digests.** `core.response.digest` hashes the readout array's bytes in C order with
+  little-endian byte order, in the dtype it is stored in.
+- **Run time.** `core.run.seconds` is the index's `seconds` for the entry, `null` when the
+  index has no row.
+- **Metric definitions need the layout and the frame step.** `centroid_z` exists only when
+  the layout has three dimensions, and the time metrics carry `dt` as their resolution (`null`
+  if the bundles' steps differ), so a pack's `metrics()` receives the layout, the resolved
+  units and `dt` (10).
+
 ## 7. Tactile pack metrics (pack `tactile`)
 
 Parameters: `plateau_tolerance` (share of a bout's peak, default 0.01) and `motion_tolerance`
@@ -420,7 +459,7 @@ entry-point group. Contract checks for these kinds are added in C2d.
 
 | Registry | Built-in | Interface |
 |---|---|---|
-| `METRIC_PACK_REGISTRY` | `core`, `tactile` | `name`, `version`; `metrics() → [definition]` (section 4); `units() → {quantity: unit}` with origin and source; `measure(view) → [value]` for one entry; `measure_dataset(rows) → [value]` (optional) |
+| `METRIC_PACK_REGISTRY` | `core`, `tactile` | `name`, `version`; `metrics(layout, units, dt) → [definition]` (section 4); `units() → {quantity: (symbol, source)}`; `measure(view) → [value]` for one entry; `measure_dataset(rows) → [value]` (optional, from the entry values named in the pack's `dataset_inputs`) |
 | `FRAME_RENDERER_REGISTRY` | `points` (any layout), `grid` (a regular grid), `tactile` | `accepts(layout) → bool`; `render(frames [T, C, M], layout, channel) → images [T, H, W]` (float32, with an `extent` in space units) |
 | `DECLARED_ADAPTER_REGISTRY` | `tactile` | `name`, `version`; `accepts(dataset_meta) → bool` (`tactile`: world format `sensoryforge-world/1`); `declare(manifest_row, world) → [value]`; `units()`; `bounds(world) → [bound]` |
 
@@ -429,7 +468,7 @@ A metric pack's `measure` receives an **entry view** built by the reader (sectio
 - `frames [T, C, M]` float32, `time [T]`, `dt`
 - `layout`: sensor coordinates `[M, D]`, channel names, and the regular grid when there is one
 - `populations`: `{name: {readout, data [T, N], drive [T, N], filtered [T, N], attrs}}`
-- `units`, plus the labels `entry`, `split`, `class`, `repeat`, `noise_repeat`
+- `units`, `seconds` (the index's run time), plus the labels `entry`, `split`, `class`, `repeat`, `noise_repeat`
 
 A view carries nothing else, so a pack cannot reach the declaration. Packs are chosen
 explicitly (`--packs core,tactile`) and recorded in `audit.json`. The audit never picks a pack

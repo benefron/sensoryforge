@@ -119,3 +119,49 @@ def compose(numerator: Optional[str], denominator: Optional[str]) -> Optional[st
     if numerator is None or denominator is None:
         return None
     return numerator if denominator == "1" else f"{numerator}/{denominator}"
+
+
+#: Symbols the core fixes itself (contract, section 3).
+FIXED_UNITS: Tuple[str, ...] = ("count", "1", "deg")
+
+
+def unit_of(
+    expression: str, units: Mapping[str, Optional[Mapping[str, str]]]
+) -> Optional[Dict[str, str]]:
+    """The unit a metric reports, from an expression over the resolved quantities.
+
+    Args:
+        expression: A quantity (``"time"``, ``"frame"``, ...), a fixed symbol
+            (``"count"``, ``"1"``, ``"deg"``) or a ratio of two of them
+            (``"space/time"``, ``"1/time"``).
+        units: The resolved units from :func:`resolve_units`.
+
+    Returns:
+        ``{"symbol", "origin"[, "source"]}``: the data's or user's unit as resolved
+        for a single quantity, ``derived`` for a fixed symbol or a ratio; ``None`` when
+        any part
+        is unstated.
+
+    Raises:
+        ValueError: If a part is neither a quantity nor a fixed symbol.
+    """
+
+    def part(name: str) -> Optional[Dict[str, str]]:
+        if name in FIXED_UNITS:
+            return {"symbol": name, "origin": "derived"}
+        if name not in QUANTITIES:
+            raise ValueError(
+                f"unknown unit {name!r}; expected a quantity {list(QUANTITIES)} "
+                f"or one of {list(FIXED_UNITS)}"
+            )
+        stated = units.get(name)
+        return None if stated is None else dict(stated)
+
+    if "/" not in expression:
+        return part(expression)
+    top, _, bottom = expression.partition("/")
+    a, b = part(top), part(bottom)
+    symbol = compose(
+        None if a is None else a["symbol"], None if b is None else b["symbol"]
+    )
+    return None if symbol is None else {"symbol": symbol, "origin": "derived"}

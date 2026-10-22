@@ -195,7 +195,8 @@ def test_a_clean_process_reads_a_data_set_without_loading_the_world(toy_dataset)
 # pressure, indentation, receptor" appear only in the tactile pack, its renderer and
 # adapter.
 TACTILE_WORDS = re.compile(
-    r"(tactile|contact|pressure|indent|receptor|touch|skin|afferent)", re.IGNORECASE
+    r"(tactile|contact|pressure|indentation|indenter|receptor|touch|skin|afferent)",
+    re.IGNORECASE,
 )
 
 

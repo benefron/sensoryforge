@@ -106,6 +106,7 @@ class EntryView:
         layout: Sensor coordinates, channel names and the regular grid, if any.
         populations: Populations by name, in the bundle's order.
         units: Resolved units by quantity (``None`` where nobody states one).
+        seconds: The batch index's run time for the entry in seconds, or ``None``.
     """
 
     entry: str
@@ -119,6 +120,7 @@ class EntryView:
     layout: Layout
     populations: Dict[str, PopulationView]
     units: Dict[str, Optional[Dict[str, str]]]
+    seconds: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -578,6 +580,7 @@ class DatasetReader:
             layout=info.layout,
             populations=arrays["populations"],
             units=self.units,
+            seconds=row.seconds,
         )
 
 
