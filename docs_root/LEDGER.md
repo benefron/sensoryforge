@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-f747b6e · CLOSED · decision · - · 2026-10-22
+roadmap sessions are sized by context (about 150k each), grouping the remaining rows into 30 sessions with one fixed session prompt, instead of one row per session
+→ commit 319cb00
+
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
@@ -162,9 +166,10 @@ new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (
 → commit 1e61060
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
 
-## D-4671314 · CLOSED · decision · - · 2026-10-22
+## D-4671314 · SUPERSEDED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view
 → commit 1e61060
+⤳ superseded by D-f747b6e in 319cb00 docs: roadmap sessions are sized by context, about 150k each
 
 ## F-40e2072 · CLOSED · finding · tests/contract · 2026-10-05
 the leak-keeps-running-while-refractory rule is now held by a test that a paused-leak mutant fails.
