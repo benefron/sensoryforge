@@ -108,13 +108,19 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e292f1a · CLOSED · decision · docs/reference · 2026-10-22
+the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it
+→ commit f1e184f
+
 ## D-423556b · CLOSED · decision · - · 2026-10-22
 the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it
 → commit 5692ef2
+↔ f1e184f docs(evaluate): mark the report contract accepted after review
 
-## F-39e80f5 · OPEN · finding · - · 2026-10-22
+## F-39e80f5 · CLOSED · finding · - · 2026-10-22
 Ben's review of the nine choices Q1-Q9 in section 11 of the report contract before A2a starts
 → commit 5692ef2
+✓ closed by f1e184f docs(evaluate): mark the report contract accepted after review
 
 ## D-e0c78ab · CLOSED · decision · - · 2026-10-22
 --entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name
