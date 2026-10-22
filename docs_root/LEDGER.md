@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-82dcf12 · CLOSED · decision · - · 2026-10-22
+a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain
+→ commit 5ea6f7b
+
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
@@ -348,9 +352,10 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
 
-## F-398cbd1 · OPEN · finding · - · 2026-10-02
+## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
 → commit 67e3b60
+✓ closed by 5ea6f7b fix(world): check the values a class's layer fixes against their fields on load
 
 ## F-2f13dc9 · OPEN · finding · - · 2026-10-02
 batch --entries runs with the default task index all append to index/task_0000.jsonl, and --print-tasks does not forward --entries

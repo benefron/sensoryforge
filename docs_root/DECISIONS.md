@@ -1046,4 +1046,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-4563d42 | each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review | `c53ca39` |
 | 2026-10-22 | D-e73ad6c | docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger | `c53ca39` |
 | 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
+| 2026-10-22 | D-82dcf12 | a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain | `5ea6f7b` |
 <!-- DECISIONS_LOG_END -->
