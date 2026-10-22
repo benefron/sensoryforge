@@ -108,6 +108,26 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-8c0f6d4 · CLOSED · decision · docs/development · 2026-10-22
+tactile.motion.speed becomes the pooled moving centroid steps (each longer than 1e-6 of the layout extent, the same floor core.frames.direction uses), with no plateau; the declared value stays the slide speed
+→ commit 09f6568
+
+## D-88f8714 · CLOSED · decision · docs/development · 2026-10-22
+the compare stage pairs each group's declared summary with a summary of the measured values of the same (entry, key) set, using the audit's summariser; audit.json keeps the full-set summaries; the tag stays compare/1 (unreleased)
+→ commit 09f6568
+
+## D-5253eb0 · CLOSED · decision · docs/development · 2026-10-22
+the tactile adapter leaves out the episode phases for a moving shape (motion), and the timeline counts (offset, active time and fraction, bouts, gaps) when the modulation reaches 0 (depth 1)
+→ commit 09f6568
+
+## F-b4e24b1 · STANDING · finding · docs/development · 2026-10-22
+core.frames.direction reports a float32-noise angle for still shapes (20 of 28 entries); the 1e-9 extent floor sits inside the centroid's ramp jitter (1e-11 to 1e-9 mm)
+→ commit 09f6568
+
+## F-45aa5a6 · OPEN · finding · docs/development · 2026-10-22
+centroid, direction and speed of a shape the canvas cuts off are biased towards the middle (a sigma 0.3 mm Gaussian on the 1.05 mm test canvas reads 30-55 % slow), and the declared side, not knowing the canvas, still declares them
+→ commit 09f6568
+
 ## D-8b78a55 · CLOSED · decision · - · 2026-10-22
 the compare stage keeps verdicts out (contract Q8); the task's optional tolerance file is A8's, not A4's
 → commit 2aa9319
@@ -119,6 +139,7 @@ KS, Wasserstein and the paired histograms go in an optional `distributions` bloc
 ## F-3a20111 · STANDING · finding · - · 2026-10-22
 a group row of compare.json pairs the audit's summary of all entries with the declared summary of the entries the declaration determines, so n and the means differ when values are left out; only the distributions compare the same entries
 → commit 2aa9319
+↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
 
 ## D-533ccab · CLOSED · decision · - · 2026-10-22
 the tactile declared adapter leaves a value out wherever its declaration does not fix it, with a counted reason; beyond section 8.3's list it also leaves out a centroid under a background or an unknown shape, and episode phases of truncated or merged contacts
@@ -131,6 +152,7 @@ the world engine refuses a clamp_min above 0 at load, so section 8.3's "clamp_mi
 ## F-65689f0 · OPEN · finding · - · 2026-10-22
 tactile.motion.speed pools the plateau's centroid steps, which include the still hold before a slide, while the declared speed is the slide speed, so the raw difference reads low by the hold share; whether to change the metric or the declared value is for R-A4
 → commit f47a70b
+↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
 
 ## D-346f8dd · CLOSED · decision · - · 2026-10-22
 the tactile pack finds bouts itself on the exactly non-zero envelope and takes only the two contract parameters, plateau_tolerance and motion_tolerance; a plateau "moves" when its centroid path exceeds motion_tolerance and speed pools the steps of moving plateaus (contract section 7.1, for review at R-A4).
