@@ -200,15 +200,20 @@ TACTILE_WORDS = re.compile(
 )
 
 
+#: The one core module that names a modality: it registers the built-in metric packs.
+NAMES_PACKS = "registry.py"
+
+
 def _core_sources() -> List[Path]:
     files = sorted((EVAL / "audit").rglob("*.py"))
-    files += sorted(p for p in EVAL.glob("*.py"))
+    files += sorted(p for p in EVAL.glob("*.py") if p.name != NAMES_PACKS)
     return files
 
 
 def test_the_core_audit_uses_no_tactile_word():
     files = _core_sources()
     assert any(p.name == "reader.py" for p in files)
+    assert not any(p.name == NAMES_PACKS for p in files)  # the one exemption
     hits = [
         f"{p.relative_to(REPO)}:{n}: {m.group(0)}"
         for p in files
@@ -224,3 +229,15 @@ def test_the_core_audit_uses_no_tactile_word():
 )
 def test_the_lint_fires_on_tactile_words(line):
     assert TACTILE_WORDS.search(line)
+
+
+def test_the_tactile_metric_pack_is_inside_the_wall():
+    """The pack may use tactile words but never reaches the world package."""
+    roots = _wall_roots()
+    assert EVAL / "tactile" / "metrics.py" in roots
+    seen = reachable(roots, REPO, PACKAGE, "sensoryforge.evaluate")
+    assert "sensoryforge.evaluate.tactile.metrics" in seen
+    assert not _breaches(seen, WALLED)
+    # the package itself imports neither the pack nor the (future) declared adapter
+    tree = ast.parse((EVAL / "tactile" / "__init__.py").read_text())
+    assert not list(_import_nodes(tree, import_time_only=False))

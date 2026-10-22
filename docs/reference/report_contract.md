@@ -5,7 +5,7 @@
     The audit's reader layer (A2a, see the [audit reader](../developer_guide/audit_reader.md))
     implements section 2; the core metrics, the summariser and `audit.json` (A2b–A2c, see
     [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
-    declared side follows in A3, the comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
+    tactile pack (A2d) section 7, the declared side follows in A3, the comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
     this page makes, all approved as written.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
@@ -330,6 +330,29 @@ These are the world's episode phases (touch, hold and slide, release), read back
 frames. They mean what their names say only for an unmodulated envelope. Under a modulation
 they still give numbers, and the declared side leaves them out (section 8.3). The pack also
 states the units `drive` = `filtered` = `mA` (section 3).
+
+### 7.1 How the audit applies these definitions
+
+Where section 7 leaves a detail open, the tactile pack (A2d) does this. None changes a metric's
+name, unit or shape; they are listed for the review at R-A4.
+
+- **Bouts.** The pack finds bouts itself, on the envelope, with a frame active when its
+  envelope is exactly above 0. It has no `zero_tolerance` parameter (section 7 lists two), so
+  running the core with a non-zero `zero_tolerance` changes the core's bouts and not this
+  pack's.
+- **Plateau.** The threshold is `(1 − plateau_tolerance) · p` in 64-bit floating point, and
+  the plateau spans the first to the last frame at or above it, including any dip between
+  them. With a tolerance of 1 the whole bout is plateau.
+- **Averaging.** Rise, plateau and fall are counted in frames per bout, averaged over the
+  entry's bouts, then multiplied by `dt`.
+- **Speed.** A plateau's path is the sum of its centroid steps (consecutive frames, the
+  `core.frames.centroid_*` weighting). It *moves* when that path is longer than
+  `motion_tolerance`, so with the default 0 a plateau that does not move at all is left out.
+  The value pools the steps of the moving plateaus: total step length over the number of
+  steps times `dt`. It is null when no plateau moves, and its `resolution` is null.
+- **Units.** `drive` and `filtered` are stated as `mA` with the source
+  `docs/user_guide/units_and_gains.md`; a data set that names another unit for either fails
+  the audit with a unit conflict (section 3).
 
 ## 8. `declared.json`
 
