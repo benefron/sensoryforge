@@ -1047,4 +1047,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-e73ad6c | docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger | `c53ca39` |
 | 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
 | 2026-10-22 | D-f747b6e | roadmap sessions are sized by context (about 150k each), grouping the remaining rows into 30 sessions with one fixed session prompt, instead of one row per session | `319cb00` |
+| 2026-10-22 | D-1a06570 | the roadmap keeps Sonnet implementing and Opus reviewing at phase ends and the named gates, with the plan kept as files in docs_root/plan and a private artifact for comments | `6561075` |
 <!-- DECISIONS_LOG_END -->
