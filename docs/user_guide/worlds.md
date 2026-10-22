@@ -385,14 +385,18 @@ simulates every entry through the sensor and writes one data bundle per entry to
 
 - `--splits test,probes` runs only those splits; `--entries 100:200` runs a slice.
 - `--tasks 50 --task-index 7` runs the eighth of 50 contiguous tasks, for a job array;
-  `--tasks 50 --print-tasks` prints the 50 commands instead of running them.
+  `--tasks 50 --print-tasks` prints the 50 commands instead of running them. With
+  `--entries`, the tasks split that slice (`--entries 100:200 --tasks 4` is four tasks of
+  25 entries), and `--print-tasks` repeats `--entries` in every command.
 - `--resume` skips every entry whose bundle is already complete. Bundles are written to a
   temporary folder and moved into place, so an interrupted run leaves no half bundle.
 
 Each entry is simulated with noise seeded from the entry's own noise seed, so a rerun gives
 the same spikes. `runs/small/batch.json` records the data set, the config and SensoryForge's
 sha; each task appends to `runs/small/index/task_<i>.jsonl` one row per entry (`entry`,
-`status`, `error`, `seconds`, ...). `read_batch_index("runs/small")` merges the rows, the
+`status`, `error`, `seconds`, ...). A run given `--entries a:b` writes
+`task_<i>_entries_<a>_<b>.jsonl` instead (the numbers padded to eight digits), so jobs
+that each run their own slice into one folder never share a file. `read_batch_index("runs/small")` merges the rows, the
 latest run of an entry winning. The command exits non-zero if any entry failed.
 
 ## Extending

@@ -671,6 +671,8 @@ def _task_commands(args: argparse.Namespace) -> List[str]:
     base += ["--output", shlex.quote(str(Path(args.output).resolve()))]
     if args.splits:
         base += ["--splits", shlex.quote(args.splits)]
+    if args.entries:
+        base += ["--entries", shlex.quote(args.entries)]
     if args.device:
         base += ["--device", args.device]
     if args.resume:
@@ -690,6 +692,12 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
         print("Error: --output is required with --dataset", file=sys.stderr)
         return 1
     if args.print_tasks:
+        try:
+            if args.entries:
+                _parse_range(args.entries)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         for line in _task_commands(args):
             print(line)
         return 0

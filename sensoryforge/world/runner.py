@@ -177,6 +177,30 @@ def _write_json_atomic(path: Path, data: Dict[str, Any], task_index: int = 0) ->
     os.replace(tmp, path)
 
 
+def index_file_name(task_index: int, entry_range: Optional[slice] = None) -> str:
+    """The index file a run appends to: its task, and its range when it has one.
+
+    Jobs that each run their own ``--entries`` range into one output directory
+    would otherwise share ``task_0000.jsonl``; the range in the name keeps every
+    job's rows in a file of its own. ``read_batch_index`` reads them all.
+
+    Args:
+        task_index: The task this run is (0 without ``--tasks``).
+        entry_range: The slice of the selected entries, if the run was given one.
+
+    Returns:
+        ``task_0003.jsonl``, or ``task_0003_entries_00000100_00000200.jsonl``.
+    """
+    name = f"task_{task_index:04d}"
+    if entry_range is None:
+        return f"{name}.jsonl"
+    if entry_range.step not in (None, 1):
+        raise ValueError("entry_range must be a contiguous slice (step 1)")
+    start = entry_range.start or 0
+    stop = "end" if entry_range.stop is None else f"{entry_range.stop:08d}"
+    return f"{name}_entries_{start:08d}_{stop}.jsonl"
+
+
 def run_dataset(
     config: SensoryForgeConfig,
     spec: DatasetSpec,
@@ -201,20 +225,20 @@ def run_dataset(
         splits: Only these splits.
         tasks: Split the (selected) entries into this many contiguous tasks...
         task_index: ...and run this one.
-        entry_range: Run this slice of the selected entries instead of a task.
+        entry_range: Only this slice of the selected entries; ``tasks`` then
+            splits the slice, not the whole data set.
         resume: Skip entries whose bundle already holds ``data.h5``.
         log: Called with one line per entry.
 
     Returns:
         ``{"ok": int, "failed": int, "skipped": int}``.
     """
+    index_name = index_file_name(task_index, entry_range)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     entries = select_entries(build_dataset(spec), splits)
-    if entry_range is not None:
-        chosen = entries[entry_range]
-    else:
-        chosen = [entries[i] for i in task_slice(len(entries), tasks, task_index)]
+    chosen = entries if entry_range is None else entries[entry_range]
+    chosen = [chosen[i] for i in task_slice(len(chosen), tasks, task_index)]
     provenance = source_info()
     _write_json_atomic(
         out / "batch.json",
@@ -236,7 +260,7 @@ def run_dataset(
     n_grid_channels = len(grid.channels or ["value"])
     engine = SimulationEngine(config)
     canvas = Canvas.from_grid_config(grid)
-    index_path = out / "index" / f"task_{task_index:04d}.jsonl"
+    index_path = out / "index" / index_name
     index_path.parent.mkdir(parents=True, exist_ok=True)
     design_id = (design_manifest or {}).get("design_id")
     summary = {"ok": 0, "failed": 0, "skipped": 0}
