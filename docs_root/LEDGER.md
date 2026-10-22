@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-1458ac8 · STANDING · finding · - · 2026-10-22
+the published docs build strict-clean but carry sixteen drift items, two of which give a reader a wrong result (the Quick Start legacy example raises; the add-a-stimulus config silently drops the new stimulus); listed in docs_root/plan/D1_audit.md
+→ commit c02239c
+
+## F-6431443 · OPEN · finding · - · 2026-10-22
+SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning (checked with `stimuli:`), so a mistyped section is dropped silently
+→ commit c02239c
+
+## F-6816a05 · OPEN · finding · - · 2026-10-22
+mkdocs.yml loads polyfill.io on every page of the deployed site; remove it (D1b-A, or sooner if Ben says so)
+→ commit c02239c
+
+## F-ab4d01f · OPEN · finding · - · 2026-10-22
+the proposed docs site map and the policy on internal references in public pages wait for Ben's answers (Q1-Q6 in D1_audit.md)
+→ commit c02239c
+
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
@@ -127,6 +143,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
 → commit c53ca39
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-3a46fe4 · CLOSED · decision · - · 2026-10-22
 agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments
@@ -144,14 +161,17 @@ the roadmap keeps an append-only discussion record (requests, replies, page comm
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-fac4caa · CLOSED · decision · - · 2026-10-22
 agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
 → commit f44b0af
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-c889235 · CLOSED · decision · - · 2026-10-22
 the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval
 → commit f44b0af
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-76fdd8a · CLOSED · decision · - · 2026-10-22
 how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default
