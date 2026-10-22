@@ -108,9 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## D-aa16d85 · CLOSED · decision · - · 2026-10-22
+## D-acc75fd · CLOSED · decision · - · 2026-10-22
+the roadmap record keeps being written each session, but where it is published (a tracked repo file, the shared plan page, or neither) is undecided and nothing is published before Ben reviews it for typos and privacy
+→ commit 475a3e2
+
+## D-aa16d85 · SUPERSEDED · decision · - · 2026-10-22
 the roadmap keeps an append-only discussion record (requests, replies, page comments, decisions with ledger links), updated each session and exported as one reviewed, tracked file once the plan converges
 → commit b3f06aa
+⤳ superseded by D-acc75fd in 475a3e2 docs: where the roadmap record is published is left open
 
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
