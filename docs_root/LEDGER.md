@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-fac4caa · CLOSED · decision · - · 2026-10-22
+agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
+→ commit f44b0af
+
+## D-c889235 · CLOSED · decision · - · 2026-10-22
+the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval
+→ commit f44b0af
+
+## D-76fdd8a · CLOSED · decision · - · 2026-10-22
+how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default
+→ commit f44b0af
+
 ## D-35016af · CLOSED · decision · - · 2026-10-22
 new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
 → commit 1e61060
@@ -502,6 +514,7 @@ for now SensoryForge's tactile models serve the pressure-simulation project and 
 ↔ 67c45b5 decide: Izhikevich keeps its adaptation; non-adapting AdEx SA gets a low threshold
 ↔ df3320e decide: non-adapting AdEx RA also gets the low-threshold gain rule
 ↔ 1e61060 docs: record the modality-neutral aim and the roadmap's working method
+↔ f44b0af docs: record the rules for the agentic workflow
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)

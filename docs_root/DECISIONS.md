@@ -1034,4 +1034,7 @@ Do not hand-edit between the markers.
 | 2026-10-05 | D-70e4086 | release the leaky-reference level-crossing converter and bundle schema 2.3.0 as v1.3.0, tagged locally only and not pushed | `23ab440` |
 | 2026-10-22 | D-35016af | new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core | `1e61060` |
 | 2026-10-22 | D-4671314 | the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view | `1e61060` |
+| 2026-10-22 | D-fac4caa | agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin | `f44b0af` |
+| 2026-10-22 | D-c889235 | the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval | `f44b0af` |
+| 2026-10-22 | D-76fdd8a | how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default | `f44b0af` |
 <!-- DECISIONS_LOG_END -->
