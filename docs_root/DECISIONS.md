@@ -1048,4 +1048,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
 | 2026-10-22 | D-82dcf12 | a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain | `5ea6f7b` |
 | 2026-10-22 | D-e0c78ab | --entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name | `53e0565` |
+| 2026-10-22 | D-423556b | the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it | `5692ef2` |
 <!-- DECISIONS_LOG_END -->

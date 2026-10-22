@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-423556b · CLOSED · decision · - · 2026-10-22
+the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it
+→ commit 5692ef2
+
+## F-39e80f5 · OPEN · finding · - · 2026-10-22
+Ben's review of the nine choices Q1-Q9 in section 11 of the report contract before A2a starts
+→ commit 5692ef2
+
 ## D-e0c78ab · CLOSED · decision · - · 2026-10-22
 --entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name
 → commit 53e0565
@@ -123,6 +131,7 @@ the evaluation server uses the Python standard library behind a small interface,
 ## D-c52e668 · CLOSED · decision · - · 2026-10-22
 the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package
 → commit c53ca39
+↔ 5692ef2 docs(evaluate): propose the evaluation report contract and its JSON Schemas
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
