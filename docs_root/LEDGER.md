@@ -108,6 +108,30 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-83bf844 · CLOSED · decision · - · 2026-10-22
+the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
+→ commit c53ca39
+
+## D-c52e668 · CLOSED · decision · - · 2026-10-22
+the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package
+→ commit c53ca39
+
+## D-7e30f2b · CLOSED · decision · - · 2026-10-22
+videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
+→ commit c53ca39
+
+## D-4563d42 · CLOSED · decision · - · 2026-10-22
+each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review
+→ commit c53ca39
+
+## D-e73ad6c · CLOSED · decision · - · 2026-10-22
+docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
+→ commit c53ca39
+
+## D-3a46fe4 · CLOSED · decision · - · 2026-10-22
+agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments
+→ commit c53ca39
+
 ## D-acc75fd · CLOSED · decision · - · 2026-10-22
 the roadmap record keeps being written each session, but where it is published (a tracked repo file, the shared plan page, or neither) is undecided and nothing is published before Ben reviews it for typos and privacy
 → commit 475a3e2
@@ -136,6 +160,7 @@ how a chained run of skills proceeds, step by step or end to end, is decided by 
 ## D-35016af · CLOSED · decision · - · 2026-10-22
 new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
 → commit 1e61060
+↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
 
 ## D-4671314 · CLOSED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view

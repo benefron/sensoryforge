@@ -1040,4 +1040,10 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-6f0c3cc | each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links | `9471c8b` |
 | 2026-10-22 | D-aa16d85 | the roadmap keeps an append-only discussion record (requests, replies, page comments, decisions with ledger links), updated each session and exported as one reviewed, tracked file once the plan converges | `b3f06aa` |
 | 2026-10-22 | D-acc75fd | the roadmap record keeps being written each session, but where it is published (a tracked repo file, the shared plan page, or neither) is undecided and nothing is published before Ben reviews it for typos and privacy | `475a3e2` |
+| 2026-10-22 | D-83bf844 | the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update | `c53ca39` |
+| 2026-10-22 | D-c52e668 | the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package | `c53ca39` |
+| 2026-10-22 | D-7e30f2b | videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed | `c53ca39` |
+| 2026-10-22 | D-4563d42 | each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review | `c53ca39` |
+| 2026-10-22 | D-e73ad6c | docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger | `c53ca39` |
+| 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
 <!-- DECISIONS_LOG_END -->
