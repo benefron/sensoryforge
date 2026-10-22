@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ae476c6 · CLOSED · finding · - · 2026-10-22
+the R-A4 findings 1-6, 8 and 9 (direction on a still shape, plateau speed, phases for moving shapes, timeline counts for pulses, mixed-population group pairs, lint scope, index robustness)
+→ commit 7930c08
+
 ## D-8c0f6d4 · CLOSED · decision · docs/development · 2026-10-22
 tactile.motion.speed becomes the pooled moving centroid steps (each longer than 1e-6 of the layout extent, the same floor core.frames.direction uses), with no plateau; the declared value stays the slide speed
 → commit 09f6568
@@ -140,6 +144,7 @@ KS, Wasserstein and the paired histograms go in an optional `distributions` bloc
 a group row of compare.json pairs the audit's summary of all entries with the declared summary of the entries the declaration determines, so n and the means differ when values are left out; only the distributions compare the same entries
 → commit 2aa9319
 ↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
+↔ 7930c08 fix(evaluate): the R-A4 review's fixes to the audit, declared side and comparison
 
 ## D-533ccab · CLOSED · decision · - · 2026-10-22
 the tactile declared adapter leaves a value out wherever its declaration does not fix it, with a counted reason; beyond section 8.3's list it also leaves out a centroid under a background or an unknown shape, and episode phases of truncated or merged contacts
@@ -149,10 +154,11 @@ the tactile declared adapter leaves a value out wherever its declaration does no
 the world engine refuses a clamp_min above 0 at load, so section 8.3's "clamp_min above 0" case for the declared peak cannot occur
 → commit f47a70b
 
-## F-65689f0 · OPEN · finding · - · 2026-10-22
+## F-65689f0 · CLOSED · finding · - · 2026-10-22
 tactile.motion.speed pools the plateau's centroid steps, which include the still hold before a slide, while the declared speed is the slide speed, so the raw difference reads low by the hold share; whether to change the metric or the declared value is for R-A4
 → commit f47a70b
 ↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
+✓ closed by 7930c08 fix(evaluate): the R-A4 review's fixes to the audit, declared side and comparison
 
 ## D-346f8dd · CLOSED · decision · - · 2026-10-22
 the tactile pack finds bouts itself on the exactly non-zero envelope and takes only the two contract parameters, plateau_tolerance and motion_tolerance; a plateau "moves" when its centroid path exceeds motion_tolerance and speed pools the steps of moving plateaus (contract section 7.1, for review at R-A4).
