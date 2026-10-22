@@ -436,6 +436,8 @@ import wall. A declared adapter lives in its own module, outside the wall, and m
 world package: `sensoryforge/evaluate/tactile/metrics.py` (inside) and
 `sensoryforge/evaluate/tactile/declared.py` (outside).
 
+A second modality that is not touch, for tests, is the [toy vision fixture](../developer_guide/toy_vision_fixture.md): three colour channels on a 16 × 16 array.
+
 ## 11. Choices to review
 
 Each of these was reviewed and approved as written on 2026-10-22. Changing one later changes

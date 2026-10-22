@@ -144,6 +144,7 @@ nav:
     - GUI Forms for a Component: extending/gui_forms.md
     - Adding a Solver: extending/add_solver.md
     - Plugin Packages: developer_guide/plugins.md
+    - Toy Vision Fixture: developer_guide/toy_vision_fixture.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 
