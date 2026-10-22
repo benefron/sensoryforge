@@ -575,6 +575,13 @@ def _parse_class(
             continue
         info = kind.field_info(bindings[axis_name], layer)
         check_axis(paths[axis_name], axis, info)
+    # a field the layer sets and no axis takes over has no axis to check it
+    drawn = set(bindings.values())
+    for ref, value in kind.fixed_values(layer, raw_layer):
+        if ref not in drawn:
+            check_value(
+                f"{where}.layer.{ref[0]}.{ref[1]}", value, kind.field_info(ref, layer)
+            )
     for axis_name, axis in axes.items():
         if axis.form != "link":
             continue

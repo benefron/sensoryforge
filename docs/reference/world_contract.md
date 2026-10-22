@@ -63,6 +63,11 @@ explains each part; the rules that matter to a caller:
     modulation fields within their `ParamSpec`'s `min_val`/`max_val`, text fields among
     its `choices`. A fixed draw may leave the axis's range (it is then listed in
     `out_of_range`) but not the field's domain;
+  - a value a class's own `layer` sets and no axis takes over (`shape: {sigma_mm: 0}`,
+    `modulation: {depth: '0.3'}`, `motion: {radius_mm: -1}`) is checked the same way, as
+    `world.classes.<name>.layer.<part>.<field>`; a value an axis replaces is never used
+    and is not checked. In a list-valued field (`positions`, `waypoints`) each element is
+    checked;
   - numeric fields take numbers, not text or booleans (PyYAML reads `3e-1` as the text
     `'3e-1'`: write `3.0e-1`); text fields take text, switches `true`/`false`; NaN and
     infinity are refused in ranges, constants, values and weights;

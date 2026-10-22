@@ -98,6 +98,10 @@ fixes; otherwise the world's `defaults`; otherwise a built-in (durations 0, `con
 axis it leaves out takes its midpoint, for example
 `braille_H: {class: braille, dots: "125", hold_ms: 40, delay_ms: 0}`.
 
+A value a layer fixes is checked when the world loads, like an axis: `sigma_mm: 0`, a
+negative `radius_mm` or a depth written `3e-1` (YAML reads that as text; write `3.0e-1`) fail
+with the path, for example `world.classes.dots.layer.shape.sigma_mm`.
+
 ## Time
 
 Every draw is one episode, starting at time 0: quiet for `delay_ms`, then each of

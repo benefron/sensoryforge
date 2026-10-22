@@ -414,3 +414,138 @@ def test_a_top_level_that_is_not_a_mapping_is_named():
         World.from_dict({"world": ["dots"]})
     with pytest.raises(ValueError, match="a world is a mapping"):
         World.from_dict(["dots"])
+
+
+# --- fields a class's layer fixes without an axis (F-398cbd1) --------------
+
+
+def _probe(layer, axes=None):
+    """A mutation adding class ``probe`` with this layer and (by default) one axis."""
+
+    def mutate(w):
+        w["classes"]["probe"] = {
+            "layer": layer,
+            "axes": axes or {"hold_ms": {"range": [20, 60]}},
+        }
+
+    return mutate
+
+
+_SLIDE = {"slide_ms": {"range": [20, 40]}}
+
+
+@pytest.mark.parametrize(
+    "layer, axes, message",
+    [
+        (
+            {"shape": {"kind": "gaussian", "sigma_mm": 0}},
+            None,
+            r"probe\.layer\.shape\.sigma_mm: 0 is outside the field's domain "
+            r"\[0\.001, 50\]",
+        ),
+        (
+            {"shape": {"kind": "gaussian", "sigma_mm": "3e-1"}},
+            None,
+            r"probe\.layer\.shape\.sigma_mm: needs a number, got '3e-1'",
+        ),
+        (
+            {"shape": {"kind": "gaussian", "sigma_mm": True}},
+            None,
+            r"probe\.layer\.shape\.sigma_mm: needs a number, got True",
+        ),
+        (
+            {"pattern": {"kind": "braille", "dot_spacing_mm": 0}},
+            None,
+            r"probe\.layer\.pattern\.dot_spacing_mm: 0 is outside the field's domain",
+        ),
+        (
+            {"pattern": {"kind": "braille", "text": 7}},
+            None,
+            r"probe\.layer\.pattern\.text: needs text, got 7",
+        ),
+        (
+            {"modulation": {"kind": "sine", "depth": "0.3"}},
+            {"frequency_hz": {"range": [50, 100]}},
+            r"probe\.layer\.modulation\.depth: needs a number, got '0.3'",
+        ),
+        (
+            {"modulation": {"kind": "sine", "depth": 1.5}},
+            {"frequency_hz": {"range": [50, 100]}},
+            r"probe\.layer\.modulation\.depth: 1\.5 is outside the field's domain",
+        ),
+        (
+            {"motion": {"kind": "circular", "radius_mm": -1, "revolutions": 1}},
+            _SLIDE,
+            r"probe\.layer\.motion\.radius_mm: -1 is outside the field's domain",
+        ),
+        (
+            {"motion": {"kind": "circular", "radius_mm": "x", "revolutions": 1}},
+            _SLIDE,
+            r"probe\.layer\.motion\.radius_mm: needs a number, got 'x'",
+        ),
+    ],
+)
+def test_a_value_the_layer_fixes_is_checked_against_its_field_on_load(
+    layer, axes, message
+):
+    with pytest.raises(ValueError, match=message):
+        _world(_probe(layer, axes))
+
+
+def test_a_yaml_exponent_without_a_point_in_a_layer_is_named(tmp_path):
+    path = tmp_path / "w.yml"
+    path.write_text(
+        "world:\n"
+        "  classes:\n"
+        "    dots:\n"
+        "      layer: {shape: {kind: gaussian, sigma_mm: 3e-1}}\n"
+        "      axes: {hold_ms: {value: 20}}\n"
+    )
+    with pytest.raises(ValueError, match=r"layer\.shape\.sigma_mm: needs a number"):
+        load_world(path)
+
+
+def test_layer_values_inside_their_domains_still_load():
+    layer = {
+        "shape": {"kind": "gaussian", "sigma_mm": 0.001},
+        "pattern": {"kind": "braille", "dot_spacing_mm": 0.35, "text": "h"},
+        "modulation": {"kind": "sine", "depth": 1.0},
+        "motion": {"kind": "circular", "radius_mm": 0.0, "revolutions": -2},
+    }
+    world = _world(_probe(layer, _SLIDE))
+    assert world.classes["probe"].layer["shape"]["sigma_mm"] == 0.001
+
+
+def test_list_valued_layer_fields_are_not_taken_for_numbers():
+    layer = {
+        "pattern": {"kind": "list", "positions": [[0.0, 0.0], [0.3, 0.0]]},
+        "motion": {"kind": "path", "waypoints": [[0.0, 0.0], [0.2, 0.2]]},
+    }
+    assert "probe" in _world(_probe(layer, _SLIDE)).classes
+
+
+def test_a_layer_value_an_axis_replaces_is_not_checked():
+    # the class axis supplies the field's values, so the layer's own 0 is never used
+    layer = {"shape": {"kind": "gaussian", "sigma_mm": 0}}
+    axes = {"sigma_mm": {"range": [0.15, 0.45]}}
+    assert "probe" in _world(_probe(layer, axes)).classes
+
+
+@pytest.mark.parametrize(
+    "layer, axes, message",
+    [
+        (
+            {"pattern": {"kind": "list", "positions": [[0.0, 0.0], ["a", 0.3]]}},
+            None,
+            r"probe\.layer\.pattern\.positions: needs a number, got 'a'",
+        ),
+        (
+            {"motion": {"kind": "path", "waypoints": [["1e-1", 0.0], [0.2, 0.2]]}},
+            _SLIDE,
+            r"probe\.layer\.motion\.waypoints: needs a number, got '1e-1'",
+        ),
+    ],
+)
+def test_each_number_in_a_list_valued_layer_field_is_checked(layer, axes, message):
+    with pytest.raises(ValueError, match=message):
+        _world(_probe(layer, axes))
