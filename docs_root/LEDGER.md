@@ -108,13 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-346f8dd · CLOSED · decision · - · 2026-10-22
+the tactile pack finds bouts itself on the exactly non-zero envelope and takes only the two contract parameters, plateau_tolerance and motion_tolerance; a plateau "moves" when its centroid path exceeds motion_tolerance and speed pools the steps of moving plateaus (contract section 7.1, for review at R-A4).
+→ commit 60b45c6
+
 ## D-0a9fe81 · CLOSED · decision · - · 2026-10-22
 where the contract left a detail open (activity per channel vs the union across channels, direction near zero, dominant-frequency resolution, rate per time unit, the metrics() signature taking layout, units and dt) the audit takes the choices listed in report_contract.md section 6.5, for review at R-A4.
 → commit 8bac4ee
 
-## F-0ec49dc · OPEN · finding · - · 2026-10-22
+## F-0ec49dc · CLOSED · finding · - · 2026-10-22
 no row builds the tactile metric pack (tactile.episode.*, tactile.motion.speed, contract section 7); A3 declares those ids and A4 pairs them, so it must be placed before A4.
 → commit 8bac4ee
+✓ closed by 60b45c6 feat(evaluate): the tactile metric pack (episode phases and plateau speed)
 
 ## D-e24e767 · CLOSED · decision · - · 2026-10-22
 the import-wall test follows every import (inside functions too) in sensoryforge.evaluate and only import-time imports elsewhere, because sensoryforge/__init__ reaches the world through lazy imports and a clean-subprocess check covers what really loads
