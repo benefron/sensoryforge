@@ -5,7 +5,8 @@
     The audit's reader layer (A2a, see the [audit reader](../developer_guide/audit_reader.md))
     implements section 2; the core metrics, the summariser and `audit.json` (A2b–A2c, see
     [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
-    tactile pack (A2d) section 7, the declared side follows in A3, the comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
+    tactile pack (A2d) section 7, the declared side (A3, see [the declared
+    side](../developer_guide/declared_adapter.md)) section 8, the comparison follows in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
     this page makes, all approved as written.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
@@ -423,6 +424,51 @@ Data-set level: each group's `n_entries` is the manifest's count (it shows entri
 lost). The world declares nothing about responses, so no `core.response.*` or `core.input.*`
 value is declared.
 
+### 8.4 How the tactile adapter applies these definitions
+
+Where section 8.3 leaves a detail open, the tactile adapter (A3) does this. These are
+implementation choices, listed for the review at R-A4; none changes a metric's name, unit or
+shape. The reasons below are the strings counted under `omitted`.
+
+- **Contact intervals** come from the draw's `timeline` (`touch`, `hold`, `slide`,
+  `release`), in the unrounded ms the world gives, clipped to `duration_ms` and merged when
+  one ends where the next starts. A draw with no contact within the duration has no onset
+  or offset (`no contact`) and declares 0 for `active_time` and `bouts`.
+- **Peak.** Declared as `amplitude` (times the pattern element's weight, plus `background`)
+  for the shapes whose kernel peaks at 1: gaussian, disc, bar and grating. Any other shape
+  is left out (`shape not known`, or `indenter` for a depth-driven shape). Other left-out
+  cases: `modulated`, `several shapes` (a pattern of more than one element, except for an
+  unbounded kernel, which is drawn once), `peak not reached` (the duration ends before the
+  first touch does), `session`. The `clamp_min above 0` case of 8.3 cannot occur: the world
+  refuses a floor above 0 when it loads.
+- **Centroid.** Declared as the pattern element's position in mm (the pattern's `x_mm`,
+  `y_mm` plus the element's offset) for the shapes that are symmetric about their centre and
+  finite: gaussian, disc and a bar with a length. Left out: `unbounded shape` (a grating, a
+  bar of length 0), `shape not known`, `motion` (a slide longer than 0 starts within the
+  duration), `several shapes`, `background` (a constant level pulls the weighted centroid
+  towards the middle of the sensors), `session`. A modulation does not move the centroid, so
+  it does not leave it out.
+- **Direction and speed.** Declared for a linear slide that starts within the duration. A
+  class without its own motion slides at the draw's `speed_mm_per_ms` towards its
+  `direction_deg` (taken modulo 360); a class that declares a linear motion slides along it,
+  with the travel spread over every contact's slide. Left out: `no motion`, `motion not
+  linear`, `unbounded shape`, `shape not known`, `background`, `session`. Note that
+  `tactile.motion.speed` pools the centroid steps of the *plateau*, which includes the still
+  hold before the slide, while the declared speed is the speed *during* the slide: the two
+  differ by the share of the plateau that is hold, and the comparison shows that as a raw
+  difference.
+- **Frequency.** `frequency_hz / 1000` (sine) or `rate_hz / 1000` (pulses), in 1/ms; a
+  modulation kind the adapter does not know is left out (`modulation not known`).
+- **Episode phases.** `touch_ms`, `hold_ms + slide_ms`, `release_ms`, per contact. Left out
+  when `modulated`, when the draw is `truncated` by the duration, when contacts `merge` into
+  fewer bouts than `contacts` (a zero pause), and for a `session`.
+- **Channels.** A world with more than one channel gets one value per channel, each from
+  the draws that drive that channel; a channel nothing drives declares `active_time` 0 and
+  `bouts` 0 and leaves the rest out (`no contact`).
+- **Units.** `time` and `space` are the symbols the world names (`world.units`), with origin
+  `pack:tactile` and the source `world.units.<quantity>`; the others are `null`. A metric's
+  unit is composed the way the audit composes it.
+
 ## 9. `compare.json`
 
 ```json
@@ -484,7 +530,7 @@ entry-point group. Contract checks for these kinds are added in C2d.
 |---|---|---|
 | `METRIC_PACK_REGISTRY` | `core`, `tactile` | `name`, `version`; `metrics(layout, units, dt) → [definition]` (section 4); `units() → {quantity: (symbol, source)}`; `measure(view) → [value]` for one entry; `measure_dataset(rows) → [value]` (optional, from the entry values named in the pack's `dataset_inputs`) |
 | `FRAME_RENDERER_REGISTRY` | `points` (any layout), `grid` (a regular grid), `tactile` | `accepts(layout) → bool`; `render(frames [T, C, M], layout, channel) → images [T, H, W]` (float32, with an `extent` in space units) |
-| `DECLARED_ADAPTER_REGISTRY` | `tactile` | `name`, `version`; `accepts(dataset_meta) → bool` (`tactile`: world format `sensoryforge-world/1`); `declare(manifest_row, world) → [value]`; `units()`; `bounds(world) → [bound]` |
+| `DECLARED_ADAPTER_REGISTRY` | `tactile` | `name`, `version`; `accepts(dataset_meta) → bool` (`tactile`: world format `sensoryforge-world/1`); `load(dataset_meta) → world`; `describe(dataset_meta, world)`; `channels(world)`; `units(world)`; `metrics(units) → [{id, unit, basis, source}]`; `declare(manifest_row, world) → Declaration(values, omitted)` (the values, and a reason for each one left out, which the stage counts under `omitted`); `bounds(world) → [bound]` |
 
 A metric pack's `measure` receives an **entry view** built by the reader (section 2):
 

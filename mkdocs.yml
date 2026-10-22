@@ -147,6 +147,7 @@ nav:
     - Toy Vision Fixture: developer_guide/toy_vision_fixture.md
     - Audit Reader: developer_guide/audit_reader.md
     - Audit Metrics: developer_guide/audit_metrics.md
+    - Declared Adapter: developer_guide/declared_adapter.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 
