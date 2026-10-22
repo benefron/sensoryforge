@@ -502,6 +502,11 @@ def write_bundle(
             "dataset_id": entry.get("dataset_id"),
             "entry": entry.get("entry"),
         }
+        # Only a world that names a unit other than mm/ms writes this block, so
+        # every earlier bundle is unchanged. It is the data naming its units: it
+        # outranks a key's suffix (``spacing_mm``).
+        if stimulus_config.get("units"):
+            config_json["units"] = dict(stimulus_config["units"])
     if design_manifest is not None:
         # Verbatim -- read_manifest's own dict, not re-derived from `config`
         # (Phase 2a, T2: load_design already dropped anything config can't

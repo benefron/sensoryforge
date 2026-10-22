@@ -43,15 +43,21 @@ draw's record:
 active interval from the frames and checks each against the record, so the fixture's
 "known statistics" are tested, not assumed.
 
+## Units
+
+The toy's world declares `units: {space: px, time: ms}` and writes its fields without the
+unit suffix (`sigma`, `x`, `y`, `speed`). The loader maps those onto the canonical names
+(`sigma_mm`, ...; see the world contract, 10.14), so a record still reads `sigma_mm`, where the
+`_mm` only means "the world's space unit". Each bundle's `config.json` carries
+`units: {"space": "px"}`, which the audit reads as a unit named by the data. The grid block
+keeps its key `spacing_mm`; the `units` block outranks the suffix.
+
 ## Limits you will meet
 
-- **The engine's only space unit is mm**, and the world's fields end in `_mm`
-  (`sigma_mm`, `x_mm`). The toy reads 1 mm as 1 pixel. The audit will therefore report
-  space in `mm` for this data too; a user unit (`--units space=px`) must equal it or be
-  refused, as the report contract says.
-- The world still uses its touch-era timing fields (`hold_ms`, `slide_ms`, `speed_mm_per_ms`)
-  for the blob's timeline. They are field names of the layered class kind, not a tactile
-  assumption in the core.
+- **Time is milliseconds.** The engine's step is `dt_ms`, so a world cannot yet declare another
+  time unit.
+- The blob's timeline uses the layered class kind's timing fields (`hold_ms`, `slide_ms`).
+  They are field names of that kind, not an assumption of the core.
 - A class has one channel. A blob in two colours at once would need a class kind that takes
   several layers, which the toy does not add.
 

@@ -59,7 +59,7 @@ imports `sensoryforge.world` (D-c52e668).
 | Source | Allowed | Never read |
 |---|---|---|
 | `data.h5` | attrs `dt_ms`, `integrate_dt_ms`, `sensoryforge_version`, `sensoryforge_sha`; `/time_ms`; `/stimulus/frames`; `/populations/<name>/{drive, filtered, spikes, events, state}` and the `events` attrs `signed`, `polarity`, `theta` | `/meta` (its `config_yaml` holds the stimulus section) |
-| `config.json` | `schema_version`; `grid` (`rows`, `cols`, `spacing_mm`, `center_mm`); `populations[*].{name, readout, event_encoding}`; `config.grids` (the sensor layout and channel names); `config.simulation.dt_ms`; `world.{world_id, dataset_id, entry}` as opaque identifiers | `config.stimulus`, `design`, everything else |
+| `config.json` | `schema_version`; `grid` (`rows`, `cols`, `spacing_mm`, `center_mm`); `populations[*].{name, readout, event_encoding}`; `config.grids` (the sensor layout and channel names); `config.simulation.dt_ms`; `units` (when present); `world.{world_id, dataset_id, entry}` as opaque identifiers | `config.stimulus`, `design`, everything else |
 | `stimuli/` | nothing | `stimulus.json` (it carries the manifest row and the draw as a layer) |
 | `neuron_modules/` | nothing | all |
 | `index/task_*.jsonl` | every column (`entry, bundle, status, error, seconds, finished_at, design_id, sensoryforge_sha, task`) | — |
@@ -84,7 +84,7 @@ with its **origin**:
 
 | Origin | Meaning |
 |---|---|
-| `data` | The data names it: a key's suffix (`dt_ms` gives time in `ms`, `spacing_mm` gives space in `mm`) or a `units` block in the data's metadata |
+| `data` | The data names it: a `units` block in `config.json` (written when a world names a unit other than `mm`/`ms`; it outranks a key's suffix), else a key's suffix (`dt_ms` gives time in `ms`, `spacing_mm` gives space in `mm`) |
 | `user` | Passed to the audit (`--units frame=kPa`); recorded as given |
 | `pack:<name>` | A metric pack states it, with a `source` (a doc page or citation) |
 | `derived` | Composed by the core from other units (`mm/ms`, `1/ms`); `null` if any part is `null` |
@@ -101,8 +101,10 @@ Quantities: `time`, `space`, `frame` (frame values), `drive` and `filtered` (a p
 input before and after its filter), `state` (an analog readout), plus the fixed `count`, `1`
 (dimensionless) and `deg` (angles, counter-clockwise from the +x sensor axis, in [0, 360)).
 
-What a schema-2.3.0 bundle gives today: `time` = `ms` and `space` = `mm` (origin `data`). It
-gives no unit for `frame`, `drive`, `filtered` or `state`. The tactile pack states `drive`
+What a schema-2.3.0 bundle gives today: `time` = `ms` and `space` = `mm` (origin `data`), unless
+its `units` block names another (the [toy vision fixture](../developer_guide/toy_vision_fixture.md)
+gives `space` = `px`; see the world contract, 10.14). Without such a block it gives no unit for
+`frame`, `drive`, `filtered` or `state`. The tactile pack states `drive`
 and `filtered` in `mA` (source: `docs/user_guide/units_and_gains.md`). It states no frame unit:
 a world's `amplitude` is unitless in SensoryForge, so a tactile frame unit comes from the user
 or stays `null`.

@@ -67,6 +67,12 @@ range (durations are never negative; a gaussian's `sigma_mm` lies within its `Pa
 numeric fields need numbers, and PyYAML reads `3e-1` as text, so write `3.0e-1`; a key
 written twice, and a class name that could not name a directory, are refused.
 
+!!! tip "Not in millimetres?"
+    Declare the space unit with `units: {space: px}` and, if you like, write the space fields
+    without the suffix (`sigma`, `x`, `y`, `speed`). They mean the same as `sigma_mm`, `x_mm`,
+    ... and give the same `world_id`. See [the world contract](../reference/world_contract.md),
+    10.14.
+
 ## Axes
 
 An axis is one of five forms:

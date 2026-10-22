@@ -9,9 +9,10 @@ builds the manifest and runs ``run_dataset`` (the engine path behind ``sensoryfo
 It is a second modality for the evaluation code (audit, comparison, server) to run on, so
 the core cannot quietly depend on touch. It is a test fixture, not a video feature.
 
-The engine's only space unit is mm, and the world's field names end in ``_mm``
-(``sigma_mm``, ``x_mm``). The toy reads 1 mm as one pixel; the numbers below are in those
-fields, in pixels.
+The world declares its space unit as ``px`` and writes its fields without the unit suffix
+(``sigma``, ``x``, ``speed``); the loader maps them onto the canonical names
+(``sigma_mm``, ...), which still appear in a draw's record, where the ``_mm`` only means
+"the world's space unit". The bundle carries ``units: {"space": "px"}``.
 
 Known statistics, per class (a blob in one channel):
 
@@ -64,7 +65,7 @@ LEVEL_RANGE = (0.5, 1.0)
 START_RADIUS = 3.0
 
 _BLOB = {"shape": {"kind": "gaussian"}}
-_BLOB_AXES = {"sigma_mm": {"range": list(SIGMA_RANGE)}}
+_BLOB_AXES = {"sigma": {"range": list(SIGMA_RANGE)}}
 
 TOY_WORLD: Dict[str, Any] = {
     "world": {
@@ -72,18 +73,18 @@ TOY_WORLD: Dict[str, Any] = {
         "description": "soft blobs drifting across one colour channel of a 16x16 array",
         "modality": "toy_vision",
         "channels": CHANNELS,
-        "units": {"space": "mm", "time": "ms"},
+        "units": {"space": "px", "time": "ms"},
         "defaults": {
             "delay_ms": {"value": 0},
             "touch_ms": {"value": 0},
             "release_ms": {"value": 0},
             "hold_ms": {"value": 30},
             "slide_ms": {"value": 60},
-            "speed_mm_per_ms": {"range": list(SPEED_RANGE)},
+            "speed": {"range": list(SPEED_RANGE)},
             "direction_deg": {"range": [0, 360], "circular": True},
             "amplitude": {"range": list(LEVEL_RANGE)},
-            "x_mm": {"range": [-START_RADIUS, START_RADIUS]},
-            "y_mm": {"range": [-START_RADIUS, START_RADIUS]},
+            "x": {"range": [-START_RADIUS, START_RADIUS]},
+            "y": {"range": [-START_RADIUS, START_RADIUS]},
         },
         "classes": {
             "red_blob": {

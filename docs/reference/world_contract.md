@@ -560,3 +560,28 @@ section. Old worlds, data sets and v1.1.0 bundles are unchanged (guarantee 9).
 - **Documentation**: the session gaps' real distribution and the open choice between an exact
   fraction and exponential gaps (10.8); guarantee 11 reworded to the contact share within `D`
   (section 8, 10.8); the notes for pressure-simulation in section 9.
+
+### 10.14 Unit-free names and a declared space unit
+
+Both are additive and invisible until used (guarantee 9). They make the world format usable
+for data that is not in millimetres.
+
+- **Unit-free field names.** A world file may write a space field without its unit suffix:
+  `sigma` for `sigma_mm`, `x` and `y` for `x_mm` and `y_mm`, `speed` for `speed_mm_per_ms`,
+  `rolloff` for `rolloff_mm`, and so on for every registered shape, pattern, modulation and
+  motion field (`sensoryforge.world.names.alias_table()` lists them). The loader rewrites
+  each alias to the canonical name before it parses anything (in `defaults`, `groups`,
+  class `axes` and `layer` parts, `fixed_draws`, `same_as` targets and dotted names such as
+  `shape.sigma`), so the parsed world, its `world_id`, every draw and every record equal the
+  canonical spelling's. A record's keys therefore stay `sigma_mm`, ...: the `_mm` is historical
+  and only means "the world's space unit". A name that is itself a field is never an alias, and
+  writing both spellings of one field is an error.
+- **The space unit is declared.** `world.units.space` (default `mm`) says what the space fields
+  are in. When a world names any unit other than `mm`/`ms`, each of its bundles' `config.json`
+  carries `units: {<quantity>: <unit>}` with those entries (`{"space": "px"}`); a bundle of a
+  world that names none is unchanged. The block is the data naming its unit, so it outranks a
+  key's suffix (the grid block's `spacing_mm`). Time stays in ms: the engine's step is `dt_ms`.
+  The block may also name `frame`, `drive`, `filtered` or `state`.
+
+No format tag changes: no existing world, draw, entry id, frame or bundle changes, and the
+tests of section 8 pass unchanged. Pinned by `tests/unit/test_world_names.py`.

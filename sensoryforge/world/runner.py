@@ -155,14 +155,45 @@ def render_frames(
     return buffer
 
 
-def stimulus_payload(entry: Entry) -> Dict[str, Any]:
-    """The ``stimulus_config`` that marks a bundle as this world entry (spec §7.3)."""
+#: The units a world gets when it names none; a bundle records only what differs.
+DEFAULT_UNITS = {"space": "mm", "time": "ms"}
+
+
+def declared_units(world: World) -> Dict[str, str]:
+    """The units a world names beyond the defaults (``{}`` when it names none).
+
+    A world's ``units`` block says what its space fields (``sigma_mm``, ``x_mm``: the
+    ``_mm`` is historical) and its other quantities are in. The bundle carries the
+    entries that differ from ``mm``/``ms``, so a tactile bundle is unchanged and a world
+    in pixels says so (``{"space": "px"}``).
+
+    Args:
+        world: The data set's world.
+
+    Returns:
+        ``{quantity: unit}`` for each entry not equal to the default.
+    """
+    return {k: v for k, v in world.units.items() if DEFAULT_UNITS.get(k) != v}
+
+
+def stimulus_payload(
+    entry: Entry, units: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
+    """The ``stimulus_config`` that marks a bundle as this world entry (spec §7.3).
+
+    Args:
+        entry: The entry.
+        units: The world's :func:`declared_units`; omitted from the payload when empty.
+    """
     item = entry.item
     if isinstance(item, Session):
         layer: Any = [[start, draw.to_layer()] for start, draw in item.items]
     else:
         layer = item.to_layer()
-    return {"kind": WORLD_ENTRY_KIND, "entry": entry.to_dict(), "layer": layer}
+    payload = {"kind": WORLD_ENTRY_KIND, "entry": entry.to_dict(), "layer": layer}
+    if units:
+        payload["units"] = dict(units)
+    return payload
 
 
 def _write_json_atomic(path: Path, data: Dict[str, Any], task_index: int = 0) -> None:
@@ -255,6 +286,7 @@ def run_dataset(
         },
         task_index=task_index,
     )
+    units = declared_units(spec.world)
     grid = config.grids[0]
     layout = channel_layout(spec.world, grid)
     n_grid_channels = len(grid.channels or ["value"])
@@ -304,7 +336,7 @@ def run_dataset(
             engine.run(
                 frames.unsqueeze(0),
                 bundle_dir=partial,
-                stimulus_config=stimulus_payload(entry),
+                stimulus_config=stimulus_payload(entry, units),
                 # numpy seeds only take 32 bits; the 53-bit noise seed itself
                 # reaches the receptor and population generators via the config.
                 seed=noise & 0xFFFFFFFF,

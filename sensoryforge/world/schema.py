@@ -21,6 +21,7 @@ from sensoryforge.world.distributions import (
     plain,
     text_number_hint,
 )
+from sensoryforge.world.names import neutralise
 from sensoryforge.world.kinds import (
     CLASS_KINDS,
     AmbiguousField,
@@ -253,6 +254,9 @@ def _parse_world(data: Any) -> World:
         raise ValueError(
             f"world: unknown keys {sorted(unknown)}; allowed: {sorted(_TOP_KEYS)}"
         )
+    # Unit-free spellings (``sigma``) become the canonical ones (``sigma_mm``) before
+    # anything is parsed, so the world and its world_id equal the canonical file's.
+    raw = neutralise(raw)
     raw_channels = raw.get("channels")
     if raw_channels is not None and not isinstance(raw_channels, (list, tuple)):
         raise ValueError(
