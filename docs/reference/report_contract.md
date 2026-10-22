@@ -2,7 +2,8 @@
 
 !!! note "Status: accepted (roadmap task A1, reviewed and approved 2026-10-22)"
     This page fixes the formats the evaluation stages exchange before any of them is written.
-    No code implements it yet: the audit is built in A2a–A2c, the declared side in A3, the
+    The audit's reader layer (A2a, see the [audit reader](../developer_guide/audit_reader.md))
+    implements section 2; the metrics follow in A2b–A2c, the declared side in A3, the
     comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
     this page makes, all approved as written.
 
