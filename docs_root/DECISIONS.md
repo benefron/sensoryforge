@@ -1047,4 +1047,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-e73ad6c | docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger | `c53ca39` |
 | 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
 | 2026-10-22 | D-82dcf12 | a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain | `5ea6f7b` |
+| 2026-10-22 | D-e0c78ab | --entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name | `53e0565` |
 <!-- DECISIONS_LOG_END -->

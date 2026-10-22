@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e0c78ab · CLOSED · decision · - · 2026-10-22
+--entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name
+→ commit 53e0565
+
 ## D-82dcf12 · CLOSED · decision · - · 2026-10-22
 a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain
 → commit 5ea6f7b
@@ -357,9 +361,10 @@ fields a world class's layer fixes without an axis are not domain/type-checked a
 → commit 67e3b60
 ✓ closed by 5ea6f7b fix(world): check the values a class's layer fixes against their fields on load
 
-## F-2f13dc9 · OPEN · finding · - · 2026-10-02
+## F-2f13dc9 · CLOSED · finding · - · 2026-10-02
 batch --entries runs with the default task index all append to index/task_0000.jsonl, and --print-tasks does not forward --entries
 → commit 67e3b60
+✓ closed by 53e0565 fix(batch): give each --entries range its own index file and let --print-tasks forward it
 
 ## F-1ada1ea · CLOSED · finding · - · 2026-10-02
 a step release could leave full amplitude at t == end_ms, and in some float64 draws one step after it, so a draw was not exactly zero after its end
