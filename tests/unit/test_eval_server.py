@@ -1,0 +1,335 @@
+"""The local evaluation server's data layer and endpoints (roadmap A5a).
+
+The data set is the toy non-tactile one (A1b), so nothing here depends on a modality.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import threading
+import urllib.error
+import urllib.request
+
+import h5py
+import numpy as np
+import pytest
+
+from sensoryforge.evaluate.server import (
+    Api,
+    DatasetService,
+    Request,
+    ServiceError,
+    make_server,
+)
+from sensoryforge.evaluate.server.service import decimate
+
+
+@pytest.fixture(scope="module")
+def folder(toy_dataset):
+    return toy_dataset.data
+
+
+@pytest.fixture(scope="module")
+def api(folder):
+    return Api(DatasetService(folder))
+
+
+def get(api, target):
+    response = api.handle(Request.from_target("GET", target))
+    return response.status, json.loads(response.body)
+
+
+# --------------------------------------------------------------------- summary
+
+
+def test_the_summary_counts_the_manifest_and_reads_the_first_bundle(api, toy_dataset):
+    status, body = get(api, "/api/dataset")
+    assert status == 200
+    assert body["n_draws"] == len(toy_dataset.entries)
+    assert sum(body["counts"]["split"].values()) == body["n_draws"]
+    assert body["counts"]["status"] == {"ok": body["n_draws"]}
+    assert body["name"] and body["dataset_id"]
+    assert body["sensors"]["n_sensors"] > 0 and body["dt_ms"] > 0
+    assert [p["name"] for p in body["populations"]]
+    assert body["reference_draw"] in api.service.by_entry
+    assert set(body["stages"]) == {"audit", "declared", "compare"}
+    assert not any(s["present"] for s in body["stages"].values())
+
+
+# ------------------------------------------------------------------- draw list
+
+
+def test_the_list_pages_and_filters(api):
+    _, everything = get(api, "/api/draws?limit=1000")
+    total = everything["total"]
+    assert len(everything["items"]) == min(total, 1000)
+    _, page = get(api, "/api/draws?limit=3&offset=2")
+    assert [r["entry"] for r in page["items"]] == [
+        r["entry"] for r in everything["items"][2:5]
+    ]
+    split = everything["items"][0]["split"]
+    _, only = get(api, f"/api/draws?split={split}&limit=1000")
+    assert only["total"] == sum(r["split"] == split for r in everything["items"])
+    assert all(r["split"] == split for r in only["items"])
+    first = everything["items"][0]
+    _, by_seed = get(api, f"/api/draws?seed={first['seed']}")
+    assert first["entry"] in {r["entry"] for r in by_seed["items"]}
+    _, text = get(api, f"/api/draws?q={first['entry'].upper()}")
+    assert first["entry"] in {r["entry"] for r in text["items"]}
+    _, none = get(api, "/api/draws?status=failed")
+    assert none["total"] == 0
+
+
+def test_the_list_sorts_and_refuses_bad_queries(api):
+    _, up = get(api, "/api/draws?sort=entry&limit=1000")
+    _, down = get(api, "/api/draws?sort=entry&order=desc&limit=1000")
+    names = [r["entry"] for r in up["items"]]
+    assert names == sorted(names) and [r["entry"] for r in down["items"]] == names[::-1]
+    for target in (
+        "/api/draws?limit=0",
+        "/api/draws?limit=100000",
+        "/api/draws?offset=x",
+        "/api/draws?sort=nope",
+        "/api/draws?order=sideways",
+    ):
+        status, body = get(api, target)
+        assert status == 400 and body["error"], target
+
+
+def test_a_random_pick_is_repeatable_and_respects_the_filters(api):
+    _, a = get(api, "/api/draws/random?pick_seed=7")
+    _, b = get(api, "/api/draws/random?pick_seed=7")
+    assert a["draw"]["entry"] == b["draw"]["entry"] and a["pick_seed"] == 7
+    split = a["draw"]["split"]
+    _, c = get(api, f"/api/draws/random?split={split}&pick_seed=3")
+    assert c["draw"]["split"] == split
+    status, body = get(api, "/api/draws/random?status=failed")
+    assert status == 404 and "no draw" in body["error"]
+
+
+def test_a_class_filter_and_the_no_class_token(api):
+    _, everything = get(api, "/api/draws?limit=1000")
+    classes = {r["class"] for r in everything["items"]}
+    pick = next(c for c in classes if c is not None)
+    _, got = get(api, f"/api/draws?class={pick}&limit=1000")
+    assert got["total"] == sum(r["class"] == pick for r in everything["items"])
+    _, none = get(api, "/api/draws?class=~&limit=1000")
+    assert none["total"] == sum(r["class"] is None for r in everything["items"])
+
+
+# ------------------------------------------------------------------------ draw
+
+
+def test_one_draw_carries_its_declaration_and_what_its_bundle_holds(api):
+    _, listing = get(api, "/api/draws?limit=1")
+    entry = listing["items"][0]["entry"]
+    status, body = get(api, f"/api/draw?entry={entry}")
+    assert status == 200 and body["error"] is None
+    assert body["record"]["entry"] == entry and "draw" in body["record"]
+    assert all(isinstance(v, str) for v in body["seeds"].values())
+    bundle = body["bundle"]
+    assert bundle["n_frames"] * bundle["dt_ms"] == pytest.approx(bundle["duration_ms"])
+    coords = np.array(bundle["layout"]["coords"])
+    assert coords.shape == (bundle["layout"]["n_sensors"], bundle["layout"]["dims"])
+    assert [p["name"] for p in bundle["populations"]]
+
+
+def test_an_unknown_or_missing_entry_is_a_clean_error(api):
+    assert get(api, "/api/draw?entry=nope/0")[0] == 404
+    assert get(api, "/api/draw")[0] == 400
+    assert get(api, "/api/nothing")[0] == 404
+    response = api.handle(Request.from_target("POST", "/api/draws"))
+    assert response.status == 405 and response.headers["Allow"] == "GET"
+
+
+# ---------------------------------------------------------------------- traces
+
+
+def _first(api):
+    _, listing = get(api, "/api/draws?limit=1")
+    entry = listing["items"][0]["entry"]
+    _, body = get(api, f"/api/draw?entry={entry}")
+    return entry, body["bundle"]
+
+
+def test_the_stimulus_trace_equals_the_stored_frames(api, folder):
+    entry, bundle = _first(api)
+    cols = bundle["layout"]["regular_grid"]["cols"]
+    status, body = get(api, f"/api/draw/trace?entry={entry}&source=stimulus&index=0,5")
+    assert status == 200 and not body["decimated"]
+    with h5py.File(folder / entry / "data.h5", "r") as f:
+        frames = f["stimulus/frames"][...]
+    frames = frames.reshape(frames.shape[0], -1, frames.shape[-2], frames.shape[-1])
+    for series in body["series"]:
+        i, j = divmod(series["index"], cols)
+        assert np.allclose(series["values"], frames[:, 0, i, j])
+        assert len(series["time_ms"]) == bundle["n_frames"]
+
+
+@pytest.mark.parametrize("source", ["drive", "filtered", "readout"])
+def test_population_traces_equal_the_stored_arrays(api, folder, source):
+    entry, bundle = _first(api)
+    pop = bundle["populations"][0]
+    status, body = get(
+        api,
+        f"/api/draw/trace?entry={entry}&source={source}&population={pop['name']}"
+        "&index=1,0",
+    )
+    assert status == 200 and body["population"] == pop["name"]
+    assert [s["index"] for s in body["series"]] == [0, 1]
+    key = pop["readout"] if source == "readout" else source
+    with h5py.File(folder / entry / "data.h5", "r") as f:
+        stored = f[f"populations/{pop['name']}/{key}"][...]
+    for series in body["series"]:
+        assert np.allclose(series["values"], stored[:, series["index"]])
+
+
+def test_trace_queries_that_cannot_be_answered_say_why(api):
+    entry, bundle = _first(api)
+    pop = bundle["populations"][0]["name"]
+    base = f"/api/draw/trace?entry={entry}"
+    cases = {
+        f"{base}": 400,  # no source
+        f"{base}&source=voltage": 400,
+        f"{base}&source=drive": 404,  # no population
+        f"{base}&source=drive&population=nope": 404,
+        f"{base}&source=drive&population={pop}&index=999999": 400,
+        f"{base}&source=stimulus&index=999999": 400,
+        f"{base}&source=stimulus&index=" + ",".join(map(str, range(70))): 400,
+        f"{base}&source=stimulus&max_points=1": 400,
+        "/api/draw/trace?entry=nope&source=stimulus": 404,
+    }
+    for target, status in cases.items():
+        assert get(api, target)[0] == status, target
+
+
+def test_decimation_keeps_a_one_frame_spike():
+    values = np.zeros(10000)
+    values[7345] = 1.0
+    kept = decimate(values, 200)
+    assert kept.size <= 200 and 7345 in kept
+    assert np.all(np.diff(kept) > 0)
+    assert decimate(values, 20000).size == 10000
+
+
+def test_a_long_trace_comes_back_decimated(api):
+    entry, bundle = _first(api)
+    pop = bundle["populations"][0]["name"]
+    status, body = get(
+        api, f"/api/draw/trace?entry={entry}&source=drive&population={pop}&max_points=8"
+    )
+    assert status == 200 and body["decimated"]
+    assert all(len(s["values"]) <= 8 for s in body["series"])
+    assert all(len(s["values"]) == len(s["time_ms"]) for s in body["series"])
+
+
+# --------------------------------------------------------- damaged data sets
+
+
+@pytest.fixture()
+def damaged(toy_dataset, tmp_path):
+    dest = tmp_path / "data"
+    shutil.copytree(toy_dataset.data, dest, ignore=shutil.ignore_patterns(".partial"))
+    return dest
+
+
+def test_a_missing_bundle_is_reported_not_raised(damaged):
+    service = DatasetService(damaged)
+    api = Api(service)
+    victim = service.rows[0].entry
+    shutil.rmtree(damaged / victim)
+    _, body = get(api, f"/api/draw?entry={victim}")
+    assert body["bundle"] is None and "missing_bundle" in body["error"]
+    status, trace = get(api, f"/api/draw/trace?entry={victim}&source=stimulus")
+    assert status == 422 and "cannot be read" in trace["error"]
+    _, summary = get(api, "/api/dataset")  # the summary skips it for the next draw
+    assert summary["sensors"] is not None
+
+
+def test_a_corrupt_index_line_leaves_the_status_unknown(damaged):
+    path = next((damaged / "index").glob("task_*.jsonl"))
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join(["{cut off", *lines[1:]]) + "\n")
+    service = DatasetService(damaged)
+    assert [r.status for r in service.rows].count(None) == 1
+
+
+def test_a_folder_without_a_manifest_is_refused(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        DatasetService(tmp_path)
+    (tmp_path / "manifest.jsonl").write_text("not json\n")
+    with pytest.raises(ValueError, match="not JSON"):
+        DatasetService(tmp_path)
+
+
+# ------------------------------------------------------------------ stage files
+
+
+def test_stages_are_read_when_present_and_computed_on_request(damaged):
+    api = Api(DatasetService(damaged))
+    status, body = get(api, "/api/stage/audit")
+    assert status == 404 and "computes it" in body["error"]
+    assert get(api, "/api/stage/nothing")[0] == 404
+    status, body = (lambda r: (r.status, json.loads(r.body)))(
+        api.handle(Request.from_target("POST", "/api/stages/compare/run"))
+    )
+    assert status == 409 and "audit and declared" in body["error"]
+    for stage in ("audit", "declared"):
+        response = api.handle(Request.from_target("POST", f"/api/stages/{stage}/run"))
+        assert response.status == 202
+        job = api.jobs.wait(json.loads(response.body)["id"])
+        assert job["state"] == "done", job
+    response = api.handle(Request.from_target("POST", "/api/stages/compare/run"))
+    assert api.jobs.wait(json.loads(response.body)["id"])["state"] == "done"
+    status, stages = get(api, "/api/stages")
+    assert all(s["present"] and s["readable"] for s in stages.values())
+    assert stages["audit"]["format"] == "sensoryforge-audit/1"
+    status, audit = get(api, "/api/stage/audit")
+    assert status == 200 and audit["format"] == "sensoryforge-audit/1"
+    assert get(api, "/api/jobs/9999")[0] == 404
+
+
+def test_a_failing_stage_job_reports_its_error(damaged):
+    (damaged / "dataset.json").unlink()
+    api = Api(DatasetService(damaged))
+    response = api.handle(Request.from_target("POST", "/api/stages/declared/run"))
+    job = api.jobs.wait(json.loads(response.body)["id"])
+    assert job["state"] == "failed" and job["error"]
+
+
+# ----------------------------------------------------------------- HTTP backend
+
+
+def test_the_standard_library_backend_serves_the_api(folder):
+    server = make_server(Api(DatasetService(folder)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        with urllib.request.urlopen(f"{base}/api/health") as r:
+            assert r.status == 200 and json.loads(r.read()) == {"ok": True}
+            assert r.headers["Content-Type"] == "application/json"
+        with urllib.request.urlopen(f"{base}/api/draws?limit=2") as r:
+            assert len(json.loads(r.read())["items"]) == 2
+        with pytest.raises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(f"{base}/api/draw?entry=nope")
+        assert err.value.code == 404 and json.loads(err.value.read())["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+# -------------------------------------------------------------------------- CLI
+
+
+def test_the_cli_has_an_evaluate_serve_command(tmp_path, capsys):
+    from sensoryforge import cli
+
+    args = cli.create_parser().parse_args(
+        ["evaluate", "serve", str(tmp_path), "--port", "9"]
+    )
+    assert (args.command, args.evaluate_command, args.port) == ("evaluate", "serve", 9)
+    assert args.host == "127.0.0.1" and args.stages is None
+    assert cli.cmd_evaluate(args) == 1  # no manifest in the folder
+    assert "Error opening data set" in capsys.readouterr().err

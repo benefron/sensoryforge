@@ -383,6 +383,21 @@ class DatasetReader:
         """The first bundle opened (it fixes layout, populations and units), or None."""
         return self._reference
 
+    def bundle_path(self, entry: str) -> Path:
+        """The folder of an entry's bundle, checked to lie inside the data set.
+
+        Args:
+            entry: Entry id.
+
+        Returns:
+            The bundle folder (it holds ``data.h5`` and ``config.json``).
+
+        Raises:
+            KeyError: If the entry is not in the manifest.
+            ReadError: If the bundle is missing or its path leaves the data set.
+        """
+        return self._bundle_dir(self._rows[entry])
+
     def _bundle_dir(self, row: EntryRow) -> Path:
         base = self.folder.resolve()
         path = (base / (row.bundle or row.entry)).resolve()

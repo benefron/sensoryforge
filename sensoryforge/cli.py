@@ -1077,6 +1077,22 @@ def cmd_world(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    """``sensoryforge evaluate serve DATASET_DIR``: the local evaluation browser."""
+    if args.evaluate_command != "serve":
+        print("usage: sensoryforge evaluate serve DATASET_DIR", file=sys.stderr)
+        return 1
+    from sensoryforge.evaluate.server import Api, DatasetService, serve
+
+    try:
+        service = DatasetService(Path(args.folder), args.stages and Path(args.stages))
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error opening data set: {exc}", file=sys.stderr)
+        return 1
+    serve(Api(service), args.host, args.port)
+    return 0
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser for CLI.
 
@@ -1234,6 +1250,22 @@ def create_parser() -> argparse.ArgumentParser:
     build_parser.add_argument("spec", help="Data-set YAML (a 'dataset:' mapping)")
     build_parser.add_argument("--out", required=True, help="Output directory")
 
+    evaluate_parser = subparsers.add_parser(
+        "evaluate", help="Look at a data set: the local evaluation server"
+    )
+    evaluate_sub = evaluate_parser.add_subparsers(dest="evaluate_command")
+    serve_parser = evaluate_sub.add_parser(
+        "serve", help="Serve a data set to the evaluation browser (loopback only)"
+    )
+    serve_parser.add_argument("folder", help="The data-set folder")
+    serve_parser.add_argument(
+        "--stages",
+        help="Folder of audit.json, declared.json and compare.json "
+        "(default: FOLDER/evaluate)",
+    )
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Address to bind")
+    serve_parser.add_argument("--port", type=int, default=8765, help="Port to bind")
+
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")
     validate_world = world_sub.add_parser(
@@ -1328,6 +1360,7 @@ def main() -> int:
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
         "dataset": cmd_dataset,
+        "evaluate": cmd_evaluate,
         "world": cmd_world,
     }
 
