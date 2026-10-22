@@ -1,10 +1,10 @@
 # Evaluation report contract
 
-!!! note "Status: proposed (roadmap task A1, 2026-10-22)"
+!!! note "Status: accepted (roadmap task A1, reviewed and approved 2026-10-22)"
     This page fixes the formats the evaluation stages exchange before any of them is written.
     No code implements it yet: the audit is built in A2a–A2c, the declared side in A3, the
     comparison in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
-    this page makes that need review.
+    this page makes, all approved as written.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
 the next one reads:
@@ -438,8 +438,8 @@ world package: `sensoryforge/evaluate/tactile/metrics.py` (inside) and
 
 ## 11. Choices to review
 
-Each of these is proposed on this page, and none is decided until reviewed. Changing one
-changes only the sections named.
+Each of these was reviewed and approved as written on 2026-10-22. Changing one later changes
+only the sections named, and needs a new decision.
 
 | # | Choice | Sections |
 |---|---|---|
