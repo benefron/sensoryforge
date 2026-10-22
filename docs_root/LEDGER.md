@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e24e767 · CLOSED · decision · - · 2026-10-22
+the import-wall test follows every import (inside functions too) in sensoryforge.evaluate and only import-time imports elsewhere, because sensoryforge/__init__ reaches the world through lazy imports and a clean-subprocess check covers what really loads
+→ commit ac56f03
+
+## D-a70ccdc · CLOSED · decision · - · 2026-10-22
+a bundle whose sensors cannot be located from the grid block (frames not matching rows x cols, or a coords file) is refused with layout_unknown rather than given invented positions
+→ commit ac56f03
+
+## F-bc358cc · STANDING · finding · - · 2026-10-22
+the audit cannot count draws without reading the declaration; distinct stimuli are a measurement (core.frames.digest, A2b), so the inventory counts entries, splits, classes and lengths only
+→ commit ac56f03
+
 ## D-94d2637 · CLOSED · decision · - · 2026-10-22
 unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump
 → commit 8cf4e60
@@ -154,6 +166,7 @@ the evaluation server uses the Python standard library behind a small interface,
 the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package
 → commit c53ca39
 ↔ 5692ef2 docs(evaluate): propose the evaluation report contract and its JSON Schemas
+↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
@@ -202,6 +215,7 @@ new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
 ↔ 084d604 test(evaluate): add a toy non-tactile data set built through the real engine
 ↔ 8cf4e60 feat(world): unit-free field names and a declared space unit
+↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
 
 ## D-4671314 · CLOSED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view

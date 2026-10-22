@@ -1052,4 +1052,6 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-e292f1a | the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it | `f1e184f` |
 | 2026-10-22 | D-bc59237 | the second modality for the evaluation code is this generated toy, built by the same build_dataset/write_dataset/run_dataset path as a tactile data set, with no adapter | `084d604` |
 | 2026-10-22 | D-94d2637 | unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump | `8cf4e60` |
+| 2026-10-22 | D-e24e767 | the import-wall test follows every import (inside functions too) in sensoryforge.evaluate and only import-time imports elsewhere, because sensoryforge/__init__ reaches the world through lazy imports and a clean-subprocess check covers what really loads | `ac56f03` |
+| 2026-10-22 | D-a70ccdc | a bundle whose sensors cannot be located from the grid block (frames not matching rows x cols, or a coords file) is refused with layout_unknown rather than given invented positions | `ac56f03` |
 <!-- DECISIONS_LOG_END -->
