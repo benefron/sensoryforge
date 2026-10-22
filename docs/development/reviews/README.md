@@ -15,6 +15,7 @@ Open/Resolved counts printed in these files.
 | `BACKEND_AUDIT_20260410.md` | 2026-04-10 | GUI vs shared pipeline, 10 gaps | check ledger for current status |
 | `UNITS_GAINS_AUDIT_20260410.md` | 2026-04-10 | Units/gains, 5 findings | 1 fixed at the time (F4); rest superseded by ledger F-005 |
 | `PUBLICATION_READINESS_20260914.md` | 2026-09-14 | Publication-readiness audit incl. pressure-simulation parity | **current** — source of ledger findings F-001..F-022 |
+| `R-A4_EVALUATE_CORE_20261022.md` | 2026-10-22 | Evaluation core (audit, declared side, comparison), roadmap gate R-A4 | **current** — fixes in roadmap row A4f |
 
 For anything not covered above, the living ledger (`docs_root/LEDGER.md`) is the single source of
 truth for open findings and decisions.
