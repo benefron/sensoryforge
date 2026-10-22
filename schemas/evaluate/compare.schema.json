@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/compare.schema.json",
+  "title": "compare.json (sensoryforge-compare/1)",
+  "description": "For every metric both sides carry, the measured value, the declared value and the raw difference measured - declared. No verdicts. #/$defs/entry_row validates a row of compare_entries.jsonl. See docs/reference/report_contract.md, section 9.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-compare/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "audit": {"$ref": "#/$defs/input_file"},
+        "declared": {"$ref": "#/$defs/input_file"}
+      },
+      "required": ["audit", "declared"],
+      "additionalProperties": false
+    },
+    "difference": {"const": "measured - declared"},
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+          "unit": {
+            "description": "The audit's unit for this metric, symbol only; null when the audit states none.",
+            "oneOf": [{"type": "null"}, {"$ref": "#/$defs/unit_symbol"}]
+          },
+          "resolution": {"type": ["number", "null"]},
+          "n_pairs": {"type": "integer", "minimum": 0}
+        },
+        "required": ["id", "unit", "resolution", "n_pairs"],
+        "additionalProperties": false
+      }
+    },
+    "unpaired": {
+      "type": "object",
+      "properties": {
+        "measured_only": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/metric_id"}},
+        "declared_only": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/metric_id"}}
+      },
+      "required": ["measured_only", "declared_only"],
+      "additionalProperties": false
+    },
+    "counts": {
+      "description": "Entry-level pairs by pairing state.",
+      "type": "object",
+      "properties": {
+        "ok": {"type": "integer", "minimum": 0},
+        "unit_unchecked": {"type": "integer", "minimum": 0},
+        "unit_mismatch": {"type": "integer", "minimum": 0},
+        "missing_measured": {"type": "integer", "minimum": 0},
+        "missing_declared": {"type": "integer", "minimum": 0},
+        "not_numeric": {"type": "integer", "minimum": 0}
+      },
+      "required": ["ok", "unit_unchecked", "unit_mismatch", "missing_measured", "missing_declared", "not_numeric"],
+      "additionalProperties": false
+    },
+    "entries": {"$ref": "common.schema.json#/$defs/entries_file"},
+    "dataset": {"type": "array", "items": {"$ref": "#/$defs/stat_pair"}},
+    "groupings": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/stat_pair"}}
+        },
+        "split": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/stat_pair"}}
+        }
+      },
+      "required": ["class", "split"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format", "created_at", "producer", "inputs", "difference", "metrics", "unpaired", "counts",
+    "entries", "dataset", "groupings"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "input_file": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "common.schema.json#/$defs/sha256"}
+      },
+      "required": ["path", "sha256"],
+      "additionalProperties": false
+    },
+    "unit_symbol": {
+      "type": "object",
+      "properties": {"symbol": {"type": "string", "minLength": 1}},
+      "required": ["symbol"],
+      "additionalProperties": false
+    },
+    "pairing": {
+      "enum": ["ok", "unit_unchecked", "unit_mismatch", "missing_measured", "missing_declared", "not_numeric"]
+    },
+    "operand": {
+      "description": "A measured or declared value: a number, a string, or null.",
+      "type": ["number", "string", "null"]
+    },
+    "result": {
+      "description": "diff and rel_diff: null unless pairing is ok or unit_unchecked; rel_diff is also null when declared is 0.",
+      "type": ["number", "null"]
+    },
+    "entry_pair": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+        "channel": {"type": "integer", "minimum": 0},
+        "population": {"type": "string"},
+        "measured": {"$ref": "#/$defs/operand"},
+        "declared": {"$ref": "#/$defs/operand"},
+        "diff": {"$ref": "#/$defs/result"},
+        "rel_diff": {"$ref": "#/$defs/result"},
+        "resolution": {"type": ["number", "null"]},
+        "pairing": {"$ref": "#/$defs/pairing"}
+      },
+      "required": ["id", "measured", "declared", "diff", "rel_diff", "resolution", "pairing"],
+      "additionalProperties": false
+    },
+    "stat_pair": {
+      "description": "One statistic of a metric's summary on both sides, for the data set or a group.",
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+        "channel": {"type": "integer", "minimum": 0},
+        "population": {"type": "string"},
+        "stat": {"enum": ["n", "mean", "std", "min", "q05", "q25", "q50", "q75", "q95", "max"]},
+        "measured": {"$ref": "#/$defs/operand"},
+        "declared": {"$ref": "#/$defs/operand"},
+        "diff": {"$ref": "#/$defs/result"},
+        "rel_diff": {"$ref": "#/$defs/result"},
+        "pairing": {"$ref": "#/$defs/pairing"}
+      },
+      "required": ["id", "stat", "measured", "declared", "diff", "rel_diff", "pairing"],
+      "additionalProperties": false
+    },
+    "entry_row": {
+      "description": "One row of compare_entries.jsonl. pairs covers every value the entry's declared row carries.",
+      "type": "object",
+      "properties": {
+        "entry": {"type": "string", "minLength": 1},
+        "split": {"type": "string"},
+        "class": {"type": ["string", "null"]},
+        "pairs": {"type": "array", "items": {"$ref": "#/$defs/entry_pair"}}
+      },
+      "required": ["entry", "split", "class", "pairs"],
+      "additionalProperties": false
+    }
+  }
+}
