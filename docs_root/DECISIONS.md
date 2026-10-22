@@ -1038,4 +1038,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-c889235 | the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval | `f44b0af` |
 | 2026-10-22 | D-76fdd8a | how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default | `f44b0af` |
 | 2026-10-22 | D-6f0c3cc | each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links | `9471c8b` |
+| 2026-10-22 | D-aa16d85 | the roadmap keeps an append-only discussion record (requests, replies, page comments, decisions with ledger links), updated each session and exported as one reviewed, tracked file once the plan converges | `b3f06aa` |
 <!-- DECISIONS_LOG_END -->

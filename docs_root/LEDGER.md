@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-aa16d85 · CLOSED · decision · - · 2026-10-22
+the roadmap keeps an append-only discussion record (requests, replies, page comments, decisions with ledger links), updated each session and exported as one reviewed, tracked file once the plan converges
+→ commit b3f06aa
+
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
@@ -520,6 +524,7 @@ for now SensoryForge's tactile models serve the pressure-simulation project and 
 ↔ 1e61060 docs: record the modality-neutral aim and the roadmap's working method
 ↔ f44b0af docs: record the rules for the agentic workflow
 ↔ 9471c8b docs: every roadmap task ships its docs, and the agentic workflow is documented like the o
+↔ b3f06aa docs: the roadmap's discussion and decisions are kept as a record
 
 ## F-42a7556 · STANDING · finding · - · 2026-09-24
 on the calibrated recipes SA's hold rate is linear in pressure amplitude (R^2 0.999 for both recipes, threshold near zero: Izhikevich 58 Hz and AdEx 70 Hz per unit) and RA's onset rate in ramp speed (Izhikevich R^2 0.998; AdEx 0.957, flattening above about 20 units/s)
