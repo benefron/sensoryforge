@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-94d2637 · CLOSED · decision · - · 2026-10-22
+unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump
+→ commit 8cf4e60
+
+## F-5fd48f4 · STANDING · finding · - · 2026-10-22
+a record's keys keep their _mm suffix for a world in other units; the suffix is historical and only the units block names the unit
+→ commit 8cf4e60
+
 ## D-bc59237 · CLOSED · decision · - · 2026-10-22
 the second modality for the evaluation code is this generated toy, built by the same build_dataset/write_dataset/run_dataset path as a tactile data set, with no adapter
 → commit 084d604
@@ -193,6 +201,7 @@ new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (
 → commit 1e61060
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
 ↔ 084d604 test(evaluate): add a toy non-tactile data set built through the real engine
+↔ 8cf4e60 feat(world): unit-free field names and a declared space unit
 
 ## D-4671314 · CLOSED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view

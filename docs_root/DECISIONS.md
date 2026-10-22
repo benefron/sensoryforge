@@ -1051,4 +1051,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-423556b | the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it | `5692ef2` |
 | 2026-10-22 | D-e292f1a | the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it | `f1e184f` |
 | 2026-10-22 | D-bc59237 | the second modality for the evaluation code is this generated toy, built by the same build_dataset/write_dataset/run_dataset path as a tactile data set, with no adapter | `084d604` |
+| 2026-10-22 | D-94d2637 | unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump | `8cf4e60` |
 <!-- DECISIONS_LOG_END -->
