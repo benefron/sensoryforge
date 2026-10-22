@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-533ccab · CLOSED · decision · - · 2026-10-22
+the tactile declared adapter leaves a value out wherever its declaration does not fix it, with a counted reason; beyond section 8.3's list it also leaves out a centroid under a background or an unknown shape, and episode phases of truncated or merged contacts
+→ commit f47a70b
+
+## F-4c41513 · STANDING · finding · - · 2026-10-22
+the world engine refuses a clamp_min above 0 at load, so section 8.3's "clamp_min above 0" case for the declared peak cannot occur
+→ commit f47a70b
+
+## F-65689f0 · OPEN · finding · - · 2026-10-22
+tactile.motion.speed pools the plateau's centroid steps, which include the still hold before a slide, while the declared speed is the slide speed, so the raw difference reads low by the hold share; whether to change the metric or the declared value is for R-A4
+→ commit f47a70b
+
 ## D-346f8dd · CLOSED · decision · - · 2026-10-22
 the tactile pack finds bouts itself on the exactly non-zero envelope and takes only the two contract parameters, plateau_tolerance and motion_tolerance; a plateau "moves" when its centroid path exceeds motion_tolerance and speed pools the steps of moving plateaus (contract section 7.1, for review at R-A4).
 → commit 60b45c6
