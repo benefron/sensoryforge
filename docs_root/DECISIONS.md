@@ -1054,4 +1054,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-94d2637 | unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump | `8cf4e60` |
 | 2026-10-22 | D-e24e767 | the import-wall test follows every import (inside functions too) in sensoryforge.evaluate and only import-time imports elsewhere, because sensoryforge/__init__ reaches the world through lazy imports and a clean-subprocess check covers what really loads | `ac56f03` |
 | 2026-10-22 | D-a70ccdc | a bundle whose sensors cannot be located from the grid block (frames not matching rows x cols, or a coords file) is refused with layout_unknown rather than given invented positions | `ac56f03` |
+| 2026-10-22 | D-0a9fe81 | where the contract left a detail open (activity per channel vs the union across channels, direction near zero, dominant-frequency resolution, rate per time unit, the metrics() signature taking layout, units and dt) the audit takes the choices listed in report_contract.md section 6.5, for review at R-A4. | `8bac4ee` |
 <!-- DECISIONS_LOG_END -->
