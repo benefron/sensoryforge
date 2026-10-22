@@ -6,8 +6,10 @@
     implements section 2; the core metrics, the summariser and `audit.json` (A2b–A2c, see
     [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
     tactile pack (A2d) section 7, the declared side (A3, see [the declared
-    side](../developer_guide/declared_adapter.md)) section 8, the comparison follows in A4. The JSON Schemas are in `schemas/evaluate/`. Section 11 lists the choices
-    this page makes, all approved as written.
+    side](../developer_guide/declared_adapter.md)) section 8, the comparison (A4, see [the raw
+    comparison](../developer_guide/compare_stage.md)) section 9. The JSON Schemas are in
+    `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
+    written.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
 the next one reads:
@@ -517,6 +519,34 @@ A row of `compare_entries.jsonl`:
 | `missing_measured` | declared, but measured is `null` or absent (silent frames, failed entry) | null |
 | `missing_declared` | a summary stat the declared side lacks | null |
 | `not_numeric` | either value not a number | null |
+
+### 9.1 How the compare stage applies these definitions
+
+Choices made while building A4 (none changes a metric id, unit or an existing field):
+
+- **Order of the pairing rules.** The first that applies decides: measured `null` or absent
+  is `missing_measured` (also when the declared value is `null` too), declared `null` is
+  `missing_declared`, a non-number is `not_numeric`, two known different units are
+  `unit_mismatch`, an unknown unit is `unit_unchecked`, otherwise `ok`. A `bool` is not a
+  number.
+- **What the rows follow.** The entry rows and the group rows follow the declared side. A
+  group the audit lacks pairs as `missing_measured`. The two entry files must name the same
+  entries in the same order, or the stage refuses; each entry file must match the hash in its
+  `.json`.
+- **`metrics`** lists the ids both catalogues carry, in the audit's order; `n_pairs` counts
+  the entry pairs whose difference was computed. A declared id the audit does not carry is
+  listed in `unpaired.declared_only` and still pairs, as `missing_measured`, in each entry.
+- **Input paths** are written relative to the output folder.
+- **Summaries cover different entries.** A group row pairs the audit's summary of *all* its
+  entries with the declared summary of the entries the declaration determines, so their
+  `n` and their means differ when values are left out. This is why the optional
+  `distributions` block exists.
+- **`distributions` (optional, added in A4, the tag stays).** For each declared value key
+  and each group (`dataset`, then `class` and `split` labels): over the entries whose
+  difference was computed, `n_pairs`, `diff_mean`, `diff_abs_mean`, `ks`, `wasserstein` and
+  a paired `histogram` (`edges`, `measured`, `declared`) on shared equal-width bins
+  (`histogram_bins`, default 32). All are `null` for `n_pairs` 0. The distances are not
+  paired summaries, so this is the only place the two histograms appear.
 
 ## 10. The three seams
 

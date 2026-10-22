@@ -12,7 +12,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import yaml
 
 from sensoryforge.evaluate.audit.run import AUDIT_FILE, ENTRIES_FILE, run_audit
 from sensoryforge.evaluate.registry import METRIC_PACK_REGISTRY
@@ -236,49 +235,6 @@ def test_the_catalogue_names_four_channel_metrics_with_units():
 
 
 # ------------------------------------------------------------------ end to end
-
-
-@pytest.fixture(scope="module")
-def tactile_dataset(tmp_path_factory):
-    """A small data set from the tactile test world, on the 8x8 test design."""
-    from sensoryforge.io.design import load_design
-    from sensoryforge.world.dataset import (
-        build_dataset,
-        load_dataset,
-        write_dataset,
-    )
-    from sensoryforge.world.runner import run_dataset
-
-    root = tmp_path_factory.mktemp("tactile_session")
-    raw = {
-        "dataset": {
-            "name": "tiny",
-            "world": str(FIXTURES / "worlds" / "tactile_small.yml"),
-            "seed": 5,
-            "duration_ms": 120,
-            "splits": {
-                "train": {"n": 4},
-                "test": {"stratified": {"bins": 1, "per_bin": 1}},
-                "sessions": {"n": 1, "duration_ms": 200},
-            },
-        }
-    }
-    path = root / "tiny.yml"
-    path.write_text(yaml.safe_dump(raw))
-    spec = load_dataset(path)
-    entries = build_dataset(spec)
-    data = root / "data"
-    write_dataset(spec, entries, data)
-    summary = run_dataset(load_design(FIXTURES / "design_8x8"), spec, data)
-    assert summary["failed"] == 0, summary
-    return data
-
-
-@pytest.fixture(scope="module")
-def audited(tactile_dataset, tmp_path_factory):
-    out = tmp_path_factory.mktemp("tactile_audit")
-    audit = run_audit(tactile_dataset, out, packs=["core", "tactile"], created_at=STAMP)
-    return audit, out
 
 
 def _rows(out):
