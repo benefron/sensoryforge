@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-9f6c77b · CLOSED · decision · - · 2026-10-22
+the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes
+→ commit 176f4b4
+
+## F-96122fa · STANDING · finding · - · 2026-10-22
+opening the first draw costs one more manifest parse (the reader's, about 0.3 s at 10,000 draws), so serve() warms the reader in a background thread
+→ commit 176f4b4
+
 ## F-ae476c6 · CLOSED · finding · - · 2026-10-22
 the R-A4 findings 1-6, 8 and 9 (direction on a still shape, plateau speed, phases for moving shapes, timeline counts for pulses, mixed-population group pairs, lint scope, index robustness)
 → commit 7930c08
@@ -226,6 +234,7 @@ a layer value an axis replaces is not checked, and a list-valued field is checke
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
+↔ 176f4b4 feat(evaluate): the local evaluation server's data layer and JSON endpoints (A5a)
 
 ## D-c52e668 · CLOSED · decision · - · 2026-10-22
 the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package

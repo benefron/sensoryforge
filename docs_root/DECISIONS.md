@@ -1062,4 +1062,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-8c0f6d4 | tactile.motion.speed becomes the pooled moving centroid steps (each longer than 1e-6 of the layout extent, the same floor core.frames.direction uses), with no plateau; the declared value stays the slide speed | `09f6568` |
 | 2026-10-22 | D-88f8714 | the compare stage pairs each group's declared summary with a summary of the measured values of the same (entry, key) set, using the audit's summariser; audit.json keeps the full-set summaries; the tag stays compare/1 (unreleased) | `09f6568` |
 | 2026-10-22 | D-5253eb0 | the tactile adapter leaves out the episode phases for a moving shape (motion), and the timeline counts (offset, active time and fraction, bouts, gaps) when the modulation reaches 0 (depth 1) | `09f6568` |
+| 2026-10-22 | D-9f6c77b | the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes | `176f4b4` |
 <!-- DECISIONS_LOG_END -->
