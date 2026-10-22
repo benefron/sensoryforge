@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-8b78a55 · CLOSED · decision · - · 2026-10-22
+the compare stage keeps verdicts out (contract Q8); the task's optional tolerance file is A8's, not A4's
+→ commit 2aa9319
+
+## D-2aebc41 · CLOSED · decision · - · 2026-10-22
+KS, Wasserstein and the paired histograms go in an optional `distributions` block of compare.json computed on the entries whose difference was computed, not in the summary pairing
+→ commit 2aa9319
+
+## F-3a20111 · STANDING · finding · - · 2026-10-22
+a group row of compare.json pairs the audit's summary of all entries with the declared summary of the entries the declaration determines, so n and the means differ when values are left out; only the distributions compare the same entries
+→ commit 2aa9319
+
 ## D-533ccab · CLOSED · decision · - · 2026-10-22
 the tactile declared adapter leaves a value out wherever its declaration does not fix it, with a counted reason; beyond section 8.3's list it also leaves out a centroid under a background or an unknown shape, and episode phases of truncated or merged contacts
 → commit f47a70b
