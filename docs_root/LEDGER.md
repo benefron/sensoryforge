@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-bc59237 · CLOSED · decision · - · 2026-10-22
+the second modality for the evaluation code is this generated toy, built by the same build_dataset/write_dataset/run_dataset path as a tactile data set, with no adapter
+→ commit 084d604
+
+## F-ef07377 · STANDING · finding · - · 2026-10-22
+the engine's only space unit is mm and the world's layered fields are named *_mm and hold/slide/speed, so a non-tactile world still carries those names; the toy reads 1 mm as 1 pixel
+→ commit 084d604
+
 ## D-e292f1a · CLOSED · decision · docs/reference · 2026-10-22
 the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it
 → commit f1e184f
@@ -184,6 +192,7 @@ how a chained run of skills proceeds, step by step or end to end, is decided by 
 new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
 → commit 1e61060
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
+↔ 084d604 test(evaluate): add a toy non-tactile data set built through the real engine
 
 ## D-4671314 · CLOSED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view
