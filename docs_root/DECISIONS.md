@@ -1048,4 +1048,5 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-3a46fe4 | agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments | `c53ca39` |
 | 2026-10-22 | D-f747b6e | roadmap sessions are sized by context (about 150k each), grouping the remaining rows into 30 sessions with one fixed session prompt, instead of one row per session | `319cb00` |
 | 2026-10-22 | D-1a06570 | the roadmap keeps Sonnet implementing and Opus reviewing at phase ends and the named gates, with the plan kept as files in docs_root/plan and a private artifact for comments | `6561075` |
+| 2026-10-22 | D-2c59776 | the tactile metric pack is built as its own row A2d, in S2 before A3 and A4, so the declared side and the comparison have measured values for the same metric ids. | `4ec70c4` |
 <!-- DECISIONS_LOG_END -->

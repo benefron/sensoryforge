@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-2c59776 · CLOSED · decision · - · 2026-10-22
+the tactile metric pack is built as its own row A2d, in S2 before A3 and A4, so the declared side and the comparison have measured values for the same metric ids.
+→ commit 4ec70c4
+
 ## D-1a06570 · CLOSED · decision · - · 2026-10-22
 the roadmap keeps Sonnet implementing and Opus reviewing at phase ends and the named gates, with the plan kept as files in docs_root/plan and a private artifact for comments
 → commit 6561075
@@ -169,6 +173,7 @@ how a chained run of skills proceeds, step by step or end to end, is decided by 
 new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
 → commit 1e61060
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
+↔ 4ec70c4 docs(plan): add A2d, the tactile metric pack, before A4
 
 ## D-4671314 · SUPERSEDED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view
