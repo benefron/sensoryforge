@@ -133,6 +133,7 @@ nav:
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
     - Evaluating a World: user_guide/evaluate_pipeline.md
+    - Sharing a Snapshot: user_guide/evaluation_export.md
 
   - Developer Guide:
     - Extensibility Overview: developer_guide/extensibility.md

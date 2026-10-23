@@ -1161,9 +1161,14 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     """``sensoryforge evaluate {run,serve}``: the pipeline and the local browser."""
     if args.evaluate_command == "run":
         return cmd_evaluate_run(args)
+    if args.evaluate_command == "export":
+        from sensoryforge.evaluate.export.__main__ import run as run_export
+
+        return run_export(args)
     if args.evaluate_command != "serve":
         print(
-            "usage: sensoryforge evaluate {run SOURCE --out DIR | serve DATASET_DIR}",
+            "usage: sensoryforge evaluate "
+            "{run SOURCE --out DIR | serve DATASET_DIR | export DATASET_DIR OUT_DIR}",
             file=sys.stderr,
         )
         return 1
@@ -1429,6 +1434,13 @@ def create_parser() -> argparse.ArgumentParser:
         help="Megabytes of re-simulated membrane voltage kept between requests "
         "(default 256; 0 keeps none)",
     )
+    export_parser = evaluate_sub.add_parser(
+        "export",
+        help="Write a snapshot of a data set that opens offline, with no server",
+    )
+    from sensoryforge.evaluate.export.arguments import add_arguments as add_export
+
+    add_export(export_parser)
 
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")

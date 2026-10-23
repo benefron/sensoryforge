@@ -193,8 +193,9 @@ PIPELINE STRUCTURE
 
 `sensoryforge evaluate run SOURCE --out DIR` takes a world or a data-set file to a report
 folder (build, simulate, audit, declared side, comparison, checks), and `evaluate serve DIR`
-opens the result in the local browser. See [Evaluating a world in one
-command](evaluate_pipeline.md).
+opens the result in the local browser; `evaluate export DIR OUT` writes a folder that opens
+offline for sharing. See [Evaluating a world in one command](evaluate_pipeline.md) and [Sharing a
+snapshot](evaluation_export.md).
 
 ## Configuration File Format
 

@@ -370,3 +370,17 @@ data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
 `tests/unit/test_eval_gallery.py` (every seeded fault is found), `tests/unit/test_eval_checks.py`,
 `tests/unit/test_eval_dashboard.py` (including that every dashboard number's query returns that many draws). The audit's reader gained `DatasetReader.bundle_path()`
 for the server.
+
+## The static export
+
+`sensoryforge/evaluate/export/` writes the same pages without a server
+([user guide](../user_guide/evaluation_export.md)). `snapshot.py` records responses by calling
+`Api.handle`, keyed by the path plus the query as a sorted JSON list (`request_key`);
+`build.py` decides which requests to record (the dataset summary, dashboard, gallery limits,
+checks, every draw list a page or dashboard link can ask for, and for each chosen draw its
+record, every frame chunk, the population geometry and the traces of the pinned points),
+rewrites the pages' links, and writes `snapshot/`; `static/snapshot_shim.js` replaces `fetch`
+and rebuilds the same key in the browser; `video.py` writes MP4 or GIF through ffmpeg. A new
+endpoint a page starts using must be added to `build.py`'s recording, or the exported page
+answers `not in this snapshot`. The tests are `tests/unit/test_eval_export.py` (every recorded
+answer equals the live one).
