@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-9c33ec9 · CLOSED · decision · - · 2026-10-23
+bundle population files store receptive-field weights as innervation_weights_indices/_values/_shape when under 10% nonzero (schema 2.5.0, readers choose by key), not as a shared per-data-set copy; the writer default switches after the pressure-simulation reader is in.
+→ commit 2dec769
+
 ## F-289f711 · STANDING · finding · - · 2026-10-23
 a bundle entry on the 80x80 recipes is about 47 MB, of which about 1 MB is data; the rest is the receptive-field weights saved per entry (io/bundle.py write_bundle).
 → commit 0e7f164
@@ -595,6 +599,7 @@ on Linux x86-64 (GitHub ubuntu-latest, Python 3.10 and 3.11, CPU torch 2.14.1, t
 ## F-3658a63 · OPEN · finding · docs/reference · 2026-10-03
 batch bit-invariance on x86-64 is not yet shown with several torch threads or with torch 2.2.2 (pressure-simulation's bio-encoding version); the CI suite runs torch single-threaded
 → commit b2f4bee
+↔ 2dec769 docs(plan): add A11d, sparse receptive-field weights in bundles, before A12
 
 ## F-b17c562 · CLOSED · finding · - · 2026-10-03
 CI's lint job failed on main because seven files predating v1.1.0 were not black-formatted and three docstring lines exceeded flake8's 88 columns
