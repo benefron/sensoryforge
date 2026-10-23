@@ -78,10 +78,7 @@ package loaded, whatever the rest of the pipeline imports.
 
 To see how long a large run takes on your machine, run the repository's scale test, which
 uses the tactile test world: `SF_SCALE_DRAWS=5000 pytest -m scale tests/scale -s`. It prints
-each stage's time. Each bundle stores its populations' receptive-field weights, which is about
-47 MB per entry on the 80x80 recipes, so the test measures one entry first and refuses a run
-that would write more than 10 GB (`SF_SCALE_MAX_GB`) or fill the disk; plan the same for your
-own runs: thousands of draws on a recipe need over a hundred GB. A 24-draw version of it runs in every CI job. See the [developer
+each stage's time. A recipe bundle takes about 2 MB per entry (its receptive-field weights are stored sparsely; before schema 2.5.0 it was 47 MB), so 3000 draws are about 6 GB. The test still measures one entry first and refuses a run that would write more than 10 GB (`SF_SCALE_MAX_GB`) or fill the disk; point `SF_SCALE_OUT` at a larger volume for more. A 24-draw version of it runs in every CI job. See the [developer
 note](../developer_guide/pipeline_stage.md#scale-tests).
 
 ## From Python

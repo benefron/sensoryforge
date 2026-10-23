@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.evaluate.checks.registry import CHECK_PACK_REGISTRY
@@ -141,6 +141,7 @@ def run_pipeline(
     check_sample: int = 8,
     splits: Optional[Sequence[str]] = None,
     resume: bool = False,
+    sparse_weights: Union[bool, str] = "auto",
     created_at: Optional[str] = None,
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
@@ -163,6 +164,8 @@ def run_pipeline(
         check_sample: Entries the engine-level checks re-run.
         splits: Simulate only these splits (the audit then reads those entries).
         resume: Skip entries whose bundle already exists.
+        sparse_weights: How the bundles store receptive-field weights (``False`` =
+            dense; see :func:`sensoryforge.io.bundle.write_bundle`).
         created_at: UTC timestamp for ``created_at``; default now.
         log: Called with one progress line.
 
@@ -212,6 +215,7 @@ def run_pipeline(
                 design_manifest=design_manifest,
                 splits=splits,
                 resume=resume,
+                sparse_weights=sparse_weights,
                 log=emit,
             )
             if summary["failed"]:

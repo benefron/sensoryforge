@@ -203,3 +203,26 @@ def test_a_population_reports_its_neuron_positions_and_one_receptive_field(
         == 400
     )
     assert get(api, f"/api/draw/population?entry={entry}&population=nope")[0] == 404
+
+
+def test_a_sparse_population_file_gives_the_same_receptive_field(damaged):
+    """The server reads either layout of ``population_NN_*.pt`` (A11d)."""
+    import torch
+
+    from sensoryforge.core.rf_bank import encode_weights
+
+    service = DatasetService(damaged)
+    api = Api(service)
+    entry, pop = _first(api)
+    target = f"/api/draw/population?entry={entry}&population={pop['name']}&index=3"
+    before = get(api, target)[1]
+    bundle = service.reader().bundle_path(entry)
+    config = json.loads((bundle / "config.json").read_text())
+    path = bundle / next(
+        p["tensors"] for p in config["populations"] if p["name"] == pop["name"]
+    )
+    raw = torch.load(path, weights_only=False)
+    raw.update(encode_weights(raw.pop("innervation_weights"), True))
+    torch.save(raw, path)
+    after = get(Api(DatasetService(damaged)), target)
+    assert after[0] == 200 and after[1] == before

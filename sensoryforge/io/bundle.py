@@ -52,6 +52,13 @@ bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
 See ``docs/development/handover/phase2_tasks.md`` section 2 for the exact fields
 that loader reads, and ``docs/user_guide/bundles.md`` for the user-facing layout.
 
+Schema 2.5.0 (2026-10-23, A11d): a population file whose receptive-field weights are
+under 10% nonzero stores them sparsely (``innervation_weights_indices`` /
+``_values`` / ``_shape`` instead of ``innervation_weights``; see
+:func:`sensoryforge.core.rf_bank.encode_weights`), about 100 times smaller; the bundle then
+says ``schema_version`` 2.5.0. ``write_bundle(sparse_weights=False)`` writes the dense
+layout. Readers choose the layout by the keys present.
+
 Coordinates and receptor ordering follow the rest of SensoryForge: ``(x, y)`` in
 mm, receptor ``k = i * cols + j`` for a ``[rows, cols]`` grid.
 """
@@ -70,13 +77,16 @@ import torch
 import sensoryforge
 from sensoryforge.config.probes import resolve_voltage_probes
 from sensoryforge.config.schema import SensoryForgeConfig
-from sensoryforge.core.rf_bank import ReceptiveFieldBank
+from sensoryforge.core.rf_bank import ReceptiveFieldBank, encode_weights
 from sensoryforge.provenance import source_info
 
 SCHEMA_VERSION = "2.3.0"
 #: The schema a bundle with stored voltage probes says (2.4.0, A6p). A bundle without
 #: probes keeps ``SCHEMA_VERSION``: the key is invisible until used.
 PROBE_SCHEMA_VERSION = "2.4.0"
+#: The schema a bundle with a sparse population file says (2.5.0, A11d); it also covers
+#: stored voltage probes. A bundle whose weights are all dense keeps its older version.
+SPARSE_SCHEMA_VERSION = "2.5.0"
 WORLD_ENTRY_KIND = "sensoryforge_world_entry"
 
 #: How a signed event population's ``events`` dataset is to be read
@@ -374,6 +384,7 @@ def write_bundle(
     seed: Optional[int] = None,
     overwrite: bool = False,
     design_manifest: Optional[Dict[str, Any]] = None,
+    sparse_weights: Union[bool, str] = "auto",
 ) -> Path:
     """Write a run as a data bundle.
 
@@ -410,6 +421,11 @@ def write_bundle(
             this parameter existed) writes exactly what ``write_bundle``
             wrote with no design involved -- no ``"design"`` key, no
             provenance changes.
+        sparse_weights: How each population file stores its receptive-field weights
+            (:func:`~sensoryforge.core.rf_bank.encode_weights`): ``"auto"`` (default)
+            stores them sparsely when under 10% are nonzero, ``False`` always dense
+            (what schema 2.4.0 and earlier readers need), ``True`` always sparse. A
+            bundle with a sparse file says ``schema_version`` 2.5.0.
 
     Returns:
         *bundle_dir* as a :class:`~pathlib.Path`.
@@ -438,6 +454,7 @@ def write_bundle(
     # population_NN_<NAME>.pt -- bank + grid_shape
     # ------------------------------------------------------------------ #
     pop_entries = []
+    any_sparse = False
     probe_ids: Dict[str, list] = {}
     for idx, name in enumerate(results.keys(), start=1):
         pop = pop_by_name.get(name)
@@ -467,9 +484,11 @@ def write_bundle(
             provenance["design_id"] = design_manifest.get("design_id")
             provenance["source_repo"] = "pressure-simulation"
             provenance["source_repo_git_sha"] = design_manifest.get("git_sha")
+        weight_entries = encode_weights(bank.weights, sparse_weights)
+        any_sparse = any_sparse or "innervation_weights" not in weight_entries
         torch.save(
             {
-                "innervation_weights": bank.weights.detach().cpu().clone(),
+                **weight_entries,
                 "neuron_centers": bank.neuron_centers.detach().cpu().clone(),
                 "receptor_coords": bank.receptor_coords.detach().cpu().clone(),
                 "provenance": provenance,
@@ -546,7 +565,11 @@ def write_bundle(
         else {}
     )
     config_json = {
-        "schema_version": PROBE_SCHEMA_VERSION if probe_ids else SCHEMA_VERSION,
+        "schema_version": (
+            SPARSE_SCHEMA_VERSION
+            if any_sparse
+            else PROBE_SCHEMA_VERSION if probe_ids else SCHEMA_VERSION
+        ),
         "kind": BUNDLE_KIND,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "bundle_created": datetime.now(timezone.utc).isoformat(),

@@ -243,6 +243,7 @@ def run_dataset(
     task_index: int = 0,
     entry_range: Optional[slice] = None,
     resume: bool = False,
+    sparse_weights: Union[bool, str] = "auto",
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, int]:
     """Simulate a data set's entries, one bundle each (spec §7.2).
@@ -259,6 +260,8 @@ def run_dataset(
         entry_range: Only this slice of the selected entries; ``tasks`` then
             splits the slice, not the whole data set.
         resume: Skip entries whose bundle already holds ``data.h5``.
+        sparse_weights: How bundles store receptive-field weights (see
+            :func:`~sensoryforge.io.bundle.write_bundle`); ``False`` writes them dense.
         log: Called with one line per entry.
 
     Returns:
@@ -342,6 +345,7 @@ def run_dataset(
                 seed=noise & 0xFFFFFFFF,
                 bundle_overwrite=True,
                 design_manifest=design_manifest,
+                sparse_weights=sparse_weights,
             )
             if final.exists():
                 shutil.rmtree(final)

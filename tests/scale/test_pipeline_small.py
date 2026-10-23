@@ -77,3 +77,15 @@ def test_tasks_make_the_same_data_set_as_one_process(tmp_path):
     )
     # Wall-clock seconds are the one value that differs between two runs.
     assert measured(single) == measured(split)
+
+
+def test_a_recipe_entry_is_a_few_megabytes_not_tens(tmp_path):
+    """Sparse receptive-field weights (A11d): an 80x80 recipe entry was 47 MB."""
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.presets import load_preset
+
+    from .pipeline_runs import measure_entry
+
+    config = SensoryForgeConfig.from_dict(load_preset("tactile_sa1_ra1"))
+    per_entry = measure_entry(config, WORLD, 11, DURATION_MS, tmp_path / "out")
+    assert per_entry < 3_000_000, per_entry

@@ -31,8 +31,12 @@ ANALOG = {
 }
 
 
-def _run(root: Path, *, per_population=None, run_wide=None) -> Path:
-    """The toy data set with optional ``voltage_probes`` keys, built in *root*."""
+def _run(root: Path, *, per_population=None, run_wide=None, sparse=False) -> Path:
+    """The toy data set with optional ``voltage_probes`` keys, built in *root*.
+
+    The weights are written dense unless *sparse* (2.5.0, A11d): these tests pin what the
+    probes change on top of the dense layout 2.3.0 and 2.4.0 wrote.
+    """
     spec = toy_vision.toy_spec(2, DURATION)
     entries = toy_vision.build_dataset(spec)
     data = Path(root) / "data"
@@ -42,7 +46,9 @@ def _run(root: Path, *, per_population=None, run_wide=None) -> Path:
     for i, pop in enumerate(config.populations):
         pop.seed = 11 + i  # the toy wiring is otherwise drawn afresh on every run
         pop.voltage_probes = (per_population or {}).get(pop.name)
-    summary = run_dataset(config, spec, data)
+    summary = run_dataset(
+        config, spec, data, sparse_weights="auto" if sparse else False
+    )
     assert summary["failed"] == 0, summary
     return data
 
@@ -132,6 +138,21 @@ def test_a_run_without_the_key_writes_the_bundle_it_always_did(plain):
     assert all("voltage_probe" not in p for p in cfg["populations"])
     assert "voltage_probes" not in json.dumps(cfg["config"])
     assert not [k for k in _h5(bundle) if "voltage_probe" in k]
+
+
+def test_the_default_writer_adds_only_the_sparse_weights(tmp_path, plain):
+    sparse = _run(tmp_path, sparse=True)
+    a, b = _first_bundle(plain), _first_bundle(sparse)
+    cfg = json.loads((b / "config.json").read_text())
+    assert cfg["schema_version"] == "2.5.0"
+    old = json.loads((a / "config.json").read_text())
+    cfg.pop("schema_version"), old.pop("schema_version")
+    for doc in (cfg, old):
+        doc.pop("created_at"), doc.pop("bundle_created")
+    assert cfg == old
+    for key, value in _h5(a).items():
+        if key != "meta/config_yaml":
+            assert np.array_equal(value, _h5(b)[key]), key
 
 
 def test_probes_are_added_and_nothing_else_changes(plain, probed):

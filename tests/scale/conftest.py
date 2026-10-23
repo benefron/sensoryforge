@@ -8,9 +8,9 @@ run comes from the environment, so a laptop and a cluster use the same test::
     SF_SCALE_DRAWS=5000 SF_SCALE_DURATION_MS=100 pytest -m scale tests/scale -s
 
 ``SF_SCALE_OUT`` names a folder to keep the data set and report in (default: a temporary
-folder that is removed when the test ends). Every bundle carries the receptive-field
-weights of its populations, so a run on the 80x80 recipes writes about 45 MB per entry.
-The large tests therefore measure one entry first and refuse to start when the whole run
+folder that is removed when the test ends). A bundle on the 80x80 recipes takes about 2 MB
+per entry (it was 47 MB before the receptive-field weights were stored sparsely, A11d),
+but the large tests still measure one entry first and refuse to start when the whole run
 would not fit: ``SF_SCALE_MAX_GB`` (default 10) caps what one case may write, and the
 volume of the output folder must keep ``SF_SCALE_MIN_FREE_GB`` (default 20) free after it.
 """

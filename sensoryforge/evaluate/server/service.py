@@ -1327,6 +1327,8 @@ class DatasetService:
     def _read_bank(self, entry: str, population: str) -> Tuple[np.ndarray, np.ndarray]:
         import torch
 
+        from sensoryforge.core.rf_bank import decode_weights
+
         bundle = self.reader().bundle_path(entry)
         try:
             with open(bundle / "config.json") as fh:
@@ -1334,7 +1336,10 @@ class DatasetService:
             name = next(p["tensors"] for p in pops if p.get("name") == population)
             tensors = torch.load(bundle / name, map_location="cpu", weights_only=True)
             centers = tensors["neuron_centers"].numpy().astype(np.float64)
-            weights = tensors["innervation_weights"].numpy().astype(np.float32)
+            dense = decode_weights(tensors, str(bundle / name))
+            if dense is None:
+                raise KeyError("innervation_weights")
+            weights = dense.numpy().astype(np.float32)
         except (OSError, KeyError, StopIteration, ValueError, RuntimeError) as exc:
             raise ServiceError(
                 422,

@@ -217,14 +217,24 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   simulation engine still holds the whole float32 stimulus: a 120 s session at 80×80 and
   1 ms is about 3.1 GB, and that stays open.
 
-## 7. Bundles (schema 2.3.0; 2.4.0 with voltage probes)
+## 7. Bundles (schema 2.3.0; 2.4.0 with voltage probes; 2.5.0 with sparse weights)
+
+Schema 2.5.0 (A11d) changes how a population file `population_NN_<NAME>.pt` stores its
+receptive-field weights, not any draw, frame, seed, entry id or `data.h5` field. When under 10% of the
+`[N, M]` weights are nonzero (every shipped recipe: 0.4%) the file has no `innervation_weights`; it has
+`innervation_weights_indices` (int64 `[2, nnz]`, neuron then receptor, row-major, no repeated pair),
+`innervation_weights_values` (float32 `[nnz]`) and `innervation_weights_shape` (`[N, M]`), plain tensors
+that `torch.load(weights_only=True)` reads on torch 2.2.2. A bundle with such a file says 2.5.0 (it also
+covers probes); a bundle with only dense files is written as before. A reader picks the layout by the keys
+present. pressure-simulation's reader (`decoding/io/bank_weights.py`) expands it bit for bit. See
+`docs/user_guide/bundles.md`; `write_bundle(sparse_weights=False)` or `--dense-weights` writes dense.
 
 Schema 2.4.0 (A6p, additive and opt-in) is written only by a run that sets `voltage_probes`
 (a data set's design config, or `simulation.voltage_probes`); such a bundle also holds
 `/populations/<name>/voltage_probe` (`[T, K]` float32 mV, the engine's bin-end `voltages` for
 the probed neuron ids, attribute `ids`) and a `voltage_probe` object in that population's
 `config.json` entry. A run that sets no `voltage_probes` writes the 2.3.0 bundle byte for byte
-(it says 2.3.0): no draw, frame, seed, entry id or other field changes, and pressure-simulation
+(it says 2.3.0; with sparse weights, 2.5.0, below, the only difference is those weights): no draw, frame, seed, entry id or other field changes, and pressure-simulation
 needs no change. The guarantee is pinned by `tests/unit/test_bundle_voltage_probes.py`.
 
 Schema 2.3.0 (v1.3.0) adds to every population's `config.json` entry

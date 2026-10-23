@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import random
 import warnings
-from typing import Callable, Dict, List, Any, Optional, Tuple
+from typing import Callable, Dict, List, Any, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -845,6 +845,7 @@ class SimulationEngine:
         bundle_overwrite: bool = False,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
         design_manifest: Optional[Dict[str, Any]] = None,
+        sparse_weights: Union[bool, str] = "auto",
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -888,6 +889,8 @@ class SimulationEngine:
                 and ``seed`` (innervation wiring, F-006 open). Also seeds the
                 receptor noise when ``simulation.receptor_noise_seed`` is unset.
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
+            sparse_weights: Passed to :func:`~sensoryforge.io.bundle.write_bundle` (how a
+                bundle stores receptive-field weights; ``False`` writes them dense).
             progress_cb: If given, called once per population as
                 ``progress_cb(index, n_populations, population_name)``, immediately
                 before that population's filter/neuron pass (so at call time
@@ -1057,6 +1060,7 @@ class SimulationEngine:
                 seed=seed,
                 overwrite=bundle_overwrite,
                 design_manifest=design_manifest,
+                sparse_weights=sparse_weights,
             )
 
         if not return_intermediates and bundle_dir is not None:

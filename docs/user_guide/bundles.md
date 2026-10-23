@@ -7,7 +7,7 @@ learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.3.0" ("2.4.0" with voltage probes), kind "sensoryforge_bundle"
+    config.json               # schema_version "2.3.0" ("2.4.0" with voltage probes, "2.5.0" with sparse weights), kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt   # one file per population
     stimuli/
@@ -36,7 +36,7 @@ viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only 
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"2.3.0"`, or `"2.4.0"` for a bundle that stores voltage probes (below); 2.2.0 before each encoder's recorded input floor, 2.1.0 before the provenance fields, 2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
+| `schema_version` | `"2.3.0"`, `"2.4.0"` for a bundle that stores voltage probes (below), or `"2.5.0"` for a bundle with a sparse population file (below, and then it also covers probes); 2.2.0 before each encoder's recorded input floor, 2.1.0 before the provenance fields, 2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
 | `kind` | `"sensoryforge_bundle"`. |
 | `grid` | `{rows, cols, spacing_mm, center_mm, device}` of the run's primary grid. |
 | `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`; since 2.1.0 also `readout` (`"spikes"`, `"events"` or `"state"`), `encoder` (`{"model", "params"}`: the neuron model name and its own `to_dict()`, including `dt`; a `level_crossing` model's `params` include `reference_leak_tau_ms` since 2.3.0, `null` = no leak) and, for an `events` population, `event_encoding` (below); since 2.3.0 `encoder.input_floor_ma`, the floor (mA) the run applied to the population's neuron input, or `null` when it was not floored (`resolve_input_floor`: 0.0 for a tactile SA/RA/SA2 population on a built-in model, `null` for `level_crossing` and DSL models, an explicit `input_floor` as given, `-inf` as `null`). |
@@ -93,6 +93,30 @@ Exactly `ReceptiveFieldBank.save()` output, plus `grid_shape`:
 
 `ReceptiveFieldBank.load(path)` reads this file directly; `load_bundle` uses it under the
 hood for every population's `bank`.
+
+### Sparse weights (schema 2.5.0)
+
+A bank's weights are mostly zero (0.4% nonzero on the shipped 80x80 recipes: a neuron sees
+only nearby receptors), so by default a bundle stores them sparsely when under 10% of the
+`[N, M]` entries are nonzero. A recipe entry then takes about 2 MB instead of 47 MB. The file has
+the same keys except that `innervation_weights` is absent and three entries take its place:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `innervation_weights_indices` | int64 `[2, nnz]` | row 0 the neuron, row 1 the receptor; sorted row-major, no pair twice |
+| `innervation_weights_values` | float32 `[nnz]` | the nonzero weights, in that order |
+| `innervation_weights_shape` | `[N, M]` | the dense shape |
+
+They are plain tensors, so `torch.load(path, weights_only=True)` reads the file on any torch.
+Expanding gives the dense matrix exactly; an entry not listed is `0.0`. A reader chooses the
+layout by the keys present, never by `schema_version`; `ReceptiveFieldBank.load` and
+`sensoryforge.core.rf_bank.decode_weights` do, and reject a partial, mistyped,
+out-of-range or repeated set. A bundle whose weights are all dense (a small or fully
+connected bank) is still written as before and says its older version. To write every file
+dense for an older reader, pass `sparse_weights=False` to `write_bundle` /
+`SimulationEngine.run`, or `--dense-weights` to `sensoryforge batch --dataset` and
+`sensoryforge evaluate run`. The layout is shared with pressure-simulation, whose reader
+(`decoding/io/bank_weights.py`) expands it the same way.
 
 ## `stimuli/stimulus.json`
 

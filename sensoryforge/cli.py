@@ -677,6 +677,8 @@ def _task_commands(args: argparse.Namespace) -> List[str]:
         base += ["--device", args.device]
     if args.resume:
         base.append("--resume")
+    if args.dense_weights:
+        base.append("--dense-weights")
     return [
         " ".join(base + ["--tasks", str(args.tasks), "--task-index", str(i)])
         for i in range(args.tasks)
@@ -723,6 +725,7 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
             task_index=args.task_index or 0,
             entry_range=entry_range,
             resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
             log=print,
         )
     except (ValueError, OSError, KeyError, yaml.YAMLError) as exc:
@@ -1128,6 +1131,7 @@ def cmd_evaluate_run(args: argparse.Namespace) -> int:
             check_sample=args.check_sample,
             splits=splits,
             resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
             log=print,
         )
     except (ValueError, KeyError, OSError, yaml.YAMLError) as exc:
@@ -1289,6 +1293,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     batch_parser.add_argument("--entries", help="Run entries a:b only (with --dataset)")
     batch_parser.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help=(
+            "Store receptive-field weights dense in every bundle (default: sparse "
+            "when under 10%% nonzero; with --dataset)"
+        ),
+    )
+    batch_parser.add_argument(
         "--print-tasks",
         action="store_true",
         help=(
@@ -1374,6 +1386,11 @@ def create_parser() -> argparse.ArgumentParser:
     run_eval.add_argument(
         "--adapter",
         help="Declared adapter (default: the first that accepts the data set)",
+    )
+    run_eval.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help="Store receptive-field weights dense in every bundle (default: sparse)",
     )
     run_eval.add_argument(
         "--no-checks", action="store_true", help="Skip the reference-free checks"

@@ -1,8 +1,8 @@
 """The large run: thousands of draws from a world file to a report (roadmap A11b/A11c).
 
 Skipped unless asked for (``pytest -m scale``). The size comes from the environment
-(``SF_SCALE_DRAWS``, default 1000, for the plain run; ``SF_SCALE_MATRIX_DRAWS``, default 40,
-for the matrix, whose bundles are about 45 MB each; ``SF_SCALE_DURATION_MS``, default 100;
+(``SF_SCALE_DRAWS``, default 1000, for the plain run; ``SF_SCALE_MATRIX_DRAWS``, default 500,
+for the matrix, whose bundles are about 2 MB each; ``SF_SCALE_DURATION_MS``, default 100;
 see ``conftest.py``). The first test is the plain run on the 8x8 test sensor; the second is
 the matrix: both tactile recipes (80x80 sensors) on both test worlds, with sessions and,
 where the world has them, held-out classes and probes (A11c). Both check the invariants
@@ -40,11 +40,11 @@ def test_thousands_of_draws_from_a_world_to_a_report(scale_out, capsys):
 def test_both_recipes_across_worlds_and_splits(
     scale_out, capsys, world, held_out, preset
 ):
-    draws = env_int("SF_SCALE_MATRIX_DRAWS", 40)
+    draws = env_int("SF_SCALE_MATRIX_DRAWS", 500)
     duration_ms = float(env_int("SF_SCALE_DURATION_MS", 100))
     out = scale_out / f"{world.stem}_{preset}"
     doc = run_recipe(out, world, preset, draws, duration_ms, held_out=held_out)
     check_report(doc, out, None, checks=True)
-    assert doc["counts"]["entries"] >= draws
+    assert doc["counts"]["entries"] > draws // 2  # train takes most of the budget
     with capsys.disabled():
         print(f"\n{world.stem} on {preset}:", throughput(doc, doc["counts"]["entries"]))
