@@ -97,6 +97,8 @@ class Api:
             ("GET", r"/static/(?P<name>[A-Za-z0-9_][A-Za-z0-9_.-]*)", self._static),
             ("GET", r"/api/health", lambda r, m: json_response({"ok": True})),
             ("GET", r"/api/dataset", lambda r, m: json_response(s.summary())),
+            ("GET", r"/api/dashboard", lambda r, m: json_response(s.dashboard())),
+            ("GET", r"/dashboard", lambda r, m: self._file("dashboard.html")),
             ("GET", r"/api/draws", lambda r, m: json_response(s.list_draws(r.query))),
             (
                 "GET",

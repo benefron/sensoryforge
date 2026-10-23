@@ -33,6 +33,7 @@ from sensoryforge.evaluate.audit.reader import (
     ReadError,
     read_index,
 )
+from sensoryforge.evaluate.server.dashboard import Dashboard, build_dashboard
 
 #: The stage files the server shows, in pipeline order.
 STAGES: Tuple[str, ...] = ("audit", "declared", "compare")
@@ -329,6 +330,10 @@ class DatasetService:
         self._volts: "OrderedDict[Tuple[str, str], Any]" = OrderedDict()
         self._volt_lock = threading.Lock()
         self._volt_bytes = 0
+        # The dashboard (see dashboard()), rebuilt when the audit's files change.
+        self._dash: Optional[Dashboard] = None
+        self._dash_stamp: Optional[Tuple[Any, ...]] = None
+        self._dash_lock = threading.Lock()
         self._banks: "OrderedDict[Tuple[str, str], Tuple[np.ndarray, np.ndarray]]" = (
             OrderedDict()
         )
@@ -604,14 +609,86 @@ class DatasetService:
         path = self.stage_path(name)
         return path.read_bytes() if path.is_file() else None
 
+    # ---------------------------------------------------------------- dashboard
+
+    def _dashboard(self) -> Dashboard:
+        """The dashboard, built on first use and again when the audit files change."""
+        entries = self.stages / AUDIT_ENTRIES_FILE
+        audit = self.stages / "audit.json"
+        stamp = []
+        for path in (entries, audit):
+            try:
+                st = path.stat()
+                stamp.append((st.st_mtime_ns, st.st_size))
+            except OSError:
+                stamp.append(None)
+        key = tuple(stamp)
+        with self._dash_lock:
+            if self._dash is not None and self._dash_stamp == key:
+                return self._dash
+            world = None
+            meta = self.folder / "dataset.json"
+            if meta.is_file():
+                try:
+                    world = json.loads(meta.read_text(encoding="utf-8")).get("world")
+                except ValueError:
+                    world = None
+            audit_doc = None
+            if stamp[1] is not None:
+                try:
+                    audit_doc = json.loads(audit.read_text(encoding="utf-8"))
+                except ValueError:
+                    audit_doc = None
+            try:
+                dash = build_dashboard(
+                    self.rows,
+                    self._manifest,
+                    world=world,
+                    entries=entries if stamp[0] is not None else None,
+                    audit=audit_doc,
+                    no_class=NO_CLASS,
+                )
+            except (OSError, ValueError) as exc:
+                raise ServiceError(
+                    422, f"the dashboard cannot be built ({exc})"
+                ) from exc
+            self._dash, self._dash_stamp = dash, key
+            return dash
+
+    def dashboard(self) -> Dict[str, Any]:
+        """Counts, histograms and the coverage map of the whole data set.
+
+        Returns:
+            The payload of :func:`~sensoryforge.evaluate.server.dashboard.
+            build_dashboard`: every count and bar carries a ``query`` for
+            ``/api/draws`` that lists the draws behind it.
+
+        Raises:
+            ServiceError: 422 when the manifest cannot be read again.
+        """
+        return self._dashboard().payload
+
     # -------------------------------------------------------------------- draws
+
+    def _bin_rows(self, token: Optional[str]) -> Optional[set]:
+        """The row numbers in a dashboard bin (``bin=<id>:<index>``), or None."""
+        if not token:
+            return None
+        hist, _, index = token.rpartition(":")
+        per_bin = self._dashboard().bins.get(hist)
+        if per_bin is None or not index.isdigit() or int(index) >= len(per_bin):
+            raise ServiceError(
+                400, f"bin={token!r} names no bin of the dashboard (see /api/dashboard)"
+            )
+        return set(per_bin[int(index)])
 
     def filtered(self, query: Mapping[str, str]) -> List[DrawRow]:
         """The rows matching the query's filters, in manifest order.
 
         Filters: ``split``, ``class`` (``~`` for no class), ``status`` (``unknown`` for
         entries the index has no row for), each a comma-separated list; ``q`` (a
-        substring of the entry id); ``seed`` (a decimal string, exact); ``repeat``.
+        substring of the entry id); ``seed`` (a decimal string, exact); ``repeat``;
+        ``bin`` (``<histogram id>:<bin index>``, a bar or cell of the dashboard).
         """
         splits = _csv(query.get("split"))
         classes = _csv(query.get("class"))
@@ -620,8 +697,11 @@ class DatasetService:
         seed = query.get("seed") or None
         repeat = query.get("repeat")
         repeat_n = None if repeat in (None, "") else _int("repeat", repeat, 0, 0, 10**9)
+        keep = self._bin_rows(query.get("bin"))
         out = []
-        for r in self.rows:
+        for i, r in enumerate(self.rows):
+            if keep is not None and i not in keep:
+                continue
             if splits is not None and r.split not in splits:
                 continue
             if classes is not None and (r.cls or NO_CLASS) not in classes:

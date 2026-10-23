@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensoryForge evaluate: dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dashboard">
+<header>
+  <h1>SensoryForge evaluate</h1>
+  <nav aria-label="Pages"><a href="/">Draws</a> · <a href="/dashboard" aria-current="page">Dashboard</a></nav>
+  <p id="summary" class="muted">loading…</p>
+</header>
+<div id="dash">
+  <section id="counts-pane" aria-label="Counts"><h2>Counts</h2><div id="counts"></div></section>
+  <section id="matrix-pane" aria-label="Class by split"><h2>Class by split</h2><div id="matrix"></div></section>
+  <section id="hist-pane" aria-label="Distributions"><h2>Distributions</h2><div id="histograms"></div></section>
+  <section id="cov-pane" aria-label="Coverage"><h2>Coverage of the declared axes</h2><div id="coverage"></div></section>
+  <p id="notes" class="muted"></p>
+</div>
+<script src="/static/geometry.js"></script>
+<script src="/static/dashboard.js"></script>
+<script src="/static/dashboard_page.js"></script>
+</body>
+</html>

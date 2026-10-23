@@ -74,6 +74,7 @@ slashes, so a draw is named in the query, never in the path.
 |---|---|
 | `GET /api/health` | `{"ok": true}` |
 | `GET /api/dataset` | `dataset.json`'s name, ids and splits; counts by split, class and status (`~` stands for no class); the sensor layout, populations, frame step and units of the first readable bundle; the state of the stage files; `index_seconds` |
+| `GET /api/dashboard` | counts, histograms and the coverage map of the whole data set, each number with the `query` that lists its draws (below) |
 | `GET /api/draws` | a page of the draw list: `total`, `offset`, `limit`, `items` |
 | `GET /api/draws/random` | one draw picked from the filtered ones; `pick_seed` makes the pick repeatable |
 | `GET /api/draw?entry=E` | the draw's row, its manifest `record` (the declaration), its `seeds` as strings, `frame_peak` (the audit's `core.frames.peak` for the draw, read from `audit_entries.jsonl`, or `null`), and its bundle: `dt_ms`, `n_frames`, the sensor coordinates, the populations and units. A bundle that cannot be read gives `bundle: null` and an `error` |
@@ -81,13 +82,13 @@ slashes, so a draw is named in the query, never in the path.
 | `GET /api/draw/voltage?entry=E&population=P&index=N` | membrane voltage of neurons, re-simulated, with its comparison against the stored run (below) |
 | `GET /api/draw/population?entry=E&population=P[&index=N]` | neuron positions of a population and, with `index`, the receptors one neuron reads (below) |
 | `GET /api/draw/frames?entry=E` | a run of stimulus frames as raw bytes (below) |
-| `GET /` and `GET /static/NAME` | the page and its files (`index.html`, `app.js`, `geometry.js`, `traces.js`, `style.css`) |
+| `GET /`, `GET /dashboard` and `GET /static/NAME` | the draw browser, the dashboard and their files (`index.html`, `dashboard.html`, `app.js`, `dashboard_page.js`, `geometry.js`, `traces.js`, `record.js`, `dashboard.js`, `style.css`) |
 | `GET /api/stages` | per stage: present or not, format, `created_at`, entries, size |
 | `GET /api/stage/NAME` | the stage's JSON file as stored (`404` when missing) |
 | `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`) |
 | `GET /api/jobs/ID` | the job's `state` (`running`, `done`, `failed`) and `error` |
 
-**Draw list filters** (all optional): `split`, `class` and `status` take comma-separated
+**Draw list filters** (all optional; `bin` is a dashboard bin, below): `split`, `class` and `status` take comma-separated
 values (`class=dots,~`; status `unknown` is an entry the index has no row for); `q` is a
 substring of the entry id (case-insensitive); `seed` is an exact decimal string; `repeat` an
 integer. `sort` is `entry` or `seconds` (manifest order by default), `order` is `asc` or
@@ -220,6 +221,37 @@ imported when first asked. `centers` is `[[x, y]]` in the layout's space unit; w
 (a population reading three channels has three), or `null` when the bank's receptors are not a
 whole number of copies of the layout's sensors.
 
+**Dashboard (A7).** `/dashboard` shows the data set as a whole; `GET /api/dashboard` is its
+data (`dashboard.py`; built on first use, about a second per 10,000 draws because it reads the
+manifest once more, and rebuilt when `audit_entries.jsonl` or `audit.json` change). It holds:
+
+- `counts` by `split`, `class`, `status`, `kind` (a plain draw or a session) and, when sessions
+  declare one, `session_type`; `matrix` is class by split;
+- `histograms`: **entry length** (from the manifest, ms), **stimulus peak** (the audit's
+  `core.frames.peak`, largest over channels) and the **mean rate of each spiking population**
+  (`core.response.rate_mean`), ten equal bins over the data's own range (one bin when all
+  values are equal). The measured ones need the audit stage; without it the payload's
+  `unavailable` says so and the page shows only the length;
+- `coverage`: for each class and each random axis of the world (read from `dataset.json`'s
+  normalised world, so the axis name is the key of each draw's `values`), the declared
+  domain cut in ten bins (equal in the logarithm for `log_uniform`; one bin per value for a
+  categorical axis or an integer range of up to 12), the draws per bin, how many fell
+  outside the domain (probes are drawn outside on purpose) and how many bins stayed empty.
+  Constants and links have nothing to cover; an axis with any other declared form is listed
+  under `coverage_skipped`. Sessions count in the counts but not in the coverage (a session
+  is several draws).
+
+**Every number links back to its draws.** Each count, bar, matrix cell and coverage cell has
+a `query` that `/api/draws` (and `/api/draws/random`) accepts: a plain filter (`split=train`,
+`class=red_blob&split=test`) or `bin=<histogram id>:<bin index>` (`bin=peak:5`,
+`bin=cov:red_blob:sigma_mm:3`), which the service resolves from the dashboard's own bins and
+combines with the other filters; an unknown bin is a `400`. On the page a bar is a link to
+`/#list=<query>&label=<text>`; the draw browser reads it, lists exactly those draws under a
+"Showing: …" chip and "Show all" removes it. The dashboard is a viewer, not the blind audit:
+the length, the counts and the coverage read the manifest and the world, and the histograms
+of measured values read only the audit's output. `static/dashboard.js` holds the pure
+functions (bin labels, bar fractions, the link and its reading), node-tested.
+
 **Computing a stage.** A stage that is missing can be started from the page. `audit` runs the
 `core` pack unless `?packs=core,tactile` says otherwise; `declared` picks the adapter that
 accepts the data set; `compare` reads the other two. They write into the stages folder and
@@ -289,8 +321,10 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 ## Where the code is
 
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
-`resim.py` (the re-run), `__main__.py` and `static/` (`index.html`, `app.js`, `geometry.js`,
-`traces.js`, `record.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
+`resim.py` (the re-run), `dashboard.py` (the dashboard), `__main__.py` and `static/` (`index.html`,
+`dashboard.html`, `app.js`, `dashboard_page.js`, `geometry.js`, `traces.js`, `record.js`,
+`dashboard.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
 data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
-`tests/unit/test_eval_page_geometry.py`, `tests/unit/test_eval_page_compare.py`. The audit's reader gained `DatasetReader.bundle_path()`
+`tests/unit/test_eval_page_geometry.py`, `tests/unit/test_eval_page_compare.py`,
+`tests/unit/test_eval_dashboard.py` (including that every dashboard number's query returns that many draws). The audit's reader gained `DatasetReader.bundle_path()`
 for the server.

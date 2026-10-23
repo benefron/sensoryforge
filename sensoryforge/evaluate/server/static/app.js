@@ -10,6 +10,7 @@
 // the declared-fields rows in record.js.
 (function () {
   const G = window.EvalGeometry;
+  const DASH = window.EvalDashboard;
   const T = window.EvalTraces;
   const R = window.EvalRecord;
   const $ = (id) => document.getElementById(id);
@@ -26,7 +27,7 @@
     scaleText: "", frame: 0, cursor: 0, last: 0,
     playing: false, raf: 0, speed: 1, channel: 0,
     dims: null, view: { kind: "sensors", name: null }, geom: null, field: null, pin: null,
-    traceToken: 0, rows: [] };
+    traceToken: 0, rows: [], extra: null };
   const COLOUR_B = "#d9822b";   // draw B's traces and marks
   const PLOT = { left: 62, right: 8, height: 84, pad: 5 };   // trace canvas margins, CSS px
 
@@ -43,6 +44,8 @@
     if ($("f-class").value) q.set("class", $("f-class").value);
     if ($("f-q").value) q.set("q", $("f-q").value);
     if ($("f-seed").value.trim()) q.set("seed", $("f-seed").value.trim());
+    // a filter handed over by a dashboard bar (bin, split, class, ...) wins over the selects
+    if (state.extra) for (const [k, v] of new URLSearchParams(state.extra.query)) q.set(k, v);
     return q;
   }
 
@@ -766,6 +769,7 @@
     const q = new URLSearchParams();
     if (state.entry) q.set("entry", state.entry);
     if (state.cmp) q.set("vs", state.cmp.store.entry);
+    if (state.extra) { q.set("list", state.extra.query); q.set("label", state.extra.label); }
     try { history.replaceState(null, "", "#" + q); } catch (e) { /* file:// or sandbox */ }
   }
 
@@ -849,6 +853,23 @@
     if (keep && state.geom && keep.index < state.geom.centers.length) state.pin = keep;
   }
 
+  // The list filter a dashboard link carries (#list=<query>&label=<text>), shown as a chip
+  // that "Show all" removes. Returns true when it changed and the list was reloaded.
+  function applyListFromHash() {
+    const want = DASH.listFromHash(location.hash);
+    const have = state.extra;
+    if ((want && have && want.query === have.query) || (!want && !have)) return false;
+    state.extra = want;
+    showChip();
+    loadList(false);
+    return true;
+  }
+
+  function showChip() {
+    $("list-chip").hidden = !state.extra;
+    $("list-label").textContent = state.extra ? "Showing: " + state.extra.label : "";
+  }
+
   function openFromHash() {
     const q = new URLSearchParams(location.hash.slice(1));
     const entry = q.get("entry"), vs = q.get("vs");
@@ -867,6 +888,7 @@
     $("compare-text").textContent = state.picking ? "Click a draw in the list to compare with, or click here again to cancel." : "";
   });
   $("compare-clear").addEventListener("click", clearCompare);
+  $("list-clear").addEventListener("click", () => { state.extra = null; showChip(); writeHash(); loadList(false); });
   $("only-diff").addEventListener("change", renderFields);
   $("play").addEventListener("click", () => { if (state.playing) stop(); else play(); });
   $("scrub").addEventListener("input", (e) => { stop(); show(+e.target.value); });
@@ -890,9 +912,11 @@
       openDraw(pick.draw.entry);
     } catch (err) { say(String(err.message || err)); }
   });
-  window.addEventListener("hashchange", openFromHash);
+  window.addEventListener("hashchange", () => { applyListFromHash(); openFromHash(); });
 
   drawScaleBar();
+  state.extra = DASH.listFromHash(location.hash);
+  showChip();
   loadSummary().then(() => loadList(false)).then(openFromHash)
     .catch((err) => { $("summary").textContent = String(err.message || err); });
 })();

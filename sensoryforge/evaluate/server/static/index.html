@@ -9,6 +9,7 @@
 <body>
 <header>
   <h1>SensoryForge evaluate</h1>
+  <nav aria-label="Pages"><a href="/" aria-current="page">Draws</a> · <a href="/dashboard">Dashboard</a></nav>
   <p id="summary" class="muted">loading…</p>
 </header>
 <main>
@@ -21,6 +22,7 @@
       <label>Pick seed <input id="pick-seed" inputmode="numeric" placeholder="blank = fresh" size="14"></label>
       <button type="button" id="random">Random draw</button>
     </form>
+    <p id="list-chip" hidden><span id="list-label"></span> <button type="button" id="list-clear">Show all</button></p>
     <p id="pick-note" class="muted"></p>
     <p id="count" class="muted"></p>
     <ul id="draws"></ul>
@@ -85,6 +87,7 @@
 <script src="/static/geometry.js"></script>
 <script src="/static/traces.js"></script>
 <script src="/static/record.js"></script>
+<script src="/static/dashboard.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
