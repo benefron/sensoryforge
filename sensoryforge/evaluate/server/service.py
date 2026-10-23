@@ -50,6 +50,11 @@ DEFAULT_POINTS = 2000
 DEFAULT_CHUNK_FRAMES = 32
 MAX_CHUNK_BYTES = 8 << 20
 
+#: The audit's per-draw rows (``audit.run.ENTRIES_FILE``) and the metric the movie's
+#: colour scale reads from them.
+AUDIT_ENTRIES_FILE = "audit_entries.jsonl"
+PEAK_METRIC = "core.frames.peak"
+
 #: Default size of the decompressed-slab cache, bytes (``--frame-cache-mb`` sets it).
 DEFAULT_FRAME_CACHE_BYTES = 256 << 20
 
@@ -295,6 +300,10 @@ class DatasetService:
         self._reader: Optional[DatasetReader] = None
         self._infos: "OrderedDict[str, BundleInfo]" = OrderedDict()
         self._reference: Optional[str] = None
+        # byte offset of each draw's line in audit_entries.jsonl, and the file's
+        # (mtime, size) when they were read
+        self._audit_offsets: Dict[str, int] = {}
+        self._audit_stamp: Optional[Tuple[int, int]] = None
         # Decompressed time slabs of ``stimulus/frames``, least recently used first,
         # keyed (entry, channel, first frame of the slab). One lock covers the cache
         # and the read that fills it, so two requests for a slab decompress it once.
@@ -369,6 +378,79 @@ class DatasetService:
         with open(self._manifest, "rb") as fh:
             fh.seek(row.offset)
             return json.loads(fh.readline())
+
+    def frame_peak(self, entry: str) -> Optional[Dict[str, Any]]:
+        """The audit's peak stimulus value of a draw, for the movie's colour scale.
+
+        Reads the draw's line of ``audit_entries.jsonl`` in the stages folder (the line
+        offsets are indexed once per version of the file); the viewer may read the
+        audit's output, it is only the audit that must not read the declaration.
+
+        Args:
+            entry: Entry id.
+
+        Returns:
+            ``{"source", "values"}`` with ``values`` a list of ``{"channel", "value"}``
+            for ``core.frames.peak``, or ``None`` when there is no entries file, the
+            draw has no line in it or the audit did not measure it.
+        """
+        path = self.stages / AUDIT_ENTRIES_FILE
+        with self._lock:
+            try:
+                st = path.stat()
+            except OSError:
+                self._audit_offsets, self._audit_stamp = {}, None
+                return None
+            stamp = (st.st_mtime_ns, st.st_size)
+            if stamp != self._audit_stamp:
+                self._audit_offsets = self._index_audit_lines(path)
+                self._audit_stamp = stamp
+            offset = self._audit_offsets.get(entry)
+        if offset is None:
+            return None
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(offset)
+                line = json.loads(fh.readline())
+        except (OSError, ValueError):
+            return None
+        values = [
+            {"channel": v.get("channel"), "value": v["value"]}
+            for v in line.get("values") or []
+            if v.get("id") == PEAK_METRIC
+            and v.get("population") is None
+            and isinstance(v.get("value"), (int, float))
+        ]
+        if not values:
+            return None
+        return {"source": AUDIT_ENTRIES_FILE, "values": values}
+
+    @staticmethod
+    def _index_audit_lines(path: Path) -> Dict[str, int]:
+        """Byte offset of each entry's line (a line starts ``{"entry": "<id>"``)."""
+        head = b'{"entry": "'
+        out: Dict[str, int] = {}
+        try:
+            with open(path, "rb") as fh:
+                while True:
+                    offset = fh.tell()
+                    line = fh.readline()
+                    if not line:
+                        break
+                    if not line.startswith(head):
+                        continue
+                    end = line.find(b'"', len(head))
+                    raw = line[len(head) : end]
+                    if b"\\" in raw:  # an escaped id: let json decode it
+                        try:
+                            out[json.loads(line)["entry"]] = offset
+                        except ValueError:
+                            pass
+                    else:
+                        out[raw.decode("utf-8")] = offset
+        except OSError:
+            return {}
+        return out
 
     # ------------------------------------------------------------------ dataset
 
@@ -601,8 +683,9 @@ class DatasetService:
             entry: Entry id.
 
         Returns:
-            ``row``, ``record`` (the manifest line as stored), ``seeds`` (as strings)
-            and, when the bundle reads, ``bundle`` (``dt_ms``, ``n_frames``,
+            ``row``, ``record`` (the manifest line as stored), ``seeds`` (as strings),
+            ``frame_peak`` (see :meth:`frame_peak`) and, when the bundle reads,
+            ``bundle`` (``dt_ms``, ``n_frames``,
             ``duration_ms``, ``layout`` with the sensor coordinates, ``populations``,
             ``units``); otherwise ``bundle`` is ``None`` and ``error`` says why.
 
@@ -617,6 +700,7 @@ class DatasetService:
             "seeds": {k: str(v) for k, v in (record.get("seeds") or {}).items()},
             "bundle": None,
             "error": None,
+            "frame_peak": self.frame_peak(row.entry),
         }
         try:
             info = self.info(row.entry)

@@ -30,7 +30,14 @@ ul#draws li { padding: 5px 8px; border-bottom: 1px solid var(--line); cursor: po
 ul#draws li:last-child { border-bottom: 0; }
 ul#draws li[aria-current="true"] { background: var(--sel); }
 ul#draws li small { color: var(--muted); display: block; }
-canvas { width: 100%; max-width: 640px; image-rendering: pixelated; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: block; }
-#controls { display: flex; gap: 8px; align-items: center; max-width: 640px; margin-top: 8px; }
+#stage { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; max-width: 680px; column-gap: 6px; }
+#movie { width: 100%; max-width: 640px; image-rendering: pixelated; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: block; }
+#bar { width: 96px; height: 10px; vertical-align: middle; image-rendering: auto; border: 1px solid var(--line); }
+.axis { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+#yaxis { flex-direction: column; text-align: right; }
+#yaxis #ylabel { writing-mode: vertical-rl; transform: rotate(180deg); align-self: center; }
+#xaxis { grid-column: 2; }
+label.inline { display: flex; gap: 4px; align-items: center; font-size: .85rem; color: var(--muted); }
+#controls { display: flex; gap: 8px; align-items: center; max-width: 680px; margin-top: 8px; }
 #scrub { flex: 1; }
 pre { white-space: pre-wrap; font-size: .8rem; color: var(--muted); }

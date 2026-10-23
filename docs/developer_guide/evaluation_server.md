@@ -6,7 +6,8 @@ the audit and comparison files when they exist. It reads one data-set folder fro
 disk. Draws are read **on demand**, so a large data set never has to be rendered in advance.
 
 This page covers the data and JSON endpoints (roadmap A5a), the frame streaming and the page
-shell (A5b). The richer draw browser is built on the shell in A6.
+shell (A5b), and the draw picker and movie (A6a). Pinned traces, the declared-fields panel and
+two-draw comparison follow in A6b and A6c.
 
 ## Run it
 
@@ -73,10 +74,10 @@ slashes, so a draw is named in the query, never in the path.
 | `GET /api/dataset` | `dataset.json`'s name, ids and splits; counts by split, class and status (`~` stands for no class); the sensor layout, populations, frame step and units of the first readable bundle; the state of the stage files; `index_seconds` |
 | `GET /api/draws` | a page of the draw list: `total`, `offset`, `limit`, `items` |
 | `GET /api/draws/random` | one draw picked from the filtered ones; `pick_seed` makes the pick repeatable |
-| `GET /api/draw?entry=E` | the draw's row, its manifest `record` (the declaration), its `seeds` as strings, and its bundle: `dt_ms`, `n_frames`, the sensor coordinates, the populations and units. A bundle that cannot be read gives `bundle: null` and an `error` |
+| `GET /api/draw?entry=E` | the draw's row, its manifest `record` (the declaration), its `seeds` as strings, `frame_peak` (the audit's `core.frames.peak` for the draw, read from `audit_entries.jsonl`, or `null`), and its bundle: `dt_ms`, `n_frames`, the sensor coordinates, the populations and units. A bundle that cannot be read gives `bundle: null` and an `error` |
 | `GET /api/draw/trace?entry=E&source=S` | series of one draw (below) |
 | `GET /api/draw/frames?entry=E` | a run of stimulus frames as raw bytes (below) |
-| `GET /` and `GET /static/NAME` | the page and its files (`index.html`, `app.js`, `style.css`) |
+| `GET /` and `GET /static/NAME` | the page and its files (`index.html`, `app.js`, `geometry.js`, `style.css`) |
 | `GET /api/stages` | per stage: present or not, format, `created_at`, entries, size |
 | `GET /api/stage/NAME` | the stage's JSON file as stored (`404` when missing) |
 | `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`) |
@@ -106,11 +107,36 @@ its colours without a second request) and `X-Frame-Dtype` (`float32-le`). No vid
 needed: the browser decodes the bytes into a `Float32Array` and paints them on a canvas
 (decision D-7e30f2b). A chunk is copied out of a cached time slab, see below.
 
-**The page.** `/` is a shell with the draw list (filters, paging, a random draw) and a canvas
-that plays the opened draw frame by frame, fetching the next chunk while it shows the current
-one. It reports the time from the click to the first painted frame. A6 adds the draw picker
-by seed, pinned traces, the declared-fields panel and two-draw comparison to this shell. The
-files are plain HTML, CSS and JavaScript with no build step and no external requests.
+**The page.** `/` has the draw list and a movie of the opened draw's stimulus. The files are
+plain HTML, CSS and JavaScript with no build step and no external requests.
+
+*Picking a draw.* The list filters by split, class, entry id and the draw's seed (exact). The
+random button picks among the filtered draws; the status line shows the pick seed it used,
+and typing that seed into "Pick seed" repeats the pick. An opened draw is kept in the URL
+(`#entry=<id>`), so a link from another page, or a reload, opens the same draw.
+
+*Orientation.* A stored frame is `[x, y]` (axis 0 is x, `indexing="ij"`, sensor
+`k = i * cols + j`). The canvas paints x to the right and y upwards, and the axes are
+labelled from `/api/draw`'s layout bounds and space unit. `static/geometry.js` holds the
+mapping as pure functions (`pixelOf`, `sensorAt` for A6b's clicks, `toRGBA`);
+`tests/unit/test_eval_page_geometry.py` runs them with node (skipped when node is not
+installed) and puts a value at sensors with known coordinates.
+
+*Colour scale.* When the audit has run, the scale runs from `min(0, running minimum)` to the
+draw's `core.frames.peak`, so brightness does not change as chunks arrive. Without the audit's
+entries file it is the running range of the chunks fetched so far. A line under the movie shows
+the range and which of the two is in use.
+
+*Playback.* The movie plays by wall clock with `requestAnimationFrame` and a speed control
+(0.05× to 20×): the cursor advances by the elapsed time at the chosen speed, so frames the
+display cannot show are skipped, and 1 ms frames play in real time at 1×. If the cursor
+reaches a frame that has not arrived, it waits and "buffering" shows; the waiting is not
+counted. There is one promise per chunk start, so a chunk is never fetched twice, at most four
+chunks are in flight, and the browser keeps at most 128 MB of decoded chunks (least recently
+used out). A failed fetch stops playback and shows the error. Checked in a browser on the
+80x80 data set (30 s session, 1 ms frames): 0.1× and 1× land on the expected frame to within
+a frame; at 20× the cursor stalls on fetches (it needs about 600 chunks a second), which is
+the cost of asking for every chunk and not only the ones painted.
 
 **Computing a stage.** A stage that is missing can be started from the page. `audit` runs the
 `core` pack unless `?packs=core,tactile` says otherwise; `declared` picks the adapter that
@@ -181,6 +207,7 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 ## Where the code is
 
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
-`__main__.py` and `static/`. The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile data
-set, plus one over a real socket). The audit's reader gained `DatasetReader.bundle_path()`
+`__main__.py` and `static/` (`index.html`, `app.js`, `geometry.js`, `style.css`). The tests are
+`tests/unit/test_eval_server.py` (on the toy non-tactile data set, plus some over a real socket)
+and `tests/unit/test_eval_page_geometry.py`. The audit's reader gained `DatasetReader.bundle_path()`
 for the server.

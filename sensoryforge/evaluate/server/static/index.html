@@ -17,24 +17,42 @@
       <label>Split <select id="f-split"><option value="">all</option></select></label>
       <label>Class <select id="f-class"><option value="">all</option></select></label>
       <label>Search <input id="f-q" type="search" placeholder="entry id"></label>
+      <label>Draw seed <input id="f-seed" inputmode="numeric" placeholder="exact" size="12"></label>
+      <label>Pick seed <input id="pick-seed" inputmode="numeric" placeholder="blank = fresh" size="14"></label>
       <button type="button" id="random">Random draw</button>
     </form>
+    <p id="pick-note" class="muted"></p>
     <p id="count" class="muted"></p>
     <ul id="draws"></ul>
     <p><button type="button" id="more" hidden>More</button></p>
   </section>
   <section id="view-pane" aria-label="Draw">
     <h2 id="draw-title">No draw open</h2>
-    <canvas id="movie" width="1" height="1" aria-label="Stimulus frames"></canvas>
+    <div id="stage">
+      <div id="yaxis" class="axis"><span id="ymax"></span><span id="ylabel"></span><span id="ymin"></span></div>
+      <canvas id="movie" width="1" height="1" aria-label="Stimulus frames, x to the right, y upwards"></canvas>
+      <div id="xaxis" class="axis"><span id="xmin"></span><span id="xlabel"></span><span id="xmax"></span></div>
+    </div>
     <div id="controls">
       <button type="button" id="play" disabled>Play</button>
       <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Frame">
-      <span id="clock" class="muted"></span>
+      <label class="inline">Speed
+        <select id="speed" aria-label="Playback speed">
+          <option value="0.05">0.05×</option><option value="0.1">0.1×</option>
+          <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option>
+          <option value="5">5×</option><option value="10">10×</option><option value="20">20×</option>
+        </select>
+      </label>
+      <span id="buffering" class="muted" hidden>buffering…</span>
     </div>
+    <p id="clock" class="muted"></p>
+    <p id="scale" class="muted"><canvas id="bar" width="96" height="1" aria-hidden="true"></canvas> <span id="scale-text"></span></p>
     <p id="timing" class="muted"></p>
     <pre id="info"></pre>
   </section>
 </main>
+<script src="/static/geometry.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
