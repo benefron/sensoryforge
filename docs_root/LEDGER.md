@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-0c5ca9c · CLOSED · finding · - · 2026-10-23
+the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
+→ commit 3b78cef
+
+## F-dc0c574 · OPEN · finding · - · 2026-10-23
+report_contract.md still names roadmap rows (A1-A11, R-A4) in about 40 places, left because removing the parentheticals changes sentences in an accepted contract; needs a careful pass, with Ben's answer on Q2 (internal references in public pages).
+→ commit 3b78cef
+
 ## D-e7972cb · CLOSED · decision · - · 2026-10-23
 the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint.
 → commit f6412d3
