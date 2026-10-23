@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e76de48 · CLOSED · decision · - · 2026-10-23
+sparse weights are the default bundle layout, with a dense switch; all-dense bundles keep their older schema version rather than every bundle saying 2.5.0.
+→ commit 3eec647
+
+## F-991fc21 · STANDING · finding · - · 2026-10-23
+an 80x80 recipe bundle entry is 1.9 MB with sparse weights, against 47 MB dense.
+→ commit 3eec647
+
+## F-5607a62 · OPEN · finding · - · 2026-10-23
+test_eval_checks.py::test_the_toy_data_set_with_three_channels fails when it follows the earlier test files in one run (the determinism note is None) and passes alone; it fails identically on the commit before A11d.
+→ commit 3eec647
+
 ## D-9c33ec9 · CLOSED · decision · - · 2026-10-23
 bundle population files store receptive-field weights as innervation_weights_indices/_values/_shape when under 10% nonzero (schema 2.5.0, readers choose by key), not as a shared per-data-set copy; the writer default switches after the pressure-simulation reader is in.
 → commit 2dec769
