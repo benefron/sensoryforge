@@ -99,6 +99,7 @@ class Api:
             ("GET", r"/api/dataset", lambda r, m: json_response(s.summary())),
             ("GET", r"/api/dashboard", lambda r, m: json_response(s.dashboard())),
             ("GET", r"/dashboard", lambda r, m: self._file("dashboard.html")),
+            ("GET", r"/checks", lambda r, m: self._file("checks.html")),
             ("GET", r"/api/draws", lambda r, m: json_response(s.list_draws(r.query))),
             (
                 "GET",

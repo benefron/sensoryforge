@@ -17,7 +17,7 @@ sensoryforge evaluate serve DATASET_DIR            # http://127.0.0.1:8765/
 python -m sensoryforge.evaluate.server DATASET_DIR --port 9000 --stages out/evaluate
 ```
 
-`--stages` is the folder of `audit.json`, `declared.json` and `compare.json` (default
+`--stages` is the folder of `audit.json`, `declared.json`, `compare.json` and `checks.json` (default
 `DATASET_DIR/evaluate`, where `python -m sensoryforge.evaluate.audit` writes by default). The
 server binds to the loopback address and has no authentication: it reads local files and
 offers to run the stages over them, so do not bind it to a public address.
@@ -82,10 +82,10 @@ slashes, so a draw is named in the query, never in the path.
 | `GET /api/draw/voltage?entry=E&population=P&index=N` | membrane voltage of neurons, re-simulated, with its comparison against the stored run (below) |
 | `GET /api/draw/population?entry=E&population=P[&index=N]` | neuron positions of a population and, with `index`, the receptors one neuron reads (below) |
 | `GET /api/draw/frames?entry=E` | a run of stimulus frames as raw bytes (below) |
-| `GET /`, `GET /dashboard` and `GET /static/NAME` | the draw browser, the dashboard and their files (`index.html`, `dashboard.html`, `app.js`, `dashboard_page.js`, `geometry.js`, `traces.js`, `record.js`, `dashboard.js`, `style.css`) |
+| `GET /`, `GET /dashboard`, `GET /checks` and `GET /static/NAME` | the draw browser, the dashboard, the checks page and their files (`index.html`, `dashboard.html`, `checks.html`, `app.js`, `dashboard_page.js`, `checks_page.js`, `geometry.js`, `traces.js`, `record.js`, `dashboard.js`, `checks.js`, `style.css`) |
 | `GET /api/stages` | per stage: present or not, format, `created_at`, entries, size |
 | `GET /api/stage/NAME` | the stage's JSON file as stored (`404` when missing) |
-| `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`) |
+| `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`); `?packs=core,tactile` chooses the metric packs of `audit` or the check packs of `checks` |
 | `GET /api/jobs/ID` | the job's `state` (`running`, `done`, `failed`) and `error` |
 
 **Draw list filters** (all optional; `bin` is a dashboard bin, below): `split`, `class` and `status` take comma-separated
@@ -257,6 +257,14 @@ functions (bin labels, bar fractions, the link and its reading), node-tested.
 accepts the data set; `compare` reads the other two. They write into the stages folder and
 run one at a time per stage. A failure is the job's `error`, with the exception's type.
 
+**Checks page (A8).** `/checks` shows `checks.json` (the [checks stage](checks_stage.md)): one
+card per check with its status, how many entries or probes it tried and failed, what it does,
+the raw numbers behind the verdict, and the failures it listed. A failure that names an entry
+links to that draw in the draw browser (`/#entry=ID`). If `checks.json` does not exist the
+page offers to run it, with the packs to use (`POST /api/stages/checks/run`). The page is a
+viewer: the checks themselves are computed by `sensoryforge.evaluate.checks`. `static/checks.js`
+holds the pure helpers (verdict text, grouping, the draw link), tested with node.
+
 ## Time to first frame
 
 `python benchmarks/eval_server_first_frame.py` builds a 10,000-draw data set from the toy
@@ -323,7 +331,7 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
 `resim.py` (the re-run), `dashboard.py` (the dashboard), `__main__.py` and `static/` (`index.html`,
 `dashboard.html`, `app.js`, `dashboard_page.js`, `geometry.js`, `traces.js`, `record.js`,
-`dashboard.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
+`dashboard.js`, `checks.html`, `checks.js`, `checks_page.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
 data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
 `tests/unit/test_eval_page_geometry.py`, `tests/unit/test_eval_page_compare.py`,
 `tests/unit/test_eval_dashboard.py` (including that every dashboard number's query returns that many draws). The audit's reader gained `DatasetReader.bundle_path()`

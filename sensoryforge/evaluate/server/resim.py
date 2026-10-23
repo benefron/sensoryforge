@@ -149,13 +149,19 @@ def _population_entry(config_json: Dict[str, Any], name: str) -> Dict[str, Any]:
     raise ResimError(f"config.json has no population {name!r}")
 
 
-def resimulate(bundle_dir: Path, population: str, readout: str) -> Resimulation:
+def resimulate(
+    bundle_dir: Path, population: str, readout: str, clip_input: bool = False
+) -> Resimulation:
     """Re-run one population's neuron stage from its stored ``filtered``.
 
     Args:
         bundle_dir: The bundle folder (``config.json`` and ``data.h5``).
         population: The population name.
         readout: The stored readout dataset (``spikes``, ``events`` or ``state``).
+        clip_input: Clip the stored ``filtered`` at the population's declared input
+            floor here and hand the neuron stage no floor (the checks'
+            ``core.run.input_floor`` compares this with the run's own floor handling).
+            No effect without a floor.
 
     Returns:
         The voltages and the verification against the stored readout.
@@ -202,6 +208,10 @@ def resimulate(bundle_dir: Path, population: str, readout: str) -> Resimulation:
     if isinstance(bundle_sha, bytes):
         bundle_sha = bundle_sha.decode()
 
+    stage_floor = None if floor is None else float(floor)
+    if clip_input and stage_floor is not None:
+        filtered = np.maximum(filtered, np.float32(stage_floor))
+        stage_floor = None
     sensor = pop_cfg.effective_sensor_noise_std()
     membrane = pop_cfg.effective_membrane_noise_std()
     notes: List[str] = []
@@ -225,7 +235,7 @@ def resimulate(bundle_dir: Path, population: str, readout: str) -> Resimulation:
             dt_ms=config.simulation.dt_ms,
             integrate_dt_ms=config.simulation.integrate_dt_ms,
             noise_generator=generator,
-            input_floor=None if floor is None else float(floor),
+            input_floor=stage_floor,
         )
     seconds = time.perf_counter() - started
     if "voltages" not in out:

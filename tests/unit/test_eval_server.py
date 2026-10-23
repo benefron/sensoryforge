@@ -55,7 +55,7 @@ def test_the_summary_counts_the_manifest_and_reads_the_first_bundle(api, toy_dat
     assert body["sensors"]["n_sensors"] > 0 and body["dt_ms"] > 0
     assert [p["name"] for p in body["populations"]]
     assert body["reference_draw"] in api.service.by_entry
-    assert set(body["stages"]) == {"audit", "declared", "compare"}
+    assert set(body["stages"]) == {"audit", "declared", "compare", "checks"}
     assert not any(s["present"] for s in body["stages"].values())
 
 
@@ -285,7 +285,12 @@ def test_stages_are_read_when_present_and_computed_on_request(damaged):
     response = api.handle(Request.from_target("POST", "/api/stages/compare/run"))
     assert api.jobs.wait(json.loads(response.body)["id"])["state"] == "done"
     status, stages = get(api, "/api/stages")
-    assert all(s["present"] and s["readable"] for s in stages.values())
+    assert all(
+        s["present"] and s["readable"]
+        for name, s in stages.items()
+        if name != "checks"  # the checks stage is run on its own (test_eval_checks)
+    )
+    assert stages["checks"]["present"] is False
     assert stages["audit"]["format"] == "sensoryforge-audit/1"
     status, audit = get(api, "/api/stage/audit")
     assert status == 200 and audit["format"] == "sensoryforge-audit/1"

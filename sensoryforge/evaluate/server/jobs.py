@@ -1,8 +1,9 @@
-"""Computing a missing stage file from the server (roadmap A5a).
+"""Computing a missing stage file from the server (roadmap A5a, A8).
 
-The browser offers to compute ``audit.json``, ``declared.json`` or ``compare.json`` when
-a file is missing. Each runs the stage's own function in a background thread, one job at
-a time per stage, and the job's state is polled at ``/api/jobs/<id>``.
+The browser offers to compute ``audit.json``, ``declared.json``, ``compare.json`` or
+``checks.json`` when a file is missing. Each runs the stage's own function in a
+background thread, one job at a time per stage, and the job's state is polled at
+``/api/jobs/<id>``.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ def _stamp() -> str:
 
 
 class StageJobs:
-    """Background runs of the three stages over one data set.
+    """Background runs of the four stages over one data set.
 
     Args:
         service: The data-set service (it knows the folder and where stages go).
@@ -51,14 +52,25 @@ class StageJobs:
 
             run_compare(out, out, out)
 
-        return {"audit": audit, "declared": declared, "compare": compare}[stage]
+        def checks() -> None:
+            from sensoryforge.evaluate.checks import run_checks
+
+            run_checks(folder, out, packs=packs)
+
+        return {
+            "audit": audit,
+            "declared": declared,
+            "compare": compare,
+            "checks": checks,
+        }[stage]
 
     def start(self, stage: str, packs: Optional[List[str]] = None) -> Dict[str, Any]:
         """Start a stage in the background.
 
         Args:
-            stage: ``audit``, ``declared`` or ``compare``.
-            packs: The metric packs of an audit (default ``["core"]``).
+            stage: ``audit``, ``declared``, ``compare`` or ``checks``.
+            packs: The metric packs of an audit, or the check packs of ``checks``
+                (default ``["core"]``).
 
         Returns:
             The job record (``id``, ``stage``, ``state`` and times).

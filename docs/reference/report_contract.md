@@ -7,7 +7,8 @@
     [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
     tactile pack (A2d) section 7, the declared side (A3, see [the declared
     side](../developer_guide/declared_adapter.md)) section 8, the comparison (A4, see [the raw
-    comparison](../developer_guide/compare_stage.md)) section 9. The JSON Schemas are in
+    comparison](../developer_guide/compare_stage.md)) section 9, the reference-free checks
+    (A8, see [the checks stage](../developer_guide/checks_stage.md)) section 13. The JSON Schemas are in
     `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
     written.
 
@@ -25,8 +26,11 @@ audit.json + declared.json ────► compare ─────────�
 - **declared**: what the world file and the data set's manifest imply each entry should
   show, expressed with the same metric ids and units as the audit.
 - **compare**: for every metric both sides carry, the measured value, the declared value and
-  the raw difference `measured − declared`. It gives no verdict. Pass/fail checks are a later
-  stage with its own file (A8), and they read `compare.json`. They never change it.
+  the raw difference `measured − declared`. It gives no verdict.
+- **checks** (A8, section 13): pass/fail tests of the simulator itself, which need no
+  declaration. They have their own file, `checks.json`, and read neither `compare.json` nor
+  any other stage file, so they change none of them. A pass or fail rule on a *comparison*
+  (does the measured value match the declared one?) is a later stage.
 
 The core is **modality-neutral**. Its words are *sensor*, *channel*, *frame*, *population*,
 *draw* and *entry*, and it assumes no unit and no square grid. A modality brings a **metric
@@ -618,6 +622,7 @@ only the sections named, and needs a new decision.
 | Q7 | Episode phases (rise, plateau, fall) and plateau speed are tactile metrics; everything else is core | 6, 7 |
 | Q8 | No verdicts in `compare.json`; checks (A8) write their own file | 9 |
 | Q9 | Packs are chosen explicitly, never detected from the world; default `core` | 10 |
+| Q10 | The reference-free checks are their own stage with their own file `checks.json` and their own registry of check packs; they read bundles through the audit's blind reader plus each bundle's `config.json`, and run the engine on probes scaled by the data's own peak (decided in A8, not yet reviewed) | 13 |
 
 ## 12. Schemas
 
@@ -627,6 +632,82 @@ only the sections named, and needs a new decision.
 | `schemas/evaluate/audit.schema.json` | `audit.json`; `#/$defs/entry_row` validates a row of `audit_entries.jsonl` |
 | `schemas/evaluate/declared.schema.json` | `declared.json`; `#/$defs/entry_row` a row of `declared_entries.jsonl` |
 | `schemas/evaluate/compare.schema.json` | `compare.json`; `#/$defs/entry_row` a row of `compare_entries.jsonl` |
+| `schemas/evaluate/checks.schema.json` | `checks.json` |
 
 They are JSON Schema 2020-12 and refer to each other by relative `$ref`. A2a, A3 and A4
 validate everything they write against them in their tests.
+
+## 13. `checks.json`
+
+The checks test the simulator, not the world: each is a promise the engine should keep
+whatever the world declares (same seed, same arrays; a mirrored stimulus on a symmetric grid
+gives a mirrored response; no NaN). They are the first stage that may run the engine, so
+the stage sits outside the audit's import wall (section 2): the audit never imports
+`sensoryforge.evaluate.checks`. The stage reads bundles through the audit's reader (the
+blind rule applies to everything it reads there), a bundle's `config.json` in full (the
+engine configuration the batch ran, which probes are built from) and, for one check,
+`dataset.json`'s world. It reads no `audit.json`, `declared.json` or `compare.json`.
+
+```json
+{
+  "format": "sensoryforge-checks/1",
+  "created_at": "…", "producer": {"…": "…"},
+  "inputs": {"dataset_dir": "…", "packs": ["core", "tactile"],
+             "params": {"sample": 8, "seed": 12345, "limit": null, "bounds_mv": null,
+                        "max_failures": 100, "packs": {"core": {}, "tactile": {"tolerance": 0.0}}}},
+  "counts": {"pass": 13, "fail": 1, "skipped": 0, "error": 0},
+  "checks": [
+    {"id": "core.run.mirror_symmetry", "pack": "core", "title": "…", "what": "…",
+     "scope": "probe", "status": "fail", "tested": 12, "failed": 2,
+     "failures": [{"where": "mirror_x (rows)", "detail": "ra.filtered: largest difference 0.5"}],
+     "numbers": {"amplitude": 0.81, "largest_difference_x": 0.5, "total_events": 41},
+     "note": null}
+  ],
+  "entries_with_failures": [{"entry": "test/dots/0000", "checks": ["core.data.finite"]}]
+}
+```
+
+- A check's **status** is `pass`, `fail`, `skipped` (it could not be tried, and `note` says
+  why) or `error` (it raised a read or engine error, in `note`). A skipped check is not a
+  failure. `tested` and `failed` count what the check's `scope` tries: entries (`entry`),
+  probe runs or populations (`probe`), draws (`dataset`). `failed` is exact; `failures`
+  lists the first `max_failures`, each with `where` and a `detail` that carries the numbers.
+- `numbers` are the raw values behind the verdict (largest differences, counts, the probe
+  amplitude), shown before any verdict like the comparison's raw table.
+- A failure that names an entry carries `entry`; `entries_with_failures` lists those
+  entries (from the *listed* failures) with the checks that named them, for the anomaly
+  gallery (A9).
+- Two runs over the same data with the same parameters are byte-identical apart from
+  `created_at`. Probes are seeded; no timing is recorded.
+
+**Check ids** are `<pack>.<area>.<name>` like metric ids, with the area `data` (reads every
+entry), `run` (runs the engine) or `world` (reads the world), and `rate` for the tactile
+rate checks. Check packs are registered in `CHECK_PACK_REGISTRY`
+(`sensoryforge/evaluate/checks/registry.py`) and chosen explicitly like metric packs
+(`--packs core,tactile`, default `core`).
+
+### 13.1 The built-in checks
+
+| id | scope | tries | passes when |
+|---|---|---|---|
+| `core.data.readable` | entry | the batch index lists the entry as `ok` and its bundle opens | every entry does |
+| `core.data.finite` | entry | frames, time, drive, filtered and readout arrays | none holds NaN or infinity |
+| `core.data.readout_values` | entry | spike and event counts | whole numbers; spike counts not negative |
+| `core.data.time_grid` | entry | frame times and array lengths | times rise by `dt` (relative 1e-6); every array has one row per frame |
+| `core.run.determinism` | probe | one probe stimulus run twice with one seed, on one engine and on a freshly built one | every readout, drive and filtered array is identical; a fresh build may differ only where a population has no wiring seed (a note) |
+| `core.run.mirror_symmetry` | probe | each population replaced by one neuron per sensor (`template`, `k = 1`), no noise; the probe and its mirror along each grid axis | the mirrored run's arrays equal the mirror of the first, bit for bit |
+| `core.run.empty_stimulus` | probe | an all-zero stimulus, no noise | arrays finite and no spike or event (a model that fires with no input fails, on purpose) |
+| `core.run.single_sensor` | probe | one sensor at the data's peak, no noise | arrays finite and some population's drive non-zero |
+| `core.run.saturation` | probe | the probe at 1000 × the data's peak, no noise | arrays finite and no more counts in a bin than integration steps |
+| `core.run.rerun_matches` | entry | `sample` entries; each population's neuron stage re-run from its stored `filtered` (the code a run uses) | the stored readout is reproduced exactly |
+| `core.run.input_floor` | entry | the same, for populations that declare an input floor, run with the floor and on the input clipped at it | the two voltage traces are equal |
+| `core.run.voltage` | entry | the re-run's membrane voltage | finite, and inside `--voltage-bounds LOW,HIGH` (mV) when given; no bounds are assumed |
+| `core.world.prefix_stable` | dataset | the data set's world and seed sampled at n = 32 and 64, and single draws by index | draw *i* is identical however many draws are asked for |
+| `tactile.rate.monotonic` | probe | a held Gaussian indentation at 0.1 … 1.0 of the data's peak, no noise, for each population using the `sa` filter | no neuron's spike count over the hold falls from one level to the next by more than `tolerance` (default 0) |
+
+**Probe scale.** A probe never invents a stimulus unit. Its amplitude starts at the largest
+`|frame value|` of the sampled entries (the data's own scale) and doubles, up to 2¹⁰ times,
+until the populations count at least 20 spikes or events together, so the comparison is not
+between two empty arrays; the amplitude used is in the check's `numbers`. A probe needs one
+regular grid. A configuration the engine cannot rebuild here (a receptive-field file that is
+gone, an unreadable `config.json`) makes the probe checks `skipped`, with the reason.

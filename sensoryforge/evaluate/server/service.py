@@ -36,7 +36,7 @@ from sensoryforge.evaluate.audit.reader import (
 from sensoryforge.evaluate.server.dashboard import Dashboard, build_dashboard
 
 #: The stage files the server shows, in pipeline order.
-STAGES: Tuple[str, ...] = ("audit", "declared", "compare")
+STAGES: Tuple[str, ...] = ("audit", "declared", "compare", "checks")
 
 #: ``source`` values of a trace; ``readout`` is whatever the population stores
 #: (``spikes``, ``events`` or ``state``).

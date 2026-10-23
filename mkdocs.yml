@@ -149,6 +149,7 @@ nav:
     - Audit Metrics: developer_guide/audit_metrics.md
     - Declared Adapter: developer_guide/declared_adapter.md
     - Raw Comparison: developer_guide/compare_stage.md
+    - Reference-free Checks: developer_guide/checks_stage.md
     - Evaluation Server: developer_guide/evaluation_server.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
