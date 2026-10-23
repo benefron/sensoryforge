@@ -9,11 +9,8 @@ same data with the same parameters are byte-identical apart from ``created_at``.
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
-
-import numpy as np
 
 from sensoryforge.evaluate.audit.reader import ReadError
 from sensoryforge.evaluate.checks.base import (
@@ -26,7 +23,7 @@ from sensoryforge.evaluate.checks.base import (
 )
 from sensoryforge.evaluate.checks.probe import ENGINE_ERRORS
 from sensoryforge.evaluate.checks.registry import CHECK_PACK_REGISTRY
-from sensoryforge.evaluate.stage_io import producer, timestamp, write_json
+from sensoryforge.evaluate.stage_io import clean, producer, timestamp, write_json
 
 CHECKS_FILE = "checks.json"
 CHECKS_FORMAT = "sensoryforge-checks/1"
@@ -56,19 +53,6 @@ def build_check_packs(
     if unknown:
         raise ValueError(f"parameters for packs that are not run: {sorted(unknown)}")
     return [CHECK_PACK_REGISTRY.get_class(n).from_config(params.get(n)) for n in names]
-
-
-def clean(value: Any) -> Any:
-    """JSON-safe copy of a value: numpy scalars become numbers, NaN becomes null."""
-    if isinstance(value, dict):
-        return {str(k): clean(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [clean(v) for v in value]
-    if isinstance(value, np.generic):
-        value = value.item()
-    if isinstance(value, float) and not math.isfinite(value):
-        return None
-    return value
 
 
 def run_one(check: Check, ctx: CheckContext) -> CheckResult:

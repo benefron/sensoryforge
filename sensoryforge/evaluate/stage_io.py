@@ -11,8 +11,11 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
+
+import numpy as np
 
 
 def timestamp(created_at: Optional[str] = None) -> str:
@@ -78,3 +81,16 @@ def write_json(path: Path, content: Dict[str, Any]) -> None:
     path.write_text(
         json.dumps(content, indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
+
+
+def clean(value: Any) -> Any:
+    """JSON-safe copy of a value: numpy scalars become numbers, NaN becomes null."""
+    if isinstance(value, dict):
+        return {str(k): clean(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [clean(v) for v in value]
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value

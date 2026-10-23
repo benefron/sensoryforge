@@ -23,7 +23,8 @@ from sensoryforge.evaluate.checks import data_checks, engine_checks, world_check
 from sensoryforge.evaluate.checks import probe as pb
 from sensoryforge.evaluate.checks.base import CheckContext, CheckSkipped
 from sensoryforge.evaluate.checks.core_pack import CoreChecks
-from sensoryforge.evaluate.checks.run import build_check_packs, clean, run_one
+from sensoryforge.evaluate.checks.run import build_check_packs, run_one
+from sensoryforge.evaluate.stage_io import clean
 from sensoryforge.evaluate.server import Api, DatasetService, Request
 from sensoryforge.evaluate.tactile.checks import MonotonicRate, TactileChecks
 

@@ -8,7 +8,8 @@
     tactile pack (A2d) section 7, the declared side (A3, see [the declared
     side](../developer_guide/declared_adapter.md)) section 8, the comparison (A4, see [the raw
     comparison](../developer_guide/compare_stage.md)) section 9, the reference-free checks
-    (A8, see [the checks stage](../developer_guide/checks_stage.md)) section 13. The JSON Schemas are in
+    (A8, see [the checks stage](../developer_guide/checks_stage.md)) section 13, the run-to-run diff (A10, see [the diff
+    stage](../developer_guide/diff_stage.md)) section 14. The JSON Schemas are in
     `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
     written.
 
@@ -622,6 +623,7 @@ only the sections named, and needs a new decision.
 | Q7 | Episode phases (rise, plateau, fall) and plateau speed are tactile metrics; everything else is core | 6, 7 |
 | Q8 | No verdicts in `compare.json`; checks (A8) write their own file | 9 |
 | Q9 | Packs are chosen explicitly, never detected from the world; default `core` | 10 |
+| Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference (decided in A10, not yet reviewed) | 14 |
 | Q10 | The reference-free checks are their own stage with their own file `checks.json` and their own registry of check packs; they read bundles through the audit's blind reader plus each bundle's `config.json`, and run the engine on probes scaled by the data's own peak (decided in A8, not yet reviewed) | 13 |
 
 ## 12. Schemas
@@ -633,6 +635,7 @@ only the sections named, and needs a new decision.
 | `schemas/evaluate/declared.schema.json` | `declared.json`; `#/$defs/entry_row` a row of `declared_entries.jsonl` |
 | `schemas/evaluate/compare.schema.json` | `compare.json`; `#/$defs/entry_row` a row of `compare_entries.jsonl` |
 | `schemas/evaluate/checks.schema.json` | `checks.json` |
+| `schemas/evaluate/diff.schema.json` | `diff.json`; `#/$defs/entry_row` a row of `diff_entries.jsonl` |
 
 They are JSON Schema 2020-12 and refer to each other by relative `$ref`. A2a, A3 and A4
 validate everything they write against them in their tests.
@@ -711,3 +714,61 @@ until the populations count at least 20 spikes or events together, so the compar
 between two empty arrays; the amplitude used is in the check's `numbers`. A probe needs one
 regular grid. A configuration the engine cannot rebuild here (a receptive-field file that is
 gone, an unreadable `config.json`) makes the probe checks `skipped`, with the reason.
+
+## 14. `diff.json`
+
+The diff answers "what moved?" between two runs of the **same** data set: a baseline and a
+new one (a refactor, a changed neuron, another machine). Like the checks it is its own
+stage with its own files, `diff.json` and `diff_entries.jsonl` (rows sorted by entry id,
+sha256 in the `.json`), format tag `sensoryforge-diff/1`. It reads both sides through the
+audit's blind reader (section 2) and, for the metric deltas, runs the audit on each side (or
+reads audits it is given). It reads no declaration.
+
+```json
+{
+  "format": "sensoryforge-diff/1",
+  "created_at": "…", "producer": {"…": "…"},
+  "inputs": {"baseline": {"dataset_dir": "…", "dataset_id": "d-…", "sensoryforge_sha": "…"},
+             "new": {"…": "…"}, "atol": 2e-07, "rtol": 0.0,
+             "tolerance_source": "sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL",
+             "packs": ["core"]},
+  "verdict": "different",
+  "counts": {"identical": 12, "equivalent": 0, "different": 2, "only_a": 0, "only_b": 0,
+             "unreadable": 0, "both_failed": 0},
+  "first_divergence": {"entry": "test/dots/0000", "step": 10, "ms": 10.0},
+  "by_array": {"sa.spikes": {"n_equivalent": 0, "n_different": 1}},
+  "most_divergent": [{"entry": "…", "split": "…", "class": "…", "first_step": 40,
+                      "first_ms": 40.0, "largest_abs_diff": 1.0}],
+  "metrics": [{"id": "core.response.count", "channel": null, "population": "sa",
+               "n_pairs": 14, "n_changed": 1, "mean_a": 3.1, "mean_b": 3.2,
+               "max_abs_delta": 1.0, "max_entry": "…"}],
+  "notes": [],
+  "entries": {"file": "diff_entries.jsonl", "n": 14, "sha256": "…"}
+}
+```
+
+- **Tolerance.** A value differs only when it is farther from the baseline than
+  `atol + rtol · |baseline|`. The default `atol` is
+  `sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL` (2e-7), the tolerance every golden
+  fixture comparison in SensoryForge shares: one float32 step that another processor rounds
+  differently is not a change. Spike and event counts are whole numbers, so any change in one
+  is a difference.
+- **Entry status.** Per entry, every array is compared: the stimulus frames, the frame times
+  and each population's readout, drive and filtered arrays. `identical`: all bit-equal.
+  `equivalent`: some differ in the last float step but all within the tolerance. `different`:
+  an array moved beyond it, or the structure changed (frame step, populations, readouts,
+  array lengths). `only_a` / `only_b`: the entry is on one side only. `unreadable`: it ran on
+  one side only, or its bundle cannot be read on one. `both_failed`: it failed on both sides
+  with the same batch status, which is no change.
+- **Verdict.** `different` if any entry is `different`, `only_a`, `only_b` or `unreadable`;
+  else `equivalent` if any is `equivalent`; else `identical`. A change that alters nothing
+  gives `identical` or, across platforms, `equivalent`: zero differences.
+- **First divergence.** For each array, the first frame index along time at which any value is
+  beyond the tolerance (where one side's time axis ends early, the frame after it). An entry's
+  `first_step` is the earliest over its arrays; `first_ms` is that frame's time on the
+  baseline; the data set's `first_divergence` is the earliest over entries.
+- **Metrics.** The audit's per-entry values of the two sides, paired by entry and by key
+  `(id, channel, population)`: how many pairs, how many changed (numbers beyond the tolerance,
+  other values by equality), the mean of each side, and the largest change with its entry.
+- A diff of two data sets with different `dataset_id` still runs (entries are paired by id)
+  and says so in `notes`.
