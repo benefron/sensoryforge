@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
+from sensoryforge.config.probes import check_voltage_probes
 from sensoryforge.stimuli.base import ParamSpec
 
 
@@ -496,6 +497,12 @@ class PopulationConfig:
             so negative mechanical drive silences an afferent instead of
             hyperpolarizing it (ledger D-43dc520), and no floor otherwise.
             ``-inf`` disables the floor explicitly.
+        voltage_probes: Opt-in (A6p): which neurons' membrane voltage the run's
+            bundle keeps -- a count of evenly spaced neurons, a list of neuron
+            ids, or ``"all"`` (see :mod:`sensoryforge.config.probes`). Overrides
+            ``SimulationConfig.voltage_probes`` for this population. ``None``
+            (default) keeps none and is dropped by :meth:`to_dict`, so a config
+            that does not use it round-trips byte for byte.
         seed: Random seed for innervation generation.
     """
 
@@ -566,6 +573,7 @@ class PopulationConfig:
     enabled: bool = True
     input_gain: float = 50.0
     input_floor: Optional[float] = None
+    voltage_probes: Optional[Any] = None
     seed: Optional[int] = None
 
     def __post_init__(self) -> None:
@@ -577,8 +585,10 @@ class PopulationConfig:
         Raises:
             ValueError: If ``combine`` is not ``"sum"``/``"concat"``, or
                 both ``inputs`` and one of the single-input sugar fields
-                are set away from their defaults, or a noise std is negative.
+                are set away from their defaults, a noise std is negative, or
+                ``voltage_probes`` is not a valid value.
         """
+        check_voltage_probes(self.voltage_probes, where=f"Population {self.name!r}")
         if self.combine not in ("sum", "concat"):
             raise ValueError(
                 f"Population {self.name!r}: combine must be 'sum' or "
@@ -1036,6 +1046,12 @@ class SimulationConfig:
             run seed (a CPU ``torch.Generator`` per receptor grid and
             channel, so the draw is the same on every device). ``None``
             draws it from the run's global RNG (seeded by ``seed``).
+        voltage_probes: Opt-in (A6p): the default ``voltage_probes`` for every
+            population that does not set its own (a count, a list of neuron ids
+            or ``"all"``; ``"all"`` keeps every neuron's voltage, for a run
+            archived in full). A population whose neuron model returns no
+            voltage is skipped. ``None`` (default) keeps none and is dropped by
+            :meth:`to_dict`.
     """
 
     device: str = "cpu"
@@ -1047,6 +1063,7 @@ class SimulationConfig:
     seed: Optional[int] = None
     receptor_noise_std: Optional[float] = None
     receptor_noise_seed: Optional[int] = None
+    voltage_probes: Optional[Any] = None
 
     def __post_init__(self) -> None:
         """Resolve the deprecated ``dt`` alias, then validate (F-042).
@@ -1072,6 +1089,7 @@ class SimulationConfig:
             )
             self.dt_ms = self.dt
         validate_dt_ms(self.dt_ms, self.integrate_dt_ms)
+        check_voltage_probes(self.voltage_probes, where="SimulationConfig")
         if self.receptor_noise_std is not None and float(self.receptor_noise_std) < 0.0:
             raise ValueError(
                 "SimulationConfig: receptor_noise_std must be >= 0, got "

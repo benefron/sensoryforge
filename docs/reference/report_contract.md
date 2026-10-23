@@ -63,7 +63,7 @@ imports `sensoryforge.world` (D-c52e668).
 
 | Source | Allowed | Never read |
 |---|---|---|
-| `data.h5` | attrs `dt_ms`, `integrate_dt_ms`, `sensoryforge_version`, `sensoryforge_sha`; `/time_ms`; `/stimulus/frames`; `/populations/<name>/{drive, filtered, spikes, events, state}` and the `events` attrs `signed`, `polarity`, `theta` | `/meta` (its `config_yaml` holds the stimulus section) |
+| `data.h5` | attrs `dt_ms`, `integrate_dt_ms`, `sensoryforge_version`, `sensoryforge_sha`; `/time_ms`; `/stimulus/frames`; `/populations/<name>/{drive, filtered, spikes, events, state}` and the `events` attrs `signed`, `polarity`, `theta` | `/meta` (its `config_yaml` holds the stimulus section); `/populations/<name>/voltage_probe` (stored membrane voltage, schema 2.4.0: a bundle may hold it, no metric reads it) |
 | `config.json` | `schema_version`; `grid` (`rows`, `cols`, `spacing_mm`, `center_mm`); `populations[*].{name, readout, event_encoding}`; `config.grids` (the sensor layout and channel names); `config.simulation.dt_ms`; `units` (when present); `world.{world_id, dataset_id, entry}` as opaque identifiers | `config.stimulus`, `design`, everything else |
 | `stimuli/` | nothing | `stimulus.json` (it carries the manifest row and the draw as a layer) |
 | `neuron_modules/` | nothing | all |

@@ -101,6 +101,47 @@ def verify(stored: np.ndarray, rerun: np.ndarray, readout: str) -> Dict[str, Any
     }
 
 
+def verify_probes(
+    stored: np.ndarray, ids: List[int], voltages: np.ndarray
+) -> Dict[str, Any]:
+    """Compare the stored voltage probes with the re-run's voltage at the same neurons.
+
+    Args:
+        stored: The bundle's ``voltage_probe`` ``[T, K]`` float32, mV.
+        ids: The probed neuron ids (``K`` of them).
+        voltages: The re-run's bin-end voltage ``[T, N]``, mV.
+
+    Returns:
+        ``{ids, matches, n_differing, max_abs_difference}``: ``matches`` means every
+        sample is equal (float32, exactly; a NaN on both sides is the same value);
+        ``n_differing`` counts probed neurons that differ somewhere.
+    """
+    if (
+        stored.ndim != 2
+        or stored.shape[1] != len(ids)
+        or voltages.shape[0] != stored.shape[0]
+    ):
+        return {
+            "ids": [int(i) for i in ids],
+            "matches": False,
+            "n_differing": len(ids),
+            "max_abs_difference": None,
+            "note": f"shapes differ: stored {list(stored.shape)}, re-run "
+            f"{list(voltages.shape)} at {len(ids)} ids",
+        }
+    a = np.asarray(stored, dtype=np.float32)
+    b = np.asarray(voltages[:, ids], dtype=np.float32)
+    bad = (a != b) & ~(np.isnan(a) & np.isnan(b))
+    diff = np.abs(a.astype(np.float64) - b.astype(np.float64))
+    finite = np.isfinite(diff)
+    return {
+        "ids": [int(i) for i in ids],
+        "matches": not bool(bad.any()),
+        "n_differing": int(bad.any(axis=0).sum()),
+        "max_abs_difference": float(diff[finite].max()) if finite.any() else 0.0,
+    }
+
+
 def _population_entry(config_json: Dict[str, Any], name: str) -> Dict[str, Any]:
     for entry in config_json.get("populations") or []:
         if entry.get("name") == name:
@@ -150,6 +191,12 @@ def resimulate(bundle_dir: Path, population: str, readout: str) -> Resimulation:
             )
             stored = np.asarray(f[f"populations/{population}/{readout}"][...])
             bundle_sha = f.attrs.get("sensoryforge_sha")
+            probe_key = f"populations/{population}/voltage_probe"
+            probe = (
+                np.asarray(f[probe_key][...], dtype=np.float32)
+                if probe_key in f
+                else None
+            )
     except (OSError, KeyError, ValueError) as exc:
         raise ResimError(f"data.h5 cannot be read ({exc})") from exc
     if isinstance(bundle_sha, bytes):
@@ -202,4 +249,8 @@ def resimulate(bundle_dir: Path, population: str, readout: str) -> Resimulation:
             "notes": notes,
         }
     )
-    return Resimulation(out["voltages"][0].numpy().astype(np.float32), check)
+    voltages = out["voltages"][0].numpy().astype(np.float32)
+    probe_ids = (entry.get("voltage_probe") or {}).get("ids")
+    if probe is not None and probe_ids is not None:
+        check["probes"] = verify_probes(probe, list(probe_ids), voltages)
+    return Resimulation(voltages, check)

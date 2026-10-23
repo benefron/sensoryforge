@@ -577,6 +577,12 @@
   }
 
   function describeCheck(c) {
+    const d = describeRun(c), p = T.probeNote(c.probes, G.fmt);
+    if (!p.text) return d;
+    return { text: d.text + " · " + p.text, cls: p.ok ? d.cls : "note bad" };
+  }
+
+  function describeRun(c) {
     const shas = "bundle code " + String(c.bundle_sha || "unknown").slice(0, 8) + ", running code " +
       String(c.code_sha || "unknown").slice(0, 8) + (c.bundle_sha && c.code_sha && c.bundle_sha !== c.code_sha ? " (different code)" : "");
     if (c.matches)

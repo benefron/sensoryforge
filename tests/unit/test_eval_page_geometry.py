@@ -294,3 +294,24 @@ def test_a_series_projects_with_gaps_and_a_flat_series_gets_a_range():
     assert got["flat"]["lo"] < 3 < got["flat"]["hi"]
     assert got["empty"] == {"lo": 0, "hi": 1}
     assert got["ticks"] == {"times": [1, 3], "values": [2, -1]}
+
+
+@needs_node
+def test_the_voltage_probe_note_says_match_or_the_size_of_the_difference():
+    got = run_traces("""
+        const fmt = (v) => v.toFixed(2);
+        const ok = { ids: [4, 12], matches: true, n_differing: 0, max_abs_difference: 0 };
+        const bad = { ids: [3], matches: false, n_differing: 1, max_abs_difference: 0.25 };
+        const many = { ids: [0, 1, 2, 3, 4, 5, 6, 7], matches: true, n_differing: 0 };
+        return [T.probeNote(undefined, fmt), T.probeNote(ok, fmt), T.probeNote(bad, fmt),
+                T.probeNote(many, fmt)];
+        """)
+    assert got[0] == {"text": "", "ok": True}
+    assert got[1] == {
+        "text": "voltage matches the 2 stored voltage probes (neurons 4, 12)",
+        "ok": True,
+    }
+    assert got[2]["ok"] is False
+    assert "differs from the 1 stored voltage probe (neuron 3)" in got[2]["text"]
+    assert "largest difference 0.25 mV" in got[2]["text"]
+    assert got[3]["text"].endswith("(neurons 0, 1, 2, 3, 4, 5, …)")

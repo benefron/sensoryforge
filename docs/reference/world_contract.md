@@ -217,7 +217,15 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   simulation engine still holds the whole float32 stimulus: a 120 s session at 80×80 and
   1 ms is about 3.1 GB, and that stays open.
 
-## 7. Bundles (schema 2.3.0)
+## 7. Bundles (schema 2.3.0; 2.4.0 with voltage probes)
+
+Schema 2.4.0 (A6p, additive and opt-in) is written only by a run that sets `voltage_probes`
+(a data set's design config, or `simulation.voltage_probes`); such a bundle also holds
+`/populations/<name>/voltage_probe` (`[T, K]` float32 mV, the engine's bin-end `voltages` for
+the probed neuron ids, attribute `ids`) and a `voltage_probe` object in that population's
+`config.json` entry. A run that sets no `voltage_probes` writes the 2.3.0 bundle byte for byte
+(it says 2.3.0): no draw, frame, seed, entry id or other field changes, and pressure-simulation
+needs no change. The guarantee is pinned by `tests/unit/test_bundle_voltage_probes.py`.
 
 Schema 2.3.0 (v1.3.0) adds to every population's `config.json` entry
 `encoder.input_floor_ma` (the floor its converter received, `null` = none) and, for a

@@ -179,7 +179,14 @@ cached by draw and population (`--voltage-cache-mb`, default 256; a re-run bigge
 cache is used and not kept), so a second neuron of the same population is instant. A model that
 returns no voltage (an analog readout) gets a `422` saying so. A match proves the re-run follows
 the run only where the stored readout can tell: a neuron that never crosses threshold has no
-spikes to compare; stored voltage probes (row A6p) close that gap.
+spikes to compare. Stored voltage probes (A6p) close that gap: when the bundle holds
+`/populations/<name>/voltage_probe` (the opt-in `voltage_probes` key, schema 2.4.0; see
+[Data bundles](../user_guide/bundles.md#voltage-probes-schema-240)), the same answer carries
+`verification.probes` (`ids`, `matches`, `n_differing`, `max_abs_difference`): the re-run's
+voltage at those neurons is compared with the stored voltage sample by sample, float32 exactly,
+and the page adds "voltage matches the N stored voltage probes (neurons …)" in green or
+"voltage differs from … (largest difference … mV)" in red. A bundle without probes says
+nothing about them.
 
 *Declared fields and comparison (A6c).* Under the traces, "Declared fields" lists the open draw's
 manifest record (what the world declared for it), flattened to one row per field in sections:

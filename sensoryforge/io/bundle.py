@@ -37,6 +37,15 @@ derivation; a ``level_crossing`` population's ``encoder.params`` gains
 ``reference_leak_tau_ms`` (through the unit's ``to_dict()``; ``null`` = no
 leak). See ``docs/reference/converter_contract.md``.
 
+Schema 2.4.0 (2026-10-23, additive, opt-in): a bundle written with
+``voltage_probes`` set (``PopulationConfig`` or ``SimulationConfig``) also
+stores ``/populations/<name>/voltage_probe`` (``[T, K]`` float32 mV, bin-end
+samples, the engine's ``voltages`` for the probed neurons; the ids are the
+dataset's ``ids`` attribute) and a ``voltage_probe`` entry in that population's
+``config.json`` entry, and says ``schema_version`` 2.4.0. A bundle written
+without it is byte-for-byte what 2.3.0 wrote and still says 2.3.0. See
+``docs/reference/world_contract.md`` section 7.
+
 ``config.json`` is a superset of pressure-simulation's ``1.0.0`` "mechanoreceptor
 bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
 (``GUIs/ebkf_viewer.py``) reads ``grid`` and ``populations[*].tensors`` unchanged.
@@ -59,11 +68,15 @@ from typing import Any, Dict, Optional, Union
 import torch
 
 import sensoryforge
+from sensoryforge.config.probes import resolve_voltage_probes
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.core.rf_bank import ReceptiveFieldBank
 from sensoryforge.provenance import source_info
 
 SCHEMA_VERSION = "2.3.0"
+#: The schema a bundle with stored voltage probes says (2.4.0, A6p). A bundle without
+#: probes keeps ``SCHEMA_VERSION``: the key is invisible until used.
+PROBE_SCHEMA_VERSION = "2.4.0"
 WORLD_ENTRY_KIND = "sensoryforge_world_entry"
 
 #: How a signed event population's ``events`` dataset is to be read
@@ -142,6 +155,44 @@ def _input_floor_ma(pop: Dict[str, Any], name: str) -> Optional[float]:
         )
     floor = pop["input_floor"]
     return None if floor is None else float(floor)
+
+
+def _voltage_probe_ids(
+    config: SensoryForgeConfig,
+    pop_cfg: Any,
+    pop_results: Dict[str, torch.Tensor],
+    name: str,
+) -> Optional[list]:
+    """The neuron ids whose membrane voltage this population's bundle keeps (2.4.0).
+
+    Args:
+        config: The run's config (``simulation.voltage_probes`` is the default).
+        pop_cfg: The population's :class:`PopulationConfig`.
+        pop_results: The population's entry in the engine's results.
+        name: The population's name, for the error message.
+
+    Returns:
+        Increasing neuron ids, or ``None`` when the population keeps no voltage probe:
+        neither key is set, or only the run-wide default is and this population's neuron
+        model returns no voltage (an analog or event readout).
+
+    Raises:
+        ValueError: If the population sets ``voltage_probes`` itself but has no voltage
+            trace, or an explicit id is out of range.
+    """
+    own = pop_cfg.voltage_probes
+    spec = own if own is not None else config.simulation.voltage_probes
+    if spec is None:
+        return None
+    voltages = pop_results.get("voltages")
+    if voltages is None:
+        if own is None:
+            return None
+        raise ValueError(
+            f"write_bundle: population {name!r} sets voltage_probes but its neuron "
+            "model returns no membrane voltage (or the run kept no intermediates)"
+        )
+    return resolve_voltage_probes(spec, int(voltages.shape[-1]))
 
 
 def _require_h5py():
@@ -387,6 +438,7 @@ def write_bundle(
     # population_NN_<NAME>.pt -- bank + grid_shape
     # ------------------------------------------------------------------ #
     pop_entries = []
+    probe_ids: Dict[str, list] = {}
     for idx, name in enumerate(results.keys(), start=1):
         pop = pop_by_name.get(name)
         if pop is None:
@@ -449,6 +501,15 @@ def write_bundle(
         }
         if readout == "events":
             extra_entry["event_encoding"] = dict(SIGNED_EVENT_ENCODING)
+        ids = _voltage_probe_ids(config, pop_cfg, pop_results_here, name)
+        if ids is not None:
+            probe_ids[name] = ids
+            extra_entry["voltage_probe"] = {
+                "dataset": "voltage_probe",
+                "ids": ids,
+                "unit": "mV",
+                "sampling": "bin end",
+            }
         pop_entries.append(
             {
                 "name": name,
@@ -485,7 +546,7 @@ def write_bundle(
         else {}
     )
     config_json = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": PROBE_SCHEMA_VERSION if probe_ids else SCHEMA_VERSION,
         "kind": BUNDLE_KIND,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "bundle_created": datetime.now(timezone.utc).isoformat(),
@@ -668,6 +729,20 @@ def write_bundle(
                     f"write_bundle: population {name!r} results have "
                     "none of 'spikes', 'events' or 'state'"
                 )
+            if name in probe_ids:
+                voltages = _squeeze_batch(
+                    pop_results["voltages"], what=f"{name} voltages"
+                )
+                ids = probe_ids[name]
+                probe = pop_grp.create_dataset(
+                    "voltage_probe",
+                    data=voltages[:, ids].detach().cpu().to(torch.float32).numpy(),
+                    compression="gzip",
+                    compression_opts=4,
+                )
+                probe.attrs["ids"] = ids
+                probe.attrs["unit"] = "mV"
+                probe.attrs["sampling"] = "bin end"
 
         provenance = {
             name: dict(pop_by_name[name]["bank"].provenance) for name in results

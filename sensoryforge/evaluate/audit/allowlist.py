@@ -28,6 +28,10 @@ H5_DATASETS: Tuple[str, ...] = (
     "/populations/<pop>/state",
 )
 
+#: ``data.h5`` datasets a bundle may hold that the audit never opens (listed so a reader
+#: that finds one knows it is deliberate): stored membrane voltage (schema 2.4.0, A6p).
+H5_IGNORED: Tuple[str, ...] = ("/populations/<pop>/voltage_probe",)
+
 #: Attributes read from ``/populations/<pop>/events``.
 H5_EVENT_ATTRS: Tuple[str, ...] = ("signed", "polarity", "theta")
 

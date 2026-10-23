@@ -7,7 +7,7 @@ learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
 
 ```
 bundle_dir/
-    config.json               # schema_version "2.3.0", kind "sensoryforge_bundle"
+    config.json               # schema_version "2.3.0" ("2.4.0" with voltage probes), kind "sensoryforge_bundle"
     population_01_<NAME>.pt   # ReceptiveFieldBank.save() output + grid_shape
     population_02_<NAME>.pt   # one file per population
     stimuli/
@@ -36,7 +36,7 @@ viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only 
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"2.3.0"` (2.2.0 before each encoder's recorded input floor, 2.1.0 before the provenance fields, 2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
+| `schema_version` | `"2.3.0"`, or `"2.4.0"` for a bundle that stores voltage probes (below); 2.2.0 before each encoder's recorded input floor, 2.1.0 before the provenance fields, 2.0.0 before signed event populations). `load_bundle` raises `ValueError` if the major version isn't `2`. |
 | `kind` | `"sensoryforge_bundle"`. |
 | `grid` | `{rows, cols, spacing_mm, center_mm, device}` of the run's primary grid. |
 | `populations` | One entry per population: `name`, `neuron_type`, `color`, `parameters` (the builder parameters pressure-simulation's format expects: `neurons_per_row`, `connections_per_neuron`, `sigma_d_mm`, `weight_min`, `weight_max`, `seed`, `edge_offset`), `tensors` (the `.pt` filename), `visible`; since 2.1.0 also `readout` (`"spikes"`, `"events"` or `"state"`), `encoder` (`{"model", "params"}`: the neuron model name and its own `to_dict()`, including `dt`; a `level_crossing` model's `params` include `reference_leak_tau_ms` since 2.3.0, `null` = no leak) and, for an `events` population, `event_encoding` (below); since 2.3.0 `encoder.input_floor_ma`, the floor (mA) the run applied to the population's neuron input, or `null` when it was not floored (`resolve_input_floor`: 0.0 for a tactile SA/RA/SA2 population on a built-in model, `null` for `level_crossing` and DSL models, an explicit `input_floor` as given, `-inf` as `null`). |
@@ -44,6 +44,40 @@ viewer (`GUIs/ebkf_viewer.py`) opens a SensoryForge bundle unchanged -- it only 
 | `sensoryforge_version`, `created_at`, `bundle_created` | Provenance. |
 | `sensoryforge_sha` | Since 2.2.0: the commit of the SensoryForge that wrote the bundle (also a `data.h5` root attribute). |
 | `world` | Since 2.2.0, world data-set entries only: `{world_id, dataset_id, entry}`. |
+
+## Voltage probes (schema 2.4.0)
+
+A bundle stores a population's readout, not its membrane voltage. Setting `voltage_probes`
+(on a population, or under `simulation:` for every population) also keeps the voltage of a
+few fixed neurons, so a later re-simulation of the neuron stage can be checked against what
+the run really did, including in a neuron that never crossed threshold:
+
+```yaml
+populations:
+  - name: SA
+    voltage_probes: 2          # two evenly spaced neurons
+  - name: RA
+    voltage_probes: [0, 17]    # these neuron ids
+simulation:
+  voltage_probes: all          # the default for the others: every neuron (an archive)
+```
+
+A count `K` picks `K` neurons, each in the middle of its `1/K` share of the population (never an
+edge neuron); a list names ids; `"all"` keeps every neuron. A bundle that sets it has
+
+- `/populations/<name>/voltage_probe`, `[T, K]` float32 in mV: the engine's `voltages` for those
+  neurons, bin-end samples like the readout, bit for bit; the dataset's attributes are `ids`,
+  `unit` (`mV`) and `sampling` (`bin end`);
+- a `voltage_probe` entry in that population's `config.json` entry: `{dataset, ids, unit,
+  sampling}`;
+- `schema_version` `"2.4.0"`.
+
+The key is invisible until used: a run that sets it nowhere writes exactly the bundle schema
+2.3.0 wrote, and says 2.3.0. A population that sets `voltage_probes` itself but whose neuron model
+returns no voltage (an analog readout) raises `ValueError`; the run-wide default skips it. The
+evaluation page's voltage trace (re-simulated; [Evaluation server](../developer_guide/evaluation_server.md))
+then also says "voltage matches the stored voltage probes", or how far they differ. The blind
+audit never reads the dataset.
 
 ## `population_NN_<NAME>.pt`
 

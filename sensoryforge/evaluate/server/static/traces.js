@@ -57,7 +57,21 @@
     return { times: t, values: v };
   }
 
-  const api = { range, xOfTime, timeOfX, frameOfX, project, nonzero };
+  // What to say about the stored voltage probes (roadmap A6p): `p` is a verification's
+  // `probes` (or undefined when the bundle stores none). `fmt` formats a number.
+  function probeNote(p, fmt) {
+    if (!p) return { text: "", ok: true };
+    const ids = p.ids.length > 6 ? p.ids.slice(0, 6).join(", ") + ", …" : p.ids.join(", ");
+    const what = p.ids.length + (p.ids.length === 1 ? " stored voltage probe" : " stored voltage probes") +
+      " (neuron" + (p.ids.length === 1 ? " " : "s ") + ids + ")";
+    if (p.matches) return { text: "voltage matches the " + what, ok: true };
+    const size = p.max_abs_difference === null || p.max_abs_difference === undefined ? "" :
+      "; largest difference " + fmt(p.max_abs_difference) + " mV";
+    return { text: "voltage differs from the " + what + " (" + p.n_differing + " of " + p.ids.length +
+      " differ" + size + (p.note ? "; " + p.note : "") + ")", ok: false };
+  }
+
+  const api = { range, xOfTime, timeOfX, frameOfX, project, nonzero, probeNote };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EvalTraces = api;
 })(typeof window !== "undefined" ? window : globalThis);
