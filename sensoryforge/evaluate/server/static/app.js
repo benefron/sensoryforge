@@ -1,10 +1,14 @@
 "use strict";
 // The evaluation page (roadmap A5b, A6a): a draw list with pickers (filters, draw seed,
 // random with a repeatable pick seed) and a movie of the stimulus frames of one draw that
-// streams in as it plays. Click-to-pin traces arrive with A6b, the declared-fields panel
-// and two-draw comparison with A6c. The frame geometry is in geometry.js.
+// streams in as it plays. Clicking the movie pins a sensor or a neuron (A6b) and the traces
+// under it share one time cursor with the movie; a neuron's membrane voltage is re-simulated
+// by the server and shown with its comparison against the stored run. The declared-fields
+// panel and two-draw comparison arrive with A6c. Frame geometry is in geometry.js, trace
+// geometry in traces.js.
 (function () {
   const G = window.EvalGeometry;
+  const T = window.EvalTraces;
   const $ = (id) => document.getElementById(id);
   const CHUNK = 32;          // frames per request; chunk starts are multiples of this
   const PAGE = 100;
@@ -14,7 +18,10 @@
   const state = { offset: 0, total: 0, entry: null, token: 0, seq: 0, tick: 0,
     chunks: new Map(), pending: new Map(), bytes: 0, meta: null, draw: null,
     low: Infinity, high: -Infinity, scaleText: "", frame: 0, cursor: 0, last: 0,
-    playing: false, raf: 0, speed: 1, image: null, channel: 0 };
+    playing: false, raf: 0, speed: 1, image: null, channel: 0,
+    dims: null, view: { kind: "sensors", name: null }, geom: null, field: null, pin: null,
+    traceToken: 0, rows: [] };
+  const PLOT = { left: 62, right: 8, height: 84, pad: 5 };   // trace canvas margins, CSS px
 
   async function getJSON(url) {
     const r = await fetch(url);
@@ -165,8 +172,10 @@
     const sc = scaleFor();
     G.toRGBA(chunk.data, (frame - chunk.start) * nx * ny, nx, ny, sc.low, sc.high, state.image.data);
     ctx.putImageData(state.image, 0, 0);
+    state.dims = { nx, ny };
     state.frame = frame;
     $("scrub").value = frame;
+    moveCursor();
     $("clock").textContent = "frame " + frame + " / " + (chunk.total - 1) + " · " + (frame * chunk.dt).toFixed(1) + " ms";
     const text = G.fmt(sc.low) + " … " + G.fmt(sc.high) + " (" + sc.source + ")";
     if (text !== state.scaleText) { state.scaleText = text; $("scale-text").textContent = text; }
@@ -236,6 +245,298 @@
     } catch (err) { fail(err); }
   }
 
+  // ---- pinning: the overlay on the movie ----
+
+  const bounds = () => {
+    const b = state.draw && state.draw.bundle;
+    return b && b.layout && b.layout.bounds && b.layout.bounds.length >= 2 ? b.layout.bounds : null;
+  };
+
+  function fitOverlay() {
+    const o = $("overlay"), r = $("movie").getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (o.width !== w || o.height !== h) { o.width = w; o.height = h; }
+  }
+
+  function drawOverlay() {
+    fitOverlay();
+    const o = $("overlay"), ctx = o.getContext("2d");
+    ctx.clearRect(0, 0, o.width, o.height);
+    const d = state.dims, b = bounds();
+    if (!d || !b) return;
+    const sx = o.width / d.nx, sy = o.height / d.ny, dpr = window.devicePixelRatio || 1;
+    const at = (x, y) => { const p = G.mmToPixel(x, y, b, d.nx, d.ny); return [p.cx * sx, p.cy * sy]; };
+    const pin = state.pin;
+    if (state.view.kind === "population" && state.geom) {
+      ctx.lineWidth = dpr;
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      for (const [x, y] of state.geom.centers) {
+        const [px, py] = at(x, y);
+        ctx.beginPath(); ctx.arc(px, py, 2.2 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+      }
+    }
+    if (pin && pin.kind === "unit" && state.field) {
+      let top = 0;
+      for (const blk of state.field.inputs) for (const w of blk.weights) top = Math.max(top, w);
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      const coords = state.draw.bundle.layout.coords;
+      for (const blk of state.field.inputs) {
+        blk.sensors.forEach((k, n) => {
+          const [px, py] = at(coords[k][0], coords[k][1]);
+          ctx.globalAlpha = 0.15 + 0.6 * (top > 0 ? blk.weights[n] / top : 1);
+          ctx.fillRect(px - sx / 2, py - sy / 2, sx, sy);
+        });
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (pin) {
+      let xy = null;
+      if (pin.kind === "sensor") xy = [(pin.i + 0.5) * sx, (G.pixelOf(pin.i, pin.j, d.nx, d.ny).cy + 0.5) * sy];
+      else if (state.geom) { const c = state.geom.centers[pin.index]; xy = at(c[0], c[1]); }
+      if (xy) {
+        ctx.lineWidth = 2 * dpr;
+        ctx.strokeStyle = "#ff3b30";
+        ctx.beginPath(); ctx.arc(xy[0], xy[1], 6 * dpr, 0, 2 * Math.PI); ctx.stroke();
+      }
+    }
+  }
+
+  function pinText() {
+    const p = state.pin;
+    if (!p) return "Click the movie to pin a " + (state.view.kind === "sensors" ? "sensor" : "neuron") + ".";
+    if (p.kind === "sensor") return "Pinned sensor " + p.k + " (x index " + p.i + ", y index " + p.j + ")";
+    const c = state.geom && state.geom.centers[p.index];
+    const u = state.draw.bundle.units && state.draw.bundle.units.space;
+    return "Pinned " + state.view.name + " neuron " + p.index +
+      (c ? " at (" + G.fmt(c[0]) + ", " + G.fmt(c[1]) + ")" + (u ? " " + u : "") : "");
+  }
+
+  function setPin(pin) {
+    state.pin = pin;
+    state.field = null;
+    $("pin-text").textContent = pinText();
+    drawOverlay();
+    loadTraces();
+  }
+
+  function onMovieClick(e) {
+    const d = state.dims, b = bounds();
+    if (!d || !state.draw || !b) return;
+    const r = $("movie").getBoundingClientRect();
+    const cx = ((e.clientX - r.left) / r.width) * d.nx, cy = ((e.clientY - r.top) / r.height) * d.ny;
+    if (state.view.kind === "sensors") {
+      const s = G.sensorAt(cx, cy, d.nx, d.ny);
+      if (s) setPin({ kind: "sensor", i: s.i, j: s.j, k: s.k });
+    } else if (state.geom) {
+      const p = G.pixelToMm(cx, cy, b, d.nx, d.ny);
+      const n = G.nearestUnit(p.x, p.y, state.geom.centers);
+      if (n >= 0) setPin({ kind: "unit", index: n });
+    }
+  }
+
+  async function setView(value) {
+    const token = state.token;
+    state.pin = null; state.field = null; state.geom = null;
+    if (value === "sensors") state.view = { kind: "sensors", name: null };
+    else {
+      state.view = { kind: "population", name: value };
+      try {
+        const g = await getJSON("/api/draw/population?entry=" + encodeURIComponent(state.entry) +
+          "&population=" + encodeURIComponent(value));
+        if (token !== state.token) return;
+        state.geom = g;
+      } catch (err) { say("error: " + err.message); state.view = { kind: "sensors", name: null }; $("view").value = "sensors"; }
+    }
+    $("pin-text").textContent = pinText();
+    drawOverlay();
+    loadTraces();
+  }
+
+  function fillViews() {
+    const sel = $("view");
+    const want = state.view.kind === "population" ? state.view.name : "sensors";
+    sel.replaceChildren(new Option("sensor", "sensors"));
+    const pops = (state.draw.bundle && state.draw.bundle.populations) || [];
+    for (const p of pops) sel.add(new Option(p.name + " neuron (" + p.n_units + ")", p.name));
+    sel.disabled = !state.draw.bundle;
+    sel.value = pops.some((p) => p.name === want) ? want : "sensors";
+    return sel.value;
+  }
+
+  // ---- traces under the movie, with one shared time cursor ----
+
+  function plotWidth() { return Math.max(200, $("tracebox").clientWidth); }
+
+  function newRow(title, kind) {
+    const wrap = document.createElement("div");
+    wrap.className = "trace";
+    const h = document.createElement("h3");
+    h.textContent = title;
+    const canvas = document.createElement("canvas");
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = "loading…";
+    wrap.append(h, canvas, note);
+    $("tracebox").insertBefore(wrap, $("cursor"));
+    const row = { title, kind, canvas, note, series: null, unit: "" };
+    canvas.addEventListener("click", (e) => {
+      const r = canvas.getBoundingClientRect();
+      if (!state.meta) return;
+      stop();
+      show(T.frameOfX(e.clientX - r.left, r.width, PLOT.left, PLOT.right, state.meta.dt, state.meta.total));
+    });
+    state.rows.push(row);
+    return row;
+  }
+
+  function clearTraces() {
+    for (const r of state.rows) r.canvas.parentNode.remove();
+    state.rows = [];
+    moveCursor();
+  }
+
+  function drawRow(row) {
+    const w = plotWidth(), h = PLOT.height, dpr = window.devicePixelRatio || 1;
+    const c = row.canvas;
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    c.style.height = h + "px";
+    const ctx = c.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const s = row.series;
+    if (!s || !s.length) return;
+    const css = getComputedStyle(document.documentElement);
+    const fg = css.getPropertyValue("--fg").trim() || "#222", muted = css.getPropertyValue("--muted").trim() || "#888";
+    const t1 = (state.meta.total - 1) * state.meta.dt;
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillStyle = muted;
+    ctx.textAlign = "right";
+    if (row.kind === "ticks") {
+      const view = { t0: 0, t1, lo: 0, hi: 1, w, h, left: PLOT.left, right: PLOT.right, pad: PLOT.pad };
+      ctx.fillText(row.unit, PLOT.left - 6, h / 2 + 4);
+      ctx.strokeStyle = fg; ctx.lineWidth = 1;
+      const hits = T.nonzero(s[0].time_ms, s[0].values);
+      ctx.beginPath();
+      for (let n = 0; n < hits.times.length; n++) {
+        const x = T.xOfTime(hits.times[n], 0, t1, w, PLOT.left, PLOT.right);
+        ctx.moveTo(x, view.pad + 8); ctx.lineTo(x, h - view.pad - 8);
+      }
+      ctx.stroke();
+      return;
+    }
+    const all = [];
+    for (const one of s) for (const v of one.values) all.push(v);
+    const rg = T.range(all);
+    const view = { t0: 0, t1, lo: rg.lo, hi: rg.hi, w, h, left: PLOT.left, right: PLOT.right, pad: PLOT.pad };
+    ctx.fillText(G.fmt(rg.hi), PLOT.left - 6, PLOT.pad + 9);
+    ctx.fillText(G.fmt(rg.lo), PLOT.left - 6, h - PLOT.pad);
+    if (row.unit) ctx.fillText(row.unit, PLOT.left - 6, h / 2 + 4);
+    ctx.strokeStyle = fg; ctx.lineWidth = 1.2; ctx.lineJoin = "round";
+    const pts = T.project(s[0].time_ms, s[0].values, view);
+    ctx.beginPath();
+    let pen = false;
+    for (const p of pts) {
+      if (!p) { pen = false; continue; }
+      if (pen) ctx.lineTo(p[0], p[1]); else { ctx.moveTo(p[0], p[1]); pen = true; }
+    }
+    ctx.stroke();
+  }
+
+  function redrawTraces() { for (const r of state.rows) drawRow(r); drawOverlay(); moveCursor(); }
+
+  function moveCursor() {
+    const cur = $("cursor");
+    if (!state.meta || !state.rows.length) { cur.hidden = true; return; }
+    cur.hidden = false;
+    const w = plotWidth(), t1 = (state.meta.total - 1) * state.meta.dt;
+    cur.style.left = T.xOfTime(state.frame * state.meta.dt, 0, t1, w, PLOT.left, PLOT.right) + "px";
+  }
+
+  function traceURL(source, extra) {
+    const q = new URLSearchParams({ entry: state.entry, source, ...extra });
+    return "/api/draw/trace?" + q;
+  }
+
+  async function fill(row, url, unit, note) {
+    try {
+      const body = await getJSON(url);
+      row.series = body.series; row.unit = unit || "";
+      row.note.textContent = note || "";
+      row.note.className = "note";
+      drawRow(row);
+      return body;
+    } catch (err) {
+      row.note.textContent = String(err.message || err);
+      row.note.className = "note bad";
+      return null;
+    }
+  }
+
+  function describeCheck(c) {
+    const shas = "bundle code " + String(c.bundle_sha || "unknown").slice(0, 8) + ", running code " +
+      String(c.code_sha || "unknown").slice(0, 8) + (c.bundle_sha && c.code_sha && c.bundle_sha !== c.code_sha ? " (different code)" : "");
+    if (c.matches)
+      return { text: "matches the stored run: the re-run gives the same " + c.readout + " for all " + c.n_units +
+        " neurons · " + shas + " · re-run " + c.seconds + " s", cls: "note good" };
+    const first = c.first_differences.length ? " (first: " + c.first_differences.join(", ") + ")" : "";
+    return { text: "differs from the stored run (" + c.n_differing + " of " + c.n_units + " neurons" + first +
+      "; largest difference " + G.fmt(c.max_abs_difference) + ") · " + shas + " · re-run " + c.seconds + " s" +
+      (c.notes && c.notes.length ? " · " + c.notes.join("; ") : ""), cls: "note bad" };
+  }
+
+  async function loadTraces() {
+    const token = ++state.traceToken;
+    clearTraces();
+    const pin = state.pin, b = state.draw && state.draw.bundle;
+    if (!pin || !b) return;
+    const units = b.units || {};
+    const alive = () => token === state.traceToken;
+    if (pin.kind === "sensor") {
+      const row = newRow("Stimulus at sensor " + pin.k + " (channel " + state.channel + ")", "line");
+      await fill(row, traceURL("stimulus", { index: pin.k, channel: state.channel }), units.frame || "");
+      return;
+    }
+    const pop = state.view.name, idx = pin.index;
+    const readout = b.populations.find((p) => p.name === pop).readout;
+    const mk = (source, title, kind) => newRow(title, kind);
+    const drive = mk("drive", "Drive (neuron " + idx + ")", "line");
+    const filt = mk("filtered", "Filtered current (neuron " + idx + ")", "line");
+    const out = mk("readout", readout[0].toUpperCase() + readout.slice(1) + " (neuron " + idx + ")", readout === "state" ? "line" : "ticks");
+    const volt = mk("voltage", "Membrane voltage (neuron " + idx + "), re-simulated", "line");
+    volt.note.textContent = "re-simulating the population from its stored filtered current…";
+    const q = { population: pop, index: idx };
+    fieldFor(token, pop, idx);
+    await Promise.all([
+      fill(drive, traceURL("drive", q), units.drive || ""),
+      fill(filt, traceURL("filtered", q), units.filtered || ""),
+      fill(out, traceURL("readout", q), readout === "spikes" ? "spikes" : readout === "events" ? "events" : (units.state || "state")),
+    ]);
+    if (!alive()) return;
+    try {
+      const body = await getJSON("/api/draw/voltage?" + new URLSearchParams({ entry: state.entry, ...q }));
+      if (!alive()) return;
+      volt.series = body.series; volt.unit = "mV";
+      const d = describeCheck(body.verification);
+      volt.note.textContent = d.text; volt.note.className = d.cls;
+      drawRow(volt);
+    } catch (err) {
+      if (!alive()) return;
+      volt.note.textContent = String(err.message || err); volt.note.className = "note bad";
+    }
+    moveCursor();
+  }
+
+  async function fieldFor(token, pop, idx) {
+    try {
+      const g = await getJSON("/api/draw/population?" + new URLSearchParams({ entry: state.entry, population: pop, index: idx }));
+      if (token !== state.traceToken) return;
+      state.field = g.field;
+      drawOverlay();
+    } catch (err) { /* the traces report their own errors; the field is a bonus */ }
+  }
+
   // ---- opening a draw ----
 
   async function openDraw(entry) {
@@ -246,7 +547,9 @@
     state.chunks = new Map(); state.pending = new Map(); state.bytes = 0;
     state.low = Infinity; state.high = -Infinity;
     state.meta = null; state.draw = null; state.frame = 0; state.cursor = 0;
-    state.scaleText = ""; state.image = null;
+    state.scaleText = ""; state.image = null; state.dims = null;
+    state.geom = null; state.field = null;
+    clearTraces();
     mark(entry);
     try { history.replaceState(null, "", "#entry=" + encodeURIComponent(entry)); } catch (e) { /* file:// or sandbox */ }
     $("draw-title").textContent = entry;
@@ -266,6 +569,15 @@
       state.meta = { total: first.total, dt: first.dt };
       drawAxes();
       paint(0);
+      const want = fillViews();
+      if (want === "sensors") {
+        state.view = { kind: "sensors", name: null };
+        if (state.pin && state.pin.kind !== "sensor") state.pin = null;
+      } else await setViewKeepPin(want);
+      if (token !== state.token) return;
+      $("pin-text").textContent = pinText();
+      drawOverlay();
+      if (state.pin) loadTraces();
       say("first frame after " + Math.round(performance.now() - t0) + " ms");
       const scrub = $("scrub");
       scrub.max = first.total - 1; scrub.value = 0; scrub.disabled = false;
@@ -275,6 +587,13 @@
     } catch (err) {
       if (token === state.token) say(String(err.message || err));
     }
+  }
+
+  // Re-open the population view of the previous draw on a new draw, keeping the pinned neuron.
+  async function setViewKeepPin(name) {
+    const keep = state.pin && state.pin.kind === "unit" ? state.pin : null;
+    await setView(name);
+    if (keep && state.geom && keep.index < state.geom.centers.length) state.pin = keep;
   }
 
   function openFromHash() {
@@ -287,6 +606,9 @@
   $("play").addEventListener("click", () => { if (state.playing) stop(); else play(); });
   $("scrub").addEventListener("input", (e) => { stop(); show(+e.target.value); });
   $("speed").addEventListener("change", (e) => { state.speed = +e.target.value; prefetch(state.frame); });
+  $("movie").addEventListener("click", onMovieClick);
+  $("view").addEventListener("change", (e) => setView(e.target.value));
+  window.addEventListener("resize", redrawTraces);
   $("more").addEventListener("click", () => loadList(true));
   $("filters").addEventListener("change", () => loadList(false));
   $("f-q").addEventListener("input", () => loadList(false));

@@ -210,3 +210,87 @@ def test_the_page_loads_geometry_before_the_app_and_serves_both(audited):
         assert r.status == 200 and r.content_type.startswith("text/javascript")
     for needed in ("speed", "f-seed", "pick-seed", "scale-text", "xlabel", "ylabel"):
         assert f'id="{needed}"' in html
+
+
+# ------------------------------------------------------------- pinning (A6b)
+
+
+@needs_node
+def test_a_sensor_coordinate_lands_on_its_own_pixel_and_back(draw):
+    layout = draw["bundle"]["layout"]
+    coords = layout["coords"]
+    nx, ny = layout["regular_grid"]["rows"], layout["regular_grid"]["cols"]
+    got = run_js(
+        """
+        const bad = [];
+        inp.coords.forEach((c, k) => {
+          const i = Math.floor(k / inp.ny), j = k % inp.ny;
+          const p = G.mmToPixel(c[0], c[1], inp.bounds, inp.nx, inp.ny);
+          const q = G.pixelOf(i, j, inp.nx, inp.ny);
+          if (Math.abs(p.cx - (q.cx + 0.5)) > 1e-9 || Math.abs(p.cy - (q.cy + 0.5)) > 1e-9) bad.push(k);
+          const back = G.pixelToMm(p.cx, p.cy, inp.bounds, inp.nx, inp.ny);
+          if (Math.abs(back.x - c[0]) > 1e-9 || Math.abs(back.y - c[1]) > 1e-9) bad.push(-k);
+          const s = G.sensorAt(p.cx, p.cy, inp.nx, inp.ny);
+          if (!s || s.k !== k) bad.push(k + 100000);
+        });
+        return bad;
+        """,
+        coords=coords,
+        bounds=layout["bounds"],
+        nx=nx,
+        ny=ny,
+    )
+    assert got == []
+
+
+@needs_node
+def test_a_click_pins_the_nearest_neuron_centre():
+    got = run_js("""
+        const centers = [[0, 0], [10, 0], [0, 10], [10, 10]];
+        return [G.nearestUnit(1, 1, centers), G.nearestUnit(9, 2, centers),
+                G.nearestUnit(2, 8, centers), G.nearestUnit(7, 9, centers),
+                G.nearestUnit(0, 0, [])];
+        """)
+    assert got == [0, 1, 2, 3, -1]
+
+
+def run_traces(body: str, **inputs):
+    script = (
+        f"const T = require({json.dumps(str(STATIC / 'traces.js'))});\n"
+        f"const inp = {json.dumps(inputs)};\n"
+        f"const out = (() => {{ {body} }})();\n"
+        "process.stdout.write(JSON.stringify(out));\n"
+    )
+    done = subprocess.run(
+        [NODE, "-e", script], capture_output=True, text=True, check=True, timeout=60
+    )
+    return json.loads(done.stdout)
+
+
+@needs_node
+def test_the_time_cursor_and_a_click_on_a_trace_agree():
+    got = run_traces("""
+        const w = 500, left = 60, right = 10, dt = 2, total = 101;
+        const out = [];
+        for (const f of [0, 1, 37, 100]) {
+          const x = T.xOfTime(f * dt, 0, (total - 1) * dt, w, left, right);
+          out.push(T.frameOfX(x, w, left, right, dt, total));
+        }
+        out.push(T.frameOfX(-50, w, left, right, dt, total), T.frameOfX(9999, w, left, right, dt, total));
+        return out;
+        """)
+    assert got == [0, 1, 37, 100, 0, 100]
+
+
+@needs_node
+def test_a_series_projects_with_gaps_and_a_flat_series_gets_a_range():
+    got = run_traces("""
+        const view = { t0: 0, t1: 10, lo: 0, hi: 2, w: 110, h: 50, left: 10, right: 0, pad: 5 };
+        const pts = T.project([0, 5, 10], [0, null, 2], view);
+        return { pts, flat: T.range([3, 3, null]), empty: T.range([null]),
+                 ticks: T.nonzero([0, 1, 2, 3], [0, 2, 0, -1]) };
+        """)
+    assert got["pts"] == [[10, 45], None, [110, 5]]
+    assert got["flat"]["lo"] < 3 < got["flat"]["hi"]
+    assert got["empty"] == {"lo": 0, "hi": 1}
+    assert got["ticks"] == {"times": [1, 3], "values": [2, -1]}

@@ -114,6 +114,18 @@ class Api:
                 r"/api/draw/trace",
                 lambda r, m: json_response(s.trace(r.query.get("entry"), r.query)),
             ),
+            (
+                "GET",
+                r"/api/draw/voltage",
+                lambda r, m: json_response(s.voltage(r.query.get("entry"), r.query)),
+            ),
+            (
+                "GET",
+                r"/api/draw/population",
+                lambda r, m: json_response(
+                    s.population_geometry(r.query.get("entry"), r.query)
+                ),
+            ),
             ("GET", r"/api/stages", lambda r, m: json_response(s.stage_status())),
             ("GET", r"/api/stage/(?P<name>[a-z]+)", self._stage),
             ("POST", r"/api/stages/(?P<name>[a-z]+)/run", self._run_stage),

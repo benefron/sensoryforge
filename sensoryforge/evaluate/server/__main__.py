@@ -39,12 +39,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="megabytes of decompressed stimulus frames kept between requests "
         "(default 256; 0 keeps none)",
     )
+    ap.add_argument(
+        "--voltage-cache-mb",
+        type=float,
+        default=256.0,
+        help="megabytes of re-simulated membrane voltage kept between requests "
+        "(default 256; 0 keeps none)",
+    )
     args = ap.parse_args(argv)
     try:
         service = DatasetService(
             args.folder,
             args.stages,
             frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+            voltage_cache_bytes=int(args.voltage_cache_mb * (1 << 20)),
         )
     except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)

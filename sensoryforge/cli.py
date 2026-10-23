@@ -1089,6 +1089,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             Path(args.folder),
             args.stages and Path(args.stages),
             frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+            voltage_cache_bytes=int(args.voltage_cache_mb * (1 << 20)),
         )
     except (FileNotFoundError, ValueError) as exc:
         print(f"Error opening data set: {exc}", file=sys.stderr)
@@ -1274,6 +1275,13 @@ def create_parser() -> argparse.ArgumentParser:
         type=float,
         default=256.0,
         help="Megabytes of decompressed stimulus frames kept between requests "
+        "(default 256; 0 keeps none)",
+    )
+    serve_parser.add_argument(
+        "--voltage-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of re-simulated membrane voltage kept between requests "
         "(default 256; 0 keeps none)",
     )
 

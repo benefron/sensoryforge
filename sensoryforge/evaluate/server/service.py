@@ -58,6 +58,9 @@ PEAK_METRIC = "core.frames.peak"
 #: Default size of the decompressed-slab cache, bytes (``--frame-cache-mb`` sets it).
 DEFAULT_FRAME_CACHE_BYTES = 256 << 20
 
+#: Default size of the re-simulated voltage cache, bytes.
+DEFAULT_VOLTAGE_CACHE_BYTES = 256 << 20
+
 #: Failed bundle reads the summary tries before it gives up on a reference draw.
 SUMMARY_MAX_PEEKS = 50
 
@@ -251,6 +254,8 @@ class DatasetService:
             default ``folder / "evaluate"``.
         frame_cache_bytes: Most bytes of decompressed stimulus frames kept between
             requests (default 256 MiB; 0 keeps nothing). See :meth:`frames`.
+        voltage_cache_bytes: Most bytes of re-simulated voltage kept between requests
+            (default 256 MiB; 0 keeps nothing). See :meth:`voltage`.
 
     Raises:
         FileNotFoundError: If the folder has no manifest.
@@ -262,9 +267,14 @@ class DatasetService:
         folder: Path,
         stages: Optional[Path] = None,
         frame_cache_bytes: int = DEFAULT_FRAME_CACHE_BYTES,
+        voltage_cache_bytes: int = DEFAULT_VOLTAGE_CACHE_BYTES,
     ) -> None:
         if frame_cache_bytes < 0:
             raise ValueError(f"frame_cache_bytes must be >= 0, got {frame_cache_bytes}")
+        if voltage_cache_bytes < 0:
+            raise ValueError(
+                f"voltage_cache_bytes must be >= 0, got {voltage_cache_bytes}"
+            )
         self.folder = Path(folder)
         self.stages = Path(stages) if stages else self.folder / "evaluate"
         manifest = self.folder / "manifest.jsonl"
@@ -313,6 +323,15 @@ class DatasetService:
         self._slab_bytes = 0
         self.slab_hits = 0
         self.slab_misses = 0
+        # Re-simulated voltages (see voltage()), least recently used first; one lock
+        # covers the cache and the re-run that fills it, so two requests re-run once.
+        self.voltage_cache_bytes = int(voltage_cache_bytes)
+        self._volts: "OrderedDict[Tuple[str, str], Any]" = OrderedDict()
+        self._volt_lock = threading.Lock()
+        self._volt_bytes = 0
+        self._banks: "OrderedDict[Tuple[str, str], Tuple[np.ndarray, np.ndarray]]" = (
+            OrderedDict()
+        )
 
     # ------------------------------------------------------------------ helpers
 
@@ -914,19 +933,7 @@ class DatasetService:
                     data = np.asarray(ds[:, ids], dtype=np.float64)
         except (OSError, KeyError, ValueError) as exc:
             raise self._unreadable(entry, exc) from exc
-        series = []
-        decimated = False
-        for k, unit in enumerate(ids):
-            frames = decimate(data[:, k], points)
-            decimated = decimated or frames.size < info.n_frames
-            col = data[frames, k]
-            if np.isfinite(col).all():
-                values: List[Any] = col.tolist()
-            else:
-                values = [float(v) if np.isfinite(v) else None for v in col]
-            series.append(
-                {"index": unit, "time_ms": time_ms[frames].tolist(), "values": values}
-            )
+        series, decimated = self._series_json(data, ids, time_ms, points, info.n_frames)
         return {
             "entry": row.entry,
             "source": source,
@@ -938,6 +945,35 @@ class DatasetService:
             "series": series,
             "units": self._units(),
         }
+
+    @staticmethod
+    def _series_json(
+        data: np.ndarray,
+        ids: Sequence[int],
+        time_ms: np.ndarray,
+        points: int,
+        n_frames: int,
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        """``[{index, time_ms, values}]`` for the columns of ``data`` ``[T, K]``.
+
+        Each series is decimated on its own (see :func:`decimate`); a non-finite value
+        becomes ``None`` so the JSON stays valid. The flag says whether any series
+        was shortened.
+        """
+        series = []
+        decimated = False
+        for k, unit in enumerate(ids):
+            frames = decimate(data[:, k], points)
+            decimated = decimated or frames.size < n_frames
+            col = data[frames, k]
+            if np.isfinite(col).all():
+                values: List[Any] = col.tolist()
+            else:
+                values = [float(v) if np.isfinite(v) else None for v in col]
+            series.append(
+                {"index": unit, "time_ms": time_ms[frames].tolist(), "values": values}
+            )
+        return series, decimated
 
     @staticmethod
     def _stimulus_series(
@@ -960,3 +996,187 @@ class DatasetService:
             i, j = divmod(k, cols)
             out[:, n] = ds[:, i, j] if ds.ndim == 3 else ds[:, channel, i, j]
         return out
+
+    # ----------------------------------------------------- re-simulated voltage
+
+    def _population_readout(self, entry: str, population: Optional[str]) -> str:
+        known = {n: r for n, r, _u in self.info(entry).populations}
+        if population not in known:
+            raise ServiceError(
+                404, f"population must be one of {sorted(known)}, got {population!r}"
+            )
+        return known[population]
+
+    def voltage(self, entry: Optional[str], query: Mapping[str, str]) -> Dict[str, Any]:
+        """Membrane voltage of some neurons of one population, by re-simulation.
+
+        The bundle does not store it. The population's neuron stage is run again from
+        the stored ``filtered`` (the engine's own code, :mod:`.resim`), the voltage of
+        the asked neurons is returned and the whole re-run is compared with the stored
+        readout of every neuron, so the answer always says whether it matches the run.
+        The last few re-runs are kept (``voltage_cache_bytes``), keyed by draw and
+        population, so pinning a second neuron of the same population is instant.
+
+        Args:
+            entry: Entry id.
+            query: ``population``, ``index`` (comma-separated neuron ids, at most 64)
+                and ``max_points`` as for :meth:`trace`.
+
+        Returns:
+            ``{entry, population, readout, dt_ms, n_frames, decimated, series, units,
+            verification, cached}``; ``verification`` is described in
+            :func:`sensoryforge.evaluate.server.resim.verify` plus ``bundle_sha`` and
+            ``code_sha``.
+
+        Raises:
+            ServiceError: 400 for a bad query, 404 for an unknown draw or population,
+                422 when the bundle or the neuron cannot be re-run (the message says
+                why).
+        """
+        from sensoryforge.evaluate.server import resim
+
+        row = self._row(entry)
+        info = self.info(row.entry)
+        population = query.get("population")
+        readout = self._population_readout(row.entry, population)
+        ids = sorted(
+            {_int("index", v, 0, 0, 10**9) for v in (_csv(query.get("index")) or ["0"])}
+        )
+        if len(ids) > MAX_SERIES:
+            raise ServiceError(400, f"at most {MAX_SERIES} series per request")
+        points = _int(
+            "max_points", query.get("max_points"), DEFAULT_POINTS, 2, MAX_POINTS
+        )
+        n_units = next(u for n, _r, u in info.populations if n == population)
+        if ids[-1] >= n_units:
+            raise ServiceError(400, f"unit {ids[-1]} is out of range: {n_units} units")
+        key = (row.entry, population)
+        cached = True
+        with self._volt_lock:
+            hit = self._volts.get(key)
+            if hit is not None:
+                self._volts.move_to_end(key)
+            else:
+                cached = False
+                try:
+                    hit = resim.resimulate(
+                        self.reader().bundle_path(row.entry), population, readout
+                    )
+                except (resim.ResimError, ReadError) as exc:
+                    raise ServiceError(422, str(getattr(exc, "message", exc)))
+                self._keep_voltage(key, hit)
+        time_ms = np.arange(info.n_frames, dtype=np.float64) * info.dt
+        data = np.asarray(hit.voltages[:, ids], dtype=np.float64)
+        series, decimated = self._series_json(data, ids, time_ms, points, info.n_frames)
+        return {
+            "entry": row.entry,
+            "population": population,
+            "readout": readout,
+            "dt_ms": info.dt,
+            "n_frames": info.n_frames,
+            "decimated": decimated,
+            "series": series,
+            "units": self._units(),
+            "verification": hit.verification,
+            "cached": cached,
+        }
+
+    def _keep_voltage(self, key: Tuple[str, str], run: Any) -> None:
+        """Add a re-run to the voltage cache and evict the oldest until it fits.
+
+        A re-run larger than the whole cache is used for the request and not kept.
+        """
+        if run.nbytes > self.voltage_cache_bytes:
+            return
+        self._volts[key] = run
+        self._volt_bytes += run.nbytes
+        while self._volt_bytes > self.voltage_cache_bytes:
+            _, old = self._volts.popitem(last=False)
+            self._volt_bytes -= old.nbytes
+
+    # ----------------------------------------------------- population geometry
+
+    def population_geometry(
+        self, entry: Optional[str], query: Mapping[str, str]
+    ) -> Dict[str, Any]:
+        """Where a population's neurons sit and which sensors one of them reads.
+
+        Read from the population's tensor file in the bundle (the receptive-field
+        bank), so it needs torch, which is imported here and not before.
+
+        Args:
+            entry: Entry id.
+            query: ``population`` and, optionally, ``index`` (one neuron id).
+
+        Returns:
+            ``{entry, population, n_units, n_receptors, centers, field}``: ``centers``
+            is ``[[x, y]]`` per neuron in the layout's space unit; ``field`` (only
+            with ``index``) is ``{index, inputs}``, one ``{sensors, weights}`` per
+            input of the population (the receptors with a non-zero weight on that
+            neuron), or ``None`` when the bank's receptors are not a whole number of
+            copies of the layout's sensors.
+
+        Raises:
+            ServiceError: 400 for a bad query, 404 for an unknown draw or population,
+                422 when the tensor file cannot be read.
+        """
+        row = self._row(entry)
+        info = self.info(row.entry)
+        population = query.get("population")
+        self._population_readout(row.entry, population)
+        key = (row.entry, population)
+        with self._lock:
+            bank = self._banks.get(key)
+            if bank is None:
+                bank = self._read_bank(row.entry, population)
+                self._banks[key] = bank
+                if len(self._banks) > 16:
+                    self._banks.popitem(last=False)
+            else:
+                self._banks.move_to_end(key)
+        centers, weights = bank
+        out: Dict[str, Any] = {
+            "entry": row.entry,
+            "population": population,
+            "n_units": int(centers.shape[0]),
+            "n_receptors": int(weights.shape[1]),
+            "centers": centers.tolist(),
+            "field": None,
+        }
+        if query.get("index") not in (None, ""):
+            index = _int("index", query.get("index"), 0, 0, 10**9)
+            if index >= centers.shape[0]:
+                raise ServiceError(
+                    400, f"unit {index} is out of range: {centers.shape[0]} units"
+                )
+            n_sensors = info.layout.n_sensors
+            m = weights.shape[1]
+            if n_sensors > 0 and m % n_sensors == 0:
+                # one block of n_sensors columns per input of the population
+                blocks = []
+                for b in range(m // n_sensors):
+                    w = weights[index, b * n_sensors : (b + 1) * n_sensors]
+                    sensors = np.flatnonzero(w != 0)
+                    blocks.append(
+                        {"sensors": sensors.tolist(), "weights": w[sensors].tolist()}
+                    )
+                out["field"] = {"index": index, "inputs": blocks}
+        return out
+
+    def _read_bank(self, entry: str, population: str) -> Tuple[np.ndarray, np.ndarray]:
+        import torch
+
+        bundle = self.reader().bundle_path(entry)
+        try:
+            with open(bundle / "config.json") as fh:
+                pops = json.load(fh).get("populations") or []
+            name = next(p["tensors"] for p in pops if p.get("name") == population)
+            tensors = torch.load(bundle / name, map_location="cpu", weights_only=True)
+            centers = tensors["neuron_centers"].numpy().astype(np.float64)
+            weights = tensors["innervation_weights"].numpy().astype(np.float32)
+        except (OSError, KeyError, StopIteration, ValueError, RuntimeError) as exc:
+            raise ServiceError(
+                422,
+                f"draw {entry!r}: the {population!r} tensors cannot be read ({exc})",
+            ) from exc
+        return centers, weights

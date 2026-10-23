@@ -26,6 +26,33 @@
     return { i, j, k: i * ny + j };
   }
 
+  // Canvas position (fractional pixels) of the point (x, y) in the layout's space unit, for
+  // a regular grid whose sensor centres span `bounds` = [[xlo, xhi], [ylo, yhi]]: sensor
+  // (i, j) at the lowest corner of its pixel's centre maps to (i + 0.5, ny - 1 - j + 0.5).
+  function mmToPixel(x, y, bounds, nx, ny) {
+    const fx = bounds[0][1] > bounds[0][0] ? (x - bounds[0][0]) / (bounds[0][1] - bounds[0][0]) : 0.5;
+    const fy = bounds[1][1] > bounds[1][0] ? (y - bounds[1][0]) / (bounds[1][1] - bounds[1][0]) : 0.5;
+    return { cx: fx * (nx - 1) + 0.5, cy: (1 - fy) * (ny - 1) + 0.5 };
+  }
+
+  // The inverse of mmToPixel: the layout position under a canvas position.
+  function pixelToMm(cx, cy, bounds, nx, ny) {
+    const fx = nx > 1 ? (cx - 0.5) / (nx - 1) : 0.5;
+    const fy = ny > 1 ? 1 - (cy - 0.5) / (ny - 1) : 0.5;
+    return { x: bounds[0][0] + fx * (bounds[0][1] - bounds[0][0]),
+      y: bounds[1][0] + fy * (bounds[1][1] - bounds[1][0]) };
+  }
+
+  // Index of the centre ([[x, y], ...]) nearest to (x, y), or -1 for an empty list.
+  function nearestUnit(x, y, centers) {
+    let best = -1, bestD = Infinity;
+    for (let n = 0; n < centers.length; n++) {
+      const dx = centers[n][0] - x, dy = centers[n][1] - y, d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = n; }
+    }
+    return best;
+  }
+
   // Fill `out` (RGBA, nx * ny pixels) from the frame at data[offset ...]; returns it.
   function toRGBA(data, offset, nx, ny, low, high, out) {
     const px = out || new Uint8ClampedArray(nx * ny * 4);
@@ -87,7 +114,7 @@
     return f >= total ? f % total : f;
   }
 
-  const api = { pixelOf, sensorAt, toRGBA, ramp, colourScale, peakFor, axisText, frameAt, fmt };
+  const api = { pixelOf, sensorAt, mmToPixel, pixelToMm, nearestUnit, toRGBA, ramp, colourScale, peakFor, axisText, frameAt, fmt };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EvalGeometry = api;
 })(typeof window !== "undefined" ? window : globalThis);

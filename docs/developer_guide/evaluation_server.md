@@ -6,8 +6,9 @@ the audit and comparison files when they exist. It reads one data-set folder fro
 disk. Draws are read **on demand**, so a large data set never has to be rendered in advance.
 
 This page covers the data and JSON endpoints (roadmap A5a), the frame streaming and the page
-shell (A5b), and the draw picker and movie (A6a). Pinned traces, the declared-fields panel and
-two-draw comparison follow in A6b and A6c.
+shell (A5b), the draw picker and movie (A6a), and pinned points with linked traces and
+re-simulated membrane voltage (A6b). The declared-fields panel and two-draw comparison follow in
+A6c.
 
 ## Run it
 
@@ -23,6 +24,7 @@ offers to run the stages over them, so do not bind it to a public address.
 
 `--frame-cache-mb` (default 256, 0 keeps nothing) sets how much decompressed stimulus the
 server keeps between requests; see [Playback and the slab cache](#playback-and-the-slab-cache).
+`--voltage-cache-mb` (default 256) does the same for re-simulated membrane voltage.
 
 **Other web pages cannot use it.** A loopback bind does not keep out a page open in the same
 browser, which could start a stage with a cross-site `POST`, or read the data set after a DNS
@@ -76,8 +78,10 @@ slashes, so a draw is named in the query, never in the path.
 | `GET /api/draws/random` | one draw picked from the filtered ones; `pick_seed` makes the pick repeatable |
 | `GET /api/draw?entry=E` | the draw's row, its manifest `record` (the declaration), its `seeds` as strings, `frame_peak` (the audit's `core.frames.peak` for the draw, read from `audit_entries.jsonl`, or `null`), and its bundle: `dt_ms`, `n_frames`, the sensor coordinates, the populations and units. A bundle that cannot be read gives `bundle: null` and an `error` |
 | `GET /api/draw/trace?entry=E&source=S` | series of one draw (below) |
+| `GET /api/draw/voltage?entry=E&population=P&index=N` | membrane voltage of neurons, re-simulated, with its comparison against the stored run (below) |
+| `GET /api/draw/population?entry=E&population=P[&index=N]` | neuron positions of a population and, with `index`, the receptors one neuron reads (below) |
 | `GET /api/draw/frames?entry=E` | a run of stimulus frames as raw bytes (below) |
-| `GET /` and `GET /static/NAME` | the page and its files (`index.html`, `app.js`, `geometry.js`, `style.css`) |
+| `GET /` and `GET /static/NAME` | the page and its files (`index.html`, `app.js`, `geometry.js`, `traces.js`, `style.css`) |
 | `GET /api/stages` | per stage: present or not, format, `created_at`, entries, size |
 | `GET /api/stage/NAME` | the stage's JSON file as stored (`404` when missing) |
 | `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`) |
@@ -137,6 +141,52 @@ used out). A failed fetch stops playback and shows the error. Checked in a brows
 80x80 data set (30 s session, 1 ms frames): 0.1× and 1× land on the expected frame to within
 a frame; at 20× the cursor stalls on fetches (it needs about 600 chunks a second), which is
 the cost of asking for every chunk and not only the ones painted.
+
+*Pinning and traces (A6b).* "Pin by" chooses what a click on the movie pins: a **sensor**
+(the pixel under the pointer, `G.sensorAt`) or, once a population is chosen, the **neuron** whose
+centre is nearest (centres come from `/api/draw/population`; the layout's bounds map the click
+to a position, `G.pixelToMm`). A red ring marks the pin; a pinned neuron's receptive field is
+drawn as translucent squares on the sensors it reads (brighter is a larger weight), and every
+neuron's centre is a small dot. Under the movie, one stacked trace per quantity spans the
+whole draw with **one shared time cursor** that follows the movie; clicking a trace moves the
+movie to that time. A sensor pin shows the stimulus at that sensor (one request); a neuron pin
+shows its drive, filtered current, readout (ticks for spikes and events, a line for a state)
+and membrane voltage. Each trace is one request and is decimated as above. The pin survives
+opening another draw (a neuron pin if the population and its neuron exist there too).
+*Accumulated current* is not shown: a bundle does not store it and the neuron stage does not
+produce one. `static/traces.js` holds the pure plotting maths (node-tested, like
+`geometry.js`).
+
+**Membrane voltage is re-simulated** (decided by Ben 2026-10-23, commit 82034fc). A bundle
+stores a population's `filtered` (after gain and sensor noise, before the input floor) and its
+readout, not the voltage. `GET /api/draw/voltage` runs the population's neuron again from the
+stored `filtered` with `SimulationEngine._run_neuron_stage`, the same code a run uses (the
+engine's `_run_pop_from_drive` calls it too, and a test pins that the two give identical spikes
+and voltage, noisy neurons included). The neuron is built from `config.json` (its parameters,
+`dt_ms`, `integrate_dt_ms`, and the floor the run applied, `encoder.input_floor_ma`); a
+population with membrane noise and a `noise_seed` gets that seed's generator. **Verification
+happens every time:** the *whole* population is re-run (a population's noise is drawn for all
+neurons at once, and the check covers every neuron, not only the pinned one) and its
+spikes, events or state are compared with the stored ones. The answer carries `verification`:
+`matches`, `n_differing` of `n_units`, the first differing ids, the largest absolute
+difference, the bundle's `sensoryforge_sha` and the running code's (the page marks different
+shas), the seconds the re-run took, and notes (for example a membrane-noise population without
+a `noise_seed` cannot be reproduced). The page shows "matches the stored run" in green or
+"differs" in red under the voltage trace. The voltage is bin-end samples, like the engine's
+`voltages`. A re-run costs the neuron integration for the whole draw (about 0.1 s for the toy
+data set; seconds for 30 s of 1 ms frames and a thousand neurons), runs on the CPU, and is
+cached by draw and population (`--voltage-cache-mb`, default 256; a re-run bigger than the
+cache is used and not kept), so a second neuron of the same population is instant. A model that
+returns no voltage (an analog readout) gets a `422` saying so. A match proves the re-run follows
+the run only where the stored readout can tell: a neuron that never crosses threshold has no
+spikes to compare; stored voltage probes (row A6p) close that gap.
+
+**Population geometry.** `GET /api/draw/population` reads the population's tensor file in the
+bundle (the receptive-field bank: `neuron_centers` and `innervation_weights`) with torch,
+imported when first asked. `centers` is `[[x, y]]` in the layout's space unit; with `index`,
+`field` is `{index, inputs: [{sensors, weights}]}`, one block per input of the population
+(a population reading three channels has three), or `null` when the bank's receptors are not a
+whole number of copies of the layout's sensors.
 
 **Computing a stage.** A stage that is missing can be started from the page. `audit` runs the
 `core` pack unless `?packs=core,tactile` says otherwise; `declared` picks the adapter that
@@ -207,7 +257,8 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 ## Where the code is
 
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
-`__main__.py` and `static/` (`index.html`, `app.js`, `geometry.js`, `style.css`). The tests are
-`tests/unit/test_eval_server.py` (on the toy non-tactile data set, plus some over a real socket)
-and `tests/unit/test_eval_page_geometry.py`. The audit's reader gained `DatasetReader.bundle_path()`
+`resim.py` (the re-run), `__main__.py` and `static/` (`index.html`, `app.js`, `geometry.js`,
+`traces.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
+data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
+`tests/unit/test_eval_page_geometry.py`. The audit's reader gained `DatasetReader.bundle_path()`
 for the server.
