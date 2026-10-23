@@ -8,6 +8,7 @@ a time per stage, and the job's state is polled at ``/api/jobs/<id>``.
 from __future__ import annotations
 
 import itertools
+import sys
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -93,14 +94,23 @@ class StageJobs:
         run = self._runner(stage, packs or ["core"])
 
         def work() -> None:
+            # A job always leaves "running": an exception the list below does not name
+            # still reaches threading.excepthook (the traceback stays in the server's
+            # log), and the finally block records it as a failure.
+            state, error = "failed", None
             try:
                 self.service.stages.mkdir(parents=True, exist_ok=True)
                 run()
-                state, error = "done", None
+                state = "done"
             except (OSError, ValueError, KeyError, RuntimeError) as exc:
-                state, error = "failed", f"{type(exc).__name__}: {exc}"
-            with self._lock:
-                job.update(state=state, error=error, finished_at=_stamp())
+                error = f"{type(exc).__name__}: {exc}"
+            finally:
+                if state != "done" and error is None:
+                    kind, value = sys.exc_info()[:2]
+                    name = getattr(kind, "__name__", "error")
+                    error = f"unexpected {name}: {value}"
+                with self._lock:
+                    job.update(state=state, error=error, finished_at=_stamp())
 
         threading.Thread(target=work, name=f"stage-{stage}", daemon=True).start()
         return dict(job)

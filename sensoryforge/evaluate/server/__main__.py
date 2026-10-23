@@ -32,9 +32,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     ap.add_argument("--host", default="127.0.0.1", help="address to bind")
     ap.add_argument("--port", type=int, default=8765, help="port to bind")
+    ap.add_argument(
+        "--frame-cache-mb",
+        type=float,
+        default=256.0,
+        help="megabytes of decompressed stimulus frames kept between requests "
+        "(default 256; 0 keeps none)",
+    )
     args = ap.parse_args(argv)
     try:
-        service = DatasetService(args.folder, args.stages)
+        service = DatasetService(
+            args.folder,
+            args.stages,
+            frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+        )
     except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

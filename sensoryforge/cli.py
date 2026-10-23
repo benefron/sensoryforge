@@ -1085,7 +1085,11 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     from sensoryforge.evaluate.server import Api, DatasetService, serve
 
     try:
-        service = DatasetService(Path(args.folder), args.stages and Path(args.stages))
+        service = DatasetService(
+            Path(args.folder),
+            args.stages and Path(args.stages),
+            frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+        )
     except (FileNotFoundError, ValueError) as exc:
         print(f"Error opening data set: {exc}", file=sys.stderr)
         return 1
@@ -1265,6 +1269,13 @@ def create_parser() -> argparse.ArgumentParser:
     )
     serve_parser.add_argument("--host", default="127.0.0.1", help="Address to bind")
     serve_parser.add_argument("--port", type=int, default=8765, help="Port to bind")
+    serve_parser.add_argument(
+        "--frame-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of decompressed stimulus frames kept between requests "
+        "(default 256; 0 keeps none)",
+    )
 
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")

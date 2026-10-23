@@ -20,6 +20,19 @@ python -m sensoryforge.evaluate.server DATASET_DIR --port 9000 --stages out/eval
 server binds to the loopback address and has no authentication: it reads local files and
 offers to run the stages over them, so do not bind it to a public address.
 
+`--frame-cache-mb` (default 256, 0 keeps nothing) sets how much decompressed stimulus the
+server keeps between requests; see [Playback and the slab cache](#playback-and-the-slab-cache).
+
+**Other web pages cannot use it.** A loopback bind does not keep out a page open in the same
+browser, which could start a stage with a cross-site `POST`, or read the data set after a DNS
+rebinding. The HTTP adapter therefore answers `403` to a request whose `Host` is not
+`<bound name>:<port>`, `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>`, and to a
+`POST` whose `Origin` is present and is not the server's own `http://<Host>`. A `GET` from the
+page itself carries no `Origin`, and its `POST` carries the same origin, so the page is not
+affected. If you bind another address on purpose, its name joins the allowed `Host` values.
+That does not make the server safe to expose: there is still no authentication. A different
+HTTP backend would have to repeat both checks.
+
 ## Three layers
 
 | Layer | File | Knows about |
@@ -91,7 +104,7 @@ The shape and range travel in headers: `X-Frame-Start`, `-Count`, `-Height`, `-W
 `-Total` (frames in the draw), `-Dt-Ms`, `-Min`, `-Max` (of this chunk, so a player can scale
 its colours without a second request) and `X-Frame-Dtype` (`float32-le`). No video encoder is
 needed: the browser decodes the bytes into a `Float32Array` and paints them on a canvas
-(decision D-7e30f2b). Nothing is cached server-side; a chunk is one HDF5 slice read.
+(decision D-7e30f2b). A chunk is copied out of a cached time slab, see below.
 
 **The page.** `/` is a shell with the draw list (filters, paging, a random draw) and a canvas
 that plays the opened draw frame by frame, fetching the next chunk while it shows the current
@@ -125,14 +138,45 @@ chunk layout, not on the number of draws. The toy bundles are small, so the real
 measured separately and not through the server. Re-measure on the machine and the data set
 that matter before relying on it.
 
-**On real-size bundles, through the server** (review R-A5, 2026-10-23: an 80x80 tactile data
-set at 1 ms, timed over HTTP). The first chunk of a 5 s entry arrives in 15–17 ms, and that
-of a 30 s session in 50 ms. A 120 s session's chunk layout, read with h5py, gives 185 ms.
-Opening a draw stays well under a second. Playback is the cost that grows. HDF5 stores the
-frames in gzip chunks of hundreds to thousands of frames (313 at 5 s, 938 at 30 s, 3750 at
-120 s), and each 32-frame request decompresses the whole chunk again, so later chunks cost
-as much as the first. A slab cache that removes this is roadmap row A5f; see
-`docs/development/reviews/R-A5_EVALUATION_SERVER_20261023.md`.
+**On real-size bundles, through the server** (review R-A5, 2026-10-23, and the re-run in row
+A5f: an 80x80 tactile data set at 1 ms, timed over HTTP with
+`docs_root/plan/scripts/r_a5_build.py` and `r_a5_time.py`). Opening a draw stays well under a
+second; the cost that grew was playback, which the slab cache removes.
+
+| Request (median unless noted) | 5 s entry, before | after | 30 s session, before | after |
+|---|---|---|---|---|
+| `/api/draw` | 5 ms | 5 ms | 16 ms | 14 ms |
+| first chunk, 32 frames | 15–17 ms | 15–17 ms | 50 ms | 53 ms |
+| each later chunk in playback order | 12–15 ms (max 45) | **1.1 ms** (max 16) | 46 ms (max 88) | **1.2 ms** (max 48) |
+| seek to the middle | 21–29 ms | 23–30 ms | 88 ms | 96 ms |
+
+The maxima after are the chunks that start a new slab (one decompression for each 313 frames
+at 5 s and each 938 at 30 s). A 120 s session's layout (3750-frame slabs, 96 MB each) costs
+185 ms for a first chunk, read with h5py, and 219 ms for a whole slab, then about a
+millisecond for the rest of its 3750 frames; two such slabs fit the default cache.
+
+## Playback and the slab cache
+
+HDF5 stores `stimulus/frames` in gzip chunks whose time extent grows with the draw (313
+frames at 5 s, 938 at 30 s, 3750 at 120 s). Reading 32 frames decompresses every chunk it
+touches, so before A5f each later chunk of a playback cost as much as the first. Now
+`DatasetService.frames()` reads the frames in **time slabs aligned to the stored chunk**
+(`ds.chunks[0]` frames) and keeps them in a byte-bounded least-recently-used cache keyed
+`(entry, channel, first frame of the slab)`. A run that crosses a slab boundary is copied from
+both slabs and equals the stored frames bit for bit. Two requests for the same slab
+decompress it once. A slab larger than the whole cache is read and used without being kept,
+and a dataset that is not chunked is read for the run alone, because a contiguous read
+decompresses nothing. `DatasetService.cache_stats()` returns the hit and miss counters. The
+wire format, the 32-frame default and the 8 MiB cap are unchanged, so the page did not change.
+The bundle writer's chunk shape was not changed, because that would alter the h5 bytes of every
+bundle pressure-simulation pins.
+
+An h5py error while reading a draw (a damaged chunk, a missing dataset) comes back as a `422`
+naming the draw, like an unreadable bundle at the first peek. A stage job always leaves
+`running`: an unexpected exception ends it `failed` with `unexpected <Type>: <message>`, and
+the traceback stays in the server's log. The dataset summary remembers its reference draw once
+one reads, and while none reads it stops after 50 failed peeks and says so
+(`reference_note`).
 
 ## Where the code is
 

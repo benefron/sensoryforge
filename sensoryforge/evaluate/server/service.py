@@ -50,6 +50,12 @@ DEFAULT_POINTS = 2000
 DEFAULT_CHUNK_FRAMES = 32
 MAX_CHUNK_BYTES = 8 << 20
 
+#: Default size of the decompressed-slab cache, bytes (``--frame-cache-mb`` sets it).
+DEFAULT_FRAME_CACHE_BYTES = 256 << 20
+
+#: Failed bundle reads the summary tries before it gives up on a reference draw.
+SUMMARY_MAX_PEEKS = 50
+
 #: Most draws one list request returns.
 MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
@@ -238,13 +244,22 @@ class DatasetService:
             entry, ``dataset.json``).
         stages: Where ``audit.json``, ``declared.json`` and ``compare.json`` live;
             default ``folder / "evaluate"``.
+        frame_cache_bytes: Most bytes of decompressed stimulus frames kept between
+            requests (default 256 MiB; 0 keeps nothing). See :meth:`frames`.
 
     Raises:
         FileNotFoundError: If the folder has no manifest.
         ValueError: If the manifest is malformed.
     """
 
-    def __init__(self, folder: Path, stages: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        folder: Path,
+        stages: Optional[Path] = None,
+        frame_cache_bytes: int = DEFAULT_FRAME_CACHE_BYTES,
+    ) -> None:
+        if frame_cache_bytes < 0:
+            raise ValueError(f"frame_cache_bytes must be >= 0, got {frame_cache_bytes}")
         self.folder = Path(folder)
         self.stages = Path(stages) if stages else self.folder / "evaluate"
         manifest = self.folder / "manifest.jsonl"
@@ -279,6 +294,16 @@ class DatasetService:
         self._lock = threading.RLock()
         self._reader: Optional[DatasetReader] = None
         self._infos: "OrderedDict[str, BundleInfo]" = OrderedDict()
+        self._reference: Optional[str] = None
+        # Decompressed time slabs of ``stimulus/frames``, least recently used first,
+        # keyed (entry, channel, first frame of the slab). One lock covers the cache
+        # and the read that fills it, so two requests for a slab decompress it once.
+        self.frame_cache_bytes = int(frame_cache_bytes)
+        self._slabs: "OrderedDict[Tuple[str, int, int], np.ndarray]" = OrderedDict()
+        self._slab_lock = threading.Lock()
+        self._slab_bytes = 0
+        self.slab_hits = 0
+        self.slab_misses = 0
 
     # ------------------------------------------------------------------ helpers
 
@@ -397,13 +422,28 @@ class DatasetService:
             "units": {},
             "stages": self.stage_status(),
         }
-        for row in self.rows:
-            if row.status not in (None, "ok"):
-                continue
+        info: Optional[BundleInfo] = None
+        reference = self._reference
+        if reference is not None:
             try:
-                info = self.info(row.entry)
+                info = self.info(reference)
             except ServiceError:
-                continue
+                self._reference = reference = None
+        failed = 0
+        if info is None:
+            for row in self.rows:
+                if row.status not in (None, "ok"):
+                    continue
+                try:
+                    info = self.info(row.entry)
+                except ServiceError:
+                    failed += 1
+                    if failed >= SUMMARY_MAX_PEEKS:
+                        break
+                    continue
+                self._reference = reference = row.entry
+                break
+        if info is not None:
             out["sensors"] = info.layout.summary()
             out["populations"] = [
                 {"name": n, "readout": r, "n_units": u} for n, r, u in info.populations
@@ -411,8 +451,14 @@ class DatasetService:
             out["dt_ms"] = info.dt
             out["n_frames"] = info.n_frames
             out["units"] = self._units()
-            out["reference_draw"] = row.entry
-            break
+            out["reference_draw"] = reference
+        else:
+            out["reference_draw"] = None
+            if failed >= SUMMARY_MAX_PEEKS:
+                out["reference_note"] = (
+                    f"no bundle read in the first {failed} draws tried, so the "
+                    "layout, populations and units are not shown"
+                )
         return out
 
     # ------------------------------------------------------------------- stages
@@ -620,22 +666,18 @@ class DatasetService:
         start = _int("start", query.get("start"), 0, 0, max(n_total - 1, 0))
         want = _int("count", query.get("count"), DEFAULT_CHUNK_FRAMES, 1, 10**6)
         channel = _int("channel", query.get("channel"), 0, 0, max(n_ch - 1, 0))
+        path = self._h5_path(row.entry)
         try:
-            path = self.reader().bundle_path(row.entry) / "data.h5"
-        except ReadError as exc:
-            raise ServiceError(422, f"draw {entry!r} cannot be read ({exc.message})")
-        with h5py.File(path, "r") as f:
-            ds = f["stimulus/frames"]
-            height, width = int(ds.shape[-2]), int(ds.shape[-1])
-            count = max(
-                1, min(want, n_total - start, MAX_CHUNK_BYTES // (4 * height * width))
-            )
-            block = (
-                ds[start : start + count]
-                if ds.ndim == 3
-                else ds[start : start + count, channel]
-            )
-        block = np.ascontiguousarray(block, dtype="<f4")
+            with h5py.File(path, "r") as f:
+                ds = f["stimulus/frames"]
+                height, width = int(ds.shape[-2]), int(ds.shape[-1])
+                count = max(
+                    1,
+                    min(want, n_total - start, MAX_CHUNK_BYTES // (4 * height * width)),
+                )
+                block = self._frame_run(row.entry, ds, channel, start, count)
+        except (OSError, KeyError, ValueError) as exc:
+            raise self._unreadable(entry, exc) from exc
         finite = block[np.isfinite(block)]
         return FrameChunk(
             body=block.tobytes(),
@@ -648,6 +690,81 @@ class DatasetService:
             low=float(finite.min()) if finite.size else 0.0,
             high=float(finite.max()) if finite.size else 0.0,
         )
+
+    def _h5_path(self, entry: str) -> Path:
+        try:
+            return self.reader().bundle_path(entry) / "data.h5"
+        except ReadError as exc:
+            raise ServiceError(422, f"draw {entry!r} cannot be read ({exc.message})")
+
+    @staticmethod
+    def _unreadable(entry: Optional[str], exc: Exception) -> ServiceError:
+        """The 422 for an h5 read that failed after the bundle's peek succeeded."""
+        return ServiceError(422, f"draw {entry!r} cannot be read ({exc})")
+
+    def _frame_run(
+        self, entry: str, ds: h5py.Dataset, channel: int, start: int, count: int
+    ) -> np.ndarray:
+        """Frames ``[start, start + count)`` of one channel, ``[count, H, W]`` float32.
+
+        HDF5 decompresses a whole stored chunk to give any frame in it, and a chunk
+        spans hundreds of frames, so reading a 32-frame run straight from the file
+        repeats that work for every run. The frames are read instead as time slabs
+        aligned to the stored chunk (``ds.chunks[0]`` frames) and the decompressed
+        slabs are kept, least recently used first, up to ``frame_cache_bytes``. A
+        slab larger than the whole cache is read and used without being kept, and a
+        dataset that is not chunked is read for the run alone (a contiguous read
+        decompresses nothing).
+        """
+        n_total = int(ds.shape[0])
+        slab_len = ds.chunks[0] if ds.chunks else 0
+
+        def read(lo: int, hi: int) -> np.ndarray:
+            raw = ds[lo:hi] if ds.ndim == 3 else ds[lo:hi, channel]
+            return np.ascontiguousarray(raw, dtype="<f4")
+
+        if slab_len <= 0:
+            return read(start, start + count)
+        runs = []
+        stop = start + count
+        with self._slab_lock:
+            for lo in range((start // slab_len) * slab_len, stop, slab_len):
+                key = (entry, channel, lo)
+                slab = self._slabs.get(key)
+                if slab is None:
+                    self.slab_misses += 1
+                    slab = read(lo, min(lo + slab_len, n_total))
+                    self._keep(key, slab)
+                else:
+                    self.slab_hits += 1
+                    self._slabs.move_to_end(key)
+                runs.append(slab[max(start - lo, 0) : stop - lo])
+        return runs[0] if len(runs) == 1 else np.concatenate(runs)
+
+    def _keep(self, key: Tuple[str, int, int], slab: np.ndarray) -> None:
+        """Add a slab to the cache and evict the oldest until the total fits."""
+        if slab.nbytes > self.frame_cache_bytes:
+            return
+        self._slabs[key] = slab
+        self._slab_bytes += slab.nbytes
+        while self._slab_bytes > self.frame_cache_bytes:
+            _, old = self._slabs.popitem(last=False)
+            self._slab_bytes -= old.nbytes
+
+    def cache_stats(self) -> Dict[str, int]:
+        """Slab cache counters: ``hits``, ``misses``, ``slabs``, ``bytes``, ``limit``.
+
+        Returns:
+            The five counters as integers.
+        """
+        with self._slab_lock:
+            return {
+                "hits": self.slab_hits,
+                "misses": self.slab_misses,
+                "slabs": len(self._slabs),
+                "bytes": self._slab_bytes,
+                "limit": self.frame_cache_bytes,
+            }
 
     # ------------------------------------------------------------------- traces
 
@@ -688,31 +805,31 @@ class DatasetService:
         )
         population: Optional[str] = None
         readout: Optional[str] = None
+        path = self._h5_path(row.entry)
         try:
-            path = self.reader().bundle_path(row.entry) / "data.h5"
-        except ReadError as exc:
-            raise ServiceError(422, f"draw {entry!r} cannot be read ({exc.message})")
-        with h5py.File(path, "r") as f:
-            time_ms = np.asarray(f["time_ms"][...], dtype=np.float64)
-            if source == "stimulus":
-                data = self._stimulus_series(f["stimulus/frames"], info, ids, query)
-            else:
-                population = query.get("population")
-                known = {n: r for n, r, _u in info.populations}
-                if population not in known:
-                    raise ServiceError(
-                        404,
-                        f"population must be one of {sorted(known)}, "
-                        f"got {population!r}",
-                    )
-                readout = known[population]
-                group = f[f"populations/{population}"]
-                ds = group[readout if source == "readout" else source]
-                if ids[-1] >= ds.shape[1]:
-                    raise ServiceError(
-                        400, f"unit {ids[-1]} is out of range: {ds.shape[1]} units"
-                    )
-                data = np.asarray(ds[:, ids], dtype=np.float64)
+            with h5py.File(path, "r") as f:
+                time_ms = np.asarray(f["time_ms"][...], dtype=np.float64)
+                if source == "stimulus":
+                    data = self._stimulus_series(f["stimulus/frames"], info, ids, query)
+                else:
+                    population = query.get("population")
+                    known = {n: r for n, r, _u in info.populations}
+                    if population not in known:
+                        raise ServiceError(
+                            404,
+                            f"population must be one of {sorted(known)}, "
+                            f"got {population!r}",
+                        )
+                    readout = known[population]
+                    group = f[f"populations/{population}"]
+                    ds = group[readout if source == "readout" else source]
+                    if ids[-1] >= ds.shape[1]:
+                        raise ServiceError(
+                            400, f"unit {ids[-1]} is out of range: {ds.shape[1]} units"
+                        )
+                    data = np.asarray(ds[:, ids], dtype=np.float64)
+        except (OSError, KeyError, ValueError) as exc:
+            raise self._unreadable(entry, exc) from exc
         series = []
         decimated = False
         for k, unit in enumerate(ids):

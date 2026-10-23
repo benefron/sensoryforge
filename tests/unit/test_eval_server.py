@@ -5,7 +5,9 @@ The data set is the toy non-tactile one (A1b), so nothing here depends on a moda
 
 from __future__ import annotations
 
+import http.client
 import json
+import os
 import shutil
 import threading
 import urllib.error
@@ -290,6 +292,29 @@ def test_stages_are_read_when_present_and_computed_on_request(damaged):
     assert get(api, "/api/jobs/9999")[0] == 404
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_a_stage_that_raises_an_unlisted_exception_still_ends_failed(
+    damaged, monkeypatch
+):
+    from sensoryforge.evaluate.server import jobs as module
+
+    def boom(self, stage, packs):
+        def run():
+            raise TypeError("a metric got a None")
+
+        return run
+
+    monkeypatch.setattr(module.StageJobs, "_runner", boom)
+    api = Api(DatasetService(damaged))
+    for _ in range(2):  # the stage can start again after it failed
+        response = api.handle(Request.from_target("POST", "/api/stages/audit/run"))
+        assert response.status == 202
+        job = api.jobs.wait(json.loads(response.body)["id"])
+        assert job["state"] == "failed"
+        assert "TypeError" in job["error"] and "a metric got a None" in job["error"]
+        assert job["finished_at"]
+
+
 def test_a_failing_stage_job_reports_its_error(damaged):
     (damaged / "dataset.json").unlink()
     api = Api(DatasetService(damaged))
@@ -390,6 +415,126 @@ def test_the_page_and_its_files_are_served_and_nothing_else(api):
         assert api.handle(Request.from_target("GET", target)).status == 404, target
 
 
+# ------------------------------------------------------------------ slab cache
+
+
+def _stored(service, entry, lo, hi, channel=0):
+    with h5py.File(service.reader().bundle_path(entry) / "data.h5", "r") as f:
+        ds = f["stimulus/frames"]
+        return (ds[lo:hi] if ds.ndim == 3 else ds[lo:hi, channel]).astype("<f4")
+
+
+def _run(service, entry, start, count, channel=0):
+    chunk = service.frames(
+        entry, {"start": str(start), "count": str(count), "channel": str(channel)}
+    )
+    return np.frombuffer(chunk.body, dtype="<f4").reshape(
+        chunk.count, chunk.height, chunk.width
+    )
+
+
+def test_a_run_across_a_slab_boundary_equals_the_stored_frames(folder):
+    service = DatasetService(folder)
+    entry = service.rows[0].entry
+    # the toy bundle stores 25-frame chunks, so frames 20-29 cross one boundary
+    # and 10-79 cross two
+    for channel in (0, 1):
+        for start, count in ((20, 10), (10, 70), (0, 5), (95, 5)):
+            got = _run(service, entry, start, count, channel)
+            assert np.array_equal(
+                got, _stored(service, entry, start, start + count, channel)
+            )
+
+
+def test_chunks_in_playback_order_decompress_a_slab_once(folder):
+    service = DatasetService(folder)
+    entry = service.rows[0].entry
+    for start in range(0, 100, 5):
+        _run(service, entry, start, 5)
+    stats = service.cache_stats()
+    assert stats["misses"] == 4  # 100 frames in 25-frame slabs
+    assert stats["hits"] == 16 and stats["slabs"] == 4
+
+
+def test_the_slab_cache_stays_within_its_byte_limit(folder):
+    probe = DatasetService(folder)
+    entry = probe.rows[0].entry
+    one = _run(probe, entry, 0, 25).nbytes
+    service = DatasetService(folder, frame_cache_bytes=2 * one + 1)
+    for start in (0, 25, 50, 75, 0):
+        _run(service, entry, start, 25)
+        assert service.cache_stats()["bytes"] <= 2 * one + 1
+    stats = service.cache_stats()
+    assert stats["slabs"] == 2 and stats["misses"] == 5  # 0 had been evicted
+    got = _run(service, entry, 60, 20)
+    assert np.array_equal(got, _stored(service, entry, 60, 80))
+
+
+def test_a_slab_larger_than_the_cache_is_served_and_not_kept(folder):
+    service = DatasetService(folder, frame_cache_bytes=1)
+    entry = service.rows[0].entry
+    got = _run(service, entry, 20, 10)
+    assert np.array_equal(got, _stored(service, entry, 20, 30))
+    assert service.cache_stats()["slabs"] == 0 and service.cache_stats()["bytes"] == 0
+    with pytest.raises(ValueError):
+        DatasetService(folder, frame_cache_bytes=-1)
+
+
+# -------------------------------------------- bundles damaged after they were read
+
+
+def test_an_h5_error_after_the_peek_is_a_422_naming_the_draw(damaged):
+    service = DatasetService(damaged)
+    api = Api(service)
+    gone, cut = service.rows[0].entry, service.rows[1].entry
+    for entry in (gone, cut):
+        service.info(entry)  # the peek succeeds and is cached
+    path = service.reader().bundle_path(gone) / "data.h5"
+    with h5py.File(path, "a") as f:
+        del f["stimulus/frames"]
+    path = service.reader().bundle_path(cut) / "data.h5"
+    os.truncate(path, path.stat().st_size // 2)
+    for entry in (gone, cut):
+        response = api.handle(
+            Request.from_target("GET", f"/api/draw/frames?entry={entry}")
+        )
+        assert response.status == 422
+        assert entry in json.loads(response.body)["error"]
+        status, body = get(api, f"/api/draw/trace?entry={entry}&source=stimulus")
+        assert status == 422 and "cannot be read" in body["error"]
+
+
+# ------------------------------------------------- a data set with no bundle yet
+
+
+def test_the_summary_stops_trying_when_no_bundle_reads(damaged, monkeypatch):
+    from sensoryforge.evaluate.server import service as module
+
+    for h5 in list(damaged.rglob("data.h5")):
+        shutil.rmtree(h5.parent)
+    service = DatasetService(damaged)
+    assert len(service.rows) > 3
+    monkeypatch.setattr(module, "SUMMARY_MAX_PEEKS", 3)
+    peeks = []
+    real = service.reader().peek
+    monkeypatch.setattr(
+        service.reader(), "peek", lambda entry: peeks.append(entry) or real(entry)
+    )
+    for _ in range(2):
+        summary = Api(service).handle(Request.from_target("GET", "/api/dataset"))
+        body = json.loads(summary.body)
+        assert body["sensors"] is None and body["reference_draw"] is None
+        assert "no bundle read in the first 3 draws" in body["reference_note"]
+    assert len(peeks) == 6  # three per call, not one per row
+
+
+def test_the_summary_remembers_the_reference_draw(folder):
+    service = DatasetService(folder)
+    first = service.summary()["reference_draw"]
+    assert first and service._reference == first
+    assert service.summary()["reference_draw"] == first
+
+
 # ----------------------------------------------------------------- HTTP backend
 
 
@@ -422,6 +567,57 @@ def test_the_standard_library_backend_serves_the_api(folder):
         server.server_close()
 
 
+def _raw(server, method, path, headers):
+    conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=10)
+    try:
+        conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
+        for key, value in headers.items():
+            conn.putheader(key, value)
+        conn.putheader("Content-Length", "0")
+        conn.endheaders()
+        response = conn.getresponse()
+        return response.status, response.read()
+    finally:
+        conn.close()
+
+
+def test_a_request_that_is_not_the_pages_own_is_refused(damaged):
+    server = make_server(Api(DatasetService(damaged)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    own = f"127.0.0.1:{port}"
+    try:
+        # a wrong Host (DNS rebinding) is refused for reads and writes
+        status, body = _raw(server, "GET", "/api/health", {"Host": f"evil.test:{port}"})
+        assert status == 403 and json.loads(body)["error"]
+        status, _ = _raw(server, "GET", "/api/dataset", {"Host": "evil.test"})
+        assert status == 403
+        # a foreign Origin on a POST is refused and starts no job
+        for origin in ("http://evil.test", "null", f"http://localhost:{port + 1}"):
+            status, _ = _raw(
+                server, "POST", "/api/stages/audit/run", {"Host": own, "Origin": origin}
+            )
+            assert status == 403, origin
+        assert not (damaged / "evaluate" / "audit.json").exists()
+        # the page's own requests still work: no Origin on a GET, same origin on a POST
+        assert _raw(server, "GET", "/api/health", {"Host": own})[0] == 200
+        assert (
+            _raw(server, "GET", "/api/health", {"Host": f"localhost:{port}"})[0] == 200
+        )
+        assert _raw(server, "GET", "/api/health", {"Host": f"[::1]:{port}"})[0] == 200
+        status, body = _raw(
+            server,
+            "POST",
+            "/api/stages/declared/run",
+            {"Host": own, "Origin": f"http://{own}"},
+        )
+        assert status == 202 and json.loads(body)["stage"] == "declared"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 # -------------------------------------------------------------------------- CLI
 
 
@@ -433,5 +629,6 @@ def test_the_cli_has_an_evaluate_serve_command(tmp_path, capsys):
     )
     assert (args.command, args.evaluate_command, args.port) == ("evaluate", "serve", 9)
     assert args.host == "127.0.0.1" and args.stages is None
+    assert args.frame_cache_mb == 256.0
     assert cli.cmd_evaluate(args) == 1  # no manifest in the folder
     assert "Error opening data set" in capsys.readouterr().err
