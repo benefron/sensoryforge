@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5daff44 · CLOSED · decision · - · 2026-10-23
+the neuron stage of a population run is a separate engine method that the evaluation server reuses for its voltage re-run, rather than a copy
+→ commit cb33315
+
+## F-228250d · STANDING · finding · - · 2026-10-23
+a membrane-noise population without a noise_seed cannot be re-run to match, because the run drew its noise from the global generator
+→ commit cb33315
+
 ## F-625a73b · CLOSED · finding · - · 2026-10-23
 the movie drew frame axis 0 (x) downwards, a transpose of an x-y plot (R-A5 finding 6)
 → commit 5910310
@@ -161,6 +169,7 @@ a stage job whose runner raises an exception outside OSError, ValueError, KeyErr
 should the trace inspector show membrane voltage, which bundles do not store (store it, a schema change; re-simulate the pinned neuron on demand; or leave it out)
 → commit 4480018
 ✓ closed by 82034fc docs(plan): membrane voltage is re-simulated on demand and checked against the stored spik
+↔ cb33315 feat(evaluate): click-to-pin traces and re-simulated membrane voltage (A6b)
 
 ## D-11c766e · CLOSED · decision · - · 2026-10-23
 frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
