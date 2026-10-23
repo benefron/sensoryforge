@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7d06874 · CLOSED · decision · - · 2026-10-23
+the diff is its own stage (diff.json, diff_entries.jsonl, sensoryforge-diff/1, contract section 14) reading both sides through the blind reader; an entry that failed identically on both sides is no change.
+→ commit df820b9
+
 ## D-fde7d30 · CLOSED · decision · - · 2026-10-23
 the gallery is a viewer over audit and checks output (class label only as a grouping key); a population silent for most of a class is reported once for the class, not per entry; soft signals never outrank a failed or corrupt entry.
 → commit 5dff296
@@ -346,6 +350,7 @@ the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept
 ↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
 ↔ ab9ef6f feat(evaluate): reference-free checks stage with its own checks.json and page (A8)
 ↔ 5dff296 feat(evaluate): anomaly gallery ranking draws by what looks wrong (A9)
+↔ df820b9 feat(evaluate): run-to-run diff with per-draw divergence and metric deltas (A10)
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
