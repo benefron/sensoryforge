@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-b20b8ca · CLOSED · decision · - · 2026-10-23
+CLAUDE.md imports AGENTS.md and keeps only Claude-specific notes; the architecture notes Claude used to auto-load now live in docs/developer_guide/architecture_notes.md, read on demand (B2)
+→ commit f4f3bcd
+
+## D-39fd750 · CLOSED · decision · - · 2026-10-23
+llms.txt is generated from mkdocs.yml's nav by scripts/build_llms_txt.py and checked by a test, never written by hand
+→ commit f4f3bcd
+
+## F-ca30bce · STANDING · finding · - · 2026-10-23
+refs/ (module, test and GUI maps, last changed 2026-09-14) predates GUI v2 and is stale; AGENTS.md no longer points at it and D5's generated reference replaces it
+→ commit f4f3bcd
+
 ## D-97c3347 · CLOSED · decision · - · 2026-10-23
 the agent skills' working style is saved in .sensoryforge/agents.yml and rendered by `sensoryforge agents brief`, which every skill runs first; a test requires each shipped SKILL.md to name it
 → commit 142aff4

@@ -1093,4 +1093,6 @@ Do not hand-edit between the markers.
 | 2026-10-23 | R-28c2b69 | the hand-written .cursor/ rules, skills and agent, replaced by B8's generated exports | `ded4cb2` |
 | 2026-10-23 | D-97c3347 | the agent skills' working style is saved in .sensoryforge/agents.yml and rendered by `sensoryforge agents brief`, which every skill runs first; a test requires each shipped SKILL.md to name it | `142aff4` |
 | 2026-10-23 | D-c1fc12e | the routing hook is a stdlib-only script run by path (sensoryforge/agents/hook.py) written to .claude/settings.local.json only when the user says yes in Claude Code; other environments are never offered hooks | `142aff4` |
+| 2026-10-23 | D-b20b8ca | CLAUDE.md imports AGENTS.md and keeps only Claude-specific notes; the architecture notes Claude used to auto-load now live in docs/developer_guide/architecture_notes.md, read on demand (B2) | `f4f3bcd` |
+| 2026-10-23 | D-39fd750 | llms.txt is generated from mkdocs.yml's nav by scripts/build_llms_txt.py and checked by a test, never written by hand | `f4f3bcd` |
 <!-- DECISIONS_LOG_END -->
