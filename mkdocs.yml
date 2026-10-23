@@ -132,6 +132,7 @@ nav:
     - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
+    - Evaluating a World: user_guide/evaluate_pipeline.md
 
   - Developer Guide:
     - Extensibility Overview: developer_guide/extensibility.md
@@ -151,6 +152,7 @@ nav:
     - Raw Comparison: developer_guide/compare_stage.md
     - Reference-free Checks: developer_guide/checks_stage.md
     - Run-to-run Diff: developer_guide/diff_stage.md
+    - Evaluation Pipeline: developer_guide/pipeline_stage.md
     - Evaluation Server: developer_guide/evaluation_server.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md

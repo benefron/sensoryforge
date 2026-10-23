@@ -189,6 +189,13 @@ PIPELINE STRUCTURE
   2. texture
 ```
 
+### `sensoryforge evaluate`
+
+`sensoryforge evaluate run SOURCE --out DIR` takes a world or a data-set file to a report
+folder (build, simulate, audit, declared side, comparison, checks), and `evaluate serve DIR`
+opens the result in the local browser. See [Evaluating a world in one
+command](evaluate_pipeline.md).
+
 ## Configuration File Format
 
 SensoryForge uses YAML for configuration. The CLI accepts both **canonical format** (recommended) and **legacy format** (backward compatible). See [YAML Configuration Guide](yaml_configuration.md) for details.

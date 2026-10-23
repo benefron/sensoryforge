@@ -9,7 +9,8 @@
     side](../developer_guide/declared_adapter.md)) section 8, the comparison (A4, see [the raw
     comparison](../developer_guide/compare_stage.md)) section 9, the reference-free checks
     (A8, see [the checks stage](../developer_guide/checks_stage.md)) section 13, the run-to-run diff (A10, see [the diff
-    stage](../developer_guide/diff_stage.md)) section 14. The JSON Schemas are in
+    stage](../developer_guide/diff_stage.md)) section 14, the one-command pipeline (A11a, see [the
+    pipeline](../developer_guide/pipeline_stage.md)) section 15. The JSON Schemas are in
     `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
     written.
 
@@ -600,7 +601,7 @@ A metric pack's `measure` receives an **entry view** built by the reader (sectio
 A view carries nothing else, so a pack cannot reach the declaration. Packs are chosen
 explicitly (`--packs core,tactile`) and recorded in `audit.json`. The audit never picks a pack
 by looking at the data set's world. The default is `core` alone. The one-command pipeline
-(A11a) passes `tactile` for tactile data sets. Modules a metric pack imports are inside the
+(A11a) takes `--packs` from the user like the audit does, and notes a missing same-named pack. Modules a metric pack imports are inside the
 import wall. A declared adapter lives in its own module, outside the wall, and may import the
 world package: `sensoryforge/evaluate/tactile/metrics.py` (inside) and
 `sensoryforge/evaluate/tactile/declared.py` (outside).
@@ -625,6 +626,7 @@ only the sections named, and needs a new decision.
 | Q9 | Packs are chosen explicitly, never detected from the world; default `core` | 10 |
 | Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference (decided in A10, not yet reviewed) | 14 |
 | Q10 | The reference-free checks are their own stage with their own file `checks.json` and their own registry of check packs; they read bundles through the audit's blind reader plus each bundle's `config.json`, and run the engine on probes scaled by the data's own peak (decided in A8, not yet reviewed) | 13 |
+| Q12 | The one-command pipeline never picks a pack from the world: `--packs` is the user's, default `core`; the pipeline only notes a declared adapter's same-named pack that was not run. It runs the audit in its own process. A failed stage stops it and `pipeline.json` says which (decided in A11a, not yet reviewed) | 15 |
 
 ## 12. Schemas
 
@@ -636,6 +638,7 @@ only the sections named, and needs a new decision.
 | `schemas/evaluate/compare.schema.json` | `compare.json`; `#/$defs/entry_row` a row of `compare_entries.jsonl` |
 | `schemas/evaluate/checks.schema.json` | `checks.json` |
 | `schemas/evaluate/diff.schema.json` | `diff.json`; `#/$defs/entry_row` a row of `diff_entries.jsonl` |
+| `schemas/evaluate/pipeline.schema.json` | `pipeline.json` |
 
 They are JSON Schema 2020-12 and refer to each other by relative `$ref`. A2a, A3 and A4
 validate everything they write against them in their tests.
@@ -772,3 +775,41 @@ reads audits it is given). It reads no declaration.
   other values by equality), the mean of each side, and the largest change with its entry.
 - A diff of two data sets with different `dataset_id` still runs (entries are paired by id)
   and says so in `notes`.
+
+## 15. `pipeline.json`
+
+`sensoryforge evaluate run` (A11a) chains the stages above and writes one more file beside
+theirs, `OUT/evaluate/pipeline.json`, format tag `sensoryforge-pipeline/1`. It records what
+was run, not what was found: no metric value appears in it.
+
+```json
+{
+  "format": "sensoryforge-pipeline/1",
+  "created_at": "…", "producer": {"…": "…"},
+  "inputs": {"source": "my_world.yml", "dataset_id": "d-…", "dataset_name": "my_world_2000",
+             "world_id": "w-…", "seed": 7, "duration_ms": 300.0,
+             "sensor": "--design designs/my_sensor", "design_id": "…",
+             "packs": ["core", "tactile"], "adapter": "tactile",
+             "check_packs": ["core"], "splits": null, "resume": false},
+  "status": "ok",
+  "error": null,
+  "stages": [{"name": "build", "status": "ok", "detail": null, "seconds": 0.03}, "…"],
+  "batch": {"ok": 2000, "failed": 0, "skipped": 0},
+  "counts": {"entries": 2000, "audited": 2000, "compared_pairs": 41000,
+             "checks": {"pass": 14, "fail": 0, "skipped": 0, "error": 0}},
+  "files": {"audit.json": "<sha256>", "…": "…"},
+  "notes": []
+}
+```
+
+- **Stages** are always the six of the pipeline, in order: `build`, `batch`, `audit`,
+  `declared`, `compare`, `checks`. `status` is `ok`, `failed` (with the exception type and
+  message in `detail`) or `skipped` (not reached, or `--no-checks`).
+- **`status`** is `failed` when a stage failed, also when some entries failed to simulate;
+  `error` then names the stage and the reason. A failed *check* does not fail the pipeline:
+  it is a finding, in `counts.checks` and `checks.json`, and the command's exit status is 1.
+- **`files`** lists the sha256 of every other file in the report folder when `pipeline.json`
+  was written, so a later reader can tell whether a stage was re-run.
+- **`notes`** hold plain-language observations: a declared adapter's same-named pack that was
+  not run, or an empty comparison.
+- The seconds and the timestamp vary between runs; the rest follows from the inputs.

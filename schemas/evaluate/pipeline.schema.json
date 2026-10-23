@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/pipeline.schema.json",
+  "title": "pipeline.json (sensoryforge-pipeline/1)",
+  "description": "What `sensoryforge evaluate run` did: its inputs, each stage's status and time, the counts and the sha256 of every stage file in the report folder. See docs/reference/report_contract.md, section 15.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-pipeline/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "source": {"type": ["string", "null"]},
+        "dataset_id": {"type": "string"},
+        "dataset_name": {"type": "string"},
+        "world_id": {"type": "string"},
+        "seed": {"type": "integer"},
+        "duration_ms": {"type": "number", "exclusiveMinimum": 0},
+        "sensor": {"type": "string"},
+        "design_id": {"type": ["string", "null"]},
+        "packs": {"type": "array", "items": {"type": "string"}},
+        "adapter": {"type": ["string", "null"]},
+        "check_packs": {"type": ["array", "null"], "items": {"type": "string"}},
+        "splits": {"type": ["array", "null"], "items": {"type": "string"}},
+        "resume": {"type": "boolean"}
+      },
+      "required": ["source", "dataset_id", "dataset_name", "world_id", "seed", "duration_ms", "sensor", "design_id", "packs", "adapter", "check_packs", "splits", "resume"],
+      "additionalProperties": false
+    },
+    "status": {"enum": ["ok", "failed"]},
+    "error": {"type": ["string", "null"]},
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"enum": ["build", "batch", "audit", "declared", "compare", "checks"]},
+          "status": {"enum": ["ok", "failed", "skipped"]},
+          "detail": {"type": ["string", "null"]},
+          "seconds": {"type": "number", "minimum": 0}
+        },
+        "required": ["name", "status", "detail", "seconds"],
+        "additionalProperties": false
+      }
+    },
+    "batch": {
+      "type": ["object", "null"],
+      "properties": {
+        "ok": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0}
+      },
+      "required": ["ok", "failed", "skipped"],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "entries": {"type": "integer", "minimum": 0},
+        "audited": {"type": "integer", "minimum": 0},
+        "compared_pairs": {"type": "integer", "minimum": 0},
+        "checks": {
+          "type": "object",
+          "properties": {
+            "pass": {"type": "integer", "minimum": 0},
+            "fail": {"type": "integer", "minimum": 0},
+            "skipped": {"type": "integer", "minimum": 0},
+            "error": {"type": "integer", "minimum": 0}
+          },
+          "required": ["pass", "fail", "skipped", "error"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["format", "created_at", "producer", "inputs", "status", "error", "stages", "batch", "counts", "files", "notes"],
+  "additionalProperties": false
+}
