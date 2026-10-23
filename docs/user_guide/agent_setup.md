@@ -1,0 +1,83 @@
+# Working with a Coding Agent: Setup
+
+SensoryForge ships skills for coding agents (Claude Code first; other environments
+later) inside the package, under `sensoryforge/agents/skills/`. They are self-contained:
+out of the box they use only SensoryForge's own commands and your agent's basic file and
+shell tools, and nothing else on your machine.
+
+How they work with you is yours to set. The setup asks three things and never assumes;
+anything you do not answer keeps a self-contained default.
+
+## Run the setup
+
+In a chat, ask your agent to set up SensoryForge (the `sensoryforge-setup` skill), or run
+it in a terminal:
+
+```bash
+sensoryforge agents setup          # asks the questions
+sensoryforge agents brief          # prints what the skills will follow
+```
+
+1. **Your own tools.** May the skills use your own skills, MCP servers and tools besides
+   SensoryForge's? The default is **no**. If you say yes, the setup lists the ones it can
+   see (in a terminal: the skills in `.claude/skills/` and `~/.claude/skills/` and the
+   MCP servers in `.mcp.json` and `~/.claude.json`, by name only) and you choose which.
+2. **How you like to work.** Planning depth, subagents, linear or parallel work, a session
+   budget, who reviews and whether to pause between steps. Press Enter to keep each
+   suggested default.
+3. **Hooks.** Offered only in Claude Code, and off by default (see below).
+
+Without a terminal (inside an agent's shell, or a script), the setup asks nothing: pass
+the answers as flags, and `--no-input` makes that explicit.
+
+```bash
+sensoryforge agents setup --no-input --subagents read-only --order parallel \
+    --session-tokens 150000
+```
+
+Running the setup again changes only what you answer; `--reset` starts from the defaults.
+
+## The saved file
+
+The answers are saved in `.sensoryforge/agents.yml` in the current folder. The skills
+find it by searching upwards from where they run; `$SENSORYFORGE_AGENTS_CONFIG` names a
+file directly and wins over the search. You can write or edit the file by hand:
+
+```yaml
+integrate: false
+tools: []
+planning: brief
+subagents: none
+order: linear
+session_tokens: null
+review: user
+pace: ask
+hooks: false
+```
+
+| Key | Values | Default | What the skills do |
+|---|---|---|---|
+| `integrate` | `true` / `false` | `false` | `false`: use only SensoryForge's skills and commands. `true`: may also use the tools in `tools`, saying which and why |
+| `tools` | list of names | `[]` | The user's tools the skills may use when `integrate` is on (`skill:<name>`, `mcp:<name>` or any name your agent shows) |
+| `planning` | `none` / `brief` / `full` | `brief` | `none`: work step by step without a written plan. `brief`: show a 3 to 7 step plan first. `full`: write a full plan and wait for approval |
+| `subagents` | `none` / `read-only` / `any` | `none` | `none`: never start subagents. `read-only`: only for independent searching and reading. `any`: wherever the work splits |
+| `order` | `linear` / `parallel` | `linear` | One step at a time, or independent steps in parallel where the environment allows |
+| `session_tokens` | a positive integer or `null` | `null` | A context budget per session; near it the agent writes down what is done and what is left, and stops |
+| `review` | `user` / `agent` / `nobody` | `user` | `user`: show each step's result before the next. `agent`: the agent checks each step against its goal and shows the final result. `nobody`: no review pauses |
+| `pace` | `ask` / `auto` | `ask` | `ask`: ask before each next step. `auto`: carry on, stopping only for a question you must answer |
+| `hooks` | `true` / `false` | `false` | Whether the Claude Code routing hook is installed |
+
+Every skill starts by running `sensoryforge agents brief` and follows what it prints. The
+instructions you give in a session still win over the saved style.
+
+## The routing hook (Claude Code only)
+
+With `hooks: true` the setup adds one prompt hook to `.claude/settings.local.json` (your
+local, uncommitted Claude Code settings), beside any hooks you already have. On each
+prompt it prints a short list of SensoryForge's skills, so a request in your own words
+finds the right one. It runs `sensoryforge/agents/hook.py` with the standard library
+only, so it adds no noticeable delay. `sensoryforge agents setup --no-input --hooks no`
+removes it and leaves your other settings as they were.
+
+Where the agent files come from and how many there may be: see
+[Agent Files](../developer_guide/agent_files.md).

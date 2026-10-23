@@ -134,6 +134,7 @@ nav:
     - Evaluating a World: user_guide/evaluate_pipeline.md
     - Evaluation Browser: user_guide/evaluation_browser.md
     - Sharing a Snapshot: user_guide/evaluation_export.md
+    - Working with a Coding Agent: user_guide/agent_setup.md
 
   - Developer Guide:
     - Extensibility Overview: developer_guide/extensibility.md

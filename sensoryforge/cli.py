@@ -8,6 +8,8 @@ Example:
     $ sensoryforge validate config.yml
     $ sensoryforge list-components
     $ sensoryforge visualize config.yml --save output.png
+    $ sensoryforge agents setup
+    $ sensoryforge agents brief
 """
 
 import argparse
@@ -1188,6 +1190,116 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agents(args: argparse.Namespace) -> int:
+    """``sensoryforge agents setup`` / ``agents brief``: the skills' working style."""
+    from sensoryforge.agents import style as ws
+
+    if args.agents_command not in ("setup", "brief"):
+        print("usage: sensoryforge agents {setup,brief}", file=sys.stderr)
+        return 1
+    try:
+        found = Path(args.path) if args.path else ws.find_config()
+        if args.agents_command == "brief":
+            print(ws.render_brief(ws.load_style(found), found), end="")
+            return 0
+        target = found or Path.cwd() / ws.CONFIG_RELPATH
+        root = target.resolve().parent.parent
+        base = ws.WorkingStyle() if args.reset else ws.load_style(found)
+        given = {}
+        for opt in ws.OPTIONS:
+            value = getattr(args, opt.key, None)
+            if value is not None:
+                given[opt.key] = ws.parse_value(opt.key, value)
+        environment = ws.detect_environment(root)
+        if given.get("hooks") and environment != "claude-code":
+            raise ValueError(
+                "hooks are offered only in Claude Code (no CLAUDECODE marker or "
+                ".claude/ folder found)"
+            )
+        if args.no_input or not sys.stdin.isatty():
+            style = ws.WorkingStyle.from_dict({**base.to_dict(), **given})
+        else:
+            style = ws.ask_style(
+                given,
+                input,
+                print,
+                environment,
+                lambda: ws.discover_tools(root, Path.home()),
+                base,
+            )
+        ws.save_style(style, target)
+        print(f"Saved {target}")
+        settings = root / ".claude" / "settings.local.json"
+        if ws.set_hook(settings, style.hooks):
+            state = "installed in" if style.hooks else "removed from"
+            print(f"Routing hook {state} {settings}")
+        print(ws.render_brief(style, target), end="")
+        return 0
+    except (ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _add_agents_parser(subparsers: Any) -> None:
+    """``sensoryforge agents``: flags generated from the working-style options."""
+    from sensoryforge.agents.style import OPTIONS, CONFIG_ENV, CONFIG_RELPATH
+
+    agents_parser = subparsers.add_parser(
+        "agents", help="Set up how SensoryForge's agent skills work with you"
+    )
+    agents_sub = agents_parser.add_subparsers(dest="agents_command")
+    where = (
+        f"default: ${CONFIG_ENV}, else the nearest {CONFIG_RELPATH} above the "
+        f"current folder, else ./{CONFIG_RELPATH} when saving"
+    )
+    brief = agents_sub.add_parser(
+        "brief", help="Print the working style every skill reads first"
+    )
+    brief.add_argument("--path", help=f"Working-style file ({where})")
+    setup = agents_sub.add_parser(
+        "setup",
+        help="Ask the setup questions (or take them as flags) and save the answers",
+        description="Ask three things and save them: use your own tools (default no), "
+        "how you like to work, and an optional Claude Code hook (default no). "
+        "Unanswered options keep their saved value, or the self-contained default.",
+    )
+    setup.add_argument("--path", help=f"Working-style file ({where})")
+    setup.add_argument(
+        "--no-input",
+        action="store_true",
+        help="Ask nothing; options not given keep their saved value or default",
+    )
+    setup.add_argument(
+        "--reset",
+        action="store_true",
+        help="Start from the defaults, not the saved file",
+    )
+    for opt in OPTIONS:
+        flag = "--" + opt.key.replace("_", "-")
+        if opt.key == "tools":
+            setup.add_argument(
+                "--tool",
+                dest="tools",
+                action="append",
+                metavar="NAME",
+                help=f"{opt.question} Repeat for each (default none)",
+            )
+        elif opt.choices:
+            setup.add_argument(
+                flag,
+                choices=opt.choices,
+                help=f"{opt.question} (default {opt.default})",
+            )
+        elif opt.key == "session_tokens":
+            setup.add_argument(
+                flag, metavar="N", help=f"{opt.question} (default none; 'none' clears)"
+            )
+        else:
+            setup.add_argument(
+                flag, choices=("yes", "no"), help=f"{opt.question} (default no)"
+            )
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser for CLI.
 
@@ -1442,6 +1554,8 @@ def create_parser() -> argparse.ArgumentParser:
 
     add_export(export_parser)
 
+    _add_agents_parser(subparsers)
+
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")
     validate_world = world_sub.add_parser(
@@ -1538,6 +1652,7 @@ def main() -> int:
         "dataset": cmd_dataset,
         "evaluate": cmd_evaluate,
         "world": cmd_world,
+        "agents": cmd_agents,
     }
 
     handler = commands.get(args.command)

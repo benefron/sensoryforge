@@ -23,7 +23,8 @@ one is for, and how many there may be. Change the map here first, then the files
 | `AGENTS.md` | everyone | any agent that reads a root instruction file | B2 |
 | `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes | B2 |
 | `sensoryforge/agents/skills/<name>/SKILL.md` | users | Claude Code format; other environments through B8's exports | B1b, B6, B7, C2, C3 |
-| `sensoryforge/agents/style.py` | users | the working-style config and the brief every skill reads | B1b |
+| `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
+| `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
 | `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched | kept |
 | `.claude/commands/*.md` | maintainers | Claude Code slash commands | kept, trimmed |
 | `docs/` | everyone | people; agents follow links to it | D |
