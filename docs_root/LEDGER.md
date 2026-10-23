@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-2b0de11 · CLOSED · decision · - · 2026-10-23
+the comparison is between two draws of one data set, B's overlay shows only where the pin means the same in B, and the multi-channel renderer and two-run comparison are left out of A6c.
+→ commit 27bcc90
+
 ## D-5daff44 · CLOSED · decision · - · 2026-10-23
 the neuron stage of a population run is a separate engine method that the evaluation server reuses for its voltage re-run, rather than a copy
 → commit cb33315

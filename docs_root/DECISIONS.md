@@ -1070,4 +1070,5 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-40d072b | the trace inspector re-simulates membrane voltage on demand from the bundle's stored filtered (neuron stage only) and verifies it by matching the re-simulated spikes of every neuron against the stored spikes; bundles do not store voltage by default | `82034fc` |
 | 2026-10-23 | D-d3440b5 | voltage probes (a few fixed neurons per population, stored and matched exactly by the re-simulation) come later as an opt-in bundle field, invisible until used and with a format bump, in their own roadmap row A6p | `82034fc` |
 | 2026-10-23 | D-5daff44 | the neuron stage of a population run is a separate engine method that the evaluation server reuses for its voltage re-run, rather than a copy | `cb33315` |
+| 2026-10-23 | D-2b0de11 | the comparison is between two draws of one data set, B's overlay shows only where the pin means the same in B, and the multi-channel renderer and two-run comparison are left out of A6c. | `27bcc90` |
 <!-- DECISIONS_LOG_END -->
