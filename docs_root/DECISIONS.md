@@ -1091,4 +1091,6 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-8da98c5 | the agent-file budget is 18 hand-written user-facing files of which at most 14 skills, plus 6 maintainer rules and 5 commands; generated targets are unlimited but each comes from one command and is checked in CI (docs/developer_guide/agent_files.md) | `ded4cb2` |
 | 2026-10-23 | D-c1a7f2c | C2 ships three extension skills (extend-pipeline, extend-world, extend-evaluation) instead of one skill per component kind, to keep the agent files few and general (Ben, B1 sign-off) | `ded4cb2` |
 | 2026-10-23 | R-28c2b69 | the hand-written .cursor/ rules, skills and agent, replaced by B8's generated exports | `ded4cb2` |
+| 2026-10-23 | D-97c3347 | the agent skills' working style is saved in .sensoryforge/agents.yml and rendered by `sensoryforge agents brief`, which every skill runs first; a test requires each shipped SKILL.md to name it | `142aff4` |
+| 2026-10-23 | D-c1fc12e | the routing hook is a stdlib-only script run by path (sensoryforge/agents/hook.py) written to .claude/settings.local.json only when the user says yes in Claude Code; other environments are never offered hooks | `142aff4` |
 <!-- DECISIONS_LOG_END -->

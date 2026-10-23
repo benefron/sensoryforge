@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-97c3347 · CLOSED · decision · - · 2026-10-23
+the agent skills' working style is saved in .sensoryforge/agents.yml and rendered by `sensoryforge agents brief`, which every skill runs first; a test requires each shipped SKILL.md to name it
+→ commit 142aff4
+
+## D-c1fc12e · CLOSED · decision · - · 2026-10-23
+the routing hook is a stdlib-only script run by path (sensoryforge/agents/hook.py) written to .claude/settings.local.json only when the user says yes in Claude Code; other environments are never offered hooks
+→ commit 142aff4
+
 ## D-280840b · CLOSED · decision · - · 2026-10-23
 user-facing agent files (skills, setup, working-style code) live in sensoryforge/agents/ inside the package, not a top-level agents/ folder, so a pip install ships them (signed off by Ben, B1)
 → commit ded4cb2
