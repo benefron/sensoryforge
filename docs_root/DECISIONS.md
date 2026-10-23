@@ -1086,4 +1086,5 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-e9d3a36 | pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation. | `f6412d3` |
 | 2026-10-23 | D-637b872 | phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass | `5937de9` |
 | 2026-10-23 | D-aea7ea7 | core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history | `703654c` |
+| 2026-10-23 | D-6bc58cd | phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree | `60ff1c8` |
 <!-- DECISIONS_LOG_END -->

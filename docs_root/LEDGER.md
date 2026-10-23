@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6bc58cd · CLOSED · decision · - · 2026-10-23
+phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree
+→ commit 60ff1c8
+
 ## D-aea7ea7 · CLOSED · decision · - · 2026-10-23
 core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history
 → commit 703654c
@@ -472,6 +476,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 → commit c53ca39
 ↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
+↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
