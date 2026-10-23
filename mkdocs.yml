@@ -155,6 +155,7 @@ nav:
     - Run-to-run Diff: developer_guide/diff_stage.md
     - Evaluation Pipeline: developer_guide/pipeline_stage.md
     - Evaluation Server: developer_guide/evaluation_server.md
+    - Agent Files: developer_guide/agent_files.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 

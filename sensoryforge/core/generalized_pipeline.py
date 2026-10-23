@@ -127,7 +127,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
     **See Also:**
         - `SimulationEngine`: For full N-population support
         - `SensoryForgeConfig`: Canonical configuration schema
-        - `.cursor/rules/extensibility-patterns.mdc`: Extensibility patterns
+        - `docs/developer_guide/extensibility.md`: Extensibility patterns
     """
 
     # Default configuration values

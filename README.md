@@ -280,7 +280,7 @@ config = {
 }
 ```
 
-See the [Extensibility Guide](docs/developer_guide/extensibility.md) for detailed tutorials and the [Add Component Skill](.cursor/skills/add-new-component/SKILL.md) for step-by-step instructions.
+See the [Extensibility Guide](docs/developer_guide/extensibility.md) for detailed tutorials and the [Plugin Packages](docs/developer_guide/plugins.md) guide for step-by-step instructions.
 
 ---
 
