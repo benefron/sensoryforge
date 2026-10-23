@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6628b99 · CLOSED · decision · - · 2026-10-23
+a bundle says schema 2.4.0 only when it stores voltage probes; a run that sets no voltage_probes writes the 2.3.0 bundle byte for byte and still says 2.3.0, so pressure-simulation's pin is untouched (the key is invisible until used).
+→ commit 3b0f5ca
+
 ## D-2b0de11 · CLOSED · decision · - · 2026-10-23
 the comparison is between two draws of one data set, B's overlay shows only where the pin means the same in B, and the multi-channel renderer and two-run comparison are left out of A6c.
 → commit 27bcc90
@@ -174,6 +178,7 @@ should the trace inspector show membrane voltage, which bundles do not store (st
 → commit 4480018
 ✓ closed by 82034fc docs(plan): membrane voltage is re-simulated on demand and checked against the stored spik
 ↔ cb33315 feat(evaluate): click-to-pin traces and re-simulated membrane voltage (A6b)
+✓ closed by 3b0f5ca feat(bundle): opt-in voltage probes in bundles, schema 2.4.0 (A6p)
 
 ## D-11c766e · CLOSED · decision · - · 2026-10-23
 frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
