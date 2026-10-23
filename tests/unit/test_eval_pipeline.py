@@ -201,6 +201,24 @@ def test_failed_entries_stop_the_pipeline_and_say_why(tmp_path, monkeypatch):
     validate(doc)
 
 
+def test_an_unexpected_error_still_writes_pipeline_json(tmp_path, monkeypatch):
+    # A TypeError is not a stage error: it propagates, but only after pipeline.json
+    # records the stage as failed (it used to stay "ok", with no file written).
+    def broken(config, spec, out, **kwargs):
+        raise TypeError("run_dataset() got an unexpected keyword argument")
+
+    monkeypatch.setattr(pipeline, "run_dataset", broken)
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        run_pipeline(
+            make_config(), make_spec(), tmp_path, packs=["core"], created_at=STAMP
+        )
+    doc = json.loads((tmp_path / REPORT_DIR / PIPELINE_FILE).read_text())
+    assert doc["status"] == "failed" and doc["error"].startswith("TypeError: ")
+    batch = next(s for s in doc["stages"] if s["name"] == "batch")
+    assert batch["status"] == "failed" and "TypeError" in batch["detail"]
+    validate(doc)
+
+
 def test_entries_that_fail_to_simulate_fail_the_batch_stage(tmp_path, monkeypatch):
     monkeypatch.setattr(
         pipeline,

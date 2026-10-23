@@ -21,7 +21,6 @@ from sensoryforge.evaluate.server import (
     Api,
     DatasetService,
     Request,
-    ServiceError,
     make_server,
 )
 from sensoryforge.evaluate.server.service import decimate

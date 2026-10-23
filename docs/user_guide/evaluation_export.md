@@ -23,7 +23,7 @@ must be new or empty. Open `runs/first_snapshot/index.html`.
 | `--unit POPULATION:INDEX` | a unit whose drive, filtered current, readout and re-simulated voltage are recorded (repeat for more). Default: each population's middle unit |
 | `--no-pins` | record no single-point traces |
 | `--max-list-rows N` | rows kept of any draw list (default 1000) |
-| `--max-mb N` | refuse to record more than this many megabytes (default 500) |
+| `--max-mb N` | refuse to record more than this many megabytes of answers: frames, traces, voltages and lists (default 500) |
 | `--video mp4\|gif`, `--video-speed S` | also write a movie of each chosen draw into `videos/`, if ffmpeg is installed (speed 1 is real time) |
 
 The middle sensor and unit are arbitrary, fixed choices so that a pinned trace shows something
@@ -62,7 +62,15 @@ If a collaborator needs more, send the data-set folder and let them run `sensory
 
 Frames are stored as 32-bit floats, base64-coded, so a draw costs about 1.4 times its frames:
 `frames * height * width * channels * 4` bytes. The export stops with a message when the
-recording passes `--max-mb`. Choose fewer or shorter draws, or raise the limit.
+recording (every answer it keeps, not only the frames) passes `--max-mb`. Choose fewer or
+shorter draws, or raise the limit.
+
+## Local paths
+
+A snapshot names the data-set folder and the stage folder by their names only. Every recorded
+answer has their local paths (as given and resolved) replaced with the folder's name, so
+`/Users/you/runs/tiny` is shared as `tiny`, in the page's summary and in the stage files
+(`checks.json`'s `inputs.dataset_dir`, for example).
 
 ## Videos
 

@@ -889,8 +889,9 @@ class SimulationEngine:
                 and ``seed`` (innervation wiring, F-006 open). Also seeds the
                 receptor noise when ``simulation.receptor_noise_seed`` is unset.
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
-            sparse_weights: Passed to :func:`~sensoryforge.io.bundle.write_bundle` (how a
-                bundle stores receptive-field weights; ``False`` writes them dense).
+            sparse_weights: Passed to :func:`~sensoryforge.io.bundle.write_bundle`
+                (how a bundle stores receptive-field weights; ``False`` writes them
+                dense).
             progress_cb: If given, called once per population as
                 ``progress_cb(index, n_populations, population_name)``, immediately
                 before that population's filter/neuron pass (so at call time

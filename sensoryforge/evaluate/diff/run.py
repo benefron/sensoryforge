@@ -13,9 +13,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from sensoryforge.evaluate.audit.reader import DatasetReader, EntryRow, ReadError
+from sensoryforge.evaluate.diff.arrays import DIFF_RTOL
 from sensoryforge.evaluate.diff.entries import compare_entry
 from sensoryforge.evaluate.diff.metrics import metric_deltas, read_rows
 from sensoryforge.evaluate.stage_io import (
@@ -67,12 +78,16 @@ def _pair(
     entry: str,
     ra: DatasetReader,
     rb: DatasetReader,
+    rows_a: Mapping[str, EntryRow],
+    rows_b: Mapping[str, EntryRow],
     atol: float,
     rtol: float,
 ) -> Dict[str, Any]:
-    """One entry's row of ``diff_entries.jsonl``."""
-    rows_a = {r.entry: r for r in ra.rows}
-    rows_b = {r.entry: r for r in rb.rows}
+    """One entry's row of ``diff_entries.jsonl``.
+
+    ``rows_a`` and ``rows_b`` are each side's index rows by entry id, built once by
+    :func:`_rows` (rebuilding them per entry made pairing quadratic).
+    """
     base = {"entry": entry}
     here, there = rows_a.get(entry), rows_b.get(entry)
     ref = here or there
@@ -99,8 +114,10 @@ def _rows(
     atol: float,
     rtol: float,
 ) -> Iterator[Dict[str, Any]]:
+    rows_a = {r.entry: r for r in ra.rows}
+    rows_b = {r.entry: r for r in rb.rows}
     for entry in entries:
-        yield clean(_pair(entry, ra, rb, atol, rtol))
+        yield clean(_pair(entry, ra, rb, rows_a, rows_b, atol, rtol))
 
 
 def _first_row(reader: DatasetReader) -> Optional[Dict[str, Any]]:
@@ -122,7 +139,7 @@ def run_diff(
     new: Union[str, Path],
     out_dir: Union[str, Path],
     atol: float = FLOAT32_GOLDEN_ATOL,
-    rtol: float = 0.0,
+    rtol: float = DIFF_RTOL,
     metrics: bool = True,
     packs: Sequence[str] = ("core",),
     audit_baseline: Optional[Union[str, Path]] = None,
@@ -217,7 +234,10 @@ def run_diff(
             **inputs,
             "atol": atol,
             "rtol": rtol,
-            "tolerance_source": "sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL",
+            "tolerance_source": (
+                "atol: sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL; "
+                "rtol: sensoryforge.evaluate.diff.arrays.DIFF_RTOL"
+            ),
             "packs": list(packs) if metrics else None,
         },
         "verdict": verdict,

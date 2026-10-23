@@ -164,7 +164,7 @@ def _gaussian_with_ramps(speed, n_t=40):
 
 
 def test_a_still_float32_shape_with_ramps_has_no_direction():
-    """Float32 rounding of the scaled frame jitters the centroid by far less than the floor."""
+    """Float32 rounding of the scaled frame moves the centroid far below the floor."""
     x, coords = _gaussian_with_ramps(0.0)
     assert fm.measure_channel(x, coords, 1.0, 0.0)["direction"] is None
 

@@ -55,9 +55,9 @@ that loader reads, and ``docs/user_guide/bundles.md`` for the user-facing layout
 Schema 2.5.0 (2026-10-23, A11d): a population file whose receptive-field weights are
 under 10% nonzero stores them sparsely (``innervation_weights_indices`` /
 ``_values`` / ``_shape`` instead of ``innervation_weights``; see
-:func:`sensoryforge.core.rf_bank.encode_weights`), about 100 times smaller; the bundle then
-says ``schema_version`` 2.5.0. ``write_bundle(sparse_weights=False)`` writes the dense
-layout. Readers choose the layout by the keys present.
+:func:`sensoryforge.core.rf_bank.encode_weights`), about 100 times smaller; the bundle
+then says ``schema_version`` 2.5.0. ``write_bundle(sparse_weights=False)`` writes the
+dense layout. Readers choose the layout by the keys present.
 
 Coordinates and receptor ordering follow the rest of SensoryForge: ``(x, y)`` in
 mm, receptor ``k = i * cols + j`` for a ``[rows, cols]`` grid.

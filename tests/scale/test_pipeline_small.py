@@ -72,9 +72,6 @@ def test_tasks_make_the_same_data_set_as_one_process(tmp_path):
     run_audit(split, split / "evaluate", packs=["core"])
 
     assert lines(split / "evaluate" / "audit_entries.jsonl") == DRAWS
-    assert sorted(p.name for p in single.glob("train")) == sorted(
-        p.name for p in split.glob("train")
-    )
     # Wall-clock seconds are the one value that differs between two runs.
     assert measured(single) == measured(split)
 

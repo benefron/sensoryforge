@@ -1,10 +1,11 @@
 "use strict";
 // Pure helpers for the anomaly gallery (roadmap A9): no DOM, so the node test can run them.
 (function (root) {
-  // The /api/gallery query for the chosen signals and limit.
+  // The /api/gallery query for the chosen signals and limit. No filter while the
+  // signals are not known yet; an empty one when every signal is unticked.
   function query(chosen, all, limit) {
     const q = new URLSearchParams({ limit: String(limit) });
-    if (chosen.length && chosen.length < all.length) q.set("signal", chosen.join(","));
+    if (all.length && chosen.length < all.length) q.set("signal", chosen.join(","));
     return q.toString();
   }
 

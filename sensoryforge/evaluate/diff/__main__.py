@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from sensoryforge.evaluate.diff.arrays import DIFF_RTOL
 from sensoryforge.evaluate.diff.run import DIFF_FILE, run_diff
 from sensoryforge.testing.golden import FLOAT32_GOLDEN_ATOL
 
@@ -86,7 +87,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=FLOAT32_GOLDEN_ATOL,
         help="absolute tolerance (default: the golden fixtures')",
     )
-    ap.add_argument("--rtol", type=float, default=0.0, help="relative tolerance")
+    ap.add_argument(
+        "--rtol",
+        type=float,
+        default=DIFF_RTOL,
+        help="relative tolerance (default: two float32 steps, 2**-22)",
+    )
     ap.add_argument(
         "--no-metrics", action="store_true", help="skip the per-metric deltas"
     )

@@ -1,10 +1,10 @@
 """The anomaly gallery (roadmap A9): seeded failures in a data set are all found.
 
-A toy data set with ten or more entries per class is built through the engine; each fault
-below is written into one entry of a private copy (a NaN, silence, saturation, a rate
-outlier, a long quiet gap, frames from another class, a failed batch row). The audit and
-the checks run over the copy, and the gallery must list every seeded entry with the signal
-that matches its fault, ahead of the untouched entries.
+A toy data set with ten or more entries per class is built through the engine; each
+fault below is written into one entry of a private copy (a NaN, silence, saturation, a
+rate outlier, a long quiet gap, frames from another class, a failed batch row). The
+audit and the checks run over the copy, and the gallery must list every seeded entry
+with the signal that matches its fault, ahead of the untouched entries.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def edit(folder, entry, fn):
 
 @pytest.fixture(scope="module")
 def seeded(tmp_path_factory):
-    """``(folder, {signal: entry})`` of a copy of a 60-draw toy set with one fault each."""
+    """``(folder, {signal: entry})``: a copy of a 60-draw toy set, one fault each."""
     from tests.fixtures import toy_vision
 
     root = tmp_path_factory.mktemp("gallery")
@@ -278,6 +278,51 @@ def test_a_small_class_is_not_judged():
     assert "class_mismatch" in reasons
 
 
+def test_a_class_that_lacks_a_feature_still_has_a_profile():
+    # Class b has no centroid speed at all, so its centre there is NaN; the distance to
+    # b uses the features b has instead of going NaN and hiding the mismatch.
+    def frames(entry, cls, peak, speed=None):
+        values = [{"id": "core.frames.peak", "value": peak}]
+        if speed is not None:
+            values.append({"id": "core.frames.centroid_speed", "value": speed})
+        return {"entry": entry, "split": "s", "class": cls, "values": values}
+
+    rows = [frames(f"a{i}", "a", 1.0 + 0.01 * i, 0.1 + 0.001 * i) for i in range(12)]
+    rows += [frames(f"b{i}", "b", 10.0 + 0.01 * i) for i in range(5)]
+    rows.append(frames("odd", "a", 10.0, 0.105))
+    flagged = {
+        i["entry"]: {r["signal"] for r in i["reasons"]}
+        for i in build_gallery(rows, status={}).items
+    }
+    assert flagged == {"odd": {"class_mismatch"}}
+
+
+def test_an_unreadable_bundle_is_bad_data_whatever_its_batch_status():
+    rows = [row("e1", "c"), row("e2", "c")]
+    checks = {
+        "checks": [
+            {
+                "id": "core.data.readable",
+                "failures": [{"entry": "e1", "detail": "cannot open data.h5"}],
+            }
+        ]
+    }
+    status = {"e1": ("ok", None), "e2": ("ok", None)}
+    items = build_gallery(rows, checks=checks, status=status).items
+    assert [(i["entry"], i["reasons"][0]["signal"]) for i in items] == [
+        ("e1", "bad_data")
+    ]
+
+
+def test_unticking_every_signal_shows_none():
+    rows = [row("e1", "c")]
+    checks = {"checks": [{"id": "core.data.finite", "failures": [{"entry": "e1"}]}]}
+    checks["checks"][0]["failures"][0]["detail"] = "NaN"
+    gallery = build_gallery(rows, checks=checks, status={})
+    assert gallery.payload(None)["total"] == 1
+    assert gallery.payload([])["total"] == 0
+
+
 def test_silence_needs_an_active_stimulus():
     base = [
         {"id": "core.frames.active_fraction", "value": 0.5},
@@ -291,7 +336,10 @@ def test_silence_needs_an_active_stimulus():
     rows = [
         {"entry": "loud", "split": "s", "class": "c", "values": base},
         {"entry": "still", "split": "s", "class": "c", "values": quiet},
-    ] + [{"entry": f"ok{i}", "split": "s", "class": "c", "values": firing} for i in range(4)]
+    ] + [
+        {"entry": f"ok{i}", "split": "s", "class": "c", "values": firing}
+        for i in range(4)
+    ]
     items = build_gallery(rows, status={}).items
     assert [i["entry"] for i in items] == ["loud"]
     assert items[0]["reasons"][0]["signal"] == "silent"
@@ -321,10 +369,13 @@ def test_queries_tiers_and_lines_of_the_gallery_page():
           every: G.query(["a", "b", "c"], all, 24),
           some: G.query(["a", "c"], all, 12),
           none: G.query([], all, 12),
+          unknown: G.query([], [], 12),
           href: G.entryHref("test/dots/0001"),
           tiers: [1.0, 0.8, 0.3].map(G.tier),
-          where: [G.where({ class: "dots", split: "test" }), G.where({ class: null, split: "sessions" })],
-          line: [G.reasonLine({ signal: "silent", detail: "none", population: "sa" }, { silent: "Silent" }),
+          where: [G.where({ class: "dots", split: "test" }),
+                  G.where({ class: null, split: "sessions" })],
+          line: [G.reasonLine({ signal: "silent", detail: "none", population: "sa" },
+                              { silent: "Silent" }),
                  G.reasonLine({ signal: "x", detail: "d" }, {})],
           shown: [G.shownText({ total: 3, n_entries: 12, items: [1, 2, 3] }),
                   G.shownText({ total: 30, n_entries: 40, items: [1, 2] })],
@@ -332,7 +383,8 @@ def test_queries_tiers_and_lines_of_the_gallery_page():
     """)
     assert got["every"] == "limit=24"
     assert got["some"] == "limit=12&signal=a%2Cc"
-    assert got["none"] == "limit=12"
+    assert got["none"] == "limit=12&signal="
+    assert got["unknown"] == "limit=12"
     assert got["href"] == "/#entry=test%2Fdots%2F0001"
     assert got["tiers"] == ["high", "medium", "low"]
     assert got["where"] == ["dots · test", "no class · sessions"]

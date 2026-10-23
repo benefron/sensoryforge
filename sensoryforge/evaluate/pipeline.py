@@ -110,7 +110,11 @@ def _timed(
     fn: Callable[[], Any],
     log: Callable[[str], None],
 ) -> Any:
-    """Run one stage, append its record to ``stages``, re-raise as ``_StageFailed``."""
+    """Run one stage and append its record to ``stages``.
+
+    A stage error (:data:`_STAGE_ERRORS`) is re-raised as ``_StageFailed``; anything
+    else marks the stage failed and propagates as it is.
+    """
     log(f"[{name}] …")
     started = time.perf_counter()
     record: Dict[str, Any] = {"name": name, "status": "ok", "detail": None}
@@ -120,6 +124,9 @@ def _timed(
     except _STAGE_ERRORS as exc:
         record.update(status="failed", detail=f"{type(exc).__name__}: {exc}")
         raise _StageFailed(f"{name}: {exc}") from exc
+    except BaseException as exc:  # recorded here, re-raised unchanged
+        record.update(status="failed", detail=f"{type(exc).__name__}: {exc}")
+        raise
     finally:
         record["seconds"] = round(time.perf_counter() - started, 3)
     log(f"[{name}] done in {record['seconds']:.1f} s")
@@ -177,6 +184,8 @@ def run_pipeline(
     Raises:
         ValueError: If a metric pack, check pack or adapter name is not registered
             (checked before anything is simulated).
+        Exception: Any error a stage raises outside :data:`_STAGE_ERRORS`, after
+            ``pipeline.json`` has been written with that stage marked failed.
     """
     emit = log or (lambda _line: None)
     out_dir = Path(out_dir)
@@ -195,6 +204,7 @@ def run_pipeline(
     batch_summary: Optional[Dict[str, int]] = None
     adapter_name: Optional[str] = None
     error: Optional[str] = None
+    unexpected: Optional[BaseException] = None
 
     try:
 
@@ -292,6 +302,10 @@ def run_pipeline(
     except _StageFailed as exc:
         error = str(exc)
         emit(f"stopped: {error}")
+    except BaseException as exc:  # pipeline.json is written, then it is re-raised
+        error = f"{type(exc).__name__}: {exc}"
+        unexpected = exc
+        emit(f"stopped: {error}")
 
     present = {s["name"] for s in stages}
     for name in STAGES:
@@ -335,6 +349,8 @@ def run_pipeline(
         "notes": notes,
     }
     write_json(report / PIPELINE_FILE, doc)
+    if unexpected is not None:
+        raise unexpected
     return doc
 
 

@@ -47,16 +47,18 @@ def encode_weights(
     """The ``.pt`` entries that store ``weights`` ``[N, M]``, dense or sparse.
 
     The sparse layout drops ``innervation_weights`` and stores only the nonzero
-    entries as plain tensors (so ``torch.load(weights_only=True)`` reads it on any
-    torch): ``innervation_weights_indices`` int64 ``[2, nnz]`` (row 0 neuron, row 1
+    entries (and any ``-0.0``, so the sign of a zero survives) as plain tensors
+    (so ``torch.load(weights_only=True)`` reads it on any torch):
+    ``innervation_weights_indices`` int64 ``[2, nnz]`` (row 0 neuron, row 1
     receptor, sorted row-major, no repeated pair), ``innervation_weights_values``
     float32 ``[nnz]`` and ``innervation_weights_shape`` ``[N, M]``. It is lossless:
     :func:`decode_weights` returns the dense matrix bit for bit.
 
     Args:
         weights: Dense weights ``[N, M]`` (dimensionless).
-        sparse: ``"auto"`` stores sparsely when under :data:`SPARSE_MAX_DENSITY` of the
-            entries are nonzero; ``True`` always (float32 weights only); ``False`` never.
+        sparse: ``"auto"`` stores sparsely when under :data:`SPARSE_MAX_DENSITY` of
+            the entries are nonzero; ``True`` always (float32 weights only);
+            ``False`` never.
 
     Returns:
         A dict to merge into the file's dict.
@@ -75,7 +77,8 @@ def encode_weights(
     # Other dtypes stay dense: the sparse values are float32, the dense dtype.
     if sparse is False or dense.dtype != torch.float32:
         return {"innervation_weights": dense.clone()}
-    nonzero = dense != 0
+    # -0.0 is kept: decoding fills the rest with +0.0, and bit for bit includes signs
+    nonzero = (dense != 0) | torch.signbit(dense)
     if sparse == "auto" and nonzero.sum().item() >= SPARSE_MAX_DENSITY * dense.numel():
         return {"innervation_weights": dense.clone()}
     # torch.nonzero lists entries in row-major order, each pair once.

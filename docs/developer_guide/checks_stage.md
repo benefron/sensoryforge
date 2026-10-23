@@ -80,9 +80,15 @@ contract (section 13.1). In short:
   rebuild here: a receptive-field file that has since moved, or a composite grid, skips the
   probes with that reason. `core.run.input_floor` is skipped when no population declares a
   floor.
-- **Wiring seeds.** A freshly built engine differs from the first only where a population
-  has no `seed` for its innervation; `core.run.determinism` says so in its `note` and
-  does not fail for it. Seeding the population makes a rebuild identical.
+- **Wiring seeds.** A population with no `seed` for its innervation may draw new wiring
+  at each build, and whether it does depends on the global random state's history. So
+  `core.run.determinism` compares the freshly built engine on the seeded populations only
+  (any difference there fails) and names every unseeded population in its `note`, whether
+  or not it differed. Seeding a population brings it into the comparison.
+- **Event converters.** `level_crossing` and `sigma_delta` with no refractory period emit
+  `floor(|d| / θ)` events in one step by design, so `core.run.saturation` does not bound
+  their count and names them in its `note`. With a refractory period of R integration
+  steps, the bound is `ceil(steps / R)` per bin; a spiking neuron model's is one per step.
 - **A model that fires with no input fails `core.run.empty_stimulus` on purpose**, so you
   see it. Noise is off in the probe.
 - **A bundle written on another platform** can differ from a re-run in the last float step;

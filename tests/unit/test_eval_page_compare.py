@@ -1,8 +1,8 @@
-"""The declared-fields panel and two-draw comparison of the evaluation page (roadmap A6c).
+"""The declared-fields panel and two-draw comparison of the evaluation page (A6c).
 
 The page's record helpers live in ``static/record.js`` (pure, no DOM) and run here with
-node on the declarations of the toy data set (a non-tactile one, A1b), so nothing depends
-on a modality. The tests skip when node is not installed.
+node on the declarations of the toy data set (a non-tactile one, A1b), so nothing
+depends on a modality. The tests skip when node is not installed.
 """
 
 import json
@@ -70,7 +70,8 @@ def test_every_declared_value_of_a_draw_is_in_the_panel(two_draws):
 @needs_node
 def test_a_timeline_reads_as_phases_and_big_integers_say_they_are_rounded():
     got = run_record(
-        "return R.rows({draw: {timeline: [['hold', 0, 30], ['slide', 30, 90.5]]}, big: 12345678901234567890, none: [], t: true}, null)"
+        "return R.rows({draw: {timeline: [['hold', 0, 30], ['slide', 30, 90.5]]},"
+        " big: 12345678901234567890, none: [], t: true}, null)"
         ".map((r) => r.text);"
     )
     assert got[0] == "hold 0–30 · slide 30–90.5"
@@ -83,7 +84,8 @@ def test_two_draws_line_up_by_path_and_the_differing_fields_are_flagged(two_draw
     a, b = two_draws
     got = run_record(
         """
-        const x = R.rows(inp.a.record, inp.a.seeds), y = R.rows(inp.b.record, inp.b.seeds);
+        const x = R.rows(inp.a.record, inp.a.seeds);
+        const y = R.rows(inp.b.record, inp.b.seeds);
         return R.compare(x, y).map((r) => [r.path, r.same, r.a === null, r.b === null]);
         """,
         a=a,
@@ -99,7 +101,8 @@ def test_two_draws_line_up_by_path_and_the_differing_fields_are_flagged(two_draw
 @needs_node
 def test_a_field_only_one_draw_declares_is_shown_as_absent():
     got = run_record(
-        "return R.compare(R.rows({a: 1, only_a: 2}, null), R.rows({a: 1, only_b: 3}, null))"
+        "return R.compare(R.rows({a: 1, only_a: 2}, null),"
+        " R.rows({a: 1, only_b: 3}, null))"
         ".map((r) => [r.path, r.a, r.b, r.same]);"
     )
     assert got == [
@@ -112,7 +115,8 @@ def test_a_field_only_one_draw_declares_is_shown_as_absent():
 @needs_node
 def test_the_second_movie_follows_the_first_one_by_time():
     got = run_record(
-        "return [G.matchFrame(10, 1, 1, 100), G.matchFrame(10, 1, 0.5, 100), G.matchFrame(10, 2, 1, 100),"
+        "return [G.matchFrame(10, 1, 1, 100), G.matchFrame(10, 1, 0.5, 100),"
+        " G.matchFrame(10, 2, 1, 100),"
         " G.matchFrame(90, 1, 1, 50), G.matchFrame(0, 1, 1, 50)];"
     )
     assert got == [10, 20, 20, 49, 0]  # a shorter draw holds its last frame
@@ -153,7 +157,7 @@ def test_traces_of_b_are_laid_over_only_when_the_pin_means_the_same_in_b(two_dra
     assert run_record("return R.pinProblem(null, null, inp.a, null);", a=a) is None
 
 
-def test_the_page_serves_the_record_helpers_before_the_app_and_has_the_comparison_controls(
+def test_the_page_serves_record_helpers_before_the_app_and_has_comparison_controls(
     toy_dataset,
 ):
     api = Api(DatasetService(toy_dataset.data))

@@ -2,10 +2,14 @@
 
 ``sensoryforge.testing.golden`` holds the tolerance every golden comparison in
 SensoryForge shares (:data:`~sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL`): a value
-differs only when it is farther from the baseline than ``atol + rtol * |baseline|``, so
-the last float32 step that another processor rounds differently is not flagged. This
-module applies the same rule without asserting, because a diff reports every array it
-finds different instead of stopping at the first.
+differs only when it is farther from the baseline than ``atol + rtol * |baseline|``,
+so the last float32 step that another processor rounds differently is not flagged.
+That absolute tolerance was set for values below 1; drives and filtered currents reach
+tens to hundreds of mA, where one float32 step is larger (3.8e-6 at 40), so the diff
+adds a relative term of two float32 steps (:data:`DIFF_RTOL`). Integer arrays (spike
+and event counts) are compared exactly. This module applies the rule without
+asserting, because a diff reports every array it finds different instead of stopping
+at the first.
 """
 
 from __future__ import annotations
@@ -19,12 +23,15 @@ from sensoryforge.testing.golden import FLOAT32_GOLDEN_ATOL
 #: Statuses of one array: bit-equal, equal within the tolerance, or different.
 IDENTICAL, EQUIVALENT, DIFFERENT = "identical", "equivalent", "different"
 
+#: Default relative tolerance: two float32 steps (one step is ``2**-23`` of a value).
+DIFF_RTOL = 2.0**-22
+
 
 def compare_arrays(
     a: np.ndarray,
     b: np.ndarray,
     atol: float = FLOAT32_GOLDEN_ATOL,
-    rtol: float = 0.0,
+    rtol: float = DIFF_RTOL,
 ) -> Dict[str, Any]:
     """Compare a new array with the baseline, along the first (time) axis.
 
@@ -32,7 +39,9 @@ def compare_arrays(
         a: The baseline array ``[T, ...]``.
         b: The new array, same layout.
         atol: Absolute tolerance per element (default: the golden fixtures' one).
-        rtol: Relative tolerance per element, applied to ``|a|``.
+        rtol: Relative tolerance per element, applied to ``|a|`` (default: two float32
+            steps). Neither applies when both arrays hold integers or booleans,
+            which are compared exactly.
 
     Returns:
         ``status`` (``identical``, ``equivalent`` or ``different``), ``n_total`` values
@@ -59,6 +68,8 @@ def compare_arrays(
             run_out = min(a.shape[0], b.shape[0])
         common = tuple(slice(0, min(x, y)) for x, y in zip(a.shape, b.shape))
         a, b = a[common], b[common]
+    if _exact(a) and _exact(b):
+        atol = rtol = 0.0
     a64 = np.asarray(a, dtype=np.float64)
     b64 = np.asarray(b, dtype=np.float64)
     both_nan = np.isnan(a64) & np.isnan(b64)
@@ -89,3 +100,7 @@ def compare_arrays(
         first_step=first,
     )
     return out
+
+
+def _exact(x: np.ndarray) -> bool:
+    return np.asarray(x).dtype.kind in "biu"

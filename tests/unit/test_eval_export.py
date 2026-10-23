@@ -24,7 +24,7 @@ from sensoryforge.evaluate.export import ExportOptions, export_snapshot, request
 from sensoryforge.evaluate.export import video as video_module
 from sensoryforge.evaluate.export.arguments import add_arguments
 from sensoryforge.evaluate.export.build import rewrite_page
-from sensoryforge.evaluate.export.snapshot import walk_queries
+from sensoryforge.evaluate.export.snapshot import local_paths, redacted, walk_queries
 from sensoryforge.evaluate.server import Api, DatasetService, Request
 
 STAMP = "2026-10-23T14:00:00Z"
@@ -135,6 +135,8 @@ def test_every_recorded_answer_is_the_servers_answer(toy):
         path, query = key.split("?", 1)
         q = {k: v for k, v in json.loads(query)}
         status, body = live(service, path, q)
+        if not entry.get("x"):  # the snapshot names its folders, not their paths
+            body = redacted(body.decode(), local_paths(service.folder, service.stages))
         assert entry["s"] == status, key
         if entry.get("x"):
             import base64
@@ -198,6 +200,32 @@ def test_the_size_limit_stops_the_export(toy, tmp_path):
         export_snapshot(
             service, tmp_path / "x", ExportOptions(n_draws=1, max_mb=0.0001)
         )
+
+
+def test_the_size_limit_counts_traces_and_voltages_too(toy, tmp_path):
+    # frames alone fit, but the pinned traces and voltage take it over the limit
+    service, _ = toy
+    bare = export_snapshot(
+        service, tmp_path / "a", ExportOptions(n_draws=1, sensors=[], units=[])
+    )
+    full = export_snapshot(service, tmp_path / "b", ExportOptions(n_draws=1))
+    assert full.n_bytes > bare.n_bytes
+    limit = (bare.n_bytes + full.n_bytes) / 2 / (1 << 20)
+    with pytest.raises(ValueError, match="size limit"):
+        export_snapshot(service, tmp_path / "c", ExportOptions(n_draws=1, max_mb=limit))
+
+
+def test_a_snapshot_holds_no_local_path(toy):
+    service, result = toy
+    text = "".join(
+        p.read_text(encoding="utf-8") for p in (result.out / "snapshot").glob("*.js")
+    )
+    for folder in (service.folder, service.stages):
+        assert str(folder.resolve()) not in text and str(folder) not in text
+    summary = json.loads(
+        load_index(result.out)["entries"][request_key("/api/dataset", {})]["b"]
+    )
+    assert summary["folder"] == service.folder.name
 
 
 def test_no_pins_records_no_single_point_traces(toy, tmp_path):

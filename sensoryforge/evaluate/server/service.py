@@ -728,7 +728,8 @@ class DatasetService:
 
         Args:
             query: ``signal``, ``split`` and ``class`` (comma-separated lists; ``~`` for
-                no class) and ``limit`` (default 24, at most 500).
+                no class; an empty ``signal`` keeps no entry) and ``limit`` (default
+                24, at most 500).
 
         Returns:
             The payload of ``Gallery.payload`` (``evaluate/server/gallery.py``).
@@ -738,7 +739,8 @@ class DatasetService:
         """
         from sensoryforge.evaluate.server.gallery import SIGNALS
 
-        signals = _csv(query.get("signal"))
+        # an empty ``signal=`` is the page with every signal unticked: show none
+        signals = [] if query.get("signal") == "" else _csv(query.get("signal"))
         for name in signals or []:
             if name not in SIGNALS:
                 raise ServiceError(

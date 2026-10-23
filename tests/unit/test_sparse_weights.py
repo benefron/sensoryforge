@@ -63,6 +63,14 @@ class TestEncode:
         w = _sparse_matrix()
         assert torch.equal(decode_weights(encode_weights(w, True)), w)
 
+    def test_signed_zeros_survive_the_round_trip(self):
+        # an imported bank may hold -0.0; decoding fills the gaps with +0.0
+        w = _sparse_matrix()
+        w[1, 3], w[4, 0] = -0.0, -0.0
+        back = decode_weights(encode_weights(w, True))
+        assert torch.equal(torch.signbit(back), torch.signbit(w))
+        assert torch.equal(back, w)
+
     def test_auto_keeps_a_dense_matrix_dense(self):
         w = torch.rand(4, 5) + 0.1
         assert set(encode_weights(w, "auto")) == {"innervation_weights"}

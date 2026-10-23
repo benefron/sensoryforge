@@ -21,7 +21,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import parse_qsl
 
-from sensoryforge.evaluate.export.snapshot import Recording, walk_queries
+from sensoryforge.evaluate.export.snapshot import (
+    Recording,
+    local_paths,
+    walk_queries,
+)
 from sensoryforge.evaluate.export.video import FORMATS, ffmpeg_path, write_video
 from sensoryforge.evaluate.server import Api, DatasetService, ServiceError
 from sensoryforge.evaluate.server.api import STATIC_DIR
@@ -251,6 +255,16 @@ def _record_draw(
         )
 
 
+def _within(spent: int, budget: int, where: str, options: ExportOptions) -> None:
+    """Raise once the recorded answers (frames, traces, voltages, lists) pass max_mb."""
+    if spent > budget:
+        raise ValueError(
+            f"{where}: the recorded answers ({spent / (1 << 20):.2f} MB) pass the "
+            f"size limit of {options.max_mb:g} MB; raise max_mb (--max-mb) or choose "
+            "fewer draws"
+        )
+
+
 def export_snapshot(
     service: DatasetService, out: Path, options: Optional[ExportOptions] = None
 ) -> ExportResult:
@@ -286,7 +300,9 @@ def export_snapshot(
     api = Api(service)
     budget = int(options.max_mb * (1 << 20))
 
-    rec = Recording(api)
+    # a shared snapshot names its folders, never where they are on this machine
+    redact = local_paths(service.folder, service.stages)
+    rec = Recording(api, redact=redact)
     _, summary = rec.get("/api/dataset")
     rec.get("/api/stages")
     rec.get("/api/stage/checks")
@@ -302,10 +318,12 @@ def export_snapshot(
     snap.mkdir(parents=True)
     files: Dict[str, str] = {}
     spent = rec.n_bytes
+    _within(spent, budget, "the data set's own answers", options)
     for n, entry in enumerate(chosen):
-        part = Recording(api)
+        part = Recording(api, redact=redact)
         _record_draw(part, service, entry, options, budget - spent)
         spent += part.n_bytes
+        _within(spent, budget, entry, options)
         name = f"snapshot/draw_{n}.js"
         parts = "(window.EvalSnapshotParts=window.EvalSnapshotParts||{})"
         target = f"{parts}[{json.dumps(name)}]"

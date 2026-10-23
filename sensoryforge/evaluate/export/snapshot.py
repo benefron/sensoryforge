@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -42,11 +43,14 @@ class Recording:
         entries: Key -> ``{s: status, t: content type, h: headers, b: body,
             x: 1 when the body is base64}``.
         n_bytes: Body bytes recorded so far.
+        redact: Text -> replacement applied to every JSON answer before it is kept
+            (the exporter replaces local folder paths with the folders' names).
     """
 
     api: Api
     entries: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     n_bytes: int = 0
+    redact: Dict[str, str] = field(default_factory=dict)
 
     def get(
         self, path: str, query: Optional[Mapping[str, Any]] = None
@@ -64,11 +68,10 @@ class Recording:
         target = path + ("?" + urlencode(q) if q else "")
         response = self.api.handle(Request.from_target("GET", target))
         binary = not response.content_type.startswith("application/json")
-        body = (
-            base64.b64encode(response.body).decode("ascii")
-            if binary
-            else response.body.decode("utf-8")
-        )
+        if binary:
+            body = base64.b64encode(response.body).decode("ascii")
+        else:
+            body = redacted(response.body.decode("utf-8"), self.redact)
         headers = {k: v for k, v in response.headers.items() if k.startswith("X-")}
         entry: Dict[str, Any] = {
             "s": response.status,
@@ -82,6 +85,38 @@ class Recording:
         self.entries[request_key(path, q)] = entry
         self.n_bytes += len(response.body)
         return response.status, (response.body if binary else json.loads(body))
+
+
+def redacted(text: str, redact: Mapping[str, str]) -> str:
+    """``text`` with each key of ``redact`` replaced, longest first.
+
+    Args:
+        text: A JSON answer.
+        redact: Text to replace -> its replacement.
+
+    Returns:
+        The text with every replacement made.
+    """
+    for needle in sorted(redact, key=len, reverse=True):
+        text = text.replace(needle, redact[needle])
+    return text
+
+
+def local_paths(*folders: Path) -> Dict[str, str]:
+    """A ``redact`` mapping that writes each folder's name for its local path.
+
+    Args:
+        folders: Local folders, as given and resolved.
+
+    Returns:
+        JSON-escaped path -> JSON-escaped name, for both spellings of each folder.
+    """
+    out: Dict[str, str] = {}
+    for folder in folders:
+        for spelling in {str(folder), str(Path(folder).resolve())}:
+            if Path(spelling).name and spelling not in (".", "/"):
+                out[json.dumps(spelling)[1:-1]] = json.dumps(Path(spelling).name)[1:-1]
+    return out
 
 
 def walk_queries(node: Any) -> List[str]:

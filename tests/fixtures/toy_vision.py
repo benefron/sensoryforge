@@ -3,14 +3,14 @@
 Three colour channels (``red``, ``green``, ``blue``) on a 16x16 sensor array; the
 stimulus is a soft blob drifting across one channel; two populations read it. Nothing is
 committed as data: :func:`build_toy_dataset` declares a world and a data set in code,
-builds the manifest and runs ``run_dataset`` (the engine path behind ``sensoryforge batch
---dataset``), so the result has exactly the layout a tactile data set has.
+builds the manifest and runs ``run_dataset`` (the engine path behind ``sensoryforge
+batch --dataset``), so the result has exactly the layout a tactile data set has.
 
-It is a second modality for the evaluation code (audit, comparison, server) to run on, so
-the core cannot quietly depend on touch. It is a test fixture, not a video feature.
+It is a second modality for the evaluation code (audit, comparison, server) to run on,
+so the core cannot quietly depend on touch. It is a test fixture, not a video feature.
 
-The world declares its space unit as ``px`` and writes its fields without the unit suffix
-(``sigma``, ``x``, ``speed``); the loader maps them onto the canonical names
+The world declares its space unit as ``px`` and writes its fields without the unit
+suffix (``sigma``, ``x``, ``speed``); the loader maps them onto the canonical names
 (``sigma_mm``, ...), which still appear in a draw's record, where the ``_mm`` only means
 "the world's space unit". The bundle carries ``units: {"space": "px"}``.
 

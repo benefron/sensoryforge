@@ -1,9 +1,10 @@
-"""Reference-free checks (roadmap A8): every check passes on a good data set and fails on
-a seeded fault.
+"""Reference-free checks (roadmap A8): every check passes on a good data set and fails
+on a seeded fault.
 
-A check that never fails proves nothing, so each one is run against the fault it is meant
-to catch: an array corrupted in a copy of the data set, or the engine patched to break one
-promise (determinism, symmetry, silence, finiteness, monotonicity, the input floor).
+A check that never fails proves nothing, so each one is run against the fault it is
+meant to catch: an array corrupted in a copy of the data set, or the engine patched to
+break one promise (determinism, symmetry, silence, finiteness, monotonicity, the input
+floor).
 """
 
 from __future__ import annotations
@@ -11,7 +12,9 @@ from __future__ import annotations
 import dataclasses
 import json
 import shutil
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import h5py
 import numpy as np
@@ -26,6 +29,7 @@ from sensoryforge.evaluate.checks.core_pack import CoreChecks
 from sensoryforge.evaluate.checks.run import build_check_packs, run_one
 from sensoryforge.evaluate.stage_io import clean
 from sensoryforge.evaluate.server import Api, DatasetService, Request
+from sensoryforge.evaluate.server import api as api_module
 from sensoryforge.evaluate.tactile.checks import MonotonicRate, TactileChecks
 
 STAMP = "2026-10-23T12:00:00Z"
@@ -186,6 +190,20 @@ def test_a_shifted_time_axis_fails_time_grid(broken):
     assert "steps differ" in res.failures[0].detail
 
 
+@pytest.mark.parametrize("dt", [0.1, 0.2, 1.0])
+def test_the_writers_float32_time_axis_passes_time_grid(dt):
+    # io/bundle.py stores float32 arange(T) * dt, whose steps round by up to one
+    # float32 step of the largest time (2935 of 3000 steps at dt 0.1).
+    n = 5000
+    time = (np.arange(n, dtype=np.float32) * np.float32(dt)).astype(np.float32)
+    view = SimpleNamespace(
+        time=time, dt=dt, frames=np.zeros((n, 1, 1), np.float32), populations={}
+    )
+    assert data_checks._time_problems(view) == []
+    time[100:] += np.float32(dt / 100)
+    assert "steps differ" in data_checks._time_problems(view)[0]
+
+
 def test_a_missing_bundle_fails_readable(broken):
     bundle, entry = first_bundle(broken)
     shutil.rmtree(bundle)
@@ -239,6 +257,43 @@ def test_a_run_that_differs_on_its_second_pass_fails_determinism(
     assert any("second run" in f.where for f in res.failures)
 
 
+def test_a_fresh_build_that_differs_fails_on_seeded_populations(
+    tactile_dataset, monkeypatch
+):
+    # An unseeded population elsewhere once turned every fresh-build difference into a
+    # note (F-5607a62). Seed sa, leave ra unseeded, and make every rebuilt engine drift.
+    original_config = pb.base_config
+
+    def half_seeded(ctx):
+        cfg = original_config(ctx)
+        next(p for p in cfg.populations if p.name == "sa").seed = 3
+        return cfg
+
+    original = SimulationEngine.run
+    engines = []
+
+    def rebuilt_drifts(self, stimulus, *a, **kw):
+        out = original(self, stimulus, *a, **kw)
+        if self not in engines:
+            engines.append(self)
+        if self is not engines[0]:
+            for arrays in out.values():
+                arrays["filtered"] = arrays["filtered"] + 1e-3
+        return out
+
+    monkeypatch.setattr(pb, "base_config", half_seeded)
+    monkeypatch.setattr(SimulationEngine, "run", rebuilt_drifts)
+    res = engine_checks.Determinism().run(ctx_for(tactile_dataset))
+    assert res.status == "fail"
+    assert [f.detail for f in res.failures] == ["sa.filtered differs"]
+    assert res.note.endswith(": ra")
+
+
+def test_unseeded_populations_are_always_named(tactile_dataset):
+    res = engine_checks.Determinism().run(ctx_for(tactile_dataset))
+    assert res.status == "pass" and res.note.endswith(": ra, sa")
+
+
 def test_position_dependent_input_fails_mirror_symmetry(tactile_dataset, monkeypatch):
     import torch
 
@@ -271,8 +326,6 @@ def test_a_model_that_fires_on_its_own_fails_empty_stimulus(
 
 
 def test_nan_under_saturation_fails(tactile_dataset, monkeypatch):
-    import torch
-
     def wrap(original):
         def blows_up(filtered, neuron, **kw):
             out = original(filtered, neuron, **kw)
@@ -286,6 +339,27 @@ def test_nan_under_saturation_fails(tactile_dataset, monkeypatch):
     patch_neuron_stage(monkeypatch, wrap)
     res = engine_checks.Saturation().run(ctx_for(tactile_dataset))
     assert res.status == "fail" and "non-finite" in res.failures[0].detail
+
+
+def test_event_converters_without_a_refractory_period_are_not_bounded(
+    converter_dataset,
+):
+    # level_crossing and sigma_delta emit floor(|d| / theta) events in one step by
+    # design; the per-step spike bound does not apply to them.
+    res = engine_checks.Saturation().run(ctx_for(converter_dataset(0.0)))
+    assert res.status == "pass", res.failures
+    assert res.numbers["count_bounds"] == {"ra": None, "sa": None}
+    assert "ra" in res.note and "sa" in res.note
+
+
+def test_event_converters_with_a_refractory_period_count_once_per_period(
+    converter_dataset,
+):
+    res = engine_checks.Saturation().run(ctx_for(converter_dataset(0.25)))
+    steps = res.numbers["steps_per_bin"]
+    assert res.numbers["count_bounds"] == {"ra": 4.0, "sa": 4.0} and steps == 20.0
+    assert res.status == "pass" and res.note is None
+    assert 0 < res.numbers["most_counts_in_a_bin"] <= 4
 
 
 def test_a_stimulus_that_never_reaches_the_neurons_fails_single_sensor(
@@ -333,6 +407,23 @@ def test_a_stored_readout_that_cannot_be_reproduced_fails_rerun(broken):
             poke(f)
     res = engine_checks.RerunMatches().run(ctx_for(broken, sample=1))
     assert res.status == "fail" and res.failures[0].entry
+
+
+def test_a_rerun_failure_carries_the_reruns_notes(broken, monkeypatch):
+    from sensoryforge.evaluate.server import resim
+
+    original = resim.resimulate
+
+    def noted(*a, **kw):
+        out = original(*a, **kw)
+        out.verification["matches"] = False
+        out.verification["notes"] = ["membrane noise has no noise_seed"]
+        return out
+
+    monkeypatch.setattr(resim, "resimulate", noted)
+    res = engine_checks.RerunMatches().run(ctx_for(broken, sample=1))
+    assert res.status == "fail"
+    assert res.failures[0].detail.endswith("; membrane noise has no noise_seed")
 
 
 def test_an_ignored_floor_fails_input_floor(tactile_dataset, monkeypatch):
@@ -518,11 +609,7 @@ def test_the_server_runs_the_checks_stage_and_serves_the_page(
     assert page.status == 200 and b"checks_page.js" in page.body
 
 
-# ------------------------------------------------------------------ the page's own logic
-
-import subprocess
-
-from sensoryforge.evaluate.server import api as api_module
+# ----------------------------------------------------------------- the page's own logic
 
 NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(NODE is None, reason="node is not installed")
@@ -545,11 +632,14 @@ def run_checks_js(body: str):
 def test_verdicts_groups_and_links_of_the_checks_page():
     got = run_checks_js("""
         const mk = (id, pack, status, tested, failed, note, failures) =>
-          ({ id, pack, status, tested, failed, note: note || null, failures: failures || [] });
+          ({ id, pack, status, tested, failed, note: note || null,
+             failures: failures || [] });
         const checks = [
           mk("core.a.x", "core", "pass", 12, 0),
           mk("core.a.y", "core", "fail", 14, 3, null,
-             [{ where: "t/e/1", entry: "t/e/1" }, { where: "t/e/1 / ra", entry: "t/e/1" }, { where: "probe" }]),
+             [{ where: "t/e/1", entry: "t/e/1" },
+              { where: "t/e/1 / ra", entry: "t/e/1" },
+              { where: "probe" }]),
           mk("core.a.z", "core", "skipped", 0, 0, "no floor declared"),
           mk("tactile.b.w", "tactile", "error", 0, 0, "RuntimeError: boom"),
         ];

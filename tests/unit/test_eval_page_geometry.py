@@ -227,9 +227,11 @@ def test_a_sensor_coordinate_lands_on_its_own_pixel_and_back(draw):
           const i = Math.floor(k / inp.ny), j = k % inp.ny;
           const p = G.mmToPixel(c[0], c[1], inp.bounds, inp.nx, inp.ny);
           const q = G.pixelOf(i, j, inp.nx, inp.ny);
-          if (Math.abs(p.cx - (q.cx + 0.5)) > 1e-9 || Math.abs(p.cy - (q.cy + 0.5)) > 1e-9) bad.push(k);
+          if (Math.abs(p.cx - (q.cx + 0.5)) > 1e-9 ||
+              Math.abs(p.cy - (q.cy + 0.5)) > 1e-9) bad.push(k);
           const back = G.pixelToMm(p.cx, p.cy, inp.bounds, inp.nx, inp.ny);
-          if (Math.abs(back.x - c[0]) > 1e-9 || Math.abs(back.y - c[1]) > 1e-9) bad.push(-k);
+          if (Math.abs(back.x - c[0]) > 1e-9 ||
+              Math.abs(back.y - c[1]) > 1e-9) bad.push(-k);
           const s = G.sensorAt(p.cx, p.cy, inp.nx, inp.ny);
           if (!s || s.k !== k) bad.push(k + 100000);
         });
@@ -276,7 +278,8 @@ def test_the_time_cursor_and_a_click_on_a_trace_agree():
           const x = T.xOfTime(f * dt, 0, (total - 1) * dt, w, left, right);
           out.push(T.frameOfX(x, w, left, right, dt, total));
         }
-        out.push(T.frameOfX(-50, w, left, right, dt, total), T.frameOfX(9999, w, left, right, dt, total));
+        out.push(T.frameOfX(-50, w, left, right, dt, total),
+                 T.frameOfX(9999, w, left, right, dt, total));
         return out;
         """)
     assert got == [0, 1, 37, 100, 0, 100]
@@ -285,7 +288,8 @@ def test_the_time_cursor_and_a_click_on_a_trace_agree():
 @needs_node
 def test_a_series_projects_with_gaps_and_a_flat_series_gets_a_range():
     got = run_traces("""
-        const view = { t0: 0, t1: 10, lo: 0, hi: 2, w: 110, h: 50, left: 10, right: 0, pad: 5 };
+        const view = { t0: 0, t1: 10, lo: 0, hi: 2, w: 110, h: 50,
+                       left: 10, right: 0, pad: 5 };
         const pts = T.project([0, 5, 10], [0, null, 2], view);
         return { pts, flat: T.range([3, 3, null]), empty: T.range([null]),
                  ticks: T.nonzero([0, 1, 2, 3], [0, 2, 0, -1]) };
@@ -300,11 +304,13 @@ def test_a_series_projects_with_gaps_and_a_flat_series_gets_a_range():
 def test_the_voltage_probe_note_says_match_or_the_size_of_the_difference():
     got = run_traces("""
         const fmt = (v) => v.toFixed(2);
-        const ok = { ids: [4, 12], matches: true, n_differing: 0, max_abs_difference: 0 };
-        const bad = { ids: [3], matches: false, n_differing: 1, max_abs_difference: 0.25 };
+        const ok = { ids: [4, 12], matches: true, n_differing: 0,
+                     max_abs_difference: 0 };
+        const bad = { ids: [3], matches: false, n_differing: 1,
+                      max_abs_difference: 0.25 };
         const many = { ids: [0, 1, 2, 3, 4, 5, 6, 7], matches: true, n_differing: 0 };
-        return [T.probeNote(undefined, fmt), T.probeNote(ok, fmt), T.probeNote(bad, fmt),
-                T.probeNote(many, fmt)];
+        return [T.probeNote(undefined, fmt), T.probeNote(ok, fmt),
+                T.probeNote(bad, fmt), T.probeNote(many, fmt)];
         """)
     assert got[0] == {"text": "", "ok": True}
     assert got[1] == {

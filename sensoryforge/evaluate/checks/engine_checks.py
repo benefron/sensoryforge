@@ -10,7 +10,8 @@ with the code a run uses (the same function the draw browser's voltage trace use
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+import math
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -65,8 +66,9 @@ class Determinism(Check):
     what = (
         "The engine runs the same probe stimulus twice with one seed, on one engine "
         "and on a freshly built one. Every readout, drive and filtered array must be "
-        "identical. A fresh build differs legitimately only where a population's "
-        "wiring is unseeded; that is reported as a note, not a failure."
+        "identical. A population whose wiring is unseeded draws new wiring at each "
+        "build, so the fresh build is compared on the seeded populations only; the "
+        "unseeded ones are named in the note."
     )
 
     def run(self, ctx: CheckContext) -> CheckResult:
@@ -79,21 +81,22 @@ class Determinism(Check):
             Failure("same engine, second run", f"{name} differs")
             for name in _differences(first, again)
         ]
-        note = None
         fresh = pb.run(pb.build(ctx, probe.config), frames, ctx.seed)
-        diff = _differences(first, fresh)
-        if diff:
-            unseeded = [p.name for p in probe.config.populations if p.seed is None]
-            if unseeded:
-                note = (
-                    f"a freshly built engine differs ({', '.join(diff[:6])}); "
-                    "populations without a seed draw their wiring afresh at each "
-                    f"build: {', '.join(unseeded)}"
-                )
-            else:
-                failures += [
-                    Failure("fresh engine", f"{name} differs") for name in diff
-                ]
+        # Whether an unseeded population's fresh wiring happens to match depends on
+        # the global RNG's history, so it is never compared (F-5607a62).
+        unseeded = [p.name for p in probe.config.populations if p.seed is None]
+        seeded = {k: v for k, v in first.items() if k not in unseeded}
+        failures += [
+            Failure("fresh engine", f"{name} differs")
+            for name in _differences(seeded, fresh)
+        ]
+        note = None
+        if unseeded:
+            note = (
+                "the freshly built engine is compared on seeded populations only; "
+                "populations without a seed draw their wiring afresh at each build: "
+                f"{', '.join(unseeded)}"
+            )
         return CheckResult(
             "fail" if failures else "pass",
             tested=2,
@@ -268,9 +271,11 @@ class Saturation(Check):
     title = "Saturating stimulus"
     what = (
         f"The probe stimulus at {SATURATION_FACTOR:g} times the data's peak value, "
-        "noise off. Every array must be finite and no population may count more "
-        "spikes in a bin "
-        "than it has integration steps."
+        "noise off. Every array must be finite. A spiking neuron model may count at "
+        "most one spike per integration step in a bin; an event converter with a "
+        "refractory period of R steps at most ceil(steps / R) events. An event "
+        "converter with no refractory period emits as many events in one step as "
+        "its input crosses levels, so its count is not bounded and not tested."
     )
 
     def run(self, ctx: CheckContext) -> CheckResult:
@@ -278,29 +283,73 @@ class Saturation(Check):
         out = pb.run(probe, pb.pattern(probe, SATURATION_FACTOR * ctx.peak()), ctx.seed)
         sim = probe.config.simulation
         steps = float(sim.dt_ms) / float(sim.integrate_dt_ms)
+        bounds = {
+            p["name"]: _count_bound(p["neuron"], steps)
+            for p in probe.engine.populations
+        }
         failures = []
         most = 0.0
+        unbounded = []
         for name, arrays in out.items():
             bad = [k for k, v in arrays.items() if v.size and not np.isfinite(v).all()]
             if bad:
                 failures.append(Failure(name, f"non-finite: {', '.join(bad)}"))
             key = pb.readout_of(arrays)
-            if key in ("spikes", "events") and arrays[key].size:
-                top = float(np.abs(arrays[key]).max())
-                most = max(most, top)
-                if top > steps + 1e-6:
-                    failures.append(
-                        Failure(
-                            name, f"{top:g} counts in one bin, at most {steps:g} steps"
-                        )
-                    )
+            if key not in ("spikes", "events") or not arrays[key].size:
+                continue
+            bound = bounds.get(name, steps)
+            if bound is None:
+                unbounded.append(name)
+                continue
+            top = float(np.abs(arrays[key]).max())
+            most = max(most, top)
+            if top > bound + 1e-6:
+                failures.append(
+                    Failure(name, f"{top:g} counts in one bin, at most {bound:g}")
+                )
+        note = None
+        if unbounded:
+            note = (
+                "count bound not tested for event converters with no refractory "
+                f"period (one step may hold many events): {', '.join(unbounded)}"
+            )
         return CheckResult(
             "fail" if failures else "pass",
             tested=len(out),
             failed=len(failures),
             failures=failures,
-            numbers={"most_counts_in_a_bin": most, "steps_per_bin": steps},
+            numbers={
+                "most_counts_in_a_bin": most,
+                "steps_per_bin": steps,
+                "count_bounds": {k: v for k, v in bounds.items() if k in out},
+            },
+            note=note,
         )
+
+
+def _count_bound(neuron: Any, steps: float) -> Optional[float]:
+    """Most counts a population's neuron can give in one bin of ``steps`` steps.
+
+    Args:
+        neuron: The population's neuron module.
+        steps: Integration steps per bin.
+
+    Returns:
+        ``steps`` for a spiking neuron model; ``ceil(steps / R)`` for an event
+        converter whose refractory period is ``R`` steps; ``None`` for an event
+        converter with no refractory period (no per-step bound).
+    """
+    from sensoryforge.neurons.event_encoders import (
+        LevelCrossingNeuron,
+        SigmaDeltaNeuron,
+        _refractory_steps,
+    )
+
+    if not isinstance(neuron, (LevelCrossingNeuron, SigmaDeltaNeuron)):
+        return steps
+    if neuron.refractory_ms <= 0:
+        return None
+    return float(math.ceil(steps / _refractory_steps(neuron.refractory_ms, neuron.dt)))
 
 
 # -------------------------------------------------------------------- re-runs
@@ -367,11 +416,13 @@ class RerunMatches(Check):
             v = re.verification
             worst = max(worst, float(v.get("max_abs_difference") or 0.0))
             if not v["matches"]:
+                # the re-run's own notes say why it may not reproduce (unseeded noise)
+                why = "".join(f"; {n}" for n in v.get("notes") or [])
                 failures.append(
                     Failure(
                         f"{entry} / {pop}",
                         f"{v['n_differing']} of {v['n_units']} neurons differ "
-                        f"(largest {v.get('max_abs_difference')})",
+                        f"(largest {v.get('max_abs_difference')}){why}",
                         entry,
                     )
                 )
@@ -387,16 +438,19 @@ class RerunMatches(Check):
 
 
 class InputFloor(Check):
-    """A declared input floor acts as a clip of the neuron's input."""
+    """The neuron stage applies the declared floor as a clip of its input."""
 
     id = "core.run.input_floor"
     pack = "core"
     scope = "entry"
-    title = "Declared input floor is applied"
+    title = "Neuron stage applies the declared floor"
     what = (
-        "Where a population declares an input floor, running its neuron stage with the "
-        "floor must equal running it on the stored filtered input clipped at the floor "
-        "with no floor: the neuron never sees a current below it."
+        "Where a population declares an input floor, its neuron stage re-run from the "
+        "stored filtered input with that floor must equal the same stage run with no "
+        "floor on the input clipped at it: the stage never passes a current below the "
+        "floor the bundle declares. This tests the neuron stage, not the stored data: "
+        "whether the stored readout was made with that floor is "
+        "core.run.rerun_matches's question."
     )
 
     def run(self, ctx: CheckContext) -> CheckResult:

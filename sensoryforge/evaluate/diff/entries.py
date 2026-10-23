@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from sensoryforge.evaluate.audit.reader import EntryView
 from sensoryforge.evaluate.diff.arrays import (
+    DIFF_RTOL,
     DIFFERENT,
     EQUIVALENT,
     IDENTICAL,
@@ -34,7 +35,7 @@ def compare_entry(
     a: EntryView,
     b: EntryView,
     atol: float = FLOAT32_GOLDEN_ATOL,
-    rtol: float = 0.0,
+    rtol: float = DIFF_RTOL,
 ) -> Dict[str, Any]:
     """Compare one entry of the baseline run with the same entry of the new run.
 

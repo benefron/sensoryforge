@@ -21,8 +21,12 @@ from sensoryforge.evaluate.checks.base import (
     Failure,
 )
 
-#: Relative tolerance on the spacing of frame times (they are float64 multiples of dt).
+#: Relative tolerance on the spacing of frame times.
 TIME_TOLERANCE = 1e-6
+
+#: Float32 steps of the largest time allowed in one frame step. The writer stores
+#: ``float32(arange(T) * dt)``, whose steps round by up to one step of the largest time.
+TIME_ULPS = 4
 
 _PASS_KEYS = ("readable", "finite", "readout_values", "time_grid")
 
@@ -68,8 +72,13 @@ def _time_problems(view: EntryView) -> List[str]:
             if array.shape[0] != n:
                 bad.append(f"{name} {label} has {array.shape[0]} rows for {n} frames")
     if n > 1 and np.isfinite(view.time).all():
-        steps = np.diff(view.time)
-        off = np.abs(steps - view.dt) > TIME_TOLERANCE * max(view.dt, 1e-12)
+        steps = np.diff(np.asarray(view.time, dtype=np.float64))
+        span = float(np.abs(view.time).max())
+        tol = max(
+            TIME_TOLERANCE * max(view.dt, 1e-12),
+            TIME_ULPS * float(np.spacing(np.float32(span))),
+        )
+        off = np.abs(steps - view.dt) > tol
         if off.any():
             first = int(np.flatnonzero(off)[0])
             bad.append(

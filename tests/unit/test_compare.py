@@ -403,7 +403,7 @@ def test_group_and_data_set_rows_pair_the_summaries_stat_by_stat(by_hand):
 
 
 def test_group_summaries_cover_the_same_entries_on_both_sides(tmp_path):
-    """The audit measures 3 entries; the declaration fixes the key for only 2 of them."""
+    """The audit measures 3 entries; the declaration fixes the key for only 2."""
     key = ("core.frames.centroid_x", None, None)
     measured = {"e1": 1.0, "e2": 2.0, "e3": 9.0}
     declared = {"e1": 1.0, "e2": 2.0}  # e3's declaration leaves the centroid out

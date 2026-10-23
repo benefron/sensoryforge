@@ -34,8 +34,8 @@ ANALOG = {
 def _run(root: Path, *, per_population=None, run_wide=None, sparse=False) -> Path:
     """The toy data set with optional ``voltage_probes`` keys, built in *root*.
 
-    The weights are written dense unless *sparse* (2.5.0, A11d): these tests pin what the
-    probes change on top of the dense layout 2.3.0 and 2.4.0 wrote.
+    The weights are written dense unless *sparse* (2.5.0, A11d): these tests pin what
+    the probes change on top of the dense layout 2.3.0 and 2.4.0 wrote.
     """
     spec = toy_vision.toy_spec(2, DURATION)
     entries = toy_vision.build_dataset(spec)

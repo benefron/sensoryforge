@@ -10,7 +10,7 @@ exists, ``checks.json``; the class label is used as a grouping key and nothing m
 | `did_not_run` | batch index says it failed or has no row | 1.0 |
 | `bad_data` | `checks.json` lists it under a failed `core.data.*` check | 1.0 |
 | `silent` | population fires nothing though the stimulus was active (rarely) | 0.8 |
-| `saturated` | population spikes in at least `saturation` of its bins | 0.7-0.9 |
+| `saturated` | population's mean count per bin per unit >= `saturation` | 0.7-0.9 |
 | `class_mismatch` | frame statistics fit another class better than its own | 0.5-0.9 |
 | `outlier_rate` | population's mean rate is a robust-z outlier in its class | 0.3-0.9 |
 | `long_quiet` | longest stimulus gap is a robust-z outlier in its class | 0.3-0.9 |
@@ -23,7 +23,7 @@ than once in two 1 ms bins (the tactile recipes' setting).
 An outlier is a robust z-score ``(x - median) / scale`` among entries of the same class
 (or split, for entries without a class), with ``scale = 1.4826 * MAD`` floored at the
 metric's resolution (so a class whose members all agree exactly still has a scale) and
-at a twentieth of the whole data set's standard deviation. A class needs
+at a twentieth of the group's own standard deviation. A class needs
 ``min_peers`` entries to be judged.
 
 This is a viewer module, not the blind audit.
@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import math
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -79,7 +80,8 @@ SIGNALS: Dict[str, Dict[str, str]] = {
     },
     "saturated": {
         "title": "Saturated",
-        "what": "A population spiked in at least the saturation fraction of its bins.",
+        "what": "A population's mean count per bin per unit reached the saturation "
+        "threshold.",
     },
     "class_mismatch": {
         "title": "Class mismatch",
@@ -271,7 +273,8 @@ class Gallery:
         """The JSON the page draws.
 
         Args:
-            signals: Keep entries flagged by any of these signals (default all).
+            signals: Keep entries flagged by any of these signals (``None``: all;
+                an empty list: none).
             split: Keep these splits.
             classes: Keep these classes (``~`` for none).
             limit: How many entries to return, worst first.
@@ -281,7 +284,7 @@ class Gallery:
             params}``;
             ``total`` counts the matching entries, ``items`` the first ``limit``.
         """
-        chosen = set(signals) if signals else None
+        chosen = None if signals is None else set(signals)
         items = []
         for item in self.items:
             if split and item["split"] not in split:
@@ -490,29 +493,31 @@ def _class_mismatch(
     if x is None or not names:
         return "no frame statistic varies across the data set"
     idx = {c: [i for i, lab in enumerate(labels) if lab == c] for c in classes}
-    centres = np.array([np.nanmedian(x[idx[c]], axis=0) for c in classes])
-    within = np.array(
-        [
-            1.4826 * np.nanmedian(np.abs(x[idx[c]] - centres[k]), axis=0)
-            for k, c in enumerate(classes)
-        ]
-    )
-    scale = np.maximum(np.nanmedian(within, axis=0), 0.05 * np.nanstd(x, axis=0))
-    scale = np.maximum(scale, 1e-12)
+    with warnings.catch_warnings():
+        # a class that lacks a feature has a NaN centre there; it is left out below
+        warnings.simplefilter("ignore", RuntimeWarning)
+        centres = np.array([np.nanmedian(x[idx[c]], axis=0) for c in classes])
+        within = np.array(
+            [
+                1.4826 * np.nanmedian(np.abs(x[idx[c]] - centres[k]), axis=0)
+                for k, c in enumerate(classes)
+            ]
+        )
+        scale = np.maximum(np.nanmedian(within, axis=0), 0.05 * np.nanstd(x, axis=0))
+    scale = np.where(np.isfinite(scale), np.maximum(scale, 1e-12), np.nan)
     for i, label in enumerate(labels):
         if label not in idx:
             continue
-        have = np.isfinite(x[i])
-        if not have.any():
-            continue
-        dist = np.array(
-            [
-                np.mean(np.abs(x[i, have] - centres[k, have]) / scale[have])
-                for k in range(len(classes))
-            ]
-        )
+        dist = np.full(len(classes), np.nan)
+        for k in range(len(classes)):
+            # the features this entry and this class's centre both have
+            have = np.isfinite(x[i]) & np.isfinite(centres[k]) & np.isfinite(scale)
+            if have.any():
+                dist[k] = np.mean(np.abs(x[i, have] - centres[k, have]) / scale[have])
         own = classes.index(label)
-        best = int(np.argmin(dist))
+        if not np.isfinite(dist[own]):
+            continue
+        best = int(np.nanargmin(dist))
         if best == own:
             continue
         ratio = dist[own] / max(dist[best], 1e-9)
@@ -591,7 +596,9 @@ def build_gallery(
         )
     else:
         for row in checks.get("checks", []):
-            if row["id"].startswith("core.data.") and row["id"] != "core.data.readable":
+            # an unreadable bundle is flagged here even when its batch status is ok,
+            # which did_not_run does not see
+            if row["id"].startswith("core.data."):
                 for f in row["failures"]:
                     if f.get("entry"):
                         add(

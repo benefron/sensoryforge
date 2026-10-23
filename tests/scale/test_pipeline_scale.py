@@ -1,13 +1,13 @@
 """The large run: thousands of draws from a world file to a report (roadmap A11b/A11c).
 
 Skipped unless asked for (``pytest -m scale``). The size comes from the environment
-(``SF_SCALE_DRAWS``, default 1000, for the plain run; ``SF_SCALE_MATRIX_DRAWS``, default 500,
-for the matrix, whose bundles are about 2 MB each; ``SF_SCALE_DURATION_MS``, default 100;
-see ``conftest.py``). The first test is the plain run on the 8x8 test sensor; the second is
-the matrix: both tactile recipes (80x80 sensors) on both test worlds, with sessions and,
-where the world has them, held-out classes and probes (A11c). Both check the invariants
-of the small run at the large size and print the time of every stage. Peak memory is not
-compared across runs (F-056); the time per
+(``SF_SCALE_DRAWS``, default 1000, for the plain run; ``SF_SCALE_MATRIX_DRAWS``, default
+500, for the matrix, whose bundles are about 2 MB each; ``SF_SCALE_DURATION_MS``,
+default 100; see ``conftest.py``). The first test is the plain run on the 8x8 test
+sensor; the second is the matrix: both tactile recipes (80x80 sensors) on both test
+worlds, with sessions and, where the world has them, held-out classes and probes (A11c).
+Both check the invariants of the small run at the large size and print the time of every
+stage. Peak memory is not compared across runs (F-056); the time per
 stage is printed for a person to read and asserted nowhere. The disk guard in
 ``pipeline_runs.py`` refuses a case that would write more than ``SF_SCALE_MAX_GB``.
 """

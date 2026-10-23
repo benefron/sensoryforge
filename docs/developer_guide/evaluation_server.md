@@ -268,18 +268,20 @@ signal never outranks `did_not_run` or `bad_data`):
 | signal | flags an entry whose ... | severity |
 |---|---|---|
 | `did_not_run` | batch index says it failed or has no row | 1 |
-| `bad_data` | `checks.json` lists it under a failed `core.data.*` check (NaN or infinity, non-integer counts, an irregular time axis) | 1 |
+| `bad_data` | `checks.json` lists it under a failed `core.data.*` check (NaN or infinity, non-integer counts, an irregular time axis, a bundle that does not open even though the batch says `ok`) | 1 |
 | `silent` | population fires nothing although the stimulus was active, and that is rare in its class | 0.8 |
-| `saturated` | population spikes in at least 0.5 of its bins per unit | 0.7-0.9 |
+| `saturated` | population's mean count per bin per unit is at least 0.5 | 0.7-0.9 |
 | `class_mismatch` | frame statistics (peak, mean, footprint, spread, centroid, ... per channel) fit another class's profile at least 1.5 times better than its own | 0.5-0.9 |
 | `outlier_rate` | population's mean rate has a robust z of at least 3.5 among its class's entries | 0.3-0.9 |
 | `long_quiet` | longest stimulus gap has a robust z of at least 3.5 among its class's entries (no gap counts as 0) | 0.3-0.9 |
 
 The *inferred* class of `class_mismatch` is the class whose median profile is nearest in
-scaled distance (each statistic scaled by the classes' pooled robust spread); a class needs 5
+scaled distance (each statistic scaled by the classes' pooled robust spread, and taken over
+the statistics both the entry and that class have, so a class that lacks one is still
+compared on the rest); a class needs 5
 entries to have a profile and 8 to have outliers judged. A robust z is
 `(x - median) / scale` with `scale = 1.4826 * MAD` floored at the metric's resolution and at a
-twentieth of the data set's standard deviation, so a class whose members agree exactly still
+twentieth of the group's own standard deviation, so a class whose members agree exactly still
 has a scale. A population silent for more than half of a class's active entries is a property
 of the class (it reads a channel the class never drives), so it is listed once under "Silent
 for most of a class", not per entry. The saturation threshold is an assumption with its

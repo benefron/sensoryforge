@@ -303,7 +303,7 @@ class TactileAdapter(DeclaredAdapter):
             out[f"core.frames.{key}"] = (
                 stat(gaps) if gaps else _Omit("fewer than two bouts")
             )
-        # Frames that go to 0 inside a contact cut it into bouts the timeline cannot see.
+        # Frames that go to 0 inside a contact cut it into bouts the timeline misses.
         if any(
             layer is not None and _reaches_zero(layer)
             for layer in (d.to_layer() for _s, d in mine)

@@ -4,8 +4,8 @@ The audit's per-entry rows (``audit_entries.jsonl``) of the baseline and the new
 paired by entry and by metric key ``(id, channel, population)``. For each key: how many
 pairs, how many changed beyond the tolerance, the mean of each side and the largest
 change and the entry that holds it. A number changed when it moved by more than
-``atol + rtol * |baseline|`` (the golden tolerance by default); a string or integer
-count changed when it is not equal.
+``atol + rtol * |baseline|`` (the golden ``atol`` and two float32 steps of ``rtol`` by
+default); a string or integer count changed when it is not equal.
 """
 
 from __future__ import annotations
@@ -104,7 +104,8 @@ def metric_deltas(
                 xs.append(na)
                 ys.append(nb)
                 delta = abs(nb - na)
-                if delta > atol + rtol * abs(na):
+                exact = isinstance(va, int) and isinstance(vb, int)
+                if delta > (0.0 if exact else atol + rtol * abs(na)):
                     changed += 1
                     if worst is None or delta > worst:
                         worst, worst_entry = delta, entry

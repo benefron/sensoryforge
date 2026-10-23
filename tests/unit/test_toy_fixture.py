@@ -1,4 +1,4 @@
-"""The toy non-tactile data set (roadmap A1b): it builds, and it holds its declared statistics."""
+"""The toy non-tactile data set (A1b): it builds and holds its declared statistics."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def test_populations_respond_to_blobs_and_stay_quiet_on_dark(built):
 
 
 def test_frames_hold_the_declared_statistics(built):
-    """Measured from the frames alone against the draw's record: the point of the fixture."""
+    """Measured from the frames alone against the draw's record: the fixture's point."""
     canvas = Canvas.from_grid_config(toy.toy_config().grids[0])
     xx, yy = canvas.xx.numpy(), canvas.yy.numpy()
     checked = 0
@@ -111,7 +111,7 @@ def test_frames_hold_the_declared_statistics(built):
             w = frames[k]
             return (w * xx).sum() / w.sum(), (w * yy).sum() / w.sum()
 
-        # keep the blob well inside the array so the array's edge does not bias the centroid
+        # keep the blob well inside the array so its edge does not bias the centroid
         sigma, speed = values["sigma_mm"], values["speed_mm_per_ms"]
         theta = math.radians(values["direction_deg"])
         x0, y0 = values["x_mm"], values["y_mm"]

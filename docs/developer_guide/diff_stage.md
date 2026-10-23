@@ -20,7 +20,7 @@ tolerance), 1 when the runs differ, 2 on a usage or data error.
 
 | option | meaning |
 |---|---|
-| `--atol`, `--rtol` | the tolerance (default: the golden fixtures', `atol` 2e-7, `rtol` 0) |
+| `--atol`, `--rtol` | the tolerance (default: the golden fixtures' `atol` 2e-7, and `rtol` 2⁻²², two float32 steps) |
 | `--no-metrics` | skip the per-metric deltas (no audits are run) |
 | `--packs` | metric packs of the two audits (default `core`) |
 | `--audit-baseline`, `--audit-new` | reuse a folder that already holds that side's audit |
@@ -42,12 +42,20 @@ times and each population's readout (spikes, events or state), drive and filtere
 Each array is compared along its time axis, value by value, and ends up **identical** (bit for
 bit), **equivalent** (a difference within the tolerance) or **different**.
 
-The tolerance is `sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL`, the one the golden
-fixtures use. It exists because another processor rounds float32 differently in the last step
-(measured up to 6e-8, roughly 3 times below `atol`); a diff that flagged that would report a
-change on every machine. Spike and event counts are whole numbers, so any change in one is a
-difference, never rounding. Comparisons *within* one process stay bit-exact by convention, so
-if you compare two runs from the same machine, pass `--atol 0` to see every last step.
+A value is beyond the tolerance when it moved by more than `atol + rtol · |baseline|`. The
+tolerance exists because another processor rounds float32 differently in the last step; a diff
+that flagged that would report a change on every machine. It has two parts:
+
+- `atol` is `sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL` (2e-7), the one the golden
+  fixtures use. It covers values below 1, where one float32 step is at most 6e-8.
+- `rtol` is two float32 steps (`DIFF_RTOL` = 2⁻²² in `sensoryforge.evaluate.diff.arrays`). It
+  covers larger values: drives and filtered currents reach tens to hundreds of mA, and one
+  float32 step at 40 mA is 3.8e-6, far above `atol`.
+
+Spike and event counts are whole numbers, so integer arrays and integer metric values are
+compared exactly: any change in one is a difference, never rounding. Comparisons *within* one
+process stay bit-exact by convention, so if you compare two runs from the same machine, pass
+`--atol 0 --rtol 0` to see every last step.
 
 An entry's **first divergence** is the earliest frame, over all its arrays, at which a value is
 beyond the tolerance. That is where to look first: a change that starts at frame 0 touches the

@@ -223,7 +223,8 @@ Schema 2.5.0 (A11d) changes how a population file `population_NN_<NAME>.pt` stor
 receptive-field weights, not any draw, frame, seed, entry id or `data.h5` field. When under 10% of the
 `[N, M]` weights are nonzero (every shipped recipe: 0.4%) the file has no `innervation_weights`; it has
 `innervation_weights_indices` (int64 `[2, nnz]`, neuron then receptor, row-major, no repeated pair),
-`innervation_weights_values` (float32 `[nnz]`) and `innervation_weights_shape` (`[N, M]`), plain tensors
+`innervation_weights_values` (float32 `[nnz]`; every nonzero weight, and any `-0.0`, so a zero's sign
+survives) and `innervation_weights_shape` (`[N, M]`), plain tensors
 that `torch.load(weights_only=True)` reads on torch 2.2.2. A bundle with such a file says 2.5.0 (it also
 covers probes); a bundle with only dense files is written as before. A reader picks the layout by the keys
 present. pressure-simulation's reader (`decoding/io/bank_weights.py`) expands it bit for bit. See

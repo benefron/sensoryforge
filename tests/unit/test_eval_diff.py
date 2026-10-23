@@ -1,9 +1,9 @@
 """Run-to-run diff (roadmap A10): a change that alters nothing reports zero differences.
 
-A tactile data set is compared with an untouched copy (identical), with a copy whose float
-values moved by one float32 step (equivalent: platform rounding is not flagged) and with
-copies altered in one entry in a known place (different, with the first diverging frame,
-the array and the metric that moved named).
+A tactile data set is compared with an untouched copy (identical), with a copy whose
+float values moved by one float32 step (equivalent: platform rounding is not flagged)
+and with copies altered in one entry in a known place (different, with the first
+diverging frame, the array and the metric that moved named).
 """
 
 from __future__ import annotations
@@ -18,7 +18,13 @@ import pytest
 
 from sensoryforge.evaluate.diff import compare_arrays, run_diff
 from sensoryforge.evaluate.diff.__main__ import main
-from sensoryforge.evaluate.diff.arrays import DIFFERENT, EQUIVALENT, IDENTICAL
+from sensoryforge.evaluate.diff.arrays import (
+    DIFF_RTOL,
+    DIFFERENT,
+    EQUIVALENT,
+    IDENTICAL,
+)
+from sensoryforge.evaluate.diff.metrics import metric_deltas
 from sensoryforge.testing.golden import FLOAT32_GOLDEN_ATOL
 
 STAMP = "2026-10-23T16:00:00Z"
@@ -57,7 +63,7 @@ def identical(tactile_dataset, tmp_path_factory):
     return doc, root / "out", new
 
 
-# ----------------------------------------------------------------- a change that does nothing
+# ---------------------------------------------------------- a change that does nothing
 
 
 def test_a_no_op_reports_zero_differences(identical):
@@ -97,6 +103,25 @@ def test_the_files_are_deterministic_and_valid(identical, tactile_dataset, tmp_p
     row_validator = jsonschema.Draft202012Validator(row_schema, registry=registry)
     for row in rows(out):
         row_validator.validate(row)
+
+
+def test_pairing_reads_each_sides_index_a_fixed_number_of_times(
+    identical, tactile_dataset, tmp_path, monkeypatch
+):
+    # Rebuilding both entry dicts for every entry made pairing O(N^2) (8000 entries:
+    # 5.9 s just to pair).
+    from sensoryforge.evaluate.audit.reader import DatasetReader
+
+    reads = {"n": 0}
+    original = DatasetReader.rows
+
+    def counted(self):
+        reads["n"] += 1
+        return original.fget(self)
+
+    monkeypatch.setattr(DatasetReader, "rows", property(counted))
+    run_diff(tactile_dataset, identical[2], tmp_path, metrics=False, created_at=STAMP)
+    assert len(entries(tactile_dataset)) > 4 and reads["n"] <= 6
 
 
 def test_the_command_line_exit_code_for_no_difference(
@@ -325,6 +350,41 @@ def test_compare_arrays_statuses_and_first_step():
     )
 
 
+@pytest.mark.parametrize("value", [0.5, 3.0, 40.0])
+def test_one_float32_step_is_equivalent_at_any_magnitude(value):
+    # A Linux run rounds the last step of a drive or filtered current differently from
+    # the macOS baseline; at 40 mA that step (3.8e-6) is far above the golden atol.
+    a = np.full((4, 3), value, dtype=np.float32)
+    b = a.copy()
+    b[1, 2] = np.nextafter(np.float32(value), np.float32(np.inf))
+    assert compare_arrays(a, b)["status"] == EQUIVALENT
+    b[1, 2] = a[1, 2] * np.float32(1 + 2**-18)
+    assert compare_arrays(a, b)["status"] == DIFFERENT
+    deltas = metric_deltas(
+        {"e": {("m", None, None): float(a[1, 2])}},
+        {"e": {("m", None, None): float(np.nextafter(a[1, 2], np.float32(99)))}},
+        ["e"],
+        FLOAT32_GOLDEN_ATOL,
+        DIFF_RTOL,
+    )
+    assert deltas[0]["n_changed"] == 0
+
+
+def test_integer_readouts_are_compared_exactly():
+    a = np.full((3, 2), 2**25, dtype=np.int64)
+    b = a.copy()
+    b[0, 0] += 1  # within 2 float32 steps of the value, but a count is a count
+    assert compare_arrays(a, b)["status"] == DIFFERENT
+    deltas = metric_deltas(
+        {"e": {("n", None, None): 2**25}},
+        {"e": {("n", None, None): 2**25 + 1}},
+        ["e"],
+        FLOAT32_GOLDEN_ATOL,
+        DIFF_RTOL,
+    )
+    assert deltas[0]["n_changed"] == 1
+
+
 def test_compare_arrays_nan_and_shapes():
     a = np.array([[1.0, np.nan], [2.0, 3.0]])
     assert compare_arrays(a, a.copy())["status"] == IDENTICAL
@@ -343,7 +403,7 @@ def test_compare_arrays_nan_and_shapes():
 
 
 def test_two_engine_runs_of_one_data_set_show_no_difference(tactile_dataset, tmp_path):
-    """The done-when: running the same data set again (same code, same seed) is a no-op."""
+    """The done-when: running one data set again (same code, same seed) is a no-op."""
     import yaml
 
     from sensoryforge.io.design import load_design

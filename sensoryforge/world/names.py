@@ -99,7 +99,7 @@ def _axes(mapping: Any, table: Dict[str, str], where: str) -> Any:
 
 
 def _layer(layer: Any, table: Dict[str, str], where: str) -> Any:
-    """A class's ``layer``: the field names inside shape, pattern, modulation, motion."""
+    """A class's ``layer``: the field names in shape, pattern, modulation, motion."""
     if not isinstance(layer, dict):
         return layer
     out = dict(layer)

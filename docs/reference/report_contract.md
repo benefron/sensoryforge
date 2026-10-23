@@ -624,7 +624,7 @@ only the sections named, and needs a new decision.
 | Q7 | Episode phases (rise, plateau, fall) and plateau speed are tactile metrics; everything else is core | 6, 7 |
 | Q8 | No verdicts in `compare.json`; checks (A8) write their own file | 9 |
 | Q9 | Packs are chosen explicitly, never detected from the world; default `core` | 10 |
-| Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference (decided in A10, not yet reviewed) | 14 |
+| Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`, with a relative term of two float32 steps added in the R-A review), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference (decided in A10, not yet reviewed) | 14 |
 | Q10 | The reference-free checks are their own stage with their own file `checks.json` and their own registry of check packs; they read bundles through the audit's blind reader plus each bundle's `config.json`, and run the engine on probes scaled by the data's own peak (decided in A8, not yet reviewed) | 13 |
 | Q12 | The one-command pipeline never picks a pack from the world: `--packs` is the user's, default `core`; the pipeline only notes a declared adapter's same-named pack that was not run. It runs the audit in its own process. A failed stage stops it and `pipeline.json` says which (decided in A11a, not yet reviewed) | 15 |
 
@@ -699,14 +699,14 @@ rate checks. Check packs are registered in `CHECK_PACK_REGISTRY`
 | `core.data.readable` | entry | the batch index lists the entry as `ok` and its bundle opens | every entry does |
 | `core.data.finite` | entry | frames, time, drive, filtered and readout arrays | none holds NaN or infinity |
 | `core.data.readout_values` | entry | spike and event counts | whole numbers; spike counts not negative |
-| `core.data.time_grid` | entry | frame times and array lengths | times rise by `dt` (relative 1e-6); every array has one row per frame |
-| `core.run.determinism` | probe | one probe stimulus run twice with one seed, on one engine and on a freshly built one | every readout, drive and filtered array is identical; a fresh build may differ only where a population has no wiring seed (a note) |
+| `core.data.time_grid` | entry | frame times and array lengths | times rise by `dt`, within the larger of 1e-6 · `dt` and 4 float32 steps of the largest time (the writer stores `float32(arange(T) · dt)`); every array has one row per frame |
+| `core.run.determinism` | probe | one probe stimulus run twice with one seed, on one engine and on a freshly built one | every readout, drive and filtered array is identical; the fresh build is compared on the populations with a wiring seed only, and the note names every population without one |
 | `core.run.mirror_symmetry` | probe | each population replaced by one neuron per sensor (`template`, `k = 1`), no noise; the probe and its mirror along each grid axis | the mirrored run's arrays equal the mirror of the first, bit for bit |
 | `core.run.empty_stimulus` | probe | an all-zero stimulus, no noise | arrays finite and no spike or event (a model that fires with no input fails, on purpose) |
 | `core.run.single_sensor` | probe | one sensor at the data's peak, no noise | arrays finite and some population's drive non-zero |
-| `core.run.saturation` | probe | the probe at 1000 × the data's peak, no noise | arrays finite and no more counts in a bin than integration steps |
-| `core.run.rerun_matches` | entry | `sample` entries; each population's neuron stage re-run from its stored `filtered` (the code a run uses) | the stored readout is reproduced exactly |
-| `core.run.input_floor` | entry | the same, for populations that declare an input floor, run with the floor and on the input clipped at it | the two voltage traces are equal |
+| `core.run.saturation` | probe | the probe at 1000 × the data's peak, no noise | arrays finite; a spiking neuron model counts at most one spike per integration step in a bin; an event converter (`level_crossing`, `sigma_delta`) with a refractory period of R steps at most `ceil(steps / R)` events; one with no refractory period emits `floor(|d| / θ)` events in a step by design, so its count is not tested (named in the note) |
+| `core.run.rerun_matches` | entry | `sample` entries; each population's neuron stage re-run from its stored `filtered` (the code a run uses) | the stored readout is reproduced exactly; a failure's detail carries the re-run's notes (for example unseeded membrane noise) |
+| `core.run.input_floor` | entry | the same, for populations that declare an input floor, run with the floor and on the input clipped at it | the two voltage traces are equal: the neuron stage applies the declared floor (whether the stored readout was made with it is `core.run.rerun_matches`'s test) |
 | `core.run.voltage` | entry | the re-run's membrane voltage | finite, and inside `--voltage-bounds LOW,HIGH` (mV) when given; no bounds are assumed |
 | `core.world.prefix_stable` | dataset | the data set's world and seed sampled at n = 32 and 64, and single draws by index | draw *i* is identical however many draws are asked for |
 | `tactile.rate.monotonic` | probe | a held Gaussian indentation at 0.1 … 1.0 of the data's peak, no noise, for each population using the `sa` filter | no neuron's spike count over the hold falls from one level to the next by more than `tolerance` (default 0) |
@@ -732,8 +732,8 @@ reads audits it is given). It reads no declaration.
   "format": "sensoryforge-diff/1",
   "created_at": "…", "producer": {"…": "…"},
   "inputs": {"baseline": {"dataset_dir": "…", "dataset_id": "d-…", "sensoryforge_sha": "…"},
-             "new": {"…": "…"}, "atol": 2e-07, "rtol": 0.0,
-             "tolerance_source": "sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL",
+             "new": {"…": "…"}, "atol": 2e-07, "rtol": 2.384185791015625e-07,
+             "tolerance_source": "atol: sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL; rtol: sensoryforge.evaluate.diff.arrays.DIFF_RTOL",
              "packs": ["core"]},
   "verdict": "different",
   "counts": {"identical": 12, "equivalent": 0, "different": 2, "only_a": 0, "only_b": 0,
@@ -753,9 +753,13 @@ reads audits it is given). It reads no declaration.
 - **Tolerance.** A value differs only when it is farther from the baseline than
   `atol + rtol · |baseline|`. The default `atol` is
   `sensoryforge.testing.golden.FLOAT32_GOLDEN_ATOL` (2e-7), the tolerance every golden
-  fixture comparison in SensoryForge shares: one float32 step that another processor rounds
-  differently is not a change. Spike and event counts are whole numbers, so any change in one
-  is a difference.
+  fixture comparison in SensoryForge shares. It covers values below 1, where one float32 step
+  is at most 6e-8. Drives and filtered currents reach tens to hundreds of mA, where one step is
+  larger (3.8e-6 at 40), so the default `rtol` is two float32 steps,
+  `sensoryforge.evaluate.diff.arrays.DIFF_RTOL` = 2⁻²² (about 2.4e-7). Together: one float32
+  step that another processor rounds differently is not a change, at any magnitude. Integer
+  arrays (spike and event counts) and integer metric values are compared exactly, whatever the
+  tolerance: any change in a count is a difference.
 - **Entry status.** Per entry, every array is compared: the stimulus frames, the frame times
   and each population's readout, drive and filtered arrays. `identical`: all bit-equal.
   `equivalent`: some differ in the last float step but all within the tolerance. `different`:
