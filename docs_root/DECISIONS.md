@@ -1067,4 +1067,6 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-794ab30 | the evaluation server reads stimulus frames in time slabs aligned to the stored HDF5 chunk and keeps decompressed slabs in one byte-bounded LRU (256 MiB default, --frame-cache-mb), with the wire format unchanged; the bundle writer's chunk shape stays | `4480018` |
 | 2026-10-23 | D-cf543bf | the evaluation server answers 403 to a Host other than the bound name or a loopback name (DNS rebinding) and to a POST whose Origin is not its own (cross-site requests) | `4480018` |
 | 2026-10-23 | D-ea6726c | a stage job always leaves running; an exception outside the expected list marks it failed as unexpected <Type> in a finally and still reaches the thread excepthook | `4480018` |
+| 2026-10-23 | D-40d072b | the trace inspector re-simulates membrane voltage on demand from the bundle's stored filtered (neuron stage only) and verifies it by matching the re-simulated spikes of every neuron against the stored spikes; bundles do not store voltage by default | `82034fc` |
+| 2026-10-23 | D-d3440b5 | voltage probes (a few fixed neurons per population, stored and matched exactly by the re-simulation) come later as an opt-in bundle field, invisible until used and with a format bump, in their own roadmap row A6p | `82034fc` |
 <!-- DECISIONS_LOG_END -->

@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-40d072b · CLOSED · decision · - · 2026-10-23
+the trace inspector re-simulates membrane voltage on demand from the bundle's stored filtered (neuron stage only) and verifies it by matching the re-simulated spikes of every neuron against the stored spikes; bundles do not store voltage by default
+→ commit 82034fc
+
+## D-d3440b5 · CLOSED · decision · - · 2026-10-23
+voltage probes (a few fixed neurons per population, stored and matched exactly by the re-simulation) come later as an opt-in bundle field, invisible until used and with a format bump, in their own roadmap row A6p
+→ commit 82034fc
+
 ## D-794ab30 · CLOSED · decision · docs · 2026-10-23
 the evaluation server reads stimulus frames in time slabs aligned to the stored HDF5 chunk and keeps decompressed slabs in one byte-bounded LRU (256 MiB default, --frame-cache-mb), with the wire format unchanged; the bundle writer's chunk shape stays
 → commit 4480018
@@ -128,9 +136,10 @@ a 32-frame chunk of a long draw costs a whole stored time slab (313, 938, 3750 f
 a stage job whose runner raises an exception outside OSError, ValueError, KeyError and RuntimeError stays running and blocks that stage until the server restarts
 → commit 4480018
 
-## F-fceb93c · OPEN · finding · docs · 2026-10-23
+## F-fceb93c · CLOSED · finding · docs · 2026-10-23
 should the trace inspector show membrane voltage, which bundles do not store (store it, a schema change; re-simulate the pinned neuron on demand; or leave it out)
 → commit 4480018
+✓ closed by 82034fc docs(plan): membrane voltage is re-simulated on demand and checked against the stored spik
 
 ## D-11c766e · CLOSED · decision · - · 2026-10-23
 frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
