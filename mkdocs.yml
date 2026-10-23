@@ -87,7 +87,6 @@ markdown_extensions:
       permalink: true
 
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
@@ -132,6 +131,9 @@ nav:
     - Presets: user_guide/presets.md
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
+    - Evaluating a World: user_guide/evaluate_pipeline.md
+    - Evaluation Browser: user_guide/evaluation_browser.md
+    - Sharing a Snapshot: user_guide/evaluation_export.md
 
   - Developer Guide:
     - Extensibility Overview: developer_guide/extensibility.md
@@ -144,6 +146,15 @@ nav:
     - GUI Forms for a Component: extending/gui_forms.md
     - Adding a Solver: extending/add_solver.md
     - Plugin Packages: developer_guide/plugins.md
+    - Toy Vision Fixture: developer_guide/toy_vision_fixture.md
+    - Audit Reader: developer_guide/audit_reader.md
+    - Audit Metrics: developer_guide/audit_metrics.md
+    - Declared Adapter: developer_guide/declared_adapter.md
+    - Raw Comparison: developer_guide/compare_stage.md
+    - Reference-free Checks: developer_guide/checks_stage.md
+    - Run-to-run Diff: developer_guide/diff_stage.md
+    - Evaluation Pipeline: developer_guide/pipeline_stage.md
+    - Evaluation Server: developer_guide/evaluation_server.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 
@@ -153,6 +164,7 @@ nav:
     - Benchmarks: reference/benchmarks.md
     - World Engine Contract: reference/world_contract.md
     - Event Converter Contract: reference/converter_contract.md
+    - Evaluation Report Contract: reference/report_contract.md
 
   - Contributing: contributing.md
 
@@ -160,5 +172,3 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/benefron/sensoryforge
-  version:
-    provider: mike

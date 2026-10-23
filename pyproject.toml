@@ -86,7 +86,12 @@ sensoryforge = "sensoryforge.cli:main"
 include = ["sensoryforge*"]
 
 [tool.setuptools.package-data]
-sensoryforge = ["config/*.yml", "presets/*.yml"]
+sensoryforge = [
+    "config/*.yml",
+    "presets/*.yml",
+    "evaluate/server/static/*",
+    "evaluate/export/static/*",
+]
 
 [tool.black]
 line-length = 88

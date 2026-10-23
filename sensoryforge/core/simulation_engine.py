@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import random
 import warnings
-from typing import Callable, Dict, List, Any, Optional, Tuple
+from typing import Callable, Dict, List, Any, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -845,6 +845,7 @@ class SimulationEngine:
         bundle_overwrite: bool = False,
         progress_cb: Optional[Callable[[int, int, str], None]] = None,
         design_manifest: Optional[Dict[str, Any]] = None,
+        sparse_weights: Union[bool, str] = "auto",
     ) -> Dict[str, Any]:
         """Run simulation with given stimulus.
 
@@ -888,6 +889,9 @@ class SimulationEngine:
                 and ``seed`` (innervation wiring, F-006 open). Also seeds the
                 receptor noise when ``simulation.receptor_noise_seed`` is unset.
             bundle_overwrite: Passed to :func:`~sensoryforge.io.bundle.write_bundle`.
+            sparse_weights: Passed to :func:`~sensoryforge.io.bundle.write_bundle`
+                (how a bundle stores receptive-field weights; ``False`` writes them
+                dense).
             progress_cb: If given, called once per population as
                 ``progress_cb(index, n_populations, population_name)``, immediately
                 before that population's filter/neuron pass (so at call time
@@ -1057,6 +1061,7 @@ class SimulationEngine:
                 seed=seed,
                 overwrite=bundle_overwrite,
                 design_manifest=design_manifest,
+                sparse_weights=sparse_weights,
             )
 
         if not return_intermediates and bundle_dir is not None:
@@ -1286,9 +1291,64 @@ class SimulationEngine:
 
         filtered = filtered.float()
 
-        # F-008: hold the (record-step) drive constant across n sub-steps
-        # per bin, then run the neuron once over the whole sub-stepped
-        # sequence so its state carries continuously across bins.
+        stage = SimulationEngine._run_neuron_stage(
+            filtered,
+            neuron_model,
+            dt_ms=dt_ms,
+            integrate_dt_ms=integrate_dt_ms,
+            noise_generator=noise_generator,
+            input_floor=input_floor,
+        )
+        pop_results: Dict[str, Any] = {}
+        for key in ("spikes", "events", "state"):
+            if key in stage:
+                pop_results[key] = stage[key]
+        if return_intermediates:
+            pop_results["drive"] = drive
+            pop_results["filtered"] = filtered
+            if "voltages" in stage:
+                pop_results["voltages"] = stage["voltages"]
+        return pop_results
+
+    @staticmethod
+    def _run_neuron_stage(
+        filtered: "torch.Tensor",
+        neuron_model: Any,
+        dt_ms: float = 1.0,
+        integrate_dt_ms: float = 0.05,
+        noise_generator: Optional[torch.Generator] = None,
+        input_floor: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Run the neuron on a filtered signal: the last stage of a population run.
+
+        The part of :meth:`_run_pop_from_drive` after the filter, gain and sensor
+        noise: floor the current, hold it across the integration sub-steps, run the
+        neuron once and reduce each bin. It is its own method so that a caller
+        holding a population's recorded ``filtered`` (the evaluation server's
+        membrane-voltage re-run, roadmap A6b) runs exactly the code a run does.
+
+        Args:
+            filtered: The signal as recorded (after gain and sensor noise, before
+                the floor), ``[batch, time, num_neurons]`` in mA, float32.
+            neuron_model: Instantiated neuron model (constructed with
+                ``dt=integrate_dt_ms``).
+            dt_ms: Record step (ms).
+            integrate_dt_ms: Neuron integration step (ms).
+            noise_generator: As in :meth:`_run_pop_from_drive`.
+            input_floor: Lower bound (mA) on the current the neuron receives, or
+                ``None``.
+
+        Returns:
+            ``{"spikes": counts}``, ``{"events": signed counts}`` or ``{"state":
+            trace}``, each ``[batch, time, num_neurons]`` (bin-end samples for
+            ``state``) and, when the model returns a voltage, ``"voltages"`` (mV,
+            bin-end samples, same shape; never with ``state``).
+
+        Raises:
+            ValueError: If the neuron returns neither spikes nor a state trace.
+        """
+        import torch as _torch  # local import to keep signature clean
+
         n_substeps = max(1, round(dt_ms / integrate_dt_ms))
         # D-43dc520: the neuron sees the drive floored at input_floor; the
         # recorded ``filtered`` keeps its sign (pressure-simulation's decoder
@@ -1365,11 +1425,7 @@ class SimulationEngine:
                 :, :, -1, :
             ]
 
-            pop_results: Dict[str, Any] = {"state": state}
-            if return_intermediates:
-                pop_results["drive"] = drive
-                pop_results["filtered"] = filtered
-            return pop_results
+            return {"state": state}
 
         # Drop the initial sample (index 0), then collapse each bin's
         # n_substeps sub-steps: sum -> integer spike count per bin.
@@ -1392,14 +1448,10 @@ class SimulationEngine:
         readout_key = (
             "events" if getattr(neuron_model, "SIGNED_EVENTS", False) else "spikes"
         )
-        pop_results: Dict[str, Any] = {readout_key: spikes}
-        if return_intermediates:
-            pop_results["drive"] = drive
-            pop_results["filtered"] = filtered
-            if v_trace is not None:
-                pop_results["voltages"] = v_trace
-
-        return pop_results
+        stage: Dict[str, Any] = {readout_key: spikes}
+        if v_trace is not None:
+            stage["voltages"] = v_trace
+        return stage
 
     @staticmethod
     def _select_stimulus_channel(

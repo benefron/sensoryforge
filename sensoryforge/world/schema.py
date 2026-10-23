@@ -21,6 +21,7 @@ from sensoryforge.world.distributions import (
     plain,
     text_number_hint,
 )
+from sensoryforge.world.names import neutralise
 from sensoryforge.world.kinds import (
     CLASS_KINDS,
     AmbiguousField,
@@ -253,6 +254,9 @@ def _parse_world(data: Any) -> World:
         raise ValueError(
             f"world: unknown keys {sorted(unknown)}; allowed: {sorted(_TOP_KEYS)}"
         )
+    # Unit-free spellings (``sigma``) become the canonical ones (``sigma_mm``) before
+    # anything is parsed, so the world and its world_id equal the canonical file's.
+    raw = neutralise(raw)
     raw_channels = raw.get("channels")
     if raw_channels is not None and not isinstance(raw_channels, (list, tuple)):
         raise ValueError(
@@ -575,6 +579,13 @@ def _parse_class(
             continue
         info = kind.field_info(bindings[axis_name], layer)
         check_axis(paths[axis_name], axis, info)
+    # a field the layer sets and no axis takes over has no axis to check it
+    drawn = set(bindings.values())
+    for ref, value in kind.fixed_values(layer, raw_layer):
+        if ref not in drawn:
+            check_value(
+                f"{where}.layer.{ref[0]}.{ref[1]}", value, kind.field_info(ref, layer)
+            )
     for axis_name, axis in axes.items():
         if axis.form != "link":
             continue

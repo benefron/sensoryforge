@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/declared.schema.json",
+  "title": "declared.json (sensoryforge-declared/1)",
+  "description": "What a world file and the data set's manifest imply each entry should show, in the audit's metric ids and units. #/$defs/entry_row validates a row of declared_entries.jsonl. See docs/reference/report_contract.md, section 8.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-declared/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "adapter": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "params": {"type": "object"}
+      },
+      "required": ["name", "version", "params"],
+      "additionalProperties": false
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "dataset_dir": {"type": "string"},
+        "dataset_id": {"type": "string"},
+        "world_id": {"type": "string"},
+        "world_format": {"type": "string"}
+      },
+      "required": ["dataset_dir", "dataset_id", "world_id", "world_format"],
+      "additionalProperties": false
+    },
+    "units": {"$ref": "common.schema.json#/$defs/units"},
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+          "unit": {"$ref": "common.schema.json#/$defs/unit_or_null"},
+          "basis": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "minLength": 1}
+        },
+        "required": ["id", "unit", "basis", "source"],
+        "additionalProperties": false
+      }
+    },
+    "entries": {"$ref": "common.schema.json#/$defs/entries_file"},
+    "omitted": {
+      "description": "Per metric id, the number of entries left out for each reason.",
+      "type": "object",
+      "propertyNames": {"$ref": "common.schema.json#/$defs/metric_id"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": "integer", "minimum": 0}
+      }
+    },
+    "bounds": {
+      "description": "The range an axis allows, for display; never compared.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "grouping": {"enum": ["class", "split"]},
+          "label": {"type": "string"},
+          "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+          "lo": {"type": "number"},
+          "hi": {"type": "number"},
+          "source": {"type": "string"}
+        },
+        "required": ["grouping", "label", "id", "lo", "hi", "source"],
+        "additionalProperties": false
+      }
+    },
+    "dataset": {"$ref": "common.schema.json#/$defs/group"},
+    "groupings": {"$ref": "common.schema.json#/$defs/groupings"}
+  },
+  "required": [
+    "format", "created_at", "producer", "adapter", "inputs", "units", "metrics", "entries",
+    "omitted", "bounds", "dataset", "groupings"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "entry_row": {
+      "description": "One row of declared_entries.jsonl: the shape of an audit row without the bundle.",
+      "type": "object",
+      "properties": {
+        "entry": {"type": "string", "minLength": 1},
+        "split": {"type": "string"},
+        "class": {"type": ["string", "null"]},
+        "repeat": {"type": "integer", "minimum": 0},
+        "noise_repeat": {"type": "integer", "minimum": 0},
+        "values": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/value"}}
+      },
+      "required": ["entry", "split", "class", "repeat", "noise_repeat", "values"],
+      "additionalProperties": false
+    }
+  }
+}

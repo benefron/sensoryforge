@@ -108,6 +108,210 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-aea7ea7 · CLOSED · decision · - · 2026-10-23
+core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history
+→ commit 703654c
+
+## F-01512ed · CLOSED · finding · - · 2026-10-23
+core.data.time_grid fails every bundle written at dt 0.1 or 0.2 ms; it allows 1e-6*dt per step, but the writer's float32 time axis rounds by more (2935 of 3000 steps at dt 0.1)
+→ commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## F-8b1eee3 · CLOSED · finding · - · 2026-10-23
+the run-to-run diff compares floats with an absolute 2e-7 and no relative term, so a one-ULP change in drive or filtered (3.8e-6 at 40 mA) is called different, not equivalent
+→ commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## F-f174272 · CLOSED · finding · - · 2026-10-23
+core.run.saturation fails every level_crossing or sigma_delta population with refractory_ms 0, which emits several events per step by design
+→ commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## F-af6b37a · CLOSED · finding · - · 2026-10-23
+core.run.determinism turns every fresh-build difference into a note when any population is unseeded, and whether unseeded wiring differs depends on the global RNG's history, which is the cause of F-5607a62
+→ commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## F-ca590a3 · STANDING · finding · - · 2026-10-23
+in a worktree, flake8 checks nothing because .flake8 excludes .claude; the branch has 53 flake8 lines and 1 black file that CI's `flake8 sensoryforge tests` rejects
+→ commit 5937de9
+↔ 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## F-5c66c69 · CLOSED · finding · - · 2026-10-23
+evaluate/export/static/snapshot_shim.js was missing from the wheel
+→ commit 5937de9
+
+## D-637b872 · CLOSED · decision · - · 2026-10-23
+phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass
+→ commit 5937de9
+
+## F-0c5ca9c · CLOSED · finding · - · 2026-10-23
+the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
+→ commit 3b78cef
+
+## F-dc0c574 · OPEN · finding · - · 2026-10-23
+report_contract.md still names roadmap rows (A1-A11, R-A4) in about 40 places, left because removing the parentheticals changes sentences in an accepted contract; needs a careful pass, with Ben's answer on Q2 (internal references in public pages).
+→ commit 3b78cef
+
+## D-e7972cb · CLOSED · decision · - · 2026-10-23
+the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint.
+→ commit f6412d3
+
+## D-e9d3a36 · CLOSED · decision · - · 2026-10-23
+pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation.
+→ commit f6412d3
+
+## F-1844d82 · OPEN · finding · - · 2026-10-23
+the snapshot cannot answer combined filters, text or seed searches, Random draw, or an unticked gallery signal; each answers "not in this snapshot".
+→ commit f6412d3
+
+## D-e76de48 · CLOSED · decision · - · 2026-10-23
+sparse weights are the default bundle layout, with a dense switch; all-dense bundles keep their older schema version rather than every bundle saying 2.5.0.
+→ commit 3eec647
+
+## F-991fc21 · STANDING · finding · - · 2026-10-23
+an 80x80 recipe bundle entry is 1.9 MB with sparse weights, against 47 MB dense.
+→ commit 3eec647
+
+## F-5607a62 · CLOSED · finding · - · 2026-10-23
+test_eval_checks.py::test_the_toy_data_set_with_three_channels fails when it follows the earlier test files in one run (the determinism note is None) and passes alone; it fails identically on the commit before A11d.
+→ commit 3eec647
+↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
+
+## D-9c33ec9 · CLOSED · decision · - · 2026-10-23
+bundle population files store receptive-field weights as innervation_weights_indices/_values/_shape when under 10% nonzero (schema 2.5.0, readers choose by key), not as a shared per-data-set copy; the writer default switches after the pressure-simulation reader is in.
+→ commit 2dec769
+↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+
+## F-289f711 · STANDING · finding · - · 2026-10-23
+a bundle entry on the 80x80 recipes is about 47 MB, of which about 1 MB is data; the rest is the receptive-field weights saved per entry (io/bundle.py write_bundle).
+→ commit 0e7f164
+
+## F-bb996a3 · CLOSED · finding · - · 2026-10-23
+whether bundles should share one copy of a population's receptive-field weights instead of one per entry; it changes the bundle layout pressure-simulation reads, so it needs Ben's decision and a format-tag bump.
+→ commit 0e7f164
+✓ closed by 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+
+## F-b397b9c · CLOSED · finding · - · 2026-10-23
+scale tests could fill the disk with no warning.
+→ commit 0e7f164
+
+## F-442d2b8 · STANDING · finding · - · 2026-10-23
+the batch stage of the tactile test world on the 8x8 design runs at about 7 draws per second on one core, so 5000 draws take about 12 minutes; the audit and comparison add seconds
+→ commit fa0b678
+
+## D-0f0dce2 · CLOSED · decision · - · 2026-10-23
+the one-command pipeline never picks a metric pack from the world; --packs is the user's (default core) and the pipeline only notes a declared adapter's same-named pack that was not run (Q12, keeps Q9)
+→ commit d64c7bf
+
+## D-7d06874 · CLOSED · decision · - · 2026-10-23
+the diff is its own stage (diff.json, diff_entries.jsonl, sensoryforge-diff/1, contract section 14) reading both sides through the blind reader; an entry that failed identically on both sides is no change.
+→ commit df820b9
+
+## D-fde7d30 · CLOSED · decision · - · 2026-10-23
+the gallery is a viewer over audit and checks output (class label only as a grouping key); a population silent for most of a class is reported once for the class, not per entry; soft signals never outrank a failed or corrupt entry.
+→ commit 5dff296
+
+## F-425cec6 · STANDING · finding · - · 2026-10-23
+the audit leaves gap_max null for a stimulus with fewer than two bouts, so the gallery counts no gap as 0.
+→ commit 5dff296
+
+## D-a83fd06 · CLOSED · decision · - · 2026-10-23
+the reference-free checks are their own stage (sensoryforge/evaluate/checks, own CHECK_PACK_REGISTRY, own file checks.json, format sensoryforge-checks/1, contract section 13), outside the audit's import wall, reading bundles through the blind reader plus each bundle's config.json, and running the engine on probes whose scale comes from the data.
+→ commit ab9ef6f
+
+## F-e716342 · STANDING · finding · - · 2026-10-23
+engine one_to_one and gaussian builders sample their K receptors at random, so a symmetric probe needs the template builder with k=1 (identity weights); a probe at the data's peak alone can evoke almost no spikes on a coarse probe grid.
+→ commit ab9ef6f
+
+## D-d72f3a0 · CLOSED · decision · - · 2026-10-23
+the dashboard bins the data's own range into ten equal bins for measured values and the declared domain for axes (logarithmic for log_uniform), counts sessions but leaves them out of the coverage map, and reads the declaration only for counts and coverage, never for the audit's histograms.
+→ commit cc5cbef
+
+## D-6628b99 · CLOSED · decision · - · 2026-10-23
+a bundle says schema 2.4.0 only when it stores voltage probes; a run that sets no voltage_probes writes the 2.3.0 bundle byte for byte and still says 2.3.0, so pressure-simulation's pin is untouched (the key is invisible until used).
+→ commit 3b0f5ca
+
+## D-2b0de11 · CLOSED · decision · - · 2026-10-23
+the comparison is between two draws of one data set, B's overlay shows only where the pin means the same in B, and the multi-channel renderer and two-run comparison are left out of A6c.
+→ commit 27bcc90
+
+## D-5daff44 · CLOSED · decision · - · 2026-10-23
+the neuron stage of a population run is a separate engine method that the evaluation server reuses for its voltage re-run, rather than a copy
+→ commit cb33315
+
+## F-228250d · STANDING · finding · - · 2026-10-23
+a membrane-noise population without a noise_seed cannot be re-run to match, because the run drew its noise from the global generator
+→ commit cb33315
+
+## F-625a73b · CLOSED · finding · - · 2026-10-23
+the movie drew frame axis 0 (x) downwards, a transpose of an x-y plot (R-A5 finding 6)
+→ commit 5910310
+
+## F-f4dfff1 · CLOSED · finding · - · 2026-10-23
+the colour scale changed during first playback and playback ran at a quarter of real time for 1 ms frames (R-A5 findings 7, 8)
+→ commit 5910310
+
+## F-75fa5d0 · CLOSED · finding · - · 2026-10-23
+a stage job raising an unlisted exception stayed running and blocked the stage (R-A5 finding 2)
+→ commit cdca99b
+
+## F-0fffcb5 · CLOSED · finding · - · 2026-10-23
+the loopback server accepted cross-site POSTs and rebinding reads (R-A5 finding 3)
+→ commit cdca99b
+
+## F-9a853c4 · CLOSED · finding · - · 2026-10-23
+h5 read errors after the peek escaped as dropped connections, summary re-peeked every row (R-A5 findings 4, 5)
+→ commit cdca99b
+
+## D-40d072b · CLOSED · decision · - · 2026-10-23
+the trace inspector re-simulates membrane voltage on demand from the bundle's stored filtered (neuron stage only) and verifies it by matching the re-simulated spikes of every neuron against the stored spikes; bundles do not store voltage by default
+→ commit 82034fc
+
+## D-d3440b5 · CLOSED · decision · - · 2026-10-23
+voltage probes (a few fixed neurons per population, stored and matched exactly by the re-simulation) come later as an opt-in bundle field, invisible until used and with a format bump, in their own roadmap row A6p
+→ commit 82034fc
+
+## D-794ab30 · CLOSED · decision · docs · 2026-10-23
+the evaluation server reads stimulus frames in time slabs aligned to the stored HDF5 chunk and keeps decompressed slabs in one byte-bounded LRU (256 MiB default, --frame-cache-mb), with the wire format unchanged; the bundle writer's chunk shape stays
+→ commit 4480018
+
+## D-cf543bf · CLOSED · decision · docs · 2026-10-23
+the evaluation server answers 403 to a Host other than the bound name or a loopback name (DNS rebinding) and to a POST whose Origin is not its own (cross-site requests)
+→ commit 4480018
+
+## D-ea6726c · CLOSED · decision · docs · 2026-10-23
+a stage job always leaves running; an exception outside the expected list marks it failed as unexpected <Type> in a finally and still reaches the thread excepthook
+→ commit 4480018
+
+## F-62dec9c · CLOSED · finding · docs · 2026-10-23
+a 32-frame chunk of a long draw costs a whole stored time slab (313, 938, 3750 frames at 5, 30, 120 s on 80x80): 185 ms per chunk at 120 s against 219 ms for the full 3750-frame slab, so playback cannot keep up beyond about 5 s draws
+→ commit 4480018
+✓ closed by cdca99b fix(evaluate): server keeps decompressed frame slabs, refuses foreign pages, ends every jo
+
+## F-63231e8 · STANDING · finding · docs · 2026-10-23
+a stage job whose runner raises an exception outside OSError, ValueError, KeyError and RuntimeError stays running and blocks that stage until the server restarts
+→ commit 4480018
+
+## F-fceb93c · CLOSED · finding · docs · 2026-10-23
+should the trace inspector show membrane voltage, which bundles do not store (store it, a schema change; re-simulate the pinned neuron on demand; or leave it out)
+→ commit 4480018
+✓ closed by 82034fc docs(plan): membrane voltage is re-simulated on demand and checked against the stored spik
+↔ cb33315 feat(evaluate): click-to-pin traces and re-simulated membrane voltage (A6b)
+✓ closed by 3b0f5ca feat(bundle): opt-in voltage probes in bundles, schema 2.4.0 (A6p)
+
+## D-11c766e · CLOSED · decision · - · 2026-10-23
+frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
+→ commit 890b4ec
+↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
+↔ cdca99b fix(evaluate): server keeps decompressed frame slabs, refuses foreign pages, ends every jo
+
+## F-d23196a · STANDING · finding · - · 2026-10-23
+the first frame of a draw opens in about 1 ms on the toy bundles and about 27 ms on a tactile-sized stimulus, under the 1 s target; the cost that grows is the gzip chunk layout of data.h5, not the draw count.
+→ commit 890b4ec
+↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
+
 ## D-2c59776 · CLOSED · decision · - · 2026-10-22
 the tactile metric pack is built as its own row A2d, in S2 before A3 and A4, so the declared side and the comparison have measured values for the same metric ids.
 → commit 4ec70c4
@@ -120,21 +324,154 @@ the roadmap keeps Sonnet implementing and Opus reviewing at phase ends and the n
 roadmap sessions are sized by context (about 150k each), grouping the remaining rows into 30 sessions with one fixed session prompt, instead of one row per session
 → commit 319cb00
 
+## D-9f6c77b · CLOSED · decision · - · 2026-10-22
+the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes
+→ commit 176f4b4
+
+## F-96122fa · STANDING · finding · - · 2026-10-22
+opening the first draw costs one more manifest parse (the reader's, about 0.3 s at 10,000 draws), so serve() warms the reader in a background thread
+→ commit 176f4b4
+
+## F-ae476c6 · CLOSED · finding · - · 2026-10-22
+the R-A4 findings 1-6, 8 and 9 (direction on a still shape, plateau speed, phases for moving shapes, timeline counts for pulses, mixed-population group pairs, lint scope, index robustness)
+→ commit 7930c08
+
+## D-8c0f6d4 · CLOSED · decision · docs/development · 2026-10-22
+tactile.motion.speed becomes the pooled moving centroid steps (each longer than 1e-6 of the layout extent, the same floor core.frames.direction uses), with no plateau; the declared value stays the slide speed
+→ commit 09f6568
+
+## D-88f8714 · CLOSED · decision · docs/development · 2026-10-22
+the compare stage pairs each group's declared summary with a summary of the measured values of the same (entry, key) set, using the audit's summariser; audit.json keeps the full-set summaries; the tag stays compare/1 (unreleased)
+→ commit 09f6568
+
+## D-5253eb0 · CLOSED · decision · docs/development · 2026-10-22
+the tactile adapter leaves out the episode phases for a moving shape (motion), and the timeline counts (offset, active time and fraction, bouts, gaps) when the modulation reaches 0 (depth 1)
+→ commit 09f6568
+
+## F-b4e24b1 · STANDING · finding · docs/development · 2026-10-22
+core.frames.direction reports a float32-noise angle for still shapes (20 of 28 entries); the 1e-9 extent floor sits inside the centroid's ramp jitter (1e-11 to 1e-9 mm)
+→ commit 09f6568
+
+## F-45aa5a6 · OPEN · finding · docs/development · 2026-10-22
+centroid, direction and speed of a shape the canvas cuts off are biased towards the middle (a sigma 0.3 mm Gaussian on the 1.05 mm test canvas reads 30-55 % slow), and the declared side, not knowing the canvas, still declares them
+→ commit 09f6568
+
+## D-8b78a55 · CLOSED · decision · - · 2026-10-22
+the compare stage keeps verdicts out (contract Q8); the task's optional tolerance file is A8's, not A4's
+→ commit 2aa9319
+
+## D-2aebc41 · CLOSED · decision · - · 2026-10-22
+KS, Wasserstein and the paired histograms go in an optional `distributions` block of compare.json computed on the entries whose difference was computed, not in the summary pairing
+→ commit 2aa9319
+
+## F-3a20111 · STANDING · finding · - · 2026-10-22
+a group row of compare.json pairs the audit's summary of all entries with the declared summary of the entries the declaration determines, so n and the means differ when values are left out; only the distributions compare the same entries
+→ commit 2aa9319
+↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
+↔ 7930c08 fix(evaluate): the R-A4 review's fixes to the audit, declared side and comparison
+
+## D-533ccab · CLOSED · decision · - · 2026-10-22
+the tactile declared adapter leaves a value out wherever its declaration does not fix it, with a counted reason; beyond section 8.3's list it also leaves out a centroid under a background or an unknown shape, and episode phases of truncated or merged contacts
+→ commit f47a70b
+
+## F-4c41513 · STANDING · finding · - · 2026-10-22
+the world engine refuses a clamp_min above 0 at load, so section 8.3's "clamp_min above 0" case for the declared peak cannot occur
+→ commit f47a70b
+
+## F-65689f0 · CLOSED · finding · - · 2026-10-22
+tactile.motion.speed pools the plateau's centroid steps, which include the still hold before a slide, while the declared speed is the slide speed, so the raw difference reads low by the hold share; whether to change the metric or the declared value is for R-A4
+→ commit f47a70b
+↔ 09f6568 docs(review): R-A4, the Opus review of the evaluation core
+✓ closed by 7930c08 fix(evaluate): the R-A4 review's fixes to the audit, declared side and comparison
+
+## D-346f8dd · CLOSED · decision · - · 2026-10-22
+the tactile pack finds bouts itself on the exactly non-zero envelope and takes only the two contract parameters, plateau_tolerance and motion_tolerance; a plateau "moves" when its centroid path exceeds motion_tolerance and speed pools the steps of moving plateaus (contract section 7.1, for review at R-A4).
+→ commit 60b45c6
+
+## D-0a9fe81 · CLOSED · decision · - · 2026-10-22
+where the contract left a detail open (activity per channel vs the union across channels, direction near zero, dominant-frequency resolution, rate per time unit, the metrics() signature taking layout, units and dt) the audit takes the choices listed in report_contract.md section 6.5, for review at R-A4.
+→ commit 8bac4ee
+
+## F-0ec49dc · CLOSED · finding · - · 2026-10-22
+no row builds the tactile metric pack (tactile.episode.*, tactile.motion.speed, contract section 7); A3 declares those ids and A4 pairs them, so it must be placed before A4.
+→ commit 8bac4ee
+✓ closed by 60b45c6 feat(evaluate): the tactile metric pack (episode phases and plateau speed)
+
+## D-e24e767 · CLOSED · decision · - · 2026-10-22
+the import-wall test follows every import (inside functions too) in sensoryforge.evaluate and only import-time imports elsewhere, because sensoryforge/__init__ reaches the world through lazy imports and a clean-subprocess check covers what really loads
+→ commit ac56f03
+
+## D-a70ccdc · CLOSED · decision · - · 2026-10-22
+a bundle whose sensors cannot be located from the grid block (frames not matching rows x cols, or a coords file) is refused with layout_unknown rather than given invented positions
+→ commit ac56f03
+
+## F-bc358cc · STANDING · finding · - · 2026-10-22
+the audit cannot count draws without reading the declaration; distinct stimuli are a measurement (core.frames.digest, A2b), so the inventory counts entries, splits, classes and lengths only
+→ commit ac56f03
+
+## D-94d2637 · CLOSED · decision · - · 2026-10-22
+unit neutrality is additive, with aliases normalised to the canonical names at load and the world's units block written into the bundle only when it differs from mm/ms; no rename, no tag bump
+→ commit 8cf4e60
+
+## F-5fd48f4 · STANDING · finding · - · 2026-10-22
+a record's keys keep their _mm suffix for a world in other units; the suffix is historical and only the units block names the unit
+→ commit 8cf4e60
+
+## D-bc59237 · CLOSED · decision · - · 2026-10-22
+the second modality for the evaluation code is this generated toy, built by the same build_dataset/write_dataset/run_dataset path as a tactile data set, with no adapter
+→ commit 084d604
+
+## F-ef07377 · STANDING · finding · - · 2026-10-22
+the engine's only space unit is mm and the world's layered fields are named *_mm and hold/slide/speed, so a non-tactile world still carries those names; the toy reads 1 mm as 1 pixel
+→ commit 084d604
+
+## D-e292f1a · CLOSED · decision · docs/reference · 2026-10-22
+the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it
+→ commit f1e184f
+
+## D-423556b · CLOSED · decision · - · 2026-10-22
+the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it
+→ commit 5692ef2
+↔ f1e184f docs(evaluate): mark the report contract accepted after review
+
+## F-39e80f5 · CLOSED · finding · - · 2026-10-22
+Ben's review of the nine choices Q1-Q9 in section 11 of the report contract before A2a starts
+→ commit 5692ef2
+✓ closed by f1e184f docs(evaluate): mark the report contract accepted after review
+
+## D-e0c78ab · CLOSED · decision · - · 2026-10-22
+--entries and --tasks compose (tasks divide the range) rather than --entries overriding --tasks; the range is part of the index file name
+→ commit 53e0565
+
+## D-82dcf12 · CLOSED · decision · - · 2026-10-22
+a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain
+→ commit 5ea6f7b
+
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
+↔ 176f4b4 feat(evaluate): the local evaluation server's data layer and JSON endpoints (A5a)
 
 ## D-c52e668 · CLOSED · decision · - · 2026-10-22
 the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept blind by a test that it never imports the world package
 → commit c53ca39
+↔ 5692ef2 docs(evaluate): propose the evaluation report contract and its JSON Schemas
+↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
+↔ ab9ef6f feat(evaluate): reference-free checks stage with its own checks.json and page (A8)
+↔ 5dff296 feat(evaluate): anomaly gallery ranking draws by what looks wrong (A9)
+↔ df820b9 feat(evaluate): run-to-run diff with per-draw divergence and metric deltas (A10)
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
 → commit c53ca39
+↔ 890b4ec feat(evaluate): binary frame-chunk streaming, the page shell and the draw-open timing (A5b
+↔ 5910310 feat(evaluate): draw picker and a correctly oriented, wall-clock movie (A6a)
 
 ## D-4563d42 · CLOSED · decision · - · 2026-10-22
 each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review
 → commit c53ca39
+↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
@@ -173,6 +510,9 @@ how a chained run of skills proceeds, step by step or end to end, is decided by 
 new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (sensor, channel, frame, population) with tactile as the first pack, renderer and adapter, extended by registry and plugin, never by editing the core
 → commit 1e61060
 ↔ c53ca39 docs: record the roadmap's answered decisions and start the work plan
+↔ 084d604 test(evaluate): add a toy non-tactile data set built through the real engine
+↔ 8cf4e60 feat(world): unit-free field names and a declared space unit
+↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
 ↔ 4ec70c4 docs(plan): add A2d, the tactile metric pack, before A4
 
 ## D-4671314 · SUPERSEDED · decision · - · 2026-10-22
@@ -349,6 +689,7 @@ on Linux x86-64 (GitHub ubuntu-latest, Python 3.10 and 3.11, CPU torch 2.14.1, t
 ## F-3658a63 · OPEN · finding · docs/reference · 2026-10-03
 batch bit-invariance on x86-64 is not yet shown with several torch threads or with torch 2.2.2 (pressure-simulation's bio-encoding version); the CI suite runs torch single-threaded
 → commit b2f4bee
+↔ 2dec769 docs(plan): add A11d, sparse receptive-field weights in bundles, before A12
 
 ## F-b17c562 · CLOSED · finding · - · 2026-10-03
 CI's lint job failed on main because seven files predating v1.1.0 were not black-formatted and three docstring lines exceeded flake8's 88 columns
@@ -363,13 +704,15 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
 
-## F-398cbd1 · OPEN · finding · - · 2026-10-02
+## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
 → commit 67e3b60
+✓ closed by 5ea6f7b fix(world): check the values a class's layer fixes against their fields on load
 
-## F-2f13dc9 · OPEN · finding · - · 2026-10-02
+## F-2f13dc9 · CLOSED · finding · - · 2026-10-02
 batch --entries runs with the default task index all append to index/task_0000.jsonl, and --print-tasks does not forward --entries
 → commit 67e3b60
+✓ closed by 53e0565 fix(batch): give each --entries range its own index file and let --print-tasks forward it
 
 ## F-1ada1ea · CLOSED · finding · - · 2026-10-02
 a step release could leave full amplitude at t == end_ms, and in some float64 draws one step after it, so a draw was not exactly zero after its end

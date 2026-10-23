@@ -26,6 +26,12 @@ sensoryforge run <config.yml> [options]
 ```
 
 **Options:**
+- `--preset NAME`: Start from a shipped preset (`sensoryforge list-presets`); the config file is then optional and, when given, overrides the preset
+- `--design DIR`: Start from a pressure-simulation design directory (not with `--preset`)
+- `--stimulus NAME`: Stimulus type from the registry (`sensoryforge list-components`); overrides the config's `stimulus.type`
+- `--bundle DIR`: Write a [data bundle](bundles.md) to this directory (canonical configs only)
+- `--seed N`: Run-level seed for torch, numpy and `random` (canonical configs only)
+- `--device cpu|cuda|mps`: Override the config's device
 - `--duration DURATION`: Simulation duration in milliseconds. Without it, the config's `simulation.duration_ms` is used, and 1000 ms if that is unset too.
 - `--output FILE`: Save results to file (PyTorch checkpoint `.pt` or `.pth`)
 - `--device DEVICE`: Override device from config (`cpu`, `cuda`, or `mps`)
@@ -188,6 +194,52 @@ PIPELINE STRUCTURE
   1. gaussian
   2. texture
 ```
+
+### `sensoryforge list-presets`
+
+Print the shipped presets (`sensoryforge run --preset NAME` starts from one).
+
+### `sensoryforge batch`
+
+Run a sweep from a batch YAML (`sensoryforge batch sweep.yml`), or a whole
+[data set](worlds.md) of draws:
+
+```bash
+sensoryforge batch --dataset my_dataset.yml --preset tactile_sa1_ra1_adex --output runs/first
+```
+
+With `--dataset`, one bundle is written per entry. Useful options: `--design DIR` or `--preset
+NAME` (the sensor), `--splits a,b`, `--tasks N` with `--task-index I` (split the entries over N
+cluster tasks), `--entries a:b`, `--print-tasks` (print one command per task and exit),
+`--resume` (skip entries whose bundle is complete) and `--dense-weights` (store receptive-field
+weights dense instead of sparse). Without `--dataset`, `--dry-run` validates the sweep and shows
+the plan, `--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one
+stimulus of the sweep. See [Batch Processing](batch_processing.md).
+
+### `sensoryforge dataset build`
+
+`sensoryforge dataset build my_dataset.yml --out DIR` writes the data set's manifest
+without simulating anything (see [Worlds and Data Sets](worlds.md)).
+
+### `sensoryforge world`
+
+`sensoryforge world validate world.yml` prints a world's id, classes and axes.
+`sensoryforge world sample world.yml -n 10 --seed 0 [--classes a,b]` prints draws as JSON lines.
+
+### `sensoryforge new-component`
+
+`sensoryforge new-component {neuron,filter,stimulus,solver,grid} Name [--dest DIR]` writes an
+installable plugin package for a new component; `--in-repo` writes into a SensoryForge checkout
+instead. See [Plugin Packages](../developer_guide/plugins.md).
+
+### `sensoryforge evaluate`
+
+`sensoryforge evaluate {run,serve,export}` evaluates a world or data set.
+`sensoryforge evaluate run SOURCE --out DIR` takes a world or a data-set file to a report
+folder (build, simulate, audit, declared side, comparison, checks), and `evaluate serve DIR`
+opens the result in the local browser; `evaluate export DIR OUT` writes a folder that opens
+offline for sharing. See [Evaluating a world in one command](evaluate_pipeline.md) and [Sharing a
+snapshot](evaluation_export.md).
 
 ## Configuration File Format
 

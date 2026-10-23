@@ -31,6 +31,120 @@ import sensoryforge
 
 _WEIGHT_KEYS = ("innervation_weights", "weights", "W")
 
+#: A bank is stored sparsely (``sparse="auto"``) when under this fraction of its
+#: ``[N, M]`` weights is nonzero. Every shipped recipe is under 1%.
+SPARSE_MAX_DENSITY = 0.10
+_SPARSE_KEYS = (
+    "innervation_weights_indices",
+    "innervation_weights_values",
+    "innervation_weights_shape",
+)
+
+
+def encode_weights(
+    weights: torch.Tensor, sparse: Union[bool, str] = "auto"
+) -> Dict[str, Any]:
+    """The ``.pt`` entries that store ``weights`` ``[N, M]``, dense or sparse.
+
+    The sparse layout drops ``innervation_weights`` and stores only the nonzero
+    entries (and any ``-0.0``, so the sign of a zero survives) as plain tensors
+    (so ``torch.load(weights_only=True)`` reads it on any torch):
+    ``innervation_weights_indices`` int64 ``[2, nnz]`` (row 0 neuron, row 1
+    receptor, sorted row-major, no repeated pair), ``innervation_weights_values``
+    float32 ``[nnz]`` and ``innervation_weights_shape`` ``[N, M]``. It is lossless:
+    :func:`decode_weights` returns the dense matrix bit for bit.
+
+    Args:
+        weights: Dense weights ``[N, M]`` (dimensionless).
+        sparse: ``"auto"`` stores sparsely when under :data:`SPARSE_MAX_DENSITY` of
+            the entries are nonzero; ``True`` always (float32 weights only);
+            ``False`` never.
+
+    Returns:
+        A dict to merge into the file's dict.
+
+    Raises:
+        ValueError: If ``weights`` is not 2-D, ``sparse`` is not
+            ``"auto"``/``True``/``False``, or ``sparse=True`` with non-float32 weights.
+    """
+    if weights.ndim != 2:
+        raise ValueError(f"weights must be [N, M], got shape {list(weights.shape)}")
+    if sparse not in ("auto", True, False):
+        raise ValueError(f"sparse must be 'auto', True or False, got {sparse!r}")
+    dense = weights.detach().cpu()
+    if sparse is True and dense.dtype != torch.float32:
+        raise ValueError(f"sparse storage needs float32 weights, got {dense.dtype}")
+    # Other dtypes stay dense: the sparse values are float32, the dense dtype.
+    if sparse is False or dense.dtype != torch.float32:
+        return {"innervation_weights": dense.clone()}
+    # -0.0 is kept: decoding fills the rest with +0.0, and bit for bit includes signs
+    nonzero = (dense != 0) | torch.signbit(dense)
+    if sparse == "auto" and nonzero.sum().item() >= SPARSE_MAX_DENSITY * dense.numel():
+        return {"innervation_weights": dense.clone()}
+    # torch.nonzero lists entries in row-major order, each pair once.
+    indices = nonzero.nonzero().t().contiguous()
+    return {
+        "innervation_weights_indices": indices,
+        "innervation_weights_values": dense[nonzero].to(torch.float32),
+        "innervation_weights_shape": [int(dense.shape[0]), int(dense.shape[1])],
+    }
+
+
+def decode_weights(raw: Dict[str, Any], source: str = "file") -> Optional[torch.Tensor]:
+    """Dense weights from a bank file's dict, in either layout.
+
+    The layout is chosen by the keys present, never by a schema version.
+
+    Args:
+        raw: The loaded ``.pt`` dict.
+        source: Where it came from, for messages.
+
+    Returns:
+        The dense tensor, or ``None`` when no weight entry of either layout is
+        present (the caller then names the accepted keys).
+
+    Raises:
+        ValueError: If a sparse entry set is partial, mistyped, out of range or
+            repeats an index.
+    """
+    for key in _WEIGHT_KEYS:
+        if key in raw:
+            return torch.as_tensor(raw[key])
+    present = [k for k in _SPARSE_KEYS if k in raw]
+    if not present:
+        return None
+    if len(present) != len(_SPARSE_KEYS):
+        missing = [k for k in _SPARSE_KEYS if k not in raw]
+        raise ValueError(f"{source}: sparse weights are missing {missing}")
+    indices = torch.as_tensor(raw["innervation_weights_indices"])
+    values = torch.as_tensor(raw["innervation_weights_values"])
+    shape = [int(v) for v in raw["innervation_weights_shape"]]
+    if len(shape) != 2 or min(shape) < 1:
+        raise ValueError(f"{source}: sparse weights shape must be [N, M], got {shape}")
+    if indices.dtype != torch.int64 or indices.ndim != 2 or indices.shape[0] != 2:
+        raise ValueError(
+            f"{source}: sparse indices must be int64 [2, nnz], got "
+            f"{indices.dtype} {list(indices.shape)}"
+        )
+    if values.ndim != 1 or values.shape[0] != indices.shape[1]:
+        raise ValueError(
+            f"{source}: sparse values must be [nnz={indices.shape[1]}], got "
+            f"{list(values.shape)}"
+        )
+    if indices.numel():
+        if (indices < 0).any() or (indices[0] >= shape[0]).any():
+            raise ValueError(f"{source}: sparse neuron index outside [0, {shape[0]})")
+        if (indices[1] >= shape[1]).any():
+            raise ValueError(f"{source}: sparse receptor index outside [0, {shape[1]})")
+        flat = indices[0] * shape[1] + indices[1]
+        if torch.unique(flat).numel() != flat.numel():
+            raise ValueError(
+                f"{source}: sparse weights repeat a (neuron, receptor) pair"
+            )
+    out = torch.zeros(shape, dtype=values.dtype)
+    out[indices[0], indices[1]] = values
+    return out
+
 
 class ReceptiveFieldBank(nn.Module):
     """One population's receptive fields: weights, geometry and provenance.
@@ -173,22 +287,28 @@ class ReceptiveFieldBank(nn.Module):
     # Persistence
     # ------------------------------------------------------------------ #
 
-    def save(self, path: Union[str, os.PathLike]) -> None:
+    def save(
+        self, path: Union[str, os.PathLike], sparse: Union[bool, str] = False
+    ) -> None:
         """Write the bank as a ``.pt`` dict.
 
-        The file holds ``innervation_weights`` ``[N, M]``, ``neuron_centers``
-        ``[N, 2]``, ``receptor_coords`` ``[M, 2]`` (all CPU ``float32``) and
-        ``provenance``. The key names match pressure-simulation's population
-        files, so its viewer can open a bank that also carries a grid.
+        The file holds ``innervation_weights`` ``[N, M]`` (or, sparse, the three
+        ``innervation_weights_*`` entries of :func:`encode_weights`),
+        ``neuron_centers`` ``[N, 2]``, ``receptor_coords`` ``[M, 2]`` (all CPU
+        ``float32``) and ``provenance``. The key names match pressure-simulation's
+        population files, so its viewer can open a bank that also carries a grid.
 
         Args:
             path: Destination file; parent directories are created.
+            sparse: ``False`` (default) writes the dense matrix; ``"auto"`` writes the
+                sparse layout when under :data:`SPARSE_MAX_DENSITY` is nonzero;
+                ``True`` always writes it. :meth:`load` reads both.
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "innervation_weights": self.weights.detach().cpu().clone(),
+                **encode_weights(self.weights, sparse),
                 "neuron_centers": self.neuron_centers.detach().cpu().clone(),
                 "receptor_coords": self.receptor_coords.detach().cpu().clone(),
                 "provenance": dict(self.provenance),
@@ -209,7 +329,8 @@ class ReceptiveFieldBank(nn.Module):
 
         - weights under ``innervation_weights`` (preferred), ``weights`` or
           ``W``, shaped ``[N, M]`` or ``[N, H, W]`` (flattened row-major to
-          ``[N, H * W]``);
+          ``[N, H * W]``), or the sparse ``innervation_weights_indices`` /
+          ``_values`` / ``_shape`` entries (see :func:`encode_weights`);
         - ``neuron_centers`` ``[N, 2]`` (required);
         - ``receptor_coords`` ``[M, 2]`` (optional in the file; then the
           ``receptor_coords`` argument is required);
@@ -239,15 +360,12 @@ class ReceptiveFieldBank(nn.Module):
                 f"{path}: expected a dict with 'innervation_weights', got "
                 f"{type(raw).__name__}"
             )
-        weights = None
-        for key in _WEIGHT_KEYS:
-            if key in raw:
-                weights = torch.as_tensor(raw[key])
-                break
+        weights = decode_weights(raw, str(path))
         if weights is None:
             raise ValueError(
-                f"{path}: no weight tensor under any of {list(_WEIGHT_KEYS)} "
-                f"(keys present: {sorted(raw)}); expected 'innervation_weights'"
+                f"{path}: no weight tensor under any of {list(_WEIGHT_KEYS)} nor the "
+                f"sparse {list(_SPARSE_KEYS)} (keys present: {sorted(raw)}); "
+                "expected 'innervation_weights'"
             )
         if weights.ndim == 3:
             weights = weights.reshape(weights.shape[0], -1)

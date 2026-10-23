@@ -671,10 +671,14 @@ def _task_commands(args: argparse.Namespace) -> List[str]:
     base += ["--output", shlex.quote(str(Path(args.output).resolve()))]
     if args.splits:
         base += ["--splits", shlex.quote(args.splits)]
+    if args.entries:
+        base += ["--entries", shlex.quote(args.entries)]
     if args.device:
         base += ["--device", args.device]
     if args.resume:
         base.append("--resume")
+    if args.dense_weights:
+        base.append("--dense-weights")
     return [
         " ".join(base + ["--tasks", str(args.tasks), "--task-index", str(i)])
         for i in range(args.tasks)
@@ -690,6 +694,12 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
         print("Error: --output is required with --dataset", file=sys.stderr)
         return 1
     if args.print_tasks:
+        try:
+            if args.entries:
+                _parse_range(args.entries)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         for line in _task_commands(args):
             print(line)
         return 0
@@ -715,6 +725,7 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
             task_index=args.task_index or 0,
             entry_range=entry_range,
             resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
             log=print,
         )
     except (ValueError, OSError, KeyError, yaml.YAMLError) as exc:
@@ -1069,6 +1080,114 @@ def cmd_world(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_evaluate_run(args: argparse.Namespace) -> int:
+    """``sensoryforge evaluate run SOURCE``: build, simulate, audit, compare, report."""
+    from sensoryforge.evaluate.pipeline import dataset_mapping, run_pipeline
+    from sensoryforge.world.dataset import load_dataset
+
+    try:
+        source = Path(args.source)
+        raw = load_config_file(source)
+        if not isinstance(raw, dict):
+            raise ValueError(f"{source}: expected a mapping")
+        if "dataset" in raw:
+            if args.draws is not None or args.duration_ms is not None:
+                raise ValueError(
+                    "--draws and --duration-ms apply to a world file; a data-set "
+                    "file declares its own splits and duration"
+                )
+            spec = load_dataset(source)
+        elif "world" in raw:
+            if args.draws is None or args.duration_ms is None:
+                raise ValueError(
+                    "a world file needs --draws N and --duration-ms MS "
+                    "(or give a data-set file that declares them)"
+                )
+            spec = load_dataset(
+                dataset_mapping(source, args.draws, args.seed, args.duration_ms)
+            )
+        else:
+            raise ValueError(f"{source}: neither a 'world:' nor a 'dataset:' file")
+        config_dict, design_manifest, source_desc = _resolve_sensor_config(args)
+        if args.device:
+            config_dict.setdefault("simulation", {})["device"] = args.device
+        config = SensoryForgeConfig.from_dict(config_dict)
+        splits = (
+            [s.strip() for s in args.splits.split(",") if s.strip()]
+            if args.splits
+            else None
+        )
+        doc = run_pipeline(
+            config,
+            spec,
+            Path(args.out),
+            design_manifest=design_manifest,
+            sensor_desc=source_desc,
+            source=str(source),
+            packs=[p for p in args.packs.split(",") if p],
+            adapter=args.adapter,
+            run_check_stage=not args.no_checks,
+            check_packs=[p for p in args.check_packs.split(",") if p],
+            check_sample=args.check_sample,
+            splits=splits,
+            resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
+            log=print,
+        )
+    except (ValueError, KeyError, OSError, yaml.YAMLError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    report = Path(args.out) / "evaluate"
+    print(f"report folder: {report}")
+    for stage in doc["stages"]:
+        print(f"  {stage['name']:<9}{stage['status']:<8}{stage['seconds']:>8.1f} s")
+    for note in doc["notes"]:
+        print(f"note: {note}")
+    if doc["status"] != "ok":
+        print(f"Error: {doc['error']}", file=sys.stderr)
+        return 1
+    checks = doc["counts"].get("checks")
+    if checks:
+        print(
+            f"checks: {checks['pass']} passed, {checks['fail']} failed, "
+            f"{checks['skipped']} skipped, {checks['error']} errors"
+        )
+        if checks["fail"] or checks["error"]:
+            return 1
+    return 0
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    """``sensoryforge evaluate {run,serve}``: the pipeline and the local browser."""
+    if args.evaluate_command == "run":
+        return cmd_evaluate_run(args)
+    if args.evaluate_command == "export":
+        from sensoryforge.evaluate.export.__main__ import run as run_export
+
+        return run_export(args)
+    if args.evaluate_command != "serve":
+        print(
+            "usage: sensoryforge evaluate "
+            "{run SOURCE --out DIR | serve DATASET_DIR | export DATASET_DIR OUT_DIR}",
+            file=sys.stderr,
+        )
+        return 1
+    from sensoryforge.evaluate.server import Api, DatasetService, serve
+
+    try:
+        service = DatasetService(
+            Path(args.folder),
+            args.stages and Path(args.stages),
+            frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+            voltage_cache_bytes=int(args.voltage_cache_mb * (1 << 20)),
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error opening data set: {exc}", file=sys.stderr)
+        return 1
+    serve(Api(service), args.host, args.port)
+    return 0
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser for CLI.
 
@@ -1179,6 +1298,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     batch_parser.add_argument("--entries", help="Run entries a:b only (with --dataset)")
     batch_parser.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help=(
+            "Store receptive-field weights dense in every bundle (default: sparse "
+            "when under 10%% nonzero; with --dataset)"
+        ),
+    )
+    batch_parser.add_argument(
         "--print-tasks",
         action="store_true",
         help=(
@@ -1225,6 +1352,95 @@ def create_parser() -> argparse.ArgumentParser:
     )
     build_parser.add_argument("spec", help="Data-set YAML (a 'dataset:' mapping)")
     build_parser.add_argument("--out", required=True, help="Output directory")
+
+    evaluate_parser = subparsers.add_parser(
+        "evaluate", help="Evaluate a world: the pipeline and the local server"
+    )
+    evaluate_sub = evaluate_parser.add_subparsers(dest="evaluate_command")
+    run_eval = evaluate_sub.add_parser(
+        "run",
+        help="World or data set to report folder: build, simulate, audit, "
+        "declare, compare, check",
+    )
+    run_eval.add_argument(
+        "source", help="A world file ('world:') or a data-set file ('dataset:')"
+    )
+    run_eval.add_argument("--out", required=True, help="The data-set folder to write")
+    run_eval.add_argument("--design", help="A design directory (the sensor)")
+    run_eval.add_argument("--preset", help="A preset name (the sensor)")
+    run_eval.add_argument(
+        "--config", help="A sensor config file, merged over --design/--preset"
+    )
+    run_eval.add_argument("--device", help="Device for the simulation (cpu, cuda, mps)")
+    run_eval.add_argument(
+        "--draws", type=int, help="Draws from a world file (one 'train' split)"
+    )
+    run_eval.add_argument(
+        "--duration-ms", type=float, help="Duration of each draw (world file)"
+    )
+    run_eval.add_argument(
+        "--seed", type=int, default=0, help="Seed of a world file's data set"
+    )
+    run_eval.add_argument("--splits", help="Comma-separated splits to simulate")
+    run_eval.add_argument(
+        "--packs",
+        default="core",
+        help="Comma-separated metric packs of the audit, e.g. core,tactile "
+        "(never detected from the world; default core)",
+    )
+    run_eval.add_argument(
+        "--adapter",
+        help="Declared adapter (default: the first that accepts the data set)",
+    )
+    run_eval.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help="Store receptive-field weights dense in every bundle (default: sparse)",
+    )
+    run_eval.add_argument(
+        "--no-checks", action="store_true", help="Skip the reference-free checks"
+    )
+    run_eval.add_argument(
+        "--check-packs", default="core", help="Comma-separated check packs"
+    )
+    run_eval.add_argument(
+        "--check-sample", type=int, default=8, help="Entries the engine checks re-run"
+    )
+    run_eval.add_argument(
+        "--resume", action="store_true", help="Skip entries that already have a bundle"
+    )
+    serve_parser = evaluate_sub.add_parser(
+        "serve", help="Serve a data set to the evaluation browser (loopback only)"
+    )
+    serve_parser.add_argument("folder", help="The data-set folder")
+    serve_parser.add_argument(
+        "--stages",
+        help="Folder of audit.json, declared.json and compare.json "
+        "(default: FOLDER/evaluate)",
+    )
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Address to bind")
+    serve_parser.add_argument("--port", type=int, default=8765, help="Port to bind")
+    serve_parser.add_argument(
+        "--frame-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of decompressed stimulus frames kept between requests "
+        "(default 256; 0 keeps none)",
+    )
+    serve_parser.add_argument(
+        "--voltage-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of re-simulated membrane voltage kept between requests "
+        "(default 256; 0 keeps none)",
+    )
+    export_parser = evaluate_sub.add_parser(
+        "export",
+        help="Write a snapshot of a data set that opens offline, with no server",
+    )
+    from sensoryforge.evaluate.export.arguments import add_arguments as add_export
+
+    add_export(export_parser)
 
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")
@@ -1320,6 +1536,7 @@ def main() -> int:
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
         "dataset": cmd_dataset,
+        "evaluate": cmd_evaluate,
         "world": cmd_world,
     }
 

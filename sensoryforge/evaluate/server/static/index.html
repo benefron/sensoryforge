@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensoryForge evaluate</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>SensoryForge evaluate</h1>
+  <nav aria-label="Pages"><a href="/" aria-current="page">Draws</a> · <a href="/dashboard">Dashboard</a> · <a href="/gallery">Gallery</a> · <a href="/checks">Checks</a></nav>
+  <p id="summary" class="muted">loading…</p>
+</header>
+<main>
+  <section id="list-pane" aria-label="Draws">
+    <form id="filters">
+      <label>Split <select id="f-split"><option value="">all</option></select></label>
+      <label>Class <select id="f-class"><option value="">all</option></select></label>
+      <label>Search <input id="f-q" type="search" placeholder="entry id"></label>
+      <label>Draw seed <input id="f-seed" inputmode="numeric" placeholder="exact" size="12"></label>
+      <label>Pick seed <input id="pick-seed" inputmode="numeric" placeholder="blank = fresh" size="14"></label>
+      <button type="button" id="random">Random draw</button>
+    </form>
+    <p id="list-chip" hidden><span id="list-label"></span> <button type="button" id="list-clear">Show all</button></p>
+    <p id="pick-note" class="muted"></p>
+    <p id="count" class="muted"></p>
+    <ul id="draws"></ul>
+    <p><button type="button" id="more" hidden>More</button></p>
+  </section>
+  <section id="view-pane" aria-label="Draw">
+    <h2 id="draw-title">No draw open</h2>
+    <p id="view-row">
+      <label class="inline">Pin by
+        <select id="view" aria-label="What a click on the movie pins" disabled>
+          <option value="sensors">sensor</option>
+        </select>
+      </label>
+      <span id="pin-text" class="muted">Click the movie to pin a point.</span>
+    </p>
+    <p id="compare-row">
+      <button type="button" id="compare-pick" disabled>Compare with…</button>
+      <button type="button" id="compare-clear" hidden>Stop comparing</button>
+      <span id="compare-text" class="muted"></span>
+    </p>
+    <div id="stage-row">
+    <div id="stage">
+      <div id="yaxis" class="axis"><span id="ymax"></span><span id="ylabel"></span><span id="ymin"></span></div>
+      <div id="movie-wrap">
+        <canvas id="movie" width="1" height="1" aria-label="Stimulus frames, x to the right, y upwards"></canvas>
+        <canvas id="overlay" aria-hidden="true"></canvas>
+      </div>
+      <div id="xaxis" class="axis"><span id="xmin"></span><span id="xlabel"></span><span id="xmax"></span></div>
+    </div>
+    <div id="stage-b" hidden>
+      <p id="b-caption" class="muted"></p>
+      <div id="movie-wrap-b">
+        <canvas id="movie-b" width="1" height="1" aria-label="Stimulus frames of the second draw"></canvas>
+        <canvas id="overlay-b" aria-hidden="true"></canvas>
+      </div>
+    </div>
+    </div>
+    <div id="controls">
+      <button type="button" id="play" disabled>Play</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Frame">
+      <label class="inline">Speed
+        <select id="speed" aria-label="Playback speed">
+          <option value="0.05">0.05×</option><option value="0.1">0.1×</option>
+          <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option>
+          <option value="5">5×</option><option value="10">10×</option><option value="20">20×</option>
+        </select>
+      </label>
+      <span id="buffering" class="muted" hidden>buffering…</span>
+    </div>
+    <p id="clock" class="muted"></p>
+    <p id="scale" class="muted"><canvas id="bar" width="96" height="1" aria-hidden="true"></canvas> <span id="scale-text"></span></p>
+    <div id="tracebox" aria-label="Traces at the pinned point"><div id="cursor" hidden></div></div>
+    <p id="timing" class="muted"></p>
+    <details id="fields" open>
+      <summary>Declared fields</summary>
+      <p id="fields-tools" class="muted" hidden><label><input type="checkbox" id="only-diff"> only the fields that differ</label></p>
+      <div id="fields-body"></div>
+    </details>
+  </section>
+</main>
+<script src="/static/geometry.js"></script>
+<script src="/static/traces.js"></script>
+<script src="/static/record.js"></script>
+<script src="/static/dashboard.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -254,3 +254,67 @@ def test_atomic_json_temp_names_differ_across_hosts_tasks_and_processes(
 def test_a_sweep_batch_still_needs_its_config(capsys):
     assert _batch() == 1
     assert "batch needs a config" in capsys.readouterr().err
+
+
+# --- --entries with the task index and --print-tasks (F-2f13dc9) ------------
+
+
+def test_entry_ranges_write_their_own_index_files(tmp_path, dataset_file):
+    out = tmp_path / "out"
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    # two jobs of one array, each its own range, both with the default task index
+    assert _batch(*argv, "--entries", "0:2") == 0
+    assert _batch(*argv, "--entries", "2:4") == 0
+    names = sorted(p.name for p in (out / "index").iterdir())
+    assert names == [
+        "task_0000_entries_00000000_00000002.jsonl",
+        "task_0000_entries_00000002_00000004.jsonl",
+    ]
+    wanted = [e.entry for e in build_dataset(load_dataset(dataset_file))[:4]]
+    assert [r["entry"] for r in read_batch_index(out)] == wanted
+
+
+def test_a_range_run_without_a_range_still_writes_the_task_file(tmp_path, dataset_file):
+    out = tmp_path / "out"
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    assert _batch(*argv, "--tasks", 20, "--task-index", 3) == 0
+    assert [p.name for p in (out / "index").iterdir()] == ["task_0003.jsonl"]
+
+
+def test_tasks_split_the_range_entries_gives(tmp_path, dataset_file):
+    entries = build_dataset(load_dataset(dataset_file))
+    out = tmp_path / "out"
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    for t in range(2):
+        args = [*argv, "--entries", "1:5", "--tasks", 2, "--task-index", t]
+        assert _batch(*args) == 0
+    by_task = {}
+    for row in read_batch_index(out):
+        by_task.setdefault(row["task"], []).append(row["entry"])
+    assert by_task == {
+        0: [e.entry for e in entries[1:3]],
+        1: [e.entry for e in entries[3:5]],
+    }
+    names = sorted(p.name for p in (out / "index").iterdir())
+    assert names == [
+        "task_0000_entries_00000001_00000005.jsonl",
+        "task_0001_entries_00000001_00000005.jsonl",
+    ]
+
+
+def test_print_tasks_forwards_entries(tmp_path, dataset_file, capsys):
+    out = tmp_path / "o"
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    assert _batch(*argv, "--entries", "10:50", "--tasks", 3, "--print-tasks") == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 3
+    for i, line in enumerate(lines):
+        assert " --entries 10:50 " in line
+        assert line.endswith(f"--tasks 3 --task-index {i}")
+    assert not out.exists()
+
+
+def test_print_tasks_names_a_malformed_range(tmp_path, dataset_file, capsys):
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", tmp_path / "o"]
+    assert _batch(*argv, "--entries", "4:2", "--tasks", 2, "--print-tasks") == 1
+    assert "--entries needs 0 <= a <= b" in capsys.readouterr().err
