@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-625a73b · CLOSED · finding · - · 2026-10-23
+the movie drew frame axis 0 (x) downwards, a transpose of an x-y plot (R-A5 finding 6)
+→ commit 5910310
+
+## F-f4dfff1 · CLOSED · finding · - · 2026-10-23
+the colour scale changed during first playback and playback ran at a quarter of real time for 1 ms frames (R-A5 findings 7, 8)
+→ commit 5910310
+
 ## F-75fa5d0 · CLOSED · finding · - · 2026-10-23
 a stage job raising an unlisted exception stayed running and blocked the stage (R-A5 finding 2)
 → commit cdca99b
@@ -303,6 +311,7 @@ the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
 → commit c53ca39
 ↔ 890b4ec feat(evaluate): binary frame-chunk streaming, the page shell and the draw-open timing (A5b
+↔ 5910310 feat(evaluate): draw picker and a correctly oriented, wall-clock movie (A6a)
 
 ## D-4563d42 · CLOSED · decision · - · 2026-10-22
 each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review
