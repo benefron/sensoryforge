@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-289f711 · STANDING · finding · - · 2026-10-23
+a bundle entry on the 80x80 recipes is about 47 MB, of which about 1 MB is data; the rest is the receptive-field weights saved per entry (io/bundle.py write_bundle).
+→ commit 0e7f164
+
+## F-bb996a3 · OPEN · finding · - · 2026-10-23
+whether bundles should share one copy of a population's receptive-field weights instead of one per entry; it changes the bundle layout pressure-simulation reads, so it needs Ben's decision and a format-tag bump.
+→ commit 0e7f164
+
+## F-b397b9c · CLOSED · finding · - · 2026-10-23
+scale tests could fill the disk with no warning.
+→ commit 0e7f164
+
 ## F-442d2b8 · STANDING · finding · - · 2026-10-23
 the batch stage of the tactile test world on the 8x8 design runs at about 7 draws per second on one core, so 5000 draws take about 12 minutes; the audit and comparison add seconds
 → commit fa0b678
