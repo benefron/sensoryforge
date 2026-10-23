@@ -4,10 +4,10 @@ A bundle stores a population's ``filtered`` (after gain and sensor noise, before
 input floor) and its readout, not the membrane voltage. :func:`resimulate` runs the
 population's neuron again from the stored ``filtered`` with
 :meth:`~sensoryforge.core.simulation_engine.SimulationEngine._run_neuron_stage`,
-the very code a run uses, built from ``config.json`` (neuron parameters, record and integration
-steps, the floor the run applied, the population's noise seed), and compares what it
-produced with what the run stored. The comparison is the point: a re-run that does not
-match is shown as such, never as a voltage the bundle vouches for.
+the very code a run uses, built from ``config.json`` (neuron parameters, record and
+integration steps, the floor the run applied, the population's noise seed), and
+compares what it produced with what the run stored. The comparison is the point: a
+re-run that does not match is shown as such, never as a voltage the bundle vouches for.
 
 This is a viewer module, not the blind audit; it imports torch only when it runs.
 """
