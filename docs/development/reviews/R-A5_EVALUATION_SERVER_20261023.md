@@ -119,10 +119,12 @@ Apple-silicon laptop, `OMP_NUM_THREADS=1`, one run each.
   `requestAnimationFrame`, a speed control, and frame skipping when the speed is above
   what the display shows. Keep one promise per chunk start so a chunk is never fetched
   twice, and stop playback with the error shown when a fetch fails.
-- **Open for Ben (finding 9).** Should the inspector show membrane voltage? It could come
-  from storing voltage in bundles (a schema change), from re-simulating the pinned neuron
-  on demand, or not at all for now. Until then, A6b shows what bundles hold and says that
-  voltage is not stored.
+- **Decided by Ben, 2026-10-23 (finding 9, commit 82034fc).** The inspector re-simulates
+  membrane voltage on demand. It re-runs only the neuron stage from the stored `filtered`,
+  which is exactly the neuron's input, and verifies every re-run against the stored spikes
+  of every neuron. Bundles do not store voltage by default. Opt-in voltage probes (a few
+  fixed neurons per population, stored and matched exactly) are roadmap row A6p, a bundle
+  format change kept invisible until used.
 
 ## Required changes (row A5f)
 
