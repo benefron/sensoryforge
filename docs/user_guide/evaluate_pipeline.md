@@ -74,6 +74,13 @@ The pipeline runs the audit as `python -m sensoryforge.evaluate.audit` in a sepa
 interpreter. The process that reads the generated data therefore never has the world
 package loaded, whatever the rest of the pipeline imports.
 
+## Trying it at size
+
+To see how long a large run takes on your machine, run the repository's scale test, which
+uses the tactile test world: `SF_SCALE_DRAWS=5000 pytest -m scale tests/scale -s`. It prints
+each stage's time. A 24-draw version of it runs in every CI job. See the [developer
+note](../developer_guide/pipeline_stage.md#scale-tests).
+
 ## From Python
 
 ```python

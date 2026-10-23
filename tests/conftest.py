@@ -176,3 +176,21 @@ def toy_dataset(tmp_path_factory):
     from tests.fixtures import toy_vision
 
     return toy_vision.build_toy_dataset(tmp_path_factory.mktemp("toy_session"))
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-scale",
+        action="store_true",
+        default=False,
+        help="run the tests marked 'scale' (large; also selected by -m scale)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-scale") or "scale" in (config.getoption("-m") or ""):
+        return
+    skip = pytest.mark.skip(reason="large run: pytest -m scale (or --run-scale)")
+    for item in items:
+        if item.get_closest_marker("scale"):
+            item.add_marker(skip)
