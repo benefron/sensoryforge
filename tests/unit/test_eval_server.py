@@ -298,6 +298,98 @@ def test_a_failing_stage_job_reports_its_error(damaged):
     assert job["state"] == "failed" and job["error"]
 
 
+# ---------------------------------------------------------------------- frames
+
+
+def get_frames(api, target):
+    response = api.handle(Request.from_target("GET", target))
+    return response
+
+
+def test_a_frame_chunk_is_the_stored_frames_as_raw_float32(api, folder):
+    entry = next(iter(api.service.by_entry))
+    response = get_frames(api, f"/api/draw/frames?entry={entry}&start=2&count=3")
+    assert response.status == 200
+    assert response.content_type == "application/octet-stream"
+    h = response.headers
+    start, count = int(h["X-Frame-Start"]), int(h["X-Frame-Count"])
+    height, width = int(h["X-Frame-Height"]), int(h["X-Frame-Width"])
+    assert (start, count) == (2, 3) and h["X-Frame-Dtype"] == "float32-le"
+    sent = np.frombuffer(response.body, dtype="<f4").reshape(count, height, width)
+    path = api.service.reader().bundle_path(entry) / "data.h5"
+    with h5py.File(path, "r") as f:
+        ds = f["stimulus/frames"]
+        stored = ds[2:5] if ds.ndim == 3 else ds[2:5, 0]
+        assert int(h["X-Frame-Total"]) == ds.shape[0]
+    assert np.array_equal(sent, stored.astype("<f4"))
+    assert float(h["X-Frame-Min"]) == float(sent.min())
+    assert float(h["X-Frame-Max"]) == float(sent.max())
+    assert float(h["X-Frame-Dt-Ms"]) > 0
+
+
+def test_the_chunks_tile_the_draw_and_the_last_one_is_short(api):
+    entry = next(iter(api.service.by_entry))
+    first = get_frames(api, f"/api/draw/frames?entry={entry}")
+    total = int(first.headers["X-Frame-Total"])
+    assert int(first.headers["X-Frame-Count"]) == min(32, total)
+    seen = 0
+    while seen < total:
+        r = get_frames(api, f"/api/draw/frames?entry={entry}&start={seen}&count=50")
+        assert r.status == 200 and int(r.headers["X-Frame-Start"]) == seen
+        n = int(r.headers["X-Frame-Count"])
+        assert 1 <= n <= 50 and len(r.body) == 4 * n * int(
+            r.headers["X-Frame-Height"]
+        ) * int(r.headers["X-Frame-Width"])
+        seen += n
+    assert seen == total
+
+
+def test_a_chunk_stops_at_the_byte_cap(api, monkeypatch):
+    from sensoryforge.evaluate.server import service as module
+
+    entry = next(iter(api.service.by_entry))
+    one = get_frames(api, f"/api/draw/frames?entry={entry}&count=1")
+    frame_bytes = len(one.body)
+    monkeypatch.setattr(module, "MAX_CHUNK_BYTES", 2 * frame_bytes)
+    r = get_frames(api, f"/api/draw/frames?entry={entry}&count=10")
+    assert int(r.headers["X-Frame-Count"]) == 2 and len(r.body) == 2 * frame_bytes
+
+
+def test_frame_requests_refuse_what_they_cannot_answer(api):
+    entry = next(iter(api.service.by_entry))
+    for target, status in (
+        ("/api/draw/frames", 400),
+        ("/api/draw/frames?entry=nope", 404),
+        (f"/api/draw/frames?entry={entry}&start=x", 400),
+        (f"/api/draw/frames?entry={entry}&start=999999", 400),
+        (f"/api/draw/frames?entry={entry}&count=0", 400),
+        (f"/api/draw/frames?entry={entry}&channel=99", 400),
+    ):
+        response = get_frames(api, target)
+        assert response.status == status, target
+        assert json.loads(response.body)["error"]
+
+
+# ----------------------------------------------------------------------- the page
+
+
+def test_the_page_and_its_files_are_served_and_nothing_else(api):
+    page = api.handle(Request.from_target("GET", "/"))
+    assert page.status == 200 and page.content_type.startswith("text/html")
+    assert b"/static/app.js" in page.body
+    for name, kind in (("app.js", "javascript"), ("style.css", "text/css")):
+        r = api.handle(Request.from_target("GET", f"/static/{name}"))
+        assert r.status == 200 and kind in r.content_type and r.body
+    assert api.handle(Request.from_target("GET", "/favicon.ico")).status == 204
+    for target in (
+        "/static/nope.js",
+        "/static/../api.py",
+        "/static/%2e%2e/api.py",
+        "/static/.hidden",
+    ):
+        assert api.handle(Request.from_target("GET", target)).status == 404, target
+
+
 # ----------------------------------------------------------------- HTTP backend
 
 
@@ -312,6 +404,16 @@ def test_the_standard_library_backend_serves_the_api(folder):
             assert r.headers["Content-Type"] == "application/json"
         with urllib.request.urlopen(f"{base}/api/draws?limit=2") as r:
             assert len(json.loads(r.read())["items"]) == 2
+        entry = next(iter(Api(DatasetService(folder)).service.by_entry))
+        with urllib.request.urlopen(
+            f"{base}/api/draw/frames?entry={entry}&count=2"
+        ) as r:
+            n = int(r.headers["X-Frame-Count"])
+            assert len(r.read()) == 4 * n * int(r.headers["X-Frame-Height"]) * int(
+                r.headers["X-Frame-Width"]
+            )
+        with urllib.request.urlopen(f"{base}/") as r:
+            assert r.headers["Content-Type"].startswith("text/html")
         with pytest.raises(urllib.error.HTTPError) as err:
             urllib.request.urlopen(f"{base}/api/draw?entry=nope")
         assert err.value.code == 404 and json.loads(err.value.read())["error"]

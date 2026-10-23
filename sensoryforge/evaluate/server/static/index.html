@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensoryForge evaluate</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>SensoryForge evaluate</h1>
+  <p id="summary" class="muted">loading…</p>
+</header>
+<main>
+  <section id="list-pane" aria-label="Draws">
+    <form id="filters">
+      <label>Split <select id="f-split"><option value="">all</option></select></label>
+      <label>Class <select id="f-class"><option value="">all</option></select></label>
+      <label>Search <input id="f-q" type="search" placeholder="entry id"></label>
+      <button type="button" id="random">Random draw</button>
+    </form>
+    <p id="count" class="muted"></p>
+    <ul id="draws"></ul>
+    <p><button type="button" id="more" hidden>More</button></p>
+  </section>
+  <section id="view-pane" aria-label="Draw">
+    <h2 id="draw-title">No draw open</h2>
+    <canvas id="movie" width="1" height="1" aria-label="Stimulus frames"></canvas>
+    <div id="controls">
+      <button type="button" id="play" disabled>Play</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Frame">
+      <span id="clock" class="muted"></span>
+    </div>
+    <p id="timing" class="muted"></p>
+    <pre id="info"></pre>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

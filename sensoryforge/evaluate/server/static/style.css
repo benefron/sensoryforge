@@ -1,0 +1,36 @@
+:root {
+  --bg: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --line: #d9d9d3;
+  --panel: #ffffff; --accent: #1f5fbf; --sel: #e4edfa;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161616; --fg: #ececea; --muted: #9a9a94; --line: #34342f;
+    --panel: #1e1e1c; --accent: #7aa7f0; --sel: #25344d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161616; --fg: #ececea; --muted: #9a9a94; --line: #34342f;
+  --panel: #1e1e1c; --accent: #7aa7f0; --sel: #25344d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+header, main { padding: 0 16px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 1.25rem; margin: 16px 0 2px; }
+h2 { font-size: 1rem; margin: 0 0 8px; word-break: break-all; }
+.muted { color: var(--muted); margin: 2px 0 8px; }
+main { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; padding-bottom: 32px; }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+#filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#filters label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); }
+select, input, button { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); }
+button { cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+ul#draws { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+ul#draws li { padding: 5px 8px; border-bottom: 1px solid var(--line); cursor: pointer; word-break: break-all; }
+ul#draws li:last-child { border-bottom: 0; }
+ul#draws li[aria-current="true"] { background: var(--sel); }
+ul#draws li small { color: var(--muted); display: block; }
+canvas { width: 100%; max-width: 640px; image-rendering: pixelated; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: block; }
+#controls { display: flex; gap: 8px; align-items: center; max-width: 640px; margin-top: 8px; }
+#scrub { flex: 1; }
+pre { white-space: pre-wrap; font-size: .8rem; color: var(--muted); }

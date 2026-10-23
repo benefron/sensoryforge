@@ -9,9 +9,11 @@ Uvicorn backend could replace that adapter in a later version by calling
 from __future__ import annotations
 
 import json
+import mimetypes
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
 from sensoryforge.evaluate.server.jobs import StageJobs
@@ -64,6 +66,9 @@ def json_response(payload: Any, status: int = 200) -> Response:
     return Response(status, body, "application/json", {"Cache-Control": "no-store"})
 
 
+#: The page and its files, served at ``/`` and ``/static/NAME``.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
 Handler = Callable[[Request, "re.Match[str]"], Response]
 
 
@@ -87,6 +92,9 @@ class Api:
     def _table(self) -> List[Tuple[str, str, Handler]]:
         s = self.service
         return [
+            ("GET", r"/", self._page),
+            ("GET", r"/favicon\.ico", lambda r, m: Response(204)),
+            ("GET", r"/static/(?P<name>[A-Za-z0-9_][A-Za-z0-9_.-]*)", self._static),
             ("GET", r"/api/health", lambda r, m: json_response({"ok": True})),
             ("GET", r"/api/dataset", lambda r, m: json_response(s.summary())),
             ("GET", r"/api/draws", lambda r, m: json_response(s.list_draws(r.query))),
@@ -100,6 +108,7 @@ class Api:
                 r"/api/draw",
                 lambda r, m: json_response(s.draw(r.query.get("entry"))),
             ),
+            ("GET", r"/api/draw/frames", self._frames),
             (
                 "GET",
                 r"/api/draw/trace",
@@ -114,6 +123,45 @@ class Api:
                 lambda r, m: json_response(self.jobs.get(m["id"])),
             ),
         ]
+
+    def _frames(self, request: Request, match: "re.Match[str]") -> Response:
+        chunk = self.service.frames(request.query.get("entry"), request.query)
+        return Response(
+            200,
+            chunk.body,
+            "application/octet-stream",
+            {
+                "Cache-Control": "no-store",
+                "X-Frame-Start": str(chunk.start),
+                "X-Frame-Count": str(chunk.count),
+                "X-Frame-Height": str(chunk.height),
+                "X-Frame-Width": str(chunk.width),
+                "X-Frame-Total": str(chunk.total),
+                "X-Frame-Dt-Ms": repr(chunk.dt_ms),
+                "X-Frame-Min": repr(chunk.low),
+                "X-Frame-Max": repr(chunk.high),
+                "X-Frame-Dtype": "float32-le",
+                "Access-Control-Expose-Headers": "X-Frame-Start, X-Frame-Count, "
+                "X-Frame-Height, X-Frame-Width, X-Frame-Total, X-Frame-Dt-Ms, "
+                "X-Frame-Min, X-Frame-Max, X-Frame-Dtype",
+            },
+        )
+
+    def _page(self, request: Request, match: "re.Match[str]") -> Response:
+        return self._file("index.html")
+
+    def _static(self, request: Request, match: "re.Match[str]") -> Response:
+        return self._file(match["name"])
+
+    @staticmethod
+    def _file(name: str) -> Response:
+        path = STATIC_DIR / name
+        if not path.is_file():
+            raise ServiceError(404, f"no such file {name!r}")
+        kind = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        if kind.startswith("text/") or kind.endswith("javascript"):
+            kind += "; charset=utf-8"
+        return Response(200, path.read_bytes(), kind, {"Cache-Control": "no-cache"})
 
     def _stage(self, request: Request, match: "re.Match[str]") -> Response:
         body = self.service.stage_bytes(match["name"])

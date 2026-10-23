@@ -46,6 +46,10 @@ MAX_SERIES = 64
 MAX_POINTS = 20000
 DEFAULT_POINTS = 2000
 
+#: Frames per chunk by default, and the most bytes one chunk carries.
+DEFAULT_CHUNK_FRAMES = 32
+MAX_CHUNK_BYTES = 8 << 20
+
 #: Most draws one list request returns.
 MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
@@ -110,6 +114,33 @@ class DrawRow:
             "status": self.status,
             "seconds": self.seconds,
         }
+
+
+@dataclass(frozen=True)
+class FrameChunk:
+    """A run of frames ready to send.
+
+    Attributes:
+        body: ``count * height * width`` little-endian float32 values, frame by frame.
+        start: Index of the first frame in the draw.
+        count: Frames in the chunk.
+        height: Rows of a frame.
+        width: Columns of a frame.
+        total: Frames in the whole draw.
+        dt_ms: Frame step, ms.
+        low: Smallest finite value in the chunk.
+        high: Largest finite value in the chunk.
+    """
+
+    body: bytes
+    start: int
+    count: int
+    height: int
+    width: int
+    total: int
+    dt_ms: float
+    low: float
+    high: float
 
 
 def _scan_manifest(path: Path) -> List[Tuple[Dict[str, Any], int]]:
@@ -563,6 +594,60 @@ class DatasetService:
             "sensoryforge_sha": info.sensoryforge_sha,
         }
         return out
+
+    # ------------------------------------------------------------------- frames
+
+    def frames(self, entry: Optional[str], query: Mapping[str, str]) -> "FrameChunk":
+        """A run of stimulus frames of one draw as raw little-endian float32.
+
+        Args:
+            entry: Entry id.
+            query: ``start`` (first frame, default 0), ``count`` (frames wanted, default
+                32; fewer come back at the end of the draw or when the chunk would pass
+                8 MiB) and ``channel`` (default 0).
+
+        Returns:
+            The chunk: ``count`` frames of one channel, ``[count, H, W]`` row-major.
+
+        Raises:
+            ServiceError: 400 for a bad query, 404 for an unknown draw, 422 for an
+                unreadable bundle.
+        """
+        row = self._row(entry)
+        info = self.info(row.entry)
+        n_total = info.n_frames
+        n_ch = info.layout.n_channels
+        start = _int("start", query.get("start"), 0, 0, max(n_total - 1, 0))
+        want = _int("count", query.get("count"), DEFAULT_CHUNK_FRAMES, 1, 10**6)
+        channel = _int("channel", query.get("channel"), 0, 0, max(n_ch - 1, 0))
+        try:
+            path = self.reader().bundle_path(row.entry) / "data.h5"
+        except ReadError as exc:
+            raise ServiceError(422, f"draw {entry!r} cannot be read ({exc.message})")
+        with h5py.File(path, "r") as f:
+            ds = f["stimulus/frames"]
+            height, width = int(ds.shape[-2]), int(ds.shape[-1])
+            count = max(
+                1, min(want, n_total - start, MAX_CHUNK_BYTES // (4 * height * width))
+            )
+            block = (
+                ds[start : start + count]
+                if ds.ndim == 3
+                else ds[start : start + count, channel]
+            )
+        block = np.ascontiguousarray(block, dtype="<f4")
+        finite = block[np.isfinite(block)]
+        return FrameChunk(
+            body=block.tobytes(),
+            start=start,
+            count=count,
+            height=height,
+            width=width,
+            total=n_total,
+            dt_ms=float(info.dt),
+            low=float(finite.min()) if finite.size else 0.0,
+            high=float(finite.max()) if finite.size else 0.0,
+        )
 
     # ------------------------------------------------------------------- traces
 
