@@ -1082,4 +1082,5 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-e7972cb | the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint. | `f6412d3` |
 | 2026-10-23 | D-e9d3a36 | pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation. | `f6412d3` |
 | 2026-10-23 | D-637b872 | phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass | `5937de9` |
+| 2026-10-23 | D-aea7ea7 | core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history | `703654c` |
 <!-- DECISIONS_LOG_END -->

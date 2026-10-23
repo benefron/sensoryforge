@@ -108,25 +108,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-01512ed · STANDING · finding · - · 2026-10-23
+## D-aea7ea7 · CLOSED · decision · - · 2026-10-23
+core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history
+→ commit 703654c
+
+## F-01512ed · CLOSED · finding · - · 2026-10-23
 core.data.time_grid fails every bundle written at dt 0.1 or 0.2 ms; it allows 1e-6*dt per step, but the writer's float32 time axis rounds by more (2935 of 3000 steps at dt 0.1)
 → commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
 
-## F-8b1eee3 · STANDING · finding · - · 2026-10-23
+## F-8b1eee3 · CLOSED · finding · - · 2026-10-23
 the run-to-run diff compares floats with an absolute 2e-7 and no relative term, so a one-ULP change in drive or filtered (3.8e-6 at 40 mA) is called different, not equivalent
 → commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
 
-## F-f174272 · STANDING · finding · - · 2026-10-23
+## F-f174272 · CLOSED · finding · - · 2026-10-23
 core.run.saturation fails every level_crossing or sigma_delta population with refractory_ms 0, which emits several events per step by design
 → commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
 
-## F-af6b37a · STANDING · finding · - · 2026-10-23
+## F-af6b37a · CLOSED · finding · - · 2026-10-23
 core.run.determinism turns every fresh-build difference into a note when any population is unseeded, and whether unseeded wiring differs depends on the global RNG's history, which is the cause of F-5607a62
 → commit 5937de9
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
 
 ## F-ca590a3 · STANDING · finding · - · 2026-10-23
 in a worktree, flake8 checks nothing because .flake8 excludes .claude; the branch has 53 flake8 lines and 1 black file that CI's `flake8 sensoryforge tests` rejects
 → commit 5937de9
+↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 
 ## F-5c66c69 · CLOSED · finding · - · 2026-10-23
 evaluate/export/static/snapshot_shim.js was missing from the wheel
@@ -164,10 +173,11 @@ sparse weights are the default bundle layout, with a dense switch; all-dense bun
 an 80x80 recipe bundle entry is 1.9 MB with sparse weights, against 47 MB dense.
 → commit 3eec647
 
-## F-5607a62 · OPEN · finding · - · 2026-10-23
+## F-5607a62 · CLOSED · finding · - · 2026-10-23
 test_eval_checks.py::test_the_toy_data_set_with_three_channels fails when it follows the earlier test files in one run (the determinism note is None) and passes alone; it fails identically on the commit before A11d.
 → commit 3eec647
 ↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+✓ closed by 703654c fix(evaluate): the R-A review's required changes (Af)
 
 ## D-9c33ec9 · CLOSED · decision · - · 2026-10-23
 bundle population files store receptive-field weights as innervation_weights_indices/_values/_shape when under 10% nonzero (schema 2.5.0, readers choose by key), not as a shared per-data-set copy; the writer default switches after the pressure-simulation reader is in.
@@ -449,6 +459,7 @@ videos play in the browser from streamed frames, and MP4 or GIF files are export
 each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review
 → commit c53ca39
 ↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
+↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
