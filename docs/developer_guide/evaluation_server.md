@@ -125,6 +125,15 @@ chunk layout, not on the number of draws. The toy bundles are small, so the real
 measured separately and not through the server. Re-measure on the machine and the data set
 that matter before relying on it.
 
+**On real-size bundles, through the server** (review R-A5, 2026-10-23: an 80x80 tactile data
+set at 1 ms, timed over HTTP). The first chunk of a 5 s entry arrives in 15–17 ms, and that
+of a 30 s session in 50 ms. A 120 s session's chunk layout, read with h5py, gives 185 ms.
+Opening a draw stays well under a second. Playback is the cost that grows. HDF5 stores the
+frames in gzip chunks of hundreds to thousands of frames (313 at 5 s, 938 at 30 s, 3750 at
+120 s), and each 32-frame request decompresses the whole chunk again, so later chunks cost
+as much as the first. A slab cache that removes this is roadmap row A5f; see
+`docs/development/reviews/R-A5_EVALUATION_SERVER_20261023.md`.
+
 ## Where the code is
 
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
