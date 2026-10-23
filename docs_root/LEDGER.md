@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-a83fd06 · CLOSED · decision · - · 2026-10-23
+the reference-free checks are their own stage (sensoryforge/evaluate/checks, own CHECK_PACK_REGISTRY, own file checks.json, format sensoryforge-checks/1, contract section 13), outside the audit's import wall, reading bundles through the blind reader plus each bundle's config.json, and running the engine on probes whose scale comes from the data.
+→ commit ab9ef6f
+
+## F-e716342 · STANDING · finding · - · 2026-10-23
+engine one_to_one and gaussian builders sample their K receptors at random, so a symmetric probe needs the template builder with k=1 (identity weights); a probe at the data's peak alone can evoke almost no spikes on a coarse probe grid.
+→ commit ab9ef6f
+
 ## D-d72f3a0 · CLOSED · decision · - · 2026-10-23
 the dashboard bins the data's own range into ten equal bins for measured values and the declared domain for axes (logarithmic for log_uniform), counts sessions but leaves them out of the coverage map, and reads the declaration only for counts and coverage, never for the audit's histograms.
 → commit cc5cbef
@@ -328,6 +336,7 @@ the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept
 → commit c53ca39
 ↔ 5692ef2 docs(evaluate): propose the evaluation report contract and its JSON Schemas
 ↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
+↔ ab9ef6f feat(evaluate): reference-free checks stage with its own checks.json and page (A8)
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
