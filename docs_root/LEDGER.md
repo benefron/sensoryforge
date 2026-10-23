@@ -108,13 +108,39 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-794ab30 · CLOSED · decision · docs · 2026-10-23
+the evaluation server reads stimulus frames in time slabs aligned to the stored HDF5 chunk and keeps decompressed slabs in one byte-bounded LRU (256 MiB default, --frame-cache-mb), with the wire format unchanged; the bundle writer's chunk shape stays
+→ commit 4480018
+
+## D-cf543bf · CLOSED · decision · docs · 2026-10-23
+the evaluation server answers 403 to a Host other than the bound name or a loopback name (DNS rebinding) and to a POST whose Origin is not its own (cross-site requests)
+→ commit 4480018
+
+## D-ea6726c · CLOSED · decision · docs · 2026-10-23
+a stage job always leaves running; an exception outside the expected list marks it failed as unexpected <Type> in a finally and still reaches the thread excepthook
+→ commit 4480018
+
+## F-62dec9c · STANDING · finding · docs · 2026-10-23
+a 32-frame chunk of a long draw costs a whole stored time slab (313, 938, 3750 frames at 5, 30, 120 s on 80x80): 185 ms per chunk at 120 s against 219 ms for the full 3750-frame slab, so playback cannot keep up beyond about 5 s draws
+→ commit 4480018
+
+## F-63231e8 · STANDING · finding · docs · 2026-10-23
+a stage job whose runner raises an exception outside OSError, ValueError, KeyError and RuntimeError stays running and blocks that stage until the server restarts
+→ commit 4480018
+
+## F-fceb93c · OPEN · finding · docs · 2026-10-23
+should the trace inspector show membrane voltage, which bundles do not store (store it, a schema change; re-simulate the pinned neuron on demand; or leave it out)
+→ commit 4480018
+
 ## D-11c766e · CLOSED · decision · - · 2026-10-23
 frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
 → commit 890b4ec
+↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
 
 ## F-d23196a · STANDING · finding · - · 2026-10-23
 the first frame of a draw opens in about 1 ms on the toy bundles and about 27 ms on a tactile-sized stimulus, under the 1 s target; the cost that grows is the gzip chunk layout of data.h5, not the draw count.
 → commit 890b4ec
+↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
 
 ## D-9f6c77b · CLOSED · decision · - · 2026-10-22
 the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes

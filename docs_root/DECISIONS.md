@@ -1064,4 +1064,7 @@ Do not hand-edit between the markers.
 | 2026-10-22 | D-5253eb0 | the tactile adapter leaves out the episode phases for a moving shape (motion), and the timeline counts (offset, active time and fraction, bouts, gaps) when the modulation reaches 0 (depth 1) | `09f6568` |
 | 2026-10-22 | D-9f6c77b | the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes | `176f4b4` |
 | 2026-10-23 | D-11c766e | frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache. | `890b4ec` |
+| 2026-10-23 | D-794ab30 | the evaluation server reads stimulus frames in time slabs aligned to the stored HDF5 chunk and keeps decompressed slabs in one byte-bounded LRU (256 MiB default, --frame-cache-mb), with the wire format unchanged; the bundle writer's chunk shape stays | `4480018` |
+| 2026-10-23 | D-cf543bf | the evaluation server answers 403 to a Host other than the bound name or a loopback name (DNS rebinding) and to a POST whose Origin is not its own (cross-site requests) | `4480018` |
+| 2026-10-23 | D-ea6726c | a stage job always leaves running; an exception outside the expected list marks it failed as unexpected <Type> in a finally and still reaches the thread excepthook | `4480018` |
 <!-- DECISIONS_LOG_END -->
