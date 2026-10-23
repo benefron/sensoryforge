@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-0f0dce2 · CLOSED · decision · - · 2026-10-23
+the one-command pipeline never picks a metric pack from the world; --packs is the user's (default core) and the pipeline only notes a declared adapter's same-named pack that was not run (Q12, keeps Q9)
+→ commit d64c7bf
+
 ## D-7d06874 · CLOSED · decision · - · 2026-10-23
 the diff is its own stage (diff.json, diff_entries.jsonl, sensoryforge-diff/1, contract section 14) reading both sides through the blind reader; an entry that failed identically on both sides is no change.
 → commit df820b9
