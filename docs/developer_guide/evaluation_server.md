@@ -7,8 +7,8 @@ disk. Draws are read **on demand**, so a large data set never has to be rendered
 
 This page covers the data and JSON endpoints (roadmap A5a), the frame streaming and the page
 shell (A5b), the draw picker and movie (A6a), and pinned points with linked traces and
-re-simulated membrane voltage (A6b). The declared-fields panel and two-draw comparison follow in
-A6c.
+re-simulated membrane voltage (A6b), and the declared-fields panel and two-draw comparison
+(A6c).
 
 ## Run it
 
@@ -181,6 +181,31 @@ returns no voltage (an analog readout) gets a `422` saying so. A match proves th
 the run only where the stored readout can tell: a neuron that never crosses threshold has no
 spikes to compare; stored voltage probes (row A6p) close that gap.
 
+*Declared fields and comparison (A6c).* Under the traces, "Declared fields" lists the open draw's
+manifest record (what the world declared for it), flattened to one row per field in sections:
+Entry (id, split, class, repeat, world and data-set ids), Draw (the draw record: seed, timeline,
+sampling), Values drawn (the fields drawn from the world's axes) and Seeds. Seeds are shown from
+the decimal strings of `/api/draw`'s `seeds`, because JSON numbers above 2^53 lose digits in the
+browser; any other integer that large is marked "(rounded)". The server sends nothing new for
+this: the panel reads `record`. This panel shows the declaration, so it belongs to the
+inspector and not to the blind audit, which never reads it.
+
+"Compare with…" then a click in the draw list opens a second draw **B** beside the open one
+**A** (`#entry=A&vs=B` in the URL reproduces the pair). B's movie follows A's clock (B's frame is
+the one at the same time, `G.matchFrame`; a shorter draw holds its last frame; each movie
+waits for the other's chunks) and both are painted with **one colour scale**, the widest of the
+two, so equal colours mean equal values; the scale note says so. A pin on A marks the same
+sensor or neuron on B and B's traces are laid over A's in orange (a ticks row puts A's ticks in
+its upper half and B's in the lower half); B's membrane voltage is re-simulated and verified like
+A's, and the note under the trace gives both verdicts. The overlay is shown only when the pin
+means the same in B (same number of sensors; the population exists with that many neurons,
+`R.pinProblem`); otherwise the page says why and shows A alone. The fields panel becomes three
+columns, A and B, with rows that differ shaded and a switch to show only those. Each movie has
+its own chunk store (`newStore`) with the same one-promise-per-chunk rule. Not done: the
+multi-channel image renderer (the movie shows channel 0 as a heat map) and "two runs" (a second
+data-set folder): B is another draw of the same data set. `static/record.js` holds the panel's
+pure functions (node-tested like the others).
+
 **Population geometry.** `GET /api/draw/population` reads the population's tensor file in the
 bundle (the receptive-field bank: `neuron_centers` and `innervation_weights`) with torch,
 imported when first asked. `centers` is `[[x, y]]` in the layout's space unit; with `index`,
@@ -258,7 +283,7 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
 `resim.py` (the re-run), `__main__.py` and `static/` (`index.html`, `app.js`, `geometry.js`,
-`traces.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
+`traces.js`, `record.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
 data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
-`tests/unit/test_eval_page_geometry.py`. The audit's reader gained `DatasetReader.bundle_path()`
+`tests/unit/test_eval_page_geometry.py`, `tests/unit/test_eval_page_compare.py`. The audit's reader gained `DatasetReader.bundle_path()`
 for the server.

@@ -36,6 +36,12 @@
       </label>
       <span id="pin-text" class="muted">Click the movie to pin a point.</span>
     </p>
+    <p id="compare-row">
+      <button type="button" id="compare-pick" disabled>Compare with…</button>
+      <button type="button" id="compare-clear" hidden>Stop comparing</button>
+      <span id="compare-text" class="muted"></span>
+    </p>
+    <div id="stage-row">
     <div id="stage">
       <div id="yaxis" class="axis"><span id="ymax"></span><span id="ylabel"></span><span id="ymin"></span></div>
       <div id="movie-wrap">
@@ -43,6 +49,14 @@
         <canvas id="overlay" aria-hidden="true"></canvas>
       </div>
       <div id="xaxis" class="axis"><span id="xmin"></span><span id="xlabel"></span><span id="xmax"></span></div>
+    </div>
+    <div id="stage-b" hidden>
+      <p id="b-caption" class="muted"></p>
+      <div id="movie-wrap-b">
+        <canvas id="movie-b" width="1" height="1" aria-label="Stimulus frames of the second draw"></canvas>
+        <canvas id="overlay-b" aria-hidden="true"></canvas>
+      </div>
+    </div>
     </div>
     <div id="controls">
       <button type="button" id="play" disabled>Play</button>
@@ -61,11 +75,16 @@
     <p id="scale" class="muted"><canvas id="bar" width="96" height="1" aria-hidden="true"></canvas> <span id="scale-text"></span></p>
     <div id="tracebox" aria-label="Traces at the pinned point"><div id="cursor" hidden></div></div>
     <p id="timing" class="muted"></p>
-    <pre id="info"></pre>
+    <details id="fields" open>
+      <summary>Declared fields</summary>
+      <p id="fields-tools" class="muted" hidden><label><input type="checkbox" id="only-diff"> only the fields that differ</label></p>
+      <div id="fields-body"></div>
+    </details>
   </section>
 </main>
 <script src="/static/geometry.js"></script>
 <script src="/static/traces.js"></script>
+<script src="/static/record.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

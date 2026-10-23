@@ -3,24 +3,31 @@
 // random with a repeatable pick seed) and a movie of the stimulus frames of one draw that
 // streams in as it plays. Clicking the movie pins a sensor or a neuron (A6b) and the traces
 // under it share one time cursor with the movie; a neuron's membrane voltage is re-simulated
-// by the server and shown with its comparison against the stored run. The declared-fields
-// panel and two-draw comparison arrive with A6c. Frame geometry is in geometry.js, trace
-// geometry in traces.js.
+// by the server and shown with its comparison against the stored run. The declared fields of
+// the open draw sit under the traces (A6c); "Compare with…" opens a second draw B beside it,
+// on one clock and one colour scale, lays B's traces over the pinned point's and sets the two
+// declarations side by side. Frame geometry is in geometry.js, trace geometry in traces.js,
+// the declared-fields rows in record.js.
 (function () {
   const G = window.EvalGeometry;
   const T = window.EvalTraces;
+  const R = window.EvalRecord;
   const $ = (id) => document.getElementById(id);
   const CHUNK = 32;          // frames per request; chunk starts are multiples of this
   const PAGE = 100;
   const MAX_BYTES = 128 << 20;   // decoded chunks kept in the browser
   const MAX_IN_FLIGHT = 4;
   const MAX_STEP_MS = 100;   // a hidden tab's long gap must not make the movie jump
+  // A store holds the decoded chunks of one draw's movie (draw A's, or draw B's when comparing).
+  const newStore = (entry) => ({ entry, chunks: new Map(), pending: new Map(), bytes: 0,
+    low: Infinity, high: -Infinity, image: null });
   const state = { offset: 0, total: 0, entry: null, token: 0, seq: 0, tick: 0,
-    chunks: new Map(), pending: new Map(), bytes: 0, meta: null, draw: null,
-    low: Infinity, high: -Infinity, scaleText: "", frame: 0, cursor: 0, last: 0,
-    playing: false, raf: 0, speed: 1, image: null, channel: 0,
+    store: newStore(null), meta: null, draw: null, cmp: null, picking: false,
+    scaleText: "", frame: 0, cursor: 0, last: 0,
+    playing: false, raf: 0, speed: 1, channel: 0,
     dims: null, view: { kind: "sensors", name: null }, geom: null, field: null, pin: null,
     traceToken: 0, rows: [] };
+  const COLOUR_B = "#d9822b";   // draw B's traces and marks
   const PLOT = { left: 62, right: 8, height: 84, pad: 5 };   // trace canvas margins, CSS px
 
   async function getJSON(url) {
@@ -67,7 +74,7 @@
       const small = document.createElement("small");
       small.textContent = [row.split, row.class || "no class", row.status || ""].filter(Boolean).join(" · ");
       li.append(small);
-      li.addEventListener("click", () => openDraw(row.entry));
+      li.addEventListener("click", () => (state.picking ? setCompare(row.entry) : openDraw(row.entry)));
       $("draws").append(li);
     }
     state.offset += page.items.length;
@@ -77,61 +84,67 @@
   }
 
   function mark(entry) {
-    for (const li of $("draws").children)
+    const b = state.cmp ? state.cmp.store.entry : null;
+    for (const li of $("draws").children) {
       li.setAttribute("aria-current", li.dataset.entry === entry ? "true" : "false");
+      li.dataset.b = String(li.dataset.entry === b);
+    }
   }
 
   // ---- chunks: one promise per chunk start, so a chunk is never fetched twice ----
 
   const chunkStart = (frame) => Math.floor(frame / CHUNK) * CHUNK;
 
-  async function fetchChunk(token, start) {
-    const q = new URLSearchParams({ entry: state.entry, start, count: CHUNK, channel: state.channel });
+  // A store is current while it is the open draw's or the comparison's; a chunk that arrives
+  // for a draw that was closed meanwhile is dropped.
+  const current = (store) => state.store === store || (state.cmp !== null && state.cmp.store === store);
+
+  async function fetchChunk(store, start) {
+    const q = new URLSearchParams({ entry: store.entry, start, count: CHUNK, channel: state.channel });
     try {
       const r = await fetch("/api/draw/frames?" + q);
       if (!r.ok) throw new Error((await r.json()).error || r.statusText);
       const buf = await r.arrayBuffer();
-      if (token !== state.token) return null;
+      if (!current(store)) return null;
       const h = (n) => r.headers.get(n);
       const chunk = { start: +h("X-Frame-Start"), count: +h("X-Frame-Count"),
         height: +h("X-Frame-Height"), width: +h("X-Frame-Width"), total: +h("X-Frame-Total"),
         dt: +h("X-Frame-Dt-Ms"), low: +h("X-Frame-Min"), high: +h("X-Frame-Max"),
         data: new Float32Array(buf), used: ++state.tick };
-      state.chunks.set(chunk.start, chunk);
-      state.bytes += buf.byteLength;
-      state.low = Math.min(state.low, chunk.low);
-      state.high = Math.max(state.high, chunk.high);
-      evict();
+      store.chunks.set(chunk.start, chunk);
+      store.bytes += buf.byteLength;
+      store.low = Math.min(store.low, chunk.low);
+      store.high = Math.max(store.high, chunk.high);
+      evict(store, store === state.store ? state.frame : frameOfB(state.frame));
       return chunk;
     } catch (err) {
-      if (token !== state.token) return null;   // the draw changed; nobody is waiting
+      if (!current(store)) return null;   // the draw changed; nobody is waiting
       throw err;
     }
   }
 
-  function ensureChunk(start) {
-    const have = state.chunks.get(start);
+  function ensureChunk(store, start) {
+    const have = store.chunks.get(start);
     if (have) { have.used = ++state.tick; return Promise.resolve(have); }
-    let p = state.pending.get(start);
+    let p = store.pending.get(start);
     if (!p) {
-      const token = state.token;
-      p = fetchChunk(token, start).finally(() => {
-        if (token === state.token) state.pending.delete(start);
+      p = fetchChunk(store, start).finally(() => {
+        if (store.pending.get(start) === p) store.pending.delete(start);
       });
-      state.pending.set(start, p);
+      store.pending.set(start, p);
     }
     return p;
   }
 
   // Drop the least recently used chunks beyond the byte limit, never the one on screen.
-  function evict() {
-    if (state.bytes <= MAX_BYTES) return;
-    const keep = chunkStart(state.frame);
-    const order = [...state.chunks.values()].filter((c) => c.start !== keep).sort((a, b) => a.used - b.used);
+  function evict(store, frame) {
+    if (store.bytes <= MAX_BYTES) return;
+    const keep = chunkStart(frame);
+    const order = [...store.chunks.values()].filter((c) => c.start !== keep).sort((a, b) => a.used - b.used);
     for (const c of order) {
-      if (state.bytes <= MAX_BYTES) break;
-      state.chunks.delete(c.start);
-      state.bytes -= c.data.byteLength;
+      if (store.bytes <= MAX_BYTES) break;
+      store.chunks.delete(c.start);
+      store.bytes -= c.data.byteLength;
     }
   }
 
@@ -141,42 +154,74 @@
     say("error: " + String(err && err.message || err));
   }
 
+  function prefetchStore(store, frame, total, dt) {
+    const fps = (1000 / dt) * state.speed;
+    const ahead = Math.max(2 * CHUNK, Math.min(16 * CHUNK, fps));
+    for (let s = chunkStart(frame); s <= frame + ahead && s < total; s += CHUNK) {
+      if (store.pending.size >= MAX_IN_FLIGHT) break;
+      if (!store.chunks.has(s) && !store.pending.has(s)) ensureChunk(store, s).catch(fail);
+    }
+  }
+
   function prefetch(frame) {
     if (!state.meta) return;
-    const fps = (1000 / state.meta.dt) * state.speed;
-    const ahead = Math.max(2 * CHUNK, Math.min(16 * CHUNK, fps));
-    for (let s = chunkStart(frame); s <= frame + ahead && s < state.meta.total; s += CHUNK) {
-      if (state.pending.size >= MAX_IN_FLIGHT) break;
-      if (!state.chunks.has(s) && !state.pending.has(s)) ensureChunk(s).catch(fail);
-    }
+    prefetchStore(state.store, frame, state.meta.total, state.meta.dt);
+    const c = state.cmp;
+    if (c && c.meta) prefetchStore(c.store, frameOfB(frame), c.meta.total, c.meta.dt);
   }
 
   // ---- painting ----
 
+  // The frame of draw B at the time of frame `frame` of draw A (a shorter draw holds its last).
+  const frameOfB = (frame) => state.cmp && state.cmp.meta && state.meta
+    ? G.matchFrame(frame, state.meta.dt, state.cmp.meta.dt, state.cmp.meta.total) : 0;
+
+  const scaleOf = (store, draw) => G.colourScale(G.peakFor(draw && draw.frame_peak, state.channel), store.low, store.high);
+
+  // One colour scale for both movies while comparing, so equal colours mean equal values.
   function scaleFor() {
-    const peak = G.peakFor(state.draw && state.draw.frame_peak, state.channel);
-    return G.colourScale(peak, state.low, state.high);
+    const a = scaleOf(state.store, state.draw);
+    const c = state.cmp;
+    if (!c || !c.draw) return a;
+    const b = scaleOf(c.store, c.draw);
+    return { low: Math.min(a.low, b.low), high: Math.max(a.high, b.high),
+      source: (a.source === b.source ? a.source : a.source + " / " + b.source) + ", shared by both draws" };
+  }
+
+  function paintChunk(store, chunk, frame, canvasId, sc) {
+    chunk.used = ++state.tick;
+    const nx = chunk.height, ny = chunk.width;   // frame axis 0 is x and axis 1 is y
+    const canvas = $(canvasId);
+    if (canvas.width !== nx || canvas.height !== ny) {
+      canvas.width = nx; canvas.height = ny; store.image = null;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!store.image) store.image = ctx.createImageData(nx, ny);
+    G.toRGBA(chunk.data, (frame - chunk.start) * nx * ny, nx, ny, sc.low, sc.high, store.image.data);
+    ctx.putImageData(store.image, 0, 0);
+    return { nx, ny };
   }
 
   function paint(frame) {
-    const chunk = state.chunks.get(chunkStart(frame));
+    const chunk = state.store.chunks.get(chunkStart(frame));
     if (!chunk) return false;
-    chunk.used = ++state.tick;
-    const nx = chunk.height, ny = chunk.width;   // frame axis 0 is x and axis 1 is y
-    const canvas = $("movie");
-    if (canvas.width !== nx || canvas.height !== ny) {
-      canvas.width = nx; canvas.height = ny; state.image = null;
+    let other = null, fb = 0;
+    if (state.cmp && state.cmp.meta) {
+      fb = frameOfB(frame);
+      other = state.cmp.store.chunks.get(chunkStart(fb));
+      if (!other) return false;   // both movies wait for the slower one
     }
-    const ctx = canvas.getContext("2d");
-    if (!state.image) state.image = ctx.createImageData(nx, ny);
     const sc = scaleFor();
-    G.toRGBA(chunk.data, (frame - chunk.start) * nx * ny, nx, ny, sc.low, sc.high, state.image.data);
-    ctx.putImageData(state.image, 0, 0);
-    state.dims = { nx, ny };
+    state.dims = paintChunk(state.store, chunk, frame, "movie", sc);
+    if (other) {
+      paintChunk(state.cmp.store, other, fb, "movie-b", sc);
+      drawOverlay();
+    }
     state.frame = frame;
     $("scrub").value = frame;
     moveCursor();
-    $("clock").textContent = "frame " + frame + " / " + (chunk.total - 1) + " · " + (frame * chunk.dt).toFixed(1) + " ms";
+    const bText = other ? " · B frame " + fb + " / " + (other.total - 1) : "";
+    $("clock").textContent = "frame " + frame + " / " + (chunk.total - 1) + " · " + (frame * chunk.dt).toFixed(1) + " ms" + bText;
     const text = G.fmt(sc.low) + " … " + G.fmt(sc.high) + " (" + sc.source + ")";
     if (text !== state.scaleText) { state.scaleText = text; $("scale-text").textContent = text; }
     return true;
@@ -238,7 +283,9 @@
     state.frame = frame;
     state.cursor = frame;
     try {
-      const chunk = await ensureChunk(chunkStart(frame));
+      const need = [ensureChunk(state.store, chunkStart(frame))];
+      if (state.cmp && state.cmp.meta) need.push(ensureChunk(state.cmp.store, chunkStart(frameOfB(frame))));
+      const [chunk] = await Promise.all(need);
       if (!chunk || seq !== state.seq) return;
       paint(frame);
       prefetch(frame);
@@ -252,15 +299,15 @@
     return b && b.layout && b.layout.bounds && b.layout.bounds.length >= 2 ? b.layout.bounds : null;
   };
 
-  function fitOverlay() {
-    const o = $("overlay"), r = $("movie").getBoundingClientRect();
+  function fitOverlay(oid, mid) {
+    const o = $(oid), r = $(mid).getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
     if (o.width !== w || o.height !== h) { o.width = w; o.height = h; }
   }
 
   function drawOverlay() {
-    fitOverlay();
+    fitOverlay("overlay", "movie");
     const o = $("overlay"), ctx = o.getContext("2d");
     ctx.clearRect(0, 0, o.width, o.height);
     const d = state.dims, b = bounds();
@@ -301,6 +348,27 @@
         ctx.beginPath(); ctx.arc(xy[0], xy[1], 6 * dpr, 0, 2 * Math.PI); ctx.stroke();
       }
     }
+    drawOverlayB();
+  }
+
+  // The pinned point on draw B's movie, in B's colour, when the pin means the same in B.
+  function drawOverlayB() {
+    fitOverlay("overlay-b", "movie-b");
+    const o = $("overlay-b"), ctx = o.getContext("2d");
+    ctx.clearRect(0, 0, o.width, o.height);
+    const c = state.cmp, pin = state.pin, dpr = window.devicePixelRatio || 1;
+    if (!c || !c.draw || !c.draw.bundle || !pin || c.problem) return;
+    const nx = $("movie-b").width, ny = $("movie-b").height, sx = o.width / nx, sy = o.height / ny;
+    let xy = null;
+    if (pin.kind === "sensor") xy = [(pin.i + 0.5) * sx, (G.pixelOf(pin.i, pin.j, nx, ny).cy + 0.5) * sy];
+    else if (state.geom) {
+      const bb = c.draw.bundle.layout.bounds, m = state.geom.centers[pin.index];
+      if (bb && bb.length >= 2 && m) { const p = G.mmToPixel(m[0], m[1], bb, nx, ny); xy = [p.cx * sx, p.cy * sy]; }
+    }
+    if (!xy) return;
+    ctx.lineWidth = 2 * dpr;
+    ctx.strokeStyle = COLOUR_B;
+    ctx.beginPath(); ctx.arc(xy[0], xy[1], 6 * dpr, 0, 2 * Math.PI); ctx.stroke();
   }
 
   function pinText() {
@@ -317,6 +385,7 @@
     state.pin = pin;
     state.field = null;
     $("pin-text").textContent = pinText();
+    updateProblem();
     drawOverlay();
     loadTraces();
   }
@@ -350,6 +419,7 @@
       } catch (err) { say("error: " + err.message); state.view = { kind: "sensors", name: null }; $("view").value = "sensors"; }
     }
     $("pin-text").textContent = pinText();
+    updateProblem();
     drawOverlay();
     loadTraces();
   }
@@ -380,7 +450,7 @@
     note.textContent = "loading…";
     wrap.append(h, canvas, note);
     $("tracebox").insertBefore(wrap, $("cursor"));
-    const row = { title, kind, canvas, note, series: null, unit: "" };
+    const row = { title, kind, canvas, note, series: null, other: null, unit: "" };
     canvas.addEventListener("click", (e) => {
       const r = canvas.getBoundingClientRect();
       if (!state.meta) return;
@@ -405,7 +475,7 @@
     const ctx = c.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    const s = row.series;
+    const s = row.series, o = row.other;
     if (!s || !s.length) return;
     const css = getComputedStyle(document.documentElement);
     const fg = css.getPropertyValue("--fg").trim() || "#222", muted = css.getPropertyValue("--muted").trim() || "#888";
@@ -413,35 +483,45 @@
     ctx.font = "11px system-ui, sans-serif";
     ctx.fillStyle = muted;
     ctx.textAlign = "right";
+    const lines = [[s[0], fg]];
+    if (o && o.length) lines.push([o[0], COLOUR_B]);
     if (row.kind === "ticks") {
-      const view = { t0: 0, t1, lo: 0, hi: 1, w, h, left: PLOT.left, right: PLOT.right, pad: PLOT.pad };
+      // with two draws, A's ticks fill the upper half and B's the lower
       ctx.fillText(row.unit, PLOT.left - 6, h / 2 + 4);
-      ctx.strokeStyle = fg; ctx.lineWidth = 1;
-      const hits = T.nonzero(s[0].time_ms, s[0].values);
-      ctx.beginPath();
-      for (let n = 0; n < hits.times.length; n++) {
-        const x = T.xOfTime(hits.times[n], 0, t1, w, PLOT.left, PLOT.right);
-        ctx.moveTo(x, view.pad + 8); ctx.lineTo(x, h - view.pad - 8);
-      }
-      ctx.stroke();
+      ctx.lineWidth = 1;
+      const lane = (h - 2 * PLOT.pad) / lines.length;
+      lines.forEach(([one, colour], n) => {
+        ctx.strokeStyle = colour;
+        const hits = T.nonzero(one.time_ms, one.values);
+        const top = PLOT.pad + n * lane + 3, bottom = PLOT.pad + (n + 1) * lane - 3;
+        ctx.beginPath();
+        for (let m = 0; m < hits.times.length; m++) {
+          const x = T.xOfTime(hits.times[m], 0, t1, w, PLOT.left, PLOT.right);
+          ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+        }
+        ctx.stroke();
+      });
       return;
     }
     const all = [];
-    for (const one of s) for (const v of one.values) all.push(v);
+    for (const [one] of lines) for (const v of one.values) all.push(v);
     const rg = T.range(all);
     const view = { t0: 0, t1, lo: rg.lo, hi: rg.hi, w, h, left: PLOT.left, right: PLOT.right, pad: PLOT.pad };
     ctx.fillText(G.fmt(rg.hi), PLOT.left - 6, PLOT.pad + 9);
     ctx.fillText(G.fmt(rg.lo), PLOT.left - 6, h - PLOT.pad);
     if (row.unit) ctx.fillText(row.unit, PLOT.left - 6, h / 2 + 4);
-    ctx.strokeStyle = fg; ctx.lineWidth = 1.2; ctx.lineJoin = "round";
-    const pts = T.project(s[0].time_ms, s[0].values, view);
-    ctx.beginPath();
-    let pen = false;
-    for (const p of pts) {
-      if (!p) { pen = false; continue; }
-      if (pen) ctx.lineTo(p[0], p[1]); else { ctx.moveTo(p[0], p[1]); pen = true; }
+    ctx.lineWidth = 1.2; ctx.lineJoin = "round";
+    for (const [one, colour] of lines) {
+      ctx.strokeStyle = colour;
+      const pts = T.project(one.time_ms, one.values, view);
+      ctx.beginPath();
+      let pen = false;
+      for (const p of pts) {
+        if (!p) { pen = false; continue; }
+        if (pen) ctx.lineTo(p[0], p[1]); else { ctx.moveTo(p[0], p[1]); pen = true; }
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 
   function redrawTraces() { for (const r of state.rows) drawRow(r); drawOverlay(); moveCursor(); }
@@ -454,9 +534,31 @@
     cur.style.left = T.xOfTime(state.frame * state.meta.dt, 0, t1, w, PLOT.left, PLOT.right) + "px";
   }
 
-  function traceURL(source, extra) {
-    const q = new URLSearchParams({ entry: state.entry, source, ...extra });
+  function traceURL(source, extra, entry) {
+    const q = new URLSearchParams({ entry: entry || state.entry, source, ...extra });
     return "/api/draw/trace?" + q;
+  }
+
+  // Draw B's trace for the same point, laid over the row; a failure is said under the row.
+  async function fillOther(row, url, alive) {
+    try {
+      const body = await getJSON(url);
+      if (!alive()) return null;
+      row.other = body.series;
+      drawRow(row);
+      return body;
+    } catch (err) {
+      if (alive()) { row.note.textContent += (row.note.textContent ? " · " : "") + "B: " + String(err.message || err); row.note.className = "note bad"; }
+      return null;
+    }
+  }
+
+  function addLegend(row) {
+    const h = row.canvas.parentNode.querySelector("h3");
+    h.append(" · ");
+    const a = document.createElement("span"); a.className = "legend-a"; a.textContent = "A";
+    const b = document.createElement("span"); b.className = "legend-b"; b.textContent = "B";
+    h.append(a, " and ", b);
   }
 
   async function fill(row, url, unit, note) {
@@ -493,38 +595,55 @@
     if (!pin || !b) return;
     const units = b.units || {};
     const alive = () => token === state.traceToken;
+    const c = state.cmp;
+    const bEntry = c && c.draw && c.draw.bundle && !c.problem ? c.store.entry : null;
+    if (c && c.problem) say("B's traces are not shown: " + c.problem);
+    const mk = (title, kind) => { const r = newRow(title, kind); if (bEntry) addLegend(r); return r; };
     if (pin.kind === "sensor") {
-      const row = newRow("Stimulus at sensor " + pin.k + " (channel " + state.channel + ")", "line");
-      await fill(row, traceURL("stimulus", { index: pin.k, channel: state.channel }), units.frame || "");
+      const row = mk("Stimulus at sensor " + pin.k + " (channel " + state.channel + ")", "line");
+      const q = { index: pin.k, channel: state.channel };
+      await Promise.all([fill(row, traceURL("stimulus", q), units.frame || ""),
+        bEntry ? fillOther(row, traceURL("stimulus", q, bEntry), alive) : null]);
       return;
     }
     const pop = state.view.name, idx = pin.index;
     const readout = b.populations.find((p) => p.name === pop).readout;
-    const mk = (source, title, kind) => newRow(title, kind);
-    const drive = mk("drive", "Drive (neuron " + idx + ")", "line");
-    const filt = mk("filtered", "Filtered current (neuron " + idx + ")", "line");
-    const out = mk("readout", readout[0].toUpperCase() + readout.slice(1) + " (neuron " + idx + ")", readout === "state" ? "line" : "ticks");
-    const volt = mk("voltage", "Membrane voltage (neuron " + idx + "), re-simulated", "line");
+    const drive = mk("Drive (neuron " + idx + ")", "line");
+    const filt = mk("Filtered current (neuron " + idx + ")", "line");
+    const out = mk(readout[0].toUpperCase() + readout.slice(1) + " (neuron " + idx + ")", readout === "state" ? "line" : "ticks");
+    const volt = mk("Membrane voltage (neuron " + idx + "), re-simulated", "line");
     volt.note.textContent = "re-simulating the population from its stored filtered current…";
     const q = { population: pop, index: idx };
     fieldFor(token, pop, idx);
+    const outUnit = readout === "spikes" ? "spikes" : readout === "events" ? "events" : (units.state || "state");
     await Promise.all([
       fill(drive, traceURL("drive", q), units.drive || ""),
       fill(filt, traceURL("filtered", q), units.filtered || ""),
-      fill(out, traceURL("readout", q), readout === "spikes" ? "spikes" : readout === "events" ? "events" : (units.state || "state")),
+      fill(out, traceURL("readout", q), outUnit),
+      bEntry ? fillOther(drive, traceURL("drive", q, bEntry), alive) : null,
+      bEntry ? fillOther(filt, traceURL("filtered", q, bEntry), alive) : null,
+      bEntry ? fillOther(out, traceURL("readout", q, bEntry), alive) : null,
     ]);
     if (!alive()) return;
-    try {
-      const body = await getJSON("/api/draw/voltage?" + new URLSearchParams({ entry: state.entry, ...q }));
-      if (!alive()) return;
-      volt.series = body.series; volt.unit = "mV";
-      const d = describeCheck(body.verification);
-      volt.note.textContent = d.text; volt.note.className = d.cls;
-      drawRow(volt);
-    } catch (err) {
-      if (!alive()) return;
-      volt.note.textContent = String(err.message || err); volt.note.className = "note bad";
-    }
+    const voltage = async (entry) => getJSON("/api/draw/voltage?" + new URLSearchParams({ entry, ...q }));
+    const [ra, rb] = await Promise.allSettled([voltage(state.entry), bEntry ? voltage(bEntry) : Promise.resolve(null)]);
+    if (!alive()) return;
+    const notes = [];
+    let cls = "note good";
+    if (ra.status === "fulfilled") {
+      volt.series = ra.value.series; volt.unit = "mV";
+      const d = describeCheck(ra.value.verification);
+      notes.push((bEntry ? "A " : "") + d.text);
+      if (d.cls.includes("bad")) cls = "note bad";
+    } else { notes.push(String(ra.reason.message || ra.reason)); cls = "note bad"; }
+    if (rb.status === "fulfilled" && rb.value) {
+      volt.other = rb.value.series;
+      const d = describeCheck(rb.value.verification);
+      notes.push("B " + d.text);
+      if (d.cls.includes("bad")) cls = "note bad";
+    } else if (rb.status === "rejected") { notes.push("B: " + String(rb.reason.message || rb.reason)); cls = "note bad"; }
+    volt.note.textContent = notes.join(" · "); volt.note.className = cls;
+    drawRow(volt);
     moveCursor();
   }
 
@@ -544,16 +663,16 @@
     state.entry = entry;
     state.token += 1;
     state.seq += 1;
-    state.chunks = new Map(); state.pending = new Map(); state.bytes = 0;
-    state.low = Infinity; state.high = -Infinity;
+    if (state.cmp && state.cmp.store.entry === entry) resetCompare();   // A and B cannot be one draw
+    state.store = newStore(entry);
     state.meta = null; state.draw = null; state.frame = 0; state.cursor = 0;
-    state.scaleText = ""; state.image = null; state.dims = null;
+    state.scaleText = ""; state.dims = null;
     state.geom = null; state.field = null;
     clearTraces();
     mark(entry);
-    try { history.replaceState(null, "", "#entry=" + encodeURIComponent(entry)); } catch (e) { /* file:// or sandbox */ }
+    writeHash();
     $("draw-title").textContent = entry;
-    $("info").textContent = "";
+    $("fields-body").replaceChildren();
     $("scale-text").textContent = "";
     $("buffering").hidden = true;
     say("opening…");
@@ -561,13 +680,15 @@
     const t0 = performance.now();
     try {
       const [first, draw] = await Promise.all([
-        ensureChunk(0),
+        ensureChunk(state.store, 0),
         getJSON("/api/draw?entry=" + encodeURIComponent(entry)),
       ]);
       if (!first || token !== state.token) return;
       state.draw = draw;
       state.meta = { total: first.total, dt: first.dt };
       drawAxes();
+      if (state.cmp && state.cmp.meta) await ensureChunk(state.cmp.store, 0);   // paint() waits for both movies
+      if (token !== state.token) return;
       paint(0);
       const want = fillViews();
       if (want === "sensors") {
@@ -583,10 +704,136 @@
       scrub.max = first.total - 1; scrub.value = 0; scrub.disabled = false;
       $("play").disabled = false;
       prefetch(0);
-      $("info").textContent = JSON.stringify(draw.record, null, 1);
+      $("compare-pick").disabled = false;
+      renderFields();
+      if (state.cmp) refreshCompare();
     } catch (err) {
       if (token === state.token) say(String(err.message || err));
     }
+  }
+
+  // ---- the declared fields, and a second draw to compare with ----
+
+  function cell(tag, text, cls) {
+    const el = document.createElement(tag);
+    el.textContent = text;
+    if (cls) el.className = cls;
+    return el;
+  }
+
+  function renderFields() {
+    const body = $("fields-body");
+    body.replaceChildren();
+    const d = state.draw;
+    if (!d) return;
+    const c = state.cmp && state.cmp.draw;
+    $("fields-tools").hidden = !c;
+    if (d.error) body.append(cell("p", "The bundle could not be read: " + d.error, "note bad"));
+    const a = R.rows(d.record, d.seeds);
+    let list;
+    if (c) {
+      list = R.compare(a, R.rows(c.record, c.seeds));
+      if ($("only-diff").checked) list = list.filter((r) => !r.same);
+      if (!list.length) { body.append(cell("p", "Every declared field is the same in both draws.", "muted")); return; }
+    } else list = a;
+    for (const g of R.grouped(list)) {
+      const table = document.createElement("table");
+      const head = document.createElement("tr");
+      head.append(cell("th", g.group));
+      if (c) head.append(cell("th", "A"), cell("th", "B"));
+      else head.append(cell("th", ""));
+      table.append(head);
+      for (const r of g.rows) {
+        const tr = document.createElement("tr");
+        tr.append(cell("td", r.path.replace(/^draw\.values\./, "").replace(/^draw\./, ""), "path"));
+        if (c) {
+          tr.append(cell("td", r.a === null ? "not in this draw" : r.a), cell("td", r.b === null ? "not in this draw" : r.b, "b"));
+          if (!r.same) tr.className = "differs";
+        } else tr.append(cell("td", r.text));
+        table.append(tr);
+      }
+      body.append(table);
+    }
+  }
+
+  function writeHash() {
+    const q = new URLSearchParams();
+    if (state.entry) q.set("entry", state.entry);
+    if (state.cmp) q.set("vs", state.cmp.store.entry);
+    try { history.replaceState(null, "", "#" + q); } catch (e) { /* file:// or sandbox */ }
+  }
+
+  // Whether the pinned point means the same in B; traces of B are laid over A's only if so.
+  function updateProblem() {
+    const c = state.cmp;
+    if (!c || !c.draw) return;
+    c.problem = R.pinProblem(state.pin, state.view.name, state.draw.bundle, c.draw.bundle);
+  }
+
+  function refreshCompare() {
+    const c = state.cmp;
+    if (!c || !c.draw || !state.draw) return;
+    updateProblem();
+    const shorter = c.meta.total * c.meta.dt < state.meta.total * state.meta.dt
+      ? " B is shorter and holds its last frame." : "";
+    $("b-caption").replaceChildren(cell("span", "B", "legend-b"), " · " + c.store.entry);
+    $("compare-clear").hidden = false;
+    $("compare-text").textContent = "B (orange) is " + c.store.entry + ": one clock, one colour scale." + shorter;
+    mark(state.entry);
+    renderFields();
+    writeHash();
+    drawOverlay();
+    loadTraces();
+  }
+
+  async function setCompare(entry) {
+    state.picking = false;
+    $("draws").classList.remove("picking");
+    if (!state.draw) return;
+    if (entry === state.entry) { $("compare-text").textContent = "B must be a different draw than A."; return; }
+    stop();
+    const c = { store: newStore(entry), draw: null, meta: null, problem: null };
+    state.cmp = c;
+    $("compare-text").textContent = "loading " + entry + "…";
+    try {
+      const [first, draw] = await Promise.all([
+        ensureChunk(c.store, 0),
+        getJSON("/api/draw?entry=" + encodeURIComponent(entry)),
+      ]);
+      if (state.cmp !== c || !first) return;
+      c.draw = draw;
+      c.meta = { total: first.total, dt: first.dt };
+      $("stage-b").hidden = false;
+      $("stage-row").classList.add("two");
+      state.scaleText = "";
+      refreshCompare();
+      show(state.frame);
+    } catch (err) {
+      if (state.cmp !== c) return;
+      clearCompare();
+      say("error: " + String(err.message || err));
+    }
+  }
+
+  function resetCompare() {
+    state.picking = false;
+    $("draws").classList.remove("picking");
+    state.cmp = null;
+    $("stage-b").hidden = true;
+    $("stage-row").classList.remove("two");
+    $("compare-clear").hidden = true;
+    $("compare-text").textContent = "";
+    state.scaleText = "";
+  }
+
+  function clearCompare() {
+    resetCompare();
+    mark(state.entry);
+    renderFields();
+    writeHash();
+    if (state.meta) show(state.frame);
+    drawOverlay();
+    loadTraces();
   }
 
   // Re-open the population view of the previous draw on a new draw, keeping the pinned neuron.
@@ -597,12 +844,24 @@
   }
 
   function openFromHash() {
-    const m = /^#entry=(.+)$/.exec(location.hash);
-    if (!m) return;
-    const entry = decodeURIComponent(m[1]);
-    if (entry !== state.entry) openDraw(entry);
+    const q = new URLSearchParams(location.hash.slice(1));
+    const entry = q.get("entry"), vs = q.get("vs");
+    if (!entry) return;
+    const wantB = vs && vs !== entry ? vs : null;
+    const haveB = state.cmp ? state.cmp.store.entry : null;
+    if (entry !== state.entry) {
+      // a draw opened from a link brings its comparison along, once A has loaded
+      openDraw(entry).then(() => { if (wantB) return setCompare(wantB); });
+    } else if (wantB !== haveB) { if (wantB) setCompare(wantB); else clearCompare(); }
   }
 
+  $("compare-pick").addEventListener("click", () => {
+    state.picking = !state.picking;
+    $("draws").classList.toggle("picking", state.picking);
+    $("compare-text").textContent = state.picking ? "Click a draw in the list to compare with, or click here again to cancel." : "";
+  });
+  $("compare-clear").addEventListener("click", clearCompare);
+  $("only-diff").addEventListener("change", renderFields);
   $("play").addEventListener("click", () => { if (state.playing) stop(); else play(); });
   $("scrub").addEventListener("input", (e) => { stop(); show(+e.target.value); });
   $("speed").addEventListener("change", (e) => { state.speed = +e.target.value; prefetch(state.frame); });

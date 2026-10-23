@@ -114,7 +114,13 @@
     return f >= total ? f % total : f;
   }
 
-  const api = { pixelOf, sensorAt, mmToPixel, pixelToMm, nearestUnit, toRGBA, ramp, colourScale, peakFor, axisText, frameAt, fmt };
+  // The frame of a draw `dtB` apart that sits at the time of `frame` in a draw `dtA` apart,
+  // clamped to the draw's `totalB` frames (a shorter draw holds its last frame).
+  function matchFrame(frame, dtA, dtB, totalB) {
+    return Math.max(0, Math.min(totalB - 1, Math.round((frame * dtA) / dtB)));
+  }
+
+  const api = { matchFrame, pixelOf, sensorAt, mmToPixel, pixelToMm, nearestUnit, toRGBA, ramp, colourScale, peakFor, axisText, frameAt, fmt };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EvalGeometry = api;
 })(typeof window !== "undefined" ? window : globalThis);
