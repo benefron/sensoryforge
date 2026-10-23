@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-fde7d30 · CLOSED · decision · - · 2026-10-23
+the gallery is a viewer over audit and checks output (class label only as a grouping key); a population silent for most of a class is reported once for the class, not per entry; soft signals never outrank a failed or corrupt entry.
+→ commit 5dff296
+
+## F-425cec6 · STANDING · finding · - · 2026-10-23
+the audit leaves gap_max null for a stimulus with fewer than two bouts, so the gallery counts no gap as 0.
+→ commit 5dff296
+
 ## D-a83fd06 · CLOSED · decision · - · 2026-10-23
 the reference-free checks are their own stage (sensoryforge/evaluate/checks, own CHECK_PACK_REGISTRY, own file checks.json, format sensoryforge-checks/1, contract section 13), outside the audit's import wall, reading bundles through the blind reader plus each bundle's config.json, and running the engine on probes whose scale comes from the data.
 → commit ab9ef6f
@@ -337,6 +345,7 @@ the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept
 ↔ 5692ef2 docs(evaluate): propose the evaluation report contract and its JSON Schemas
 ↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
 ↔ ab9ef6f feat(evaluate): reference-free checks stage with its own checks.json and page (A8)
+↔ 5dff296 feat(evaluate): anomaly gallery ranking draws by what looks wrong (A9)
 
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
