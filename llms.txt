@@ -1,0 +1,93 @@
+# SensoryForge
+
+> An extensible playground for simulating sensory encoding and generating population activity
+
+Coding agents working in the repository start at [AGENTS.md](https://github.com/benefron/sensoryforge/blob/main/AGENTS.md).
+
+## Getting Started
+
+- [Installation](https://benefron.github.io/sensoryforge/getting_started/installation/)
+- [Quick Start](https://benefron.github.io/sensoryforge/getting_started/quickstart/)
+- [Core Concepts](https://benefron.github.io/sensoryforge/getting_started/concepts/)
+- [First Simulation](https://benefron.github.io/sensoryforge/getting_started/first_simulation/)
+
+## Tutorials
+
+- [Interactive Quickstart](https://benefron.github.io/sensoryforge/tutorials/quickstart_tutorial/)
+- [Batch Processing](https://benefron.github.io/sensoryforge/tutorials/batch_processing_tutorial/)
+- [Custom Neuron Models](https://benefron.github.io/sensoryforge/tutorials/custom_neurons/)
+- [Building a Custom Pipeline](https://benefron.github.io/sensoryforge/tutorials/custom_pipeline/)
+- [Parameter Sweeps](https://benefron.github.io/sensoryforge/tutorials/parameter_sweeps/)
+
+## Concepts
+
+- [Units and Shapes](https://benefron.github.io/sensoryforge/concepts/units_and_shapes/)
+- [Sensor Arrays](https://benefron.github.io/sensoryforge/concepts/sensor_arrays/)
+- [Populations and Inputs](https://benefron.github.io/sensoryforge/concepts/populations_and_inputs/)
+- [Pressure-Simulation Use Case](https://benefron.github.io/sensoryforge/concepts/pressure_simulation_use_case/)
+- [One Experiment, One Config](https://benefron.github.io/sensoryforge/concepts/the_pipeline/)
+
+## User Guide
+
+- [Overview](https://benefron.github.io/sensoryforge/user_guide/overview/)
+- [CLI Reference](https://benefron.github.io/sensoryforge/user_guide/cli/)
+- [YAML Configuration](https://benefron.github.io/sensoryforge/user_guide/yaml_configuration/)
+- [Configuration Schema](https://benefron.github.io/sensoryforge/user_guide/configuration_schema/)
+- [GUI Walkthrough](https://benefron.github.io/sensoryforge/user_guide/gui_walkthrough/)
+- [Units and Gains](https://benefron.github.io/sensoryforge/user_guide/units_and_gains/)
+- [Composite Grid](https://benefron.github.io/sensoryforge/user_guide/composite_grid/)
+- [Receptive Fields](https://benefron.github.io/sensoryforge/user_guide/receptive_fields/)
+- [Data Bundles](https://benefron.github.io/sensoryforge/user_guide/bundles/)
+- [Equation DSL](https://benefron.github.io/sensoryforge/user_guide/equation_dsl/)
+- [Analog Readouts](https://benefron.github.io/sensoryforge/user_guide/analog_readouts/)
+- [Event Encoders](https://benefron.github.io/sensoryforge/user_guide/event_encoders/)
+- [Designing Stimuli](https://benefron.github.io/sensoryforge/user_guide/designing_stimuli/)
+- [Worlds and Data Sets](https://benefron.github.io/sensoryforge/user_guide/worlds/)
+- [Extended Stimuli](https://benefron.github.io/sensoryforge/user_guide/extended_stimuli/)
+- [Presets](https://benefron.github.io/sensoryforge/user_guide/presets/)
+- [Solvers](https://benefron.github.io/sensoryforge/user_guide/solvers/)
+- [Batch Processing](https://benefron.github.io/sensoryforge/user_guide/batch_processing/)
+- [Evaluating a World](https://benefron.github.io/sensoryforge/user_guide/evaluate_pipeline/)
+- [Evaluation Browser](https://benefron.github.io/sensoryforge/user_guide/evaluation_browser/)
+- [Sharing a Snapshot](https://benefron.github.io/sensoryforge/user_guide/evaluation_export/)
+- [Working with a Coding Agent](https://benefron.github.io/sensoryforge/user_guide/agent_setup/)
+
+## Developer Guide
+
+- [Architecture Notes](https://benefron.github.io/sensoryforge/developer_guide/architecture_notes/)
+- [Extensibility Overview](https://benefron.github.io/sensoryforge/developer_guide/extensibility/)
+- [Adding a Neuron](https://benefron.github.io/sensoryforge/developer_guide/add_neuron/)
+- [Adding a Filter](https://benefron.github.io/sensoryforge/developer_guide/add_filter/)
+- [Adding a Stimulus](https://benefron.github.io/sensoryforge/developer_guide/add_stimulus/)
+- [Adding a Receptive-Field Builder](https://benefron.github.io/sensoryforge/developer_guide/add_rf_builder/)
+- [Adding a Grid Arrangement](https://benefron.github.io/sensoryforge/extending/add_grid_arrangement/)
+- [Adding a Processing Layer](https://benefron.github.io/sensoryforge/extending/add_processing_layer/)
+- [GUI Forms for a Component](https://benefron.github.io/sensoryforge/extending/gui_forms/)
+- [Adding a Solver](https://benefron.github.io/sensoryforge/extending/add_solver/)
+- [Plugin Packages](https://benefron.github.io/sensoryforge/developer_guide/plugins/)
+- [Toy Vision Fixture](https://benefron.github.io/sensoryforge/developer_guide/toy_vision_fixture/)
+- [Audit Reader](https://benefron.github.io/sensoryforge/developer_guide/audit_reader/)
+- [Audit Metrics](https://benefron.github.io/sensoryforge/developer_guide/audit_metrics/)
+- [Declared Adapter](https://benefron.github.io/sensoryforge/developer_guide/declared_adapter/)
+- [Raw Comparison](https://benefron.github.io/sensoryforge/developer_guide/compare_stage/)
+- [Reference-free Checks](https://benefron.github.io/sensoryforge/developer_guide/checks_stage/)
+- [Run-to-run Diff](https://benefron.github.io/sensoryforge/developer_guide/diff_stage/)
+- [Evaluation Pipeline](https://benefron.github.io/sensoryforge/developer_guide/pipeline_stage/)
+- [Evaluation Server](https://benefron.github.io/sensoryforge/developer_guide/evaluation_server/)
+- [Agent Files](https://benefron.github.io/sensoryforge/developer_guide/agent_files/)
+- [Equation DSL Implementation](https://benefron.github.io/sensoryforge/EQUATION_DSL_IMPLEMENTATION/)
+- [Roadmap](https://benefron.github.io/sensoryforge/developer_guide/roadmap_v1/)
+
+## API Reference
+
+- [Pipeline](https://benefron.github.io/sensoryforge/api_reference/pipeline/)
+- [Neurons](https://benefron.github.io/sensoryforge/api_reference/neurons/)
+- [Benchmarks](https://benefron.github.io/sensoryforge/reference/benchmarks/)
+- [World Engine Contract](https://benefron.github.io/sensoryforge/reference/world_contract/)
+- [Event Converter Contract](https://benefron.github.io/sensoryforge/reference/converter_contract/)
+- [Evaluation Report Contract](https://benefron.github.io/sensoryforge/reference/report_contract/)
+
+## Other
+
+- [Home](https://benefron.github.io/sensoryforge/)
+- [Contributing](https://benefron.github.io/sensoryforge/contributing/)

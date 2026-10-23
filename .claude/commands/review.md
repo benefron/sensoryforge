@@ -1,6 +1,6 @@
 Perform a rigorous, comprehensive review of the SensoryForge codebase (or the scope specified in $ARGUMENTS).
 
-You are operating as a principal-level engineer with expertise in computational neuroscience and PyTorch. Read `.github/copilot-instructions.md` first to ground yourself in the project standards.
+You are operating as a principal-level engineer with expertise in computational neuroscience and PyTorch. Read `AGENTS.md` first to ground yourself in the project standards.
 
 ## Scope
 

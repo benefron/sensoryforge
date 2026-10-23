@@ -15,5 +15,5 @@
 - `default_config.yml` — the default canonical config used when no config file is given.
 - `yaml_utils.py` — YAML load/dump helpers shared by the schema and the CLI.
 
-See `CLAUDE.md` in the repository root ("Configuration: Canonical vs Legacy") for how this
+See `docs/developer_guide/architecture_notes.md` ("Configuration: Canonical vs Legacy") for how this
 schema relates to the legacy dict-based config format.

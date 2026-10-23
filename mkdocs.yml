@@ -137,6 +137,7 @@ nav:
     - Working with a Coding Agent: user_guide/agent_setup.md
 
   - Developer Guide:
+    - Architecture Notes: developer_guide/architecture_notes.md
     - Extensibility Overview: developer_guide/extensibility.md
     - Adding a Neuron: developer_guide/add_neuron.md
     - Adding a Filter: developer_guide/add_filter.md

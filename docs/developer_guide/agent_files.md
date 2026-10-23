@@ -38,16 +38,17 @@ Each target is written by one command and checked in CI against its source (B10)
 |---|---|---|---|
 | `.claude/skills/<name>/` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install` | B6a |
 | Files for other environments, and one generic prompt for unknown ones | the same skills | `sensoryforge agents install --target <env>` | B8 |
-| `llms.txt` | `AGENTS.md` and the docs navigation | B2's generator | B2 |
+| `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
 
 ## What happens to today's files
 
 | Today | State | Fate |
 |---|---|---|
-| `CLAUDE.md` (343 lines) | current, but holds facts that also live in `CODE_MAP.md` and the docs | B2: imports `AGENTS.md`; the long architecture notes move to the docs and are linked |
-| `CODE_MAP.md` | partly repeats `CLAUDE.md` | folded into `AGENTS.md` (B2), then removed |
-| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps C2 | maintainer-only; stale references fixed in B2; `add-component` retired when C2's skill replaces it |
+| `CLAUDE.md` (343 lines) | current, but held facts that also lived in `CODE_MAP.md` and the docs | done in B2: imports `AGENTS.md` and keeps Claude-only notes; the architecture notes moved to [Architecture Notes](architecture_notes.md) |
+| `CODE_MAP.md` | partly repeated `CLAUDE.md`; named deleted GUI tabs | done in B2: folded into `AGENTS.md`'s table and removed |
+| `refs/` (module, test and GUI maps) | last changed 2026-09-14; predates GUI v2 | not linked from `AGENTS.md`; replaced by D5's generated reference |
+| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps C2 | maintainer-only; the stale references now name `AGENTS.md` (B2); `add-component` retired when C2's skill replaces it |
 | `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired now; B8 generates Cursor's files from the skills |
 | `.claude/hooks/`, `.claude/settings.json`, `.claude/ledger.conf` | the living ledger's install | maintainer-only, owned by the ledger skill, not edited by hand |
 | `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | for people | human-first; agents may read them, nothing points agents at them for facts |
