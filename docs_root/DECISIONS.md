@@ -1081,4 +1081,5 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-e76de48 | sparse weights are the default bundle layout, with a dense switch; all-dense bundles keep their older schema version rather than every bundle saying 2.5.0. | `3eec647` |
 | 2026-10-23 | D-e7972cb | the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint. | `f6412d3` |
 | 2026-10-23 | D-e9d3a36 | pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation. | `f6412d3` |
+| 2026-10-23 | D-637b872 | phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass | `5937de9` |
 <!-- DECISIONS_LOG_END -->
