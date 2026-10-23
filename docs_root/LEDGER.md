@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-442d2b8 · STANDING · finding · - · 2026-10-23
+the batch stage of the tactile test world on the 8x8 design runs at about 7 draws per second on one core, so 5000 draws take about 12 minutes; the audit and comparison add seconds
+→ commit fa0b678
+
 ## D-0f0dce2 · CLOSED · decision · - · 2026-10-23
 the one-command pipeline never picks a metric pack from the world; --packs is the user's (default core) and the pipeline only notes a declared adapter's same-named pack that was not run (Q12, keeps Q9)
 → commit d64c7bf
