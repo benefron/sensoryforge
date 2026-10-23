@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-75fa5d0 · CLOSED · finding · - · 2026-10-23
+a stage job raising an unlisted exception stayed running and blocked the stage (R-A5 finding 2)
+→ commit cdca99b
+
+## F-0fffcb5 · CLOSED · finding · - · 2026-10-23
+the loopback server accepted cross-site POSTs and rebinding reads (R-A5 finding 3)
+→ commit cdca99b
+
+## F-9a853c4 · CLOSED · finding · - · 2026-10-23
+h5 read errors after the peek escaped as dropped connections, summary re-peeked every row (R-A5 findings 4, 5)
+→ commit cdca99b
+
 ## D-40d072b · CLOSED · decision · - · 2026-10-23
 the trace inspector re-simulates membrane voltage on demand from the bundle's stored filtered (neuron stage only) and verifies it by matching the re-simulated spikes of every neuron against the stored spikes; bundles do not store voltage by default
 → commit 82034fc
@@ -128,9 +140,10 @@ the evaluation server answers 403 to a Host other than the bound name or a loopb
 a stage job always leaves running; an exception outside the expected list marks it failed as unexpected <Type> in a finally and still reaches the thread excepthook
 → commit 4480018
 
-## F-62dec9c · STANDING · finding · docs · 2026-10-23
+## F-62dec9c · CLOSED · finding · docs · 2026-10-23
 a 32-frame chunk of a long draw costs a whole stored time slab (313, 938, 3750 frames at 5, 30, 120 s on 80x80): 185 ms per chunk at 120 s against 219 ms for the full 3750-frame slab, so playback cannot keep up beyond about 5 s draws
 → commit 4480018
+✓ closed by cdca99b fix(evaluate): server keeps decompressed frame slabs, refuses foreign pages, ends every jo
 
 ## F-63231e8 · STANDING · finding · docs · 2026-10-23
 a stage job whose runner raises an exception outside OSError, ValueError, KeyError and RuntimeError stays running and blocks that stage until the server restarts
@@ -145,6 +158,7 @@ should the trace inspector show membrane voltage, which bundles do not store (st
 frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
 → commit 890b4ec
 ↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
+↔ cdca99b fix(evaluate): server keeps decompressed frame slabs, refuses foreign pages, ends every jo
 
 ## F-d23196a · STANDING · finding · - · 2026-10-23
 the first frame of a draw opens in about 1 ms on the toy bundles and about 27 ms on a tactile-sized stimulus, under the 1 s target; the cost that grows is the gzip chunk layout of data.h5, not the draw count.
