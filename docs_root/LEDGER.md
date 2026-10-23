@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-d72f3a0 · CLOSED · decision · - · 2026-10-23
+the dashboard bins the data's own range into ten equal bins for measured values and the declared domain for axes (logarithmic for log_uniform), counts sessions but leaves them out of the coverage map, and reads the declaration only for counts and coverage, never for the audit's histograms.
+→ commit cc5cbef
+
 ## D-6628b99 · CLOSED · decision · - · 2026-10-23
 a bundle says schema 2.4.0 only when it stores voltage probes; a run that sets no voltage_probes writes the 2.3.0 bundle byte for byte and still says 2.3.0, so pressure-simulation's pin is untouched (the key is invisible until used).
 → commit 3b0f5ca
