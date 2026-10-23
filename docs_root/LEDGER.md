@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e7972cb · CLOSED · decision · - · 2026-10-23
+the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint.
+→ commit f6412d3
+
+## D-e9d3a36 · CLOSED · decision · - · 2026-10-23
+pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation.
+→ commit f6412d3
+
+## F-1844d82 · OPEN · finding · - · 2026-10-23
+the snapshot cannot answer combined filters, text or seed searches, Random draw, or an unticked gallery signal; each answers "not in this snapshot".
+→ commit f6412d3
+
 ## D-e76de48 · CLOSED · decision · - · 2026-10-23
 sparse weights are the default bundle layout, with a dense switch; all-dense bundles keep their older schema version rather than every bundle saying 2.5.0.
 → commit 3eec647

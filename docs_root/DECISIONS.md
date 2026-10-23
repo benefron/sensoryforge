@@ -1079,4 +1079,6 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-0f0dce2 | the one-command pipeline never picks a metric pack from the world; --packs is the user's (default core) and the pipeline only notes a declared adapter's same-named pack that was not run (Q12, keeps Q9) | `d64c7bf` |
 | 2026-10-23 | D-9c33ec9 | bundle population files store receptive-field weights as innervation_weights_indices/_values/_shape when under 10% nonzero (schema 2.5.0, readers choose by key), not as a shared per-data-set copy; the writer default switches after the pressure-simulation reader is in. | `2dec769` |
 | 2026-10-23 | D-e76de48 | sparse weights are the default bundle layout, with a dense switch; all-dense bundles keep their older schema version rather than every bundle saying 2.5.0. | `3eec647` |
+| 2026-10-23 | D-e7972cb | the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint. | `f6412d3` |
+| 2026-10-23 | D-e9d3a36 | pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation. | `f6412d3` |
 <!-- DECISIONS_LOG_END -->
