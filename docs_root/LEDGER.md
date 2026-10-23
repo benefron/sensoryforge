@@ -312,6 +312,18 @@ the first frame of a draw opens in about 1 ms on the toy bundles and about 27 ms
 → commit 890b4ec
 ↔ 4480018 docs(review): R-A5, the Opus review of the evaluation server
 
+## D-2c59776 · CLOSED · decision · - · 2026-10-22
+the tactile metric pack is built as its own row A2d, in S2 before A3 and A4, so the declared side and the comparison have measured values for the same metric ids.
+→ commit 4ec70c4
+
+## D-1a06570 · CLOSED · decision · - · 2026-10-22
+the roadmap keeps Sonnet implementing and Opus reviewing at phase ends and the named gates, with the plan kept as files in docs_root/plan and a private artifact for comments
+→ commit 6561075
+
+## D-f747b6e · CLOSED · decision · - · 2026-10-22
+roadmap sessions are sized by context (about 150k each), grouping the remaining rows into 30 sessions with one fixed session prompt, instead of one row per session
+→ commit 319cb00
+
 ## D-9f6c77b · CLOSED · decision · - · 2026-10-22
 the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes
 → commit 176f4b4
@@ -501,10 +513,13 @@ new evaluation, agent-skill, plugin and docs work uses a modality-neutral core (
 ↔ 084d604 test(evaluate): add a toy non-tactile data set built through the real engine
 ↔ 8cf4e60 feat(world): unit-free field names and a declared space unit
 ↔ ac56f03 feat(evaluate): add the blind audit's reader layer, inventory and import wall
+↔ 4ec70c4 docs(plan): add A2d, the tactile metric pack, before A4
 
-## D-4671314 · CLOSED · decision · - · 2026-10-22
+## D-4671314 · SUPERSEDED · decision · - · 2026-10-22
 the roadmap runs one task per fresh Claude session in order, Sonnet implementing and Opus reviewing at phase ends and three named gates, with the plan kept as files in docs_root/plan and a private artifact as its comment view
 → commit 1e61060
+⤳ superseded by D-f747b6e in 319cb00 docs: roadmap sessions are sized by context, about 150k each
+↔ 6561075 docs: the rest of the roadmap's working rules stand
 
 ## F-40e2072 · CLOSED · finding · tests/contract · 2026-10-05
 the leak-keeps-running-while-refractory rule is now held by a test that a paused-leak mutant fails.
