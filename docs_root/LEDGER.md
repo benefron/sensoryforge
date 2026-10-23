@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-11c766e · CLOSED · decision · - · 2026-10-23
+frames stream as headers plus raw float32 chunks of at most 8 MiB, so the browser needs no video encoder (D-7e30f2b) and the server keeps no cache.
+→ commit 890b4ec
+
+## F-d23196a · STANDING · finding · - · 2026-10-23
+the first frame of a draw opens in about 1 ms on the toy bundles and about 27 ms on a tactile-sized stimulus, under the 1 s target; the cost that grows is the gzip chunk layout of data.h5, not the draw count.
+→ commit 890b4ec
+
 ## D-9f6c77b · CLOSED · decision · - · 2026-10-22
 the server reads the whole manifest (it is a viewer, not the blind audit) but opens bundles only through the audit's reader, and names a draw in the query because entry ids contain slashes
 → commit 176f4b4
@@ -245,6 +253,7 @@ the evaluation code is a subpackage sensoryforge/evaluate, and its audit is kept
 ## D-7e30f2b · CLOSED · decision · - · 2026-10-22
 videos play in the browser from streamed frames, and MP4 or GIF files are exported only when ffmpeg is installed
 → commit c53ca39
+↔ 890b4ec feat(evaluate): binary frame-chunk streaming, the page shell and the draw-open timing (A5b
 
 ## D-4563d42 · CLOSED · decision · - · 2026-10-22
 each roadmap phase has its own worktree and branch and merges to main only after the full suite is green and an Opus review
