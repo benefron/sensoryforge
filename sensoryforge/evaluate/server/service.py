@@ -34,6 +34,11 @@ from sensoryforge.evaluate.audit.reader import (
     read_index,
 )
 from sensoryforge.evaluate.server.dashboard import Dashboard, build_dashboard
+from sensoryforge.evaluate.server.gallery import (
+    Gallery,
+    build_gallery,
+    read_entries,
+)
 
 #: The stage files the server shows, in pipeline order.
 STAGES: Tuple[str, ...] = ("audit", "declared", "compare", "checks")
@@ -334,6 +339,9 @@ class DatasetService:
         self._dash: Optional[Dashboard] = None
         self._dash_stamp: Optional[Tuple[Any, ...]] = None
         self._dash_lock = threading.Lock()
+        self._gallery: Optional[Gallery] = None
+        self._gallery_stamp: Optional[Tuple[Any, ...]] = None
+        self._gallery_lock = threading.Lock()
         self._banks: "OrderedDict[Tuple[str, str], Tuple[np.ndarray, np.ndarray]]" = (
             OrderedDict()
         )
@@ -667,6 +675,79 @@ class DatasetService:
             ServiceError: 422 when the manifest cannot be read again.
         """
         return self._dashboard().payload
+
+    # ------------------------------------------------------------------ gallery
+
+    def _gallery_for(self) -> Gallery:
+        """The anomaly gallery, built on first use and again when its inputs change."""
+        audit_path = self.stages / "audit.json"
+        entries_path = self.stages / AUDIT_ENTRIES_FILE
+        checks_path = self.stages / "checks.json"
+        stamp = []
+        for path in (entries_path, audit_path, checks_path):
+            try:
+                st = path.stat()
+                stamp.append((st.st_mtime_ns, st.st_size))
+            except OSError:
+                stamp.append(None)
+        if stamp[0] is None:
+            raise ServiceError(
+                409,
+                "the gallery ranks the audit's per-draw rows; "
+                "POST /api/stages/audit/run computes them",
+            )
+        key = tuple(stamp)
+        with self._gallery_lock:
+            if self._gallery is not None and self._gallery_stamp == key:
+                return self._gallery
+            docs: Dict[str, Optional[Dict[str, Any]]] = {}
+            for name, path, have in (
+                ("audit", audit_path, stamp[1]),
+                ("checks", checks_path, stamp[2]),
+            ):
+                docs[name] = None
+                if have is not None:
+                    try:
+                        docs[name] = json.loads(path.read_text(encoding="utf-8"))
+                    except ValueError:
+                        docs[name] = None
+            try:
+                gallery = build_gallery(
+                    read_entries(entries_path),
+                    audit=docs["audit"],
+                    checks=docs["checks"],
+                    status={r.entry: (r.status, r.error) for r in self.reader().rows},
+                )
+            except (OSError, ValueError, KeyError) as exc:
+                raise ServiceError(422, f"the gallery cannot be built ({exc})") from exc
+            self._gallery, self._gallery_stamp = gallery, key
+            return gallery
+
+    def gallery(self, query: Mapping[str, str]) -> Dict[str, Any]:
+        """The entries most worth a look, worst first.
+
+        Args:
+            query: ``signal``, ``split`` and ``class`` (comma-separated lists; ``~`` for
+                no class) and ``limit`` (default 24, at most 500).
+
+        Returns:
+            The payload of ``Gallery.payload`` (``evaluate/server/gallery.py``).
+
+        Raises:
+            ServiceError: 409 without the audit's rows, 400 for an unknown signal.
+        """
+        from sensoryforge.evaluate.server.gallery import SIGNALS
+
+        signals = _csv(query.get("signal"))
+        for name in signals or []:
+            if name not in SIGNALS:
+                raise ServiceError(
+                    400, f"signal {name!r} is unknown; the signals are {list(SIGNALS)}"
+                )
+        limit = _int("limit", query.get("limit"), 24, 1, 500)
+        return self._gallery_for().payload(
+            signals, _csv(query.get("split")), _csv(query.get("class")), limit
+        )
 
     # -------------------------------------------------------------------- draws
 

@@ -117,3 +117,16 @@ ul.failures { margin: 4px 0; padding-left: 20px; font-size: .85rem; word-break: 
 dl.numbers { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: .8rem; margin: 6px 0 0; }
 dl.numbers dt { color: var(--muted); font-family: ui-monospace, monospace; }
 dl.numbers dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-word; }
+
+/* ---- the anomaly gallery (roadmap A9) ---- */
+body.gallery #gallery { max-width: 1200px; margin: 0 auto; padding: 0 16px 32px; }
+#signals { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; }
+#signals .chip { font-size: .85rem; }
+#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+article.card { border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; background: var(--panel); padding: 6px 10px; min-width: 0; }
+article.card.high { border-left-color: #b3261e; }
+article.card.medium { border-left-color: #c77700; }
+article.card.low { border-left-color: var(--muted); }
+article.card h3 { font-size: .95rem; margin: 0; word-break: break-all; }
+article.card p { margin: 2px 0 4px; font-size: .8rem; }
+article.card ul { margin: 0; padding-left: 18px; font-size: .82rem; word-break: break-word; }

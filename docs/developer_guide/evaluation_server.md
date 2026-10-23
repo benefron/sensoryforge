@@ -74,6 +74,7 @@ slashes, so a draw is named in the query, never in the path.
 |---|---|
 | `GET /api/health` | `{"ok": true}` |
 | `GET /api/dataset` | `dataset.json`'s name, ids and splits; counts by split, class and status (`~` stands for no class); the sensor layout, populations, frame step and units of the first readable bundle; the state of the stage files; `index_seconds` |
+| `GET /api/gallery` | the anomaly gallery: entries ranked by what looks wrong, worst first, each with its reasons (below); `signal`, `split`, `class` (comma-separated; `~` for no class) and `limit` (default 24, at most 500) filter it; `409` until the audit's rows exist |
 | `GET /api/dashboard` | counts, histograms and the coverage map of the whole data set, each number with the `query` that lists its draws (below) |
 | `GET /api/draws` | a page of the draw list: `total`, `offset`, `limit`, `items` |
 | `GET /api/draws/random` | one draw picked from the filtered ones; `pick_seed` makes the pick repeatable |
@@ -82,7 +83,7 @@ slashes, so a draw is named in the query, never in the path.
 | `GET /api/draw/voltage?entry=E&population=P&index=N` | membrane voltage of neurons, re-simulated, with its comparison against the stored run (below) |
 | `GET /api/draw/population?entry=E&population=P[&index=N]` | neuron positions of a population and, with `index`, the receptors one neuron reads (below) |
 | `GET /api/draw/frames?entry=E` | a run of stimulus frames as raw bytes (below) |
-| `GET /`, `GET /dashboard`, `GET /checks` and `GET /static/NAME` | the draw browser, the dashboard, the checks page and their files (`index.html`, `dashboard.html`, `checks.html`, `app.js`, `dashboard_page.js`, `checks_page.js`, `geometry.js`, `traces.js`, `record.js`, `dashboard.js`, `checks.js`, `style.css`) |
+| `GET /`, `GET /dashboard`, `GET /gallery`, `GET /checks` and `GET /static/NAME` | the draw browser, the dashboard, the gallery, the checks page and their files (`index.html`, `dashboard.html`, `gallery.html`, `checks.html`, `app.js`, `dashboard_page.js`, `gallery_page.js`, `checks_page.js`, `geometry.js`, `traces.js`, `record.js`, `dashboard.js`, `gallery.js`, `checks.js`, `style.css`) |
 | `GET /api/stages` | per stage: present or not, format, `created_at`, entries, size |
 | `GET /api/stage/NAME` | the stage's JSON file as stored (`404` when missing) |
 | `POST /api/stages/NAME/run` | start the stage in a background thread (`202` and a job); `compare` needs the other two first (`409`); `?packs=core,tactile` chooses the metric packs of `audit` or the check packs of `checks` |
@@ -257,6 +258,37 @@ functions (bin labels, bar fractions, the link and its reading), node-tested.
 accepts the data set; `compare` reads the other two. They write into the stages folder and
 run one at a time per stage. A failure is the job's `error`, with the exception's type.
 
+**Anomaly gallery (A9).** Random sampling misses rare failures, so `/gallery` ranks every
+entry and shows the worst first; each card links to its draw (`/#entry=ID`). The ranking is
+`gallery.py`; it reads only the audit's per-entry rows (`audit_entries.jsonl`), the batch
+index's status and, if it exists, `checks.json`. The class label is a grouping key, never a
+declaration. Seven signals; the severity orders entries and is not a probability (a soft
+signal never outranks `did_not_run` or `bad_data`):
+
+| signal | flags an entry whose ... | severity |
+|---|---|---|
+| `did_not_run` | batch index says it failed or has no row | 1 |
+| `bad_data` | `checks.json` lists it under a failed `core.data.*` check (NaN or infinity, non-integer counts, an irregular time axis) | 1 |
+| `silent` | population fires nothing although the stimulus was active, and that is rare in its class | 0.8 |
+| `saturated` | population spikes in at least 0.5 of its bins per unit | 0.7-0.9 |
+| `class_mismatch` | frame statistics (peak, mean, footprint, spread, centroid, ... per channel) fit another class's profile at least 1.5 times better than its own | 0.5-0.9 |
+| `outlier_rate` | population's mean rate has a robust z of at least 3.5 among its class's entries | 0.3-0.9 |
+| `long_quiet` | longest stimulus gap has a robust z of at least 3.5 among its class's entries (no gap counts as 0) | 0.3-0.9 |
+
+The *inferred* class of `class_mismatch` is the class whose median profile is nearest in
+scaled distance (each statistic scaled by the classes' pooled robust spread); a class needs 5
+entries to have a profile and 8 to have outliers judged. A robust z is
+`(x - median) / scale` with `scale = 1.4826 * MAD` floored at the metric's resolution and at a
+twentieth of the data set's standard deviation, so a class whose members agree exactly still
+has a scale. A population silent for more than half of a class's active entries is a property
+of the class (it reads a channel the class never drives), so it is listed once under "Silent
+for most of a class", not per entry. The saturation threshold is an assumption with its
+origin: a neuron with the tactile recipes' 2 ms refractory period cannot spike more than once
+in two 1 ms bins. Every threshold is in the payload's `params`, and a signal that cannot be
+computed (no `checks.json`, no batch index, too few classes) is under `unavailable` with the
+reason. Not done: a thumbnail per card, and a gallery over a session's several draws (a
+session is one entry).
+
 **Checks page (A8).** `/checks` shows `checks.json` (the [checks stage](checks_stage.md)): one
 card per check with its status, how many entries or probes it tried and failed, what it does,
 the raw numbers behind the verdict, and the failures it listed. A failure that names an entry
@@ -331,8 +363,10 @@ one reads, and while none reads it stops after 50 failed peeks and says so
 `sensoryforge/evaluate/server/`: `service.py`, `api.py`, `jobs.py`, `http_server.py`,
 `resim.py` (the re-run), `dashboard.py` (the dashboard), `__main__.py` and `static/` (`index.html`,
 `dashboard.html`, `app.js`, `dashboard_page.js`, `geometry.js`, `traces.js`, `record.js`,
-`dashboard.js`, `checks.html`, `checks.js`, `checks_page.js`, `style.css`). The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
+`dashboard.js`, `gallery.html`, `gallery.js`, `gallery_page.js`, `checks.html`, `checks.js`,
+`checks_page.js`, `style.css`). `gallery.py` ranks the draws. The tests are `tests/unit/test_eval_server.py` (on the toy non-tactile
 data set, plus some over a real socket), `tests/unit/test_eval_voltage.py` and
 `tests/unit/test_eval_page_geometry.py`, `tests/unit/test_eval_page_compare.py`,
+`tests/unit/test_eval_gallery.py` (every seeded fault is found), `tests/unit/test_eval_checks.py`,
 `tests/unit/test_eval_dashboard.py` (including that every dashboard number's query returns that many draws). The audit's reader gained `DatasetReader.bundle_path()`
 for the server.
