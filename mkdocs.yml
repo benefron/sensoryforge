@@ -87,7 +87,6 @@ markdown_extensions:
       permalink: true
 
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
@@ -133,6 +132,7 @@ nav:
     - Solvers: user_guide/solvers.md
     - Batch Processing: user_guide/batch_processing.md
     - Evaluating a World: user_guide/evaluate_pipeline.md
+    - Evaluation Browser: user_guide/evaluation_browser.md
     - Sharing a Snapshot: user_guide/evaluation_export.md
 
   - Developer Guide:
@@ -172,5 +172,3 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/benefron/sensoryforge
-  version:
-    provider: mike

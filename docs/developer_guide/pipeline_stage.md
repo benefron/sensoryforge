@@ -54,7 +54,7 @@ when it ends, so at most one case is on disk. With it, the folders are kept. A s
 test checks that a recipe entry stays under 3 MB.
 
 The test prints the time of every stage and the draws per second of the batch stage; it asserts
-none of them, and peak memory is not compared across runs at all (F-056). On the 8x8 test design
+none of them, and peak memory is not compared across runs at all. On the 8x8 test design
 the batch stage ran at about 4 to 8 draws per second on one core, and 3 draws per second on the
 80x80 recipes.
 

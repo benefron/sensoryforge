@@ -1,6 +1,6 @@
 # The audit reader
 
-The blind audit (roadmap task A2) measures a data set from its generated data alone. This
+The blind audit measures a data set from its generated data alone. This
 page describes its first layer, `sensoryforge.evaluate.audit`: one reader that opens a
 data-set folder under the **blind rule** of the [report contract](../reference/report_contract.md)
 (section 2), and an inventory of counts and metadata. The metrics that sit on top of it

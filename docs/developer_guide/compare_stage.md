@@ -106,5 +106,5 @@ python -m sensoryforge.evaluate.compare out out --histogram core.frames.onset_ti
 
 An earlier note on this task asked for verdicts in an optional file of tolerances. The
 contract (choice Q8, approved) keeps the comparison free of them: the reference-free and
-tolerance checks are their own stage (roadmap A8), so the table cannot change when a
+tolerance checks are their own stage (the checks stage), so the table cannot change when a
 tolerance does.

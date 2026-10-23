@@ -5,10 +5,10 @@ list of draws, one draw's declaration and the traces of its stimulus and populat
 the audit and comparison files when they exist. It reads one data-set folder from the local
 disk. Draws are read **on demand**, so a large data set never has to be rendered in advance.
 
-This page covers the data and JSON endpoints (roadmap A5a), the frame streaming and the page
-shell (A5b), the draw picker and movie (A6a), and pinned points with linked traces and
-re-simulated membrane voltage (A6b), and the declared-fields panel and two-draw comparison
-(A6c).
+This page covers the data and JSON endpoints, the frame streaming and the page shell, the draw
+picker and movie, pinned points with linked traces and re-simulated membrane voltage, the
+declared-fields panel and two-draw comparison, the dashboard, the gallery and the checks page.
+For using the pages, see [the evaluation browser](../user_guide/evaluation_browser.md).
 
 ## Run it
 
@@ -111,7 +111,7 @@ The shape and range travel in headers: `X-Frame-Start`, `-Count`, `-Height`, `-W
 `-Total` (frames in the draw), `-Dt-Ms`, `-Min`, `-Max` (of this chunk, so a player can scale
 its colours without a second request) and `X-Frame-Dtype` (`float32-le`). No video encoder is
 needed: the browser decodes the bytes into a `Float32Array` and paints them on a canvas
-(decision D-7e30f2b). A chunk is copied out of a cached time slab, see below.
+(a design decision: the standard library and no video dependency). A chunk is copied out of a cached time slab, see below.
 
 **The page.** `/` has the draw list and a movie of the opened draw's stimulus. The files are
 plain HTML, CSS and JavaScript with no build step and no external requests.
@@ -124,7 +124,7 @@ and typing that seed into "Pick seed" repeats the pick. An opened draw is kept i
 *Orientation.* A stored frame is `[x, y]` (axis 0 is x, `indexing="ij"`, sensor
 `k = i * cols + j`). The canvas paints x to the right and y upwards, and the axes are
 labelled from `/api/draw`'s layout bounds and space unit. `static/geometry.js` holds the
-mapping as pure functions (`pixelOf`, `sensorAt` for A6b's clicks, `toRGBA`);
+mapping as pure functions (`pixelOf`, `sensorAt` for the pinning clicks, `toRGBA`);
 `tests/unit/test_eval_page_geometry.py` runs them with node (skipped when node is not
 installed) and puts a value at sensors with known coordinates.
 
@@ -144,7 +144,7 @@ used out). A failed fetch stops playback and shows the error. Checked in a brows
 a frame; at 20× the cursor stalls on fetches (it needs about 600 chunks a second), which is
 the cost of asking for every chunk and not only the ones painted.
 
-*Pinning and traces (A6b).* "Pin by" chooses what a click on the movie pins: a **sensor**
+*Pinning and traces.* "Pin by" chooses what a click on the movie pins: a **sensor**
 (the pixel under the pointer, `G.sensorAt`) or, once a population is chosen, the **neuron** whose
 centre is nearest (centres come from `/api/draw/population`; the layout's bounds map the click
 to a position, `G.pixelToMm`). A red ring marks the pin; a pinned neuron's receptive field is
@@ -190,7 +190,7 @@ and the page adds "voltage matches the N stored voltage probes (neurons …)" in
 "voltage differs from … (largest difference … mV)" in red. A bundle without probes says
 nothing about them.
 
-*Declared fields and comparison (A6c).* Under the traces, "Declared fields" lists the open draw's
+*Declared fields and comparison.* Under the traces, "Declared fields" lists the open draw's
 manifest record (what the world declared for it), flattened to one row per field in sections:
 Entry (id, split, class, repeat, world and data-set ids), Draw (the draw record: seed, timeline,
 sampling), Values drawn (the fields drawn from the world's axes) and Seeds. Seeds are shown from
@@ -222,7 +222,7 @@ imported when first asked. `centers` is `[[x, y]]` in the layout's space unit; w
 (a population reading three channels has three), or `null` when the bank's receptors are not a
 whole number of copies of the layout's sensors.
 
-**Dashboard (A7).** `/dashboard` shows the data set as a whole; `GET /api/dashboard` is its
+**Dashboard.** `/dashboard` shows the data set as a whole; `GET /api/dashboard` is its
 data (`dashboard.py`; built on first use, about a second per 10,000 draws because it reads the
 manifest once more, and rebuilt when `audit_entries.jsonl` or `audit.json` change). It holds:
 
@@ -258,7 +258,7 @@ functions (bin labels, bar fractions, the link and its reading), node-tested.
 accepts the data set; `compare` reads the other two. They write into the stages folder and
 run one at a time per stage. A failure is the job's `error`, with the exception's type.
 
-**Anomaly gallery (A9).** Random sampling misses rare failures, so `/gallery` ranks every
+**Anomaly gallery.** Random sampling misses rare failures, so `/gallery` ranks every
 entry and shows the worst first; each card links to its draw (`/#entry=ID`). The ranking is
 `gallery.py`; it reads only the audit's per-entry rows (`audit_entries.jsonl`), the batch
 index's status and, if it exists, `checks.json`. The class label is a grouping key, never a
@@ -289,7 +289,7 @@ computed (no `checks.json`, no batch index, too few classes) is under `unavailab
 reason. Not done: a thumbnail per card, and a gallery over a session's several draws (a
 session is one entry).
 
-**Checks page (A8).** `/checks` shows `checks.json` (the [checks stage](checks_stage.md)): one
+**Checks page.** `/checks` shows `checks.json` (the [checks stage](checks_stage.md)): one
 card per check with its status, how many entries or probes it tried and failed, what it does,
 the raw numbers behind the verdict, and the failures it listed. A failure that names an entry
 links to that draw in the draw browser (`/#entry=ID`). If `checks.json` does not exist the
@@ -318,9 +318,8 @@ chunk layout, not on the number of draws. The toy bundles are small, so the real
 measured separately and not through the server. Re-measure on the machine and the data set
 that matter before relying on it.
 
-**On real-size bundles, through the server** (review R-A5, 2026-10-23, and the re-run in row
-A5f: an 80x80 tactile data set at 1 ms, timed over HTTP with
-`docs_root/plan/scripts/r_a5_build.py` and `r_a5_time.py`). Opening a draw stays well under a
+**On real-size bundles, through the server** (review R-A5, 2026-10-23, and the re-run after its
+fixes: an 80x80 tactile data set at 1 ms, timed over HTTP). Opening a draw stays well under a
 second; the cost that grew was playback, which the slab cache removes.
 
 | Request (median unless noted) | 5 s entry, before | after | 30 s session, before | after |
@@ -339,7 +338,7 @@ millisecond for the rest of its 3750 frames; two such slabs fit the default cach
 
 HDF5 stores `stimulus/frames` in gzip chunks whose time extent grows with the draw (313
 frames at 5 s, 938 at 30 s, 3750 at 120 s). Reading 32 frames decompresses every chunk it
-touches, so before A5f each later chunk of a playback cost as much as the first. Now
+touches, so before the slab cache each later chunk of a playback cost as much as the first. Now
 `DatasetService.frames()` reads the frames in **time slabs aligned to the stored chunk**
 (`ds.chunks[0]` frames) and keeps them in a byte-bounded least-recently-used cache keyed
 `(entry, channel, first frame of the slab)`. A run that crosses a slab boundary is copied from
