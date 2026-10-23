@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-280840b · CLOSED · decision · - · 2026-10-23
+user-facing agent files (skills, setup, working-style code) live in sensoryforge/agents/ inside the package, not a top-level agents/ folder, so a pip install ships them (signed off by Ben, B1)
+→ commit ded4cb2
+
+## D-8da98c5 · CLOSED · decision · - · 2026-10-23
+the agent-file budget is 18 hand-written user-facing files of which at most 14 skills, plus 6 maintainer rules and 5 commands; generated targets are unlimited but each comes from one command and is checked in CI (docs/developer_guide/agent_files.md)
+→ commit ded4cb2
+
+## D-c1a7f2c · CLOSED · decision · - · 2026-10-23
+C2 ships three extension skills (extend-pipeline, extend-world, extend-evaluation) instead of one skill per component kind, to keep the agent files few and general (Ben, B1 sign-off)
+→ commit ded4cb2
+
+## R-28c2b69 · STANDING · retired · - · 2026-10-23
+the hand-written .cursor/ rules, skills and agent, replaced by B8's generated exports
+→ commit ded4cb2
+
 ## D-6bc58cd · CLOSED · decision · - · 2026-10-23
 phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree
 → commit 60ff1c8

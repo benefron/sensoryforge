@@ -1087,4 +1087,8 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-637b872 | phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass | `5937de9` |
 | 2026-10-23 | D-aea7ea7 | core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history | `703654c` |
 | 2026-10-23 | D-6bc58cd | phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree | `60ff1c8` |
+| 2026-10-23 | D-280840b | user-facing agent files (skills, setup, working-style code) live in sensoryforge/agents/ inside the package, not a top-level agents/ folder, so a pip install ships them (signed off by Ben, B1) | `ded4cb2` |
+| 2026-10-23 | D-8da98c5 | the agent-file budget is 18 hand-written user-facing files of which at most 14 skills, plus 6 maintainer rules and 5 commands; generated targets are unlimited but each comes from one command and is checked in CI (docs/developer_guide/agent_files.md) | `ded4cb2` |
+| 2026-10-23 | D-c1a7f2c | C2 ships three extension skills (extend-pipeline, extend-world, extend-evaluation) instead of one skill per component kind, to keep the agent files few and general (Ben, B1 sign-off) | `ded4cb2` |
+| 2026-10-23 | R-28c2b69 | the hand-written .cursor/ rules, skills and agent, replaced by B8's generated exports | `ded4cb2` |
 <!-- DECISIONS_LOG_END -->
