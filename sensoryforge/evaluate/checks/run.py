@@ -5,6 +5,13 @@
 reads the data through the audit's blind reader and never reads ``audit.json``,
 ``declared.json`` or ``compare.json``, so it changes none of them. Two runs over the
 same data with the same parameters are byte-identical apart from ``created_at``.
+
+Topic: checks
+Tests: tests/unit/test_eval_checks.py
+Entry points: run_checks, run_one, build_check_packs
+Pinned by: docs/developer_guide/checks_stage.md, docs/reference/report_contract.md
+Do not change without: a check pack is registered in evaluate/checks/registry.py, not
+    special-cased here.
 """
 
 from __future__ import annotations

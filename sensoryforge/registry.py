@@ -14,6 +14,17 @@ Example:
     >>> from sensoryforge.registry import NEURON_REGISTRY
     >>> NEURON_REGISTRY.register("custom_neuron", MyCustomNeuron)
     >>> neuron = NEURON_REGISTRY.create("custom_neuron", **config)
+
+Topic: registry
+Tests: tests/unit/test_registry_case_insensitive.py,
+    tests/integration/test_registry_integration.py,
+    tests/contract/test_component_contracts.py
+Entry points: ComponentRegistry, NEURON_REGISTRY, FILTER_REGISTRY, STIMULUS_REGISTRY,
+    INNERVATION_REGISTRY, SOLVER_REGISTRY, GRID_REGISTRY, PROCESSING_REGISTRY
+Pinned by: docs/developer_guide/extensibility.md, F-046
+Do not change without: names match case-insensitively ("MyFilter" and "myfilter"
+    collide), so never rely on case; a new registry kind also gets a check in
+    sensoryforge/testing/contracts.py.
 """
 
 from __future__ import annotations

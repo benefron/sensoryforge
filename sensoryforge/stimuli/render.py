@@ -13,6 +13,17 @@ stimulus type up in ``STIMULUS_REGISTRY`` first (so any registered or plugin
 stimulus is runnable from a config file) and only falls back to the legacy
 pipeline's chain for the handful of names that were never registered as
 components (``trapezoidal``, ``step``, ``ramp``, ``custom``).
+
+Topic: stimulus
+Tests: tests/unit/test_render_stimulus_legacy_parity.py,
+    tests/unit/test_render_moving.py, tests/unit/test_default_stimulus_amplitude.py,
+    tests/integration/test_stimulus_parity.py
+Entry points: render_stimulus, render_for_config, effective_defaults
+Pinned by: docs/developer_guide/add_stimulus.md, D-0437899
+Do not change without: the GUI forms show effective_defaults(), so a default changed
+    here changes what the Stimulus screen displays; every stimulus defaults to peak
+    amplitude 1.0 and renders non-negative.
+Shapes: stimulus [batch, time, H, W], or [batch, time, C, H, W] with C channels
 """
 
 from __future__ import annotations

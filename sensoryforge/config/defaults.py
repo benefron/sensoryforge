@@ -14,6 +14,17 @@ D-Q1 (ledger F-030) is decided: the RA filter gain ``k3`` is 2.0,
 matching both repos' ``RAFilterTorch`` class default, pressure-simulation's
 ``config/pipeline_config.yml`` and its decoder gain. It is resolver-owned
 like every other filter parameter.
+
+Topic: config
+Tests: tests/unit/test_config_defaults.py, tests/unit/test_input_floor.py,
+    tests/integration/test_engine_parity.py
+Entry points: resolve_filter_params, resolve_neuron_params, resolve_input_floor,
+    resolve_duration_ms, FILTER_DEFAULTS, NEURON_PRESET_BY_TYPE
+Pinned by: .claude/rules/engine-parity.md, F-026, F-030
+Do not change without: no caller keeps a hard-coded copy of a default;
+    pressure-simulation's design/drive.py builds its filters from these, so a change
+    moves its design-time drive model too.
+Units: ms; mA
 """
 
 from __future__ import annotations

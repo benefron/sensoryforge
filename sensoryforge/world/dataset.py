@@ -1,4 +1,14 @@
-"""Data sets on a world: splits, strata, probes, seeds and the manifest (spec §6)."""
+"""Data sets on a world: splits, strata, probes, seeds and the manifest (spec §6).
+
+Topic: dataset
+Tests: tests/unit/test_world_dataset.py, tests/contract/test_world_contract.py
+Entry points: build_dataset, load_dataset, DatasetSpec, Entry, write_dataset,
+    load_manifest
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md
+Do not change without: seeded splits and entry ids never change for an existing file: a
+    change to either is a format-tag bump (sensoryforge-dataset/1) with the contract
+    page updated.
+"""
 
 from __future__ import annotations
 

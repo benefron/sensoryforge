@@ -10,6 +10,17 @@ Example:
     $ sensoryforge visualize config.yml --save output.png
     $ sensoryforge agents setup
     $ sensoryforge agents brief
+
+Topic: cli
+Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.py,
+    tests/integration/test_cli_stimulus_block.py,
+    tests/integration/test_cli_duration_dt.py
+Entry points: create_parser, main, cmd_run, cmd_batch, cmd_validate, cmd_describe,
+    cmd_evaluate_run
+Pinned by: docs/user_guide/cli.md
+Do not change without: a new command has --help text and a line in
+    docs/user_guide/cli.md; canonical configs route to SimulationEngine and legacy ones
+    to the old pipeline.
 """
 
 import argparse

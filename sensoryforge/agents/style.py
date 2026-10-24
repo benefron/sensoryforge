@@ -16,6 +16,14 @@ Example:
     >>> style = WorkingStyle()
     >>> "do not start subagents" in render_brief(style, None)
     True
+
+Topic: agents
+Tests: tests/unit/test_agents_style.py, tests/unit/test_agent_glossary.py
+Entry points: WorkingStyle, load_style, save_style, render_brief, ask_style, find_config
+Pinned by: docs/developer_guide/agent_files.md, docs/user_guide/agent_setup.md
+Do not change without: the brief names commands and pages and never copies parameter
+    lists, defaults or units; integration and hooks stay off until the user approves
+    them.
 """
 
 from __future__ import annotations

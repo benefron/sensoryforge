@@ -5,6 +5,15 @@ metric packs on every entry, summarises each metric over the data set, per class
 split, and writes ``audit.json`` and ``audit_entries.jsonl``. It never opens a
 world file. Two runs over the same data with the same parameters are byte-identical
 apart from ``created_at``.
+
+Topic: audit
+Tests: tests/unit/test_audit_run.py, tests/contract/test_audit_import_wall.py
+Entry points: run_audit, build_packs
+Pinned by: tests/contract/test_audit_import_wall.py, docs/reference/report_contract.md,
+    docs/developer_guide/audit_metrics.md
+Do not change without: the audit reads only generated data, never the world file or a
+    draw's declared record; it shows raw numbers (measured, declared, raw difference)
+    before any verdict.
 """
 
 from __future__ import annotations

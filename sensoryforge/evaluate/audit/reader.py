@@ -5,6 +5,14 @@ and one bundle per entry) and hands out :class:`EntryView` objects. Everything i
 is projected onto ``allowlist`` at read time, so a field the blind rule excludes (a
 draw, a class's declaration, the stimulus section of a config) never reaches a metric
 pack. It uses only numpy and h5py, and never imports ``sensoryforge.world``.
+
+Topic: audit, bundle
+Tests: tests/unit/test_audit_reader.py, tests/contract/test_audit_import_wall.py
+Entry points: DatasetReader, EntryView, PopulationView, BundleInfo, ReadError
+Pinned by: docs/developer_guide/audit_reader.md,
+    tests/contract/test_audit_import_wall.py, docs/reference/report_contract.md
+Do not change without: this module never imports sensoryforge.world (the import-wall
+    test).
 """
 
 from __future__ import annotations

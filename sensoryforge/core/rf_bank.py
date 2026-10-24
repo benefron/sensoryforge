@@ -16,6 +16,20 @@ Conventions (see ``docs/user_guide/receptive_fields.md``):
   ``k`` is the receptor at ``xx[i, j], yy[i, j]``.
 - Weights are ``float32`` ``[N, M]`` (``N`` neurons, ``M`` receptors),
   dimensionless multipliers applied to receptor responses.
+
+Topic: receptive-field
+Tests: tests/unit/test_rf_bank.py, tests/unit/test_sparse_weights.py,
+    tests/unit/test_rf_builders_build.py,
+    tests/validation/test_receptive_fields_analytic.py
+Entry points: ReceptiveFieldBank, ReceptiveFieldBank.save, ReceptiveFieldBank.load,
+    encode_weights, decode_weights
+Pinned by: docs/user_guide/receptive_fields.md, docs/developer_guide/add_rf_builder.md,
+    tests/fixtures/rf_engine_golden_weights.pt, D-9c33ec9
+Do not change without: gaussian weights stay bit-identical to earlier releases (the
+    golden weights fixture); a builder returns a bank, the engine, pipelines and GUI
+    consume it through forward().
+Shapes: weights [N, M]; neuron_centers [N, 2]; receptor_coords [M, 2]
+Units: mm for coordinates; weights are dimensionless
 """
 
 from __future__ import annotations

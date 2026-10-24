@@ -14,6 +14,17 @@ Example:
     >>> config = SensoryForgeConfig.from_dict(yaml_dict)
     >>> yaml_str = config.to_yaml()
     >>> config2 = SensoryForgeConfig.from_yaml(yaml_str)
+
+Topic: config
+Tests: tests/unit/test_config_schema.py, tests/unit/test_gain_defaults.py,
+    tests/unit/test_grid_channels.py
+Entry points: SensoryForgeConfig, GridConfig, PopulationConfig, StimulusConfig,
+    SimulationConfig, validate_dt_ms
+Pinned by: docs/user_guide/configuration_schema.md, .claude/rules/engine-parity.md,
+    C-130
+Do not change without: the JSON Schemas are rebuilt (python scripts/build_schemas.py);
+    read noise through effective_sensor_noise_std() and effective_membrane_noise_std(),
+    never pop_cfg.noise_std.
 """
 
 from __future__ import annotations

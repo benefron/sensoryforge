@@ -161,6 +161,7 @@ nav:
     - Evaluation Pipeline: developer_guide/pipeline_stage.md
     - Evaluation Server: developer_guide/evaluation_server.md
     - Agent Files: developer_guide/agent_files.md
+    - File Headers: developer_guide/file_headers.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 

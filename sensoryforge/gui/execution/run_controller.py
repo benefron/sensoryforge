@@ -17,6 +17,15 @@ filter/neuron pass. Setting it raises :class:`RunCancelled` inside the engine
 loop, so the remaining populations never run and, because the bundle is
 written after the loop, no half-written bundle is left behind.
 
+Topic: gui, engine
+Tests: tests/gui_v2/test_run_controller.py,
+    tests/integration/test_gui_engine_equality.py
+Entry points: RunController, RunWorker, RunCancelled
+Pinned by: .claude/rules/engine-parity.md,
+    docs/developer_guide/architecture_notes.md
+Do not change without: the GUI runs through SimulationEngine.run() itself, never a
+    private path (the equality test); cancel stays cooperative, never
+    QThread.terminate().
 Units: ms at this API, mA for the stimulus, mm for space.
 """
 

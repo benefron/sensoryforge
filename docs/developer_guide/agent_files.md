@@ -30,6 +30,7 @@ one is for, and how many there may be. Change the map here first, then the files
 | `docs/` | everyone | people; agents follow links to it | D |
 | `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people | B4 |
 | `docs_root/LEDGER.md` | maintainers | the session digest hook | kept |
+| Tag lines at the end of a module docstring (`sensoryforge/`) | everyone | agents and people, by `grep` ([file headers](file_headers.md)) | B5 |
 
 ## Generated targets (never edited by hand)
 

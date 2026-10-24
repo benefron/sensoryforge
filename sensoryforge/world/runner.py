@@ -8,6 +8,13 @@ device, simulated with its own noise seeds, and written to
 ``<out>/.partial/<entry>/`` before an atomic rename to ``<out>/<entry>/``.
 Each task appends to its own ``index/task_<i>.jsonl``, so array tasks never
 share a file.
+
+Topic: dataset, batch
+Tests: tests/integration/test_world_batch.py, tests/unit/test_world_runner_chunks.py
+Entry points: run_dataset, select_entries, render_frames, task_slice, read_batch_index
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md, F-3658a63
+Do not change without: a draw's result is the same alone, in any batch and in any chunk
+    (test_world_batch.py); one bundle is written per entry.
 """
 
 from __future__ import annotations

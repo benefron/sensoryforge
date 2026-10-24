@@ -42,6 +42,18 @@ vectorised over batch and neurons.
 ``docs/reference/converter_contract.md`` states both updates exactly, what the
 engine does before them, the keys a design and a bundle carry, and the test
 that pins each guarantee (``tests/contract/test_converter_contract.py``).
+
+Topic: event-converter, neuron
+Tests: tests/contract/test_converter_contract.py, tests/unit/test_event_encoders.py,
+    tests/integration/test_event_encoders_engine.py
+Entry points: LevelCrossingNeuron, SigmaDeltaNeuron
+Pinned by: docs/reference/converter_contract.md
+Do not change without: a converter's arithmetic never changes on a path that does not
+    use a new parameter: pressure-simulation emulates these bit for bit (contract test 1
+    holds the leak-off unit to v1.2.1).
+Shapes: drive [batch, time, N] -> events [batch, time, N]; level_crossing events are
+    signed counts
+Units: drive in mA; time in ms
 """
 
 from __future__ import annotations

@@ -80,6 +80,9 @@ tests and rules, is in `docs/agents/task_index.md`.
   coordinates `(x, y)` in mm. Vectorise; no loops over neurons or spatial dimensions.
 - Google-style docstrings with tensor shapes and units. `raise ValueError`, never
   `assert`, for input checks. Catch specific exceptions, never a bare `except Exception`.
+- A module of 40 lines or more ends its docstring with tag lines (`Topic:`, `Tests:`,
+  `Entry points:`, `Pinned by:`, `Do not change without:`); search them with `grep -rn
+  "^Topic:" sensoryforge/`. `docs/developer_guide/file_headers.md`.
 - Extend by registry or plugin; every component passes
   `sensoryforge.testing.contracts.check_component`.
 - Modality-neutral words in the core (sensor, channel, frame, population, draw, entry);

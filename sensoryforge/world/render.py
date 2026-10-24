@@ -5,6 +5,18 @@ profile axis), evaluates each group as one broadcast computation, chunked to
 a memory budget, and adds each group's frames into its rows. Every operation
 is elementwise or a fixed-order sum, so a draw renders to the same bits alone,
 in a batch, or in any chunk.
+
+Topic: world, stimulus
+Tests: tests/unit/test_world_render.py, tests/unit/test_world_v1_2_render.py,
+    tests/contract/test_world_contract.py
+Entry points: render, render_movie, Canvas, movie_times
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md
+Do not change without: stimuli/layered.py is a second implementation of the same
+    language, so a change to one needs the same change in the other
+    (test_world_render_equals_layered); a draw's frames are bit for bit the same alone,
+    in any batch and in any chunk.
+Shapes: frames [batch, time, H, W], float32 or float64
+Units: ms; mm
 """
 
 from __future__ import annotations
