@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
+the examples/ folder is not shipped inside the package as it stands; a first run uses the packaged presets, and the rest of what an installed user needs from it is closed by D4 (batch and stimulus-block configs as small tested package data) and by C2c (scaffold or a skill for receptive-field builders and processing layers), not by copying the folder
+→ commit af45ae9
+
+## D-7904b2b · CLOSED · decision · docs/getting_started · 2026-10-24
+C2, the extension skills, stays in phase C after B6, because C2 depends on B6 (it follows the skill pattern B6 sets) and the extension path already works end to end without a skill; B6a's design-and-plan skill hands off to `sensoryforge new-component` when the component a user needs does not exist, and R-B6 revisits the order
+→ commit af45ae9
+
+## F-c79da62 · STANDING · finding · docs/getting_started · 2026-10-24
+examples/plugin_template is not superseded by `new-component`: it covers two kinds the scaffold does not
+→ commit af45ae9
+
 ## D-e05b02e · CLOSED · decision · - · 2026-10-24
 the default install is install-and-extend from the git URL with no clone, and the tactile, world and evaluation workflow is one use of it rather than the headline; developing SensoryForge itself (fork, clone, editable install with the dev extra) is a separate, clearly marked path
 → commit 9873eb4
@@ -173,6 +185,7 @@ B6a must ship the glossary and task index offline with `sensoryforge agents inst
 → commit 6671f33
 ⤳ superseded by D-c2e83a0, D-a93c3e9, D-efa939a in c041552 docs(plan): B6a ships the glossary offline, not the task index (Ben, 2026-10-24)
 ↔ 9873eb4 docs(install): the default install is install-and-extend; developing SensoryForge is its o
+↔ af45ae9 docs(install): run a preset first, and point extenders at the plugin template
 
 ## D-127f390 · CLOSED · decision · - · 2026-10-24
 sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry
