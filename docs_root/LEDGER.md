@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-d5bed18 · CLOSED · decision · - · 2026-10-24
+a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed
+→ commit 0ce453c
+
+## D-40f969d · CLOSED · decision · - · 2026-10-24
+"a lint checks presence on new files" is a ratchet: modules of 40 lines or more need a header unless listed in a baseline that only shrinks, rather than a hand-kept list of covered files
+→ commit 0ce453c
+
+## F-f324e8a · OPEN · finding · - · 2026-10-24
+127 modules of 40 lines or more still have no header (tests/unit/file_headers_untagged.txt); tag them as they are touched, starting with the GUI screens and the rest of evaluate
+→ commit 0ce453c
+
 ## D-d97f27f · CLOSED · decision · - · 2026-10-24
 the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout
 → commit 6671f33

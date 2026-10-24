@@ -1099,4 +1099,6 @@ Do not hand-edit between the markers.
 | 2026-10-24 | D-8e38dc8 | validate --json suggests a fix only from facts the message or a registry states (nearest valid name, a loader's own hint) and otherwise returns null; the config schema allows unknown keys (the loader ignores them) and lists registered names as examples, not an enum, so a plugin never fails it | `1e1cd29` |
 | 2026-10-24 | D-d97f27f | the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout | `6671f33` |
 | 2026-10-24 | D-4a6f527 | a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries | `6671f33` |
+| 2026-10-24 | D-d5bed18 | a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed | `0ce453c` |
+| 2026-10-24 | D-40f969d | "a lint checks presence on new files" is a ratchet: modules of 40 lines or more need a header unless listed in a baseline that only shrinks, rather than a hand-kept list of covered files | `0ce453c` |
 <!-- DECISIONS_LOG_END -->
