@@ -6,32 +6,79 @@
 - PyTorch 1.12.0 or later
 - (Optional) CUDA-capable GPU for acceleration
 
-## Installation Methods
+## Install SensoryForge
 
-Not yet published to PyPI; install from source.
-
-### From Source
+Not yet published to PyPI; install from source. This one install is for running
+SensoryForge **and for extending it**: a new neuron, filter, stimulus, solver or grid is a
+small separate package that SensoryForge discovers, so you do not need to fork or clone
+SensoryForge to add one.
 
 ```bash
-# Clone the repository
-git clone https://github.com/benefron/sensoryforge.git
+python -m venv .venv && source .venv/bin/activate     # or a conda environment
+pip install "git+https://github.com/benefron/sensoryforge.git"
+sensoryforge list-components
+```
+
+Optional extras go in brackets, in the same line:
+
+```bash
+pip install "sensoryforge[hdf5] @ git+https://github.com/benefron/sensoryforge.git"
+```
+
+| Extra | Adds |
+|---|---|
+| `hdf5` | HDF5 batch output |
+| `solvers` | adaptive ODE solvers (torchdiffeq) |
+| `dsl` | the equation DSL (sympy) |
+| `gui` | the PyQt5 GUI |
+
+Combine them with a comma: `sensoryforge[gui,dsl]`.
+
+## Extend SensoryForge
+
+Add a component without touching SensoryForge's own files:
+
+```bash
+sensoryforge new-component neuron MyNeuron   # also: filter, stimulus, solver, grid
+cd sensoryforge-my-neuron
+pip install -e .                             # installs your plugin, not SensoryForge
+pip install pytest
+pytest                                       # the shared contract checks
+sensoryforge list-components                 # your component is listed
+```
+
+`new-component` writes a standalone package: its own `pyproject.toml`, a `register()`
+function that SensoryForge finds through the `sensoryforge.components` entry-point
+group, and a contract test. It never writes into SensoryForge's installed files. Read
+[Plugin Packages](../developer_guide/plugins.md) and the
+[Extensibility Overview](../developer_guide/extensibility.md); each kind has its own guide
+([neuron](../developer_guide/add_neuron.md), [filter](../developer_guide/add_filter.md),
+[stimulus](../developer_guide/add_stimulus.md)).
+
+The `examples/` folder is in the repository, not in the installed package. Fetch the file
+you need, for example:
+
+```bash
+curl -O https://raw.githubusercontent.com/benefron/sensoryforge/main/examples/canonical_config.yml
+```
+
+## Develop SensoryForge itself
+
+To change SensoryForge's own code (fix a bug, change the engine, add to the core), work in
+a clone. Fork the repository on GitHub first if you will send a pull request.
+
+```bash
+git clone https://github.com/<you>/sensoryforge.git
 cd sensoryforge
-
-# Install in development mode
-pip install -e .
+conda env create -f environment.yml && conda activate sensoryforge   # or a venv
+pip install -e ".[dev]"
+pytest tests/unit -q
 ```
 
-### With Optional Dependencies
-
-For full functionality, including HDF5 batch output and adaptive ODE solvers:
-
-```bash
-# From a source checkout, install specific optional dependencies
-pip install -e ".[hdf5]"      # For HDF5 batch output
-pip install -e ".[solvers]"   # For adaptive ODE solvers
-pip install -e ".[dsl]"       # For the equation DSL
-pip install -e ".[gui]"       # For the PyQt5 GUI
-```
+[`AGENTS.md`](https://github.com/benefron/sensoryforge/blob/main/AGENTS.md) lists the
+commands, the places that are dangerous to change and the rules; `CONTRIBUTING.md` covers
+style and pull requests. Never run `pip install -e .` from a git worktree: it rewrites one
+pointer that every checkout shares. Use `PYTHONPATH=<worktree>` there.
 
 ## Verify Installation
 
@@ -110,7 +157,7 @@ pip list | grep sensoryforge
 
 # Reinstall if needed
 pip uninstall sensoryforge
-pip install -e .
+pip install "git+https://github.com/benefron/sensoryforge.git"
 ```
 
 ### GUI Issues
