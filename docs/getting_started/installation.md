@@ -55,8 +55,22 @@ group, and a contract test. It never writes into SensoryForge's installed files.
 ([neuron](../developer_guide/add_neuron.md), [filter](../developer_guide/add_filter.md),
 [stimulus](../developer_guide/add_stimulus.md)).
 
-The `examples/` folder is in the repository, not in the installed package. Fetch the file
-you need, for example:
+`new-component` covers neurons, filters, stimuli, solvers and grids. For a receptive-field
+builder or a processing layer, start from the
+[plugin template](https://github.com/benefron/sensoryforge/tree/main/examples/plugin_template)
+in the repository: a complete plugin package with one of each.
+
+## Run something first
+
+You do not need an example file to start. Four presets ship in the package:
+
+```bash
+sensoryforge list-presets
+sensoryforge run --preset tactile_sa1_ra1 --duration 100
+```
+
+The `examples/` folder in the repository (more configs, a notebook, scripts) is not in the
+installed package. Fetch the file you need, for example:
 
 ```bash
 curl -O https://raw.githubusercontent.com/benefron/sensoryforge/main/examples/canonical_config.yml
