@@ -108,6 +108,30 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e05b02e · CLOSED · decision · - · 2026-10-24
+the default install is install-and-extend from the git URL with no clone, and the tactile, world and evaluation workflow is one use of it rather than the headline; developing SensoryForge itself (fork, clone, editable install with the dev extra) is a separate, clearly marked path
+→ commit 9873eb4
+
+## D-0656bbd · CLOSED · decision · - · 2026-10-24
+the use and extend paths are the same install, so the docs have one install section and an extend section after it, not two installs
+→ commit 9873eb4
+
+## F-dc92c82 · STANDING · finding · - · 2026-10-24
+a wheel holds only sensoryforge/ (232 files: the skills, the evaluation server's static files and the presets are in it, docs/ and tests/ are not), so examples/ is not in a plain install and docs fetch the file from GitHub
+→ commit 9873eb4
+
+## F-24307b0 · CLOSED · finding · - · 2026-10-24
+the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, which does not exist in an installed copy
+→ commit 9873eb4
+
+## F-c5e90d8 · OPEN · finding · - · 2026-10-24
+examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
+→ commit 9873eb4
+
+## F-cb6e407 · OPEN · finding · - · 2026-10-24
+the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
+→ commit 9873eb4
+
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
 → commit c041552
@@ -148,6 +172,7 @@ a registry kind or split kind added to the code fails tests/unit/test_agent_glos
 B6a must ship the glossary and task index offline with `sensoryforge agents install` (today the brief links the docs site); Due: with B6a
 → commit 6671f33
 ⤳ superseded by D-c2e83a0, D-a93c3e9, D-efa939a in c041552 docs(plan): B6a ships the glossary offline, not the task index (Ben, 2026-10-24)
+↔ 9873eb4 docs(install): the default install is install-and-extend; developing SensoryForge is its o
 
 ## D-127f390 · CLOSED · decision · - · 2026-10-24
 sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry

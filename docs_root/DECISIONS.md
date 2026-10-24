@@ -1104,4 +1104,6 @@ Do not hand-edit between the markers.
 | 2026-10-24 | D-c2e83a0 | B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo | `c041552` |
 | 2026-10-24 | D-a93c3e9 | until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README | `c041552` |
 | 2026-10-24 | D-efa939a | a skill that ships in the package depends on no repo-only path (tests/, docs/, .claude/), including the C2 and C3 extension skills, because a plugin author works from an installed package, not a fork | `c041552` |
+| 2026-10-24 | D-e05b02e | the default install is install-and-extend from the git URL with no clone, and the tactile, world and evaluation workflow is one use of it rather than the headline; developing SensoryForge itself (fork, clone, editable install with the dev extra) is a separate, clearly marked path | `9873eb4` |
+| 2026-10-24 | D-0656bbd | the use and extend paths are the same install, so the docs have one install section and an extend section after it, not two installs | `9873eb4` |
 <!-- DECISIONS_LOG_END -->
