@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-127f390 · CLOSED · decision · - · 2026-10-24
+sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry
+→ commit 1e1cd29
+
+## D-8e38dc8 · CLOSED · decision · - · 2026-10-24
+validate --json suggests a fix only from facts the message or a registry states (nearest valid name, a loader's own hint) and otherwise returns null; the config schema allows unknown keys (the loader ignores them) and lists registered names as examples, not an enum, so a plugin never fails it
+→ commit 1e1cd29
+
+## F-6a93e0c · STANDING · finding · - · 2026-10-24
+sensoryforge.gui.validation.validate is Qt-free and importing sensoryforge.gui pulls no Qt, so the CLI reuses it for the engine-build checks of a config instead of a second validator
+→ commit 1e1cd29
+
 ## D-b20b8ca · CLOSED · decision · - · 2026-10-23
 CLAUDE.md imports AGENTS.md and keeps only Claude-specific notes; the architecture notes Claude used to auto-load now live in docs/developer_guide/architecture_notes.md, read on demand (B2)
 → commit f4f3bcd
