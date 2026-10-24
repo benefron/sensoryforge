@@ -107,6 +107,21 @@ Validation error: Invalid grid type: bad_type
 ❌ Configuration validation failed: my_config.yml
 ```
 
+With `--json` the same command reports the problems of a config, world or data-set file as
+data, one `{path, message, fix, source}` record each, and exits 1 if there are any (see
+[Describing SensoryForge to a program](describe.md)):
+
+```bash
+sensoryforge validate --json my_world.yml          # --kind config|world|dataset to force
+```
+
+### `sensoryforge describe`
+
+`sensoryforge describe [--json] [--section NAME] [--schema {config,world,dataset}]` lists
+every registered component, the world language, the evaluation seams and the shipped recipes
+with their parameters, units and defaults, generated from the registries. See [Describing
+SensoryForge to a program](describe.md).
+
 ### `sensoryforge list-components`
 
 List all available components (filters, neurons, stimuli, solvers).

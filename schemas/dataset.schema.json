@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/dataset.schema.json",
+  "title": "SensoryForge data set (sensoryforge-dataset/1)",
+  "description": "A data set, optionally under a top-level 'dataset:' key.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "world": {
+          "type": "string",
+          "description": "Path of the world file."
+        },
+        "world_id": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "splits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "declared",
+                  "fixed",
+                  "held_out",
+                  "probes",
+                  "sessions",
+                  "stratified"
+                ]
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "repeats": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "noise_repeats": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "stratified": {},
+              "per_bin": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "bins": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "duration_ms": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "draws": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "splits"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "world": {
+              "type": "string",
+              "description": "Path of the world file."
+            },
+            "world_id": {
+              "type": "string"
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "duration_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "splits": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "declared",
+                      "fixed",
+                      "held_out",
+                      "probes",
+                      "sessions",
+                      "stratified"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "repeats": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "noise_repeats": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "stratified": {},
+                  "per_bin": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "bins": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "duration_ms": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "draws": {}
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "splits"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "dataset"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

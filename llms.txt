@@ -31,6 +31,7 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 
 - [Overview](https://benefron.github.io/sensoryforge/user_guide/overview/)
 - [CLI Reference](https://benefron.github.io/sensoryforge/user_guide/cli/)
+- [Describing SensoryForge to a Program](https://benefron.github.io/sensoryforge/user_guide/describe/)
 - [YAML Configuration](https://benefron.github.io/sensoryforge/user_guide/yaml_configuration/)
 - [Configuration Schema](https://benefron.github.io/sensoryforge/user_guide/configuration_schema/)
 - [GUI Walkthrough](https://benefron.github.io/sensoryforge/user_guide/gui_walkthrough/)

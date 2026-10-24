@@ -115,6 +115,7 @@ nav:
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
+    - Describing SensoryForge to a Program: user_guide/describe.md
     - YAML Configuration: user_guide/yaml_configuration.md
     - Configuration Schema: user_guide/configuration_schema.md
     - GUI Walkthrough: user_guide/gui_walkthrough.md

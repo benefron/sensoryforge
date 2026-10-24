@@ -740,6 +740,62 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
     return 1 if summary["failed"] else 0
 
 
+def cmd_describe(args: argparse.Namespace) -> int:
+    """``sensoryforge describe``: every component, world kind and recipe.
+
+    Args:
+        args: Command-line arguments (``json``, ``schema``, ``section``).
+
+    Returns:
+        Exit code (0 for success, 1 for an unknown section).
+    """
+    from sensoryforge import describe as dsc
+
+    if args.schema:
+        print(dsc.schema_text(args.schema), end="")
+        return 0
+    data = dsc.describe()
+    if args.section:
+        if args.section not in data or args.section == "format":
+            known = [k for k in data if k != "format"]
+            print(
+                f"Error: unknown section {args.section!r}; known: {known}",
+                file=sys.stderr,
+            )
+            return 1
+        data = {"format": data["format"], args.section: data[args.section]}
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return 0
+    print("SensoryForge description (use --json for the full parameter lists)")
+    for kind, entries in data.get("components", {}).items():
+        print(f"  {kind}: {', '.join(entries)}")
+    world = data.get("world")
+    if world:
+        for part in (
+            "shapes",
+            "patterns",
+            "modulations",
+            "distributions",
+            "class_kinds",
+        ):
+            print(f"  world {part}: {', '.join(world[part])}")
+    for part, entries in data.get("evaluation", {}).items():
+        print(f"  evaluation {part}: {', '.join(entries)}")
+    if "recipes" in data:
+        print(f"  recipes: {', '.join(data['recipes'])}")
+    return 0
+
+
+def _cmd_validate_json(args: argparse.Namespace) -> int:
+    """``sensoryforge validate --json``: the problems of a file as data."""
+    from sensoryforge import describe as dsc
+
+    report = dsc.validate_file(args.config, args.kind)
+    print(json.dumps(report, indent=2))
+    return 0 if report["valid"] else 1
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     """Validate YAML configuration without running.
 
@@ -749,6 +805,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for valid, 1 for invalid).
     """
+    if getattr(args, "json", False):
+        return _cmd_validate_json(args)
     try:
         # Load configuration
         config = load_config_file(args.config)
@@ -1575,6 +1633,37 @@ def create_parser() -> argparse.ArgumentParser:
         "validate", help="Validate YAML config without running"
     )
     validate_parser.add_argument("config", help="Path to YAML configuration file")
+    validate_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Print the problems as JSON ({path, message, fix, source} each) for a "
+            "config, world or data-set file; exit 1 if there are any"
+        ),
+    )
+    validate_parser.add_argument(
+        "--kind",
+        choices=("auto", "config", "world", "dataset"),
+        default="auto",
+        help="With --json: what the file is (default: decide from its keys)",
+    )
+
+    describe_parser = subparsers.add_parser(
+        "describe",
+        help="List every component, world kind and recipe with its parameters",
+    )
+    describe_parser.add_argument(
+        "--json", action="store_true", help="Print the full description as JSON"
+    )
+    describe_parser.add_argument(
+        "--section",
+        help="Limit to one of: formats, components, world, evaluation, recipes",
+    )
+    describe_parser.add_argument(
+        "--schema",
+        choices=("config", "world", "dataset"),
+        help="Print the JSON Schema of a YAML format instead",
+    )
 
     # List components command
     subparsers.add_parser(
@@ -1645,6 +1734,7 @@ def main() -> int:
         "run": cmd_run,
         "batch": cmd_batch,
         "validate": cmd_validate,
+        "describe": cmd_describe,
         "list-components": cmd_list_components,
         "list-presets": cmd_list_presets,
         "visualize": cmd_visualize,
