@@ -1101,4 +1101,7 @@ Do not hand-edit between the markers.
 | 2026-10-24 | D-4a6f527 | a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries | `6671f33` |
 | 2026-10-24 | D-d5bed18 | a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed | `0ce453c` |
 | 2026-10-24 | D-40f969d | "a lint checks presence on new files" is a ratchet: modules of 40 lines or more need a header unless listed in a baseline that only shrinks, rather than a hand-kept list of covered files | `0ce453c` |
+| 2026-10-24 | D-c2e83a0 | B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo | `c041552` |
+| 2026-10-24 | D-a93c3e9 | until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README | `c041552` |
+| 2026-10-24 | D-efa939a | a skill that ships in the package depends on no repo-only path (tests/, docs/, .claude/), including the C2 and C3 extension skills, because a plugin author works from an installed package, not a fork | `c041552` |
 <!-- DECISIONS_LOG_END -->

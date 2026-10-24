@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
+B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
+→ commit c041552
+
+## D-a93c3e9 · CLOSED · decision · - · 2026-10-24
+until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README
+→ commit c041552
+
+## D-efa939a · CLOSED · decision · - · 2026-10-24
+a skill that ships in the package depends on no repo-only path (tests/, docs/, .claude/), including the C2 and C3 extension skills, because a plugin author works from an installed package, not a fork
+→ commit c041552
+
+## A-e670376 · OPEN · action · - · 2026-10-24
+B6a puts the glossary into the package as data, copies it in `agents install`, and points the brief at the installed copy; Due: with B6a
+→ commit c041552
+
 ## D-d5bed18 · CLOSED · decision · - · 2026-10-24
 a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed
 → commit 0ce453c
@@ -128,9 +144,10 @@ the meaning-not-strings rule lives once, in the brief every skill runs first, an
 a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries
 → commit 6671f33
 
-## A-b5a2f6f · OPEN · action · - · 2026-10-24
+## A-b5a2f6f · SUPERSEDED · action · - · 2026-10-24
 B6a must ship the glossary and task index offline with `sensoryforge agents install` (today the brief links the docs site); Due: with B6a
 → commit 6671f33
+⤳ superseded by D-c2e83a0, D-a93c3e9, D-efa939a in c041552 docs(plan): B6a ships the glossary offline, not the task index (Ben, 2026-10-24)
 
 ## D-127f390 · CLOSED · decision · - · 2026-10-24
 sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry
