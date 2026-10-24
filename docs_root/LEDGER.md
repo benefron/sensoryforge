@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-d97f27f · CLOSED · decision · - · 2026-10-24
+the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout
+→ commit 6671f33
+
+## D-4a6f527 · CLOSED · decision · - · 2026-10-24
+a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries
+→ commit 6671f33
+
+## A-b5a2f6f · OPEN · action · - · 2026-10-24
+B6a must ship the glossary and task index offline with `sensoryforge agents install` (today the brief links the docs site); Due: with B6a
+→ commit 6671f33
+
 ## D-127f390 · CLOSED · decision · - · 2026-10-24
 sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry
 → commit 1e1cd29

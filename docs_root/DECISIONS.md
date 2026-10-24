@@ -1097,4 +1097,6 @@ Do not hand-edit between the markers.
 | 2026-10-23 | D-39fd750 | llms.txt is generated from mkdocs.yml's nav by scripts/build_llms_txt.py and checked by a test, never written by hand | `f4f3bcd` |
 | 2026-10-24 | D-127f390 | sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry | `1e1cd29` |
 | 2026-10-24 | D-8e38dc8 | validate --json suggests a fix only from facts the message or a registry states (nearest valid name, a loader's own hint) and otherwise returns null; the config schema allows unknown keys (the loader ignores them) and lists registered names as examples, not an enum, so a plugin never fails it | `1e1cd29` |
+| 2026-10-24 | D-d97f27f | the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout | `6671f33` |
+| 2026-10-24 | D-4a6f527 | a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries | `6671f33` |
 <!-- DECISIONS_LOG_END -->
