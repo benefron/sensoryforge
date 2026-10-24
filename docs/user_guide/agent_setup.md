@@ -70,6 +70,11 @@ hooks: false
 Every skill starts by running `sensoryforge agents brief` and follows what it prints. The
 instructions you give in a session still win over the saved style.
 
+The brief also tells the skill to read your words by their meaning and by everything said in
+the session, never by matching strings, and to ask one short question when it is unclear.
+The terms it maps them to are in the [glossary](../agents/glossary.md); the files, tests and
+rules for each common task are in the [task index](../agents/task_index.md).
+
 ## The routing hook (Claude Code only)
 
 With `hooks: true` the setup adds one prompt hook to `.claude/settings.local.json` (your

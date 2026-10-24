@@ -31,6 +31,9 @@ To *use* SensoryForge through an agent rather than develop it, the skills ship i
 
 ## Where things live
 
+Terms are defined in `docs/agents/glossary.md`; a task in the user's words, with its files,
+tests and rules, is in `docs/agents/task_index.md`.
+
 | To work on | Code | Read first |
 |---|---|---|
 | Running a config (canonical engine, CLI, batch) | `sensoryforge/core/simulation_engine.py`, `sensoryforge/cli.py`, `sensoryforge/core/batch_executor.py` | `docs/developer_guide/architecture_notes.md` |

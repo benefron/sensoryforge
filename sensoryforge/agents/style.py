@@ -326,6 +326,20 @@ def save_style(style: WorkingStyle, path: Path) -> Path:
     return path
 
 
+#: Where the published docs live; the glossary and task index are pages there.
+SITE = "https://benefron.github.io/sensoryforge"
+
+#: The rule every skill follows about the user's words (B4), the same for every style.
+WORDS_LINE = (
+    "- Words: map the user's words to SensoryForge's terms by their meaning and by "
+    "everything said in this session, never by matching strings; ask one short "
+    "question when the meaning is unclear. The terms are in the glossary "
+    f"({SITE}/agents/glossary/, docs/agents/glossary.md in the repository) and each "
+    "common task's files, tests and rules in the task index "
+    f"({SITE}/agents/task_index/)."
+)
+
+
 def render_brief(style: WorkingStyle, source: Optional[Path]) -> str:
     """The instructions every skill reads first, one line per option.
 
@@ -347,6 +361,7 @@ def render_brief(style: WorkingStyle, source: Optional[Path]) -> str:
         f"SensoryForge working style ({origin}).",
         "Follow it in every SensoryForge skill; the user's own instructions in this "
         "session win over it.",
+        WORDS_LINE,
     ]
     if style.integrate:
         named = ", ".join(style.tools) if style.tools else "none named yet; ask first"

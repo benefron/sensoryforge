@@ -28,6 +28,7 @@ one is for, and how many there may be. Change the map here first, then the files
 | `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched | kept |
 | `.claude/commands/*.md` | maintainers | Claude Code slash commands | kept, trimmed |
 | `docs/` | everyone | people; agents follow links to it | D |
+| `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people | B4 |
 | `docs_root/LEDGER.md` | maintainers | the session digest hook | kept |
 
 ## Generated targets (never edited by hand)
