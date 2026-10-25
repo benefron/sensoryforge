@@ -108,6 +108,26 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6b3d8e4 · CLOSED · decision · - · 2026-10-25
+diagnose sorts every cause into four places (the data set, the sensor, the measurement, the code) and names the evidence and how sure it is for each, so a bad number is never reported as a cause that no test has shown
+→ commit a13ddf4
+
+## D-3dfbe6e · CLOSED · decision · - · 2026-10-25
+interpret-report takes "typical" only from the data set's own audit summaries, the contract or a source the user approves, never from the agent's memory of what a neuron or sensor usually does
+→ commit a13ddf4
+
+## F-dea99e7 · STANDING · finding · - · 2026-10-25
+`core.run.mirror_symmetry` is skipped on both shipped tactile recipes: probe.symmetric() replaces innervation_params but leaves the preset's resolvable_distance_mm 0.40, so the template builder refuses it (sigma_mm and pitch_mm together with resolvable_distance_mm); the report says "the engine cannot be built" and the rest of the checks run
+→ commit a13ddf4
+
+## F-db90af6 · OPEN · finding · - · 2026-10-25
+probe.symmetric() should clear resolvable_distance_mm so the mirror check runs on the shipped tactile recipes (sensoryforge/evaluate/checks/probe.py)
+→ commit a13ddf4
+
+## F-1db8bd8 · OPEN · finding · - · 2026-10-25
+the audit lists a null resolution for core.response.latency though it counts frames, so a reader of audit.json alone gets no step for it; the contract's 6.1 says time metrics have resolution dt but names only the frame metrics
+→ commit a13ddf4
+
 ## D-ab61f5c · CLOSED · decision · - · 2026-10-25
 skills are named sensoryforge-<verb> and each ends with a "Worked example" that skill_examples.py writes and runs, so a skill's commands cannot drift from the code
 → commit 468c21f
@@ -174,6 +194,7 @@ the generated plugin's tests need pytest, which is only in the dev extra, so the
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
 → commit c041552
 ↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
+↔ a13ddf4 feat(agents): the diagnose and interpret-report skills (B6c)
 
 ## D-a93c3e9 · CLOSED · decision · - · 2026-10-24
 until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README
