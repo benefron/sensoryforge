@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-c258408 · CLOSED · finding · - · 2026-10-25
+the mirror-symmetry check no longer skips on the shipped tactile recipes, because the probe clears the recipe's resolvable_distance_mm on its copy
+→ commit 8e2c546
+
 ## D-6036b92 · CLOSED · decision · - · 2026-10-25
 the workflow skill separates an offer ("shall I go on?", skipped when the pace is to carry on) from a decision (a value the plan marks open or as an assumption, a size, a seed, the sensor, the metric packs, the cost of a long run, a failure), and a decision is asked for in either pace
 → commit 5dc3dd0
@@ -131,10 +135,12 @@ interpret-report takes "typical" only from the data set's own audit summaries, t
 ## F-dea99e7 · STANDING · finding · - · 2026-10-25
 `core.run.mirror_symmetry` is skipped on both shipped tactile recipes: probe.symmetric() replaces innervation_params but leaves the preset's resolvable_distance_mm 0.40, so the template builder refuses it (sigma_mm and pitch_mm together with resolvable_distance_mm); the report says "the engine cannot be built" and the rest of the checks run
 → commit a13ddf4
+↔ 8e2c546 fix(evaluate): the mirror-symmetry check runs on the shipped tactile recipes
 
-## F-db90af6 · OPEN · finding · - · 2026-10-25
+## F-db90af6 · CLOSED · finding · - · 2026-10-25
 probe.symmetric() should clear resolvable_distance_mm so the mirror check runs on the shipped tactile recipes (sensoryforge/evaluate/checks/probe.py)
 → commit a13ddf4
+✓ closed by 8e2c546 fix(evaluate): the mirror-symmetry check runs on the shipped tactile recipes
 
 ## F-1db8bd8 · OPEN · finding · - · 2026-10-25
 the audit lists a null resolution for core.response.latency though it counts frames, so a reader of audit.json alone gets no step for it; the contract's 6.1 says time metrics have resolution dt but names only the frame metrics
