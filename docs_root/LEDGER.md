@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-ab61f5c · CLOSED · decision · - · 2026-10-25
+skills are named sensoryforge-<verb> and each ends with a "Worked example" that skill_examples.py writes and runs, so a skill's commands cannot drift from the code
+→ commit 468c21f
+
+## D-32e8ff2 · CLOSED · decision · - · 2026-10-25
+the packaged glossary sits beside the skill folders (skills/sensoryforge-glossary.md), so ../sensoryforge-glossary.md is valid in the package and in .claude/skills, and the brief names the project's copy first, then the package's
+→ commit 468c21f
+
+## F-750c27e · STANDING · finding · - · 2026-10-25
+`sensoryforge batch --dataset ... --dry-run` ignores the flag and simulates and writes every entry (cmd_batch_dataset never reads dry_run); the run-simulation skill says to use --print-tasks or --entries 0:1 instead
+→ commit 468c21f
+
+## F-c012944 · OPEN · finding · - · 2026-10-25
+`batch --dataset --dry-run` should validate and print the plan, or refuse, instead of running the whole data set (sensoryforge/cli.py cmd_batch_dataset)
+→ commit 468c21f
+
 ## D-fbbe595 · CLOSED · decision · - · 2026-10-25
 D4 ships only the configs a preset cannot give (a canonical batch config and a stimulus-block config) as package data with `sensoryforge examples copy <name>`, tested from an unpacked wheel; the notebook and scripts stay in the repository and are linked on GitHub, the legacy configs stay out of user-facing docs, and plugin_template is retired once C2c covers its two kinds
 → commit e7f8d04
@@ -157,18 +173,22 @@ the generated plugin's tests need pytest, which is only in the dev extra, so the
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
 → commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
 
 ## D-a93c3e9 · CLOSED · decision · - · 2026-10-24
 until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README
 → commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
 
 ## D-efa939a · CLOSED · decision · - · 2026-10-24
 a skill that ships in the package depends on no repo-only path (tests/, docs/, .claude/), including the C2 and C3 extension skills, because a plugin author works from an installed package, not a fork
 → commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
 
-## A-e670376 · OPEN · action · - · 2026-10-24
+## A-e670376 · CLOSED · action · - · 2026-10-24
 B6a puts the glossary into the package as data, copies it in `agents install`, and points the brief at the installed copy; Due: with B6a
 → commit c041552
+✓ closed by 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
 
 ## D-d5bed18 · CLOSED · decision · - · 2026-10-24
 a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed
