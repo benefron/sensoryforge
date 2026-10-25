@@ -119,6 +119,8 @@ def symmetric(config: Any) -> Any:
     for pop in cfg.populations:
         if getattr(pop, "target_layers", None):
             raise CheckSkipped(f"population {pop.name!r} reads a composite grid")
+        # the template builder takes sigma and pitch or this distance, never both
+        pop.resolvable_distance_mm = None
         if pop.inputs:
             for inp in pop.inputs:
                 inp.rf = RFBuilderConfig(method="template", params=dict(params))
