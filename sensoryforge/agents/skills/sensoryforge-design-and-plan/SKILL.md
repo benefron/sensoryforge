@@ -35,7 +35,9 @@ Use commands, not memory. Parameter lists and names change between releases.
 - Match each need to something that exists: a stimulus set (a world: skill
   `sensoryforge-design-world`), a data set (`sensoryforge-build-dataset`), a sensor
   (a recipe, a design folder or a config the user has), a simulation run
-  (`sensoryforge-run-simulation`), an evaluation (`sensoryforge-evaluate`).
+  (`sensoryforge-run-simulation`), an evaluation (`sensoryforge-evaluate`), reading what a
+  report's numbers mean (`sensoryforge-interpret-report`) and tracing a result that is not
+  what was expected (`sensoryforge-diagnose`).
 - If a need has no match, go to "When a component is missing" below. Plan every step that
   does not depend on it; do not stop the whole plan.
 

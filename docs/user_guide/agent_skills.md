@@ -35,9 +35,16 @@ first, states what it will do, and stops to ask at the points that are yours to 
 | `sensoryforge-build-dataset` | "make a training and a test set from this world" | a data-set file and its built manifest, with the counts per split |
 | `sensoryforge-run-simulation` | "run it on the SA/RA recipe" | one data bundle per entry; one entry timed first; resumable |
 | `sensoryforge-evaluate` | "check that the data show what the world says" | a report folder, read back to you with measured, declared and the raw difference side by side |
+| `sensoryforge-diagnose` | "why are five of my six draws silent?" | the entries behind a bad number, their draws, and which of four places holds the cause (the data set, the sensor, the measurement, the code) with the evidence |
+| `sensoryforge-interpret-report` | "what does this latency number mean, and is it typical?" | what a metric measures, its unit and resolution from the report contract, and how this data set's own values are spread |
 
 A usual chain is plan, world, data set, simulation, evaluation, and you can start or stop at
-any step: each one reads what the one before wrote.
+any step: each one reads what the one before wrote. Diagnose and interpret-report start from
+a report you already have.
+
+Interpreting never judges. The report states no tolerance, so "typical" comes from your data
+set's own spread, from the report contract, or from a source you approve, and never from the
+agent's memory of what a neuron or a sensor usually does.
 
 ## What the skills will not do
 

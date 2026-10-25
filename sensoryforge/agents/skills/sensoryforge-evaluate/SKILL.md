@@ -68,7 +68,9 @@ Say, in this order:
 Do not call a difference good or bad. The report states no tolerance, and neither do you:
 if the user asks "is this good enough?", give the numbers and the resolution and ask what
 difference they accept, or for a source that says. Do not hide a failed or skipped check
-in a summary.
+in a summary. When the user asks what a number means or what is typical, use
+`sensoryforge-interpret-report`; when a number or a check is not what they expected, use
+`sensoryforge-diagnose`.
 
 ## 4. Look and share
 
@@ -80,7 +82,8 @@ snapshot that opens offline with no server (`--help` shows what it records).
 ## 5. Stop and report
 
 Give the report folder, the counts, what failed and the comparison in the form above.
-Ask what the user wants to do about any failure.
+Ask what the user wants to do about any failure: trace it with `sensoryforge-diagnose`,
+or explain a metric with `sensoryforge-interpret-report`.
 
 ## Worked example
 
