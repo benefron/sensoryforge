@@ -1117,4 +1117,6 @@ Do not hand-edit between the markers.
 | 2026-10-25 | D-dc22c86 | the optional next-step prompts are the chain skills' closing lines plus the existing routing hook; no new hook machinery, because the hook indexes every shipped skill and hook.py is standard library only and approved only at setup | `5dc3dd0` |
 | 2026-10-25 | D-d3885dd | session S16 runs past the 150k context budget to take B6d (Ben, 2026-10-25: the session already holds the report contract and the skill rules, which a fresh session would re-read) | `5dc3dd0` |
 | 2026-10-25 | D-7ac913d | the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one | `b1fc116` |
+| 2026-10-25 | D-9902f01 | C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario | `1c042dc` |
+| 2026-10-25 | D-a3c9d9b | the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's | `1c042dc` |
 <!-- DECISIONS_LOG_END -->

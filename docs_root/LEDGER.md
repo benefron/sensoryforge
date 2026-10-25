@@ -108,6 +108,26 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-cb6b82f · OPEN · finding · docs/development · 2026-10-25
+batch --dataset --resume (and evaluate run --resume) skips every entry whose data.h5 exists without checking batch.json, so resuming a folder with another data set or sensor keeps the old bundles and rewrites batch.json to name the new ones (reproduced: 0 ok, 3 skipped across two data sets and two recipes; world/runner.py run_dataset)
+→ commit 1c042dc
+
+## F-7d9ed72 · OPEN · finding · docs/development · 2026-10-25
+the skills disagree on where the manifest lives: batch --dataset never reads or writes it, so the workflow skill's where.py prints "simulated: 3 of 0" on a batch folder and diagnose.py entry fails there
+→ commit 1c042dc
+
+## F-e5143f4 · OPEN · finding · docs/development · 2026-10-25
+the diagnose skill's `world sample WORLD --n N --seed S` exits 2 (the flag is -n), and world sample with the data set's seed gives other draws than the data set's entries; only the worked example section of a skill is tested, so commands in its steps can rot
+→ commit 1c042dc
+
+## D-9902f01 · CLOSED · decision · docs/development · 2026-10-25
+C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario
+→ commit 1c042dc
+
+## D-a3c9d9b · CLOSED · decision · docs/development · 2026-10-25
+the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's
+→ commit 1c042dc
+
 ## D-7ac913d · CLOSED · decision · - · 2026-10-25
 the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one
 → commit b1fc116
