@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6036b92 · CLOSED · decision · - · 2026-10-25
+the workflow skill separates an offer ("shall I go on?", skipped when the pace is to carry on) from a decision (a value the plan marks open or as an assumption, a size, a seed, the sensor, the metric packs, the cost of a long run, a failure), and a decision is asked for in either pace
+→ commit 5dc3dd0
+
+## D-dc22c86 · CLOSED · decision · - · 2026-10-25
+the optional next-step prompts are the chain skills' closing lines plus the existing routing hook; no new hook machinery, because the hook indexes every shipped skill and hook.py is standard library only and approved only at setup
+→ commit 5dc3dd0
+
+## D-d3885dd · CLOSED · decision · - · 2026-10-25
+session S16 runs past the 150k context budget to take B6d (Ben, 2026-10-25: the session already holds the report contract and the skill rules, which a fresh session would re-read)
+→ commit 5dc3dd0
+
 ## D-6b3d8e4 · CLOSED · decision · - · 2026-10-25
 diagnose sorts every cause into four places (the data set, the sensor, the measurement, the code) and names the evidence and how sure it is for each, so a bad number is never reported as a cause that no test has shown
 → commit a13ddf4
@@ -195,6 +207,7 @@ B6a ships docs/agents/glossary.md inside the package as data (a test keeps the c
 → commit c041552
 ↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
 ↔ a13ddf4 feat(agents): the diagnose and interpret-report skills (B6c)
+↔ 5dc3dd0 feat(agents): the workflow skill and pace-aware next-step offers (B6d)
 
 ## D-a93c3e9 · CLOSED · decision · - · 2026-10-24
 until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README
