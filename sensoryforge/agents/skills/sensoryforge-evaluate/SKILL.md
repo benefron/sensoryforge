@@ -82,8 +82,10 @@ snapshot that opens offline with no server (`--help` shows what it records).
 ## 5. Stop and report
 
 Give the report folder, the counts, what failed and the comparison in the form above.
-Ask what the user wants to do about any failure: trace it with `sensoryforge-diagnose`,
-or explain a metric with `sensoryforge-interpret-report`.
+A failure is the user's to decide on, whatever the pace: ask what they want to do, and
+offer to trace it with `sensoryforge-diagnose`. With no failure, offer the next step at the
+pace the brief sets (ask first, or say what comes next and carry on): explaining a metric
+with `sensoryforge-interpret-report`, or tracing a number that surprises them.
 
 ## Worked example
 

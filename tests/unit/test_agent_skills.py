@@ -39,6 +39,12 @@ def test_the_core_skills_ship():
         "sensoryforge-setup",
         "sensoryforge-design-and-plan",
         "sensoryforge-design-world",
+        "sensoryforge-build-dataset",
+        "sensoryforge-run-simulation",
+        "sensoryforge-evaluate",
+        "sensoryforge-diagnose",
+        "sensoryforge-interpret-report",
+        "sensoryforge-workflow",
     } <= NAMES
 
 

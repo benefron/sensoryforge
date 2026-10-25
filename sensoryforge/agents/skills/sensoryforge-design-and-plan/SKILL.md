@@ -61,7 +61,8 @@ session budget, split the plan into sessions that fit it and say where each one 
 Show it in this shape, shorter when the brief asks for a short plan:
 
 1. **Goal**, one sentence in the user's words.
-2. **Choices**: a table of choice, value and origin (step 3). Open questions go last.
+2. **Choices**: a table of choice, value and origin (step 3), with the pace the brief
+   suggests (the user can change it here or later). Open questions go last.
 3. **Steps**, numbered: the skill, the exact command, what it produces, how it is checked
    and where it stops for the user. A usual chain is world, data set, simulation,
    evaluation; use only the steps the goal needs.
@@ -70,8 +71,9 @@ Show it in this shape, shorter when the brief asks for a short plan:
 ## 6. Hand over
 
 Ask the user to approve or change it. Do not start a step before the approval the brief
-asks for. Then run the steps with the skill each names, one at a time, and follow the
-brief's pace. If the user changes the goal mid-way, change the plan and say what moved.
+asks for. Then run the steps with `sensoryforge-workflow`, which uses the skill each step
+names and keeps the pace, or one skill at a time if the user prefers. If the user changes
+the goal mid-way, change the plan and say what moved.
 
 ## When a component is missing
 

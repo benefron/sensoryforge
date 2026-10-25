@@ -72,8 +72,10 @@ user the error and ask; do not loop.
 The output folder has one folder per entry, `batch.json` (data set, config and
 SensoryForge's version), and `index/`. Check that the number of ok rows equals the number of
 manifest rows. Report: ok, failed and skipped counts, total time, size on disk, the folder,
-the sensor you used, and the seed. Stop and ask whether to evaluate
-(`sensoryforge-evaluate`).
+the sensor you used, and the seed. If entries failed, ask what the user wants to do
+(`sensoryforge-diagnose` traces a failure). Otherwise offer the next step,
+`sensoryforge-evaluate`, at the pace the brief sets (ask first, or say what comes next and
+carry on).
 
 One simulation without a data set: `sensoryforge run --preset NAME --duration MS`
 (`sensoryforge run --help` lists the stimulus and output options).

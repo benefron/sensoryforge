@@ -68,7 +68,9 @@ Count the entries per split and class from the manifest, and read `dataset.json`
 probes that were skipped. Report: the data-set file and folder, world id, data-set id,
 seed, duration, the counts, anything skipped, and the cost to come: entries times the time
 and disk one entry takes, which `sensoryforge-run-simulation` measures. Do not guess it.
-Stop and ask whether to simulate.
+Offer the next step, `sensoryforge-run-simulation`, at the pace the brief sets (ask first,
+or say what comes next and carry on); that skill asks about the cost itself, once it has
+timed one entry.
 
 ## Verify
 

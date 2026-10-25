@@ -100,8 +100,9 @@ Each target is written by one command and checked in CI against its source (B10)
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
 Shipped so far: setup (B1b); design-and-plan and design-world (B6a); build-dataset,
-run-simulation and evaluate (B6b); diagnose and interpret-report (B6c). The planned skills fit in 14: setup (B1b); design-and-plan, design-world, build-dataset,
-run-simulation, evaluate, diagnose, interpret-report and the master skill (B6);
+run-simulation and evaluate (B6b); diagnose and interpret-report (B6c); workflow (B6d).
+The planned skills fit in 14: setup (B1b); design-and-plan, design-world, build-dataset,
+run-simulation, evaluate, diagnose, interpret-report and the master skill, workflow (B6);
 ground-assumptions (B7); extend-pipeline (every pipeline component kind), extend-world
 (world registries and another modality's class kinds) and extend-evaluation (the
 evaluation seams) (C2); and the plugin lifecycle (C3). A task that would pass a limit

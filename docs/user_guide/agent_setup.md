@@ -79,6 +79,13 @@ hooks: false
 Every skill starts by running `sensoryforge agents brief` and follows what it prints. The
 instructions you give in a session still win over the saved style.
 
+**What `pace` changes.** With `ask` the agent asks "shall I go on?" before each next step;
+with `auto` it says what comes next and carries on. It changes only that offer. A decision
+that is yours (a value the plan marks open or as an assumption, a size, a seed, the sensor,
+what difference you accept, the cost of a long run) is asked for in either pace, and so is
+a failure. You can change the pace in a session ("carry on", "ask me first") and it holds
+until you change it again.
+
 The brief also tells the skill to read your words by their meaning and by everything said in
 the session, never by matching strings, and to ask one short question when it is unclear.
 The terms it maps them to are in the [glossary](../agents/glossary.md), and the brief names the copy
@@ -91,7 +98,8 @@ SensoryForge itself, are in the [task index](../agents/task_index.md).
 With `hooks: true` the setup adds one prompt hook to `.claude/settings.local.json` (your
 local, uncommitted Claude Code settings), beside any hooks you already have. On each
 prompt it prints a short list of SensoryForge's skills, so a request in your own words
-finds the right one. It runs `sensoryforge/agents/hook.py` with the standard library
+finds the right one; a request that names no step reaches the
+[workflow skill](agent_skills.md), which chains the others. It runs `sensoryforge/agents/hook.py` with the standard library
 only, so it adds no noticeable delay. `sensoryforge agents setup --no-input --hooks no`
 removes it and leaves your other settings as they were.
 

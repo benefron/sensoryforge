@@ -82,8 +82,10 @@ Change the world and render again until they say yes.
 ## 7. Stop and report
 
 Give the file path, the world id, the classes with their weights, every value marked as an
-assumption, and the picture. Ask whether to build a data set from it
-(`sensoryforge-build-dataset`). Do not build or run anything unasked.
+assumption, and the picture. A value still marked as an assumption is a decision still
+open: ask about it, whatever the pace. Then offer the next step, `sensoryforge-build-dataset`,
+at the pace the brief sets (ask first, or say what comes next and carry on). Do not build or
+run anything the user has not approved.
 
 ## Verify
 

@@ -37,10 +37,21 @@ first, states what it will do, and stops to ask at the points that are yours to 
 | `sensoryforge-evaluate` | "check that the data show what the world says" | a report folder, read back to you with measured, declared and the raw difference side by side |
 | `sensoryforge-diagnose` | "why are five of my six draws silent?" | the entries behind a bad number, their draws, and which of four places holds the cause (the data set, the sensor, the measurement, the code) with the evidence |
 | `sensoryforge-interpret-report` | "what does this latency number mean, and is it typical?" | what a metric measures, its unit and resolution from the report contract, and how this data set's own values are spread |
+| `sensoryforge-workflow` | "take it from here" or "do the whole thing" | the other skills run in order, each at your pace, with a summary of every output, command and assumption at the end |
 
 A usual chain is plan, world, data set, simulation, evaluation, and you can start or stop at
 any step: each one reads what the one before wrote. Diagnose and interpret-report start from
 a report you already have.
+
+### Step by step, or end to end
+
+The workflow skill starts from the first piece your folder lacks and runs the chain with the
+skill each step names. Your saved working style only suggests the pace; you set it in the
+plan or in chat, and it holds until you change it. Step by step, the agent asks before each
+next step. End to end, you approve the plan once and the agent carries on, saying what it
+does next. Either way it stops for what is yours to decide (any value the plan marks as open
+or as an assumption, sizes, the sensor, the cost of a long run) and for any failure. Each of
+the other skills ends the same way: it offers the next step at your pace.
 
 Interpreting never judges. The report states no tolerance, so "typical" comes from your data
 set's own spread, from the report contract, or from a source you approve, and never from the
