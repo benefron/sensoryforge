@@ -185,6 +185,7 @@ class CorePack(MetricPack):
                     scope="population",
                     value_type=vtype,
                     applies_to=None if applies == _ALL else applies,
+                    resolution=dt if name == "latency" else None,
                     summarised=vtype != "string",
                 )
             )

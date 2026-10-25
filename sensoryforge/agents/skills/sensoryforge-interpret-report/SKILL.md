@@ -41,9 +41,8 @@ Then say, in plain words and in this order:
    unit is unknown rather than inventing one.
 3. **Its resolution**: for a time value measured on the frame grid, one frame step is the
    smallest difference the data can show, and a difference below it is not one the data can
-   see. The report lists the resolution of the frame metrics. Where it lists none (a
-   response time such as the latency), read the contract's definition: if the value counts
-   frames, the same step applies; say that this is your reading of the definition.
+   see. The report lists it for the frame times and the response latency. Where it lists none
+   (a metric that is not a time, or bundles whose steps differ), say so; do not supply one.
 4. **When it is empty** (null): the contract says when. Say it in words, for example that
    a response latency is empty when the stimulus never became active.
 
@@ -156,6 +155,5 @@ python explain.py runs/demo --list
 # prints: core.response.latency
 python explain.py runs/demo core.response.latency
 # prints: unit: ms
-python explain.py runs/demo core.frames.onset_time
 # prints: resolution 1.0
 ```

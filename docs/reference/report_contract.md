@@ -273,6 +273,9 @@ as measured above. `N` is the population's unit count.
 | `core.response.state_mean`, `_std`, `_min`, `_max` | state | state | over time and units |
 | `core.response.digest` | all | — | sha256 of the readout array as stored |
 
+The latency is a whole number of frames times `dt`, so like the frame times its resolution is
+`dt` (null when the bundles' steps differ); no other response metric has a resolution.
+
 Per-entry runtime: `core.run.seconds` (time in `s`, origin `data`: the index's `seconds`).
 
 ### 6.4 Data-set metrics (level: dataset)
@@ -318,8 +321,8 @@ shape.
 - **Run time.** `core.run.seconds` is the index's `seconds` for the entry, `null` when the
   index has no row.
 - **Metric definitions need the layout and the frame step.** `centroid_z` exists only when
-  the layout has three dimensions, and the time metrics carry `dt` as their resolution (`null`
-  if the bundles' steps differ), so a pack's `metrics()` receives the layout, the resolved
+  the layout has three dimensions, and the time metrics (the frame times and the response
+  latency) carry `dt` as their resolution (`null` if the bundles' steps differ), so a pack's `metrics()` receives the layout, the resolved
   units and `dt` (10).
 
 ## 7. Tactile pack metrics (pack `tactile`)
