@@ -1116,4 +1116,5 @@ Do not hand-edit between the markers.
 | 2026-10-25 | D-6036b92 | the workflow skill separates an offer ("shall I go on?", skipped when the pace is to carry on) from a decision (a value the plan marks open or as an assumption, a size, a seed, the sensor, the metric packs, the cost of a long run, a failure), and a decision is asked for in either pace | `5dc3dd0` |
 | 2026-10-25 | D-dc22c86 | the optional next-step prompts are the chain skills' closing lines plus the existing routing hook; no new hook machinery, because the hook indexes every shipped skill and hook.py is standard library only and approved only at setup | `5dc3dd0` |
 | 2026-10-25 | D-d3885dd | session S16 runs past the 150k context budget to take B6d (Ben, 2026-10-25: the session already holds the report contract and the skill rules, which a fresh session would re-read) | `5dc3dd0` |
+| 2026-10-25 | D-7ac913d | the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one | `b1fc116` |
 <!-- DECISIONS_LOG_END -->

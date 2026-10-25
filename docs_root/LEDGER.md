@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-7ac913d · CLOSED · decision · - · 2026-10-25
+the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one
+→ commit b1fc116
+
 ## F-c258408 · CLOSED · finding · - · 2026-10-25
 the mirror-symmetry check no longer skips on the shipped tactile recipes, because the probe clears the recipe's resolvable_distance_mm on its copy
 → commit 8e2c546
@@ -142,9 +146,10 @@ probe.symmetric() should clear resolvable_distance_mm so the mirror check runs o
 → commit a13ddf4
 ✓ closed by 8e2c546 fix(evaluate): the mirror-symmetry check runs on the shipped tactile recipes
 
-## F-1db8bd8 · OPEN · finding · - · 2026-10-25
+## F-1db8bd8 · CLOSED · finding · - · 2026-10-25
 the audit lists a null resolution for core.response.latency though it counts frames, so a reader of audit.json alone gets no step for it; the contract's 6.1 says time metrics have resolution dt but names only the frame metrics
 → commit a13ddf4
+✓ closed by b1fc116 fix(evaluate): the audit lists the frame step as the resolution of the response latency
 
 ## D-ab61f5c · CLOSED · decision · - · 2026-10-25
 skills are named sensoryforge-<verb> and each ends with a "Worked example" that skill_examples.py writes and runs, so a skill's commands cannot drift from the code
