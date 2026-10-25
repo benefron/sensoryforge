@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-fbbe595 · CLOSED · decision · - · 2026-10-25
+D4 ships only the configs a preset cannot give (a canonical batch config and a stimulus-block config) as package data with `sensoryforge examples copy <name>`, tested from an unpacked wheel; the notebook and scripts stay in the repository and are linked on GitHub, the legacy configs stay out of user-facing docs, and plugin_template is retired once C2c covers its two kinds
+→ commit e7f8d04
+
+## A-25817b1 · OPEN · action · - · 2026-10-25
+D4 builds the examples command and its wheel test, and the install page and README link the rest on GitHub; Due: with D4
+→ commit e7f8d04
+
 ## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
 the examples/ folder is not shipped inside the package as it stands; a first run uses the packaged presets, and the rest of what an installed user needs from it is closed by D4 (batch and stimulus-block configs as small tested package data) and by C2c (scaffold or a skill for receptive-field builders and processing layers), not by copying the folder
 → commit af45ae9
@@ -119,6 +127,7 @@ C2, the extension skills, stays in phase C after B6, because C2 depends on B6 (i
 ## F-c79da62 · STANDING · finding · docs/getting_started · 2026-10-24
 examples/plugin_template is not superseded by `new-component`: it covers two kinds the scaffold does not
 → commit af45ae9
+↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
 
 ## D-e05b02e · CLOSED · decision · - · 2026-10-24
 the default install is install-and-extend from the git URL with no clone, and the tactile, world and evaluation workflow is one use of it rather than the headline; developing SensoryForge itself (fork, clone, editable install with the dev extra) is a separate, clearly marked path
@@ -139,6 +148,7 @@ the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, 
 ## F-c5e90d8 · OPEN · finding · - · 2026-10-24
 examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
 → commit 9873eb4
+↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
 
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
