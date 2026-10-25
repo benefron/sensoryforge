@@ -8,6 +8,15 @@ shell tools, and nothing else on your machine.
 How they work with you is yours to set. The setup asks three things and never assumes;
 anything you do not answer keeps a self-contained default.
 
+## Install the skills
+
+```bash
+sensoryforge agents install        # copies the skills and the glossary into .claude/skills/
+```
+
+Run it in your project folder, and again after upgrading SensoryForge. What the skills are
+and what each one does: [Skills for a Coding Agent](agent_skills.md).
+
 ## Run the setup
 
 In a chat, ask your agent to set up SensoryForge (the `sensoryforge-setup` skill), or run
@@ -72,8 +81,10 @@ instructions you give in a session still win over the saved style.
 
 The brief also tells the skill to read your words by their meaning and by everything said in
 the session, never by matching strings, and to ask one short question when it is unclear.
-The terms it maps them to are in the [glossary](../agents/glossary.md); the files, tests and
-rules for each common task are in the [task index](../agents/task_index.md).
+The terms it maps them to are in the [glossary](../agents/glossary.md), and the brief names the copy
+to read: the one `sensoryforge agents install` put in your project, else the one inside the
+installed package. The files, tests and rules for each common task, for people who develop
+SensoryForge itself, are in the [task index](../agents/task_index.md).
 
 ## The routing hook (Claude Code only)
 

@@ -247,6 +247,13 @@ without simulating anything (see [Worlds and Data Sets](worlds.md)).
 installable plugin package for a new component; `--in-repo` writes into a SensoryForge checkout
 instead. See [Plugin Packages](../developer_guide/plugins.md).
 
+### `sensoryforge agents`
+
+`sensoryforge agents {setup,brief,install}` sets up the agent skills: `setup` saves how they
+work with you, `brief` prints it, and `install [--dest DIR]` copies the skills and the
+glossary into `DIR/.claude/skills/`. See [Working with a Coding Agent](agent_setup.md) and
+[Skills for a Coding Agent](agent_skills.md).
+
 ### `sensoryforge evaluate`
 
 `sensoryforge evaluate {run,serve,export}` evaluates a world or data set.

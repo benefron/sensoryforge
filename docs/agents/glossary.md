@@ -4,7 +4,7 @@ The words SensoryForge uses, defined once, in neutral vocabulary. Every term the
 skills use is here; a term is defined by what it is in the code, so a definition names the
 class, command or page that holds the facts. **Parameter lists, defaults and units are not
 copied here**: read them with `sensoryforge describe --json` (see [Describing SensoryForge to
-a program](../user_guide/describe.md)).
+a program](https://benefron.github.io/sensoryforge/user_guide/describe/)).
 
 ## Read the user's words by meaning
 
@@ -124,7 +124,7 @@ a duration and a seed.
 ### world
 A declaration of stimulus **classes** (`world:` YAML, format `sensoryforge-world/1`). The same
 world, seed and index always give the same draw. See [Worlds and Data
-Sets](../user_guide/worlds.md) and the [world contract](../reference/world_contract.md).
+Sets](https://benefron.github.io/sensoryforge/user_guide/worlds/) and the [world contract](https://benefron.github.io/sensoryforge/reference/world_contract/).
 
 ### class
 A family of stimuli in a world: a layer plus **axes** that say how its fields vary. A
@@ -187,12 +187,12 @@ behaves there.
 ### bundle
 The folder one entry's run writes: the stimulus, each population's responses and receptive
 fields, the config and SensoryForge's sha (`io/bundle.py`; layout in [Data
-Bundles](../user_guide/bundles.md)). pressure-simulation reads them.
+Bundles](https://benefron.github.io/sensoryforge/user_guide/bundles/)). pressure-simulation reads them.
 
 ### report
 What `sensoryforge evaluate run` writes for a world or data set: the audit, the declared
 side, the comparison, the checks and a browsable view ([report
-contract](../reference/report_contract.md)).
+contract](https://benefron.github.io/sensoryforge/reference/report_contract/)).
 
 ### audit
 The **blind** measurement of generated data. It reads only the bundles, never the world file
@@ -238,8 +238,9 @@ point (`sensoryforge new-component`).
 
 ### contract
 An interface another project depends on, pinned by tests and a docs page: the world,
-converter and report contracts under `docs/reference/`. A change to what one pins needs a
-format-tag bump.
+converter and report contracts, published at
+https://benefron.github.io/sensoryforge/reference/ (the `*_contract` pages). A change to what
+one pins needs a format-tag bump.
 
 ### seed
 An integer that makes a stochastic step repeatable. Worlds hash it with the draw index;
@@ -283,4 +284,4 @@ the world, converter and report contracts exist.
 
 ### TouchSim
 The published tactile simulator the `tactile_sa1_ra1` recipe is fitted against
-(`tests/validation/test_touchsim_comparison.py`).
+(its comparison is a test in the repository's validation tests).

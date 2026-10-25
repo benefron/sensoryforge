@@ -133,7 +133,8 @@ def _known_elsewhere():
     registered = {
         n.lower() for kind in dsc.describe()["components"].values() for n in kind
     }
-    return commands | registered | {"yes", "no", "defaults"}
+    skills = {p.parent.name for p in SKILLS}
+    return commands | registered | skills | {"yes", "no", "defaults"}
 
 
 @pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)

@@ -50,3 +50,18 @@ sensoryforge agents setup --no-input --integrate <yes|no> [--tool <name> ...] \
 
 Leave out what the user did not answer. Show the brief the command prints, and say where
 the file was saved and that it can be edited by hand or changed by asking again.
+
+## Worked example
+
+The user wants subagents only for reading, and a session budget of 150000 tokens; they
+accept the other defaults. The skill saves the answers without questions and reads the
+brief back:
+
+```bash
+sensoryforge agents setup --no-input --path .sensoryforge/agents.yml --integrate no \
+    --subagents read-only --session-tokens 150000
+# prints: Saved
+sensoryforge agents brief --path .sensoryforge/agents.yml
+# prints: only for independent read-only work
+# prints: about 150000 tokens
+```

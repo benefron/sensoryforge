@@ -23,6 +23,7 @@ one is for, and how many there may be. Change the map here first, then the files
 | `AGENTS.md` | everyone | any agent that reads a root instruction file | B2 |
 | `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes | B2 |
 | `sensoryforge/agents/skills/<name>/SKILL.md` | users | Claude Code format; other environments through B8's exports | B1b, B6, B7, C2, C3 |
+| `sensoryforge/agents/skills/sensoryforge-glossary.md` | users | a copy of `docs/agents/glossary.md` that ships in the package; the docs page is the source and a test keeps the two identical | B6a |
 | `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
 | `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
 | `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched | kept |
@@ -38,7 +39,7 @@ Each target is written by one command and checked in CI against its source (B10)
 
 | Target | From | Command | Task |
 |---|---|---|---|
-| `.claude/skills/<name>/` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install` | B6a |
+| `.claude/skills/<name>/SKILL.md` and `.claude/skills/sensoryforge-glossary.md` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install [--dest DIR]` (`sensoryforge/agents/install.py`; overwrites its own files and touches nothing else) | B6a |
 | Files for other environments, and one generic prompt for unknown ones | the same skills | `sensoryforge agents install --target <env>` | B8 |
 | `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
@@ -74,6 +75,19 @@ Each target is written by one command and checked in CI against its source (B10)
    approves. Every assumption is labelled with its origin.
 6. **Neutral words in the core.** Tactile words appear only in tactile-specific skills or
    sections.
+7. **A worked example that a test runs.** Every skill ends with a `## Worked example`
+   section: the files it needs (a `yaml` or `python` block whose first line is
+   `# file: NAME`) and the commands (a `bash` block, only `sensoryforge ...` and
+   `python ...`), each command followed by `# prints: TEXT` lines and, when it should
+   fail, `# exit: N`. `sensoryforge/testing/skill_examples.py` writes the files into an
+   empty folder and runs the commands against the package that is under test;
+   `tests/unit/test_agent_skills.py` does that for every skill. Other blocks (a plan, a
+   sample of output) are not run. A command that is slow or machine-specific does not
+   belong in an example.
+8. **Nothing that exists only in a clone.** A shipped skill and the shipped glossary name no
+   path under `tests/`, `docs/` or `.claude/`, no `pip install sensoryforge` (it is not on
+   PyPI; say "install from source") and no `pip install -e`. A fact that lives in the docs
+   is linked by its published address. The same test file checks this.
 
 ## File-count budget
 
@@ -85,7 +99,8 @@ Each target is written by one command and checked in CI against its source (B10)
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
-The planned skills fit in 14: setup (B1b); design-and-plan, design-world, build-dataset,
+Shipped so far: setup (B1b); design-and-plan and design-world (B6a); build-dataset,
+run-simulation and evaluate (B6b). The planned skills fit in 14: setup (B1b); design-and-plan, design-world, build-dataset,
 run-simulation, evaluate, diagnose, interpret-report and the master skill (B6);
 ground-assumptions (B7); extend-pipeline (every pipeline component kind), extend-world
 (world registries and another modality's class kinds) and extend-evaluation (the

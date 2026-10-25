@@ -10,6 +10,7 @@ Example:
     $ sensoryforge visualize config.yml --save output.png
     $ sensoryforge agents setup
     $ sensoryforge agents brief
+    $ sensoryforge agents install
 
 Topic: cli
 Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.py,
@@ -1260,12 +1261,28 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 
 
 def cmd_agents(args: argparse.Namespace) -> int:
-    """``sensoryforge agents setup`` / ``agents brief``: the skills' working style."""
+    """``sensoryforge agents setup`` / ``brief`` / ``install``: the agent skills."""
     from sensoryforge.agents import style as ws
 
-    if args.agents_command not in ("setup", "brief"):
-        print("usage: sensoryforge agents {setup,brief}", file=sys.stderr)
+    if args.agents_command not in ("setup", "brief", "install"):
+        print("usage: sensoryforge agents {setup,brief,install}", file=sys.stderr)
         return 1
+    if args.agents_command == "install":
+        from sensoryforge.agents.install import install
+
+        try:
+            written = install(Path(args.dest))
+        except (FileNotFoundError, OSError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        for path, state in written:
+            print(f"{state:>9}  {path}")
+        print(
+            f"{len(written) - 1} skills and the glossary are in "
+            f"{Path(args.dest).resolve() / '.claude' / 'skills'}; "
+            "run `sensoryforge agents setup` to set how they work with you."
+        )
+        return 0
     try:
         found = Path(args.path) if args.path else ws.find_config()
         if args.agents_command == "brief":
@@ -1325,6 +1342,19 @@ def _add_agents_parser(subparsers: Any) -> None:
         "brief", help="Print the working style every skill reads first"
     )
     brief.add_argument("--path", help=f"Working-style file ({where})")
+    install = agents_sub.add_parser(
+        "install",
+        help="Copy the skills and the glossary into a project's .claude/skills",
+        description="Copy SensoryForge's agent skills and its glossary into "
+        "<dest>/.claude/skills/, where Claude Code finds them. The copies are "
+        "generated: running it again replaces them with this release's files and "
+        "touches nothing else.",
+    )
+    install.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder (default: the current folder)",
+    )
     setup = agents_sub.add_parser(
         "setup",
         help="Ask the setup questions (or take them as flags) and save the answers",

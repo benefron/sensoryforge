@@ -136,6 +136,7 @@ nav:
     - Evaluation Browser: user_guide/evaluation_browser.md
     - Sharing a Snapshot: user_guide/evaluation_export.md
     - Working with a Coding Agent: user_guide/agent_setup.md
+    - Skills for a Coding Agent: user_guide/agent_skills.md
     - Glossary: agents/glossary.md
     - Task Index: agents/task_index.md
 

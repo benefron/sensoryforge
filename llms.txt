@@ -52,6 +52,7 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 - [Evaluation Browser](https://benefron.github.io/sensoryforge/user_guide/evaluation_browser/)
 - [Sharing a Snapshot](https://benefron.github.io/sensoryforge/user_guide/evaluation_export/)
 - [Working with a Coding Agent](https://benefron.github.io/sensoryforge/user_guide/agent_setup/)
+- [Skills for a Coding Agent](https://benefron.github.io/sensoryforge/user_guide/agent_skills/)
 - [Glossary](https://benefron.github.io/sensoryforge/agents/glossary/)
 - [Task Index](https://benefron.github.io/sensoryforge/agents/task_index/)
 

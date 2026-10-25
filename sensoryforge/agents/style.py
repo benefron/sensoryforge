@@ -37,6 +37,8 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
+from sensoryforge.agents.install import glossary_path
+
 CONFIG_ENV = "SENSORYFORGE_AGENTS_CONFIG"
 """Environment variable naming the working-style file; it wins over the search."""
 
@@ -337,23 +339,33 @@ def save_style(style: WorkingStyle, path: Path) -> Path:
 #: Where the published docs live; the glossary and task index are pages there.
 SITE = "https://benefron.github.io/sensoryforge"
 
-#: The rule every skill follows about the user's words (B4), the same for every style.
-WORDS_LINE = (
-    "- Words: map the user's words to SensoryForge's terms by their meaning and by "
-    "everything said in this session, never by matching strings; ask one short "
-    "question when the meaning is unclear. The terms are in the glossary "
-    f"({SITE}/agents/glossary/, docs/agents/glossary.md in the repository) and each "
-    "common task's files, tests and rules in the task index "
-    f"({SITE}/agents/task_index/)."
-)
+
+def words_line(glossary: Path) -> str:
+    """The rule every skill follows about the user's words (B4), for every style.
+
+    Args:
+        glossary: The glossary file to point at (see
+            :func:`sensoryforge.agents.install.glossary_path`).
+    """
+    return (
+        "- Words: map the user's words to SensoryForge's terms by their meaning and by "
+        "everything said in this session, never by matching strings; ask one short "
+        f"question when the meaning is unclear. The terms are defined in {glossary} "
+        f"(also {SITE}/agents/glossary/); each common task's files, tests and rules "
+        f"are in the task index ({SITE}/agents/task_index/)."
+    )
 
 
-def render_brief(style: WorkingStyle, source: Optional[Path]) -> str:
+def render_brief(
+    style: WorkingStyle, source: Optional[Path], glossary: Optional[Path] = None
+) -> str:
     """The instructions every skill reads first, one line per option.
 
     Args:
         style: The saved (or default) working style.
         source: The file it came from, or ``None`` for the defaults.
+        glossary: The glossary file to name; default the project's installed copy
+            (``sensoryforge agents install``), else the copy inside the package.
 
     Returns:
         Plain text, a header line and one bullet per option.
@@ -369,7 +381,7 @@ def render_brief(style: WorkingStyle, source: Optional[Path]) -> str:
         f"SensoryForge working style ({origin}).",
         "Follow it in every SensoryForge skill; the user's own instructions in this "
         "session win over it.",
-        WORDS_LINE,
+        words_line(glossary or glossary_path()),
     ]
     if style.integrate:
         named = ", ".join(style.tools) if style.tools else "none named yet; ask first"
