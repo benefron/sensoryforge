@@ -108,9 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-cb6b82f · OPEN · finding · docs/development · 2026-10-25
+## F-a8c6c0f · CLOSED · finding · - · 2026-10-27
+batch --dataset --resume skipped bundles written by another data set or sensor and rewrote batch.json to name the new run; it now refuses before writing anything (world/runner.py check_resume_target)
+→ commit 86bb3f3
+
+## F-cb6b82f · CLOSED · finding · docs/development · 2026-10-25
 batch --dataset --resume (and evaluate run --resume) skips every entry whose data.h5 exists without checking batch.json, so resuming a folder with another data set or sensor keeps the old bundles and rewrites batch.json to name the new ones (reproduced: 0 ok, 3 skipped across two data sets and two recipes; world/runner.py run_dataset)
 → commit 1c042dc
+✓ closed by 86bb3f3 fix(world): --resume refuses another data set or sensor; --dry-run works with --dataset
 
 ## F-7d9ed72 · OPEN · finding · docs/development · 2026-10-25
 the skills disagree on where the manifest lives: batch --dataset never reads or writes it, so the workflow skill's where.py prints "simulated: 3 of 0" on a batch folder and diagnose.py entry fails there
@@ -183,9 +188,10 @@ the packaged glossary sits beside the skill folders (skills/sensoryforge-glossar
 `sensoryforge batch --dataset ... --dry-run` ignores the flag and simulates and writes every entry (cmd_batch_dataset never reads dry_run); the run-simulation skill says to use --print-tasks or --entries 0:1 instead
 → commit 468c21f
 
-## F-c012944 · OPEN · finding · - · 2026-10-25
+## F-c012944 · CLOSED · finding · - · 2026-10-25
 `batch --dataset --dry-run` should validate and print the plan, or refuse, instead of running the whole data set (sensoryforge/cli.py cmd_batch_dataset)
 → commit 468c21f
+✓ closed by 86bb3f3 fix(world): --resume refuses another data set or sensor; --dry-run works with --dataset
 
 ## D-fbbe595 · CLOSED · decision · - · 2026-10-25
 D4 ships only the configs a preset cannot give (a canonical batch config and a stimulus-block config) as package data with `sensoryforge examples copy <name>`, tested from an unpacked wheel; the notebook and scripts stay in the repository and are linked on GitHub, the legacy configs stay out of user-facing docs, and plugin_template is retired once C2c covers its two kinds
