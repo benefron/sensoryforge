@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5d48fdc · CLOSED · decision · - · 2026-10-27
+the packaged SKILL.md files are the one neutral source (the open Agent Skills layout) and each environment's files are generated from them by a target registry with a do-not-edit header and a --check, with no per-tool conversion of the body because all four tools read the same layout
+→ commit 1af26dc
+
+## F-b458257 · STANDING · finding · - · 2026-10-27
+Claude Code (.claude/skills), GitHub Copilot (.github/skills), Cursor (.cursor/skills) and Codex (.agents/skills) each read name-plus-description SKILL.md folders from their own project folder, per each tool's own documentation checked 2026-10-27
+→ commit 1af26dc
+
+## F-4f3a248 · OPEN · finding · - · 2026-10-27
+the exports were checked against each tool's documentation and not run inside the tools, and a tool that also reads another tool's folder (Copilot and Cursor read .claude/skills and .agents/skills) can list a skill twice when exported for several
+→ commit 1af26dc
+
 ## D-28a4edc · CLOSED · decision · - · 2026-10-27
 the design loop is a step of sensoryforge-design-world and the grounding skill is its own skill, because every other skill calls it; ten skills against a budget of fourteen
 → commit 87b1622

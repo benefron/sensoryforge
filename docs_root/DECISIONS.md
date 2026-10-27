@@ -1121,4 +1121,5 @@ Do not hand-edit between the markers.
 | 2026-10-25 | D-a3c9d9b | the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's | `1c042dc` |
 | 2026-10-27 | D-28a4edc | the design loop is a step of sensoryforge-design-world and the grounding skill is its own skill, because every other skill calls it; ten skills against a budget of fourteen | `87b1622` |
 | 2026-10-27 | D-348acd9 | B7's "the agent asks or cites instead of inventing" is tested on what can be tested without a model (the rule in the docs and skills, the recorded sessions, the audit script); a fresh agent offered a value it would have to invent is B9's scenario | `87b1622` |
+| 2026-10-27 | D-5d48fdc | the packaged SKILL.md files are the one neutral source (the open Agent Skills layout) and each environment's files are generated from them by a target registry with a do-not-edit header and a --check, with no per-tool conversion of the body because all four tools read the same layout | `1af26dc` |
 <!-- DECISIONS_LOG_END -->
