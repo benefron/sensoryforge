@@ -11,6 +11,7 @@ Example:
     $ sensoryforge agents setup
     $ sensoryforge agents brief
     $ sensoryforge agents install
+    $ sensoryforge agents export --target cursor
 
 Topic: cli
 Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.py,
@@ -1298,28 +1299,75 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _agents_export(args: argparse.Namespace) -> int:
+    """``agents install`` / ``agents export``: write the skills for an environment."""
+    from sensoryforge.agents import install as ins
+
+    export = args.agents_command == "export"
+    target = getattr(args, "target", None) or "claude"
+    dest = Path(args.dest)
+    try:
+        if target == "auto":
+            found = ins.detect_targets(dest) if dest.is_dir() else []
+            if len(found) != 1:
+                seen = ", ".join(found) if found else "none"
+                raise ValueError(
+                    f"cannot tell which environment {dest.resolve()} is for (found: "
+                    f"{seen}); pass --target {{{','.join(ins.EXPORT_TARGETS)}}}"
+                )
+            target = found[0]
+            print(f"Target {target} (found in {dest.resolve()})")
+        if export and args.check:
+            states = ins.check(dest, target)
+            for path, state in states:
+                print(f"{state:>9}  {path}")
+            bad = [s for _, s in states if s != "current"]
+            print(ins.summarize(states))
+            if bad:
+                print(
+                    f"Run `sensoryforge agents export --target {target}` to refresh.",
+                    file=sys.stderr,
+                )
+            return 1 if bad else 0
+        written = ins.install(dest, target)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    spec = ins.EXPORT_TARGETS[target]
+    for path, state in written:
+        print(f"{state:>9}  {path}")
+    folder = dest.resolve() / spec.skills_dir
+    print(f"{ins.summarize(written)}: the skills and the glossary are in {folder}")
+    if spec.index:
+        print(
+            "No tool reads this folder by itself: give the agent "
+            "`sensoryforge agents prompt generic`."
+        )
+    else:
+        print("Run `sensoryforge agents setup` to set how they work with you.")
+    return 0
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
-    """``sensoryforge agents setup`` / ``brief`` / ``install``: the agent skills."""
+    """``sensoryforge agents``: setup, brief, install, export and prompt."""
     from sensoryforge.agents import style as ws
 
-    if args.agents_command not in ("setup", "brief", "install"):
-        print("usage: sensoryforge agents {setup,brief,install}", file=sys.stderr)
+    if args.agents_command not in ("setup", "brief", "install", "export", "prompt"):
+        print(
+            "usage: sensoryforge agents {setup,brief,install,export,prompt}",
+            file=sys.stderr,
+        )
         return 1
-    if args.agents_command == "install":
-        from sensoryforge.agents.install import install
+    if args.agents_command in ("install", "export"):
+        return _agents_export(args)
+    if args.agents_command == "prompt":
+        from sensoryforge.agents.install import packaged_prompt
 
         try:
-            written = install(Path(args.dest))
-        except (FileNotFoundError, OSError) as exc:
+            print(packaged_prompt(args.name).read_text(encoding="utf-8"), end="")
+        except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
-        for path, state in written:
-            print(f"{state:>9}  {path}")
-        print(
-            f"{len(written) - 1} skills and the glossary are in "
-            f"{Path(args.dest).resolve() / '.claude' / 'skills'}; "
-            "run `sensoryforge agents setup` to set how they work with you."
-        )
         return 0
     try:
         found = Path(args.path) if args.path else ws.find_config()
@@ -1386,12 +1434,55 @@ def _add_agents_parser(subparsers: Any) -> None:
         description="Copy SensoryForge's agent skills and its glossary into "
         "<dest>/.claude/skills/, where Claude Code finds them. The copies are "
         "generated: running it again replaces them with this release's files and "
-        "touches nothing else.",
+        "touches nothing else. Same as `export --target claude`.",
     )
     install.add_argument(
         "--dest",
         default=".",
         help="The project folder (default: the current folder)",
+    )
+    from sensoryforge.agents.install import EXPORT_TARGETS
+
+    export = agents_sub.add_parser(
+        "export",
+        help="Write the skills and the glossary for Claude Code, Copilot, Cursor, "
+        "Codex or any other environment",
+        description="Write SensoryForge's agent skills and its glossary in the folder "
+        "the chosen environment reads: "
+        + "; ".join(
+            f"{t.name} -> <dest>/{t.skills_dir.as_posix()}/"
+            for t in EXPORT_TARGETS.values()
+        )
+        + ". Every file carries a do-not-edit header; running it again replaces them "
+        "with this release's files and touches nothing else. `generic` writes a "
+        "neutral folder with an index, for an environment this release does not know: "
+        "give the agent `sensoryforge agents prompt generic`.",
+    )
+    export.add_argument(
+        "--target",
+        choices=("auto", *EXPORT_TARGETS),
+        default="auto",
+        help="The environment (default auto: the one the project folder already "
+        "uses, an error when none or several do)",
+    )
+    export.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder (default: the current folder)",
+    )
+    export.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing; list files that are missing or differ from this "
+        "release's, and exit 1 if any are",
+    )
+    prompt = agents_sub.add_parser(
+        "prompt",
+        help="Print a prompt to give an agent: install (picks the environment) or "
+        "generic (for an unknown one)",
+    )
+    prompt.add_argument(
+        "name", nargs="?", default="install", choices=("install", "generic")
     )
     setup = agents_sub.add_parser(
         "setup",

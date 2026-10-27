@@ -3,7 +3,8 @@
 SensoryForge ships skills for coding agents (Claude Code first; other environments
 later) inside the package, under `sensoryforge/agents/skills/`. They are self-contained:
 out of the box they use only SensoryForge's own commands and your agent's basic file and
-shell tools, and nothing else on your machine.
+shell tools, and nothing else on your machine. For an environment other than Claude Code, see
+[Using the Skills in Another Agent](agent_export.md).
 
 How they work with you is yours to set. The setup asks three things and never assumes;
 anything you do not answer keeps a self-contained default.

@@ -22,7 +22,8 @@ one is for, and how many there may be. Change the map here first, then the files
 |---|---|---|---|
 | `AGENTS.md` | everyone | any agent that reads a root instruction file | B2 |
 | `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes | B2 |
-| `sensoryforge/agents/skills/<name>/SKILL.md` | users | Claude Code format; other environments through B8's exports | B1b, B6, B7, C2, C3 |
+| `sensoryforge/agents/skills/<name>/SKILL.md` | users | the neutral source: front matter `name` and `description`, markdown body (the open Agent Skills layout); every environment's files are generated from it ([export](../user_guide/agent_export.md)) | B1b, B6, B7, C2, C3 |
+| `sensoryforge/agents/prompts/install.md`, `generic.md` | users | an agent the user gives them to: the first picks the environment's export command, the second adapts the neutral files to an environment with no export | B8 |
 | `sensoryforge/agents/skills/sensoryforge-glossary.md` | users | a copy of `docs/agents/glossary.md` that ships in the package; the docs page is the source and a test keeps the two identical | B6a |
 | `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
 | `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
@@ -40,7 +41,8 @@ Each target is written by one command and checked in CI against its source (B10)
 | Target | From | Command | Task |
 |---|---|---|---|
 | `.claude/skills/<name>/SKILL.md` and `.claude/skills/sensoryforge-glossary.md` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install [--dest DIR]` (`sensoryforge/agents/install.py`; overwrites its own files and touches nothing else) | B6a |
-| Files for other environments, and one generic prompt for unknown ones | the same skills | `sensoryforge agents install --target <env>` | B8 |
+| `.github/skills/`, `.cursor/skills/`, `.agents/skills/` (same layout, same files) in the user's project | the same skills | `sensoryforge agents export --target copilot\|cursor\|codex` (`--check` reports files that differ; each target's folder is checked against its tool's documentation, dated in `FORMATS_CHECKED`) | B8 |
+| `sensoryforge-agents/` (neutral files and `INDEX.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` | B8 |
 | `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
 
@@ -52,7 +54,7 @@ Each target is written by one command and checked in CI against its source (B10)
 | `CODE_MAP.md` | partly repeated `CLAUDE.md`; named deleted GUI tabs | done in B2: folded into `AGENTS.md`'s table and removed |
 | `refs/` (module, test and GUI maps) | last changed 2026-09-14; predates GUI v2 | not linked from `AGENTS.md`; replaced by D5's generated reference |
 | `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps C2 | maintainer-only; the stale references now name `AGENTS.md` (B2); `add-component` retired when C2's skill replaces it |
-| `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired now; B8 generates Cursor's files from the skills |
+| `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired; B8 generates Cursor's skills from the packaged ones (`export --target cursor`) |
 | `.claude/hooks/`, `.claude/settings.json`, `.claude/ledger.conf` | the living ledger's install | maintainer-only, owned by the ledger skill, not edited by hand |
 | `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | for people | human-first; agents may read them, nothing points agents at them for facts |
 | `docs_root/plan/`, `docs/development/reviews/` | roadmap and audits | human and maintainer only, never shipped |
@@ -93,7 +95,7 @@ Each target is written by one command and checked in CI against its source (B10)
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, B8's install prompt) | **18** |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the two prompts) | **18** (14 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands |

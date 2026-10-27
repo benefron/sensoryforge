@@ -165,25 +165,29 @@ def test_the_glossary_in_the_package_is_the_docs_page():
 def test_the_package_data_includes_the_glossary_and_the_skills():
     text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
     assert '"agents/skills/*.md"' in text and '"agents/skills/*/*.md"' in text
+    assert '"agents/prompts/*.md"' in text
 
 
 def test_install_copies_every_skill_and_the_glossary_and_is_repeatable(tmp_path):
     first = ins.install(tmp_path)
     base = tmp_path / ".claude" / "skills"
     assert {s for _, s in first} == {"added"}
-    assert (base / ins.GLOSSARY_NAME).read_bytes() == (
-        ins.packaged_glossary().read_bytes()
+    claude = ins.EXPORT_TARGETS["claude"]
+    glossary = ins.packaged_glossary().read_text(encoding="utf-8")
+    assert (base / ins.GLOSSARY_NAME).read_text(encoding="utf-8") == (
+        ins.render_glossary(glossary, claude)
     )
     for name, path in ins.packaged_skills():
-        assert (base / name / "SKILL.md").read_bytes() == path.read_bytes()
+        want = ins.render_skill(path.read_text(encoding="utf-8"), claude)
+        assert (base / name / "SKILL.md").read_text(encoding="utf-8") == want
     assert {s for _, s in ins.install(tmp_path)} == {"unchanged"}
     edited = base / "sensoryforge-setup" / "SKILL.md"
     edited.write_text("changed by hand", encoding="utf-8")
     states = dict(ins.install(tmp_path))
     assert states[edited] == "updated"
-    assert (
-        edited.read_bytes()
-        == dict(ins.packaged_skills())["sensoryforge-setup"].read_bytes()
+    source = dict(ins.packaged_skills())["sensoryforge-setup"]
+    assert edited.read_text(encoding="utf-8") == ins.render_skill(
+        source.read_text(encoding="utf-8"), claude
     )
 
 
@@ -348,6 +352,45 @@ def test_the_command_check_catches_a_wrong_flag_and_an_unlisted_placeholder():
     assert _command_problems("sensoryforge agents setup --pace <ask|never>")
 
 
+PROMPT_DIR = REPO / "sensoryforge" / "agents" / "prompts"
+PROMPTS = sorted(PROMPT_DIR.glob("*.md"))
+
+
+def test_the_prompts_ship():
+    assert [p.stem for p in PROMPTS] == ["generic", "install"]
+
+
+@pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.stem)
+def test_a_prompt_uses_nothing_that_exists_only_in_a_clone(path):
+    text = re.sub(r"https?://\S+", "", path.read_text(encoding="utf-8"))
+    assert not re.search(r"(?<![\w./-])(tests|docs|\.claude)/", text), path.stem
+    assert not re.search(r"pip install\s+sensoryforge\b", text, re.I)
+    assert "pip install -e" not in text
+
+
+@pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.stem)
+def test_every_sensoryforge_command_in_a_prompt_parses(path):
+    commands = _skill_commands(path.read_text(encoding="utf-8"))
+    assert commands, "a prompt runs at least one `sensoryforge` command"
+    problems = [p for c in commands for p in _command_problems(c)]
+    assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.stem)
+def test_a_prompt_names_only_skills_that_exist(path):
+    named = set(
+        re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b", path.read_text("utf-8"))
+    )
+    named -= {ins.GLOSSARY_NAME[: -len(".md")], "sensoryforge-agents"}
+    assert named <= NAMES, sorted(named - NAMES)
+
+
+def test_the_hand_written_agent_files_stay_within_the_budget():
+    """``AGENTS.md``, ``CLAUDE.md``, the skills and the prompts: 18 at most."""
+    count = 2 + len(SKILLS) + len(PROMPTS)
+    assert count <= 18, count  # docs/developer_guide/agent_files.md
+
+
 def test_python_dash_c_lines_in_the_skills_compile():
     found = 0
     for path in SKILLS:
@@ -496,6 +539,10 @@ def test_a_wheel_holds_every_skill_and_the_glossary(tmp_path):
             inside = f"sensoryforge/agents/skills/{path.parent.name}/SKILL.md"
             assert inside in names, inside
             assert wheel.read(inside) == path.read_bytes()
+        for prompt in PROMPTS:
+            inside = f"sensoryforge/agents/prompts/{prompt.name}"
+            assert inside in names, inside
+            assert wheel.read(inside) == prompt.read_bytes()
         glossary = f"sensoryforge/agents/skills/{ins.GLOSSARY_NAME}"
         assert glossary in names
         assert wheel.read(glossary) == ins.packaged_glossary().read_bytes()

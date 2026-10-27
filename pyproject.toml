@@ -93,6 +93,7 @@ sensoryforge = [
     "evaluate/export/static/*",
     "agents/skills/*.md",
     "agents/skills/*/*.md",
+    "agents/prompts/*.md",
 ]
 
 [tool.black]

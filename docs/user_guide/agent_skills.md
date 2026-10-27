@@ -2,7 +2,9 @@
 
 SensoryForge ships **skills**: short, tested instruction files that a coding agent follows
 to do a SensoryForge job with you, from a goal in your own words to a report you can read.
-They are written in Claude Code's format today; other environments follow. They are
+They are written in the open Agent Skills layout (a folder per skill holding a `SKILL.md`),
+which Claude Code, GitHub Copilot, Cursor and Codex read; [export them](agent_export.md) for
+yours. They are
 self-contained: they use only SensoryForge's commands and your agent's basic file and shell
 tools, and nothing else on your machine unless you say so in the [setup](agent_setup.md).
 
@@ -18,7 +20,9 @@ sensoryforge agents install
 This copies the skills into `.claude/skills/` of that folder, with the
 [glossary](../agents/glossary.md) beside them (`sensoryforge-glossary.md`), where Claude
 Code finds them. Run it again after upgrading SensoryForge to replace the copies with the
-new release's files; it never touches anything else in the folder. Then run the
+new release's files; it never touches anything else in the folder. For another environment
+use `sensoryforge agents export --target copilot|cursor|codex|generic`
+([Using the Skills in Another Agent](agent_export.md)). Then run the
 [setup](agent_setup.md) once so the skills know how you like to work.
 
 ## The skills
