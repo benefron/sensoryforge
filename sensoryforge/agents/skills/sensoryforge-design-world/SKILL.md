@@ -42,8 +42,9 @@ component is missing" (`sensoryforge-design-and-plan`).
 ## 3. Ranges: never invent them
 
 A value comes from the user, from a source they approve, or from reasoning they approve.
-If they do not know a range, offer to derive it from a source; or propose one, write it in
-the file with a comment `# assumption: needs your OK`, and list it when you report back.
+If they do not know a range, use `sensoryforge-ground-assumptions`: they describe it, or you
+find sources for them to approve. Or propose one, write it in the file with a comment
+`# assumption: needs your OK`, and list it when you report back.
 A range outside what the shape allows is refused when the world loads, so the validator
 also keeps you honest, but it cannot tell you what is meant.
 
@@ -79,7 +80,28 @@ evenly spaced times across the columns, with one colour scale so rows are compar
 the image (give its full path if you cannot display it) and ask: is this what you meant?
 Change the world and render again until they say yes.
 
-## 7. Stop and report
+## 7. Change it in words
+
+The user answers in their own words: "slower", "softer", "more quiet between touches".
+Take each phrase in turn.
+
+1. **Map it to fields by meaning**, with the glossary and `sensoryforge describe --json
+   --section world`, and say the mapping in a line ("slower: longer touch and hold times;
+   softer: a lower amplitude; quieter between touches: a longer pause"). If two readings
+   fit, ask which.
+2. **The size of the change is theirs.** A number they gave is used as it is (origin: you).
+   With only a direction, ask by how much, or propose a value marked
+   `# assumption: needs your OK` and show it as a proposal. Never use a "typical" value from
+   memory; a value that needs a source goes to `sensoryforge-ground-assumptions`.
+3. **Change only the fields named** and keep the rest. Save the new version as its own file
+   (`world_v2.yml`) unless they say to overwrite.
+4. **Show what changed** as a table of field, old, new and origin. Validate, sample with
+   the same seed as before so the draws can be compared, render the preview again and ask:
+   is this what you meant?
+
+Repeat until they say it is right.
+
+## 8. Stop and report
 
 Give the file path, the world id, the classes with their weights, every value marked as an
 assumption, and the picture. A value still marked as an assumption is a decision still
@@ -90,7 +112,7 @@ run anything the user has not approved.
 ## Verify
 
 The world validates with no problems; the sampled draws lie inside the ranges the user
-gave; the user has seen a preview of the final file.
+gave; every value you changed has an origin; the user has seen a preview of the final file.
 
 ## Worked example
 
@@ -191,4 +213,39 @@ print(f"{n} draws, written to {out}")
 ```bash
 python preview.py world.yml preview.png 80 4
 # prints: written to preview.png
+```
+
+The user then says "make the dots slower". Slower reads as longer touch and hold times; no
+number was given, so the agent asks how much. The answer, "hold 40 to 80 ms", is theirs:
+
+```yaml
+# file: world_v2.yml
+world:
+  name: demo
+  defaults:
+    delay_ms:   {range: [0, 10]}
+    touch_ms:   {range: [5, 15]}
+    hold_ms:    {range: [40, 80]}   # you: "hold 40 to 80 ms"
+    release_ms: {range: [5, 15]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.3, 0.3]}
+    y_mm: {range: [-0.3, 0.3]}
+  classes:
+    dots:
+      weight: 0.6
+      layer: {shape: {kind: gaussian}}
+      axes: {sigma_mm: {range: [0.15, 0.45]}}
+    edges:
+      weight: 0.4
+      layer: {shape: {kind: bar, profile: gaussian, length_mm: 0}}
+      axes:
+        width_mm: {range: [0.05, 0.15]}
+        orientation_deg: {range: [0, 180], circular: true}
+```
+
+```bash
+sensoryforge validate --json --kind world world_v2.yml
+# prints: "valid": true
+sensoryforge world sample world_v2.yml -n 2 --seed 7
+# prints: "class": "dots"
 ```

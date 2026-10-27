@@ -32,6 +32,7 @@ first, states what it will do, and stops to ask at the points that are yours to 
 | `sensoryforge-setup` | "set up how SensoryForge works with me" | your working style saved |
 | `sensoryforge-design-and-plan` | "I want to see whether a sensor can tell dots from edges" | a written plan: the choices and who makes them, the steps with their commands |
 | `sensoryforge-design-world` | "I need stimuli of three kinds, varying in size and angle" | a world file that validates, sample draws and a preview picture |
+| `sensoryforge-ground-assumptions` | "what value should I use for this?" or "find me a source" | the value from you, or a short report of linked sources for you to approve, and a list of every assumption with where it came from |
 | `sensoryforge-build-dataset` | "make a training and a test set from this world" | a data-set file and its built manifest, with the counts per split |
 | `sensoryforge-run-simulation` | "run it on the SA/RA recipe" | one data bundle per entry; one entry timed first; resumable |
 | `sensoryforge-evaluate` | "check that the data show what the world says" | a report folder, read back to you with measured, declared and the raw difference side by side |
@@ -68,6 +69,8 @@ set's own spread, from the report contract, or from a source you approve, and ne
 agent's memory of what a neuron or a sensor usually does.
 
 ## What the skills will not do
+
+The first item is the rule behind [designing a world by describing it](agent_design_loop.md).
 
 - **Invent domain facts.** Physics, models, parameters, ranges and units come from you, from
   a source you approve with a short report, or from reasoning you approve. When the agent

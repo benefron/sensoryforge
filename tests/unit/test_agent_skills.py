@@ -111,6 +111,10 @@ def test_the_harness_reads_files_commands_and_expectations():
     steps = ex.parse_example(text)
     assert [s.kind for s in steps] == ["file", "command"]
     assert steps[0].name == "a.yml" and steps[0].content == "x: 1\n"
+    table = ex.parse_example(
+        "## Worked example\n```markdown\n# file: t.md\n| a |\n```\n"
+    )
+    assert [(s.kind, s.name) for s in table] == [("file", "t.md")]
     assert steps[1].argv == ["sensoryforge", "describe", "--section", "world"]
     assert steps[1].prints == ["shapes"] and steps[1].exit_code == 0
     assert ex.parse_example("# no example here\n") == []

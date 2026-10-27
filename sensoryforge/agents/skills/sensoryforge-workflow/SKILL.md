@@ -51,7 +51,8 @@ only the same data set on the same sensor; for another, start a new folder.
 | 5 | `sensoryforge-evaluate` | a report folder | the metric packs |
 | 6 | `sensoryforge-interpret-report`, `sensoryforge-diagnose` | an explanation | only on request, or when something failed or surprised |
 
-Use only the steps the goal needs. Before each step, open that step's skill and follow it;
+`sensoryforge-ground-assumptions` is not a step of its own: any step calls it when a value
+has no origin. Use only the steps the goal needs. Before each step, open that step's skill and follow it;
 do not run its commands from memory of this table. After each step say, in one line, what
 ran, the folder it wrote and the counts, then go on as step 4 says.
 

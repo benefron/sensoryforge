@@ -47,7 +47,9 @@ Physics, models, parameters, ranges, units, sizes, seeds and what counts as good
 are the user's. They come from the user, from a source the user approves with a short
 report, or from reasoning the user approves. Put an origin on every value in the plan:
 you, a source (with its link) or "assumption: needs your OK". Never fill a number in
-because it is plausible; leave it as an open question.
+because it is plausible; leave it as an open question. A value with no origin yet is
+settled with `sensoryforge-ground-assumptions`: the user describes it, or you find sources
+for them to approve.
 
 ## 4. Size it
 
