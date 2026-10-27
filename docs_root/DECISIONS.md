@@ -1119,4 +1119,6 @@ Do not hand-edit between the markers.
 | 2026-10-25 | D-7ac913d | the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one | `b1fc116` |
 | 2026-10-25 | D-9902f01 | C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario | `1c042dc` |
 | 2026-10-25 | D-a3c9d9b | the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's | `1c042dc` |
+| 2026-10-27 | D-28a4edc | the design loop is a step of sensoryforge-design-world and the grounding skill is its own skill, because every other skill calls it; ten skills against a budget of fourteen | `87b1622` |
+| 2026-10-27 | D-348acd9 | B7's "the agent asks or cites instead of inventing" is tested on what can be tested without a model (the rule in the docs and skills, the recorded sessions, the audit script); a fresh agent offered a value it would have to invent is B9's scenario | `87b1622` |
 <!-- DECISIONS_LOG_END -->

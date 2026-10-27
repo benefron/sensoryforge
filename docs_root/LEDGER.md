@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-28a4edc · CLOSED · decision · - · 2026-10-27
+the design loop is a step of sensoryforge-design-world and the grounding skill is its own skill, because every other skill calls it; ten skills against a budget of fourteen
+→ commit 87b1622
+
+## D-348acd9 · CLOSED · decision · - · 2026-10-27
+B7's "the agent asks or cites instead of inventing" is tested on what can be tested without a model (the rule in the docs and skills, the recorded sessions, the audit script); a fresh agent offered a value it would have to invent is B9's scenario
+→ commit 87b1622
+
 ## F-5b51546 · CLOSED · finding · - · 2026-10-27
 diagnose step 3 gave `world sample --n` (exit 2) and pointed at draws that are not the data set's; the skills disagreed on the manifest folder and where.py printed "simulated: 3 of 0" on a batch folder
 → commit 1ee8615
@@ -138,6 +146,7 @@ the diagnose skill's `world sample WORLD --n N --seed S` exits 2 (the flag is -n
 ## D-9902f01 · CLOSED · decision · docs/development · 2026-10-25
 C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario
 → commit 1c042dc
+↔ 87b1622 feat(agents): the grounding skill and the describe-and-adjust design loop (B7)
 
 ## D-a3c9d9b · CLOSED · decision · docs/development · 2026-10-25
 the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's
