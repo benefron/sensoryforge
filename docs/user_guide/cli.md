@@ -226,10 +226,21 @@ sensoryforge batch --dataset my_dataset.yml --preset tactile_sa1_ra1_adex --outp
 With `--dataset`, one bundle is written per entry. Useful options: `--design DIR` or `--preset
 NAME` (the sensor), `--splits a,b`, `--tasks N` with `--task-index I` (split the entries over N
 cluster tasks), `--entries a:b`, `--print-tasks` (print one command per task and exit),
-`--resume` (skip entries whose bundle is complete) and `--dense-weights` (store receptive-field
-weights dense instead of sparse). Without `--dataset`, `--dry-run` validates the sweep and shows
-the plan, `--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one
-stimulus of the sweep. See [Batch Processing](batch_processing.md).
+`--resume` (skip entries whose bundle is complete), `--dense-weights` (store receptive-field
+weights dense instead of sparse) and `--dry-run`. With `--dataset`, `--dry-run` builds the sensor
+and the data set, prints the entry count, the splits, the sensor and the output folder, and exits
+without simulating or writing anything (it honours `--splits`, `--entries` and `--tasks`, so it
+counts what that run would do).
+
+`--resume` continues the same data set on the same sensor and nothing else. Entry ids such as
+`train/r0/00000` repeat across data sets, so a resume into a folder whose `batch.json` names a
+different data set id, world id or sensor config (the device may differ) stops with an error
+that gives both values, before it writes anything. Use a new `--output` folder for a different
+data set or sensor; a plain rerun without `--resume` replaces the bundles it writes.
+`sensoryforge evaluate run --resume` follows the same rule and reports the refusal as a failed
+`batch` stage. Without `--dataset`, `--dry-run` validates the sweep and shows the plan,
+`--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one stimulus
+of the sweep. See [Batch Processing](batch_processing.md).
 
 ### `sensoryforge dataset build`
 

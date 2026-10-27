@@ -318,3 +318,122 @@ def test_print_tasks_names_a_malformed_range(tmp_path, dataset_file, capsys):
     argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", tmp_path / "o"]
     assert _batch(*argv, "--entries", "4:2", "--tasks", 2, "--print-tasks") == 1
     assert "--entries needs 0 <= a <= b" in capsys.readouterr().err
+
+
+def _first_run(tmp_path, dataset_file):
+    """A two-entry run of the tiny data set on the 8x8 design: ``(out, argv)``."""
+    out = tmp_path / "out"
+    argv = [
+        "--design",
+        FIXTURE,
+        "--dataset",
+        dataset_file,
+        "--output",
+        out,
+        "--entries",
+        "0:2",
+    ]
+    assert _batch(*argv) == 0
+    return out, argv
+
+
+def _other_dataset(tmp_path, dataset_file):
+    """The tiny data set with another seed, so another ``dataset_id``."""
+    spec = yaml.safe_load(dataset_file.read_text())
+    spec["dataset"]["seed"] = 6
+    path = tmp_path / "other.yml"
+    path.write_text(yaml.safe_dump(spec))
+    return path
+
+
+def test_resume_refuses_another_data_set_and_leaves_the_folder_alone(
+    tmp_path, dataset_file, capsys
+):
+    out, argv = _first_run(tmp_path, dataset_file)
+    batch_json = (out / "batch.json").read_text()
+    index = sorted((out / "index").glob("*.jsonl"))
+    index_text = [p.read_text() for p in index]
+    other = _other_dataset(tmp_path, dataset_file)
+    old_id = load_dataset(dataset_file).dataset_id
+    new_id = load_dataset(other).dataset_id
+    capsys.readouterr()
+    argv_other = [other if a == dataset_file else a for a in argv]
+    assert _batch(*argv_other, "--resume") == 1
+    err = capsys.readouterr().err
+    assert old_id in err and new_id in err
+    assert "new output folder" in err
+    assert (out / "batch.json").read_text() == batch_json
+    assert [p.read_text() for p in sorted((out / "index").glob("*.jsonl"))] == (
+        index_text
+    )
+
+
+def test_resume_refuses_another_sensor_and_names_where_it_differs(
+    tmp_path, dataset_file, capsys
+):
+    out, argv = _first_run(tmp_path, dataset_file)
+    batch_json = (out / "batch.json").read_text()
+    capsys.readouterr()
+    argv_other = ["--preset", "tactile_sa1_ra1_adex"] + [
+        a for a in argv if a not in ("--design", FIXTURE)
+    ]
+    assert _batch(*argv_other, "--resume") == 1
+    err = capsys.readouterr().err
+    assert "sensor" in err and "new output folder" in err
+    assert (out / "batch.json").read_text() == batch_json
+
+
+def test_resume_on_another_device_still_skips(tmp_path, dataset_file, capsys):
+    out, argv = _first_run(tmp_path, dataset_file)
+    info = json.loads((out / "batch.json").read_text())
+    info["config"]["simulation"]["device"] = "cuda"
+    (out / "batch.json").write_text(json.dumps(info))
+    capsys.readouterr()
+    assert _batch(*argv, "--device", "cpu", "--resume") == 0
+    assert "0 ok, 0 failed, 2 skipped" in capsys.readouterr().out
+
+
+def test_a_batch_json_that_cannot_be_read_stops_a_resume(
+    tmp_path, dataset_file, capsys
+):
+    out, argv = _first_run(tmp_path, dataset_file)
+    (out / "batch.json").write_text("{not json")
+    capsys.readouterr()
+    assert _batch(*argv, "--resume") == 1
+    assert "batch.json" in capsys.readouterr().err
+
+
+def test_dry_run_with_a_data_set_simulates_and_writes_nothing(
+    tmp_path, dataset_file, capsys
+):
+    out = tmp_path / "out"
+    entries = build_dataset(load_dataset(dataset_file))
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    capsys.readouterr()
+    assert _batch(*argv, "--dry-run") == 0
+    text = capsys.readouterr().out
+    assert f"{len(entries)} entries" in text
+    assert str(out) in text and "tiny" in text
+    assert "test" in text and "fixed" in text  # the splits
+    assert "design_8x8" in text or str(FIXTURE) in text  # the sensor
+    assert not out.exists()  # no bundle, no index/, no batch.json, no folder
+
+
+def test_dry_run_counts_only_the_selected_entries(tmp_path, dataset_file, capsys):
+    out = tmp_path / "out"
+    argv = ["--design", FIXTURE, "--dataset", dataset_file, "--output", out]
+    capsys.readouterr()
+    assert _batch(*argv, "--entries", "0:2", "--dry-run") == 0
+    assert "2 entries" in capsys.readouterr().out
+    assert not out.exists()
+
+
+def test_dry_run_with_resume_shows_the_refusal(tmp_path, dataset_file, capsys):
+    out, argv = _first_run(tmp_path, dataset_file)
+    other = _other_dataset(tmp_path, dataset_file)
+    argv_other = [other if a == dataset_file else a for a in argv]
+    before = (out / "batch.json").read_text()
+    capsys.readouterr()
+    assert _batch(*argv_other, "--resume", "--dry-run") == 1
+    assert "new output folder" in capsys.readouterr().err
+    assert (out / "batch.json").read_text() == before

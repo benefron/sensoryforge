@@ -239,6 +239,105 @@ def index_file_name(task_index: int, entry_range: Optional[slice] = None) -> str
     return f"{name}_entries_{start:08d}_{stop}.jsonl"
 
 
+def _comparable_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """A config dict as ``batch.json`` stores it, without ``simulation.device``.
+
+    A resume on another device is allowed (the output equals the CPU render
+    whatever the device), so the device is not part of what must match.
+    """
+    data = json.loads(json.dumps(config, default=str))
+    simulation = data.get("simulation")
+    if isinstance(simulation, dict):
+        simulation.pop("device", None)
+    return data
+
+
+def _differing_paths(old: Any, new: Any, prefix: str = "", limit: int = 3) -> List[str]:
+    """Up to ``limit`` dotted paths where two JSON values differ, with both values."""
+    if isinstance(old, dict) and isinstance(new, dict):
+        found: List[str] = []
+        for key in sorted(set(old) | set(new)):
+            if len(found) >= limit:
+                break
+            where = f"{prefix}.{key}" if prefix else str(key)
+            if key not in old or key not in new:
+                found.append(
+                    f"{where} ({'absent' if key not in old else 'set'} before)"
+                )
+            else:
+                found += _differing_paths(old[key], new[key], where, limit - len(found))
+        return found
+    if isinstance(old, list) and isinstance(new, list) and len(old) == len(new):
+        found = []
+        for i, (a, b) in enumerate(zip(old, new)):
+            if len(found) >= limit:
+                break
+            found += _differing_paths(a, b, f"{prefix}.{i}", limit - len(found))
+        return found
+    if old == new:
+        return []
+
+    def short(value: Any) -> str:
+        text = repr(value)
+        return text if len(text) <= 40 else text[:37] + "..."
+
+    return [f"{prefix}: {short(old)} -> {short(new)}"]
+
+
+def check_resume_target(
+    out_dir: Union[str, Path], spec: DatasetSpec, config: SensoryForgeConfig
+) -> None:
+    """Refuse a resume into a folder that another data set or sensor wrote.
+
+    ``--resume`` skips every entry whose bundle exists, and entry ids repeat across
+    data sets, so without this check a resume mixes bundles of two runs under one
+    ``batch.json``. Nothing is read from the bundles; the folder's ``batch.json`` is
+    compared with this run's data set, world and sensor config (without the device).
+    A folder with no ``batch.json`` passes.
+
+    Args:
+        out_dir: The output folder of the run.
+        spec: This run's data set.
+        config: This run's sensor.
+
+    Raises:
+        ValueError: If ``batch.json`` cannot be read, or names another data set,
+            world or sensor; the message gives both values.
+    """
+    path = Path(out_dir) / "batch.json"
+    if not path.exists():
+        return
+    try:
+        old = json.loads(path.read_text())
+    except ValueError as exc:
+        raise ValueError(
+            f"cannot resume in {out_dir}: batch.json is unreadable ({exc}); "
+            "use a new output folder"
+        ) from exc
+    problems: List[str] = []
+    if old.get("dataset_id") != spec.dataset_id:
+        problems.append(
+            f"it holds data set {old.get('dataset_id')}, this run is {spec.dataset_id}"
+        )
+    if old.get("world_id") != spec.world.world_id:
+        problems.append(
+            f"it holds world {old.get('world_id')}, this run is {spec.world.world_id}"
+        )
+    where = _differing_paths(
+        _comparable_config(old.get("config") or {}),
+        _comparable_config(config.to_dict()),
+    )
+    if where:
+        problems.append("the sensor differs (" + "; ".join(where) + ")")
+    if problems:
+        raise ValueError(
+            f"cannot resume in {out_dir}: "
+            + "; ".join(problems)
+            + ". --resume only continues the same data set on the same sensor; "
+            "use a new output folder"
+        )
+
+
 def run_dataset(
     config: SensoryForgeConfig,
     spec: DatasetSpec,
@@ -266,16 +365,23 @@ def run_dataset(
         task_index: ...and run this one.
         entry_range: Only this slice of the selected entries; ``tasks`` then
             splits the slice, not the whole data set.
-        resume: Skip entries whose bundle already holds ``data.h5``.
+        resume: Skip entries whose bundle already holds ``data.h5``. Only into a
+            folder written for this data set and sensor (:func:`check_resume_target`).
         sparse_weights: How bundles store receptive-field weights (see
             :func:`~sensoryforge.io.bundle.write_bundle`); ``False`` writes them dense.
         log: Called with one line per entry.
 
     Returns:
         ``{"ok": int, "failed": int, "skipped": int}``.
+
+    Raises:
+        ValueError: If ``resume`` is set and the folder holds another data set's or
+            sensor's run.
     """
     index_name = index_file_name(task_index, entry_range)
     out = Path(out_dir)
+    if resume:
+        check_resume_target(out, spec, config)
     out.mkdir(parents=True, exist_ok=True)
     entries = select_entries(build_dataset(spec), splits)
     chosen = entries if entry_range is None else entries[entry_range]

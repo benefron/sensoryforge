@@ -699,10 +699,41 @@ def _task_commands(args: argparse.Namespace) -> List[str]:
     ]
 
 
+def _print_dataset_dry_run(
+    spec: Any,
+    source_desc: str,
+    args: argparse.Namespace,
+    splits: Optional[List[str]],
+    entry_range: Optional[slice],
+    output: str,
+) -> None:
+    """Say what ``batch --dataset`` would simulate, without simulating or writing."""
+    from sensoryforge.world.dataset import build_dataset
+    from sensoryforge.world.runner import select_entries, task_slice
+
+    entries = select_entries(build_dataset(spec), splits)
+    total = len(entries)
+    chosen = entries if entry_range is None else entries[entry_range]
+    chosen = [
+        chosen[i] for i in task_slice(len(chosen), args.tasks, args.task_index or 0)
+    ]
+    per_split: Dict[str, int] = {}
+    for entry in chosen:
+        per_split[entry.split] = per_split.get(entry.split, 0) + 1
+    print("Dry run: nothing is simulated and nothing is written.")
+    print(f"  data set {spec.name} ({spec.dataset_id}) on world {spec.world.world_id}")
+    print(
+        f"  {len(chosen)} entries to simulate of {total} selected: "
+        + (", ".join(f"{k} {v}" for k, v in per_split.items()) or "none")
+    )
+    print(f"  sensor: {source_desc}")
+    print(f"  output: {output}")
+
+
 def cmd_batch_dataset(args: argparse.Namespace) -> int:
     """``sensoryforge batch --dataset``: one bundle per data-set entry (spec §7)."""
     from sensoryforge.world.dataset import load_dataset
-    from sensoryforge.world.runner import run_dataset
+    from sensoryforge.world.runner import check_resume_target, run_dataset
 
     if not args.output:
         print("Error: --output is required with --dataset", file=sys.stderr)
@@ -729,6 +760,13 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
             else None
         )
         entry_range = _parse_range(args.entries) if args.entries else None
+        if args.dry_run:
+            if args.resume:
+                check_resume_target(args.output, spec, config)
+            _print_dataset_dry_run(
+                spec, source_desc, args, splits, entry_range, args.output
+            )
+            return 0
         summary = run_dataset(
             config,
             spec,
@@ -1531,7 +1569,9 @@ def create_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate configuration and show execution plan without running",
+        help="Validate configuration and show execution plan without running; "
+        "with --dataset, the entries, splits, sensor and output folder, with "
+        "nothing simulated or written",
     )
     batch_parser.add_argument(
         "--resume",
