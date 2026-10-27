@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-5b51546 · CLOSED · finding · - · 2026-10-27
+diagnose step 3 gave `world sample --n` (exit 2) and pointed at draws that are not the data set's; the skills disagreed on the manifest folder and where.py printed "simulated: 3 of 0" on a batch folder
+→ commit 1ee8615
+
+## F-74a14f5 · OPEN · finding · - · 2026-10-27
+the review's decision 1 is unanswered, so the workflow skill and the brief still disagree where planning is none/brief or review is user at pace auto (B6f change 9)
+→ commit 1ee8615
+
 ## F-a8c6c0f · CLOSED · finding · - · 2026-10-27
 batch --dataset --resume skipped bundles written by another data set or sensor and rewrote batch.json to name the new run; it now refuses before writing anything (world/runner.py check_resume_target)
 → commit 86bb3f3
@@ -117,13 +125,15 @@ batch --dataset --resume (and evaluate run --resume) skips every entry whose dat
 → commit 1c042dc
 ✓ closed by 86bb3f3 fix(world): --resume refuses another data set or sensor; --dry-run works with --dataset
 
-## F-7d9ed72 · OPEN · finding · docs/development · 2026-10-25
+## F-7d9ed72 · CLOSED · finding · docs/development · 2026-10-25
 the skills disagree on where the manifest lives: batch --dataset never reads or writes it, so the workflow skill's where.py prints "simulated: 3 of 0" on a batch folder and diagnose.py entry fails there
 → commit 1c042dc
+✓ closed by 1ee8615 fix(agents): skills agree on one folder per run; their commands are parsed and the wheel i
 
-## F-e5143f4 · OPEN · finding · docs/development · 2026-10-25
+## F-e5143f4 · CLOSED · finding · docs/development · 2026-10-25
 the diagnose skill's `world sample WORLD --n N --seed S` exits 2 (the flag is -n), and world sample with the data set's seed gives other draws than the data set's entries; only the worked example section of a skill is tested, so commands in its steps can rot
 → commit 1c042dc
+✓ closed by 1ee8615 fix(agents): skills agree on one folder per run; their commands are parsed and the wheel i
 
 ## D-9902f01 · CLOSED · decision · docs/development · 2026-10-25
 C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario
