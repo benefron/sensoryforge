@@ -153,7 +153,10 @@ def test_every_term_a_skill_uses_is_in_the_glossary(path):
 def test_the_brief_every_skill_reads_carries_the_meaning_rule():
     text = style.render_brief(style.WorkingStyle(), None)
     assert "by their meaning" in text and "never by matching strings" in text
-    assert "agents/glossary" in text and "agents/task_index" in text
+    assert "agents/glossary" in text
+    # The task index names tests/, docs/ and .claude/ paths that exist only in a
+    # clone; a user's agent is not sent there (R-B6 finding 8).
+    assert "task_index" not in text and "task index" not in text
 
 
 # ------------------------------------------------------------------ task index

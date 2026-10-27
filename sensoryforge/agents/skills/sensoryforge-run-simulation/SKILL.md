@@ -16,27 +16,33 @@ is not installed here: say so and stop (it installs from source; it is not on Py
 
 ## 1. Check the inputs
 
-- **The data set file** and a built manifest (`sensoryforge-build-dataset`).
+- **The data set file** (`sensoryforge-build-dataset`). Its manifest, built into the
+  folder this run writes (`sensoryforge dataset build dataset.yml --out runs/NAME`), checks
+  that the data set builds; it is not an input, because `sensoryforge batch --dataset FILE` rebuilds
+  the data set from the file itself.
 - **The sensor** is the user's choice: a shipped recipe (`sensoryforge list-presets`;
   `sensoryforge describe --section recipes` shows each one's grid and populations), a
   design folder, or a config file they wrote. Do not pick one for them, and never edit a
   recipe's gains or parameters: if none matches, go back to `sensoryforge-design-and-plan`.
-- **Where to write** (a new folder; the whole run is about as large as the entries times
-  one bundle), and the device (`--device cpu|cuda|mps`).
+- **Where to write**: one new folder for the run, `runs/NAME`, the same one the manifest
+  was built into (the whole run is about as large as the entries times one bundle), and the
+  device (`--device cpu|cuda|mps`).
 
 For a config file, check it first: `sensoryforge validate CONFIG`.
 
 ## 2. Time one entry, then say what the run costs
 
 ```
+sensoryforge batch --dataset dataset.yml --preset NAME --output runs/NAME --dry-run
 sensoryforge batch --dataset dataset.yml --preset NAME --output runs/NAME --entries 0:1
 ```
 
-(`--design DIR` or a config file replaces `--preset NAME`.) Read the time on its line and
-the size of its bundle in the output folder, multiply by the number of entries and say
-so, with "measured on one entry" next to it. Check that the disk has the room. Do not use
-`--dry-run` with `--dataset`: it does not stop the run, it simulates every entry. To see
-what a run would do without doing it, use `--print-tasks` (step 4).
+(`--design DIR` or a config file replaces `--preset NAME`.) The first command simulates
+nothing and writes nothing: it prints the entry count, the splits, the sensor and the
+folder, so check them against what the user asked for. The second runs one entry. Read the
+time on its line and the size of its bundle in the output folder, multiply by the number of
+entries and say so, with "measured on one entry" next to it. Check that the disk has the
+room.
 
 ## 3. Run
 
@@ -45,10 +51,14 @@ sensoryforge batch --dataset dataset.yml --preset NAME --output runs/NAME --resu
 ```
 
 `--resume` skips every entry whose bundle is complete (the entry from step 2 included).
-A bundle is written to a temporary folder and moved into place, so an interrupted run
-leaves no half bundle and the same command continues it. Each entry's noise is seeded
-from the entry, so a rerun gives the same spikes. The command prints one line per entry,
-a total, and exits non-zero if any entry failed.
+It continues the same data set on the same sensor only: entry ids such as `train/r0/00000`
+repeat across data sets, so it refuses a folder whose `batch.json` names another data set,
+world or sensor config (the device may differ) and says which values differ. For a
+different data set or sensor, use a new folder. A bundle is written to a temporary folder
+and moved into place, so an interrupted run leaves no half bundle and the same command
+continues it. Each entry's noise is seeded from the entry, so a rerun gives the same
+spikes. The command prints one line per entry, a total, and exits non-zero if any entry
+failed.
 
 ## 4. Scale
 
@@ -82,7 +92,8 @@ One simulation without a data set: `sensoryforge run --preset NAME --duration MS
 
 ## Worked example
 
-A tiny data set on a shipped recipe: time one entry, run the rest, and count.
+A tiny data set on a shipped recipe: build it into the run's folder, check the plan, time
+one entry, run the rest, and count.
 
 ```yaml
 # file: world.yml
@@ -127,8 +138,10 @@ print(dict(collections.Counter(r["status"] for r in rows)), "of", len(rows), "en
 ```
 
 ```bash
-sensoryforge dataset build dataset.yml --out data/demo
+sensoryforge dataset build dataset.yml --out runs/demo
 # prints: 4 entries
+sensoryforge batch --dataset dataset.yml --preset tactile_sa1_ra1_adex --output runs/demo --dry-run
+# prints: 4 entries to simulate
 sensoryforge batch --dataset dataset.yml --preset tactile_sa1_ra1_adex --output runs/demo --entries 0:1
 # prints: 1 ok, 0 failed
 sensoryforge batch --dataset dataset.yml --preset tactile_sa1_ra1_adex --output runs/demo --resume

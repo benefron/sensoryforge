@@ -24,6 +24,12 @@ run, a report folder. The script in the worked example prints what a folder hold
 piece is there but you do not know whether it is current, ask; never rebuild over a
 user's file.
 
+One run, one folder: the manifest (`sensoryforge dataset build FILE --out runs/NAME`), the
+bundles (`sensoryforge batch --dataset FILE --preset NAME --output runs/NAME`) and the
+report (`sensoryforge evaluate run FILE --out runs/NAME`) all go in `runs/NAME`, as
+`sensoryforge evaluate run` does by itself. A resume continues
+only the same data set on the same sensor; for another, start a new folder.
+
 ## 2. Settle the plan and the pace
 
 - **The plan.** If there is none, use `sensoryforge-design-and-plan` first and wait for
@@ -89,7 +95,7 @@ Pace: I will ask before each next step (your saved style); say "carry on" to cha
 
 Steps
 1. design-world: the file below. Stops for your OK.
-2. build-dataset: 4 entries, seed 7. Stops for your OK.
+2. build-dataset: 4 entries (you), seed 7 (you). Stops for your OK.
 3. run-simulation: one entry timed, then the rest.
 4. evaluate: the report, read back with the raw numbers.
 ```
@@ -136,10 +142,12 @@ from sensoryforge.world import read_batch_index
 folder = Path(sys.argv[1])
 manifest = folder / "manifest.jsonl"
 entries = sum(1 for _ in open(manifest)) if manifest.exists() else 0
-print("data set built:", f"{entries} entries" if entries else "not yet")
 rows = read_batch_index(folder) if (folder / "index").exists() else []
 done = sum(1 for row in rows if row["status"] == "ok")
-print("simulated:", f"{done} of {entries}" if done else "not yet")
+print("data set built:", f"{entries} entries" if entries else
+      "not in this folder" if done else "not yet")
+print("simulated:", ("not yet" if not done else f"{done} of {entries}" if entries
+                     else f"{done} ok (no manifest here to count against)"))
 pipeline = folder / "evaluate" / "pipeline.json"
 if pipeline.exists():
     report = json.load(open(pipeline))

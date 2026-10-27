@@ -336,7 +336,7 @@ def save_style(style: WorkingStyle, path: Path) -> Path:
     return path
 
 
-#: Where the published docs live; the glossary and task index are pages there.
+#: Where the published docs live; the glossary is a page there.
 SITE = "https://benefron.github.io/sensoryforge"
 
 
@@ -351,8 +351,7 @@ def words_line(glossary: Path) -> str:
         "- Words: map the user's words to SensoryForge's terms by their meaning and by "
         "everything said in this session, never by matching strings; ask one short "
         f"question when the meaning is unclear. The terms are defined in {glossary} "
-        f"(also {SITE}/agents/glossary/); each common task's files, tests and rules "
-        f"are in the task index ({SITE}/agents/task_index/)."
+        f"(also {SITE}/agents/glossary/)."
     )
 
 

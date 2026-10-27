@@ -21,7 +21,10 @@ is not installed here: say so and stop (it installs from source; it is not on Py
 - **A world file** (then also the number of draws, the duration in ms and a seed) or a
   **data-set file** (it declares its own splits and duration; do not pass `--draws` or
   `--duration-ms` with it). Bundles already simulated into the output folder are kept with
-  `--resume`, so a repeat does not simulate them again.
+  `--resume`, so a repeat does not simulate them again. That holds only for the same data
+  set (same file, or same world, draws, duration and seed) on the same sensor: `--resume`
+  refuses a folder written for another data set or sensor, and the stage fails with the
+  values that differ. For a different data set or sensor, give a new `--out`.
 - **The sensor**, the user's choice, exactly as for `sensoryforge-run-simulation`: `--preset`,
   `--design` or `--config`.
 - **The metric packs**, named by the user, never guessed from the world:

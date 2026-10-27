@@ -24,7 +24,7 @@ Write the symptom down in one line before you look further.
 
 ## 2. Find the entries behind it
 
-The report folder is the one given to `sensoryforge evaluate run --out`. The script in the
+The report folder is the one given to `--out` of `sensoryforge evaluate run`. The script in the
 worked example reads it:
 
 - `python diagnose.py DIR odd` lists every entry that did not run, has no active
@@ -48,8 +48,11 @@ draw's declared values and timeline, the batch status and error, and each compar
 with measured, declared, difference and pairing. This reads the world's declaration. That
 is allowed here because the number is already in the report; the audit itself stays blind.
 
-For the data behind it, `sensoryforge world sample WORLD --n N --seed S` prints draws as
-JSON lines, and the bundle's own `config.json` shows the sensor the entry ran on.
+The draw is that manifest row; the stimulus the sensor saw is in the entry's bundle
+(`DIR/ENTRY/data.h5`, `/stimulus/frames`), and its `config.json` shows the sensor the
+entry ran on. Do not re-draw the world to look at it: a data set derives each entry's seed,
+so a fresh sample is a different draw. If the folder has no manifest or no report,
+`diagnose.py` says which is missing.
 
 ## 4. Sort the cause into one of four places
 
@@ -84,9 +87,15 @@ When two places fit, say so and say which test would tell them apart.
 ## 5. Test the cause, one change at a time
 
 Change one thing in a copy (a new output folder, a copied config), re-run only the entries
-that showed the symptom (`sensoryforge batch ... --entries I:J --output runs/try`, or
-`sensoryforge evaluate run ... --out runs/try`), and set the new numbers beside the old
-ones. A value you changed is the user's to approve first; a value you only read is yours.
+that showed the symptom, with the run's own data set and sensor, and set the new numbers
+beside the old ones:
+
+```
+sensoryforge batch --dataset FILE --preset NAME --entries I:J --output runs/try
+sensoryforge evaluate run FILE --out runs/try
+```
+
+A value you changed is the user's to approve first; a value you only read is yours.
 If the test does not move the symptom, the cause was not that: say so and go back to
 step 4. Stop after three tries and show the user what you have.
 
@@ -166,15 +175,50 @@ root, mode, rest = Path(sys.argv[1]), sys.argv[2], sys.argv[3:]
 
 
 def rows(name):
-    return [json.loads(line) for line in open(root / name)]
+    path = root / name
+    return [json.loads(line) for line in open(path)] if path.exists() else None
+
+
+def need(name):
+    found = rows(name)
+    if found is None:
+        sys.exit(f"{root / name} is missing: run `sensoryforge evaluate run ... --out {root}`")
+    return found
 
 
 def short(value):
     return round(value, 4) if isinstance(value, float) else value
 
 
-pairs = {r["entry"]: r["pairs"] for r in rows("evaluate/compare_entries.jsonl")}
 index = {r["entry"]: r for r in read_batch_index(root)}
+
+if mode == "entry":
+    entry = rest[0]
+    manifest = rows("manifest.jsonl")
+    if manifest is None:
+        sys.exit(f"{root / 'manifest.jsonl'} is missing: build the data set into this folder "
+                 f"(`sensoryforge dataset build DATASET --out {root}`)")
+    row = next((r for r in manifest if r["entry"] == entry), None)
+    if row is None:
+        sys.exit(f"{entry} is not in the manifest; it starts {manifest[0]['entry']}, ...")
+    print("entry", entry, "| class", row["class"], "| split", row["split"])
+    print("duration_ms", row["duration_ms"], "| cut off by it:", row["truncated"],
+          "| seeds", row["seeds"])
+    print("draw values:", json.dumps({k: short(v) for k, v in row["draw"]["values"].items()}))
+    print("timeline:", [(n, short(a), short(b)) for n, a, b in row["draw"]["timeline"]])
+    done = index.get(entry)
+    print("batch:", f"{done['status']} {done['error'] or ''}" if done else "not simulated here")
+    compared = rows("evaluate/compare_entries.jsonl")
+    if compared is None:
+        print("no comparison: there is no evaluate/ report in this folder")
+    for r in compared or []:
+        if r["entry"] == entry:
+            for p in r["pairs"]:
+                print(" ", p["id"], "measured", short(p["measured"]), "declared",
+                      short(p["declared"]), "diff", short(p["diff"]), p["pairing"])
+    sys.exit(0)
+
+pairs = {r["entry"]: r["pairs"] for r in need("evaluate/compare_entries.jsonl")}
 
 if mode == "odd":
     found = 0
@@ -182,7 +226,7 @@ if mode == "odd":
         if row["status"] != "ok":
             print(entry, "did not run:", row["status"], row["error"])
             found += 1
-    for row in rows("evaluate/audit_entries.jsonl"):
+    for row in need("evaluate/audit_entries.jsonl"):
         bouts = [v["value"] for v in row["values"] if v["id"] == "core.frames.bouts"]
         if bouts and not any(bouts):
             print(row["entry"], "silent: no active stimulus frame")
@@ -204,18 +248,6 @@ elif mode == "largest":
     for entry, p in sorted(found, key=lambda item: -abs(item[1]["diff"]))[:count]:
         print(entry, "measured", short(p["measured"]), "declared", short(p["declared"]),
               "diff", short(p["diff"]), "resolution", p["resolution"])
-elif mode == "entry":
-    entry = rest[0]
-    row = next(r for r in rows("manifest.jsonl") if r["entry"] == entry)
-    print("entry", entry, "| class", row["class"], "| split", row["split"])
-    print("duration_ms", row["duration_ms"], "| cut off by it:", row["truncated"],
-          "| seeds", row["seeds"])
-    print("draw values:", json.dumps({k: short(v) for k, v in row["draw"]["values"].items()}))
-    print("timeline:", [(n, short(a), short(b)) for n, a, b in row["draw"]["timeline"]])
-    print("batch:", index[entry]["status"], index[entry]["error"] or "")
-    for p in pairs[entry]:
-        print(" ", p["id"], "measured", short(p["measured"]), "declared", short(p["declared"]),
-              "diff", short(p["diff"]), p["pairing"])
 else:
     sys.exit("modes: odd | largest ID [N] | entry ENTRY")
 ```

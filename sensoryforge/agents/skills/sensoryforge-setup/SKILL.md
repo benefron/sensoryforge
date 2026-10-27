@@ -44,8 +44,9 @@ Save every answer in one call, without questions:
 
 ```
 sensoryforge agents setup --no-input --integrate <yes|no> [--tool <name> ...] \
-    --planning <...> --subagents <...> --order <...> [--session-tokens <N>] \
-    --review <...> --pace <...> [--hooks <yes|no>]
+    --planning <none|brief|full> --subagents <none|read-only|any> \
+    --order <linear|parallel> [--session-tokens <N>] \
+    --review <user|agent|nobody> --pace <ask|auto> [--hooks <yes|no>]
 ```
 
 Leave out what the user did not answer. Show the brief the command prints, and say where

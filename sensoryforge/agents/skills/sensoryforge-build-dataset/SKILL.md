@@ -44,17 +44,24 @@ trial, to check the pipeline, and say that its numbers say nothing about the fin
 The data set has one seed. Use the user's; if they have none, pick one, write it in the
 file, say which and that it can be changed. A draw never depends on how many are drawn, so
 adding draws later keeps the earlier ones. The duration (ms) is how long each entry is
-simulated: it must cover the longest draw. Check it: `sensoryforge world sample WORLD -n
-200 --seed 0` prints `"end_ms"` for each draw; tell the user if a draw ends after the
-duration, because the end is then cut off.
+simulated: it must cover the longest draw, or the end of that draw is cut off.
+
+Before the build, work out the longest a draw can take from the world's ranges (the upper
+end of each timing field added up: the delay, the touch, the hold, the release and
+anything else the world adds), compare it with the duration and say so as an estimate.
+After the build the manifest gives the exact answer: each row has a flag `"truncated"`,
+true when its draw ends after the duration. Step 5 counts them.
 
 ## 4. Write, validate, build
 
-Write the data-set file (`world:` is a path relative to the data-set file), then:
+Write the data-set file (`world:` is a path relative to the data-set file). Build it into
+the folder the run will write, `runs/NAME`, so one folder per run holds the manifest, the
+bundles and the report (the layout `sensoryforge evaluate run` makes); use the same `NAME`
+in `sensoryforge-run-simulation`. Then:
 
 ```
 sensoryforge validate --json --kind dataset dataset.yml
-sensoryforge dataset build dataset.yml --out data/NAME
+sensoryforge dataset build dataset.yml --out runs/NAME
 ```
 
 The build prints the entry count and the data set's id and writes `dataset.json` (the
@@ -64,9 +71,11 @@ manifest by hand.
 
 ## 5. Count and report
 
-Count the entries per split and class from the manifest, and read `dataset.json` for
-probes that were skipped. Report: the data-set file and folder, world id, data-set id,
-seed, duration, the counts, anything skipped, and the cost to come: entries times the time
+Count the entries per split and class from the manifest, count the rows with `"truncated":
+true`, and read `dataset.json` for probes that were skipped. Report: the data-set file and
+folder, world id, data-set id, seed, duration, the counts, how many entries are truncated
+(if any are, say that their end is cut off and offer a longer duration), anything
+skipped, and the cost to come: entries times the time
 and disk one entry takes, which `sensoryforge-run-simulation` measures. Do not guess it.
 Offer the next step, `sensoryforge-run-simulation`, at the pace the brief sets (ask first,
 or say what comes next and carry on); that skill asks about the cost itself, once it has
@@ -75,7 +84,8 @@ timed one entry.
 ## Verify
 
 Validation is clean, the build printed the expected total, the per-split counts match what
-the user asked for, and nothing in `dataset.json` is skipped without being reported.
+the user asked for, the truncated count is reported, and nothing in `dataset.json` is
+skipped without being reported.
 
 ## Worked example
 
@@ -120,7 +130,7 @@ dataset:
 
 ```python
 # file: count.py
-"""Entries per split and class in a built data set."""
+"""Entries per split and class in a built data set, and how many are cut off."""
 import collections
 import json
 import sys
@@ -129,14 +139,14 @@ rows = [json.loads(line) for line in open(sys.argv[1] + "/manifest.jsonl")]
 counts = collections.Counter((r["split"], r["class"]) for r in rows)
 for (split, cls), n in sorted(counts.items()):
     print(f"{split:8s} {cls:8s} {n}")
-print(f"{len(rows)} entries")
+print(f"{len(rows)} entries, {sum(1 for r in rows if r['truncated'])} truncated")
 ```
 
 ```bash
 sensoryforge validate --json --kind dataset dataset.yml
 # prints: "valid": true
-sensoryforge dataset build dataset.yml --out data/demo
+sensoryforge dataset build dataset.yml --out runs/demo
 # prints: 8 entries
-python count.py data/demo
-# prints: 8 entries
+python count.py runs/demo
+# prints: 8 entries, 0 truncated
 ```

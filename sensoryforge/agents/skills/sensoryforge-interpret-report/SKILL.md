@@ -18,7 +18,7 @@ is not installed here: say so and stop (it installs from source; it is not on Py
 
 The user names a metric, a check, a column, a file, or the whole report. Map their words
 to what exists by meaning, not by string: `python explain.py REPORT --list` prints every
-metric id in the report (the folder given to `sensoryforge evaluate run --out`), and
+metric id in the report (the folder given to `--out` of `sensoryforge evaluate run`), and
 `checks.json` lists the check ids. When two ids could fit, say which two and ask. If the
 report does not hold it, say so; do not describe a metric the report did not measure.
 

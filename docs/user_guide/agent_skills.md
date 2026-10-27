@@ -53,6 +53,16 @@ does next. Either way it stops for what is yours to decide (any value the plan m
 or as an assumption, sizes, the sensor, the cost of a long run) and for any failure. Each of
 the other skills ends the same way: it offers the next step at your pace.
 
+One run, one folder. The skills build the data set, simulate it and write the report into the
+same folder, `runs/NAME`: `sensoryforge dataset build ... --out runs/NAME`, then
+`sensoryforge batch ... --output runs/NAME`, which is also the layout
+`sensoryforge evaluate run --out runs/NAME` makes. `--resume` continues only the same data set
+on the same sensor (entry ids repeat across data sets, so mixing them would pass unnoticed);
+it refuses any other folder and says which values differ, and the skills then start a new
+folder. `sensoryforge batch --dataset ... --dry-run` shows what a run would do without doing
+it. After a build, the skills also count the entries whose draw ends after the data set's
+duration (their end is cut off) and tell you.
+
 Interpreting never judges. The report states no tolerance, so "typical" comes from your data
 set's own spread, from the report contract, or from a source you approve, and never from the
 agent's memory of what a neuron or a sensor usually does.
@@ -75,6 +85,9 @@ agent's memory of what a neuron or a sensor usually does.
 
 Each skill ends with a worked example: real files and the exact commands, with what each
 command must print. A test writes the files into an empty folder and runs the commands, so
-a skill whose commands drift from the code fails the test suite. To run one yourself, copy
-the files out of the skill's "Worked example" section into a new folder and run its
-commands there.
+a skill whose commands drift from the code fails the test suite. The commands in a skill's
+own steps are checked too: every `sensoryforge ...` command is parsed with the real command-line
+parser (a flag that does not exist fails), every `python -c` line must compile, and every link
+to these docs must point at a page and a heading that exist. A built wheel is opened to check
+that each skill and the glossary are inside it. To run one yourself, copy the files out of the
+skill's "Worked example" section into a new folder and run its commands there.

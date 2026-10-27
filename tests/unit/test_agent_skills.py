@@ -5,15 +5,24 @@ rules of ``docs/developer_guide/agent_files.md``, and each one's worked example 
 for real (roadmap B6).
 """
 
+import contextlib
+import io
 import re
+import shlex
+import shutil
+import subprocess
 import sys
+import zipfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
 from sensoryforge.agents import install as ins
 from sensoryforge.agents import style
+from sensoryforge.cli import cmd_batch, create_parser
 from sensoryforge.testing import skill_examples as ex
+from sensoryforge.world.dataset import build_dataset, load_dataset, write_dataset
 
 REPO = Path(__file__).resolve().parents[2]
 SKILL_DIR = REPO / "sensoryforge" / "agents" / "skills"
@@ -213,3 +222,276 @@ def test_the_agents_install_command_writes_into_the_folder_asked_for(
     assert run("--dest", str(tmp_path)) == 0
     assert (tmp_path / ".claude" / "skills" / ins.GLOSSARY_NAME).is_file()
     assert run("--dest", str(tmp_path / "missing")) == 1
+
+
+# --------------------------------------------- the commands in a skill's own steps
+#
+# Only a skill's ``## Worked example`` runs. The commands in its steps are checked here
+# (R-B6 findings 2 and 5): each is parsed with the real CLI parser, so a flag that does
+# not exist, or a command that was renamed, fails a test and not a user.
+
+#: What a placeholder in a skill's command stands for while it is parsed: an upper-case
+#: word (``FILE``, ``I:J``) or ``<word>``. A placeholder a skill adds goes in here.
+PLACEHOLDERS = {
+    "N": "1",
+    "S": "0",
+    "MS": "10",
+    "I:J": "0:1",
+    "FILE": "file.yml",
+    "WORLD": "world.yml",
+    "CONFIG": "config.yml",
+    "DIR": "dir",
+    "OUT": "out",
+    "NAME": "name",
+    "ENTRY": "train/r0/00000",
+    "BASELINE": "run_a",
+    "NEW": "run_b",
+    "<kind>": "neuron",
+    "<Name>": "Thing",
+    "<name>": "mine",
+    "<N>": "1000",
+}
+_ALTERNATIVES = re.compile(r"<([\w-]+(?:\|[\w-]+)+)>")
+_UPPER = re.compile(r"^[A-Z][A-Z_]*(?::[A-Z][A-Z_]*)?$")
+_INLINE = re.compile(r"`([^`]+)`")
+_SITE = "https://benefron.github.io/sensoryforge/"
+
+
+def _spans(text):
+    """``(fenced lines, inline code spans)`` of a skill, continuations joined."""
+    fenced, inline = [], []
+    for fence in ex.FENCE.finditer(text):
+        block = re.sub(r"\\\n\s*", " ", fence.group(2))
+        fenced += [ln.strip() for ln in block.splitlines()]
+    for span in _INLINE.findall(ex.FENCE.sub("\n", text)):
+        inline.append(" ".join(span.split()))
+    return fenced, inline
+
+
+def _skill_commands(text):
+    fenced, inline = _spans(text)
+    return [c for c in fenced + inline if c.startswith("sensoryforge ")]
+
+
+def _variants(command):
+    """Each way to read a command: ``<a|b>`` once per alternative, the rest as first."""
+    text = command.replace("[", "").replace("]", "")
+    text = re.sub(r"(?<!\S)(\.\.\.|…)(?!\S)", "", text)
+    sizes = [len(g.split("|")) for g in _ALTERNATIVES.findall(text)]
+    picks = [[0] * len(sizes)]
+    for i, size in enumerate(sizes):
+        for j in range(1, size):
+            picks.append([j if k == i else 0 for k in range(len(sizes))])
+    out = []
+    for pick in picks:
+        chosen = iter(pick)
+        out.append(
+            _ALTERNATIVES.sub(lambda m: m.group(1).split("|")[next(chosen)], text)
+        )
+    return out
+
+
+def _parse(argv):
+    """``None`` when the CLI parser accepts ``argv``, else why not."""
+    sink = io.StringIO()
+    with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        try:
+            create_parser().parse_args(argv)
+        except SystemExit as exc:
+            if exc.code == 0 and "--help" in argv:
+                return None
+            return sink.getvalue().strip().splitlines()[-1]
+    return None
+
+
+def _command_problems(command):
+    problems = []
+    for variant in _variants(command):
+        argv, unknown = [], []
+        for token in shlex.split(variant)[1:]:
+            if token in PLACEHOLDERS:
+                token = PLACEHOLDERS[token]
+            elif _UPPER.match(token) or re.fullmatch(r"<[\w-]+>", token):
+                unknown.append(token)
+            argv.append(token)
+        if unknown:
+            problems.append(f"placeholder {unknown} is not in PLACEHOLDERS")
+            continue
+        why = _parse(argv)
+        if why and not any(t.startswith("-") for t in argv):
+            # A command named without arguments: it must at least exist.
+            why = _parse(argv + ["--help"])
+        if why:
+            problems.append(f"{why} <- {variant}")
+    return problems
+
+
+@pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)
+def test_every_sensoryforge_command_in_a_skill_body_parses(path):
+    commands = _skill_commands(path.read_text(encoding="utf-8"))
+    assert commands, "every skill runs at least `sensoryforge agents brief`"
+    problems = [p for c in commands for p in _command_problems(c)]
+    assert not problems, "\n".join(problems)
+
+
+def test_the_command_check_catches_a_wrong_flag_and_an_unlisted_placeholder():
+    bad_flag = "sensoryforge world sample WORLD --n N --seed S"  # the flag is -n
+    assert _command_problems(bad_flag)
+    assert any("PLACEHOLDERS" in p for p in _command_problems("sensoryforge x SPEC"))
+    assert not _command_problems("sensoryforge world sample WORLD -n N --seed S")
+    assert not _command_problems("sensoryforge new-component <kind> <Name>")
+    assert not _command_problems("sensoryforge evaluate run")  # named, not run
+    assert _command_problems("sensoryforge agents setup --pace <ask|never>")
+
+
+def test_python_dash_c_lines_in_the_skills_compile():
+    found = 0
+    for path in SKILLS:
+        for command in _spans(path.read_text(encoding="utf-8"))[1]:
+            if command.startswith("python -c "):
+                found += 1
+                compile(shlex.split(command)[2], path.parent.name, "exec")
+    assert found, "the check found no `python -c` line to compile"
+
+
+def _anchors(page):
+    slugs = set()
+    for line in page.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", line)
+        if match:
+            text = re.sub(r"[^\w\s-]", "", match.group(1)).strip().lower()
+            slugs.add(re.sub(r"[-\s]+", "-", text))
+    return slugs
+
+
+def test_every_docs_url_in_a_skill_is_a_page_and_anchor_that_exist():
+    checked = 0
+    for path in SKILLS:
+        for raw in re.findall(re.escape(_SITE) + r"[^\s`)\]>]*", path.read_text()):
+            url = urlsplit(raw.rstrip(".,;:"))
+            slug = url.path[len("/sensoryforge/") :].strip("/")
+            page = REPO / "docs" / (slug + ".md" if slug else "index.md")
+            if not page.exists():
+                page = REPO / "docs" / slug / "index.md"
+            assert page.exists(), f"{path.parent.name}: no docs page for {raw}"
+            if url.fragment:
+                assert url.fragment in _anchors(page), f"{path.parent.name}: {raw}"
+            checked += 1
+    assert checked >= 5
+
+
+# ------------------------------------ the helper scripts on other folders
+
+WORLD = REPO / "tests" / "fixtures" / "worlds" / "tactile_small.yml"
+DESIGN = REPO / "tests" / "fixtures" / "design_8x8"
+
+
+def _script(skill, name):
+    text = (SKILL_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+    return next(s.content for s in ex.parse_example(text) if s.name == name)
+
+
+def _run_script(folder, skill, name, *args):
+    (folder / name).write_text(_script(skill, name), encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, name, *args],
+        cwd=folder,
+        env=ex._environment(),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+@pytest.fixture(scope="module")
+def batch_only(tmp_path_factory):
+    """A folder ``sensoryforge batch --dataset`` wrote, with no manifest in it."""
+    root = tmp_path_factory.mktemp("batch_only")
+    dataset = root / "dataset.yml"
+    dataset.write_text(
+        "dataset:\n  name: tiny\n  world: %s\n  seed: 5\n  duration_ms: 100\n"
+        "  splits:\n    train: {n: 2}\n" % WORLD
+    )
+    out = root / "runs" / "x"
+    argv = ["batch", "--design", str(DESIGN), "--dataset", str(dataset), "--output"]
+    assert (
+        cmd_batch(create_parser().parse_args([*argv, str(out), "--entries", "0:1"]))
+        == 0
+    )
+    return root, dataset, out
+
+
+def test_where_reports_a_folder_that_only_batch_wrote(batch_only):
+    root, _, out = batch_only
+    done = _run_script(root, "sensoryforge-workflow", "where.py", str(out))
+    assert done.returncode == 0, done.stderr
+    assert "data set built: not in this folder" in done.stdout
+    assert "simulated: 1 ok (no manifest here" in done.stdout
+
+
+def test_diagnose_says_what_is_missing_instead_of_raising(batch_only, tmp_path):
+    root, dataset, out = batch_only
+    skill = "sensoryforge-diagnose"
+    entry = "train/r0/00000"
+    done = _run_script(root, skill, "diagnose.py", str(out), "entry", entry)
+    assert done.returncode != 0 and "Traceback" not in done.stderr
+    assert "manifest.jsonl is missing" in done.stderr
+    # A built data set with no report: the draw is shown, the comparison is not.
+    spec = load_dataset(dataset)
+    built = tmp_path / "built"
+    write_dataset(spec, build_dataset(spec), built)
+    done = _run_script(built, skill, "diagnose.py", str(built), "entry", entry)
+    assert done.returncode == 0, done.stderr
+    assert "draw values:" in done.stdout and "not simulated here" in done.stdout
+    assert "no comparison" in done.stdout
+    done = _run_script(built, skill, "diagnose.py", str(built), "entry", "nope")
+    assert done.returncode != 0 and "is not in the manifest" in done.stderr
+    done = _run_script(built, skill, "diagnose.py", str(built), "odd")
+    assert done.returncode != 0 and "Traceback" not in done.stderr
+    assert "evaluate/compare_entries.jsonl is missing" in done.stderr
+
+
+# ------------------------------------------------------------------ the wheel
+
+
+@pytest.mark.slow
+def test_a_wheel_holds_every_skill_and_the_glossary(tmp_path):
+    """A user installs the package, not a clone: build it and look inside."""
+    pytest.importorskip("setuptools")
+    pytest.importorskip("wheel")
+    src = tmp_path / "src"
+    shutil.copytree(
+        REPO / "sensoryforge",
+        src / "sensoryforge",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    for name in ("pyproject.toml", "README.md", "LICENSE"):
+        shutil.copy(REPO / name, src / name)
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            ".",
+            "--no-deps",
+            "-q",
+            "--no-build-isolation",
+            "-w",
+            str(tmp_path / "dist"),
+        ],
+        cwd=src,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert done.returncode == 0, done.stderr[-1500:]
+    with zipfile.ZipFile(next((tmp_path / "dist").glob("*.whl"))) as wheel:
+        names = set(wheel.namelist())
+        for path in SKILLS:
+            inside = f"sensoryforge/agents/skills/{path.parent.name}/SKILL.md"
+            assert inside in names, inside
+            assert wheel.read(inside) == path.read_bytes()
+        glossary = f"sensoryforge/agents/skills/{ins.GLOSSARY_NAME}"
+        assert glossary in names
+        assert wheel.read(glossary) == ins.packaged_glossary().read_bytes()

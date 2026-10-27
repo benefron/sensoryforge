@@ -90,8 +90,9 @@ The brief also tells the skill to read your words by their meaning and by everyt
 the session, never by matching strings, and to ask one short question when it is unclear.
 The terms it maps them to are in the [glossary](../agents/glossary.md), and the brief names the copy
 to read: the one `sensoryforge agents install` put in your project, else the one inside the
-installed package. The files, tests and rules for each common task, for people who develop
-SensoryForge itself, are in the [task index](../agents/task_index.md).
+installed package. The brief does not point at the [task index](../agents/task_index.md),
+which lists the files, tests and rules for each common task: those are paths in a clone of
+the repository, so it is for people who develop SensoryForge itself.
 
 ## The routing hook (Claude Code only)
 
