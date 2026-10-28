@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-cab78f0 · CLOSED · decision · - · 2026-10-28
+skills are tested by fresh `claude -p` agents from a wheel installed into a throwaway venv in an empty folder, with project settings only, a tool allowlist and every other permission prompt refused (never bypassed), scored by command, answer, file and judge checks; live runs are opt-in, the offline half runs everywhere
+→ commit c947f21
+
+## F-39a2582 · STANDING · finding · - · 2026-10-28
+the first full run of the 17 B9a scenarios on Sonnet passed 15, at about 0.07 USD and 15 to 70 s each (judge on Haiku)
+→ commit c947f21
+
+## F-796f541 · OPEN · finding · - · 2026-10-28
+asked to check an existing world file, a fresh agent validated it correctly without loading sensoryforge-design-world or reading the brief, because the skill's description covers designing and changing a world but not checking one (scenario world.zero-sigma)
+→ commit c947f21
+
+## F-d1056b6 · OPEN · finding · - · 2026-10-28
+with a session budget set, the plan skill named the budget only as a contingency instead of splitting the plan into sessions and saying where each stops, as its step 4 asks (scenario plan.session-budget)
+→ commit c947f21
+
 ## D-983e9ab · CLOSED · decision · - · 2026-10-28
 the project's own instruction file is the user's, so SensoryForge supplies only a marked section, written only with --write, and an agent builds the rest in its environment's own way; where a tool's format is documented there is a specific target, and for any other the generic README and prompt apply (Ben, 2026-10-28, reversing B8's choice never to touch such files)
 → commit c5c12aa
