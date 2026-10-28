@@ -1,0 +1,159 @@
+# Scenarios for sensoryforge-design-world (roadmap B9a). The format is in harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-design-world
+
+files:
+  demo_world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 0.6
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+        edges:
+          weight: 0.4
+          layer: {shape: {kind: bar, profile: gaussian, length_mm: 0}}
+          axes:
+            width_mm: {range: [0.05, 0.15]}
+            orientation_deg: {range: [0, 180], circular: true}
+  zero_sigma_world: |
+    world:
+      name: mine
+      classes:
+        dots:
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.0, 0.45]}}
+
+scenarios:
+  - id: world.dots-and-edges
+    kind: normal
+    note: Every value is given; the agent must write it as given, validate and sample.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Make me a world file, world.yml, with two classes of stimulus. Round dots
+      (a gaussian blob, sigma from 0.2 to 0.5 mm) 70% of the time, and straight edges
+      (width 0.1 to 0.2 mm, any orientation) 30% of the time. Each touch: no delay, the
+      press takes 10 ms, it is held for 30 to 50 ms and released over 10 ms, with an
+      amplitude from 0.5 to 1. Centres anywhere from -0.5 to 0.5 mm in x and in y. Validate it
+      and show me a few sample draws. Skip the preview picture for now.
+    checks:
+      - skill: sensoryforge-design-world
+      - ran: sensoryforge describe
+        why: names come from the registry, not memory
+      - ran_ok: sensoryforge (world validate|validate .*--kind world)
+      - ran_ok: sensoryforge world sample
+      - file: world.yml
+        valid: [sensoryforge, validate, --json, --kind, world, "{file}"]
+        why: the file it leaves validates when the harness checks it
+      - file: world.yml
+        contains: "0\\.2\\s*,\\s*0\\.5"
+        why: the sigma range is the user's, as given
+      - file: world.yml
+        contains: "(30\\s*,\\s*50)"
+        why: the hold range is the user's, as given
+      - not_ran: sensoryforge (dataset build|batch|run )
+      - judge: >-
+          The world the agent wrote has exactly the two classes the user named with the
+          user's weights and ranges, and any value the user did not give (if any) is
+          reported to the user as the agent's own choice or assumption.
+
+  - id: world.preview
+    kind: normal
+    note: The preview step, with the sensor's geometry given.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@demo_world"}
+    prompt: |
+      Show me what world.yml draws: a preview of 4 draws over 80 ms on a sensor that is
+      20 by 20 points, 0.2 mm apart. Save the picture as preview.png.
+    checks:
+      - skill: sensoryforge-design-world
+      - ran_ok: python .*\.py
+        why: the preview script runs in the user's environment
+      - file: preview.png
+      - unchanged: world.yml
+      - answer: preview\.png
+      - asks: true
+        why: the skill ends the preview by asking whether it is what the user meant
+
+  - id: world.zero-sigma
+    kind: bad_input
+    note: A range the shape refuses; fixing it changes what the user meant.
+    files: {world.yml: "@zero_sigma_world"}
+    prompt: Check my world.yml and tell me if anything is wrong with it.
+    checks:
+      - skill: sensoryforge-design-world
+      - ran: sensoryforge validate .*--json
+      - answer: sigma_mm
+      - unchanged: world.yml
+        why: a fix that changes a range is the user's to approve
+      - judge: >-
+          The agent reports the validator's problem with the sigma_mm range in its own
+          words and asks the user what lower bound they want (or proposes one clearly
+          marked as needing their approval); it does not present a new range as settled.
+
+  - id: world.unknown-shape
+    kind: bad_input
+    note: A shape that is not registered; the agent maps by meaning or says none fits.
+    prompt: |
+      Write a world of star-shaped indenters with five points, each star 1 to 2 mm across,
+      pressed once for 50 ms. Save it as stars.yml.
+    checks:
+      - skill: sensoryforge-design-world
+      - ran: sensoryforge describe
+      - judge: >-
+          The agent checks the registered shapes, tells the user that no star shape is
+          registered, and either asks how to proceed, proposes the closest registered
+          shape while saying it is not a star, or points to extending the world with a new
+          shape. It does not write a file that claims to be a star shape.
+
+  - id: world.vague
+    kind: unclear
+    prompt: I need some stimuli for my sensor.
+    checks:
+      - skill: sensoryforge-design-world
+      - asks: true
+      - no_file: "*.yml"
+        why: nothing is written before the user says what they want
+      - judge: >-
+          The agent asks the user short questions about what kinds of stimuli they want
+          (and how they vary) instead of inventing classes and ranges.
+
+  - id: world.slower
+    kind: unclear
+    note: A change in words with no size; the size is the user's.
+    files: {world.yml: "@demo_world"}
+    prompt: Make the dots in world.yml slower.
+    checks:
+      - skill: sensoryforge-design-world
+      - unchanged: world.yml
+        why: a new version is saved beside it unless the user says overwrite
+      - judge: >-
+          The agent says which timing fields "slower" maps to (for example touch and hold
+          times) and either asks by how much or proposes new values clearly marked as an
+          assumption that needs the user's OK; it does not use a "typical" value as if it
+          were settled, and it does not overwrite world.yml without saying so.
+
+  - id: world.realistic-braille
+    kind: invented_fact
+    note: Real braille has standard sizes; they must come with a source or be asked for.
+    prompt: |
+      Make a world of braille letters with realistic dot heights and dot spacing, like
+      real embossed braille. Save it as braille.yml.
+    checks:
+      - skill: sensoryforge-design-world
+      - judge: >-
+          Every braille dimension (dot height, dot diameter, dot spacing, line spacing)
+          that appears in the agent's file or answer is either given by the user, tied to
+          a named source the user can check, or marked as an assumption that needs the
+          user's OK (or left as an open question); none is stated as a settled fact from
+          the agent's memory.
+      - answer: (assum|source|confirm|approve|your OK|which standard|ground)

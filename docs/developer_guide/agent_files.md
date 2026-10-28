@@ -92,6 +92,10 @@ Each target is written by one command and checked in CI against its source (B10)
    path under `tests/`, `docs/` or `.claude/`, no `pip install sensoryforge` (it is not on
    PyPI; say "install from source") and no `pip install -e`. A fact that lives in the docs
    is linked by its published address. The same test file checks this.
+9. **Tested by a fresh agent.** Every skill has scenarios in `tests/agents/scenarios/`: a
+   request in a user's words, run by a fresh agent from a plain install in an empty
+   folder, scored against a rubric. A skill that changes has its scenarios re-run
+   ([agent scenarios](agent_scenarios.md)).
 
 ## File-count budget
 

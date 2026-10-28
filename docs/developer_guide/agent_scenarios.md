@@ -1,0 +1,132 @@
+# Agent scenarios: testing the skills with a fresh agent
+
+A skill that reads well can still fail in use: the agent never finds it, runs the wrong
+command, skips the validator or fills in a number nobody gave it. The worked example of
+every skill is run by `tests/unit/test_agent_skills.py`, which shows the commands work.
+The scenarios in `tests/agents/` show that an agent *uses* them: each one gives a fresh
+agent a request in a user's words and scores what it did against a rubric.
+
+## What a scenario run looks like
+
+`tests/agents/harness.py` runs every scenario the way a user meets the skills:
+
+1. **A plain install, not a clone.** It builds a wheel from the checkout and installs it
+   into a throwaway virtual environment (system site packages provide torch and the other
+   dependencies; the wheel goes on top). It refuses to go on unless `import sensoryforge`
+   resolves into that environment. There is no `tests/`, `docs/` or `.claude/rules/` to
+   find, so a skill that points at one fails its scenarios.
+2. **An empty project folder.** `sensoryforge agents export --target claude` writes the
+   skills, `sensoryforge agents setup --no-input` saves the scenario's working style, the
+   scenario's files are written and its setup commands run.
+3. **A fresh agent.** `claude -p` runs in that folder with only the project's settings
+   (`--setting-sources project`, `--strict-mcp-config`): none of the developer's own
+   skills, hooks, plugins, MCP servers or instruction files. It accepts file edits in the
+   folder and allows a short list of shell commands (`sensoryforge`, `python` and a few
+   read-only ones) and the file tools; every other permission prompt is refused, never
+   bypassed. A short note appended to the system prompt says which commands run, and
+   nothing about the skills, because without it one refused command reads to the agent as
+   "no shell at all". `AskUserQuestion` and subagents are off, so the agent asks in its
+   answer. Each scripted reply is a further turn of the same session.
+4. **A rubric.** Every check is scored from the transcript and the folder the agent left,
+   or by a judge model that reads a summary of the run.
+
+The agent's shell must use the throwaway environment, not a Python that a shell profile
+puts first. `python tests/agents/run.py --preflight` checks this with one cheap run, and
+every `run.py` call does it first.
+
+## Running them
+
+Each scenario is a real agent run that costs usage and takes from a few seconds to a few
+minutes, so nothing runs in the default test suite. The offline half
+(`tests/agents/test_harness.py`: the scenario files, the scoring and the agent's command
+line) does run there.
+
+```bash
+python tests/agents/run.py --list
+python tests/agents/run.py --skill sensoryforge-design-world --out agent-runs/world
+python tests/agents/run.py --scenario dataset.trial --model haiku --jobs 2
+pytest tests/agents --run-agents -k plan          # the same through pytest
+```
+
+`run.py` writes `results.json` (every check with what it found, the cost, the time and
+the transcript in plain data), `scores.md` (a table, then every failed check) and
+`transcripts/<id>.jsonl` (the raw stream of each turn). `--model` picks the agent's model
+(default `sonnet`), `--judge-model` the judge's (default `haiku`), `--no-judge` leaves
+judge lines unscored and `--budget` caps what one turn may spend. Through pytest, the same
+choices are `SF_AGENT_MODEL`, `SF_AGENT_JUDGE` (`none` for no judge) and `SF_AGENT_OUT`.
+
+Re-run a skill's scenarios whenever the skill changes, and compare the scores with the
+last run.
+
+## Writing a scenario
+
+One YAML file per skill, `tests/agents/scenarios/<short name>.yml`:
+
+```yaml
+skill: sensoryforge-build-dataset
+files:                      # shared texts, used as "@name"
+  demo_world: |
+    world: ...
+scenarios:
+  - id: dataset.too-short
+    kind: bad_input         # normal, bad_input, unclear or invented_fact
+    note: Draws last up to 80 ms; at 40 ms three of the four entries are cut off.
+    style: {planning: none, pace: auto, review: agent}   # sensoryforge agents setup flags
+    files: {world.yml: "@demo_world"}
+    setup: []               # commands run first: sensoryforge or python only
+    prompt: |
+      Build a data set from world.yml with 4 training draws, seed 1, 40 ms per entry.
+    replies: []             # later turns, sent whatever the agent said
+    allow: []               # extra tools, such as WebSearch
+    checks:
+      - skill: sensoryforge-build-dataset
+      - answer: \b3\b
+        why: the exact count from the manifest, not an estimate
+      - judge: >-
+          The agent says that 40 ms is shorter than the longest draw ...
+```
+
+Every skill has several scenarios and at least one of each kind: a request it should
+carry out (`normal`), wrong or impossible input (`bad_input`), a request too vague to act
+on (`unclear`) and one that would need a fact nobody gave (`invented_fact`). A prompt is
+in a user's words and never names a skill, because skills are found by meaning. Every
+scenario checks that its own skill was reached. The default style is the one a new user
+gets (a short plan and approval before each step); a scenario that tests the work itself
+sets `pace: auto` so the agent carries on.
+
+### Checks
+
+Each check is a one-key mapping, with an optional `why`. Patterns are regular expressions,
+case-insensitive.
+
+| Check | Passes when |
+|---|---|
+| `skill: NAME` | the agent loaded the skill (the `Skill` tool, or read its `SKILL.md`) |
+| `ran: PATTERN` | some shell command matches |
+| `ran_ok: PATTERN` | some matching command ran without an error |
+| `not_ran: PATTERN` | no shell command matches |
+| `order: [A, B, ...]` | the first command matching each pattern comes in this order |
+| `answer: PATTERN` | the agent's final message matches (`turn: N` picks a turn; default the last) |
+| `not_answer: PATTERN` | the final message does not match |
+| `asks: true` / `false` | the final message asks the user a question, or does not |
+| `file: GLOB` | a file matches; `contains: PATTERN` its text, `new: true` not given by the scenario, `valid: [command, "{file}"]` a command that must exit 0 on it |
+| `no_file: GLOB` | no file matches (the skills and the working style are not counted) |
+| `unchanged: NAME` | a file the scenario gave is still exactly as given |
+| `judge: STATEMENT` | the judge model, given the messages, the commands and the answers, says the statement is true |
+
+Two checks are added to every scenario unless it lists them in `skip_defaults`: the agent
+ran `sensoryforge agents brief` (every skill reads the working style first), and no path
+or command named something only a clone has (`no_repo_paths`).
+
+A judge line is for what a pattern cannot see: whether a number was presented as settled,
+whether a limit was reported honestly. Write it as one statement about the run that is
+true or false, and say what would make it false. A scenario passes when every scored
+check passes and no turn ended in an error; its score is the share of scored checks that
+passed.
+
+## What a score means
+
+A score is one run of one model. Agents vary from run to run, so a single failure is a
+lead to read in the transcript, not a verdict on the skill. The transcript tells whether
+the skill, the scenario or the harness is at fault: a check that fails because the
+scenario's prompt is ambiguous is fixed in the scenario, not in the skill.
