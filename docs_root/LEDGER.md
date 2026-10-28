@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-983e9ab · CLOSED · decision · - · 2026-10-28
+the project's own instruction file is the user's, so SensoryForge supplies only a marked section, written only with --write, and an agent builds the rest in its environment's own way; where a tool's format is documented there is a specific target, and for any other the generic README and prompt apply (Ben, 2026-10-28, reversing B8's choice never to touch such files)
+→ commit c5c12aa
+
+## F-2387f6c · STANDING · finding · - · 2026-10-28
+per each tool's own pages, Claude Code reads CLAUDE.md (and AGENTS.md, directly or by @ import) and drafts it with /init, Copilot reads .github/copilot-instructions.md and AGENTS.md, Cursor reads .cursor/rules/*.mdc and AGENTS.md and drafts with /create-rule, Codex reads AGENTS.md, and no Codex /init was confirmed from its pages
+→ commit c5c12aa
+
+## F-e367969 · CLOSED · finding · - · 2026-10-28
+the front-door test that forbids pointing at the repo's retired agent files had a gap (it scans tracked files only) and would have failed on B8's export files once they were committed
+→ commit c5c12aa
+
+## F-d3d0a2b · OPEN · finding · - · 2026-10-28
+the instruction files were checked against each tool's documentation and not run inside the tools, and Copilot's page does not say which editor surfaces read .github/copilot-instructions.md, only github.com chat, the cloud agent and code review
+→ commit c5c12aa
+
 ## D-5d48fdc · CLOSED · decision · - · 2026-10-27
 the packaged SKILL.md files are the one neutral source (the open Agent Skills layout) and each environment's files are generated from them by a target registry with a do-not-edit header and a --check, with no per-tool conversion of the body because all four tools read the same layout
 → commit 1af26dc
