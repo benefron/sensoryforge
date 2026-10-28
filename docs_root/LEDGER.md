@@ -108,6 +108,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-ba908db · STANDING · finding · - · 2026-10-28
+two `run.py --scenario` processes sharing one --root race while building the install (FileExistsError in root/src); runs through --skill are sequential in one process
+→ commit 935ce5c
+
+## F-48955f0 · OPEN · finding · - · 2026-10-28
+eval.which-packs: told to use "whichever packs are right", the agent ran --packs core,tactile; the evaluate skill says the pack is the user's but not what to do with that wording
+→ commit 935ce5c
+
+## F-c386cd4 · OPEN · finding · - · 2026-10-28
+flow.realistic-fingertip: under "carry on without asking" the agent wrote fingertip radii, indentations and timings from memory into world.yml as proposals; the workflow skill does not say a proposal file counts as inventing
+→ commit 935ce5c
+
+## F-bf830fd · OPEN · finding · - · 2026-10-28
+flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
+→ commit 935ce5c
+
+## F-de2bdf1 · OPEN · finding · - · 2026-10-28
+interpret-report slips: report.typical-rate called 1 spike/s "too low", report.no-such-metric described what a missing metric would mean, report.latency cannot say what it measures without the contract page (the harness has no web)
+→ commit 935ce5c
+
+## F-4107108 · OPEN · finding · - · 2026-10-28
+run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say a device effect is only known by timing an entry on it
+→ commit 935ce5c
+
+## F-2901a8e · OPEN · finding · - · 2026-10-28
+diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
+→ commit 935ce5c
+
 ## D-cab78f0 · CLOSED · decision · - · 2026-10-28
 skills are tested by fresh `claude -p` agents from a wheel installed into a throwaway venv in an empty folder, with project settings only, a tool allowlist and every other permission prompt refused (never bypassed), scored by command, answer, file and judge checks; live runs are opt-in, the offline half runs everywhere
 → commit c947f21
