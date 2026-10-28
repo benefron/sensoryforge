@@ -165,7 +165,7 @@ def test_the_glossary_in_the_package_is_the_docs_page():
 def test_the_package_data_includes_the_glossary_and_the_skills():
     text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
     assert '"agents/skills/*.md"' in text and '"agents/skills/*/*.md"' in text
-    assert '"agents/prompts/*.md"' in text
+    assert '"agents/prompts/*.md"' in text and '"agents/section.md"' in text
 
 
 def test_install_copies_every_skill_and_the_glossary_and_is_repeatable(tmp_path):
@@ -257,6 +257,7 @@ PLACEHOLDERS = {
     "<kind>": "neuron",
     "<Name>": "Thing",
     "<name>": "mine",
+    "<command>": "validate",
     "<N>": "1000",
 }
 _ALTERNATIVES = re.compile(r"<([\w-]+(?:\|[\w-]+)+)>")
@@ -353,11 +354,17 @@ def test_the_command_check_catches_a_wrong_flag_and_an_unlisted_placeholder():
 
 
 PROMPT_DIR = REPO / "sensoryforge" / "agents" / "prompts"
-PROMPTS = sorted(PROMPT_DIR.glob("*.md"))
+SECTION = REPO / "sensoryforge" / "agents" / "section.md"
+PROMPTS = sorted(PROMPT_DIR.glob("*.md")) + [SECTION]  # every shipped agent text
 
 
 def test_the_prompts_ship():
-    assert [p.stem for p in PROMPTS] == ["generic", "install"]
+    assert [p.stem for p in PROMPTS] == [
+        "generic",
+        "install",
+        "instructions",
+        "section",
+    ]
 
 
 @pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.stem)
@@ -386,7 +393,7 @@ def test_a_prompt_names_only_skills_that_exist(path):
 
 
 def test_the_hand_written_agent_files_stay_within_the_budget():
-    """``AGENTS.md``, ``CLAUDE.md``, the skills and the prompts: 18 at most."""
+    """``AGENTS.md``, ``CLAUDE.md``, skills, prompts and the section: 18 at most."""
     count = 2 + len(SKILLS) + len(PROMPTS)
     assert count <= 18, count  # docs/developer_guide/agent_files.md
 
@@ -540,7 +547,10 @@ def test_a_wheel_holds_every_skill_and_the_glossary(tmp_path):
             assert inside in names, inside
             assert wheel.read(inside) == path.read_bytes()
         for prompt in PROMPTS:
-            inside = f"sensoryforge/agents/prompts/{prompt.name}"
+            inside = (
+                "sensoryforge/agents/"
+                + prompt.relative_to(REPO / "sensoryforge" / "agents").as_posix()
+            )
             assert inside in names, inside
             assert wheel.read(inside) == prompt.read_bytes()
         glossary = f"sensoryforge/agents/skills/{ins.GLOSSARY_NAME}"

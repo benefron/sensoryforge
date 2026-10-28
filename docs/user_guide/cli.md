@@ -260,11 +260,13 @@ instead. See [Plugin Packages](../developer_guide/plugins.md).
 
 ### `sensoryforge agents`
 
-`sensoryforge agents {setup,brief,install,export,prompt}` sets up the agent skills: `setup`
+`sensoryforge agents {setup,brief,install,export,instructions,prompt}` sets up the agent skills: `setup`
 saves how they work with you, `brief` prints it, `install [--dest DIR]` copies the skills and
 the glossary into `DIR/.claude/skills/`, `export --target {claude,copilot,cursor,codex,generic}
 [--dest DIR] [--check]` writes them for another environment (or checks them), and
-`prompt {install,generic}` prints a prompt to give an agent. See
+`instructions --target ... [--file FILE] [--write|--check]` shows, writes or checks SensoryForge's
+section in the project's instruction file (`CLAUDE.md`, `AGENTS.md`, ...), and
+`prompt {install,generic,instructions}` prints a prompt to give an agent. See
 [Working with a Coding Agent](agent_setup.md), [Skills for a Coding Agent](agent_skills.md) and
 [Using the Skills in Another Agent](agent_export.md).
 

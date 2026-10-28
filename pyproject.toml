@@ -94,6 +94,7 @@ sensoryforge = [
     "agents/skills/*.md",
     "agents/skills/*/*.md",
     "agents/prompts/*.md",
+    "agents/section.md",
 ]
 
 [tool.black]

@@ -23,7 +23,8 @@ one is for, and how many there may be. Change the map here first, then the files
 | `AGENTS.md` | everyone | any agent that reads a root instruction file | B2 |
 | `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes | B2 |
 | `sensoryforge/agents/skills/<name>/SKILL.md` | users | the neutral source: front matter `name` and `description`, markdown body (the open Agent Skills layout); every environment's files are generated from it ([export](../user_guide/agent_export.md)) | B1b, B6, B7, C2, C3 |
-| `sensoryforge/agents/prompts/install.md`, `generic.md` | users | an agent the user gives them to: the first picks the environment's export command, the second adapts the neutral files to an environment with no export | B8 |
+| `sensoryforge/agents/prompts/install.md`, `generic.md`, `instructions.md` | users | an agent the user gives them to: the first picks the environment's export command, the second adapts the neutral files to an environment with no export, the third builds the project's instruction file in the environment's own way | B8, B8b |
+| `sensoryforge/agents/section.md` | users | the one short section SensoryForge adds to a project's instruction file (between marker lines; the rest of that file is the user's) | B8b |
 | `sensoryforge/agents/skills/sensoryforge-glossary.md` | users | a copy of `docs/agents/glossary.md` that ships in the package; the docs page is the source and a test keeps the two identical | B6a |
 | `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
 | `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
@@ -42,7 +43,8 @@ Each target is written by one command and checked in CI against its source (B10)
 |---|---|---|---|
 | `.claude/skills/<name>/SKILL.md` and `.claude/skills/sensoryforge-glossary.md` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install [--dest DIR]` (`sensoryforge/agents/install.py`; overwrites its own files and touches nothing else) | B6a |
 | `.github/skills/`, `.cursor/skills/`, `.agents/skills/` (same layout, same files) in the user's project | the same skills | `sensoryforge agents export --target copilot\|cursor\|codex` (`--check` reports files that differ; each target's folder is checked against its tool's documentation, dated in `FORMATS_CHECKED`) | B8 |
-| `sensoryforge-agents/` (neutral files and `INDEX.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` | B8 |
+| `sensoryforge-agents/` (neutral files and a `README.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` | B8 |
+| `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` (the marked section only; the rest is the user's) and `.cursor/rules/sensoryforge.mdc` (whole file) in the user's project | `sensoryforge/agents/section.md` | `sensoryforge agents instructions --target <env> --write` (`--check` reports a missing or stale section; the files each tool reads were checked against its documentation, dated in `INSTRUCTIONS_CHECKED`) | B8b |
 | `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
 
@@ -95,7 +97,7 @@ Each target is written by one command and checked in CI against its source (B10)
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the two prompts) | **18** (14 used) |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (16 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands |

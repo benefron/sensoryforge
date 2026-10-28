@@ -12,6 +12,7 @@ Example:
     $ sensoryforge agents brief
     $ sensoryforge agents install
     $ sensoryforge agents export --target cursor
+    $ sensoryforge agents instructions --target codex --write
 
 Topic: cli
 Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.py,
@@ -1348,16 +1349,76 @@ def _agents_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _agents_instructions(args: argparse.Namespace) -> int:
+    """``agents instructions``: SensoryForge's section in a project instruction file."""
+    from sensoryforge.agents import install as ins
+
+    dest = Path(args.dest)
+    target = args.target
+    try:
+        if target == "auto":
+            found = ins.detect_targets(dest) if dest.is_dir() else []
+            if len(found) != 1:
+                seen = ", ".join(found) if found else "none"
+                raise ValueError(
+                    f"cannot tell which environment {dest.resolve()} is for (found: "
+                    f"{seen}); pass --target {{{','.join(ins.EXPORT_TARGETS)}}}"
+                )
+            target = found[0]
+            print(f"Target {target} (found in {dest.resolve()})")
+        spec = ins.EXPORT_TARGETS.get(target)
+        if spec is not None and spec.instructions is None and not args.file:
+            if args.write or args.check:
+                raise ValueError(
+                    "no instruction file is known for this environment: pass --file "
+                    "with the file it reads (an existing AGENTS.md is a good choice)"
+                )
+            print(ins.render_block(), end="\n")
+            print(
+                "No file is known for this environment: put the lines above in the "
+                "file it reads, unchanged, or run again with --file FILE --write.",
+                file=sys.stderr,
+            )
+            return 0
+        path, state, text = ins.instructions(
+            dest,
+            target,
+            Path(args.file) if args.file else None,
+            write=args.write and not args.check,
+        )
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{state:>9}  {path}")
+    if args.check:
+        if state != "unchanged":
+            print(
+                f"Run `sensoryforge agents instructions --target {target} --write`.",
+                file=sys.stderr,
+            )
+        return 0 if state == "unchanged" else 1
+    if not args.write:
+        shown = (
+            ins.render_block()
+            if spec is None or spec.instructions_kind == "block" or args.file
+            else text
+        )
+        print("Nothing written. SensoryForge's part of the file:\n")
+        print(shown)
+        print("\nRun again with --write to write it.")
+    return 0
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
-    """``sensoryforge agents``: setup, brief, install, export and prompt."""
+    """``sensoryforge agents``: setup, brief, install, export, instructions, prompt."""
     from sensoryforge.agents import style as ws
 
-    if args.agents_command not in ("setup", "brief", "install", "export", "prompt"):
-        print(
-            "usage: sensoryforge agents {setup,brief,install,export,prompt}",
-            file=sys.stderr,
-        )
+    commands = ("setup", "brief", "install", "export", "prompt", "instructions")
+    if args.agents_command not in commands:
+        print(f"usage: sensoryforge agents {{{','.join(commands)}}}", file=sys.stderr)
         return 1
+    if args.agents_command == "instructions":
+        return _agents_instructions(args)
     if args.agents_command in ("install", "export"):
         return _agents_export(args)
     if args.agents_command == "prompt":
@@ -1476,13 +1537,55 @@ def _add_agents_parser(subparsers: Any) -> None:
         help="Write nothing; list files that are missing or differ from this "
         "release's, and exit 1 if any are",
     )
+    instructions = agents_sub.add_parser(
+        "instructions",
+        help="Add SensoryForge's short section to the project's instruction file "
+        "(CLAUDE.md, AGENTS.md, ...)",
+        description="Show, write or check SensoryForge's section in the file your "
+        "environment reads at the start of every session: "
+        + "; ".join(
+            f"{t.name} -> {t.instructions.as_posix()}"
+            for t in EXPORT_TARGETS.values()
+            if t.instructions
+        )
+        + ". The file is yours: the section sits between two marker lines, a later run "
+        "replaces only that block and nothing else is touched. Without --write nothing "
+        "is written. `agents prompt instructions` is the prompt for an agent to build "
+        "the rest of the file.",
+    )
+    instructions.add_argument(
+        "--target",
+        choices=("auto", *EXPORT_TARGETS),
+        default="auto",
+        help="The environment (default auto, as for export)",
+    )
+    instructions.add_argument(
+        "--file",
+        help="The file to put the section in, relative to --dest (default the "
+        "environment's own; required for generic)",
+    )
+    instructions.add_argument(
+        "--dest", default=".", help="The project folder (default: the current folder)"
+    )
+    instructions.add_argument(
+        "--write", action="store_true", help="Write the file (default: only show)"
+    )
+    instructions.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing; exit 1 unless the section is there and current",
+    )
     prompt = agents_sub.add_parser(
         "prompt",
-        help="Print a prompt to give an agent: install (picks the environment) or "
-        "generic (for an unknown one)",
+        help="Print a prompt to give an agent: install (picks the environment), "
+        "generic (for an unknown one) or instructions (builds the project's "
+        "instruction file)",
     )
     prompt.add_argument(
-        "name", nargs="?", default="install", choices=("install", "generic")
+        "name",
+        nargs="?",
+        default="install",
+        choices=("install", "generic", "instructions"),
     )
     setup = agents_sub.add_parser(
         "setup",

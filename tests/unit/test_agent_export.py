@@ -111,10 +111,17 @@ def test_every_file_is_valid_headed_and_the_source_unchanged(tmp_path, target):
     assert {p.name for p in tmp_path.iterdir()} == {spec.skills_dir.parts[0]}
 
 
-def test_the_generic_index_lists_every_skill_with_its_first_sentence(tmp_path):
+def test_the_generic_readme_says_what_to_read_and_lists_every_skill(tmp_path):
     ins.install(tmp_path, "generic")
+    assert ins.INDEX_NAME == "README.md"
     index = (tmp_path / "sensoryforge-agents" / ins.INDEX_NAME).read_text("utf-8")
     assert index.startswith("<!-- " + HEADER)
+    order = [
+        index.index(s) for s in ("This file.", "agents brief`: how", "glossary.md`:")
+    ]
+    assert order == sorted(order), "the files to read, in order"
+    assert "agents prompt generic" in index and "agents prompt instructions" in index
+    assert "agents instructions --target generic --file FILE --write" in index
     for name, path in ins.packaged_skills():
         first = _front(path.read_text("utf-8"))[0]["description"].split(". ")[0]
         assert f"[{name}]({name}/SKILL.md) | {first.rstrip('.')}." in index
@@ -332,3 +339,227 @@ def test_the_docs_page_carries_the_prompts_and_every_target():
         assert f"| `{name}` | `{target.skills_dir.as_posix()}/` |" in page
         assert target.source in page
     assert ins.FORMATS_CHECKED in page
+
+
+# ------------------------------------------------- the project's instruction file
+
+#: The instruction file each tool reads, as its own documentation says (checked on
+#: ``ins.INSTRUCTIONS_CHECKED``), and the tool's own way to draft it where one is
+#: confirmed. Codex's ``/init`` was seen only in a search summary, so it is not here.
+INSTRUCTIONS = {
+    "claude": ("CLAUDE.md", "block", "/init"),
+    "copilot": (".github/copilot-instructions.md", "block", "onboarding prompt"),
+    "cursor": (".cursor/rules/sensoryforge.mdc", "file", "/create-rule"),
+    "codex": ("AGENTS.md", "block", ""),
+    "generic": (None, "block", ""),
+}
+BLOCK_BEGIN = "<!-- sensoryforge:begin"
+
+
+def _block(text):
+    start = text.index(BLOCK_BEGIN)
+    end = text.index(ins.SECTION_END) + len(ins.SECTION_END)
+    return text[start:end]
+
+
+def test_every_target_names_the_instruction_file_its_tool_documents():
+    for name, (path, kind, draft) in INSTRUCTIONS.items():
+        spec = ins.EXPORT_TARGETS[name]
+        assert (spec.instructions and spec.instructions.as_posix()) == path, name
+        assert spec.instructions_kind == kind, name
+        assert draft in spec.drafts_with, name
+        assert bool(spec.instructions_source.startswith("https://")) == bool(path)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", ins.INSTRUCTIONS_CHECKED)
+
+
+def test_the_section_is_short_neutral_and_points_at_the_brief_and_the_rule():
+    text = ins.packaged_section()
+    assert 8 <= len(text.splitlines()) <= 25
+    assert "sensoryforge agents brief" in text and "Do not invent" in text
+    assert "sensoryforge-workflow" in text and "not yet on\nPyPI" in text
+    block = ins.render_block()
+    assert block.startswith(ins.SECTION_BEGIN) and block.endswith(ins.SECTION_END)
+    assert ins.SECTION_BEGIN.startswith(BLOCK_BEGIN)
+
+
+def test_a_new_instruction_file_holds_only_the_section(tmp_path):
+    path, state, text = ins.instructions(tmp_path, "codex", write=True)
+    assert (path, state) == (tmp_path / "AGENTS.md", "added")
+    assert text == ins.render_block() + "\n" == path.read_text("utf-8")
+    assert ins.instructions(tmp_path, "codex")[1] == "unchanged"
+
+
+@pytest.mark.parametrize(
+    "mine",
+    [
+        "# My project\n\nBuild with make.\n",
+        "# My project\n\nno trailing newline",
+        "# My project\r\n\r\nwindows line ends\r\n",
+        "",
+    ],
+    ids=["plain", "no-newline", "crlf", "empty"],
+)
+def test_the_section_is_appended_and_everything_else_stays_byte_for_byte(
+    tmp_path, mine
+):
+    path = tmp_path / "CLAUDE.md"
+    path.write_bytes(mine.encode())
+    _, state, _ = ins.instructions(tmp_path, "claude")
+    assert path.read_bytes() == mine.encode(), "no --write, nothing changes"
+    assert state == "updated"
+    ins.instructions(tmp_path, "claude", write=True)
+    after = path.read_bytes().decode()
+    assert after.startswith(mine), "the user's text is untouched, before the block"
+    newline = "\r\n" if "\r\n" in mine else "\n"
+    assert after.endswith(ins.render_block(newline) + newline)
+    assert ins.instructions(tmp_path, "claude")[1] == "unchanged"
+
+
+def test_a_later_run_replaces_only_what_is_between_the_markers(tmp_path):
+    path = tmp_path / "AGENTS.md"
+    ins.instructions(tmp_path, "codex", write=True)
+    block = path.read_text("utf-8")
+    old = block.replace("Do not invent", "Please invent")
+    path.write_text("# Before\n\n" + old + "\n## After\n\nmy tail\n", "utf-8")
+    assert ins.instructions(tmp_path, "codex")[1] == "updated"
+    ins.instructions(tmp_path, "codex", write=True)
+    now = path.read_text("utf-8")
+    assert now == "# Before\n\n" + block + "\n## After\n\nmy tail\n"
+    assert now.count(BLOCK_BEGIN) == 1 and _block(now) in now
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        ins.SECTION_BEGIN + "\nhalf a block\n",
+        "no begin\n" + ins.SECTION_END + "\n",
+        ins.SECTION_END + "\n" + ins.SECTION_BEGIN + "\n",
+        ins.render_block() + "\n\n" + ins.render_block() + "\n",
+    ],
+    ids=["no-end", "no-begin", "reversed", "two-blocks"],
+)
+def test_damaged_markers_stop_the_command_and_change_nothing(tmp_path, text):
+    path = tmp_path / "AGENTS.md"
+    path.write_text(text, "utf-8")
+    with pytest.raises(ValueError, match="fix them by hand"):
+        ins.instructions(tmp_path, "codex", write=True)
+    assert path.read_text("utf-8") == text
+
+
+def test_cursor_gets_one_rule_file_of_its_own_and_other_rules_are_untouched(tmp_path):
+    mine = tmp_path / ".cursor" / "rules" / "mine.mdc"
+    mine.parent.mkdir(parents=True)
+    mine.write_text("---\nalwaysApply: false\n---\nmy rule\n", "utf-8")
+    path, state, text = ins.instructions(tmp_path, "cursor", write=True)
+    assert (path.name, state) == ("sensoryforge.mdc", "added")
+    meta, body = _front(text)
+    assert meta["alwaysApply"] == "true" and meta["description"]
+    assert set(meta) <= {"description", "globs", "alwaysApply"}  # Cursor's own fields
+    assert "Generated by `sensoryforge agents instructions --target cursor`" in body
+    assert ins.packaged_section().rstrip("\n") in body and BLOCK_BEGIN not in text
+    assert mine.read_text("utf-8").endswith("my rule\n")
+    path.write_text("edited", "utf-8")
+    assert ins.instructions(tmp_path, "cursor", write=True)[1] == "updated"
+    assert path.read_text("utf-8") == text
+
+
+def test_file_puts_the_section_in_another_file_such_as_a_shared_agents_md(tmp_path):
+    shared = tmp_path / "AGENTS.md"
+    shared.write_text("# Shared by every tool\n", "utf-8")
+    for target in ("cursor", "generic", "claude"):
+        path, _, _ = ins.instructions(tmp_path, target, Path("AGENTS.md"), write=True)
+        assert path == shared
+    text = shared.read_text("utf-8")
+    assert text.startswith("# Shared by every tool\n") and text.count(BLOCK_BEGIN) == 1
+    assert not (tmp_path / ".cursor").exists() and not (tmp_path / "CLAUDE.md").exists()
+
+
+def test_the_instruction_command_refuses_what_it_cannot_place_safely(tmp_path):
+    with pytest.raises(ValueError, match="no instruction file is known.*--file"):
+        ins.instructions(tmp_path, "generic")
+    for bad in ("../out.md", "/etc/x.md"):
+        with pytest.raises(ValueError, match="inside the project"):
+            ins.instructions(tmp_path, "generic", Path(bad))
+    with pytest.raises(FileNotFoundError):
+        ins.instructions(tmp_path / "missing", "codex")
+    with pytest.raises(ValueError, match="unknown target"):
+        ins.instructions(tmp_path, "vim")
+    assert not any(tmp_path.iterdir())
+
+
+def test_instructions_show_write_and_check_from_the_command_line(
+    tmp_path, monkeypatch, capsys
+):
+    args = ("instructions", "--target", "claude", "--dest", str(tmp_path))
+    assert run(monkeypatch, *args) == 0
+    out = capsys.readouterr().out
+    assert "Nothing written" in out and ins.SECTION_END in out
+    assert not (tmp_path / "CLAUDE.md").exists()
+    assert run(monkeypatch, *args, "--check") == 1
+    assert "--write" in capsys.readouterr().err
+    assert run(monkeypatch, *args, "--write") == 0
+    assert "added" in capsys.readouterr().out
+    assert (tmp_path / "CLAUDE.md").is_file()
+    assert run(monkeypatch, *args, "--check") == 0
+    assert run(monkeypatch, *args, "--write") == 0
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_generic_prints_the_section_and_will_not_write_without_a_file(
+    tmp_path, monkeypatch, capsys
+):
+    args = ("instructions", "--target", "generic", "--dest", str(tmp_path))
+    assert run(monkeypatch, *args) == 0
+    captured = capsys.readouterr()
+    assert ins.render_block() in captured.out and "--file FILE --write" in captured.err
+    for flag in ("--write", "--check"):
+        assert run(monkeypatch, *args, flag) == 1
+        assert "pass --file" in capsys.readouterr().err
+    assert run(monkeypatch, *args, "--file", "AGENTS.md", "--write") == 0
+    assert (tmp_path / "AGENTS.md").is_file()
+
+
+def test_instructions_auto_follows_the_same_rule_as_export(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    assert run(monkeypatch, "instructions", "--dest", str(tmp_path), "--write") == 1
+    assert "cannot tell which environment" in capsys.readouterr().err
+    (tmp_path / ".agents").mkdir()
+    assert run(monkeypatch, "instructions", "--dest", str(tmp_path), "--write") == 0
+    assert (tmp_path / "AGENTS.md").is_file()
+
+
+def test_the_instructions_prompt_covers_every_documented_tool_and_gives_freedom():
+    text = ins.packaged_prompt("instructions").read_text("utf-8")
+    flat = " ".join(text.split())
+    for name, (path, _, draft) in INSTRUCTIONS.items():
+        if path and name != "cursor":
+            assert path in flat, name
+        if draft.startswith("/"):
+            assert draft in flat, name
+    assert ".cursor/rules/" in flat and "no command in an editor is documented" in flat
+    assert "none confirmed" in flat, "Codex's /init is not claimed"
+    assert "/init" not in flat.split("OpenAI Codex")[1].split("\n")[0]
+    for must in (
+        "never memory alone",
+        "leave every line of it as it is",
+        "are yours to choose",
+        "after the user agrees",
+        "prefer that one shared file",
+    ):
+        assert must in flat, must
+    assert "agents instructions --target generic --file FILE --write" in flat
+
+
+def test_the_docs_page_carries_the_instruction_files_and_their_pages():
+    page = PAGE.read_text(encoding="utf-8")
+    body = ins.packaged_prompt("instructions").read_text("utf-8").rstrip()
+    assert f"```text\n{body}\n```" in page, "docs page is behind instructions.md"
+    for name, spec in ins.EXPORT_TARGETS.items():
+        if spec.instructions:
+            assert spec.instructions_source in page, name
+            first = spec.instructions.as_posix().split("/")[0]
+            assert first in page, name
+    assert ins.INSTRUCTIONS_CHECKED in page
+    assert "agents instructions --target codex --write" in page

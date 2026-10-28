@@ -5,7 +5,8 @@ whenever a step is unclear. Never guess a format.
 
 1. **Write the neutral files.** Run `sensoryforge agents export --target generic` in the
    user's project folder. It writes a `sensoryforge-agents/` folder and nothing else:
-   - `INDEX.md`: every skill with the situation it is for;
+   - `README.md`: what to read and in what order, and every skill with the situation it is
+     for;
    - `<skill name>/SKILL.md`: one skill each, with front matter (`name`, `description`)
      and instructions in markdown;
    - `sensoryforge-glossary.md`: the words the skills use, linked from them as
@@ -25,13 +26,15 @@ whenever a step is unclear. Never guess a format.
      and keep a link to the glossary working. Do not summarise, merge or reword the
      instructions, and do not change a command in them.
    - Keep the "generated, do not edit" header on every file you write.
-4. **Write only your own files.** Do not edit the user's existing instructions, skills or
-   settings. If a name is already taken, say so and ask.
+4. **Write only your own files.** In this step do not edit the user's existing instructions,
+   skills or settings (the project's instruction file has its own step, below, and the
+   user's agreement). If a name is already taken, say so and ask.
 5. **Check and report.** Open one converted file and confirm that the environment can see
    it (many environments list their loaded skills or rules). Tell the user which
    environment you took this to be, where you put the files, what format you used, and
-   where in its documentation you found it. Then ask whether to set how the skills work
-   with them, by running `sensoryforge agents setup`.
+   where in its documentation you found it. Then offer two more steps: to set how the skills
+   work with them, by running `sensoryforge agents setup`, and to build or update the
+   project's instruction file, by following `sensoryforge agents prompt instructions`.
 
 `sensoryforge agents export --check --target generic` lists neutral files that are missing
 or out of date, and writes nothing. When SensoryForge is updated, run the export again and

@@ -80,6 +80,9 @@ def test_llms_txt_is_generated_from_the_docs_nav():
     ) == module.build(), "llms.txt is out of date: run python scripts/build_llms_txt.py"
 
 
+EXPORT_FILES = ("docs/user_guide/agent_export.md", "tests/unit/test_agent_export.py")
+
+
 def test_nothing_points_at_retired_agent_files():
     tracked = subprocess.run(
         ["git", "ls-files", "*.md", "*.py", "*.mdc"],
@@ -95,6 +98,10 @@ def test_nothing_points_at_retired_agent_files():
         if not path.startswith(("docs/development/", "docs_root/"))
         # this test, and the map that records what replaced each retired file
         and path not in ("tests/unit/test_front_door.py", AGENT_MAP)
+        # the export of agent files names those paths as where a *user's* tool reads
+        # them (this repository's own retired files are the ones guarded here)
+        and not path.startswith("sensoryforge/agents/")
+        and path not in EXPORT_FILES
         and any(s in (REPO / path).read_text(encoding="utf-8") for s in stale)
     ]
     assert not hits

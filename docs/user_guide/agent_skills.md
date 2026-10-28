@@ -22,7 +22,9 @@ This copies the skills into `.claude/skills/` of that folder, with the
 Code finds them. Run it again after upgrading SensoryForge to replace the copies with the
 new release's files; it never touches anything else in the folder. For another environment
 use `sensoryforge agents export --target copilot|cursor|codex|generic`
-([Using the Skills in Another Agent](agent_export.md)). Then run the
+([Using the Skills in Another Agent](agent_export.md)), which also covers adding a short
+SensoryForge section to your project's own instruction file (`CLAUDE.md`, `AGENTS.md`, ...).
+Then run the
 [setup](agent_setup.md) once so the skills know how you like to work.
 
 ## The skills

@@ -24,7 +24,10 @@ user whenever a step is unclear instead of guessing.
    never edits the user's own instructions, skills or settings. If your environment shows
    its loaded skills, check that the `sensoryforge-` skills appear; if they do not, say what
    you see and ask the user what to do rather than working around it.
-4. **Offer the next step.** Ask whether to set how the skills work with the user, by running
-   `sensoryforge agents setup` (it asks a few questions and saves the answers). Then say what
-   the user can ask for next: to design a world, build a data set, run a simulation or
-   evaluate the result.
+4. **Offer the next steps.** Ask whether to set how the skills work with the user, by running
+   `sensoryforge agents setup` (it asks a few questions and saves the answers). Ask whether
+   to build or update the project's instruction file (`CLAUDE.md`, `AGENTS.md`,
+   `.github/copilot-instructions.md` or a Cursor rule), which tells you about SensoryForge at
+   the start of every session: if yes, follow `sensoryforge agents prompt instructions`. Then
+   say what the user can ask for next: to design a world, build a data set, run a simulation
+   or evaluate the result.
