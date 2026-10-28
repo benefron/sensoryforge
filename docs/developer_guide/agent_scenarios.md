@@ -94,6 +94,25 @@ scenario checks that its own skill was reached. The default style is the one a n
 gets (a short plan and approval before each step); a scenario that tests the work itself
 sets `pace: auto` so the agent carries on.
 
+### Scenarios that start from a run
+
+The skills after the data set (run, evaluate, interpret, diagnose and the master skill)
+start from files a run leaves behind. A scenario's `setup:` list builds them before the
+agent starts, with `sensoryforge` or `python` only, one argument list per command:
+
+```yaml
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset,
+         tactile_sa1_ra1_adex, --draws, "10", --duration-ms, "80", --seed, "7",
+         --packs, core, --no-checks]
+```
+
+Keep setups small (an 8x8 recipe, a few draws, 80 ms: a few seconds) so a scenario costs
+the agent's run and not the setup's. A scenario that tests a stop ("the cost of the whole
+run is the user's decision", "a sensor is the user's choice") says what the user has
+already approved in its prompt, so that a stop the skill should make is the agent's own
+doing and not a missing instruction.
+
 ### Checks
 
 Each check is a one-key mapping, with an optional `why`. Patterns are regular expressions,

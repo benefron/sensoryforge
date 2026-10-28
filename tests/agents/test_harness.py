@@ -19,14 +19,9 @@ SCENARIOS = h.load_scenarios()
 SHIPPED = sorted(p.parent.name for p in h.SKILLS.glob("*/SKILL.md"))
 BY_SKILL = {name: [s for s in SCENARIOS if s.skill == name] for name in SHIPPED}
 
-#: Skills whose scenarios a later row writes (B9b: run, evaluate, interpret, diagnose
-#: and the master skill; B9c: grounding and setup). The set only shrinks.
+#: Skills whose scenarios a later row writes (B9c: grounding and setup). The set only
+#: shrinks.
 PENDING = {
-    "sensoryforge-run-simulation",
-    "sensoryforge-evaluate",
-    "sensoryforge-interpret-report",
-    "sensoryforge-diagnose",
-    "sensoryforge-workflow",
     "sensoryforge-ground-assumptions",
     "sensoryforge-setup",
 }

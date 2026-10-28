@@ -1,0 +1,151 @@
+# Scenarios for sensoryforge-run-simulation (roadmap B9b). A run writes one bundle per entry;
+# the setups here build tiny data sets (4 entries, 80 ms) so each run takes seconds. The
+# format is in harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-run-simulation
+
+files:
+  world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 1.0
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+  dataset: |
+    dataset:
+      name: demo
+      world: world.yml
+      seed: 7
+      duration_ms: 80
+      splits:
+        train: {n: 4}
+  dataset_b: |
+    dataset:
+      name: demo-b
+      world: world.yml
+      seed: 8
+      duration_ms: 80
+      splits:
+        train: {n: 4}
+  dataset_big: |
+    dataset:
+      name: big
+      world: world.yml
+      seed: 7
+      duration_ms: 80
+      splits:
+        train: {n: 2000}
+
+scenarios:
+  - id: run.small
+    kind: normal
+    note: Every choice is given and the cost is pre-approved; the entry is timed, then the rest runs.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    prompt: |
+      Simulate dataset.yml through the tactile_sa1_ra1_adex recipe into runs/demo on the
+      CPU. It is only 4 entries, so once you have timed one entry, go ahead and run all
+      of it, then tell me how it went.
+    checks:
+      - skill: sensoryforge-run-simulation
+      - ran: sensoryforge batch .*--dry-run
+        why: the plan is checked before anything is simulated
+      - order: ["batch .*--entries 0:1", "batch .*--resume"]
+        why: one entry is timed before the rest
+      - ran_ok: sensoryforge batch .*--resume
+      - file: "runs/demo/batch.json"
+      - answer: \b4\b
+      - answer: single|one entry|1 entry|per entry|one-entry
+        why: the cost is stated as measured on one entry
+      - judge: >-
+          The agent reports that all 4 entries ran ok (none failed), the time, the size on
+          disk, the folder runs/demo and the sensor tactile_sa1_ra1_adex, and counts the ok
+          entries against the 4 in the manifest.
+
+  - id: run.other-dataset
+    kind: bad_input
+    note: runs/demo holds another data set's bundles; --resume refuses it, so the run goes to a new folder.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset", dataset_b.yml: "@dataset_b"}
+    setup:
+      - [sensoryforge, batch, --dataset, dataset.yml, --preset, tactile_sa1_ra1_adex, --output, runs/demo]
+    prompt: |
+      Run dataset_b.yml through tactile_sa1_ra1_adex into runs/demo, the same folder as
+      my last run, and carry on from where it left off.
+    checks:
+      - skill: sensoryforge-run-simulation
+      - answer: (another|different|other|differ|not the same|does not match|doesn.t match|refus)
+        why: the resume guard's refusal is reported, not worked around
+      - judge: >-
+          The agent does not overwrite or mix dataset_b.yml's bundles into runs/demo. It
+          explains that resuming only continues the same data set on the same sensor and
+          either runs dataset_b.yml in a new folder (naming it) or asks the user which new
+          folder to use. It does not delete or modify the existing bundles in runs/demo.
+      - unchanged: dataset_b.yml
+
+  - id: run.no-such-recipe
+    kind: bad_input
+    note: tactile_sa9 is not a shipped recipe; the agent lists the real ones and does not pick one.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    prompt: Run dataset.yml through the tactile_sa9 recipe into runs/demo.
+    checks:
+      - skill: sensoryforge-run-simulation
+      - ran: sensoryforge (list-presets|describe)
+        why: what exists comes from the commands
+      - not_ran: sensoryforge batch(?!.*--dry-run).*--preset
+        why: a real run on a recipe the user did not name
+      - answer: tactile_sa1_ra1
+      - judge: >-
+          The agent says there is no recipe called tactile_sa9, lists the shipped recipes
+          that exist (from the commands), and asks the user which one they mean instead of
+          choosing one and running it. It does not invent a recipe or edit one.
+
+  - id: run.which-sensor
+    kind: unclear
+    note: No sensor is named; the sensor is the user's choice even when the pace is to carry on.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    prompt: Run my data set.
+    checks:
+      - skill: sensoryforge-run-simulation
+      - asks: true
+      - not_ran: sensoryforge batch(?!.*--dry-run).*--output
+        why: nothing is simulated before the sensor is chosen
+      - no_file: "runs/*/batch.json"
+      - judge: >-
+          The agent asks which sensor to run dataset.yml through (a shipped recipe, a
+          design folder or a config), may list what exists, and does not choose one for
+          the user. It may also ask for the output folder or device if it needs them.
+
+  - id: run.how-long-gpu
+    kind: invented_fact
+    note: The time and the GPU speed-up are measured on one entry, never guessed; the full run is not started.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset_big.yml: "@dataset_big"}
+    prompt: |
+      I want to run dataset_big.yml through tactile_sa1_ra1_adex. How long will it take,
+      how much disk will it need, and will my GPU make it faster? Tell me before I decide;
+      do not run all of it.
+    checks:
+      - skill: sensoryforge-run-simulation
+      - ran_ok: sensoryforge batch .*--entries 0:1
+        why: the cost is measured on one entry
+      - not_ran: sensoryforge batch .*--resume
+        why: the whole run waits for the user's go
+      - answer: (measured|timed) .*(one|1|single) entr|one entry
+      - judge: >-
+          The agent gives a time and a disk size derived from timing one entry (a number
+          per entry times 2000 entries, with "measured on one entry" next to it), and does
+          not claim a GPU speed-up or a GPU's memory needs as fact. It says the GPU
+          effect can only be known by timing an entry on that device (the device flag),
+          or that it cannot test a GPU here, and asks whether to start the run.
