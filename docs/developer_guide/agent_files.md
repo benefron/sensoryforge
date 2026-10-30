@@ -29,7 +29,7 @@ one is for, and how many there may be. Change the map here first, then the files
 | `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
 | `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
 | `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched | kept |
-| `.claude/commands/*.md` | maintainers | Claude Code slash commands | kept, trimmed |
+| `.claude/commands/*.md` | maintainers | Claude Code slash commands; `update-agent-docs` is the release-time check below | kept, trimmed; B10 |
 | `docs/` | everyone | people; agents follow links to it | D |
 | `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people | B4 |
 | `docs_root/LEDGER.md` | maintainers | the session digest hook | kept |
@@ -37,7 +37,7 @@ one is for, and how many there may be. Change the map here first, then the files
 
 ## Generated targets (never edited by hand)
 
-Each target is written by one command and checked in CI against its source (B10).
+Each target is written by one command and checked in CI against its source (B10; see [Keeping the agent files current](#keeping-the-agent-files-current)).
 
 | Target | From | Command | Task |
 |---|---|---|---|
@@ -104,7 +104,7 @@ Each target is written by one command and checked in CI against its source (B10)
 | Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (16 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
-| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands |
+| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires in C2) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
 Shipped so far: setup (B1b); design-and-plan and design-world (B6a); build-dataset,
@@ -115,3 +115,33 @@ ground-assumptions (B7); extend-pipeline (every pipeline component kind), extend
 (world registries and another modality's class kinds) and extend-evaluation (the
 evaluation seams) (C2); and the plugin lifecycle (C3). A task that would pass a limit
 merges skills or raises the limit here first, with the reason.
+
+## Keeping the agent files current
+
+Stale instructions mislead more than none, so two checks keep the files true to the code
+(B10). The first is deterministic and runs in CI on every push; the second is an agent's
+judgement and runs when a release is prepared.
+
+**What CI fails on.** All of this runs in the ordinary test suite (`pytest -m "not gui"`),
+so a rename or removal in the code fails the pull request that makes it:
+
+| What a skill, prompt or section names | Test |
+|---|---|
+| a `sensoryforge` command, subcommand or flag (every command in a body is parsed by the real CLI parser) | `tests/unit/test_agent_skills.py` |
+| a docs page or anchor, another skill, a path that exists only in a clone | `tests/unit/test_agent_skills.py` |
+| a preset (`--preset`), a metric pack (`--packs`), a metric id (`core.frames.peak`), a world `kind:` or `dist:`, a `neuron_model:`, `filter_method:` or `innervation_method:` | `tests/unit/test_agent_names.py` (the names are read from the live registries by `sensoryforge.testing.agent_names`) |
+| the worked example (it is run) | `tests/unit/test_agent_skills.py` |
+| the glossary copy, `llms.txt`, the export targets and the instruction-file section | `tests/unit/test_front_door.py`, `test_agent_glossary.py`, `test_agent_export.py` |
+| the file-count budget below | `tests/unit/test_agent_skills.py` |
+
+A placeholder (`NAME`, `<pack>`) is not a name. A new kind of name a skill starts to use is
+one more category in `agent_names.py`, with a test that a made-up name is caught.
+
+**What an agent checks at a release.** A test cannot see a step that has become wrong, a
+new option a step should ask about or a word that changed its meaning. The maintainer
+command `/update-agent-docs` ([release checklist](release_checklist.md)) has an agent compare
+the skills and prompts with what changed since the previous tag (`git diff` and `git log`),
+group the changes by area, and propose the smallest edit for each affected line, citing the
+commit. It edits nothing until the maintainer approves, and it re-runs the scenarios
+([agent scenarios](agent_scenarios.md)) of every skill it changed. Skills name commands,
+registries and pages instead of copying their facts (rule 1), so most releases need no edit.

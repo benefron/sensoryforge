@@ -166,6 +166,7 @@ nav:
     - Agent Files: developer_guide/agent_files.md
     - Agent Scenarios: developer_guide/agent_scenarios.md
     - File Headers: developer_guide/file_headers.md
+    - Release Checklist: developer_guide/release_checklist.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 

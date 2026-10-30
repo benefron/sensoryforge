@@ -81,7 +81,9 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 - [Evaluation Pipeline](https://benefron.github.io/sensoryforge/developer_guide/pipeline_stage/)
 - [Evaluation Server](https://benefron.github.io/sensoryforge/developer_guide/evaluation_server/)
 - [Agent Files](https://benefron.github.io/sensoryforge/developer_guide/agent_files/)
+- [Agent Scenarios](https://benefron.github.io/sensoryforge/developer_guide/agent_scenarios/)
 - [File Headers](https://benefron.github.io/sensoryforge/developer_guide/file_headers/)
+- [Release Checklist](https://benefron.github.io/sensoryforge/developer_guide/release_checklist/)
 - [Equation DSL Implementation](https://benefron.github.io/sensoryforge/EQUATION_DSL_IMPLEMENTATION/)
 - [Roadmap](https://benefron.github.io/sensoryforge/developer_guide/roadmap_v1/)
 
