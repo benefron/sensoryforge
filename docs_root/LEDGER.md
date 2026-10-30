@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-47468a5 · CLOSED · decision · - · 2026-10-30
+the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
+→ commit ecfe48d
+
+## F-7a38ca9 · STANDING · finding · - · 2026-10-30
+commands, flags, links, skills named, the worked example, the glossary copy, llms.txt, the export targets and the file budget were already tested; the gap B10 closes is registered names.
+→ commit ecfe48d
+
 ## F-ba908db · STANDING · finding · - · 2026-10-28
 two `run.py --scenario` processes sharing one --root race while building the install (FileExistsError in root/src); runs through --skill are sequential in one process
 → commit 935ce5c
