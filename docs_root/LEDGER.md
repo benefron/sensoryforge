@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-fa93e4b · STANDING · finding · - · 2026-10-30
+the baseline of the 64 agent scenarios is 46 passing; the failures are one run of one model each.
+→ commit 7d3db72
+
+## F-725b89c · OPEN · finding · - · 2026-10-30
+the ground-assumptions skill is not loaded for a number with no unit or a value far out of range, so the unit is guessed and written as given by the user (ground.no-unit, ground.out-of-range)
+→ commit 7d3db72
+
+## F-a920f84 · OPEN · finding · - · 2026-10-30
+the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
+→ commit 7d3db72
+
 ## D-47468a5 · CLOSED · decision · - · 2026-10-30
 the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
 → commit ecfe48d
@@ -123,14 +135,17 @@ two `run.py --scenario` processes sharing one --root race while building the ins
 ## F-48955f0 · OPEN · finding · - · 2026-10-28
 eval.which-packs: told to use "whichever packs are right", the agent ran --packs core,tactile; the evaluate skill says the pack is the user's but not what to do with that wording
 → commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
 ## F-c386cd4 · OPEN · finding · - · 2026-10-28
 flow.realistic-fingertip: under "carry on without asking" the agent wrote fingertip radii, indentations and timings from memory into world.yml as proposals; the workflow skill does not say a proposal file counts as inventing
 → commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
 ## F-bf830fd · OPEN · finding · - · 2026-10-28
 flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
 → commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
 ## F-de2bdf1 · OPEN · finding · - · 2026-10-28
 interpret-report slips: report.typical-rate called 1 spike/s "too low", report.no-such-metric described what a missing metric would mean, report.latency cannot say what it measures without the contract page (the harness has no web)
@@ -143,6 +158,7 @@ run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say
 ## F-2901a8e · OPEN · finding · - · 2026-10-28
 diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
 → commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
 ## D-cab78f0 · CLOSED · decision · - · 2026-10-28
 skills are tested by fresh `claude -p` agents from a wheel installed into a throwaway venv in an empty folder, with project settings only, a tool allowlist and every other permission prompt refused (never bypassed), scored by command, answer, file and judge checks; live runs are opt-in, the offline half runs everywhere
@@ -155,6 +171,7 @@ the first full run of the 17 B9a scenarios on Sonnet passed 15, at about 0.07 US
 ## F-796f541 · OPEN · finding · - · 2026-10-28
 asked to check an existing world file, a fresh agent validated it correctly without loading sensoryforge-design-world or reading the brief, because the skill's description covers designing and changing a world but not checking one (scenario world.zero-sigma)
 → commit c947f21
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
 ## F-d1056b6 · OPEN · finding · - · 2026-10-28
 with a session budget set, the plan skill named the budget only as a contingency instead of splitting the plan into sessions and saying where each stops, as its step 4 asks (scenario plan.session-budget)
