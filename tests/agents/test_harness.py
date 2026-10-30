@@ -18,13 +18,17 @@ from tests.agents import harness as h
 SCENARIOS = h.load_scenarios()
 SHIPPED = sorted(p.parent.name for p in h.SKILLS.glob("*/SKILL.md"))
 BY_SKILL = {name: [s for s in SCENARIOS if s.skill == name] for name in SHIPPED}
-
-#: Skills whose scenarios a later row writes (B9c: grounding and setup). The set only
-#: shrinks.
-PENDING = {
-    "sensoryforge-ground-assumptions",
-    "sensoryforge-setup",
+#: The shipped prompts a user gives an agent, which have scenarios of their own.
+PROMPTS = sorted(p.stem for p in h.PROMPTS.glob("*.md"))
+BY_PROMPT = {
+    name: [s for s in SCENARIOS if s.skill == h.PROMPT_PREFIX + name]
+    for name in PROMPTS
 }
+SKILL_SCENARIOS = [s for s in SCENARIOS if not s.skill.startswith(h.PROMPT_PREFIX)]
+PROMPT_SCENARIOS = [s for s in SCENARIOS if s.skill.startswith(h.PROMPT_PREFIX)]
+
+#: Skills whose scenarios a later row writes. The set only shrinks (empty since B9c).
+PENDING: set = set()
 
 
 # ------------------------------------------------------------------ the scenario files
@@ -44,14 +48,29 @@ def test_every_skill_has_several_scenarios_of_every_kind(name):
     assert len(BY_SKILL[name]) >= len(h.KINDS)
 
 
-@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.id)
+@pytest.mark.parametrize("name", PROMPTS)
+def test_every_shipped_prompt_has_several_scenarios_of_every_kind(name):
+    kinds = {s.kind for s in BY_PROMPT[name]}
+    assert kinds == set(h.KINDS), f"{name} lacks {set(h.KINDS) - kinds}"
+    assert all(s.bare or name == "instructions" for s in BY_PROMPT[name])
+
+
+@pytest.mark.parametrize("scenario", PROMPT_SCENARIOS, ids=lambda s: s.id)
+def test_a_prompt_scenario_hands_the_agent_the_whole_prompt(scenario):
+    name = scenario.skill[len(h.PROMPT_PREFIX) :]
+    text = (h.PROMPTS / f"{name}.md").read_text().strip()
+    assert text in scenario.prompt
+    assert "@prompt" not in scenario.prompt
+
+
+@pytest.mark.parametrize("scenario", SKILL_SCENARIOS, ids=lambda s: s.id)
 def test_a_scenario_checks_that_its_own_skill_was_reached(scenario):
     skills = [c["skill"] for c in scenario.rubric() if h.check_kind(c) == "skill"]
     assert scenario.skill in skills
     assert all((h.SKILLS / name / "SKILL.md").is_file() for name in skills)
 
 
-@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.id)
+@pytest.mark.parametrize("scenario", SKILL_SCENARIOS, ids=lambda s: s.id)
 def test_a_prompt_is_in_a_users_words_not_the_skills_name(scenario):
     """Skills are found by meaning, so a prompt never names one."""
     for text in [scenario.prompt, *scenario.replies]:
@@ -451,3 +470,25 @@ def test_a_workspace_is_a_plain_install_with_the_skills_and_the_style(tmp_path):
     assert "carry on" in brief.stdout.lower() or "automatic" in brief.stdout.lower()
     assert str(h.REPO) not in brief.stdout
     assert not (ws.path / "tests").exists() and not (ws.path / "docs").exists()
+
+
+def test_file_checks_see_the_export_folders_only_in_a_bare_workspace(tmp_path):
+    (tmp_path / ".claude" / "skills").mkdir(parents=True)
+    (tmp_path / ".claude" / "skills" / "x.md").write_text("x")
+    scenario = _scenario({"file": ".claude/skills/*.md"}, skip=("ran", "no_repo_paths"))
+    plain = h.score(scenario, _transcript(), h.Workspace(path=tmp_path, before={}))
+    bare = h.score(
+        scenario, _transcript(), h.Workspace(path=tmp_path, before={}, bare=True)
+    )
+    assert plain[0].passed is False
+    assert bare[0].passed is True
+
+
+def test_a_prompt_file_is_pasted_into_the_scenarios_that_name_it(tmp_path):
+    (tmp_path / "p.yml").write_text(
+        "prompt: generic\nscenarios:\n"
+        "  - {id: p.a, kind: normal, bare: true, prompt: 'Do this. @prompt'}\n"
+    )
+    (scenario,) = h.load_scenarios(tmp_path)
+    assert scenario.skill == "prompt:generic" and scenario.bare
+    assert scenario.prompt.startswith("Do this. You are an AI coding agent")

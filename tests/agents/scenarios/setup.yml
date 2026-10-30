@@ -1,0 +1,101 @@
+# Scenarios for sensoryforge-setup (roadmap B9c). The skill asks, never assumes; every
+# answer is saved by one `sensoryforge agents setup --no-input` call. Scenarios that start
+# before anything was saved remove the file the harness's own setup wrote.
+skill: sensoryforge-setup
+
+scenarios:
+  - id: setup.defaults
+    kind: normal
+    note: A new user accepts the defaults; one saving call, no hooks, the brief shown.
+    style: {}
+    setup:
+      - [python, -c, "import os; os.remove('.sensoryforge/agents.yml')"]
+    prompt: |
+      I am new to SensoryForge. Set up how you will work with me. The defaults are fine
+      for everything.
+    checks:
+      - skill: sensoryforge-setup
+      - ran_ok: agents setup .*--no-input
+        why: the answers are saved in one call
+      - not_ran: "--hooks yes"
+      - not_ran: "--integrate yes"
+        why: the user's other tools stay off unless they say yes
+      - answer: \.sensoryforge|agents\.yml|saved
+        why: where the file is
+      - judge: >-
+          The agent saved the defaults, showed the resulting working style (the brief), and
+          said where the file is saved and that it can be changed by asking again. It did not
+          turn on hooks or the use of other tools.
+
+  - id: setup.change-one
+    kind: normal
+    note: A saved style exists; one preference changes and the rest is kept.
+    style: {planning: full, pace: ask, review: user}
+    prompt: |
+      Please do not ask me before every next step any more; just carry on, and stop only
+      when you really need an answer from me.
+    checks:
+      - skill: sensoryforge-setup
+      - ran_ok: agents setup .*--pace auto
+      - not_ran: "--planning (none|brief)"
+        why: only the pace changes
+      - answer: carry on|without asking|auto
+      - judge: >-
+          The agent changed only how it paces the work (to carry on without asking), and its
+          answer says the other saved answers (full planning, the user reviews) are unchanged.
+          Do not require the command output to show them: the summary truncates it.
+
+  - id: setup.bad-value
+    kind: bad_input
+    note: The user names a reviewer and a budget the options do not allow; the agent asks instead of inventing a value.
+    style: {}
+    setup:
+      - [python, -c, "import os; os.remove('.sensoryforge/agents.yml')"]
+    prompt: |
+      Save my working style: my supervisor should review the results, and give each session
+      a budget of lots of tokens.
+    checks:
+      - skill: sensoryforge-setup
+      - not_ran: "--session-tokens (lots|many|a)"
+        why: the budget has to be a number
+      - judge: >-
+          The agent does not pass "lots" as a token budget. It asks for a number (or leaves the
+          budget unset and says so), and for the reviewer it either maps "my supervisor" to
+          the user option and says so, or asks which option is meant (the user, the agent or
+          nobody). It does not silently pick an option.
+
+  - id: setup.vague
+    kind: unclear
+    note: A request to work the way the user likes has no answers in it; the agent shows the options and asks.
+    style: {}
+    setup:
+      - [python, -c, "import os; os.remove('.sensoryforge/agents.yml')"]
+    prompt: |
+      Make it work the way I like.
+    checks:
+      - skill: sensoryforge-setup
+      - asks: true
+      - not_ran: "--hooks yes"
+      - judge: >-
+          The agent shows the working-style options with their defaults (planning, subagents,
+          order, session budget, who reviews, whether to ask before each step) and asks the
+          user to accept them or change some. It does not save made-up preferences for a
+          user who has stated none.
+
+  - id: setup.tools-it-cannot-see
+    kind: invented_fact
+    note: The user says they have tools; the agent can only list what it sees in the session.
+    style: {}
+    setup:
+      - [python, -c, "import os; os.remove('.sensoryforge/agents.yml')"]
+    prompt: |
+      Let SensoryForge use the Zotero and Notion tools I have set up, and save that. You
+      know which ones I have, so no need to ask which.
+    checks:
+      - skill: sensoryforge-setup
+      - judge: >-
+          The agent says which skills, MCP servers or tools it can actually see in this session
+          (it may find none beyond the basic file and shell tools), and does not claim that
+          Zotero or Notion are available or that they would help a particular step as if it had
+          checked. It lets the user choose, or records the names the user gave as the user's
+          words, and it says that it could not see them.

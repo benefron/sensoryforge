@@ -62,6 +62,11 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 SCENARIOS = Path(__file__).resolve().parent / "scenarios"
 SKILLS = REPO / "sensoryforge" / "agents" / "skills"
+PROMPTS = REPO / "sensoryforge" / "agents" / "prompts"
+
+#: A scenario file for a shipped prompt (the user pastes it to their agent) has this
+#: prefix in its ``skill`` field, then the prompt's file stem.
+PROMPT_PREFIX = "prompt:"
 
 #: The kinds of scenario every skill must have at least one of.
 KINDS = ("normal", "bad_input", "unclear", "invented_fact")
@@ -167,7 +172,8 @@ class Scenario:
 
     Attributes:
         id: Unique id, ``<skill short name>.<what>``.
-        skill: The skill the request should reach (the folder name under ``skills/``).
+        skill: The skill the request should reach (the folder under ``skills/``), or
+            ``prompt:NAME`` for a shipped prompt the user gives an agent (``prompts/``).
         kind: One of :data:`KINDS`.
         prompt: The user's first message, in a user's words.
         replies: The user's later messages, one turn each, sent whatever the agent said.
@@ -178,6 +184,8 @@ class Scenario:
         checks: The rubric, a list of one-key mappings (:data:`CHECK_KINDS`), each with
             an optional ``why``.
         allow: Extra tools for this scenario (``WebSearch``, ``WebFetch``, ...).
+        bare: Start before any export: the folder holds no skills and no saved working
+            style, for the scenarios of the export prompts.
         skip_defaults: Default checks to leave out, by kind.
         note: Why the scenario exists, for the report.
     """
@@ -192,6 +200,7 @@ class Scenario:
     setup: List[List[str]] = field(default_factory=list)
     checks: List[Dict[str, Any]] = field(default_factory=list)
     allow: List[str] = field(default_factory=list)
+    bare: bool = False
     skip_defaults: List[str] = field(default_factory=list)
     note: str = ""
 
@@ -251,6 +260,7 @@ def _scenario(raw: Dict[str, Any], skill: str, source: Path) -> Scenario:
         setup=setup,
         checks=checks,
         allow=[str(t) for t in raw.get("allow") or []],
+        bare=bool(raw.get("bare", False)),
         skip_defaults=[str(k) for k in raw.get("skip_defaults") or []],
         note=str(raw.get("note") or "").strip(),
     )
@@ -259,9 +269,10 @@ def _scenario(raw: Dict[str, Any], skill: str, source: Path) -> Scenario:
 def load_scenarios(folder: Path = SCENARIOS) -> List[Scenario]:
     """Every scenario in ``folder``, one YAML file per skill.
 
-    A file holds ``skill: <name>`` and ``scenarios: [...]``; shared file texts can sit
-    under ``files:`` at the top and are referred to as ``"@name"`` in a scenario's own
-    ``files``.
+    A file holds ``skill: <name>`` (or ``prompt: <name>`` for a shipped prompt) and
+    ``scenarios: [...]``; shared file texts can sit under ``files:`` at the top and are
+    referred to as ``"@name"`` in a scenario's own ``files``. In a prompt file, the text
+    ``@prompt`` in a scenario's prompt or replies is replaced by the prompt's text.
 
     Raises:
         ValueError: on a malformed file, an unknown skill or a repeated id.
@@ -270,7 +281,14 @@ def load_scenarios(folder: Path = SCENARIOS) -> List[Scenario]:
     for path in sorted(folder.glob("*.yml")):
         doc = yaml.safe_load(path.read_text()) or {}
         skill = doc.get("skill")
-        if not skill or not (SKILLS / skill / "SKILL.md").is_file():
+        prompt_text = None
+        if doc.get("prompt"):
+            prompt_file = PROMPTS / f"{doc['prompt']}.md"
+            if not prompt_file.is_file():
+                raise ValueError(f"{path}: 'prompt' must name a shipped prompt")
+            skill = PROMPT_PREFIX + str(doc["prompt"])
+            prompt_text = prompt_file.read_text().strip()
+        elif not skill or not (SKILLS / skill / "SKILL.md").is_file():
             raise ValueError(
                 f"{path}: 'skill' must name a shipped skill, got {skill!r}"
             )
@@ -286,6 +304,17 @@ def load_scenarios(folder: Path = SCENARIOS) -> List[Scenario]:
                         )
                     text = shared[text[1:]]
                 files[str(name)] = text
+            if prompt_text is not None:
+                raw = {
+                    **raw,
+                    "prompt": str(raw.get("prompt", "")).replace(
+                        "@prompt", prompt_text
+                    ),
+                    "replies": [
+                        str(r).replace("@prompt", prompt_text)
+                        for r in raw.get("replies") or []
+                    ],
+                }
             out.append(_scenario({**raw, "files": files}, skill, path))
     ids = [s.id for s in out]
     repeated = sorted({i for i in ids if ids.count(i) > 1})
@@ -452,10 +481,13 @@ class Workspace:
     Attributes:
         path: The folder (the agent's working directory).
         before: Each file the scenario wrote, name to text, for ``unchanged`` checks.
+        bare: True when no skills or working style were put there, so the file checks
+            also see ``.claude/`` and ``.sensoryforge/`` (an export scenario's result).
     """
 
     path: Path
     before: Dict[str, str]
+    bare: bool = False
 
 
 def _run_setup(
@@ -480,11 +512,15 @@ def prepare_workspace(scenario: Scenario, install: Install, parent: Path) -> Wor
     """
     path = parent / f"sf-agent-{scenario.id.replace('.', '-')}-{uuid.uuid4().hex[:6]}"
     path.mkdir(parents=True)
-    steps = [["sensoryforge", "agents", "export", "--target", "claude", "--dest", "."]]
-    flags = ["--no-input", "--path", ".sensoryforge/agents.yml"]
-    for key, value in scenario.style.items():
-        flags += [f"--{key}", value]
-    steps.append(["sensoryforge", "agents", "setup", *flags])
+    steps: List[List[str]] = []
+    if not scenario.bare:
+        steps.append(
+            ["sensoryforge", "agents", "export", "--target", "claude", "--dest", "."]
+        )
+        flags = ["--no-input", "--path", ".sensoryforge/agents.yml"]
+        for key, value in scenario.style.items():
+            flags += [f"--{key}", value]
+        steps.append(["sensoryforge", "agents", "setup", *flags])
     for name, text in scenario.files.items():
         target = path / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -495,7 +531,7 @@ def prepare_workspace(scenario: Scenario, install: Install, parent: Path) -> Wor
             raise RuntimeError(
                 f"{scenario.id}: setup {argv} failed:\n{done.stderr[-1500:]}"
             )
-    return Workspace(path=path, before=dict(scenario.files))
+    return Workspace(path=path, before=dict(scenario.files), bare=scenario.bare)
 
 
 # ------------------------------------------------------------------ transcripts
@@ -965,7 +1001,7 @@ def score(
 
 
 def _files(workspace: Workspace) -> List[str]:
-    skip = (".claude/", ".sensoryforge/")
+    skip = () if workspace.bare else (".claude/", ".sensoryforge/")
     return sorted(
         p.relative_to(workspace.path).as_posix()
         for p in workspace.path.rglob("*")

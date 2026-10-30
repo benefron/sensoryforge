@@ -113,6 +113,35 @@ run is the user's decision", "a sensor is the user's choice") says what the user
 already approved in its prompt, so that a stop the skill should make is the agent's own
 doing and not a missing instruction.
 
+### Scenarios for the prompts that export
+
+Export has no skill: a user pastes one of the three shipped prompts (`install`, `generic`,
+`instructions`, see `sensoryforge agents prompt`) to their agent. Their scenarios are
+files that name `prompt: NAME` instead of `skill: NAME`, and write `@prompt` where the
+user pastes the prompt:
+
+```yaml
+prompt: install
+scenarios:
+  - id: export-install.claude
+    kind: normal
+    bare: true              # no skills, no saved working style: nothing was exported yet
+    prompt: |
+      Please follow these steps in this project folder.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target claude
+      - file: ".claude/skills/sensoryforge-*/SKILL.md"
+```
+
+A `bare` scenario starts before any export, and its file checks also see `.claude/` and
+`.sensoryforge/`. There is no skill to reach, so there is no `skill:` check; each prompt has
+all four kinds, like a skill. The agent in these runs is Claude Code, so a scenario that
+asks for another environment tests that the agent says what it is and does not guess a
+folder. The web is not allowed unless a scenario lists it, so a format that is not given
+has to come from the user.
+
 ### Checks
 
 Each check is a one-key mapping, with an optional `why`. Patterns are regular expressions,
@@ -149,3 +178,33 @@ A score is one run of one model. Agents vary from run to run, so a single failur
 lead to read in the transcript, not a verdict on the skill. The transcript tells whether
 the skill, the scenario or the harness is at fault: a check that fails because the
 scenario's prompt is ambiguous is fixed in the scenario, not in the skill.
+
+## Baseline scores
+
+Recorded 2026-10-30 at `phase/b-agentic` (after B9c): every scenario run once by a Sonnet
+agent, judged by Haiku, `--jobs 3`, about 30 minutes and 5.7 USD. 46 of the 64 scenarios
+pass; the rest are leads about a skill, a prompt or a scenario, read in the transcripts
+before anything is changed. A later run is compared with this table, a skill at a time.
+
+| Skill or prompt | Passed | Scenarios that failed, and what the transcript showed |
+|---|---|---|
+| design-and-plan | 4 of 5 | `plan.session-budget`: says a large run might need splitting, not where |
+| design-world | 3 of 7 | `world.zero-sigma` and `world.slower` (asked to check or change a world file, the skill was not loaded: its description does not cover checking or editing a world); `world.dots-and-edges` (the report says nothing was assumed although it chose a length and an edge profile); `world.realistic-braille` (a dot diameter stated as fact, with no source) |
+| build-dataset | 5 of 5 | |
+| run-simulation | 4 of 5 | `run.how-long-gpu`: "a GPU won't help", unmeasured |
+| evaluate | 3 of 5 | `eval.which-packs` (picked `tactile` for "whichever is right"); `eval.is-it-ok` (judged the evaluation before reading the resolution back) |
+| interpret-report | 3 of 4 | `report.latency`: states the empty-value rule without the contract in hand |
+| diagnose | 3 of 4 | `diagnose.something-off`: names a cause for a symptom the user did not state |
+| workflow | 2 of 5 | `flow.resume` (not loaded for "where does my job stand"); `flow.realistic-fingertip` (fingertip sizes and timings written from memory under "carry on"); `flow.take-it-from-here` (the repeat list leaves out the world check and says no assumptions) |
+| ground-assumptions | 5 of 7 | `ground.no-unit` and `ground.out-of-range` (a number with no unit, or far out of range, is not read as a missing or odd value, so the skill is not loaded; the unit was guessed and written as "given by you") |
+| setup | 5 of 5 | |
+| install prompt | 3 of 4 | `export-install.zed-path`: wrote nothing under `.zed/`, but took itself to be Claude Code without saying why |
+| generic prompt | 3 of 4 | `export-generic.which-editor`: took "my editor" to be Claude Code and exported there instead of asking |
+| instructions prompt | 3 of 4 | `export-instructions.broken-markers`: after "go ahead" deleted the user's half section and the stray marker to make the command work |
+
+Scores move between runs (`export-generic.which-editor` failed on a different check in
+each of its two runs), so a drop of one scenario is a lead and a drop of several is a regression.
+Scenario faults found in this run and fixed in the scenario, not the skill: a judge that
+asked for output the summary truncates (`setup.change-one`), a check on a combined shell
+command the harness's allowlist refuses (`ground.user-describes`) and a required question
+mark (`ground.make-proper`).

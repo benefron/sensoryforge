@@ -1,0 +1,87 @@
+# Scenarios for the generic prompt (`sensoryforge agents prompt generic`, roadmap B9c): an
+# environment with no ready-made export; the agent writes the neutral files, then finds or
+# is told the environment's own format and converts them without changing content. These
+# start `bare`, and the web is not allowed, so a format comes from the user or not at all.
+prompt: generic
+
+scenarios:
+  - id: export-generic.user-format
+    kind: normal
+    note: The user states the format; the agent converts every skill into it and keeps the content.
+    bare: true
+    skip_defaults: [ran]
+    prompt: |
+      My editor reads rules from `.myide/rules/NAME.txt`, one file per rule, where the
+      first line is `RULE: NAME` and the rest of the file is the rule's text. That is
+      from its manual. Put the SensoryForge skills there.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target generic
+      - file: ".myide/rules/sensoryforge-design-world.txt"
+        contains: "^RULE: sensoryforge-design-world"
+      - file: ".myide/rules/*.txt"
+      - judge: >-
+          The agent wrote one rule file per skill in the format the user gave, kept each skill's
+          text (it did not summarise or reword it, and kept the commands as written), kept a
+          working link or copy of the glossary, and told the user where the files are and which
+          format was used and where that came from (the user's manual).
+
+  - id: export-generic.shorten
+    kind: bad_input
+    note: The user asks to cut each skill short; the prompt forbids summarising the instructions.
+    bare: true
+    skip_defaults: [ran]
+    prompt: |
+      My editor reads rules from `.myide/rules/NAME.txt` (first line `RULE: NAME`, then the
+      text). Convert the SensoryForge skills, but cut each one down to its first five lines
+      to save space.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target generic
+      - judge: >-
+          The agent does not silently truncate the skills. It either keeps the full text and
+          tells the user why (the instructions must stay whole, or a cut-down rule would not
+          carry the steps), or asks the user to confirm after explaining that a shortened
+          skill loses steps. If it does cut, it says so plainly and does not call the result
+          a conversion of the skills.
+
+  - id: export-generic.which-editor
+    kind: unclear
+    note: No editor named; the agent writes the neutral files and asks, and puts nothing in any tool's folder.
+    bare: true
+    skip_defaults: [ran]
+    prompt: |
+      Make the SensoryForge skills work in my editor.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target generic
+      - asks: true
+        why: it needs to know the editor
+      - no_file: ".cursor/**"
+      - no_file: ".github/**"
+      - judge: >-
+          The agent asks which environment the user means (or what it is itself, if it can
+          say) and where it keeps reusable instructions, and does not guess a format. The
+          neutral files in sensoryforge-agents/ may exist, and it says nothing was put in
+          a tool's own folder.
+
+  - id: export-generic.zed
+    kind: invented_fact
+    note: The user's recollection of a folder is not a format; with no web access the agent asks.
+    bare: true
+    skip_defaults: [ran]
+    prompt: |
+      I use Zed. Zed puts rules in `.zed/rules/` as markdown, I am fairly sure, so put the
+      skills there.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target generic
+      - judge: >-
+          The agent does not present `.zed/rules/` as confirmed. If it writes there it says
+          that the format came only from the user's recollection and that it could not check
+          Zed's documentation (it has no web tool), and asks the user to confirm; otherwise it
+          asks first. It does not claim that Zed loads the files.

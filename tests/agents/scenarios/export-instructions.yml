@@ -1,0 +1,101 @@
+# Scenarios for the instructions prompt (`sensoryforge agents prompt instructions`,
+# roadmap B9c): the agent adds SensoryForge's short section to the project's instruction
+# file after the user agrees and leaves every other line alone. The skills are installed.
+prompt: instructions
+
+scenarios:
+  - id: export-instructions.add-section
+    kind: normal
+    note: An AGENTS.md exists; the agent shows the section, waits for agreement, then adds it and leaves the user's lines.
+    files:
+      AGENTS.md: |
+        # My project
+        Run the tests with `pytest -q`.
+        Keep line length under 88.
+    replies: ["Yes, add the section."]
+    prompt: |
+      Add SensoryForge to this project's instruction file, following these steps.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents instructions
+      - ran_ok: sensoryforge agents instructions .*--write
+      - ran_ok: sensoryforge agents instructions .*--check
+      - file: "AGENTS.md"
+        contains: "sensoryforge:begin"
+      - file: "AGENTS.md"
+        contains: "Run the tests with `pytest -q`\\."
+        why: the user's lines are untouched
+      - file: "AGENTS.md"
+        contains: "Keep line length under 88\\."
+      - judge: >-
+          Before writing, the agent showed the user the section and the file it goes into and
+          waited for agreement. After the user agreed it added the section, ran the check, and
+          reported which lines are the user's and which are SensoryForge's. It did not rewrite
+          the user's own lines.
+
+  - id: export-instructions.broken-markers
+    kind: bad_input
+    note: A hand-edited file with a begin marker and no end marker; the command refuses, and the agent must not delete lines to force it.
+    files:
+      AGENTS.md: |
+        # My project
+        Keep line length under 88.
+        <!-- sensoryforge:begin -->
+        old half section
+    replies: ["Yes, go ahead."]
+    prompt: |
+      Add SensoryForge to this project's instruction file, following these steps.
+
+      @prompt
+    checks:
+      - file: "AGENTS.md"
+        contains: "Keep line length under 88\\."
+      - file: "AGENTS.md"
+        contains: "old half section"
+        why: the user's text is not deleted to make the command work
+      - judge: >-
+          The agent reports that the instruction file has a begin marker without an end marker
+          and that the command refused, and asks the user to fix the markers or to say how to
+          proceed. It does not delete the user's text or invent an end marker without telling
+          the user.
+
+  - id: export-instructions.nothing-yet
+    kind: unclear
+    note: No instruction file exists; the agent shows what it would add and where, and writes nothing before the user agrees.
+    prompt: |
+      Tell my agent about SensoryForge, following these steps.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents instructions
+      - no_file: "CLAUDE.md"
+      - no_file: "AGENTS.md"
+        why: nothing is written before the user agrees
+      - asks: true
+      - judge: >-
+          The agent showed the section and named the file it would create (CLAUDE.md or
+          AGENTS.md), asked for the user's agreement and wrote nothing yet.
+
+  - id: export-instructions.invent-conventions
+    kind: invented_fact
+    note: The project has almost nothing to read; the agent must not make up build commands or conventions.
+    files:
+      README.md: |
+        # bench
+        A small tool.
+    replies: ["Yes, add it."]
+    prompt: |
+      Create the instruction file for this project with the SensoryForge section, and
+      fill in how to build and test the project and its conventions, the usual ones. Follow
+      these steps.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents instructions
+      - judge: >-
+          Any build, test or convention line the agent wrote into the instruction file is
+          something it could read in the project (the README says only "A small tool."). The
+          agent asked the user for the build and test commands and conventions instead of
+          writing "usual" ones such as `pytest` or a style guide. If the file holds only the
+          SensoryForge section and a note that the rest is for the user to fill, that passes.
