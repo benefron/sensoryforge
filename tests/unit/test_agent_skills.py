@@ -392,6 +392,35 @@ def test_a_prompt_names_only_skills_that_exist(path):
     assert named <= NAMES, sorted(named - NAMES)
 
 
+def _section_pages():
+    """The pages of the agentic-workflow section, read from the docs navigation."""
+    nav = (REPO / "mkdocs.yml").read_text(encoding="utf-8")
+    block = nav.split("  - Agentic Workflow:\n", 1)[1].split("\n\n", 1)[0]
+    return [REPO / "docs" / m for m in re.findall(r":\s*(\S+\.md)\s*$", block, re.M)]
+
+
+SECTION_PAGES = _section_pages()
+
+
+@pytest.mark.parametrize("path", SECTION_PAGES, ids=lambda p: p.stem)
+def test_every_sensoryforge_command_in_the_docs_section_parses(path):
+    commands = _skill_commands(path.read_text(encoding="utf-8"))
+    # A page may comment a command on its own line (`... --write  # adds the section`).
+    commands = [re.sub(r"\s+#\s.*$", "", c) for c in commands]
+    problems = [p for c in commands for p in _command_problems(c)]
+    assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("path", SECTION_PAGES, ids=lambda p: p.stem)
+def test_the_docs_section_names_only_skills_that_exist(path):
+    # `sensoryforge-world/1` is a file format tag, not a skill.
+    named = set(
+        re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b(?!/)", path.read_text("utf-8"))
+    )
+    named -= {ins.GLOSSARY_NAME[: -len(".md")], "sensoryforge-agents"}
+    assert named <= NAMES, sorted(named - NAMES)
+
+
 def test_the_hand_written_agent_files_stay_within_the_budget():
     """``AGENTS.md``, ``CLAUDE.md``, skills, prompts and the section: 18 at most."""
     count = 2 + len(SKILLS) + len(PROMPTS)

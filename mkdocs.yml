@@ -135,12 +135,19 @@ nav:
     - Evaluating a World: user_guide/evaluate_pipeline.md
     - Evaluation Browser: user_guide/evaluation_browser.md
     - Sharing a Snapshot: user_guide/evaluation_export.md
-    - Working with a Coding Agent: user_guide/agent_setup.md
-    - Skills for a Coding Agent: user_guide/agent_skills.md
-    - Using the Skills in Another Agent: user_guide/agent_export.md
+
+  - Agentic Workflow:
+    - Overview and Five-minute Start: agents/index.md
+    - Setup: user_guide/agent_setup.md
+    - Skills: user_guide/agent_skills.md
+    - Skills Reference: agents/skills_reference.md
+    - Rules for Agents: agents/rules.md
     - Designing a World by Describing It: user_guide/agent_design_loop.md
+    - Using the Skills in Another Agent: user_guide/agent_export.md
     - Glossary: agents/glossary.md
     - Task Index: agents/task_index.md
+    - Design Decisions: agents/decisions.md
+    - Extending It: agents/extending.md
 
   - Developer Guide:
     - Architecture Notes: developer_guide/architecture_notes.md

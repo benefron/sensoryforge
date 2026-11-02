@@ -51,12 +51,20 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 - [Evaluating a World](https://benefron.github.io/sensoryforge/user_guide/evaluate_pipeline/)
 - [Evaluation Browser](https://benefron.github.io/sensoryforge/user_guide/evaluation_browser/)
 - [Sharing a Snapshot](https://benefron.github.io/sensoryforge/user_guide/evaluation_export/)
-- [Working with a Coding Agent](https://benefron.github.io/sensoryforge/user_guide/agent_setup/)
-- [Skills for a Coding Agent](https://benefron.github.io/sensoryforge/user_guide/agent_skills/)
-- [Using the Skills in Another Agent](https://benefron.github.io/sensoryforge/user_guide/agent_export/)
+
+## Agentic Workflow
+
+- [Overview and Five-minute Start](https://benefron.github.io/sensoryforge/agents/)
+- [Setup](https://benefron.github.io/sensoryforge/user_guide/agent_setup/)
+- [Skills](https://benefron.github.io/sensoryforge/user_guide/agent_skills/)
+- [Skills Reference](https://benefron.github.io/sensoryforge/agents/skills_reference/)
+- [Rules for Agents](https://benefron.github.io/sensoryforge/agents/rules/)
 - [Designing a World by Describing It](https://benefron.github.io/sensoryforge/user_guide/agent_design_loop/)
+- [Using the Skills in Another Agent](https://benefron.github.io/sensoryforge/user_guide/agent_export/)
 - [Glossary](https://benefron.github.io/sensoryforge/agents/glossary/)
 - [Task Index](https://benefron.github.io/sensoryforge/agents/task_index/)
+- [Design Decisions](https://benefron.github.io/sensoryforge/agents/decisions/)
+- [Extending It](https://benefron.github.io/sensoryforge/agents/extending/)
 
 ## Developer Guide
 

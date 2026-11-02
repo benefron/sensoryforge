@@ -21,7 +21,7 @@ This copies the skills into `.claude/skills/` of that folder, with the
 [glossary](../agents/glossary.md) beside them (`sensoryforge-glossary.md`), where Claude
 Code finds them. Run it again after upgrading SensoryForge to replace the copies with the
 new release's files; it never touches anything else in the folder. For another environment
-use `sensoryforge agents export --target copilot|cursor|codex|generic`
+use `sensoryforge agents export --target <copilot|cursor|codex|generic>`
 ([Using the Skills in Another Agent](agent_export.md)), which also covers adding a short
 SensoryForge section to your project's own instruction file (`CLAUDE.md`, `AGENTS.md`, ...).
 Then run the
@@ -61,12 +61,12 @@ or as an assumption, sizes, the sensor, the cost of a long run) and for any fail
 the other skills ends the same way: it offers the next step at your pace.
 
 One run, one folder. The skills build the data set, simulate it and write the report into the
-same folder, `runs/NAME`: `sensoryforge dataset build ... --out runs/NAME`, then
-`sensoryforge batch ... --output runs/NAME`, which is also the layout
-`sensoryforge evaluate run --out runs/NAME` makes. `--resume` continues only the same data set
+same folder, `runs/NAME`: `sensoryforge dataset build FILE --out runs/NAME`, then
+`sensoryforge batch --dataset FILE --output runs/NAME`, which is also the layout
+`sensoryforge evaluate run FILE --out runs/NAME` makes. `--resume` continues only the same data set
 on the same sensor (entry ids repeat across data sets, so mixing them would pass unnoticed);
 it refuses any other folder and says which values differ, and the skills then start a new
-folder. `sensoryforge batch --dataset ... --dry-run` shows what a run would do without doing
+folder. `sensoryforge batch --dataset FILE --dry-run` shows what a run would do without doing
 it. After a build, the skills also count the entries whose draw ends after the data set's
 duration (their end is cut off) and tell you.
 
@@ -77,6 +77,7 @@ agent's memory of what a neuron or a sensor usually does.
 ## What the skills will not do
 
 The first item is the rule behind [designing a world by describing it](agent_design_loop.md).
+All the rules, and what needs your approval, are in [Rules for Agents](../agents/rules.md).
 
 - **Invent domain facts.** Physics, models, parameters, ranges and units come from you, from
   a source you approve with a short report, or from reasoning you approve. When the agent
@@ -99,4 +100,5 @@ own steps are checked too: every `sensoryforge ...` command is parsed with the r
 parser (a flag that does not exist fails), every `python -c` line must compile, and every link
 to these docs must point at a page and a heading that exist. A built wheel is opened to check
 that each skill and the glossary are inside it. To run one yourself, copy the files out of the
-skill's "Worked example" section into a new folder and run its commands there.
+skill's "Worked example" section into a new folder and run its commands there; every
+skill's steps and worked example are in the [Skills Reference](../agents/skills_reference.md).

@@ -7,7 +7,8 @@ shell tools, and nothing else on your machine. For an environment other than Cla
 [Using the Skills in Another Agent](agent_export.md).
 
 How they work with you is yours to set. The setup asks three things and never assumes;
-anything you do not answer keeps a self-contained default.
+anything you do not answer keeps a self-contained default. New to the agentic workflow?
+Start with the [overview and five-minute start](../agents/index.md).
 
 ## Install the skills
 
@@ -85,7 +86,8 @@ with `auto` it says what comes next and carries on. It changes only that offer. 
 that is yours (a value the plan marks open or as an assumption, a size, a seed, the sensor,
 what difference you accept, the cost of a long run) is asked for in either pace, and so is
 a failure. You can change the pace in a session ("carry on", "ask me first") and it holds
-until you change it again.
+until you change it again. How a whole chain proceeds at each pace is in
+[Step by step, or end to end](agent_skills.md#step-by-step-or-end-to-end).
 
 The brief also tells the skill to read your words by their meaning and by everything said in
 the session, never by matching strings, and to ask one short question when it is unclear.

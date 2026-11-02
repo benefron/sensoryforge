@@ -46,6 +46,7 @@ Each target is written by one command and checked in CI against its source (B10;
 | `sensoryforge-agents/` (neutral files and a `README.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` | B8 |
 | `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` (the marked section only; the rest is the user's) and `.cursor/rules/sensoryforge.mdc` (whole file) in the user's project | `sensoryforge/agents/section.md` | `sensoryforge agents instructions --target <env> --write` (`--check` reports a missing or stale section; the files each tool reads were checked against its documentation, dated in `INSTRUCTIONS_CHECKED`) | B8b |
 | `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
+| `docs/agents/skills_reference.md` (the [Skills Reference](../agents/skills_reference.md) page) | `sensoryforge/agents/skills/` | `python -m sensoryforge.agents.reference docs/agents/skills_reference.md` (`tests/unit/test_agent_docs.py` fails when it differs) | B11 |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
 
 ## What happens to today's files
@@ -133,6 +134,7 @@ so a rename or removal in the code fails the pull request that makes it:
 | the worked example (it is run) | `tests/unit/test_agent_skills.py` |
 | the glossary copy, `llms.txt`, the export targets and the instruction-file section | `tests/unit/test_front_door.py`, `test_agent_glossary.py`, `test_agent_export.py` |
 | the file-count budget below | `tests/unit/test_agent_skills.py` |
+| the docs section's pages (commands, skills and registered names, as above) and the generated [Skills Reference](../agents/skills_reference.md) | `tests/unit/test_agent_skills.py`, `test_agent_names.py`, `test_agent_docs.py` |
 
 A placeholder (`NAME`, `<pack>`) is not a name. A new kind of name a skill starts to use is
 one more category in `agent_names.py`, with a test that a made-up name is caught.
