@@ -1322,7 +1322,7 @@ def _agents_export(args: argparse.Namespace) -> int:
             states = ins.check(dest, target)
             for path, state in states:
                 print(f"{state:>9}  {path}")
-            bad = [s for _, s in states if s != "current"]
+            bad = [s for _, s in states if s not in ("current", "foreign")]
             print(ins.summarize(states))
             if bad:
                 print(
@@ -1435,8 +1435,8 @@ def cmd_agents(args: argparse.Namespace) -> int:
         if args.agents_command == "brief":
             print(ws.render_brief(ws.load_style(found), found), end="")
             return 0
-        target = found or Path.cwd() / ws.CONFIG_RELPATH
-        root = target.resolve().parent.parent
+        root = Path(args.dest).resolve()
+        target = found or root / ws.CONFIG_RELPATH
         base = ws.WorkingStyle() if args.reset else ws.load_style(found)
         given = {}
         for opt in ws.OPTIONS:
@@ -1460,9 +1460,10 @@ def cmd_agents(args: argparse.Namespace) -> int:
                 lambda: ws.discover_tools(root, Path.home()),
                 base,
             )
+        settings = root / ".claude" / "settings.local.json"
+        ws.set_hook(settings, style.hooks, check_only=True)  # refuse before saving
         ws.save_style(style, target)
         print(f"Saved {target}")
-        settings = root / ".claude" / "settings.local.json"
         if ws.set_hook(settings, style.hooks):
             state = "installed in" if style.hooks else "removed from"
             print(f"Routing hook {state} {settings}")
@@ -1595,6 +1596,12 @@ def _add_agents_parser(subparsers: Any) -> None:
         "Unanswered options keep their saved value, or the self-contained default.",
     )
     setup.add_argument("--path", help=f"Working-style file ({where})")
+    setup.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder, where the routing hook goes and the environment is "
+        "detected (default: the current folder, never where the style file is)",
+    )
     setup.add_argument(
         "--no-input",
         action="store_true",

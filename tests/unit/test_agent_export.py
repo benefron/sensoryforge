@@ -563,3 +563,63 @@ def test_the_docs_page_carries_the_instruction_files_and_their_pages():
             assert first in page, name
     assert ins.INSTRUCTIONS_CHECKED in page
     assert "agents instructions --target codex --write" in page
+
+
+def _drop_a_skill(project, name="sensoryforge-old", generated=True):
+    """Put a skill folder in .claude/skills that this release does not ship."""
+    folder = project / ".claude" / "skills" / name
+    folder.mkdir(parents=True)
+    spec = ins.EXPORT_TARGETS["claude"]
+    text = "---\nname: x\ndescription: y\n---\n"
+    if generated:
+        text = ins.render_skill(text, spec)
+    (folder / "SKILL.md").write_text(text)
+    return folder
+
+
+def test_a_skill_a_release_dropped_is_stale_and_install_removes_it(tmp_path):
+    ins.install(tmp_path)
+    old = _drop_a_skill(tmp_path)
+    states = dict(
+        (p.parent.name, s) for p, s in ins.check(tmp_path) if p.name == "SKILL.md"
+    )
+    assert states["sensoryforge-old"] == "stale"
+    removed = [(p, s) for p, s in ins.install(tmp_path) if s == "removed"]
+    assert [p.parent.name for p, _ in removed] == ["sensoryforge-old"]
+    assert not old.exists()
+    assert all(s == "current" for _, s in ins.check(tmp_path))
+
+
+def test_a_dropped_skill_folder_with_other_files_keeps_them(tmp_path):
+    ins.install(tmp_path)
+    old = _drop_a_skill(tmp_path)
+    (old / "notes.txt").write_text("mine")
+    ins.install(tmp_path)
+    assert not (old / "SKILL.md").exists()
+    assert (old / "notes.txt").read_text() == "mine"
+
+
+def test_a_sensoryforge_named_folder_without_the_header_is_reported_never_removed(
+    tmp_path,
+):
+    ins.install(tmp_path)
+    theirs = _drop_a_skill(tmp_path, "sensoryforge-mine", generated=False)
+    states = [s for p, s in ins.check(tmp_path) if p.parent.name == "sensoryforge-mine"]
+    assert states == ["foreign"]
+    assert not any(s == "removed" for _, s in ins.install(tmp_path))
+    assert (theirs / "SKILL.md").is_file()
+
+
+def test_export_check_fails_on_a_dropped_generated_skill_and_not_on_a_foreign_one(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    assert run(monkeypatch, "export", "--target", "claude") == 0
+    _drop_a_skill(tmp_path, "sensoryforge-mine", generated=False)
+    assert run(monkeypatch, "export", "--target", "claude", "--check") == 0
+    _drop_a_skill(tmp_path)
+    assert run(monkeypatch, "export", "--target", "claude", "--check") == 1
+    capsys.readouterr()
+    assert run(monkeypatch, "export", "--target", "claude") == 0
+    assert "removed" in capsys.readouterr().out
+    assert run(monkeypatch, "export", "--target", "claude", "--check") == 0

@@ -463,58 +463,100 @@ def hook_command() -> str:
     return f'"{sys.executable}" "{script}"'
 
 
-def set_hook(settings_path: Path, enabled: bool) -> bool:
-    """Add or remove the routing hook in a Claude Code settings file.
+def _hook_settings(settings_path: Path, enabled: bool) -> Optional[Dict[str, Any]]:
+    """Return the settings with the hook added or removed, or None when unchanged.
 
-    Other entries are kept as they are; only hook commands that run SensoryForge's
-    ``hook.py`` are added or removed.
-
-    Args:
-        settings_path: Usually ``<project>/.claude/settings.local.json`` (local, not
-            committed).
-        enabled: Install when true, remove when false.
-
-    Returns:
-        Whether the file changed.
-
-    Raises:
-        ValueError: If the file exists but is not a JSON object.
+    Writes nothing. Raises ``ValueError`` (naming the file and the path inside it)
+    for any shape of settings it does not understand, so nothing is rewritten that
+    the user wrote in another form.
     """
-    settings_path = Path(settings_path)
+    where = str(settings_path)
     data: Dict[str, Any] = {}
     if settings_path.is_file():
         try:
             data = json.loads(settings_path.read_text(encoding="utf-8") or "{}")
         except ValueError as exc:
-            raise ValueError(f"{settings_path}: not valid JSON ({exc})") from None
+            raise ValueError(f"{where}: not valid JSON ({exc})") from None
         if not isinstance(data, dict):
-            raise ValueError(f"{settings_path}: expected a JSON object")
+            raise ValueError(f"{where}: expected a JSON object")
     elif not enabled:
-        return False
+        return None
     before = json.dumps(data, sort_keys=True)
     hooks = data.setdefault("hooks", {})
-    groups = [g for g in hooks.get(HOOK_EVENT, []) if isinstance(g, dict)]
+    if not isinstance(hooks, dict):
+        raise ValueError(
+            f"{where}: 'hooks' must be an object, got {type(hooks).__name__}"
+        )
+    groups = hooks.get(HOOK_EVENT, [])
+    if not isinstance(groups, list):
+        raise ValueError(
+            f"{where}: 'hooks.{HOOK_EVENT}' must be a list, got {type(groups).__name__}"
+        )
+    for i, group in enumerate(groups):
+        if not isinstance(group, dict):
+            raise ValueError(f"{where}: 'hooks.{HOOK_EVENT}[{i}]' must be an object")
+        entries = group.get("hooks", [])
+        if not isinstance(entries, list) or not all(
+            isinstance(h, dict) for h in entries
+        ):
+            raise ValueError(
+                f"{where}: 'hooks.{HOOK_EVENT}[{i}].hooks' must be a list of objects"
+            )
+    kept = []
     for group in groups:
-        group["hooks"] = [
+        entries = group.get("hooks", [])
+        left = [
             h
-            for h in group.get("hooks", [])
+            for h in entries
             if HOOK_MARK not in str(h.get("command", "")).replace("\\", "/")
         ]
-    groups = [g for g in groups if g.get("hooks")]
+        if len(left) == len(entries):
+            kept.append(group)  # untouched: a user group stays as written
+        elif left:
+            kept.append({**group, "hooks": left})
     if enabled:
-        groups.append(
+        kept.append(
             {"hooks": [{"type": "command", "command": hook_command(), "timeout": 10}]}
         )
-    if groups:
-        hooks[HOOK_EVENT] = groups
+    if kept:
+        hooks[HOOK_EVENT] = kept
     else:
         hooks.pop(HOOK_EVENT, None)
     if not hooks:
         data.pop("hooks", None)
     if json.dumps(data, sort_keys=True) == before:
+        return None
+    return data
+
+
+def set_hook(settings_path: Path, enabled: bool, check_only: bool = False) -> bool:
+    """Add or remove the routing hook in a Claude Code settings file.
+
+    Other entries are kept as they are, including a user group whose ``hooks`` list is
+    empty; only hook commands that run SensoryForge's ``hook.py`` are added or removed.
+
+    Args:
+        settings_path: Usually ``<project>/.claude/settings.local.json`` (local, not
+            committed).
+        enabled: Install when true, remove when false.
+        check_only: Validate the file and say whether it would change, writing nothing
+            (the setup calls this before it saves the style file).
+
+    Returns:
+        Whether the file changed (or would change, with ``check_only``).
+
+    Raises:
+        ValueError: If the file exists but is not a JSON object, or has a ``hooks``
+            value of a shape this function does not understand (not an object, an
+            event that is not a list, a group or entry that is not an object).
+    """
+    settings_path = Path(settings_path)
+    data = _hook_settings(settings_path, enabled)
+    if data is None:
         return False
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    if not check_only:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return True
 
 

@@ -223,3 +223,99 @@ def test_the_user_guide_documents_every_option():
         assert f"`{opt.key}`" in page, opt.key
         for choice in opt.choices or ():
             assert f"`{choice}`" in page, (opt.key, choice)
+
+
+def _settings_after_setup(project, *argv):
+    """Run setup with the hook on; return (exit code, the project's settings file)."""
+    code = _cli("setup", "--no-input", "--hooks", "yes", *argv)
+    return code, project / ".claude" / "settings.local.json"
+
+
+def _in_project(tmp_path, monkeypatch):
+    """A project folder (with .claude/) inside a parent that must stay untouched."""
+    parent = tmp_path / "parent"
+    proj = parent / "proj"
+    (proj / ".claude").mkdir(parents=True)
+    monkeypatch.chdir(proj)
+    monkeypatch.delenv(ws.CONFIG_ENV, raising=False)
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    return parent, proj
+
+
+def test_the_hook_goes_in_the_project_even_when_the_style_file_is_elsewhere(
+    tmp_path, monkeypatch
+):
+    parent, proj = _in_project(tmp_path, monkeypatch)
+    # (1) --path to a file that is not <project>/.sensoryforge/agents.yml
+    style_file = proj / "style.yml"
+    code, settings = _settings_after_setup(proj, "--path", str(style_file))
+    assert code == 0 and settings.is_file()
+    assert not (parent / ".claude").exists()
+    settings.unlink()
+    # (2) $SENSORYFORGE_AGENTS_CONFIG elsewhere
+    elsewhere = tmp_path / "elsewhere" / "deep" / "agents.yml"
+    monkeypatch.setenv(ws.CONFIG_ENV, str(elsewhere))
+    code, settings = _settings_after_setup(proj)
+    assert code == 0 and settings.is_file() and elsewhere.is_file()
+    assert not (tmp_path / "elsewhere" / ".claude").exists()
+    assert not (tmp_path / "elsewhere" / "deep" / ".claude").exists()
+    settings.unlink()
+    monkeypatch.delenv(ws.CONFIG_ENV)
+    # (3) a style file found in a parent folder
+    found = parent / ".sensoryforge" / "agents.yml"
+    found.parent.mkdir()
+    ws.save_style(ws.WorkingStyle(), found)
+    code, settings = _settings_after_setup(proj)
+    assert code == 0 and settings.is_file()
+    assert not (parent / ".claude").exists()
+    # --hooks no removes it from the project too, not from the parent
+    assert _cli("setup", "--no-input", "--hooks", "no") == 0
+    assert not settings.exists() or "hook.py" not in settings.read_text()
+
+
+def test_dest_names_the_project_and_a_new_style_file_goes_there(tmp_path, monkeypatch):
+    other = tmp_path / "other"
+    (other / ".claude").mkdir(parents=True)
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    monkeypatch.delenv(ws.CONFIG_ENV, raising=False)
+    assert _cli("setup", "--no-input", "--hooks", "yes", "--dest", str(other)) == 0
+    assert "hook.py" in (other / ".claude" / "settings.local.json").read_text()
+    assert (other / ws.CONFIG_RELPATH).is_file()
+    assert not (work / ".claude").exists()
+
+
+BAD_SETTINGS = {
+    "hooks is a list": {"hooks": []},
+    "hooks is a string": {"hooks": "x"},
+    "event is a dict": {"hooks": {"UserPromptSubmit": {"hooks": []}}},
+    "group is a string": {"hooks": {"UserPromptSubmit": ["echo hi"]}},
+    "group hooks is a dict": {"hooks": {"UserPromptSubmit": [{"hooks": {}}]}},
+    "entry is a string": {"hooks": {"UserPromptSubmit": [{"hooks": ["echo hi"]}]}},
+}
+
+
+@pytest.mark.parametrize("name", sorted(BAD_SETTINGS))
+def test_set_hook_refuses_a_shape_it_does_not_understand(project, capsys, name):
+    settings = project / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+    text = json.dumps(BAD_SETTINGS[name])
+    settings.write_text(text)
+    with pytest.raises(ValueError, match="settings.local.json"):
+        ws.set_hook(settings, True)
+    # the setup refuses before saving the style: both files stay as they were
+    assert _cli("setup", "--no-input", "--hooks", "yes") == 1
+    assert "settings.local.json" in capsys.readouterr().err
+    assert settings.read_text() == text
+    assert not (project / ws.CONFIG_RELPATH).exists()
+
+
+def test_set_hook_keeps_a_user_group_with_an_empty_hooks_list(project):
+    settings = project / ".claude" / "settings.local.json"
+    settings.parent.mkdir()
+    mine = {"matcher": "x", "hooks": []}
+    settings.write_text(json.dumps({"hooks": {"UserPromptSubmit": [mine]}}))
+    assert ws.set_hook(settings, True) is True
+    assert ws.set_hook(settings, False) is True
+    assert json.loads(settings.read_text()) == {"hooks": {"UserPromptSubmit": [mine]}}
