@@ -181,7 +181,7 @@ scenario's prompt is ambiguous is fixed in the scenario, not in the skill.
 
 ## Baseline scores
 
-Recorded 2026-10-30 at `phase/b-agentic` (after B9c): every scenario run once by a Sonnet
+Recorded 2026-10-30, before the agentic workflow's first release: every scenario run once by a Sonnet
 agent, judged by Haiku, `--jobs 3`, about 30 minutes and 5.7 USD. 46 of the 64 scenarios
 pass; the rest are leads about a skill, a prompt or a scenario, read in the transcripts
 before anything is changed. A later run is compared with this table, a skill at a time.

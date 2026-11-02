@@ -11,6 +11,7 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for simulating sensory 
 1. **GUI** — Design experiments like a neuroscientist at the bench: configure grids, create stimuli, tune neuron models, and observe population responses in real time.
 2. **CLI/YAML** — Export configurations and run large-scale simulations, parameter sweeps, or batch data generation.
 3. **Python API** — Programmatic access for custom analysis, integration, and scripting.
+4. **Coding agent** — Say what you want in your own words; an agent with SensoryForge's skills plans it, writes the files and runs the same commands, asking you at each decision that is yours ([Agentic Workflow](agents/index.md)).
 
 ---
 
@@ -19,6 +20,7 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for simulating sensory 
 - [User Guide](user_guide/overview.md) — Full documentation of all components
 - [CLI Reference](user_guide/cli.md) — Command-line interface usage
 - [YAML Configuration](user_guide/yaml_configuration.md) — Declarative pipeline setup
+- [Agentic Workflow](agents/index.md) — Working with a coding agent: setup, skills, rules
 
 ## Core Components
 

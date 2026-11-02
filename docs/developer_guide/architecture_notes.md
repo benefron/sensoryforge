@@ -1,7 +1,7 @@
 # Architecture Notes
 
 Contributor notes on how SensoryForge fits together and the hazards to know before changing
-it. They moved here from `CLAUDE.md` (roadmap B2) so that each fact lives in one place;
+it. They moved here from `CLAUDE.md` so that each fact lives in one place;
 `AGENTS.md` at the repository root links here. The living ledger (`docs_root/LEDGER.md`)
 is the current source of truth for open findings; the ids below (`F-`, `D-`) are its
 entries.

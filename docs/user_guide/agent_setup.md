@@ -1,7 +1,9 @@
 # Working with a Coding Agent: Setup
 
-SensoryForge ships skills for coding agents (Claude Code first; other environments
-later) inside the package, under `sensoryforge/agents/skills/`. They are self-contained:
+This page is for anyone setting up a coding agent to work with SensoryForge; by the end
+your skills are installed and your working style is saved. SensoryForge ships skills for
+coding agents (Claude Code, GitHub Copilot, Cursor, Codex and others) inside the package,
+under `sensoryforge/agents/skills/`. They are self-contained:
 out of the box they use only SensoryForge's own commands and your agent's basic file and
 shell tools, and nothing else on your machine. For an environment other than Claude Code, see
 [Using the Skills in Another Agent](agent_export.md).

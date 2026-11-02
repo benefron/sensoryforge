@@ -19,9 +19,10 @@ only a release needs.
 4. **Re-read the dated documentation checks** (`FORMATS_CHECKED` and `INSTRUCTIONS_CHECKED`
    in `sensoryforge/agents/install.py`) against each tool's own pages, and change the date
    only after reading them.
-5. **Regenerate what is generated:** `python scripts/build_llms_txt.py`, then
+5. **Regenerate what is generated:** `python scripts/build_llms_txt.py`,
+   `python -m sensoryforge.agents.reference docs/agents/skills_reference.md`, then
    `sensoryforge agents export --check --target <each>` in a scratch project.
 6. **Changelog and version** (`CHANGELOG.md`, `pyproject.toml`), then tag.
 
-Phase D adds the rest of the release documentation (the published docs and the
-reference); this page is where it will be listed.
+The rest of the release documentation (the published docs and the reference) will be
+listed on this page as it is written.

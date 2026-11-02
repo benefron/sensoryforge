@@ -320,7 +320,7 @@ simulation:
   dt: 0.5
 ```
 
-The `stimulus:` block above is what `sensoryforge run` actually renders (Task 0.6, F-061) — the
+The `stimulus:` block above is what `sensoryforge run` actually renders (F-061) — the
 same renderer every GUI run uses, so a config run from the CLI and the same config run from the GUI
 produce byte-identical stimulus frames. Only the fields you write in the block are
 passed to the stimulus; a field you leave out takes that stimulus type's own default, so
@@ -531,4 +531,4 @@ results = pipeline.forward(stimulus_type='gaussian')
 - [YAML Configuration Guide](yaml_configuration.md) - Complete configuration reference
 - [Pipeline Documentation](../api_reference/pipeline.md) - Python API reference
 - [Tutorial: Your First Simulation](../getting_started/first_simulation.md) - Step-by-step guide
-- [Phase 2 Features](overview.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers
+- [User Guide Overview](overview.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers

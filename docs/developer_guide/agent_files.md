@@ -18,46 +18,46 @@ one is for, and how many there may be. Change the map here first, then the files
 
 ## Sources (written by hand)
 
-| File | For | Read by | Task |
-|---|---|---|---|
-| `AGENTS.md` | everyone | any agent that reads a root instruction file | B2 |
-| `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes | B2 |
-| `sensoryforge/agents/skills/<name>/SKILL.md` | users | the neutral source: front matter `name` and `description`, markdown body (the open Agent Skills layout); every environment's files are generated from it ([export](../user_guide/agent_export.md)) | B1b, B6, B7, C2, C3 |
-| `sensoryforge/agents/prompts/install.md`, `generic.md`, `instructions.md` | users | an agent the user gives them to: the first picks the environment's export command, the second adapts the neutral files to an environment with no export, the third builds the project's instruction file in the environment's own way | B8, B8b |
-| `sensoryforge/agents/section.md` | users | the one short section SensoryForge adds to a project's instruction file (between marker lines; the rest of that file is the user's) | B8b |
-| `sensoryforge/agents/skills/sensoryforge-glossary.md` | users | a copy of `docs/agents/glossary.md` that ships in the package; the docs page is the source and a test keeps the two identical | B6a |
-| `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) | B1b |
-| `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only | B1b |
-| `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched | kept |
-| `.claude/commands/*.md` | maintainers | Claude Code slash commands; `update-agent-docs` is the release-time check below | kept, trimmed; B10 |
-| `docs/` | everyone | people; agents follow links to it | D |
-| `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people | B4 |
-| `docs_root/LEDGER.md` | maintainers | the session digest hook | kept |
-| Tag lines at the end of a module docstring (`sensoryforge/`) | everyone | agents and people, by `grep` ([file headers](file_headers.md)) | B5 |
+| File | For | Read by |
+|---|---|---|
+| `AGENTS.md` | everyone | any agent that reads a root instruction file |
+| `CLAUDE.md` | maintainers | Claude Code; imports `AGENTS.md`, adds Claude-only notes |
+| `sensoryforge/agents/skills/<name>/SKILL.md` | users | the neutral source: front matter `name` and `description`, markdown body (the open Agent Skills layout); every environment's files are generated from it ([export](../user_guide/agent_export.md)) |
+| `sensoryforge/agents/prompts/install.md`, `generic.md`, `instructions.md` | users | an agent the user gives them to: the first picks the environment's export command, the second adapts the neutral files to an environment with no export, the third builds the project's instruction file in the environment's own way |
+| `sensoryforge/agents/section.md` | users | the one short section SensoryForge adds to a project's instruction file (between marker lines; the rest of that file is the user's) |
+| `sensoryforge/agents/skills/sensoryforge-glossary.md` | users | a copy of `docs/agents/glossary.md` that ships in the package; the docs page is the source and a test keeps the two identical |
+| `sensoryforge/agents/style.py` | users | the working-style options, the setup questions and the brief every skill reads ([setup](../user_guide/agent_setup.md)) |
+| `sensoryforge/agents/hook.py` | users who opt in | Claude Code's prompt hook, standard library only |
+| `.claude/rules/*.md` | maintainers | Claude Code, when a matching file is touched |
+| `.claude/commands/*.md` | maintainers | Claude Code slash commands; `update-agent-docs` is the release-time check below |
+| `docs/` | everyone | people; agents follow links to it |
+| `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people |
+| `docs_root/LEDGER.md` | maintainers | the session digest hook |
+| Tag lines at the end of a module docstring (`sensoryforge/`) | everyone | agents and people, by `grep` ([file headers](file_headers.md)) |
 
 ## Generated targets (never edited by hand)
 
-Each target is written by one command and checked in CI against its source (B10; see [Keeping the agent files current](#keeping-the-agent-files-current)).
+Each target is written by one command and checked in CI against its source (see [Keeping the agent files current](#keeping-the-agent-files-current)).
 
-| Target | From | Command | Task |
-|---|---|---|---|
-| `.claude/skills/<name>/SKILL.md` and `.claude/skills/sensoryforge-glossary.md` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install [--dest DIR]` (`sensoryforge/agents/install.py`; overwrites its own files and touches nothing else) | B6a |
-| `.github/skills/`, `.cursor/skills/`, `.agents/skills/` (same layout, same files) in the user's project | the same skills | `sensoryforge agents export --target copilot\|cursor\|codex` (`--check` reports files that differ; each target's folder is checked against its tool's documentation, dated in `FORMATS_CHECKED`) | B8 |
-| `sensoryforge-agents/` (neutral files and a `README.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` | B8 |
-| `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` (the marked section only; the rest is the user's) and `.cursor/rules/sensoryforge.mdc` (whole file) in the user's project | `sensoryforge/agents/section.md` | `sensoryforge agents instructions --target <env> --write` (`--check` reports a missing or stale section; the files each tool reads were checked against its documentation, dated in `INSTRUCTIONS_CHECKED`) | B8b |
-| `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` | B2 |
-| `docs/agents/skills_reference.md` (the [Skills Reference](../agents/skills_reference.md) page) | `sensoryforge/agents/skills/` | `python -m sensoryforge.agents.reference docs/agents/skills_reference.md` (`tests/unit/test_agent_docs.py` fails when it differs) | B11 |
-| `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` | B1b |
+| Target | From | Command |
+|---|---|---|
+| `.claude/skills/<name>/SKILL.md` and `.claude/skills/sensoryforge-glossary.md` in the user's project | `sensoryforge/agents/skills/` | `sensoryforge agents install [--dest DIR]` (`sensoryforge/agents/install.py`; overwrites its own files and touches nothing else) |
+| `.github/skills/`, `.cursor/skills/`, `.agents/skills/` (same layout, same files) in the user's project | the same skills | `sensoryforge agents export --target copilot\|cursor\|codex` (`--check` reports files that differ; each target's folder is checked against its tool's documentation, dated in `FORMATS_CHECKED`) |
+| `sensoryforge-agents/` (neutral files and a `README.md`) for an environment with no export | the same skills | `sensoryforge agents export --target generic`, then `sensoryforge agents prompt generic` |
+| `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` (the marked section only; the rest is the user's) and `.cursor/rules/sensoryforge.mdc` (whole file) in the user's project | `sensoryforge/agents/section.md` | `sensoryforge agents instructions --target <env> --write` (`--check` reports a missing or stale section; the files each tool reads were checked against its documentation, dated in `INSTRUCTIONS_CHECKED`) |
+| `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` |
+| `docs/agents/skills_reference.md` (the [Skills Reference](../agents/skills_reference.md) page) | `sensoryforge/agents/skills/` | `python -m sensoryforge.agents.reference docs/agents/skills_reference.md` (`tests/unit/test_agent_docs.py` fails when it differs) |
+| `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` |
 
 ## What happens to today's files
 
 | Today | State | Fate |
 |---|---|---|
-| `CLAUDE.md` (343 lines) | current, but held facts that also lived in `CODE_MAP.md` and the docs | done in B2: imports `AGENTS.md` and keeps Claude-only notes; the architecture notes moved to [Architecture Notes](architecture_notes.md) |
-| `CODE_MAP.md` | partly repeated `CLAUDE.md`; named deleted GUI tabs | done in B2: folded into `AGENTS.md`'s table and removed |
-| `refs/` (module, test and GUI maps) | last changed 2026-09-14; predates GUI v2 | not linked from `AGENTS.md`; replaced by D5's generated reference |
-| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps C2 | maintainer-only; the stale references now name `AGENTS.md` (B2); `add-component` retired when C2's skill replaces it |
-| `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired; B8 generates Cursor's skills from the packaged ones (`export --target cursor`) |
+| `CLAUDE.md` (343 lines) | current, but held facts that also lived in `CODE_MAP.md` and the docs | done: imports `AGENTS.md` and keeps Claude-only notes; the architecture notes moved to [Architecture Notes](architecture_notes.md) |
+| `CODE_MAP.md` | partly repeated `CLAUDE.md`; named deleted GUI tabs | done: folded into `AGENTS.md`'s table and removed |
+| `refs/` (module, test and GUI maps) | last changed 2026-09-14; predates GUI v2 | not linked from `AGENTS.md`; to be replaced by a generated reference |
+| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps the planned extension skills | maintainer-only; the stale references now name `AGENTS.md`; `add-component` retires when the extension skills replace it |
+| `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired; `sensoryforge agents export` generates Cursor's skills from the packaged ones (`export --target cursor`) |
 | `.claude/hooks/`, `.claude/settings.json`, `.claude/ledger.conf` | the living ledger's install | maintainer-only, owned by the ledger skill, not edited by hand |
 | `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | for people | human-first; agents may read them, nothing points agents at them for facts |
 | `docs_root/plan/`, `docs/development/reviews/` | roadmap and audits | human and maintainer only, never shipped |
@@ -69,7 +69,7 @@ Each target is written by one command and checked in CI against its source (B10;
    copies parameter lists, defaults, units or shapes, which go stale.
 2. **Self-contained by default.** A skill uses only SensoryForge's own commands and skills
    and the agent's basic file and shell tools. It uses the user's other skills, MCP servers
-   or settings only when the saved working style says so (B1b).
+   or settings only when the saved working style says so.
 3. **Read the working style first.** Every skill starts by reading
    `sensoryforge agents brief` and follows it: planning depth, subagents, linear or
    parallel work, session and token limits, who reviews.
@@ -105,22 +105,21 @@ Each target is written by one command and checked in CI against its source (B10;
 | Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (16 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
-| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires in C2) |
+| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires with the extension skills) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
-Shipped so far: setup (B1b); design-and-plan and design-world (B6a); build-dataset,
-run-simulation and evaluate (B6b); diagnose and interpret-report (B6c); workflow (B6d).
-The planned skills fit in 14: setup (B1b); design-and-plan, design-world, build-dataset,
-run-simulation, evaluate, diagnose, interpret-report and the master skill, workflow (B6);
-ground-assumptions (B7); extend-pipeline (every pipeline component kind), extend-world
-(world registries and another modality's class kinds) and extend-evaluation (the
-evaluation seams) (C2); and the plugin lifecycle (C3). A task that would pass a limit
-merges skills or raises the limit here first, with the reason.
+Shipped: ten skills, setup, design-and-plan, design-world, ground-assumptions,
+build-dataset, run-simulation, evaluate, diagnose, interpret-report and the master skill,
+workflow ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
+14: extend-pipeline (every pipeline component kind), extend-world (world registries and
+another modality's class kinds), extend-evaluation (the evaluation seams) and the plugin
+lifecycle. A change that would pass a limit merges skills or raises the limit here first,
+with the reason.
 
 ## Keeping the agent files current
 
-Stale instructions mislead more than none, so two checks keep the files true to the code
-(B10). The first is deterministic and runs in CI on every push; the second is an agent's
+Stale instructions mislead more than none, so two checks keep the files true to the code.
+The first is deterministic and runs in CI on every push; the second is an agent's
 judgement and runs when a release is prepared.
 
 **What CI fails on.** All of this runs in the ordinary test suite (`pytest -m "not gui"`),
