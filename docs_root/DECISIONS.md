@@ -1127,4 +1127,11 @@ Do not hand-edit between the markers.
 | 2026-10-30 | D-47468a5 | the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2. | `ecfe48d` |
 | 2026-11-02 | D-623be8b | the skills reference page (docs/agents/skills_reference.md) is generated from the packaged skills by `python -m sensoryforge.agents.reference` and tests/unit/test_agent_docs.py fails when it differs, so it cannot drift | `5be54c0` |
 | 2026-11-02 | D-2271b83 | the design-decisions page names each decision's ledger id and links the ledger file on GitHub, as D-6f0c3cc asks; the policy for ledger ids on other public pages (D1's Q2) stays Ben's to decide | `5be54c0` |
+| 2026-11-02 | D-4f3f26a | the workflow waits for plan approval only at `planning: full` or when the plan holds an open value; `review` sets who checks a step's result and `pace` sets whether to wait (R-B6 decision 1; enables B6f's change 9) | `f787d90` |
+| 2026-11-02 | D-881fd7b | ship docs/reference/report_contract.md as package data beside the glossary, kept identical by a test, after the roadmap-row cleanup (F-dc0c574), in D5 (R-B6 decision 2) | `f787d90` |
+| 2026-11-02 | D-41f73ea | public docs pages carry no ledger ids, Phase/Wave labels or docs_root links; the agentic section's Design Decisions page is the one exception and keeps its ledger ids (D1 Q2) | `f787d90` |
+| 2026-11-02 | D-0f3d007 | the Rules for Agents page (six rules and the approval table) is approved as written | `f787d90` |
+| 2026-11-02 | D-42daebb | the docs site takes the four-kind structure (tutorials, how-to, concepts, reference): the nav is regrouped first, and the files move once at D1b-C with mkdocs-redirects so old URLs keep working (D1 Q1) | `f787d90` |
+| 2026-11-02 | D-28438a6 | developer_guide/roadmap_v1.md and EQUATION_DSL_IMPLEMENTATION.md leave the published nav for docs/development/, with any DSL grammar users need kept in the Equation DSL user page (D1 Q3) | `f787d90` |
+| 2026-11-02 | D-a93e37c | parameter sweeps become a section of the Batch Processing tutorial and the custom-pipeline placeholder page is dropped (D1 Q4) | `f787d90` |
 <!-- DECISIONS_LOG_END -->

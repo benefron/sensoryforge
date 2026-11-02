@@ -108,6 +108,34 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-4f3f26a · CLOSED · decision · - · 2026-11-02
+the workflow waits for plan approval only at `planning: full` or when the plan holds an open value; `review` sets who checks a step's result and `pace` sets whether to wait (R-B6 decision 1; enables B6f's change 9)
+→ commit f787d90
+
+## D-881fd7b · CLOSED · decision · - · 2026-11-02
+ship docs/reference/report_contract.md as package data beside the glossary, kept identical by a test, after the roadmap-row cleanup (F-dc0c574), in D5 (R-B6 decision 2)
+→ commit f787d90
+
+## D-41f73ea · CLOSED · decision · - · 2026-11-02
+public docs pages carry no ledger ids, Phase/Wave labels or docs_root links; the agentic section's Design Decisions page is the one exception and keeps its ledger ids (D1 Q2)
+→ commit f787d90
+
+## D-0f3d007 · CLOSED · decision · - · 2026-11-02
+the Rules for Agents page (six rules and the approval table) is approved as written
+→ commit f787d90
+
+## D-42daebb · CLOSED · decision · - · 2026-11-02
+the docs site takes the four-kind structure (tutorials, how-to, concepts, reference): the nav is regrouped first, and the files move once at D1b-C with mkdocs-redirects so old URLs keep working (D1 Q1)
+→ commit f787d90
+
+## D-28438a6 · CLOSED · decision · - · 2026-11-02
+developer_guide/roadmap_v1.md and EQUATION_DSL_IMPLEMENTATION.md leave the published nav for docs/development/, with any DSL grammar users need kept in the Equation DSL user page (D1 Q3)
+→ commit f787d90
+
+## D-a93e37c · CLOSED · decision · - · 2026-11-02
+parameter sweeps become a section of the Batch Processing tutorial and the custom-pipeline placeholder page is dropped (D1 Q4)
+→ commit f787d90
+
 ## F-17568e5 · STANDING · finding · docs · 2026-11-02
 after phase B the published docs still carry ledger ids and Phase/Wave labels mainly on developer_guide/architecture_notes.md (about 25 ids, 11 labels), which moved there from CLAUDE.md; roadmap row names are gone from phase B's pages
 → commit 014725a
