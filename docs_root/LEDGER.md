@@ -183,11 +183,13 @@ the baseline of the 64 agent scenarios is 46 passing; the failures are one run o
 the ground-assumptions skill is not loaded for a number with no unit or a value far out of range, so the unit is guessed and written as given by the user (ground.no-unit, ground.out-of-range)
 → commit 7d3db72
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
 → commit 7d3db72
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## D-47468a5 · CLOSED · decision · - · 2026-10-30
 the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
@@ -206,12 +208,14 @@ eval.which-packs: told to use "whichever packs are right", the agent ran --packs
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## F-c386cd4 · OPEN · finding · - · 2026-10-28
 flow.realistic-fingertip: under "carry on without asking" the agent wrote fingertip radii, indentations and timings from memory into world.yml as proposals; the workflow skill does not say a proposal file counts as inventing
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## F-bf830fd · OPEN · finding · - · 2026-10-28
 flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
@@ -226,6 +230,7 @@ interpret-report slips: report.typical-rate called 1 spike/s "too low", report.n
 run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say a device effect is only known by timing an entry on it
 → commit 935ce5c
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## F-2901a8e · OPEN · finding · - · 2026-10-28
 diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
@@ -245,11 +250,13 @@ asked to check an existing world file, a fresh agent validated it correctly with
 → commit c947f21
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## F-d1056b6 · OPEN · finding · - · 2026-10-28
 with a session budget set, the plan skill named the budget only as a contingency instead of splitting the plan into sessions and saying where each stops, as its step 4 asks (scenario plan.session-budget)
 → commit c947f21
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 
 ## D-983e9ab · CLOSED · decision · - · 2026-10-28
 the project's own instruction file is the user's, so SensoryForge supplies only a marked section, written only with --write, and an agent builds the rest in its environment's own way; where a tool's format is documented there is a specific target, and for any other the generic README and prompt apply (Ben, 2026-10-28, reversing B8's choice never to touch such files)
