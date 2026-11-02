@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-17568e5 · STANDING · finding · docs · 2026-11-02
+after phase B the published docs still carry ledger ids and Phase/Wave labels mainly on developer_guide/architecture_notes.md (about 25 ids, 11 labels), which moved there from CLAUDE.md; roadmap row names are gone from phase B's pages
+→ commit 014725a
+
 ## D-623be8b · CLOSED · decision · - · 2026-11-02
 the skills reference page (docs/agents/skills_reference.md) is generated from the packaged skills by `python -m sensoryforge.agents.reference` and tests/unit/test_agent_docs.py fails when it differs, so it cannot drift
 → commit 5be54c0
@@ -855,6 +859,7 @@ the roadmap keeps an append-only discussion record (requests, replies, page comm
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
 ↔ 5be54c0 docs(agents): the agentic workflow gets its own docs section (B11)
+↔ 014725a docs: phase B docs checkpoint (D1b-B)
 
 ## D-fac4caa · CLOSED · decision · - · 2026-10-22
 agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
