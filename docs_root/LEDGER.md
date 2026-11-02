@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-070d91f · CLOSED · decision · - · 2026-11-02
+SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`)
+→ commit 4a97c48
+
 ## D-4f3f26a · CLOSED · decision · - · 2026-11-02
 the workflow waits for plan approval only at `planning: full` or when the plan holds an open value; `review` sets who checks a step's result and `pace` sets whether to wait (R-B6 decision 1; enables B6f's change 9)
 → commit f787d90
@@ -436,6 +440,7 @@ a module header is tag lines at the end of its docstring, with a closed topic li
 ## D-d97f27f · CLOSED · decision · - · 2026-10-24
 the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout
 → commit 6671f33
+↔ 4a97c48 docs(plan): no built-in RAG or embeddings for the agent skills
 
 ## D-4a6f527 · CLOSED · decision · - · 2026-10-24
 a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries
@@ -896,6 +901,7 @@ agents never invent domain facts: physics, models, parameters and units come fro
 ## D-c889235 · CLOSED · decision · - · 2026-10-22
 the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval
 → commit f44b0af
+↔ 4a97c48 docs(plan): no built-in RAG or embeddings for the agent skills
 
 ## D-76fdd8a · CLOSED · decision · - · 2026-10-22
 how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default
