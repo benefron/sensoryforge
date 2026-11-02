@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-1ce0186 · CLOSED · decision · - · 2026-11-02
+phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
+→ commit 8459dc6
+
 ## D-b6a94f5 · CLOSED · decision · docs/development · 2026-11-02
 phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass
 → commit 1744cbc
