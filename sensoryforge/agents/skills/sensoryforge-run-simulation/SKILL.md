@@ -42,8 +42,9 @@ nothing and writes nothing: it prints the entry count, the splits, the sensor an
 folder, so check them against what the user asked for. The second runs one entry. Read the
 time on its line and the size of its bundle in the output folder, multiply by the number of
 entries and say so, with "measured on one entry" next to it. Check that the disk has the
-room. What a device does to the time is known only by timing one entry on it: never say
-that a GPU will or will not help, offer to time one entry on each.
+room. Time exactly one entry (`--entries 0:1`), not two. What a device does to the time is known
+only by timing one entry on it: never say that a GPU will or will not help; a device that
+failed or was not timed is "not measured", and you can offer to time one entry on each.
 
 ## 3. Run
 

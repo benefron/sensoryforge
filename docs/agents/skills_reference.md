@@ -248,7 +248,7 @@ sensoryforge world sample world_v2.yml -n 2 --seed 7
 
 `sensoryforge-ground-assumptions`
 
-**When an agent uses it.** Settle a model, parameter, range or unit that nobody has given, by asking the user or by finding sources they approve, and keep every assumption listed with where it came from. Use when a value, an equation, a unit or "what is typical" is missing, when a plan or a file holds a value marked as an assumption, when someone gives a number with no unit or one far outside the range a skill or the world states, when someone asks for a source, a reference or "the right number", or before any value would be filled in from memory, in whatever words they put it.
+**When an agent uses it.** Settle a model, parameter, range or unit that nobody has given, by asking the user or by finding sources they approve, and keep every assumption listed with where it came from. Use before writing any number into a plan, world or data-set file that arrives with no unit or far outside the range the skill or the world states, even for a plain edit; and when a value, an equation, a unit or "what is typical" is missing, when a plan or a file holds a value marked as an assumption, when someone asks for a source, a reference or "the right number", or before any value would be filled in from memory, in whatever words they put it.
 
 Physics, models, parameters, ranges and units are not yours to supply, however plausible
 a number looks and however sure you are. This skill is how a missing one gets an origin:

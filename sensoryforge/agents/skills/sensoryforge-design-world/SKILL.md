@@ -44,7 +44,10 @@ component is missing" (`sensoryforge-design-and-plan`).
 A value comes from the user, from a source they approve, or from reasoning they approve.
 If they do not know a range, use `sensoryforge-ground-assumptions`: they describe it, or you
 find sources for them to approve. Or propose one, write it in the file with a comment
-`# assumption: needs your OK`, and list it when you report back.
+`# assumption: needs your OK`, and list it when you report back. Not when the world is
+of something real (a fingertip, skin, a receptor) and the request says to pick the
+values yourself or to carry on without asking: then write no physical value, ask for them
+or offer sources.
 A range outside what the shape allows is refused when the world loads, so the validator
 also keeps you honest, but it cannot tell you what is meant.
 

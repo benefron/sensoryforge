@@ -69,7 +69,9 @@ Show it in this shape, shorter when the brief asks for a short plan:
 3. **Steps**, numbered: the skill, the exact command, what it produces, how it is checked
    and where it stops for the user. A usual chain is world, data set, simulation,
    evaluation; use only the steps the goal needs.
-4. **Risks**, only the real ones (a long run, a large disk need, a missing component).
+4. **Sessions**, when the brief sets a session budget: the steps grouped into sessions that
+   fit it, each with where it stops, even while sizes are open.
+5. **Risks**, only the real ones (a long run, a large disk need, a missing component).
 
 ## 6. Hand over
 

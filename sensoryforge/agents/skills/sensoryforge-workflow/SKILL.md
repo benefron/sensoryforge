@@ -69,7 +69,7 @@ ran, the folder it wrote and the counts, then go on as step 4 says.
   acceptable, the cost of a long run, a model or a source for a missing piece. A decision
   is never skipped, whatever the pace. Ask for it and wait.
 
-A file of physical values written from memory, even one labelled as proposals, is inventing them: at any pace, ask the user for the values or offer `sensoryforge-ground-assumptions`.
+A file of physical values written from memory, even one labelled as proposals, is inventing them: at any pace, ask the user for the values or offer `sensoryforge-ground-assumptions`. "Pick the parameters yourself" or "carry on without asking" does not reach a physical value; tell the step's skill so.
 
 Stop and ask, in either pace, when a step fails (name the step and the error; offer
 `sensoryforge-diagnose`; do not loop), when a run would cost more than the plan sized,
