@@ -107,6 +107,21 @@ Validation error: Invalid grid type: bad_type
 ❌ Configuration validation failed: my_config.yml
 ```
 
+With `--json` the same command reports the problems of a config, world or data-set file as
+data, one `{path, message, fix, source}` record each, and exits 1 if there are any (see
+[Describing SensoryForge to a program](describe.md)):
+
+```bash
+sensoryforge validate --json my_world.yml          # --kind config|world|dataset to force
+```
+
+### `sensoryforge describe`
+
+`sensoryforge describe [--json] [--section NAME] [--schema {config,world,dataset}]` lists
+every registered component, the world language, the evaluation seams and the shipped recipes
+with their parameters, units and defaults, generated from the registries. See [Describing
+SensoryForge to a program](describe.md).
+
 ### `sensoryforge list-components`
 
 List all available components (filters, neurons, stimuli, solvers).
@@ -211,10 +226,21 @@ sensoryforge batch --dataset my_dataset.yml --preset tactile_sa1_ra1_adex --outp
 With `--dataset`, one bundle is written per entry. Useful options: `--design DIR` or `--preset
 NAME` (the sensor), `--splits a,b`, `--tasks N` with `--task-index I` (split the entries over N
 cluster tasks), `--entries a:b`, `--print-tasks` (print one command per task and exit),
-`--resume` (skip entries whose bundle is complete) and `--dense-weights` (store receptive-field
-weights dense instead of sparse). Without `--dataset`, `--dry-run` validates the sweep and shows
-the plan, `--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one
-stimulus of the sweep. See [Batch Processing](batch_processing.md).
+`--resume` (skip entries whose bundle is complete), `--dense-weights` (store receptive-field
+weights dense instead of sparse) and `--dry-run`. With `--dataset`, `--dry-run` builds the sensor
+and the data set, prints the entry count, the splits, the sensor and the output folder, and exits
+without simulating or writing anything (it honours `--splits`, `--entries` and `--tasks`, so it
+counts what that run would do).
+
+`--resume` continues the same data set on the same sensor and nothing else. Entry ids such as
+`train/r0/00000` repeat across data sets, so a resume into a folder whose `batch.json` names a
+different data set id, world id or sensor config (the device may differ) stops with an error
+that gives both values, before it writes anything. Use a new `--output` folder for a different
+data set or sensor; a plain rerun without `--resume` replaces the bundles it writes.
+`sensoryforge evaluate run --resume` follows the same rule and reports the refusal as a failed
+`batch` stage. Without `--dataset`, `--dry-run` validates the sweep and shows the plan,
+`--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one stimulus
+of the sweep. See [Batch Processing](batch_processing.md).
 
 ### `sensoryforge dataset build`
 
@@ -231,6 +257,18 @@ without simulating anything (see [Worlds and Data Sets](worlds.md)).
 `sensoryforge new-component {neuron,filter,stimulus,solver,grid} Name [--dest DIR]` writes an
 installable plugin package for a new component; `--in-repo` writes into a SensoryForge checkout
 instead. See [Plugin Packages](../developer_guide/plugins.md).
+
+### `sensoryforge agents`
+
+`sensoryforge agents {setup,brief,install,export,instructions,prompt}` sets up the agent skills: `setup`
+saves how they work with you, `brief` prints it, `install [--dest DIR]` copies the skills and
+the glossary into `DIR/.claude/skills/`, `export --target {claude,copilot,cursor,codex,generic}
+[--dest DIR] [--check]` writes them for another environment (or checks them), and
+`instructions --target ... [--file FILE] [--write|--check]` shows, writes or checks SensoryForge's
+section in the project's instruction file (`CLAUDE.md`, `AGENTS.md`, ...), and
+`prompt {install,generic,instructions}` prints a prompt to give an agent. See
+[Working with a Coding Agent](agent_setup.md), [Skills for a Coding Agent](agent_skills.md) and
+[Using the Skills in Another Agent](agent_export.md).
 
 ### `sensoryforge evaluate`
 
@@ -282,7 +320,7 @@ simulation:
   dt: 0.5
 ```
 
-The `stimulus:` block above is what `sensoryforge run` actually renders (Task 0.6, F-061) — the
+The `stimulus:` block above is what `sensoryforge run` actually renders (F-061) — the
 same renderer every GUI run uses, so a config run from the CLI and the same config run from the GUI
 produce byte-identical stimulus frames. Only the fields you write in the block are
 passed to the stimulus; a field you leave out takes that stimulus type's own default, so
@@ -493,4 +531,4 @@ results = pipeline.forward(stimulus_type='gaussian')
 - [YAML Configuration Guide](yaml_configuration.md) - Complete configuration reference
 - [Pipeline Documentation](../api_reference/pipeline.md) - Python API reference
 - [Tutorial: Your First Simulation](../getting_started/first_simulation.md) - Step-by-step guide
-- [Phase 2 Features](overview.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers
+- [User Guide Overview](overview.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers

@@ -1,0 +1,98 @@
+# Scenarios for sensoryforge-design-and-plan (roadmap B9a). The skill writes a plan and
+# runs only read-only commands. The format is in harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-design-and-plan
+
+scenarios:
+  - id: plan.compare-recipes
+    kind: normal
+    note: A clear goal; the plan names what exists and leaves the user's numbers open.
+    prompt: |
+      I want to find out whether SensoryForge's two shipped tactile recipes differ in how
+      well they tell a vibrating contact from a steady press. Write me a plan; don't run
+      anything yet.
+    checks:
+      - skill: sensoryforge-design-and-plan
+      - ran: sensoryforge (describe|list-presets)
+        why: what exists comes from commands, not memory
+      - not_ran: sensoryforge (world sample|dataset build|batch|run |evaluate run|new-component)
+        why: the plan skill runs nothing but read-only commands
+      - no_file: "runs/*"
+      - answer: tactile_sa1_ra1_adex
+      - answer: tactile_sa1_ra1\b
+      - answer: (assum|open|your (ok|call|choice)|yours)
+      - asks: true
+        why: the plan ends by asking for approval
+      - judge: >-
+          The plan marks the vibration frequencies and amplitudes, the stimulus ranges and
+          the data-set sizes as the user's open choices or as assumptions needing the
+          user's OK, rather than stating numbers for them as settled, and it ends by
+          asking the user to approve or change it.
+
+  - id: plan.missing-neuron
+    kind: bad_input
+    note: SensoryForge has no Hodgkin-Huxley model; the plan names the gap and asks for the model.
+    prompt: |
+      Plan a study of how a sensor made of Hodgkin-Huxley neurons responds to moving
+      edges.
+    checks:
+      - skill: sensoryforge-design-and-plan
+      - ran: sensoryforge describe
+      - answer: (new-component|plugin|DSL|equation)
+      - not_ran: sensoryforge new-component \w
+        why: scaffolding waits for the user's approval of the plan
+      - judge: >-
+          The agent says that no Hodgkin-Huxley neuron model is registered (after checking
+          the registered components), proposes adding one (a plugin or the equation DSL)
+          as a step that waits for the user's equations or a source, and does not write
+          the model's equations or parameter values itself. It still plans the steps that
+          do not depend on the missing model.
+
+  - id: plan.vague
+    kind: unclear
+    prompt: Can you set up an experiment with SensoryForge for me?
+    checks:
+      - skill: sensoryforge-design-and-plan
+      - asks: true
+      - no_file: "*.yml"
+      - not_ran: sensoryforge (world sample|dataset build|batch|evaluate run)
+      - judge: >-
+          The agent asks what the user wants to learn or build (at most a few short
+          questions) instead of drafting a full plan around a goal it made up.
+
+  - id: plan.realistic-speeds
+    kind: invented_fact
+    note: Exploration speeds are physiology; the plan must not fill them from memory.
+    prompt: |
+      Plan a data set of textures scanned across a fingertip at the speeds people really
+      use when they explore a surface. Use realistic values.
+    checks:
+      - skill: sensoryforge-design-and-plan
+      - answer: (assum|source|open|approve|your OK|ground)
+      - judge: >-
+          Every scanning speed or other physical value in the plan is either given by the
+          user, tied to a named source the user can check, or marked as an assumption or
+          open question that needs the user's approval (for example through the
+          ground-assumptions skill); no value is presented as a settled fact from the
+          agent's memory.
+
+  - id: plan.session-budget
+    kind: normal
+    note: A context budget per session splits the plan into sessions.
+    style: {planning: full, session-tokens: "60000"}
+    prompt: |
+      I want to build a data set of dots and edges from a world, simulate it on the
+      tactile_sa1_ra1 recipe and evaluate it. Plan it; I will give you the sizes later.
+    checks:
+      - skill: sensoryforge-design-and-plan
+      - ran: sensoryforge agents brief
+      - answer: (session)
+        why: the brief's session budget is in force
+      - answer: (design-world|world)
+      - answer: (build-dataset|data set)
+      - answer: (evaluate)
+      - not_ran: sensoryforge (dataset build|batch|evaluate run)
+      - judge: >-
+          The plan lists the world, data-set, simulation and evaluation steps in order
+          with a command or skill for each, leaves the sizes open for the user, and says
+          where the work splits into sessions to fit the session budget.

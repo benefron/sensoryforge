@@ -228,3 +228,6 @@ examples/output/
 
 # living-ledger: the ledger must be committed
 !docs_root/DECISIONS.md
+
+# A user's saved working style for the agent skills (sensoryforge agents setup)
+.sensoryforge/

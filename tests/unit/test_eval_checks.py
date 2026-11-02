@@ -311,6 +311,20 @@ def test_position_dependent_input_fails_mirror_symmetry(tactile_dataset, monkeyp
     }
 
 
+@pytest.mark.parametrize("preset", ["tactile_sa1_ra1", "tactile_sa1_ra1_adex"])
+def test_the_symmetric_probe_builds_on_the_shipped_tactile_recipes(preset):
+    """A recipe's resolvable_distance_mm would clash with the probe's own lattice."""
+    from sensoryforge.config.schema import SensoryForgeConfig
+    from sensoryforge.presets import load_preset
+
+    config = SensoryForgeConfig.from_dict(load_preset(preset))
+    assert any(p.resolvable_distance_mm for p in config.populations)
+    symmetric = pb.symmetric(config)
+    assert all(p.resolvable_distance_mm is None for p in symmetric.populations)
+    assert all(p.resolvable_distance_mm for p in config.populations), "a copy"
+    SimulationEngine(symmetric)
+
+
 def test_a_model_that_fires_on_its_own_fails_empty_stimulus(
     tactile_dataset, monkeypatch
 ):

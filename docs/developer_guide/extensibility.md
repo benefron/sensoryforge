@@ -340,6 +340,6 @@ See the following files for reference implementations:
 - See `plugins.md` for the entry-point plugin-package route in full
 - See `add_neuron.md`, `add_filter.md`, `add_stimulus.md` for step-by-step
   guides per component kind
-- See `.cursor/rules/extensibility-patterns.mdc` for coding patterns
-- See `.cursor/skills/add-new-component/SKILL.md` for step-by-step guide
+- See `architecture_notes.md` ("Adding a New Component") for the contract every
+  component meets
 - Check existing components for reference implementations

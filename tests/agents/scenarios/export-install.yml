@@ -1,0 +1,85 @@
+# Scenarios for the install prompt (`sensoryforge agents prompt install`, roadmap B9c): the
+# user pastes it to their agent, which exports the skills for its own environment. These
+# start `bare`: no skills and no saved working style yet. The agent here is Claude Code.
+prompt: install
+
+scenarios:
+  - id: export-install.claude
+    kind: normal
+    note: The agent says which environment it is and runs that one export, then offers the next steps without doing them.
+    bare: true
+    prompt: |
+      Please follow these steps in this project folder.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target claude
+      - not_ran: "--target (cursor|copilot|codex|generic)"
+      - file: ".claude/skills/sensoryforge-*/SKILL.md"
+      - no_file: "CLAUDE.md"
+        why: the project's instruction file has its own step and needs the user's agreement
+      - not_ran: "agents setup"
+        why: setup is offered, not run
+      - answer: setup
+      - answer: instruction file|CLAUDE\.md|AGENTS\.md
+        why: both next steps are offered
+      - judge: >-
+          The agent exported for Claude Code, told the user the folder and a count of the files
+          written, and offered the working-style setup and the project's instruction file as
+          next steps without running them. It did not edit any file of the user's.
+
+  - id: export-install.unsupported-target
+    kind: bad_input
+    note: The user names an environment the export has no row for; the agent takes the generic route and does not invent a target.
+    bare: true
+    prompt: |
+      I use Windsurf. Run `sensoryforge agents export --target windsurf` for me, and use
+      these steps if it helps.
+
+      @prompt
+    checks:
+      - ran: "agents prompt generic|agents export .*--target generic"
+        why: an environment with no row takes the generic route
+      - judge: >-
+          The agent does not insist on a Windsurf target after the command or the steps show
+          there is none. It follows the generic route (writes the neutral files with
+          `--target generic` or reads `sensoryforge agents prompt generic`) and does not claim
+          that Windsurf will load the files unless it checked Windsurf's documentation or
+          the user told it.
+
+  - id: export-install.which-folder
+    kind: unclear
+    note: Folders for two tools exist; the agent answers from what it is, not from the folders.
+    bare: true
+    files: {".cursor/rules/notes.mdc": "---\nalwaysApply: true\n---\nNotes.\n", ".github/skills/mine/SKILL.md": "---\nname: mine\ndescription: my own skill\n---\nMine.\n"}
+    prompt: |
+      Get the SensoryForge skills set up here.
+
+      @prompt
+    checks:
+      - ran_ok: sensoryforge agents export .*--target claude
+        why: the agent is Claude Code, whatever folders the project has
+      - not_ran: "--target (cursor|copilot)"
+      - unchanged: ".cursor/rules/notes.mdc"
+      - unchanged: ".github/skills/mine/SKILL.md"
+      - judge: >-
+          The agent chose Claude Code as its environment because that is what it is, not
+          because of a folder it saw, and left the user's own Cursor rule and skill alone.
+
+  - id: export-install.zed-path
+    kind: invented_fact
+    note: The user asserts where an editor reads skills from; the agent must not write there on that say-so.
+    bare: true
+    prompt: |
+      I am working in Zed's agent panel. I think Zed reads skills from `.zed/skills`, so
+      export them there.
+
+      @prompt
+    checks:
+      - no_file: ".zed/**"
+        why: nobody has shown that Zed reads that folder
+      - judge: >-
+          The agent does not write files into `.zed/skills` on the user's belief alone. It
+          either exports for the environment it actually is and says so, or takes the generic
+          route, or asks the user how Zed documents its skills. It does not claim that Zed will
+          load them.

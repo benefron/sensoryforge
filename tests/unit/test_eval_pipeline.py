@@ -351,3 +351,28 @@ def test_cli_exit_code_follows_a_failed_stage(tmp_path, capsys, monkeypatch):
     captured = capsys.readouterr()
     assert code == 1 and "batch: boom" in captured.err
     assert "batch    failed" in captured.out
+
+
+def test_resume_into_a_folder_of_another_data_set_is_a_failed_stage(tmp_path):
+    run_pipeline(
+        make_config(),
+        make_spec(1),
+        tmp_path,
+        packs=["core"],
+        run_check_stage=False,
+        created_at=STAMP,
+    )
+    other = load_dataset(dataset_mapping(WORLD, 1, 4, DURATION_MS))
+    doc = run_pipeline(
+        make_config(),
+        other,
+        tmp_path,
+        packs=["core"],
+        run_check_stage=False,
+        resume=True,
+        created_at=STAMP,
+    )
+    assert doc["status"] == "failed"
+    batch = next(s for s in doc["stages"] if s["name"] == "batch")
+    assert batch["status"] == "failed" and "new output folder" in batch["detail"]
+    validate(doc)

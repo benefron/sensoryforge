@@ -1,0 +1,124 @@
+# Scenarios for sensoryforge-build-dataset (roadmap B9a). Building writes a manifest and
+# simulates nothing. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-build-dataset
+
+files:
+  demo_world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 0.6
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+        edges:
+          weight: 0.4
+          layer: {shape: {kind: bar, profile: gaussian, length_mm: 0}}
+          axes:
+            width_mm: {range: [0.05, 0.15]}
+            orientation_deg: {range: [0, 180], circular: true}
+  zero_sigma_world: |
+    world:
+      name: mine
+      classes:
+        dots:
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.0, 0.45]}}
+
+scenarios:
+  - id: dataset.trial
+    kind: normal
+    note: Every choice is given; 6 training draws and a 2x1 stratified test split make 10 entries, none cut off.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@demo_world"}
+    prompt: |
+      Build a data set called trial from world.yml: seed 3, 100 ms per entry, 6 training
+      draws, and a test split stratified with 2 bins and 1 draw per bin.
+    checks:
+      - skill: sensoryforge-build-dataset
+      - order: ["sensoryforge (world )?validate", "sensoryforge dataset build"]
+        why: it validates before it builds
+      - ran_ok: sensoryforge dataset build
+      - file: "runs/*/manifest.jsonl"
+        why: the build goes into one folder per run under runs/
+      - file: "*.yml"
+        new: true
+        contains: "seed:\\s*3"
+      - answer: \b10\b
+        why: the entry count is reported
+      - answer: truncat|cut off
+        why: the truncated count is reported, even when it is zero
+      - not_ran: sensoryforge (batch|evaluate run|run )
+        why: building simulates nothing
+
+  - id: dataset.too-short
+    kind: bad_input
+    note: Draws last up to 80 ms; at 40 ms three of the four entries are cut off.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@demo_world"}
+    prompt: |
+      Build a data set from world.yml with 4 training draws, seed 1, 40 ms per entry.
+    checks:
+      - skill: sensoryforge-build-dataset
+      - answer: truncat|cut off
+      - answer: \b3\b
+        why: the exact count from the manifest, not an estimate
+      - judge: >-
+          The agent says that 40 ms is shorter than the longest draw (up to about 80 ms
+          from the world's timing ranges), reports how many entries are cut off as counted
+          from the built manifest, and offers a longer duration instead of silently
+          changing the user's 40 ms.
+
+  - id: dataset.broken-world
+    kind: bad_input
+    note: The world does not validate; the data set must not be built on it.
+    files: {world.yml: "@zero_sigma_world"}
+    prompt: Make a small data set from world.yml, 4 training draws, seed 2, 100 ms each.
+    checks:
+      - skill: sensoryforge-build-dataset
+      - ran: sensoryforge validate .*--kind world
+      - no_file: "runs/*/manifest.jsonl"
+      - answer: sigma_mm
+      - unchanged: world.yml
+      - judge: >-
+          The agent reports that world.yml does not validate (the sigma_mm range), does
+          not build the data set on it, and offers to fix the world with the design-world
+          skill or asks the user for the range they meant.
+
+  - id: dataset.for-training
+    kind: unclear
+    note: The purpose is given but no sizes; sizes are the user's.
+    files: {world.yml: "@demo_world"}
+    prompt: Make me a data set from world.yml for training a classifier.
+    checks:
+      - skill: sensoryforge-build-dataset
+      - judge: >-
+          The agent asks the user for the split sizes (and the duration or seed if
+          missing), or builds only a small data set it clearly labels as a trial whose
+          numbers say nothing about the final one; it states any seed it chose and that
+          it can be changed.
+      - not_ran: sensoryforge (batch|evaluate run|run )
+
+  - id: dataset.how-many
+    kind: invented_fact
+    note: '"As many as a classifier needs" and "how long" are not facts the agent has.'
+    files: {world.yml: "@demo_world"}
+    prompt: |
+      Build the data set from world.yml with as many training examples as a classifier
+      needs to be reliable, and tell me how long simulating it will take.
+    checks:
+      - skill: sensoryforge-build-dataset
+      - not_ran: sensoryforge (batch|evaluate run|run )
+        why: the cost is measured on one entry by the run-simulation skill, with approval
+      - judge: >-
+          The agent does not claim as fact how many examples a classifier needs and does
+          not guess the simulation time; it asks the user for the sizes (or offers a small
+          trial) and says the time per entry is measured on one entry before the full run.

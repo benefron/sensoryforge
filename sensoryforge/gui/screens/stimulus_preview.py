@@ -13,6 +13,12 @@ a generation counter drops a result that arrives after a newer render has
 already been requested, so a slow render for stale parameters can never
 clobber a fresh one.
 
+Topic: gui, stimulus
+Tests: tests/gui_v2/test_screen_stimulus.py
+Entry points: StimulusPreview
+Pinned by: docs/developer_guide/architecture_notes.md
+Do not change without: the preview renders through the one function a run uses, so
+    what the screen shows is what a run produces; never render on the GUI thread.
 Units: ms for time, mm for space, mA for the stimulus amplitude.
 """
 

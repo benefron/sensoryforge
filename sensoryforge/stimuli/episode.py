@@ -5,6 +5,14 @@ a ramp down (``down``). An episode is ``contacts`` of them after ``onset``,
 ``pause`` apart. Every function is pure torch arithmetic on tensors that
 broadcast against the time tensor ``t`` (ms), so the same code serves one
 layer (0-d parameters) and a batch of world draws (``[g, 1]`` parameters).
+
+Topic: stimulus, world
+Tests: tests/unit/test_layered_episode.py, tests/unit/test_world_background.py
+Entry points: contact_terms, span_progress, sine_modulation, pulse_modulation
+Pinned by: .claude/rules/world-engine.md
+Do not change without: layered and world/render share this timing math; where a formula
+    changes, the old expression stays verbatim on the path that does not use the new
+    field (no `+ 0` or `* 1` rewrites: they change float rounding).
 """
 
 from __future__ import annotations

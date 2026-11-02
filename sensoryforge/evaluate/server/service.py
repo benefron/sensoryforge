@@ -11,6 +11,13 @@ The index is built once from ``manifest.jsonl`` (labels, the draw seed and the b
 offset of the line) and ``index/task_*.jsonl`` (status); no bundle is opened to list
 draws, so a data set of 10,000 draws lists in the time it takes to parse its manifest.
 A draw's full record is read from its line on demand.
+
+Topic: server
+Tests: tests/unit/test_eval_server.py, tests/unit/test_eval_page_compare.py
+Entry points: DatasetService, ServiceError, FrameChunk, DrawRow, decimate
+Pinned by: docs/developer_guide/evaluation_server.md, docs/reference/report_contract.md
+Do not change without: endpoints sit behind one small interface and no web framework is
+    imported here, so a later FastAPI swap stays possible.
 """
 
 from __future__ import annotations

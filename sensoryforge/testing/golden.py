@@ -23,6 +23,13 @@ magnitude below any change a person would call different.
 
 Comparisons of two results computed in the same process are not golden
 comparisons and should stay bit-exact.
+
+Topic: testing
+Tests: tests/unit/test_layered_golden.py, tests/integration/test_gui_engine_equality.py
+Entry points: assert_matches_golden
+Pinned by: F-071
+Do not change without: fixtures were generated on macOS arm64 and other platforms round
+    up to one float32 step differently, so compare with this helper, never torch.equal.
 """
 
 from __future__ import annotations

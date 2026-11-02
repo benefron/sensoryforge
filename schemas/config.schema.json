@@ -1,0 +1,612 @@
+{
+  "type": "object",
+  "properties": {
+    "grids": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "arrangement": {
+            "type": "string",
+            "default": "grid",
+            "examples": [
+              "blue_noise",
+              "grid",
+              "hex",
+              "jittered_grid",
+              "poisson"
+            ]
+          },
+          "rows": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "cols": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "spacing": {
+            "type": "number",
+            "default": 0.15
+          },
+          "density": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "default": null
+          },
+          "center_x": {
+            "type": "number",
+            "default": 0.0
+          },
+          "center_y": {
+            "type": "number",
+            "default": 0.0
+          },
+          "color": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true
+          },
+          "seed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coords_file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "Configuration for a single receptor grid layer."
+      }
+    },
+    "populations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "neuron_type": {
+            "type": "string",
+            "default": "SA"
+          },
+          "target_grid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "innervation_method": {
+            "type": "string",
+            "default": "gaussian",
+            "examples": [
+              "distance_weighted",
+              "gaussian",
+              "imported",
+              "one_to_one",
+              "template",
+              "uniform"
+            ]
+          },
+          "connections_per_neuron": {
+            "type": "integer",
+            "default": 28
+          },
+          "sigma_d_mm": {
+            "type": "number",
+            "default": 0.3
+          },
+          "distance_weight_randomness_pct": {
+            "type": "number",
+            "default": 0.0
+          },
+          "use_distance_weights": {
+            "type": "boolean",
+            "default": true
+          },
+          "far_connection_fraction": {
+            "type": "number",
+            "default": 0.0
+          },
+          "far_sigma_factor": {
+            "type": "number",
+            "default": 5.0
+          },
+          "max_distance_mm": {
+            "type": "number",
+            "default": 1.0
+          },
+          "decay_function": {
+            "type": "string",
+            "default": "exponential"
+          },
+          "decay_rate": {
+            "type": "number",
+            "default": 2.0
+          },
+          "weight_range": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "edge_offset": {
+            "type": "number",
+            "default": 0.0
+          },
+          "resolvable_distance_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "default": null
+          },
+          "innervation_params": {
+            "type": "object"
+          },
+          "target_layers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "default": null
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "grid": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string",
+                  "default": "value"
+                },
+                "rf": {
+                  "type": "object",
+                  "properties": {
+                    "method": {
+                      "type": "string",
+                      "default": "gaussian"
+                    },
+                    "params": {
+                      "type": "object"
+                    }
+                  },
+                  "description": "Receptive-field builder selection for one :class:`PopulationInput`."
+                },
+                "gain": {
+                  "type": "number",
+                  "default": 1.0
+                },
+                "layers": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": null
+                },
+                "processing": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "grid"
+              ],
+              "description": "One sensor input a population's neurons read from (Wave M1)."
+            }
+          },
+          "combine": {
+            "type": "string",
+            "default": "sum"
+          },
+          "neuron_arrangement": {
+            "type": "string",
+            "default": "grid"
+          },
+          "neurons_per_row": {
+            "type": "integer",
+            "default": 10
+          },
+          "neuron_rows": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "neuron_cols": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "neuron_jitter_factor": {
+            "type": "number",
+            "default": 0.0
+          },
+          "neuron_model": {
+            "type": "string",
+            "default": "Izhikevich",
+            "examples": [
+              "AdEx",
+              "DSL (Custom)",
+              "FA",
+              "Izhikevich",
+              "MQIF",
+              "SA",
+              "dsl",
+              "level_crossing",
+              "sigma_delta"
+            ]
+          },
+          "model_params": {
+            "type": "object"
+          },
+          "dsl_config": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "default": null
+          },
+          "readout": {
+            "type": "string",
+            "default": "auto"
+          },
+          "filter_method": {
+            "type": "string",
+            "default": "none",
+            "examples": [
+              "RA",
+              "SA",
+              "identity",
+              "none",
+              "rafilter",
+              "safilter"
+            ]
+          },
+          "filter_params": {
+            "type": "object"
+          },
+          "solver_config": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "default": null
+          },
+          "sensor_noise_std": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "default": null
+          },
+          "membrane_noise_std": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "default": null
+          },
+          "noise_std": {
+            "type": "number",
+            "default": 0.0
+          },
+          "noise_mean": {
+            "type": "number",
+            "default": 0.0
+          },
+          "noise_seed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "color": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "input_gain": {
+            "type": "number",
+            "default": 50.0
+          },
+          "input_floor": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "default": null
+          },
+          "voltage_probes": {
+            "default": null
+          },
+          "seed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "Configuration for a single neuron population."
+      }
+    },
+    "stimulus": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "Stimulus"
+        },
+        "type": {
+          "type": "string",
+          "default": "gaussian",
+          "examples": [
+            "braille",
+            "composite",
+            "drifting_grating",
+            "edge_grating",
+            "gabor",
+            "gaussian",
+            "layered",
+            "moving",
+            "moving_edge",
+            "ramp_gaussian",
+            "repeated_pattern",
+            "static",
+            "texture",
+            "timeline"
+          ]
+        },
+        "motion": {
+          "type": "string",
+          "default": "static"
+        },
+        "composition_mode": {
+          "type": "string",
+          "default": "single"
+        },
+        "target_layer": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "stimuli": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "end": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "spread": {
+          "type": "number",
+          "default": 1.0
+        },
+        "orientation_deg": {
+          "type": "number",
+          "default": 0.0
+        },
+        "amplitude": {
+          "type": "number",
+          "default": 1.0
+        },
+        "speed_mm_s": {
+          "type": "number",
+          "default": 10.0
+        },
+        "ramp_up_ms": {
+          "type": "number",
+          "default": 10.0
+        },
+        "plateau_ms": {
+          "type": "number",
+          "default": 800.0
+        },
+        "ramp_down_ms": {
+          "type": "number",
+          "default": 10.0
+        },
+        "pattern": {
+          "type": "string",
+          "default": "gabor"
+        },
+        "wavelength": {
+          "type": "number",
+          "default": 2.0
+        },
+        "phase": {
+          "type": "number",
+          "default": 0.0
+        },
+        "sigma": {
+          "type": "number",
+          "default": 2.0
+        },
+        "motion_type": {
+          "type": "string",
+          "default": "linear"
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "radius": {
+          "type": "number",
+          "default": 2.0
+        },
+        "channel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "params": {
+          "type": "object"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "combine": {
+          "type": "string",
+          "default": "sum"
+        }
+      },
+      "description": "Configuration for stimulus generation."
+    },
+    "simulation": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "default": "cpu"
+        },
+        "dt_ms": {
+          "type": "number",
+          "default": 1.0
+        },
+        "integrate_dt_ms": {
+          "type": "number",
+          "default": 0.05
+        },
+        "solver": {
+          "type": "object"
+        },
+        "duration_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "dt": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        },
+        "receptor_noise_std": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "receptor_noise_seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        },
+        "voltage_probes": {
+          "default": null
+        }
+      },
+      "description": "Configuration for simulation execution."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Plugin packages or paths imported before the config is built."
+    }
+  },
+  "description": "Canonical configuration schema for SensoryForge.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/config.schema.json",
+  "title": "SensoryForge canonical config"
+}

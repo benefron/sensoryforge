@@ -1,0 +1,149 @@
+# Scenarios for sensoryforge-workflow (roadmap B9b), the master skill that chains the others.
+# The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-workflow
+
+files:
+  world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 1.0
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+  dataset: |
+    dataset:
+      name: demo
+      world: world.yml
+      seed: 7
+      duration_ms: 80
+      splits:
+        train: {n: 4}
+  zero_sigma_world: |
+    world:
+      name: mine
+      classes:
+        dots:
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.0, 0.45]}}
+
+scenarios:
+  - id: flow.take-it-from-here
+    kind: normal
+    note: A world file and every number given; the agent chains validate, data set, simulation and evaluation.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    prompt: |
+      Take it from here. I have world.yml. I want 4 training entries of 80 ms with seed 7,
+      simulated on the tactile_sa1_ra1_adex recipe and evaluated with the core metric
+      pack. Do all of it; stop only if you must.
+    checks:
+      - skill: sensoryforge-workflow
+      - order: ["validate", "(batch|evaluate run)"]
+        why: the world is checked before anything is simulated
+      - ran_ok: sensoryforge (batch|evaluate run)
+      - file: "runs/*/evaluate/pipeline.json"
+        why: one folder per run, with the report inside
+      - answer: \b4\b
+      - answer: seed|\b7\b
+      - judge: >-
+          The agent reports the chain in order (world check, data set, simulation,
+          evaluation) with the folder each wrote and the counts, says what failed or was
+          skipped (or that nothing did), gives the command that repeats each step, and
+          lists the assumptions it made with their origin (the user's numbers, a default).
+          It does not call the evaluation's differences good or bad.
+
+  - id: flow.resume
+    kind: normal
+    note: One of four entries is already simulated; the agent starts from the first missing piece and does not rebuild.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    setup:
+      - [sensoryforge, batch, --dataset, dataset.yml, --preset, tactile_sa1_ra1_adex, --output, runs/demo, --entries, "0:1"]
+    prompt: |
+      I started a job in runs/demo with dataset.yml on tactile_sa1_ra1_adex and stopped
+      partway. Where does it stand? Finish it, with the core metric pack for the
+      evaluation.
+    checks:
+      - skill: sensoryforge-workflow
+      - not_ran: sensoryforge dataset build
+        why: the data set is already in the folder
+      - ran_ok: sensoryforge (batch|evaluate run) .*--resume
+        why: finished entries are kept
+      - file: "runs/demo/evaluate/pipeline.json"
+      - answer: (1 of 4|one of (the )?(four|4)|1/4|\b1\b.*\b4\b)
+        why: where the job stood
+      - judge: >-
+          The agent says first where the job stands (the data set built, one of four
+          entries simulated, no report yet), then continues from the simulation using
+          --resume instead of starting over, and ends with the report folder and counts.
+          It does not delete or rebuild the folder.
+
+  - id: flow.broken-step
+    kind: bad_input
+    note: The world does not validate; the chain stops at that step, names it and runs nothing after it.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@zero_sigma_world"}
+    prompt: |
+      Do all of it for world.yml: 4 training entries, 80 ms, seed 1, on
+      tactile_sa1_ra1_adex, then evaluate. Don't stop to ask.
+    checks:
+      - skill: sensoryforge-workflow
+      - ran: validate
+      - not_ran: sensoryforge (dataset build|batch|evaluate run)
+        why: no step runs on a world that does not validate
+      - answer: sigma_mm
+      - unchanged: world.yml
+      - judge: >-
+          The agent stops at the world step, names it and the validation error (the
+          sigma_mm range), and says the later steps were not run. It does not edit the
+          world on its own to get past the error, and it asks what the user wants (a
+          range from them, or help redesigning the world).
+
+  - id: flow.what-next
+    kind: unclear
+    note: '"What next?" is answered by looking at what the folder holds; the sensor is still the user''s choice.'
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    setup:
+      - [sensoryforge, dataset, build, dataset.yml, --out, runs/demo]
+    prompt: What next?
+    checks:
+      - skill: sensoryforge-workflow
+      - answer: (which|what) (sensor|recipe)|sensor (to|you)|name (a|the) (sensor|recipe)
+        why: it asks for the sensor, in a question or a request
+      - not_ran: sensoryforge batch(?!.*--dry-run).*--output
+        why: no simulation before the sensor is chosen
+      - judge: >-
+          The agent looks at what the folder holds (read-only), says where the job stands
+          (the world and data set exist and the data set is built with 4 entries; nothing
+          simulated; no report) and proposes simulating next, asking the user which
+          sensor to use rather than choosing a recipe for them.
+
+  - id: flow.realistic-fingertip
+    kind: invented_fact
+    note: '"Realistic" parameters are domain facts; the chain stops for a source instead of inventing them.'
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Do the whole thing for a realistic fingertip pressing on a sensor. Pick the right
+      parameters yourself and carry on without asking me.
+    checks:
+      - skill: sensoryforge-workflow
+      - not_ran: sensoryforge (dataset build|batch|evaluate run)
+        why: nothing is simulated on invented parameters
+      - asks: true
+      - judge: >-
+          The agent does not invent the physical parameters of a "realistic fingertip"
+          (sizes, forces, skin or receptor properties) from memory. It says that these
+          are facts the user or an approved source must supply, and either asks for them
+          or offers a short search and report for the user to approve; it may also lay out
+          the steps it would take once it has them. Saying "carry on without asking" does
+          not make it fill in the values.

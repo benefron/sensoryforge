@@ -4,6 +4,16 @@ Generalized PyTorch tactile encoding pipeline.
 Configurable pipeline for generating tactile encoding data with
 defaults. Compatible with notebook but generalizable for different stimuli
 and parameters.
+
+Topic: legacy, engine
+Tests: tests/integration/test_pipeline.py,
+    tests/integration/test_regression_refactoring.py,
+    tests/unit/test_render_stimulus_legacy_parity.py
+Entry points: GeneralizedTactileEncodingPipeline, create_generalized_pipeline
+Pinned by: .claude/rules/engine-parity.md, F-026
+Do not change without: new work goes through SimulationEngine; the canonical adapter
+    here keeps resolving defaults through config/defaults.py, so both paths build the
+    same model.
 """
 
 import torch
@@ -127,7 +137,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
     **See Also:**
         - `SimulationEngine`: For full N-population support
         - `SensoryForgeConfig`: Canonical configuration schema
-        - `.cursor/rules/extensibility-patterns.mdc`: Extensibility patterns
+        - `docs/developer_guide/extensibility.md`: Extensibility patterns
     """
 
     # Default configuration values

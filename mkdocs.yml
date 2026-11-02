@@ -115,6 +115,7 @@ nav:
   - User Guide:
     - Overview: user_guide/overview.md
     - CLI Reference: user_guide/cli.md
+    - Describing SensoryForge to a Program: user_guide/describe.md
     - YAML Configuration: user_guide/yaml_configuration.md
     - Configuration Schema: user_guide/configuration_schema.md
     - GUI Walkthrough: user_guide/gui_walkthrough.md
@@ -135,7 +136,21 @@ nav:
     - Evaluation Browser: user_guide/evaluation_browser.md
     - Sharing a Snapshot: user_guide/evaluation_export.md
 
+  - Agentic Workflow:
+    - Overview and Five-minute Start: agents/index.md
+    - Setup: user_guide/agent_setup.md
+    - Skills: user_guide/agent_skills.md
+    - Skills Reference: agents/skills_reference.md
+    - Rules for Agents: agents/rules.md
+    - Designing a World by Describing It: user_guide/agent_design_loop.md
+    - Using the Skills in Another Agent: user_guide/agent_export.md
+    - Glossary: agents/glossary.md
+    - Task Index: agents/task_index.md
+    - Design Decisions: agents/decisions.md
+    - Extending It: agents/extending.md
+
   - Developer Guide:
+    - Architecture Notes: developer_guide/architecture_notes.md
     - Extensibility Overview: developer_guide/extensibility.md
     - Adding a Neuron: developer_guide/add_neuron.md
     - Adding a Filter: developer_guide/add_filter.md
@@ -155,6 +170,10 @@ nav:
     - Run-to-run Diff: developer_guide/diff_stage.md
     - Evaluation Pipeline: developer_guide/pipeline_stage.md
     - Evaluation Server: developer_guide/evaluation_server.md
+    - Agent Files: developer_guide/agent_files.md
+    - Agent Scenarios: developer_guide/agent_scenarios.md
+    - File Headers: developer_guide/file_headers.md
+    - Release Checklist: developer_guide/release_checklist.md
     - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
     - Roadmap: developer_guide/roadmap_v1.md
 

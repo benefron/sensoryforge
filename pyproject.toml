@@ -91,6 +91,10 @@ sensoryforge = [
     "presets/*.yml",
     "evaluate/server/static/*",
     "evaluate/export/static/*",
+    "agents/skills/*.md",
+    "agents/skills/*/*.md",
+    "agents/prompts/*.md",
+    "agents/section.md",
 ]
 
 [tool.black]

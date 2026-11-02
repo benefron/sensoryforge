@@ -6,6 +6,13 @@
 measured value, the declared value and the raw difference ``measured - declared``. It
 gives no verdict and converts no unit. Entry rows stream in step, so memory grows with
 the number of paired values (kept for the distributions), not with the rows.
+
+Topic: compare
+Tests: tests/unit/test_compare.py
+Entry points: run_compare, pair_summaries
+Pinned by: docs/developer_guide/compare_stage.md, docs/reference/report_contract.md
+Do not change without: only the comparison stage reads the declaration; it shows the
+    measured value, the declared value and the raw difference before any verdict.
 """
 
 from __future__ import annotations

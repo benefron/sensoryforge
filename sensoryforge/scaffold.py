@@ -63,8 +63,8 @@ class _KindSpec:
 def _neuron_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new spiking neuron model.
 
-Implements the ``BaseNeuron`` contract -- see
-``docs/developer_guide/add_neuron.md`` for the full guide.
+Implements the ``BaseNeuron`` contract.
+Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_neuron/
 """
 
 from __future__ import annotations
@@ -229,8 +229,8 @@ NEURON_REGISTRY.register("{{registry_key}}", {{class_name}})
 def _filter_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new temporal filter.
 
-Implements the ``BaseFilter`` contract -- see
-``docs/developer_guide/add_filter.md`` for the full guide.
+Implements the ``BaseFilter`` contract.
+Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_filter/
 """
 
 from __future__ import annotations
@@ -364,8 +364,8 @@ FILTER_REGISTRY.register("{{registry_key}}", {{class_name}})
 def _stimulus_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new spatial stimulus.
 
-Implements the ``BaseStimulus`` contract -- see
-``docs/developer_guide/add_stimulus.md`` for the full guide.
+Implements the ``BaseStimulus`` contract.
+Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_stimulus/
 """
 
 from __future__ import annotations

@@ -7,6 +7,14 @@ Screens are placeholders (``sensoryforge.gui.screens.SCREEN_FACTORIES``)
 until Phase 2 replaces them one at a time.
 
 Run with ``python -m sensoryforge.gui.app``.
+
+Topic: gui
+Tests: tests/gui_v2/test_app.py, tests/gui_v2/test_window_lifetime.py
+Entry points: SensoryForgeApp, main
+Pinned by: docs/developer_guide/architecture_notes.md, F-085, F-072
+Do not change without: Qt signals connect to bound methods, never a lambda or
+    functools.partial over self (a reference cycle frees a window mid-slot, F-085);
+    preferences go only through gui_settings() (F-072).
 """
 
 from __future__ import annotations

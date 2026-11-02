@@ -16,6 +16,21 @@ Example:
     >>> config = SensoryForgeConfig.from_yaml("config.yml")
     >>> engine = SimulationEngine(config)
     >>> results = engine.run(stimulus_data)
+
+Topic: engine
+Tests: tests/integration/test_gui_engine_equality.py,
+    tests/integration/test_engine_parity.py,
+    tests/unit/test_simulation_engine_features.py, tests/unit/test_engine_rf_banks.py
+Entry points: SimulationEngine, SimulationEngine.run, build_filter, build_neuron,
+    build_grid
+Pinned by: .claude/rules/engine-parity.md, docs/developer_guide/architecture_notes.md,
+    F-026
+Do not change without: the GUI == engine == CLI equality test and pressure-simulation's
+    parity (same config and seed, same spikes) still pass; defaults come from
+    config/defaults.py, never a copy here.
+Shapes: stimulus [batch, time, H, W] -> responses [batch, time, M] ->
+    drive [batch, time, N] -> spikes [batch, time, N]
+Units: ms at the API, seconds inside ODE integration; mm; mA
 """
 
 from __future__ import annotations

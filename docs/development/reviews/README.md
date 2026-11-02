@@ -17,6 +17,8 @@ Open/Resolved counts printed in these files.
 | `PUBLICATION_READINESS_20260914.md` | 2026-09-14 | Publication-readiness audit incl. pressure-simulation parity | **current** — source of ledger findings F-001..F-022 |
 | `R-A4_EVALUATE_CORE_20261022.md` | 2026-10-22 | Evaluation core (audit, declared side, comparison), roadmap gate R-A4 | fixed in roadmap row A4f (`7930c08`) |
 | `R-A5_EVALUATION_SERVER_20261023.md` | 2026-10-23 | Evaluation server (streaming design, draw-open time), roadmap gate R-A5 | **current** — server fixes in roadmap row A5f, page points in A6a |
+| `R-B6_CORE_SKILLS_20261025.md` | 2026-10-25 | The core agent skills (B6a–B6d), roadmap gate R-B6 | fixed in roadmap row B6f (change 9 in R-B, `305d243`) |
+| `R-B_PHASE_B_20261102.md` | 2026-11-02 | Phase B, the agentic layer (B1–B11), roadmap gate R-B | **current** — fixes and the merge in roadmap row Bf |
 
 For anything not covered above, the living ledger (`docs_root/LEDGER.md`) is the single source of
 truth for open findings and decisions.

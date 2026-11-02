@@ -28,6 +28,14 @@ Example:
     ... }
     >>> executor = BatchExecutor(config)
     >>> results = executor.execute()
+
+Topic: batch
+Tests: tests/unit/test_batch_executor.py, tests/unit/test_batch_executor_bundles.py,
+    tests/unit/test_batch_executor_canonical.py
+Entry points: BatchExecutor
+Pinned by: docs/user_guide/batch_processing.md, docs/reference/world_contract.md
+Do not change without: a change to what a bundle holds bumps the bundle schema version
+    and the contract page (pressure-simulation reads the bundles).
 """
 
 import json

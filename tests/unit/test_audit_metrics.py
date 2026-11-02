@@ -401,6 +401,10 @@ def test_catalogue_units_scope_and_resolution():
     assert defs["core.frames.digest"]["unit"] is None
     assert defs["core.input.drive_peak"]["unit"]["symbol"] == "mA"
     assert defs["core.response.latency"]["applies_to"] == ["spikes", "events"]
+    # a latency counts frames, so the frame step is its resolution; a rate has none
+    assert defs["core.response.latency"]["resolution"] == 0.5
+    assert defs["core.response.rate_mean"]["resolution"] is None
+    assert {d["resolution"] for d in CorePack().metrics(_layout(), UNITS)} == {None}
     assert "applies_to" not in defs["core.response.n_units"]
     assert defs["core.dataset.silent_entries"]["level"] == "dataset"
     assert defs["core.run.seconds"]["scope"] == "entry"

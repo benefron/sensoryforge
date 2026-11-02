@@ -1,5 +1,10 @@
 # Contributing to SensoryForge
 
+Adding a neuron, filter, stimulus, solver or grid does not need a fork: write it as a
+plugin package (`sensoryforge new-component`, see `docs/developer_guide/plugins.md`). To
+change SensoryForge itself, fork the repository on GitHub, clone your fork and open a pull
+request from a branch.
+
 ## Setting up a development environment
 
 ### Conda (recommended)
@@ -70,8 +75,18 @@ pytest -m gui          # Qt tests; set QT_QPA_PLATFORM=offscreen in CI or headle
 pytest --cov=sensoryforge tests/   # with coverage
 ```
 
-See `CLAUDE.md` for the full command reference (linting, type checking, docs) and the current
-architecture overview.
+Lint, types and docs:
+
+```bash
+black sensoryforge tests && flake8 sensoryforge tests   # what CI checks
+mypy --disallow-untyped-defs sensoryforge/
+pydocstyle --convention=google sensoryforge/
+mkdocs serve                                            # preview at http://localhost:8000
+mkdocs build --strict                                   # as CI builds the site
+```
+
+The architecture overview is `docs/developer_guide/architecture_notes.md`; `AGENTS.md` is
+the short map of the repository that coding agents start from.
 
 ## Adding a new component
 

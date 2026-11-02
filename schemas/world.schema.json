@@ -1,0 +1,1039 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/world.schema.json",
+  "title": "SensoryForge world (sensoryforge-world/1)",
+  "description": "A world, optionally under a top-level 'world:' key.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "modality": {
+          "type": "string"
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "additionalProperties": {
+            "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+            "oneOf": [
+              {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "range": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "dist": {
+                    "type": "string"
+                  },
+                  "int": {
+                    "type": "boolean"
+                  },
+                  "values": {
+                    "type": "array"
+                  },
+                  "weights": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "circular": {
+                    "type": "boolean"
+                  },
+                  "probes": {
+                    "type": "boolean"
+                  },
+                  "stratify": {
+                    "type": "boolean"
+                  },
+                  "same_as": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+              "oneOf": [
+                {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "range": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "dist": {
+                      "type": "string"
+                    },
+                    "int": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    },
+                    "weights": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "circular": {
+                      "type": "boolean"
+                    },
+                    "probes": {
+                      "type": "boolean"
+                    },
+                    "stratify": {
+                      "type": "boolean"
+                    },
+                    "same_as": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "classes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "examples": [
+                  "layered",
+                  "quiet"
+                ]
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "layer": {
+                "type": "object",
+                "properties": {
+                  "shape": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "bar",
+                          "curved_contact",
+                          "disc",
+                          "dot_array",
+                          "gabor",
+                          "gaussian",
+                          "grating",
+                          "self_affine",
+                          "step_edge"
+                        ]
+                      }
+                    }
+                  },
+                  "pattern": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "braille",
+                          "grid",
+                          "list",
+                          "random",
+                          "single"
+                        ]
+                      }
+                    }
+                  },
+                  "modulation": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "none",
+                          "pulses",
+                          "sine"
+                        ]
+                      }
+                    }
+                  },
+                  "motion": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "linear",
+                          "circular",
+                          "path"
+                        ]
+                      }
+                    }
+                  },
+                  "background": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "clamp_min": {
+                    "type": "number",
+                    "maximum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "axes": {
+                "type": "object",
+                "additionalProperties": {
+                  "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                  "oneOf": [
+                    {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "range": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "dist": {
+                          "type": "string"
+                        },
+                        "int": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "type": "array"
+                        },
+                        "weights": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "circular": {
+                          "type": "boolean"
+                        },
+                        "probes": {
+                          "type": "boolean"
+                        },
+                        "stratify": {
+                          "type": "boolean"
+                        },
+                        "same_as": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "channel": {
+                "type": "string"
+              },
+              "use": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "held_out": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "examples": [
+                  "layered",
+                  "quiet"
+                ]
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "layer": {
+                "type": "object",
+                "properties": {
+                  "shape": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "bar",
+                          "curved_contact",
+                          "disc",
+                          "dot_array",
+                          "gabor",
+                          "gaussian",
+                          "grating",
+                          "self_affine",
+                          "step_edge"
+                        ]
+                      }
+                    }
+                  },
+                  "pattern": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "braille",
+                          "grid",
+                          "list",
+                          "random",
+                          "single"
+                        ]
+                      }
+                    }
+                  },
+                  "modulation": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "examples": [
+                          "none",
+                          "pulses",
+                          "sine"
+                        ]
+                      }
+                    }
+                  },
+                  "motion": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "linear",
+                          "circular",
+                          "path"
+                        ]
+                      }
+                    }
+                  },
+                  "background": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "clamp_min": {
+                    "type": "number",
+                    "maximum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "axes": {
+                "type": "object",
+                "additionalProperties": {
+                  "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                  "oneOf": [
+                    {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "range": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "dist": {
+                          "type": "string"
+                        },
+                        "int": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "type": "array"
+                        },
+                        "weights": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "circular": {
+                          "type": "boolean"
+                        },
+                        "probes": {
+                          "type": "boolean"
+                        },
+                        "stratify": {
+                          "type": "boolean"
+                        },
+                        "same_as": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "channel": {
+                "type": "string"
+              },
+              "use": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "fixed_draws": {
+          "type": "object"
+        },
+        "sessions": {
+          "type": "object",
+          "properties": {
+            "contact_fraction": {},
+            "duration_ms": {},
+            "gap_mean_ms": {},
+            "types": {}
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "classes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "world": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "modality": {
+              "type": "string"
+            },
+            "units": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "defaults": {
+              "type": "object",
+              "additionalProperties": {
+                "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                "oneOf": [
+                  {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "range": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      },
+                      "dist": {
+                        "type": "string"
+                      },
+                      "int": {
+                        "type": "boolean"
+                      },
+                      "values": {
+                        "type": "array"
+                      },
+                      "weights": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      },
+                      "circular": {
+                        "type": "boolean"
+                      },
+                      "probes": {
+                        "type": "boolean"
+                      },
+                      "stratify": {
+                        "type": "boolean"
+                      },
+                      "same_as": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "groups": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                  "oneOf": [
+                    {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "range": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "dist": {
+                          "type": "string"
+                        },
+                        "int": {
+                          "type": "boolean"
+                        },
+                        "values": {
+                          "type": "array"
+                        },
+                        "weights": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "circular": {
+                          "type": "boolean"
+                        },
+                        "probes": {
+                          "type": "boolean"
+                        },
+                        "stratify": {
+                          "type": "boolean"
+                        },
+                        "same_as": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "classes": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "examples": [
+                      "layered",
+                      "quiet"
+                    ]
+                  },
+                  "weight": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "layer": {
+                    "type": "object",
+                    "properties": {
+                      "shape": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "bar",
+                              "curved_contact",
+                              "disc",
+                              "dot_array",
+                              "gabor",
+                              "gaussian",
+                              "grating",
+                              "self_affine",
+                              "step_edge"
+                            ]
+                          }
+                        }
+                      },
+                      "pattern": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "braille",
+                              "grid",
+                              "list",
+                              "random",
+                              "single"
+                            ]
+                          }
+                        }
+                      },
+                      "modulation": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "none",
+                              "pulses",
+                              "sine"
+                            ]
+                          }
+                        }
+                      },
+                      "motion": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "linear",
+                              "circular",
+                              "path"
+                            ]
+                          }
+                        }
+                      },
+                      "background": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "clamp_min": {
+                        "type": "number",
+                        "maximum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "axes": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                      "oneOf": [
+                        {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "range": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            },
+                            "dist": {
+                              "type": "string"
+                            },
+                            "int": {
+                              "type": "boolean"
+                            },
+                            "values": {
+                              "type": "array"
+                            },
+                            "weights": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            },
+                            "circular": {
+                              "type": "boolean"
+                            },
+                            "probes": {
+                              "type": "boolean"
+                            },
+                            "stratify": {
+                              "type": "boolean"
+                            },
+                            "same_as": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "channel": {
+                    "type": "string"
+                  },
+                  "use": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "held_out": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "examples": [
+                      "layered",
+                      "quiet"
+                    ]
+                  },
+                  "weight": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "layer": {
+                    "type": "object",
+                    "properties": {
+                      "shape": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "bar",
+                              "curved_contact",
+                              "disc",
+                              "dot_array",
+                              "gabor",
+                              "gaussian",
+                              "grating",
+                              "self_affine",
+                              "step_edge"
+                            ]
+                          }
+                        }
+                      },
+                      "pattern": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "braille",
+                              "grid",
+                              "list",
+                              "random",
+                              "single"
+                            ]
+                          }
+                        }
+                      },
+                      "modulation": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "examples": [
+                              "none",
+                              "pulses",
+                              "sine"
+                            ]
+                          }
+                        }
+                      },
+                      "motion": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "linear",
+                              "circular",
+                              "path"
+                            ]
+                          }
+                        }
+                      },
+                      "background": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "clamp_min": {
+                        "type": "number",
+                        "maximum": 0
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "axes": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "One axis: a constant, or a mapping naming a range, a list of values or a distribution.",
+                      "oneOf": [
+                        {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "range": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            },
+                            "dist": {
+                              "type": "string"
+                            },
+                            "int": {
+                              "type": "boolean"
+                            },
+                            "values": {
+                              "type": "array"
+                            },
+                            "weights": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              }
+                            },
+                            "circular": {
+                              "type": "boolean"
+                            },
+                            "probes": {
+                              "type": "boolean"
+                            },
+                            "stratify": {
+                              "type": "boolean"
+                            },
+                            "same_as": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "channel": {
+                    "type": "string"
+                  },
+                  "use": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "fixed_draws": {
+              "type": "object"
+            },
+            "sessions": {
+              "type": "object",
+              "properties": {
+                "contact_fraction": {},
+                "duration_ms": {},
+                "gap_mean_ms": {},
+                "types": {}
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "classes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "world"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

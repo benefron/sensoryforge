@@ -108,9 +108,444 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-b6a94f5 · CLOSED · decision · docs/development · 2026-11-02
+phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass
+→ commit 1744cbc
+
+## F-3228621 · CLOSED · finding · docs/development · 2026-11-02
+`sensoryforge agents setup` takes the project as the style file's grandparent, so with --path, $SENSORYFORGE_AGENTS_CONFIG or a style file in a parent folder the routing hook is installed in (or removed from) another folder's .claude/settings.local.json
+→ commit 1744cbc
+✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
+
+## F-8828df9 · OPEN · finding · docs/development · 2026-11-02
+agents/style.py set_hook raises AttributeError on a settings file whose hooks is a list or whose hook entry is a string, after the style file is already saved; an event given as a dict is replaced and a user group with empty hooks is dropped
+→ commit 1744cbc
+
+## F-b5abfcd · CLOSED · finding · docs/development · 2026-11-02
+agents export never removes or reports a sensoryforge-* skill that a later release drops, so it keeps loading while export --check says current
+→ commit 1744cbc
+✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
+
+## D-070d91f · CLOSED · decision · - · 2026-11-02
+SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`)
+→ commit 4a97c48
+
+## D-4f3f26a · CLOSED · decision · - · 2026-11-02
+the workflow waits for plan approval only at `planning: full` or when the plan holds an open value; `review` sets who checks a step's result and `pace` sets whether to wait (R-B6 decision 1; enables B6f's change 9)
+→ commit f787d90
+↔ 305d243 docs(agents): the workflow waits for plan approval only at full planning or an open value
+
+## D-881fd7b · CLOSED · decision · - · 2026-11-02
+ship docs/reference/report_contract.md as package data beside the glossary, kept identical by a test, after the roadmap-row cleanup (F-dc0c574), in D5 (R-B6 decision 2)
+→ commit f787d90
+
+## D-41f73ea · CLOSED · decision · - · 2026-11-02
+public docs pages carry no ledger ids, Phase/Wave labels or docs_root links; the agentic section's Design Decisions page is the one exception and keeps its ledger ids (D1 Q2)
+→ commit f787d90
+
+## D-0f3d007 · CLOSED · decision · - · 2026-11-02
+the Rules for Agents page (six rules and the approval table) is approved as written
+→ commit f787d90
+
+## D-42daebb · CLOSED · decision · - · 2026-11-02
+the docs site takes the four-kind structure (tutorials, how-to, concepts, reference): the nav is regrouped first, and the files move once at D1b-C with mkdocs-redirects so old URLs keep working (D1 Q1)
+→ commit f787d90
+
+## D-28438a6 · CLOSED · decision · - · 2026-11-02
+developer_guide/roadmap_v1.md and EQUATION_DSL_IMPLEMENTATION.md leave the published nav for docs/development/, with any DSL grammar users need kept in the Equation DSL user page (D1 Q3)
+→ commit f787d90
+
+## D-a93e37c · CLOSED · decision · - · 2026-11-02
+parameter sweeps become a section of the Batch Processing tutorial and the custom-pipeline placeholder page is dropped (D1 Q4)
+→ commit f787d90
+
+## F-17568e5 · STANDING · finding · docs · 2026-11-02
+after phase B the published docs still carry ledger ids and Phase/Wave labels mainly on developer_guide/architecture_notes.md (about 25 ids, 11 labels), which moved there from CLAUDE.md; roadmap row names are gone from phase B's pages
+→ commit 014725a
+
+## D-623be8b · CLOSED · decision · - · 2026-11-02
+the skills reference page (docs/agents/skills_reference.md) is generated from the packaged skills by `python -m sensoryforge.agents.reference` and tests/unit/test_agent_docs.py fails when it differs, so it cannot drift
+→ commit 5be54c0
+
+## D-2271b83 · CLOSED · decision · - · 2026-11-02
+the design-decisions page names each decision's ledger id and links the ledger file on GitHub, as D-6f0c3cc asks; the policy for ledger ids on other public pages (D1's Q2) stays Ben's to decide
+→ commit 5be54c0
+
+## F-b51f2d1 · CLOSED · finding · - · 2026-11-02
+the skills page and the task index wrote `sensoryforge dataset build ...`, `evaluate run --out`, `batch --dataset ...` and `--target copilot|cursor|...` with elided or unparseable arguments; they now parse with the real CLI parser
+→ commit 5be54c0
+
+## F-fa93e4b · STANDING · finding · - · 2026-10-30
+the baseline of the 64 agent scenarios is 46 passing; the failures are one run of one model each.
+→ commit 7d3db72
+
+## F-725b89c · OPEN · finding · - · 2026-10-30
+the ground-assumptions skill is not loaded for a number with no unit or a value far out of range, so the unit is guessed and written as given by the user (ground.no-unit, ground.out-of-range)
+→ commit 7d3db72
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## F-a920f84 · OPEN · finding · - · 2026-10-30
+the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
+→ commit 7d3db72
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## D-47468a5 · CLOSED · decision · - · 2026-10-30
+the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
+→ commit ecfe48d
+
+## F-7a38ca9 · STANDING · finding · - · 2026-10-30
+commands, flags, links, skills named, the worked example, the glossary copy, llms.txt, the export targets and the file budget were already tested; the gap B10 closes is registered names.
+→ commit ecfe48d
+
+## F-ba908db · STANDING · finding · - · 2026-10-28
+two `run.py --scenario` processes sharing one --root race while building the install (FileExistsError in root/src); runs through --skill are sequential in one process
+→ commit 935ce5c
+
+## F-48955f0 · CLOSED · finding · - · 2026-10-28
+eval.which-packs: told to use "whichever packs are right", the agent ran --packs core,tactile; the evaluate skill says the pack is the user's but not what to do with that wording
+→ commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## F-c386cd4 · CLOSED · finding · - · 2026-10-28
+flow.realistic-fingertip: under "carry on without asking" the agent wrote fingertip radii, indentations and timings from memory into world.yml as proposals; the workflow skill does not say a proposal file counts as inventing
+→ commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## F-bf830fd · OPEN · finding · - · 2026-10-28
+flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
+→ commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+
+## F-de2bdf1 · OPEN · finding · - · 2026-10-28
+interpret-report slips: report.typical-rate called 1 spike/s "too low", report.no-such-metric described what a missing metric would mean, report.latency cannot say what it measures without the contract page (the harness has no web)
+→ commit 935ce5c
+
+## F-4107108 · CLOSED · finding · - · 2026-10-28
+run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say a device effect is only known by timing an entry on it
+→ commit 935ce5c
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## F-2901a8e · OPEN · finding · - · 2026-10-28
+diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
+→ commit 935ce5c
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+
+## D-cab78f0 · CLOSED · decision · - · 2026-10-28
+skills are tested by fresh `claude -p` agents from a wheel installed into a throwaway venv in an empty folder, with project settings only, a tool allowlist and every other permission prompt refused (never bypassed), scored by command, answer, file and judge checks; live runs are opt-in, the offline half runs everywhere
+→ commit c947f21
+
+## F-39a2582 · STANDING · finding · - · 2026-10-28
+the first full run of the 17 B9a scenarios on Sonnet passed 15, at about 0.07 USD and 15 to 70 s each (judge on Haiku)
+→ commit c947f21
+
+## F-796f541 · CLOSED · finding · - · 2026-10-28
+asked to check an existing world file, a fresh agent validated it correctly without loading sensoryforge-design-world or reading the brief, because the skill's description covers designing and changing a world but not checking one (scenario world.zero-sigma)
+→ commit c947f21
+↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## F-d1056b6 · CLOSED · finding · - · 2026-10-28
+with a session budget set, the plan skill named the budget only as a contingency instead of splitting the plan into sessions and saying where each stops, as its step 4 asks (scenario plan.session-budget)
+→ commit c947f21
+↔ 1744cbc docs(review): R-B, the review of phase B
+↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
+✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+
+## D-983e9ab · CLOSED · decision · - · 2026-10-28
+the project's own instruction file is the user's, so SensoryForge supplies only a marked section, written only with --write, and an agent builds the rest in its environment's own way; where a tool's format is documented there is a specific target, and for any other the generic README and prompt apply (Ben, 2026-10-28, reversing B8's choice never to touch such files)
+→ commit c5c12aa
+
+## F-2387f6c · STANDING · finding · - · 2026-10-28
+per each tool's own pages, Claude Code reads CLAUDE.md (and AGENTS.md, directly or by @ import) and drafts it with /init, Copilot reads .github/copilot-instructions.md and AGENTS.md, Cursor reads .cursor/rules/*.mdc and AGENTS.md and drafts with /create-rule, Codex reads AGENTS.md, and no Codex /init was confirmed from its pages
+→ commit c5c12aa
+
+## F-e367969 · CLOSED · finding · - · 2026-10-28
+the front-door test that forbids pointing at the repo's retired agent files had a gap (it scans tracked files only) and would have failed on B8's export files once they were committed
+→ commit c5c12aa
+
+## F-d3d0a2b · OPEN · finding · - · 2026-10-28
+the instruction files were checked against each tool's documentation and not run inside the tools, and Copilot's page does not say which editor surfaces read .github/copilot-instructions.md, only github.com chat, the cloud agent and code review
+→ commit c5c12aa
+
+## D-5d48fdc · CLOSED · decision · - · 2026-10-27
+the packaged SKILL.md files are the one neutral source (the open Agent Skills layout) and each environment's files are generated from them by a target registry with a do-not-edit header and a --check, with no per-tool conversion of the body because all four tools read the same layout
+→ commit 1af26dc
+
+## F-b458257 · STANDING · finding · - · 2026-10-27
+Claude Code (.claude/skills), GitHub Copilot (.github/skills), Cursor (.cursor/skills) and Codex (.agents/skills) each read name-plus-description SKILL.md folders from their own project folder, per each tool's own documentation checked 2026-10-27
+→ commit 1af26dc
+
+## F-4f3a248 · OPEN · finding · - · 2026-10-27
+the exports were checked against each tool's documentation and not run inside the tools, and a tool that also reads another tool's folder (Copilot and Cursor read .claude/skills and .agents/skills) can list a skill twice when exported for several
+→ commit 1af26dc
+
+## D-28a4edc · CLOSED · decision · - · 2026-10-27
+the design loop is a step of sensoryforge-design-world and the grounding skill is its own skill, because every other skill calls it; ten skills against a budget of fourteen
+→ commit 87b1622
+
+## D-348acd9 · CLOSED · decision · - · 2026-10-27
+B7's "the agent asks or cites instead of inventing" is tested on what can be tested without a model (the rule in the docs and skills, the recorded sessions, the audit script); a fresh agent offered a value it would have to invent is B9's scenario
+→ commit 87b1622
+
+## F-5b51546 · CLOSED · finding · - · 2026-10-27
+diagnose step 3 gave `world sample --n` (exit 2) and pointed at draws that are not the data set's; the skills disagreed on the manifest folder and where.py printed "simulated: 3 of 0" on a batch folder
+→ commit 1ee8615
+
+## F-74a14f5 · CLOSED · finding · - · 2026-10-27
+the review's decision 1 is unanswered, so the workflow skill and the brief still disagree where planning is none/brief or review is user at pace auto (B6f change 9)
+→ commit 1ee8615
+✓ closed by 305d243 docs(agents): the workflow waits for plan approval only at full planning or an open value
+
+## F-a8c6c0f · CLOSED · finding · - · 2026-10-27
+batch --dataset --resume skipped bundles written by another data set or sensor and rewrote batch.json to name the new run; it now refuses before writing anything (world/runner.py check_resume_target)
+→ commit 86bb3f3
+
+## F-cb6b82f · CLOSED · finding · docs/development · 2026-10-25
+batch --dataset --resume (and evaluate run --resume) skips every entry whose data.h5 exists without checking batch.json, so resuming a folder with another data set or sensor keeps the old bundles and rewrites batch.json to name the new ones (reproduced: 0 ok, 3 skipped across two data sets and two recipes; world/runner.py run_dataset)
+→ commit 1c042dc
+✓ closed by 86bb3f3 fix(world): --resume refuses another data set or sensor; --dry-run works with --dataset
+
+## F-7d9ed72 · CLOSED · finding · docs/development · 2026-10-25
+the skills disagree on where the manifest lives: batch --dataset never reads or writes it, so the workflow skill's where.py prints "simulated: 3 of 0" on a batch folder and diagnose.py entry fails there
+→ commit 1c042dc
+✓ closed by 1ee8615 fix(agents): skills agree on one folder per run; their commands are parsed and the wheel i
+
+## F-e5143f4 · CLOSED · finding · docs/development · 2026-10-25
+the diagnose skill's `world sample WORLD --n N --seed S` exits 2 (the flag is -n), and world sample with the data set's seed gives other draws than the data set's entries; only the worked example section of a skill is tested, so commands in its steps can rot
+→ commit 1c042dc
+✓ closed by 1ee8615 fix(agents): skills agree on one folder per run; their commands are parsed and the wheel i
+
+## D-9902f01 · CLOSED · decision · docs/development · 2026-10-25
+C2 stays in phase C; the design-and-plan hand-off to new-component and the plugin template covers the gap, C2c needs C1 first, and B9a tests the hand-off with a missing-component scenario
+→ commit 1c042dc
+↔ 87b1622 feat(agents): the grounding skill and the describe-and-adjust design loop (B7)
+
+## D-a3c9d9b · CLOSED · decision · docs/development · 2026-10-25
+the review's fixes are a new row B6f, done before B7 at the start of S18; its decisions 1 (planning and review options against the workflow) and 2 (ship the report contract as package data, in D5) are Ben's
+→ commit 1c042dc
+
+## D-7ac913d · CLOSED · decision · - · 2026-10-25
+the response latency carries the frame step as its resolution, the same as the frame times, and no other response metric gets one
+→ commit b1fc116
+
+## F-c258408 · CLOSED · finding · - · 2026-10-25
+the mirror-symmetry check no longer skips on the shipped tactile recipes, because the probe clears the recipe's resolvable_distance_mm on its copy
+→ commit 8e2c546
+
+## D-6036b92 · CLOSED · decision · - · 2026-10-25
+the workflow skill separates an offer ("shall I go on?", skipped when the pace is to carry on) from a decision (a value the plan marks open or as an assumption, a size, a seed, the sensor, the metric packs, the cost of a long run, a failure), and a decision is asked for in either pace
+→ commit 5dc3dd0
+
+## D-dc22c86 · CLOSED · decision · - · 2026-10-25
+the optional next-step prompts are the chain skills' closing lines plus the existing routing hook; no new hook machinery, because the hook indexes every shipped skill and hook.py is standard library only and approved only at setup
+→ commit 5dc3dd0
+
+## D-d3885dd · CLOSED · decision · - · 2026-10-25
+session S16 runs past the 150k context budget to take B6d (Ben, 2026-10-25: the session already holds the report contract and the skill rules, which a fresh session would re-read)
+→ commit 5dc3dd0
+
+## D-6b3d8e4 · CLOSED · decision · - · 2026-10-25
+diagnose sorts every cause into four places (the data set, the sensor, the measurement, the code) and names the evidence and how sure it is for each, so a bad number is never reported as a cause that no test has shown
+→ commit a13ddf4
+
+## D-3dfbe6e · CLOSED · decision · - · 2026-10-25
+interpret-report takes "typical" only from the data set's own audit summaries, the contract or a source the user approves, never from the agent's memory of what a neuron or sensor usually does
+→ commit a13ddf4
+
+## F-dea99e7 · STANDING · finding · - · 2026-10-25
+`core.run.mirror_symmetry` is skipped on both shipped tactile recipes: probe.symmetric() replaces innervation_params but leaves the preset's resolvable_distance_mm 0.40, so the template builder refuses it (sigma_mm and pitch_mm together with resolvable_distance_mm); the report says "the engine cannot be built" and the rest of the checks run
+→ commit a13ddf4
+↔ 8e2c546 fix(evaluate): the mirror-symmetry check runs on the shipped tactile recipes
+
+## F-db90af6 · CLOSED · finding · - · 2026-10-25
+probe.symmetric() should clear resolvable_distance_mm so the mirror check runs on the shipped tactile recipes (sensoryforge/evaluate/checks/probe.py)
+→ commit a13ddf4
+✓ closed by 8e2c546 fix(evaluate): the mirror-symmetry check runs on the shipped tactile recipes
+
+## F-1db8bd8 · CLOSED · finding · - · 2026-10-25
+the audit lists a null resolution for core.response.latency though it counts frames, so a reader of audit.json alone gets no step for it; the contract's 6.1 says time metrics have resolution dt but names only the frame metrics
+→ commit a13ddf4
+✓ closed by b1fc116 fix(evaluate): the audit lists the frame step as the resolution of the response latency
+
+## D-ab61f5c · CLOSED · decision · - · 2026-10-25
+skills are named sensoryforge-<verb> and each ends with a "Worked example" that skill_examples.py writes and runs, so a skill's commands cannot drift from the code
+→ commit 468c21f
+
+## D-32e8ff2 · CLOSED · decision · - · 2026-10-25
+the packaged glossary sits beside the skill folders (skills/sensoryforge-glossary.md), so ../sensoryforge-glossary.md is valid in the package and in .claude/skills, and the brief names the project's copy first, then the package's
+→ commit 468c21f
+
+## F-750c27e · STANDING · finding · - · 2026-10-25
+`sensoryforge batch --dataset ... --dry-run` ignores the flag and simulates and writes every entry (cmd_batch_dataset never reads dry_run); the run-simulation skill says to use --print-tasks or --entries 0:1 instead
+→ commit 468c21f
+
+## F-c012944 · CLOSED · finding · - · 2026-10-25
+`batch --dataset --dry-run` should validate and print the plan, or refuse, instead of running the whole data set (sensoryforge/cli.py cmd_batch_dataset)
+→ commit 468c21f
+✓ closed by 86bb3f3 fix(world): --resume refuses another data set or sensor; --dry-run works with --dataset
+
+## D-fbbe595 · CLOSED · decision · - · 2026-10-25
+D4 ships only the configs a preset cannot give (a canonical batch config and a stimulus-block config) as package data with `sensoryforge examples copy <name>`, tested from an unpacked wheel; the notebook and scripts stay in the repository and are linked on GitHub, the legacy configs stay out of user-facing docs, and plugin_template is retired once C2c covers its two kinds
+→ commit e7f8d04
+
+## A-25817b1 · OPEN · action · - · 2026-10-25
+D4 builds the examples command and its wheel test, and the install page and README link the rest on GitHub; Due: with D4
+→ commit e7f8d04
+
+## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
+the examples/ folder is not shipped inside the package as it stands; a first run uses the packaged presets, and the rest of what an installed user needs from it is closed by D4 (batch and stimulus-block configs as small tested package data) and by C2c (scaffold or a skill for receptive-field builders and processing layers), not by copying the folder
+→ commit af45ae9
+
+## D-7904b2b · CLOSED · decision · docs/getting_started · 2026-10-24
+C2, the extension skills, stays in phase C after B6, because C2 depends on B6 (it follows the skill pattern B6 sets) and the extension path already works end to end without a skill; B6a's design-and-plan skill hands off to `sensoryforge new-component` when the component a user needs does not exist, and R-B6 revisits the order
+→ commit af45ae9
+
+## F-c79da62 · STANDING · finding · docs/getting_started · 2026-10-24
+examples/plugin_template is not superseded by `new-component`: it covers two kinds the scaffold does not
+→ commit af45ae9
+↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
+
+## D-e05b02e · CLOSED · decision · - · 2026-10-24
+the default install is install-and-extend from the git URL with no clone, and the tactile, world and evaluation workflow is one use of it rather than the headline; developing SensoryForge itself (fork, clone, editable install with the dev extra) is a separate, clearly marked path
+→ commit 9873eb4
+
+## D-0656bbd · CLOSED · decision · - · 2026-10-24
+the use and extend paths are the same install, so the docs have one install section and an extend section after it, not two installs
+→ commit 9873eb4
+
+## F-dc92c82 · STANDING · finding · - · 2026-10-24
+a wheel holds only sensoryforge/ (232 files: the skills, the evaluation server's static files and the presets are in it, docs/ and tests/ are not), so examples/ is not in a plain install and docs fetch the file from GitHub
+→ commit 9873eb4
+
+## F-24307b0 · CLOSED · finding · - · 2026-10-24
+the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, which does not exist in an installed copy
+→ commit 9873eb4
+
+## F-c5e90d8 · OPEN · finding · - · 2026-10-24
+examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
+→ commit 9873eb4
+↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
+
+## F-cb6e407 · OPEN · finding · - · 2026-10-24
+the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
+→ commit 9873eb4
+
+## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
+B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
+→ commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
+↔ a13ddf4 feat(agents): the diagnose and interpret-report skills (B6c)
+↔ 5dc3dd0 feat(agents): the workflow skill and pace-aware next-step offers (B6d)
+
+## D-a93c3e9 · CLOSED · decision · - · 2026-10-24
+until the package is on PyPI no skill or agent doc says `pip install sensoryforge`; they say "install from source (not yet on PyPI)", so publishing changes only installation.md and the README
+→ commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
+
+## D-efa939a · CLOSED · decision · - · 2026-10-24
+a skill that ships in the package depends on no repo-only path (tests/, docs/, .claude/), including the C2 and C3 extension skills, because a plugin author works from an installed package, not a fork
+→ commit c041552
+↔ 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
+
+## A-e670376 · CLOSED · action · - · 2026-10-24
+B6a puts the glossary into the package as data, copies it in `agents install`, and points the brief at the installed copy; Due: with B6a
+→ commit c041552
+✓ closed by 468c21f feat(agents): the core skills, `agents install` and a harness that runs each skill's examp
+
+## D-d5bed18 · CLOSED · decision · - · 2026-10-24
+a module header is tag lines at the end of its docstring, with a closed topic list and every checkable claim checked, so a header cannot go stale unnoticed
+→ commit 0ce453c
+
+## D-40f969d · CLOSED · decision · - · 2026-10-24
+"a lint checks presence on new files" is a ratchet: modules of 40 lines or more need a header unless listed in a baseline that only shrinks, rather than a hand-kept list of covered files
+→ commit 0ce453c
+
+## F-f324e8a · OPEN · finding · - · 2026-10-24
+127 modules of 40 lines or more still have no header (tests/unit/file_headers_untagged.txt); tag them as they are touched, starting with the GUI screens and the rest of evaluate
+→ commit 0ce453c
+
+## D-d97f27f · CLOSED · decision · - · 2026-10-24
+the meaning-not-strings rule lives once, in the brief every skill runs first, and points at the glossary and task index on the docs site, so a pip-installed skill needs no checkout
+→ commit 6671f33
+↔ 4a97c48 docs(plan): no built-in RAG or embeddings for the agent skills
+
+## D-4a6f527 · CLOSED · decision · - · 2026-10-24
+a registry kind or split kind added to the code fails tests/unit/test_agent_glossary.py until the glossary defines it, so the glossary cannot lag the registries
+→ commit 6671f33
+
+## A-b5a2f6f · SUPERSEDED · action · - · 2026-10-24
+B6a must ship the glossary and task index offline with `sensoryforge agents install` (today the brief links the docs site); Due: with B6a
+→ commit 6671f33
+⤳ superseded by D-c2e83a0, D-a93c3e9, D-efa939a in c041552 docs(plan): B6a ships the glossary offline, not the task index (Ben, 2026-10-24)
+↔ 9873eb4 docs(install): the default install is install-and-extend; developing SensoryForge is its o
+↔ af45ae9 docs(install): run a preset first, and point extenders at the plugin template
+
+## D-127f390 · CLOSED · decision · - · 2026-10-24
+sensoryforge describe/validate --json are generated from the registries and loaders (sensoryforge/describe.py), never from a typed list; a test compares each part with its registry
+→ commit 1e1cd29
+
+## D-8e38dc8 · CLOSED · decision · - · 2026-10-24
+validate --json suggests a fix only from facts the message or a registry states (nearest valid name, a loader's own hint) and otherwise returns null; the config schema allows unknown keys (the loader ignores them) and lists registered names as examples, not an enum, so a plugin never fails it
+→ commit 1e1cd29
+
+## F-6a93e0c · STANDING · finding · - · 2026-10-24
+sensoryforge.gui.validation.validate is Qt-free and importing sensoryforge.gui pulls no Qt, so the CLI reuses it for the engine-build checks of a config instead of a second validator
+→ commit 1e1cd29
+
+## D-b20b8ca · CLOSED · decision · - · 2026-10-23
+CLAUDE.md imports AGENTS.md and keeps only Claude-specific notes; the architecture notes Claude used to auto-load now live in docs/developer_guide/architecture_notes.md, read on demand (B2)
+→ commit f4f3bcd
+
+## D-39fd750 · CLOSED · decision · - · 2026-10-23
+llms.txt is generated from mkdocs.yml's nav by scripts/build_llms_txt.py and checked by a test, never written by hand
+→ commit f4f3bcd
+
+## F-ca30bce · STANDING · finding · - · 2026-10-23
+refs/ (module, test and GUI maps, last changed 2026-09-14) predates GUI v2 and is stale; AGENTS.md no longer points at it and D5's generated reference replaces it
+→ commit f4f3bcd
+
+## D-97c3347 · CLOSED · decision · - · 2026-10-23
+the agent skills' working style is saved in .sensoryforge/agents.yml and rendered by `sensoryforge agents brief`, which every skill runs first; a test requires each shipped SKILL.md to name it
+→ commit 142aff4
+
+## D-c1fc12e · CLOSED · decision · - · 2026-10-23
+the routing hook is a stdlib-only script run by path (sensoryforge/agents/hook.py) written to .claude/settings.local.json only when the user says yes in Claude Code; other environments are never offered hooks
+→ commit 142aff4
+
+## D-280840b · CLOSED · decision · - · 2026-10-23
+user-facing agent files (skills, setup, working-style code) live in sensoryforge/agents/ inside the package, not a top-level agents/ folder, so a pip install ships them (signed off by Ben, B1)
+→ commit ded4cb2
+
+## D-8da98c5 · CLOSED · decision · - · 2026-10-23
+the agent-file budget is 18 hand-written user-facing files of which at most 14 skills, plus 6 maintainer rules and 5 commands; generated targets are unlimited but each comes from one command and is checked in CI (docs/developer_guide/agent_files.md)
+→ commit ded4cb2
+
+## D-c1a7f2c · CLOSED · decision · - · 2026-10-23
+C2 ships three extension skills (extend-pipeline, extend-world, extend-evaluation) instead of one skill per component kind, to keep the agent files few and general (Ben, B1 sign-off)
+→ commit ded4cb2
+
+## R-28c2b69 · STANDING · retired · - · 2026-10-23
+the hand-written .cursor/ rules, skills and agent, replaced by B8's generated exports
+→ commit ded4cb2
+
 ## D-6bc58cd · CLOSED · decision · - · 2026-10-23
 phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree
 → commit 60ff1c8
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-aea7ea7 · CLOSED · decision · - · 2026-10-23
 core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history
@@ -148,6 +583,7 @@ evaluate/export/static/snapshot_shim.js was missing from the wheel
 ## D-637b872 · CLOSED · decision · - · 2026-10-23
 phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass
 → commit 5937de9
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-0c5ca9c · CLOSED · finding · - · 2026-10-23
 the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
@@ -477,6 +913,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 ↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
@@ -498,6 +935,8 @@ the roadmap keeps an append-only discussion record (requests, replies, page comm
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
+↔ 5be54c0 docs(agents): the agentic workflow gets its own docs section (B11)
+↔ 014725a docs: phase B docs checkpoint (D1b-B)
 
 ## D-fac4caa · CLOSED · decision · - · 2026-10-22
 agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
@@ -506,6 +945,7 @@ agents never invent domain facts: physics, models, parameters and units come fro
 ## D-c889235 · CLOSED · decision · - · 2026-10-22
 the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval
 → commit f44b0af
+↔ 4a97c48 docs(plan): no built-in RAG or embeddings for the agent skills
 
 ## D-76fdd8a · CLOSED · decision · - · 2026-10-22
 how a chained run of skills proceeds, step by step or end to end, is decided by the user in the plan or in chat, not by a default

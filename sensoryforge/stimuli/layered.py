@@ -37,6 +37,15 @@ Config form (``StimulusConfig`` with ``type: layered``)::
 Each part's parameters are described by :data:`SHAPES`, :data:`PATTERNS`,
 :data:`MOTIONS` (``{kind: [ParamSpec, ...]}``) and :data:`TIMING_SPECS`, so
 a form can be generated for any of them.
+
+Topic: stimulus, world
+Tests: tests/unit/test_layered_golden.py, tests/unit/test_layered_episode.py,
+    tests/unit/test_world_render.py
+Entry points: LayeredStimulus, render_layers, render_layer, ADDED_FIELDS
+Pinned by: .claude/rules/world-engine.md, docs/reference/world_contract.md
+Do not change without: world/render.py renders the same language
+    (test_world_render_equals_layered); old layered stimuli render as before
+    (test_layered_golden.py); an added field gets no built-in default.
 """
 
 from __future__ import annotations

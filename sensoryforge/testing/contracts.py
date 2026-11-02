@@ -9,6 +9,14 @@ plugin package.
 
 No Qt imports; only ``torch`` plus stdlib, so a generated plugin package can
 depend on nothing but ``sensoryforge`` itself to run its own tests.
+
+Topic: testing, registry
+Tests: tests/contract/test_component_contracts.py
+Entry points: check_component, available_kinds
+Pinned by: docs/developer_guide/extensibility.md, F-049
+Do not change without: the full to_dict() completeness check runs for neurons only;
+    extending it to another kind fails shipped built-ins that do not round-trip every
+    argument (F-049).
 """
 
 from __future__ import annotations
