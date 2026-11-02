@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-623be8b · CLOSED · decision · - · 2026-11-02
+the skills reference page (docs/agents/skills_reference.md) is generated from the packaged skills by `python -m sensoryforge.agents.reference` and tests/unit/test_agent_docs.py fails when it differs, so it cannot drift
+→ commit 5be54c0
+
+## D-2271b83 · CLOSED · decision · - · 2026-11-02
+the design-decisions page names each decision's ledger id and links the ledger file on GitHub, as D-6f0c3cc asks; the policy for ledger ids on other public pages (D1's Q2) stays Ben's to decide
+→ commit 5be54c0
+
+## F-b51f2d1 · CLOSED · finding · - · 2026-11-02
+the skills page and the task index wrote `sensoryforge dataset build ...`, `evaluate run --out`, `batch --dataset ...` and `--target copilot|cursor|...` with elided or unparseable arguments; they now parse with the real CLI parser
+→ commit 5be54c0
+
 ## F-fa93e4b · STANDING · finding · - · 2026-10-30
 the baseline of the 64 agent scenarios is 46 passing; the failures are one run of one model each.
 → commit 7d3db72
@@ -842,6 +854,7 @@ the roadmap keeps an append-only discussion record (requests, replies, page comm
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
+↔ 5be54c0 docs(agents): the agentic workflow gets its own docs section (B11)
 
 ## D-fac4caa · CLOSED · decision · - · 2026-10-22
 agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
