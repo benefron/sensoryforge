@@ -32,9 +32,11 @@ only the same data set on the same sensor; for another, start a new folder.
 
 ## 2. Settle the plan and the pace
 
-- **The plan.** If there is none, use `sensoryforge-design-and-plan` first and wait for
-  the user's approval of it. If the user named one exact step ("just evaluate this"), run
-  that step's skill alone and offer the rest afterwards.
+- **The plan.** If there is none, use `sensoryforge-design-and-plan` first. Wait for
+  the user's approval of it when the brief asks for full planning or the plan holds a
+  value marked open or as an assumption; otherwise show it and go on. If the user named
+  one exact step ("just evaluate this"), run that step's skill alone and offer the rest
+  afterwards.
 - **The pace.** The brief's pace is only the suggestion. Say it in one sentence ("I will
   ask before each next step" or "I will carry on once you approve the plan") and let the
   user change it, in the plan or in chat. What the user says in this session wins over the
@@ -44,7 +46,7 @@ only the same data set on the same sensor; for another, start a new folder.
 
 | Step | Skill | Produces | Stops for the user |
 |---|---|---|---|
-| 1 | `sensoryforge-design-and-plan` | the plan | the plan's approval |
+| 1 | `sensoryforge-design-and-plan` | the plan | the plan's approval (at full planning, or an open value) |
 | 2 | `sensoryforge-design-world` | a world file and a preview | the classes, ranges and every assumption |
 | 3 | `sensoryforge-build-dataset` | a data-set file and its manifest | sizes, splits, seeds |
 | 4 | `sensoryforge-run-simulation` | one bundle per entry | the sensor, and the cost of the whole run after one entry is timed |
@@ -59,7 +61,9 @@ ran, the folder it wrote and the counts, then go on as step 4 says.
 ## 4. Two kinds of stops
 
 - **An offer** is "shall I go on to the next step?". When the pace is to ask, ask it. When
-  the pace is to carry on, say what comes next and do it.
+  the pace is to carry on, say what comes next and do it. The brief's review line sets
+  who checks a step's result and the pace sets whether to wait: when the user reviews and
+  the pace is to carry on, show each result and go on.
 - **A decision** is something only the user can give: a value the plan marks as open or as
   an assumption, a size, a seed, the sensor, which metric packs, what difference is
   acceptable, the cost of a long run, a model or a source for a missing piece. A decision

@@ -91,6 +91,12 @@ a failure. You can change the pace in a session ("carry on", "ask me first") and
 until you change it again. How a whole chain proceeds at each pace is in
 [Step by step, or end to end](agent_skills.md#step-by-step-or-end-to-end).
 
+**What `planning` and `review` change.** The agent waits for your approval of its plan only
+at `planning: full`, or when the plan holds a value it marks open or as an assumption; at
+`none` or `brief` it shows the plan and goes on at your pace. `review` sets who checks each
+step's result and `pace` sets whether the agent waits after showing it, so with
+`review: user` and `pace: auto` you see each result and the agent carries on.
+
 The brief also tells the skill to read your words by their meaning and by everything said in
 the session, never by matching strings, and to ask one short question when it is unclear.
 The terms it maps them to are in the [glossary](../agents/glossary.md), and the brief names the copy
