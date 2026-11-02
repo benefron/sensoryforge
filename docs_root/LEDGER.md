@@ -115,6 +115,7 @@ SensoryForge ships no built-in RAG or embedding index; semantic mapping of a use
 ## D-4f3f26a · CLOSED · decision · - · 2026-11-02
 the workflow waits for plan approval only at `planning: full` or when the plan holds an open value; `review` sets who checks a step's result and `pace` sets whether to wait (R-B6 decision 1; enables B6f's change 9)
 → commit f787d90
+↔ 305d243 docs(agents): the workflow waits for plan approval only at full planning or an open value
 
 ## D-881fd7b · CLOSED · decision · - · 2026-11-02
 ship docs/reference/report_contract.md as package data beside the glossary, kept identical by a test, after the roadmap-row cleanup (F-dc0c574), in D5 (R-B6 decision 2)
@@ -265,9 +266,10 @@ B7's "the agent asks or cites instead of inventing" is tested on what can be tes
 diagnose step 3 gave `world sample --n` (exit 2) and pointed at draws that are not the data set's; the skills disagreed on the manifest folder and where.py printed "simulated: 3 of 0" on a batch folder
 → commit 1ee8615
 
-## F-74a14f5 · OPEN · finding · - · 2026-10-27
+## F-74a14f5 · CLOSED · finding · - · 2026-10-27
 the review's decision 1 is unanswered, so the workflow skill and the brief still disagree where planning is none/brief or review is user at pace auto (B6f change 9)
 → commit 1ee8615
+✓ closed by 305d243 docs(agents): the workflow waits for plan approval only at full planning or an open value
 
 ## F-a8c6c0f · CLOSED · finding · - · 2026-10-27
 batch --dataset --resume skipped bundles written by another data set or sensor and rewrote batch.json to name the new run; it now refuses before writing anything (world/runner.py check_resume_target)
