@@ -112,17 +112,19 @@ when there are real new entries.
 phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass
 → commit 1744cbc
 
-## F-3228621 · OPEN · finding · docs/development · 2026-11-02
+## F-3228621 · CLOSED · finding · docs/development · 2026-11-02
 `sensoryforge agents setup` takes the project as the style file's grandparent, so with --path, $SENSORYFORGE_AGENTS_CONFIG or a style file in a parent folder the routing hook is installed in (or removed from) another folder's .claude/settings.local.json
 → commit 1744cbc
+✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
 
 ## F-8828df9 · OPEN · finding · docs/development · 2026-11-02
 agents/style.py set_hook raises AttributeError on a settings file whose hooks is a list or whose hook entry is a string, after the style file is already saved; an event given as a dict is replaced and a user group with empty hooks is dropped
 → commit 1744cbc
 
-## F-b5abfcd · OPEN · finding · docs/development · 2026-11-02
+## F-b5abfcd · CLOSED · finding · docs/development · 2026-11-02
 agents export never removes or reports a sensoryforge-* skill that a later release drops, so it keeps loading while export --check says current
 → commit 1744cbc
+✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
 
 ## D-070d91f · CLOSED · decision · - · 2026-11-02
 SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`)
