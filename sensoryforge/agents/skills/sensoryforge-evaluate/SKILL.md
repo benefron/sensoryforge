@@ -31,7 +31,8 @@ is not installed here: say so and stop (it installs from source; it is not on Py
   `sensoryforge describe --section evaluation` lists them. The default is the general
   core pack; a pack for one modality is named with `--packs core,<pack>`. If the world
   declares an adapter whose pack you did not run, the report says so in its notes: pass
-  that on to the user.
+  that on to the user. A request for "the right packs" or "whichever fit" leaves the choice
+  with the user: run the general pack, say which other packs exist and ask which to add.
 - **Size.** For a first look use a small run. Say what a large run costs from a measured
   entry (`sensoryforge-run-simulation`), not from a guess.
 

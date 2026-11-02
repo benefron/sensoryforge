@@ -1,6 +1,6 @@
 ---
 name: sensoryforge-design-world
-description: Turn a plain-language description of a set of stimuli into a validated SensoryForge world file, and show a preview of what it draws. Use when someone describes the stimuli they want to generate or study (shapes, motions, vibrations, textures, kinds of input and how each varies), or wants to change an existing world, in whatever words they put it.
+description: Turn a plain-language description of a set of stimuli into a validated SensoryForge world file, and show a preview of what it draws. Use when someone describes the stimuli they want to generate or study (shapes, motions, vibrations, textures, kinds of input and how each varies), wants to change an existing world, or wants a world file checked or validated, in whatever words they put it.
 ---
 
 # Design a world

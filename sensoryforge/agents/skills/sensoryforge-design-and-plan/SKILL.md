@@ -56,7 +56,8 @@ for them to approve.
 Say how many entries, how long each is and what the sensor is; then say what that costs in
 time and disk only as far as you can measure it. The run-simulation skill times one entry
 first, so write "measured before the full run" rather than a guess. If the user set a
-session budget, split the plan into sessions that fit it and say where each one stops.
+session budget, split the plan into sessions that fit it and say where each one stops,
+even while sizes are still open (mark them open in each session).
 
 ## 5. Write the plan
 

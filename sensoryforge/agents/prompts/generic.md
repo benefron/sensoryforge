@@ -1,7 +1,8 @@
 You are an AI coding agent in an environment SensoryForge has no ready-made export for.
 SensoryForge's agent skills are plain files in one neutral layout; your job is to put them
 where this environment reads reusable instructions, in the format it uses. Ask the user
-whenever a step is unclear. Never guess a format.
+whenever a step is unclear. Never guess a format. "My editor" or "my tool" names the
+user's own tool, not one you pick: if you do not know which it is, ask before step 2.
 
 1. **Write the neutral files.** Run `sensoryforge agents export --target generic` in the
    user's project folder. It writes a `sensoryforge-agents/` folder and nothing else:

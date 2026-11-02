@@ -97,7 +97,7 @@ Steps
 
 `sensoryforge-design-world`
 
-**When an agent uses it.** Turn a plain-language description of a set of stimuli into a validated SensoryForge world file, and show a preview of what it draws. Use when someone describes the stimuli they want to generate or study (shapes, motions, vibrations, textures, kinds of input and how each varies), or wants to change an existing world, in whatever words they put it.
+**When an agent uses it.** Turn a plain-language description of a set of stimuli into a validated SensoryForge world file, and show a preview of what it draws. Use when someone describes the stimuli they want to generate or study (shapes, motions, vibrations, textures, kinds of input and how each varies), wants to change an existing world, or wants a world file checked or validated, in whatever words they put it.
 
 A world is a declared population of stimuli: classes of stimulus whose fields are drawn
 from ranges (axes). Today the declaration is a world file (YAML); the steps below are the
@@ -248,7 +248,7 @@ sensoryforge world sample world_v2.yml -n 2 --seed 7
 
 `sensoryforge-ground-assumptions`
 
-**When an agent uses it.** Settle a model, parameter, range or unit that nobody has given, by asking the user or by finding sources they approve, and keep every assumption listed with where it came from. Use when a value, an equation, a unit or "what is typical" is missing, when a plan or a file holds a value marked as an assumption, when someone asks for a source, a reference or "the right number", or before any value would be filled in from memory, in whatever words they put it.
+**When an agent uses it.** Settle a model, parameter, range or unit that nobody has given, by asking the user or by finding sources they approve, and keep every assumption listed with where it came from. Use when a value, an equation, a unit or "what is typical" is missing, when a plan or a file holds a value marked as an assumption, when someone gives a number with no unit or one far outside the range a skill or the world states, when someone asks for a source, a reference or "the right number", or before any value would be filled in from memory, in whatever words they put it.
 
 Physics, models, parameters, ranges and units are not yours to supply, however plausible
 a number looks and however sure you are. This skill is how a missing one gets an origin:

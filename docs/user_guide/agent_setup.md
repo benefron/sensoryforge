@@ -115,5 +115,16 @@ finds the right one; a request that names no step reaches the
 only, so it adds no noticeable delay. `sensoryforge agents setup --no-input --hooks no`
 removes it and leaves your other settings as they were.
 
+The hook goes in the project you are in, never where the working-style file happens to be:
+the folder you run the command from, or the one you name with `--dest`. That holds when the
+style file comes from `--path`, from `$SENSORYFORGE_AGENTS_CONFIG` or from a parent folder.
+
+If `.claude/settings.local.json` is shaped in a way the setup does not understand (a
+`hooks` entry that is not a mapping, an event whose value is not a list, a group that is not
+a mapping), the command stops with an error that names the file and the path inside it. It
+checks this before saving anything, so a refusal leaves both the settings and your
+working-style file as they were. Fix the file by hand, or move it aside, and run the command
+again.
+
 Where the agent files come from and how many there may be: see
 [Agent Files](../developer_guide/agent_files.md).

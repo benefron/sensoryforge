@@ -49,6 +49,13 @@ else in the folder, so your own skills, rules and instructions stay as they are.
 `--check` writes nothing; it lists each file as `current`, `stale` (edited by hand or from
 an older release) or `missing`, and exits 1 if any is not current.
 
+A release that drops or renames a skill leaves its old folder behind in your project, and the
+tool would keep loading it. So `--check` also lists a `sensoryforge-*` skill folder that this
+release does not ship as `stale`, and the next export removes it and prints `removed`. It
+does this only for a file that carries the "generated, do not edit" header: a
+`sensoryforge-*` folder without the header is not one SensoryForge wrote, so `--check` lists
+it as `foreign` (not a failure) and the export never touches it.
+
 ## Let the agent do it
 
 Give your agent this prompt. It picks the right command for the environment it is running
@@ -105,7 +112,8 @@ when it cannot find out, and writes the skills there in that format:
 You are an AI coding agent in an environment SensoryForge has no ready-made export for.
 SensoryForge's agent skills are plain files in one neutral layout; your job is to put them
 where this environment reads reusable instructions, in the format it uses. Ask the user
-whenever a step is unclear. Never guess a format.
+whenever a step is unclear. Never guess a format. "My editor" or "my tool" names the
+user's own tool, not one you pick: if you do not know which it is, ask before step 2.
 
 1. **Write the neutral files.** Run `sensoryforge agents export --target generic` in the
    user's project folder. It writes a `sensoryforge-agents/` folder and nothing else:
