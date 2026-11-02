@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-b6a94f5 · CLOSED · decision · docs/development · 2026-11-02
+phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass
+→ commit 1744cbc
+
+## F-3228621 · OPEN · finding · docs/development · 2026-11-02
+`sensoryforge agents setup` takes the project as the style file's grandparent, so with --path, $SENSORYFORGE_AGENTS_CONFIG or a style file in a parent folder the routing hook is installed in (or removed from) another folder's .claude/settings.local.json
+→ commit 1744cbc
+
+## F-8828df9 · OPEN · finding · docs/development · 2026-11-02
+agents/style.py set_hook raises AttributeError on a settings file whose hooks is a list or whose hook entry is a string, after the style file is already saved; an event given as a dict is replaced and a user group with empty hooks is dropped
+→ commit 1744cbc
+
+## F-b5abfcd · OPEN · finding · docs/development · 2026-11-02
+agents export never removes or reports a sensoryforge-* skill that a later release drops, so it keeps loading while export --check says current
+→ commit 1744cbc
+
 ## D-070d91f · CLOSED · decision · - · 2026-11-02
 SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`)
 → commit 4a97c48
@@ -164,10 +180,12 @@ the baseline of the 64 agent scenarios is 46 passing; the failures are one run o
 ## F-725b89c · OPEN · finding · - · 2026-10-30
 the ground-assumptions skill is not loaded for a number with no unit or a value far out of range, so the unit is guessed and written as given by the user (ground.no-unit, ground.out-of-range)
 → commit 7d3db72
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
 → commit 7d3db72
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-47468a5 · CLOSED · decision · - · 2026-10-30
 the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
@@ -185,11 +203,13 @@ two `run.py --scenario` processes sharing one --root race while building the ins
 eval.which-packs: told to use "whichever packs are right", the agent ran --packs core,tactile; the evaluate skill says the pack is the user's but not what to do with that wording
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-c386cd4 · OPEN · finding · - · 2026-10-28
 flow.realistic-fingertip: under "carry on without asking" the agent wrote fingertip radii, indentations and timings from memory into world.yml as proposals; the workflow skill does not say a proposal file counts as inventing
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-bf830fd · OPEN · finding · - · 2026-10-28
 flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
@@ -203,6 +223,7 @@ interpret-report slips: report.typical-rate called 1 spike/s "too low", report.n
 ## F-4107108 · OPEN · finding · - · 2026-10-28
 run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say a device effect is only known by timing an entry on it
 → commit 935ce5c
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-2901a8e · OPEN · finding · - · 2026-10-28
 diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
@@ -221,10 +242,12 @@ the first full run of the 17 B9a scenarios on Sonnet passed 15, at about 0.07 US
 asked to check an existing world file, a fresh agent validated it correctly without loading sensoryforge-design-world or reading the brief, because the skill's description covers designing and changing a world but not checking one (scenario world.zero-sigma)
 → commit c947f21
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-d1056b6 · OPEN · finding · - · 2026-10-28
 with a session budget set, the plan skill named the budget only as a contingency instead of splitting the plan into sessions and saying where each stops, as its step 4 asks (scenario plan.session-budget)
 → commit c947f21
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-983e9ab · CLOSED · decision · - · 2026-10-28
 the project's own instruction file is the user's, so SensoryForge supplies only a marked section, written only with --write, and an agent builds the rest in its environment's own way; where a tool's format is documented there is a specific target, and for any other the generic README and prompt apply (Ben, 2026-10-28, reversing B8's choice never to touch such files)
@@ -506,6 +529,7 @@ the hand-written .cursor/ rules, skills and agent, replaced by B8's generated ex
 ## D-6bc58cd · CLOSED · decision · - · 2026-10-23
 phase A (the evaluation pipeline) is merged to main at 70bf297 with --no-ff, after the R-A review and row Af, with the full suite green on the merged tree
 → commit 60ff1c8
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-aea7ea7 · CLOSED · decision · - · 2026-10-23
 core.run.determinism compares a fresh engine build only on populations with a wiring seed and always names the unseeded ones, because whether unseeded wiring repeats depends on the global RNG's history
@@ -543,6 +567,7 @@ evaluate/export/static/snapshot_shim.js was missing from the wheel
 ## D-637b872 · CLOSED · decision · - · 2026-10-23
 phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass
 → commit 5937de9
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## F-0c5ca9c · CLOSED · finding · - · 2026-10-23
 the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
@@ -872,6 +897,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ↔ 5937de9 docs(review): R-A, the Opus review of phase A; package the export's script
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 ↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
+↔ 1744cbc docs(review): R-B, the review of phase B
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger

@@ -1135,4 +1135,5 @@ Do not hand-edit between the markers.
 | 2026-11-02 | D-28438a6 | developer_guide/roadmap_v1.md and EQUATION_DSL_IMPLEMENTATION.md leave the published nav for docs/development/, with any DSL grammar users need kept in the Equation DSL user page (D1 Q3) | `f787d90` |
 | 2026-11-02 | D-a93e37c | parameter sweeps become a section of the Batch Processing tutorial and the custom-pipeline placeholder page is dropped (D1 Q4) | `f787d90` |
 | 2026-11-02 | D-070d91f | SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`) | `4a97c48` |
+| 2026-11-02 | D-b6a94f5 | phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass | `1744cbc` |
 <!-- DECISIONS_LOG_END -->
