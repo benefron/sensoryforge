@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-e1c618e · STANDING · finding · - · 2026-11-03
+a skill whose description covers only the add case is not loaded for the "is there one already" question, and the agent then reads the wrong registry (list-components, not describe --section world).
+→ commit be4a4c8
+
 ## D-c7ab774 · CLOSED · decision · - · 2026-11-03
 world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full.
 → commit 31422a5
@@ -245,6 +249,7 @@ the ground-assumptions skill is not loaded for a number with no unit or a value 
 ↔ 1744cbc docs(review): R-B, the review of phase B
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+↔ be4a4c8 fix(agents): extend-world skill covers asking and placeholder defaults; its four scenarios
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
