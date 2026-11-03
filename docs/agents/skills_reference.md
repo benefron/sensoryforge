@@ -1043,7 +1043,7 @@ python use_layout.py
 
 `sensoryforge-extend-world`
 
-**When an agent uses it.** Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone says the worlds cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
+**When an agent uses it.** Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone asks whether the worlds have a stimulus shape, texture or vibration, says they cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
 
 A world draws stimuli: each draw is one class with a value for every axis, rendered as
 frames. Everything it uses is looked up by name in a registry, so you add a piece by

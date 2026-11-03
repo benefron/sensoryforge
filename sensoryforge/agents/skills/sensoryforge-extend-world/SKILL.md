@@ -1,6 +1,6 @@
 ---
 name: sensoryforge-extend-world
-description: Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone says the worlds cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
+description: Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone asks whether the worlds have a stimulus shape, texture or vibration, says they cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
 ---
 
 # Extend the world engine
@@ -19,7 +19,8 @@ is not installed here: say so and stop (it installs from source; it is not on Py
 
 ## 1. Which piece, and is it already there?
 
-Ask what the stimulus does, then choose by meaning:
+Run `sensoryforge describe --section world` first (the world's registries are not the
+pipeline's `list-components`). Ask what the stimulus does, then choose by meaning:
 
 - **A shape** is the spatial profile of one contact, a function of position.
 - **A pattern** says where copies of a shape sit (an array, a texture, a row of dots).
@@ -84,7 +85,9 @@ readable model is the built-in quiet kind; the methods are:
 
 - **`normalise_layer(layer, where)`** returns the class's layer with defaults filled, or
   `None` when the kind has no layer; a kind that takes none refuses one with `ValueError`.
-- **`builtin_defaults(layer)`** is `{axis: constant}` for every axis the kind binds.
+- **`builtin_defaults(layer)`** is `{axis: constant}` for every axis the kind binds: the value
+  a world gets when it sets none. Each is a value the user must give or approve; if they
+  have not, use the neutral one (zero) and say it is your placeholder.
   **`resolve(name, layer)`** maps an axis name to a field `(group, name)` and raises
   `UnknownField` for any other. **`domain()`** and **`field_info()`** give each field's
   valid range, which a world is checked against when it loads.
@@ -109,7 +112,7 @@ Register, then check each piece by name with `check_world_component(kind, name)`
 distribution or class_kind. A distribution that needs options, and a class kind, take
 `example=`: a world mapping, as `World.from_dict` takes it, with a class of this kind. The
 check calls your function as the renderer does and raises `AssertionError` naming the
-piece and the rule; fix the piece, not the check. Then test the user's own case from
+piece and the rule; report that `check_world_component()` passed, by that name; fix the piece, not the check. Then test the user's own case from
 step 2, which the check cannot know. Pytest is not installed with SensoryForge: call the
 check from a few lines of Python, as the example does.
 

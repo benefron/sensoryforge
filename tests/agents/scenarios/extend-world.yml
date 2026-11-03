@@ -19,8 +19,9 @@ scenarios:
       - answer: (?i)gaussian
         why: the existing shape is named
       - judge: >-
-          The agent says a Gaussian shape already exists and names the width parameter as
-          the registry shows it. It writes no plugin.
+          The agent says a Gaussian shape already exists in the world engine's shapes and
+          that its width is a parameter of the draw. It writes no plugin. A parameter name it
+          states must be one that appeared in a command's output.
 
   - id: extend-world.shape-from-formula
     kind: normal
@@ -68,7 +69,9 @@ scenarios:
           level, the delay before onset and the on time, with the ranges the user gave; its
           renderer returns exactly 0 before the onset and after the end; it ran the world
           contract check with an example world and drew from a world that uses it, and said
-          what it saw. It added no value the user did not give.
+          what it saw. It added no range or level the user did not give (a class's weight in
+          a one-class world is structure, not a value; a default or a validity bound
+          (such as times at least 0) that it labels as its own is fine).
 
   - id: extend-world.pressure-pinned
     kind: bad_input
