@@ -78,11 +78,43 @@ PATTERN_KINDS: Dict[str, PatternKind] = {}
 MODULATION_KINDS: Dict[str, ModulationKind] = {}
 
 
-def _check_free(table: Dict[str, Any], name: str, what: str, replace: bool) -> None:
+def _spec_values(spec: ParamSpec) -> Tuple[Any, ...]:
+    return tuple(getattr(spec, slot) for slot in ParamSpec.__slots__)
+
+
+def _same_specs(a: Sequence[ParamSpec], b: Sequence[ParamSpec]) -> bool:
+    return len(a) == len(b) and all(
+        _spec_values(x) == _spec_values(y) for x, y in zip(a, b)
+    )
+
+
+def _check_free(
+    table: Dict[str, Any], name: str, what: str, replace: bool, new: Any = None
+) -> bool:
+    """True when ``name`` is free; False when ``new`` repeats what is there.
+
+    A repeat (the same ``fn``, specs and flags) is a no-op, so a plugin whose
+    ``register()`` runs more than once does not fail (F-5bd542f). A different
+    registration under a taken name still raises unless ``replace`` is true.
+    """
     if name in table and not replace:
+        old = table[name]
+        if (
+            new is not None
+            and type(old) is type(new)
+            and old.fn is new.fn
+            and _same_specs(old.specs, new.specs)
+            and all(
+                getattr(old, f) == getattr(new, f)
+                for f in ("unbounded", "indenter", "check")
+                if hasattr(old, f)
+            )
+        ):
+            return False
         raise ValueError(
             f"{what} {name!r} is already registered; pass replace=True to replace it"
         )
+    return True
 
 
 def register_shape(
@@ -118,20 +150,24 @@ def register_shape(
             ``ValueError`` starting with the paths it blames.
         replace: Replace a shape already registered under ``name``.
 
+    Registering the same ``fn``, specs and flags again under the same name is a
+    no-op (a plugin's ``register()`` may run more than once).
+
     Raises:
-        ValueError: If ``specs`` lacks ``amplitude``, or the name is taken
-            and ``replace`` is false.
+        ValueError: If ``specs`` lacks ``amplitude``, or a different shape holds
+            the name and ``replace`` is false.
     """
     if not any(s.name == "amplitude" for s in specs):
         raise ValueError(f"shape {name!r}: its specs must include 'amplitude'")
-    _check_free(SHAPE_KINDS, name, "shape", replace)
-    SHAPE_KINDS[name] = ShapeKind(
+    kind = ShapeKind(
         fn=fn,
         specs=list(specs),
         unbounded=bool(unbounded),
         indenter=bool(indenter),
         check=check,
     )
+    if _check_free(SHAPE_KINDS, name, "shape", replace, kind):
+        SHAPE_KINDS[name] = kind
 
 
 def register_pattern(
@@ -139,11 +175,14 @@ def register_pattern(
 ) -> None:
     """Register a pattern kind: ``fn(params) -> (positions, scales)``, mm, at 0.
 
+    Registering the same ``fn`` and specs again under the same name is a no-op.
+
     Raises:
-        ValueError: If the name is taken and ``replace`` is false.
+        ValueError: If a different pattern holds the name and ``replace`` is false.
     """
-    _check_free(PATTERN_KINDS, name, "pattern", replace)
-    PATTERN_KINDS[name] = PatternKind(fn=fn, specs=list(specs))
+    kind = PatternKind(fn=fn, specs=list(specs))
+    if _check_free(PATTERN_KINDS, name, "pattern", replace, kind):
+        PATTERN_KINDS[name] = kind
 
 
 def register_modulation(
@@ -155,11 +194,15 @@ def register_modulation(
 ) -> None:
     """Register a modulation: ``fn(tc, params) -> [0, 1]``; ``tc`` ms since touch.
 
+    Registering the same ``fn`` and specs again under the same name is a no-op.
+
     Raises:
-        ValueError: If the name is taken and ``replace`` is false.
+        ValueError: If a different modulation holds the name and ``replace`` is
+            false.
     """
-    _check_free(MODULATION_KINDS, name, "modulation", replace)
-    MODULATION_KINDS[name] = ModulationKind(fn=fn, specs=list(specs))
+    kind = ModulationKind(fn=fn, specs=list(specs))
+    if _check_free(MODULATION_KINDS, name, "modulation", replace, kind):
+        MODULATION_KINDS[name] = kind
 
 
 def _specs(table: Dict[str, Any], kind: str, what: str) -> List[ParamSpec]:

@@ -122,6 +122,14 @@ convention: the callable is expected to register the component itself). A
 plugin that fails to import produces a `UserWarning` and is skipped, same
 as a broken entry point.
 
+A plugin's `register()` may run more than once (the entry point and a config's
+`plugins:` can both name it). Registering the same thing again is a no-op in every
+registry, the world registries included (`register_shape`, `register_pattern`,
+`register_modulation`, `register_distribution`, `register_class_kind`): the same function
+objects, specs and flags. A different registration under a taken name still raises, unless
+you pass `replace=True`. Define the functions at module level; one built afresh on each
+call is a different object and counts as a conflict.
+
 As of H4, every config loader in the project honours `plugins:` identically
 — the CLI (`sensoryforge run`/`validate`/`batch`), `BatchExecutor.from_yaml`,
 `SensoryForgeConfig.from_yaml_file`/`from_yaml`, and the GUI's "Load YAML

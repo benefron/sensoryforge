@@ -746,12 +746,19 @@ CLASS_KINDS: Dict[str, ClassKind] = {}
 def register_class_kind(kind: ClassKind, *, replace: bool = False) -> None:
     """Register a class kind under ``kind.name``.
 
+    Registering an equal kind again (the same class, the same state) is a
+    no-op, so a plugin's ``register()`` may run more than once.
+
     Raises:
-        ValueError: If the name is empty, or taken and ``replace`` is false.
+        ValueError: If the name is empty, or held by a different kind and
+            ``replace`` is false.
     """
     if not kind.name:
         raise ValueError("a class kind needs a name")
-    if kind.name in CLASS_KINDS and not replace:
+    old = CLASS_KINDS.get(kind.name)
+    if old is not None and not replace:
+        if old is kind or (type(old) is type(kind) and vars(old) == vars(kind)):
+            return  # the same kind again: a no-op (F-5bd542f)
         raise ValueError(f"class kind {kind.name!r} is already registered")
     CLASS_KINDS[kind.name] = kind
 
