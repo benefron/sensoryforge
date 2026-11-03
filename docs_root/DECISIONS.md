@@ -1137,4 +1137,5 @@ Do not hand-edit between the markers.
 | 2026-11-02 | D-070d91f | SensoryForge ships no built-in RAG or embedding index; semantic mapping of a user's words stays with the agent reading the glossary, and an external docs-search or RAG tool is used only through the opt-in integration (`integrate: true`) | `4a97c48` |
 | 2026-11-02 | D-b6a94f5 | phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass | `1744cbc` |
 | 2026-11-02 | D-1ce0186 | phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open | `8459dc6` |
+| 2026-11-03 | D-2293851 | world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves | `d68c86a` |
 <!-- DECISIONS_LOG_END -->
