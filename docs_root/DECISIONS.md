@@ -1139,4 +1139,5 @@ Do not hand-edit between the markers.
 | 2026-11-02 | D-1ce0186 | phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open | `8459dc6` |
 | 2026-11-03 | D-e0adcb7 | identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level. | `1957ef7` |
 | 2026-11-03 | D-702cf20 | one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in. | `b53dfd6` |
+| 2026-11-03 | D-2293851 | world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves | `d68c86a` |
 <!-- DECISIONS_LOG_END -->

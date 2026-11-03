@@ -102,8 +102,9 @@ assert off[0, 0, 3] > 0 and on[0, 0, 3] == 0   # dark -> OFF only
 
 `sensoryforge.testing.contracts.check_component("processing", cls, instance=...)` covers the
 generic part of the contract above -- `get_param_spec()` shape, `forward()` preserving or growing
-the receptor axis, and a `to_dict()`/`from_config()` round trip -- the same way it does for every
-other component kind. It does **not** replace the sign-logic check in section 3: shape and
+the receptor axis, and a `to_dict()`/`from_config()` round trip in which every `__init__` parameter
+(but `receptor_coords`) appears in `to_dict()`, at the top level or under `"params"` (F-049) -- the
+same way it does for every other component kind. It does **not** replace the sign-logic check in section 3: shape and
 round-trip checks pass on a layer with its ON/OFF planes silently swapped, so write that assertion
 yourself for any layer whose correctness depends on more than shape.
 

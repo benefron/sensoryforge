@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-2293851 · CLOSED · decision · - · 2026-11-03
+world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves
+→ commit d68c86a
+
+## F-f17cc7e · STANDING · finding · - · 2026-11-03
+AdaptiveSolver.to_dict dropped method, rtol and atol; the contract sweep skips it without torchdiffeq and CI does not install the solvers extra, so the completeness check never reached it
+→ commit ed20f88
+
 ## F-6b8a1da · CLOSED · finding · - · 2026-11-03
 `sensoryforge new-component innervation`, promised by add_rf_builder.md, did not exist; the scaffold now writes a receptive-field builder package whose own contract test passes
 → commit 953661e
@@ -1178,6 +1186,7 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
 ✓ closed by 1957ef7 fix(world): registering the same world component again is a no-op
+↔ d68c86a feat(testing): check_world_component for the world registries
 
 ## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
@@ -1833,6 +1842,10 @@ On non-composite grids SimulationEngine builds InnervationModule without innerva
 ## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
+↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
+↔ b9e0005 feat(testing): hold processing layers to the full to_dict round trip
+↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 58a6db4 fix(testing): world contract checks report a crashing function as a failure
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered
