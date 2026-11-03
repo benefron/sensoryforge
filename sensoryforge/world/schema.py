@@ -1,4 +1,15 @@
-"""World declarations: load, validate, bind, normalise and identify (spec §3)."""
+"""World declarations: load, validate, bind, normalise and identify (spec §3).
+
+Topic: world
+Tests: tests/unit/test_world_schema.py, tests/unit/test_world_v1_1_compat.py,
+    tests/contract/test_world_contract.py
+Entry points: World, load_world, ClassSpec, SessionModel, FORMAT
+Pinned by: docs/reference/world_contract.md, docs/user_guide/worlds.md,
+    .claude/rules/world-engine.md
+Do not change without: a world file that uses no newer key keeps its normalised dict and
+    world_id bit for bit; a new key reaches to_dict() only when the file sets it, and a
+    changed format tag updates the contract page.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +32,7 @@ from sensoryforge.world.distributions import (
     plain,
     text_number_hint,
 )
+from sensoryforge.world.names import neutralise
 from sensoryforge.world.kinds import (
     CLASS_KINDS,
     AmbiguousField,
@@ -253,6 +265,9 @@ def _parse_world(data: Any) -> World:
         raise ValueError(
             f"world: unknown keys {sorted(unknown)}; allowed: {sorted(_TOP_KEYS)}"
         )
+    # Unit-free spellings (``sigma``) become the canonical ones (``sigma_mm``) before
+    # anything is parsed, so the world and its world_id equal the canonical file's.
+    raw = neutralise(raw)
     raw_channels = raw.get("channels")
     if raw_channels is not None and not isinstance(raw_channels, (list, tuple)):
         raise ValueError(
@@ -575,6 +590,13 @@ def _parse_class(
             continue
         info = kind.field_info(bindings[axis_name], layer)
         check_axis(paths[axis_name], axis, info)
+    # a field the layer sets and no axis takes over has no axis to check it
+    drawn = set(bindings.values())
+    for ref, value in kind.fixed_values(layer, raw_layer):
+        if ref not in drawn:
+            check_value(
+                f"{where}.layer.{ref[0]}.{ref[1]}", value, kind.field_info(ref, layer)
+            )
     for axis_name, axis in axes.items():
         if axis.form != "link":
             continue

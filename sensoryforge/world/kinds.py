@@ -125,6 +125,16 @@ class ClassKind:
         """True when the class's own layer sets this field (a world default yields)."""
         return False
 
+    def fixed_values(
+        self, layer: Optional[Dict[str, Any]], raw_layer: Any
+    ) -> List[Tuple[Ref, Any]]:
+        """``[(field, value)]`` for each value the class's own layer sets.
+
+        A world load checks each against :meth:`field_info` unless an axis
+        takes the field over. A list-valued field gives one pair per element.
+        """
+        return []
+
     def check(self, spec: Any) -> None:
         """Kind-specific validation of a parsed class."""
 
@@ -388,6 +398,8 @@ class LayeredKind(ClassKind):
 
     def _param_spec(self, ref, layer):
         part, field = ref
+        if part == "motion":
+            return next(s for s in MOTIONS[layer["motion"]["kind"]] if s.name == field)
         specs_fn = {
             "shape": kernel.shape_specs,
             "pattern": kernel.pattern_specs,
@@ -427,6 +439,21 @@ class LayeredKind(ClassKind):
         if part == "layer":
             return field in (raw_layer or {})
         return part in _PARTS and field in ((raw_layer or {}).get(part) or {})
+
+    def fixed_values(self, layer, raw_layer):
+        out = []
+        for part in (*_PARTS, "motion"):
+            for field, value in ((raw_layer or {}).get(part) or {}).items():
+                if field == "kind":
+                    continue
+                stack = [value]
+                while stack:
+                    item = stack.pop(0)
+                    if isinstance(item, (list, tuple)):
+                        stack[:0] = item
+                    elif not isinstance(item, dict):
+                        out.append(((part, field), item))
+        return out
 
     def check(self, spec):
         phases = [spec.axes[field] for _, field in _CONTACT_PHASES]

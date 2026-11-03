@@ -6,6 +6,16 @@ coordinates: one call evaluates a whole group of draws. Patterns and
 modulations reuse layered's own code. Each part is a registry: a plugin adds a
 shape, pattern or modulation once, and worlds and layered stimuli (which fall
 back to these registries) can both use it.
+
+Topic: world
+Tests: tests/unit/test_world_kernel.py, tests/unit/test_world_dot_array.py,
+    tests/unit/test_world_indenters.py
+Entry points: register_shape, register_pattern, register_modulation, ShapeKind,
+    PatternKind, ModulationKind
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md, F-5bd542f
+Do not change without: new shapes, patterns and modulations are registered here, never
+    special-cased in the renderer; a field added to an existing shape goes in
+    layered.ADDED_FIELDS.
 """
 
 from __future__ import annotations

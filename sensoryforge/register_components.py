@@ -9,6 +9,16 @@ Example:
     >>> register_all()
     >>> from sensoryforge.registry import NEURON_REGISTRY
     >>> neuron = NEURON_REGISTRY.create("izhikevich", **config)
+
+Topic: registry
+Tests: tests/integration/test_gui_cli_parity.py,
+    tests/unit/test_registry_case_insensitive.py,
+    tests/contract/test_component_contracts.py
+Entry points: register_all
+Pinned by: docs/developer_guide/extensibility.md, docs/developer_guide/plugins.md
+Do not change without: every in-repo component is registered by one line in
+    register_all(); a third-party component registers through a plugin's entry point
+    instead.
 """
 
 from sensoryforge.registry import (

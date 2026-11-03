@@ -63,6 +63,11 @@ explains each part; the rules that matter to a caller:
     modulation fields within their `ParamSpec`'s `min_val`/`max_val`, text fields among
     its `choices`. A fixed draw may leave the axis's range (it is then listed in
     `out_of_range`) but not the field's domain;
+  - a value a class's own `layer` sets and no axis takes over (`shape: {sigma_mm: 0}`,
+    `modulation: {depth: '0.3'}`, `motion: {radius_mm: -1}`) is checked the same way, as
+    `world.classes.<name>.layer.<part>.<field>`; a value an axis replaces is never used
+    and is not checked. In a list-valued field (`positions`, `waypoints`) each element is
+    checked;
   - numeric fields take numbers, not text or booleans (PyYAML reads `3e-1` as the text
     `'3e-1'`: write `3.0e-1`); text fields take text, switches `true`/`false`; NaN and
     infinity are refused in ranges, constants, values and weights;
@@ -212,7 +217,26 @@ sensoryforge batch sensor.yml --design DIR --dataset dataset.yml --output OUT --
   simulation engine still holds the whole float32 stimulus: a 120 s session at 80×80 and
   1 ms is about 3.1 GB, and that stays open.
 
-## 7. Bundles (schema 2.3.0)
+## 7. Bundles (schema 2.3.0; 2.4.0 with voltage probes; 2.5.0 with sparse weights)
+
+Schema 2.5.0 (A11d) changes how a population file `population_NN_<NAME>.pt` stores its
+receptive-field weights, not any draw, frame, seed, entry id or `data.h5` field. When under 10% of the
+`[N, M]` weights are nonzero (every shipped recipe: 0.4%) the file has no `innervation_weights`; it has
+`innervation_weights_indices` (int64 `[2, nnz]`, neuron then receptor, row-major, no repeated pair),
+`innervation_weights_values` (float32 `[nnz]`; every nonzero weight, and any `-0.0`, so a zero's sign
+survives) and `innervation_weights_shape` (`[N, M]`), plain tensors
+that `torch.load(weights_only=True)` reads on torch 2.2.2. A bundle with such a file says 2.5.0 (it also
+covers probes); a bundle with only dense files is written as before. A reader picks the layout by the keys
+present. pressure-simulation's reader (`decoding/io/bank_weights.py`) expands it bit for bit. See
+`docs/user_guide/bundles.md`; `write_bundle(sparse_weights=False)` or `--dense-weights` writes dense.
+
+Schema 2.4.0 (A6p, additive and opt-in) is written only by a run that sets `voltage_probes`
+(a data set's design config, or `simulation.voltage_probes`); such a bundle also holds
+`/populations/<name>/voltage_probe` (`[T, K]` float32 mV, the engine's bin-end `voltages` for
+the probed neuron ids, attribute `ids`) and a `voltage_probe` object in that population's
+`config.json` entry. A run that sets no `voltage_probes` writes the 2.3.0 bundle byte for byte
+(it says 2.3.0; with sparse weights, 2.5.0, below, the only difference is those weights): no draw, frame, seed, entry id or other field changes, and pressure-simulation
+needs no change. The guarantee is pinned by `tests/unit/test_bundle_voltage_probes.py`.
 
 Schema 2.3.0 (v1.3.0) adds to every population's `config.json` entry
 `encoder.input_floor_ma` (the floor its converter received, `null` = none) and, for a
@@ -555,3 +579,28 @@ section. Old worlds, data sets and v1.1.0 bundles are unchanged (guarantee 9).
 - **Documentation**: the session gaps' real distribution and the open choice between an exact
   fraction and exponential gaps (10.8); guarantee 11 reworded to the contact share within `D`
   (section 8, 10.8); the notes for pressure-simulation in section 9.
+
+### 10.14 Unit-free names and a declared space unit
+
+Both are additive and invisible until used (guarantee 9). They make the world format usable
+for data that is not in millimetres.
+
+- **Unit-free field names.** A world file may write a space field without its unit suffix:
+  `sigma` for `sigma_mm`, `x` and `y` for `x_mm` and `y_mm`, `speed` for `speed_mm_per_ms`,
+  `rolloff` for `rolloff_mm`, and so on for every registered shape, pattern, modulation and
+  motion field (`sensoryforge.world.names.alias_table()` lists them). The loader rewrites
+  each alias to the canonical name before it parses anything (in `defaults`, `groups`,
+  class `axes` and `layer` parts, `fixed_draws`, `same_as` targets and dotted names such as
+  `shape.sigma`), so the parsed world, its `world_id`, every draw and every record equal the
+  canonical spelling's. A record's keys therefore stay `sigma_mm`, ...: the `_mm` is historical
+  and only means "the world's space unit". A name that is itself a field is never an alias, and
+  writing both spellings of one field is an error.
+- **The space unit is declared.** `world.units.space` (default `mm`) says what the space fields
+  are in. When a world names any unit other than `mm`/`ms`, each of its bundles' `config.json`
+  carries `units: {<quantity>: <unit>}` with those entries (`{"space": "px"}`); a bundle of a
+  world that names none is unchanged. The block is the data naming its unit, so it outranks a
+  key's suffix (the grid block's `spacing_mm`). Time stays in ms: the engine's step is `dt_ms`.
+  The block may also name `frame`, `drive`, `filtered` or `state`.
+
+No format tag changes: no existing world, draw, entry id, frame or bundle changes, and the
+tests of section 8 pass unchanged. Pinned by `tests/unit/test_world_names.py`.

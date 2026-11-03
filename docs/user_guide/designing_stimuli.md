@@ -3,12 +3,12 @@
 A **layered** stimulus is a stack of layers. Each layer is four independent choices,
 and the layers add up (or take the maximum) frame by frame.
 
-| Part | Kinds | Main parameters |
-|---|---|---|
-| **Shape** — one element | `gaussian`, `disc`, `bar`, `grating`, `gabor` | amplitude; sigma, diameter and soft edge, width and length, wavelength, orientation, phase |
-| **Pattern** — where copies go | `single`, `grid`, `list`, `random`, `braille` | position; rows, columns, spacing and an on/off mask; a list of points; count, region, minimum distance, amplitude jitter and seed; braille text |
-| **Motion** — how the pattern moves | `none`, `linear`, `circular`, `path` | start and end, radius and turns, waypoints; during the hold or the whole layer |
-| **Timing** | — | `onset_ms`, `ramp_up_ms`, `hold_ms`, `ramp_down_ms` (unset hold: until the ramp down ends the run) |
+| Part | Choices |
+|---|---|
+| **Shape** — one element | the kinds and their parameters are listed in the [World Language Reference](../reference/world_language.md#shape) |
+| **Pattern** — where copies go | the kinds and their parameters are listed in the [World Language Reference](../reference/world_language.md#pattern) |
+| **Motion** — how the pattern moves | the kinds are listed in the [World Language Reference](../reference/world_language.md#keys); start and end, radius and turns, waypoints; during the hold or the whole layer |
+| **Timing** | `onset_ms`, `ramp_up_ms`, `hold_ms`, `ramp_down_ms` (unset hold: until the ramp down ends the run) |
 
 Every shape is non-negative: a pressure between 0 and its amplitude. The grating and
 the Gabor use a raised cosine. Positions are `(x, y)` in mm and times in ms.

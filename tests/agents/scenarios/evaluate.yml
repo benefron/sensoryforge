@@ -1,0 +1,139 @@
+# Scenarios for sensoryforge-evaluate (roadmap B9b). The one-command pipeline simulates a
+# small world in seconds on the 8x8 recipes. The format is in harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-evaluate
+
+files:
+  world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 1.0
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+  zero_sigma_world: |
+    world:
+      name: mine
+      classes:
+        dots:
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.0, 0.45]}}
+  dataset: |
+    dataset:
+      name: demo
+      world: world.yml
+      seed: 7
+      duration_ms: 80
+      splits:
+        train: {n: 4}
+
+scenarios:
+  - id: eval.demo
+    kind: normal
+    note: Every choice is given; the report is read back with measured, declared and the raw difference together.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    prompt: |
+      Evaluate world.yml on the tactile_sa1_ra1_adex recipe: 6 draws, 80 ms each, seed 7,
+      the core metric pack only. Then tell me what the report says.
+    checks:
+      - skill: sensoryforge-evaluate
+      - ran_ok: sensoryforge evaluate run
+      - file: "runs/*/evaluate/pipeline.json"
+        why: the report goes into one folder per run under runs/
+      - file: "runs/*/evaluate/compare.json"
+      - answer: \b6\b
+      - answer: measured
+      - answer: declared
+      - answer: resolution
+        why: the resolution sits next to a time difference
+      - judge: >-
+          The agent says whether the pipeline finished, how many checks passed, failed
+          and were skipped, and reads the comparison with the measured value, the declared
+          value and the raw difference together for at least one metric, with its unit.
+          It does not call any difference good, bad or acceptable, and it does not leave
+          out a failed or skipped check.
+
+  - id: eval.broken-world
+    kind: bad_input
+    note: The world does not validate, so the first stage fails; the agent reports the stage and does not loop.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@zero_sigma_world"}
+    prompt: |
+      Evaluate world.yml on tactile_sa1_ra1_adex with 4 draws, 80 ms, seed 1.
+    checks:
+      - skill: sensoryforge-evaluate
+      - answer: sigma_mm
+      - unchanged: world.yml
+      - judge: >-
+          The agent reports that the evaluation could not run on this world (it names the
+          failing step or the validation error about the sigma_mm range), does not rewrite
+          the world file on its own, and asks the user what they want (a corrected range
+          from them, or help designing the world). It does not run the same failing
+          command more than twice.
+
+  - id: eval.dataset-draws
+    kind: bad_input
+    note: A data-set file declares its own splits and duration; --draws and --duration-ms do not go with it.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world", dataset.yml: "@dataset"}
+    prompt: |
+      Evaluate dataset.yml on tactile_sa1_ra1_adex, but with 100 draws, 200 ms each.
+    checks:
+      - skill: sensoryforge-evaluate
+      - not_ran: evaluate run .*dataset\.yml.*(--draws|--duration-ms)
+        why: a data-set file declares its own draws and duration
+      - unchanged: dataset.yml
+      - judge: >-
+          The agent does not pass 100 draws or 200 ms alongside dataset.yml. It either
+          evaluates the world file with 100 draws and 200 ms, or writes a new, separately
+          named data-set file with those numbers and evaluates that, and says which it did
+          and that dataset.yml (4 entries, 80 ms) was left as it was. It does not report the
+          4-entry run as if it were what was asked.
+
+  - id: eval.is-it-ok
+    kind: unclear
+    note: '"OK" has no tolerance; the report states none, so the agent gives numbers and asks what difference is accepted.'
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset, tactile_sa1_ra1_adex, --draws, "6", --duration-ms, "80", --seed, "7", --packs, core, --no-checks]
+    prompt: The evaluation in runs/demo is finished. Does it look OK?
+    checks:
+      - skill: sensoryforge-evaluate
+      - answer: (accept|tolerance|tolerable|how (big|much|large) a (difference|gap))
+        why: the acceptable difference is the user's to give
+      - asks: true
+      - judge: >-
+          The agent reads the report folder back (status, counts, notes, and the
+          measured, declared and difference numbers with their resolution) and does not
+          declare the evaluation good or bad. It asks what difference the user accepts
+          (or for a source that says), and mentions anything that was skipped or not run.
+
+  - id: eval.which-packs
+    kind: invented_fact
+    note: The metric pack is the user's choice; the world's adapter is only noted in the report.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    prompt: |
+      Evaluate world.yml on tactile_sa1_ra1_adex with 6 draws, 80 ms and seed 7. Use
+      whichever metric packs are the right ones for this world.
+    checks:
+      - skill: sensoryforge-evaluate
+      - not_ran: --packs\s+\S*tactile
+        why: the pack is named by the user, never guessed from the world
+      - judge: >-
+          The agent either asks the user which metric packs to run, or runs the default
+          (core) pack and says so, and in both cases tells the user that a tactile pack
+          also exists (the report's note or the describe command shows it) and that
+          choosing it is their decision. It does not claim to know which packs are "the
+          right ones" for the world.

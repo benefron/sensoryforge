@@ -3,6 +3,7 @@ Test configuration and fixtures for the bio-inspired encoding project.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -168,3 +169,47 @@ def test_parameters():
         "dt": 1e-4,
         "timesteps": 1000,
     }
+
+
+@pytest.fixture(scope="session")
+def toy_dataset(tmp_path_factory):
+    """The toy non-tactile data set (roadmap A1b), built once per session."""
+    from tests.fixtures import toy_vision
+
+    return toy_vision.build_toy_dataset(tmp_path_factory.mktemp("toy_session"))
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-scale",
+        action="store_true",
+        default=False,
+        help="run the tests marked 'scale' (large; also selected by -m scale)",
+    )
+    parser.addoption(
+        "--run-agents",
+        action="store_true",
+        default=False,
+        help="run the tests marked 'agents' (fresh agents, real usage; also -m agents)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    marks = config.getoption("-m") or ""
+
+    def asked(name):  # "-m agents" asks for them; "-m 'not agents'" does not
+        return re.search(rf"(?<!not )\b{name}\b", marks) is not None
+
+    skips = {}
+    if not (config.getoption("--run-scale") or asked("scale")):
+        skips["scale"] = pytest.mark.skip(
+            reason="large run: pytest -m scale (or --run-scale)"
+        )
+    if not (config.getoption("--run-agents") or asked("agents")):
+        skips["agents"] = pytest.mark.skip(
+            reason="fresh-agent run: pytest -m agents (or --run-agents)"
+        )
+    for item in items:
+        for name, skip in skips.items():
+            if item.get_closest_marker(name):
+                item.add_marker(skip)

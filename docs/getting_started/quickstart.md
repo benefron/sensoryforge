@@ -73,8 +73,8 @@ config = {
         'spacing': 0.15,
     },
     'neurons': {
-        'sa_neurons': 100,
-        'ra_neurons': 196,
+        'sa_neurons': 10,    # neurons per row: a 10 x 10 layout, 100 neurons
+        'ra_neurons': 14,    # a 14 x 14 layout, 196 neurons
         'dt': 0.5,
     }
 }
@@ -223,8 +223,8 @@ pipeline:
   spacing: 0.15
 
 neurons:
-  sa_neurons: 100
-  ra_neurons: 196
+  sa_neurons: 10   # per row: 10 x 10 = 100 neurons
+  ra_neurons: 14   # per row: 14 x 14 = 196 neurons
   dt: 0.5
 
 filters:

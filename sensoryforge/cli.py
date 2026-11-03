@@ -8,6 +8,22 @@ Example:
     $ sensoryforge validate config.yml
     $ sensoryforge list-components
     $ sensoryforge visualize config.yml --save output.png
+    $ sensoryforge agents setup
+    $ sensoryforge agents brief
+    $ sensoryforge agents install
+    $ sensoryforge agents export --target cursor
+    $ sensoryforge agents instructions --target codex --write
+
+Topic: cli
+Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.py,
+    tests/integration/test_cli_stimulus_block.py,
+    tests/integration/test_cli_duration_dt.py
+Entry points: create_parser, main, cmd_run, cmd_batch, cmd_validate, cmd_describe,
+    cmd_evaluate_run
+Pinned by: docs/user_guide/cli.md
+Do not change without: a new command has --help text and a line in
+    docs/user_guide/cli.md; canonical configs route to SimulationEngine and legacy ones
+    to the old pipeline.
 """
 
 import argparse
@@ -671,25 +687,66 @@ def _task_commands(args: argparse.Namespace) -> List[str]:
     base += ["--output", shlex.quote(str(Path(args.output).resolve()))]
     if args.splits:
         base += ["--splits", shlex.quote(args.splits)]
+    if args.entries:
+        base += ["--entries", shlex.quote(args.entries)]
     if args.device:
         base += ["--device", args.device]
     if args.resume:
         base.append("--resume")
+    if args.dense_weights:
+        base.append("--dense-weights")
     return [
         " ".join(base + ["--tasks", str(args.tasks), "--task-index", str(i)])
         for i in range(args.tasks)
     ]
 
 
+def _print_dataset_dry_run(
+    spec: Any,
+    source_desc: str,
+    args: argparse.Namespace,
+    splits: Optional[List[str]],
+    entry_range: Optional[slice],
+    output: str,
+) -> None:
+    """Say what ``batch --dataset`` would simulate, without simulating or writing."""
+    from sensoryforge.world.dataset import build_dataset
+    from sensoryforge.world.runner import select_entries, task_slice
+
+    entries = select_entries(build_dataset(spec), splits)
+    total = len(entries)
+    chosen = entries if entry_range is None else entries[entry_range]
+    chosen = [
+        chosen[i] for i in task_slice(len(chosen), args.tasks, args.task_index or 0)
+    ]
+    per_split: Dict[str, int] = {}
+    for entry in chosen:
+        per_split[entry.split] = per_split.get(entry.split, 0) + 1
+    print("Dry run: nothing is simulated and nothing is written.")
+    print(f"  data set {spec.name} ({spec.dataset_id}) on world {spec.world.world_id}")
+    print(
+        f"  {len(chosen)} entries to simulate of {total} selected: "
+        + (", ".join(f"{k} {v}" for k, v in per_split.items()) or "none")
+    )
+    print(f"  sensor: {source_desc}")
+    print(f"  output: {output}")
+
+
 def cmd_batch_dataset(args: argparse.Namespace) -> int:
     """``sensoryforge batch --dataset``: one bundle per data-set entry (spec §7)."""
     from sensoryforge.world.dataset import load_dataset
-    from sensoryforge.world.runner import run_dataset
+    from sensoryforge.world.runner import check_resume_target, run_dataset
 
     if not args.output:
         print("Error: --output is required with --dataset", file=sys.stderr)
         return 1
     if args.print_tasks:
+        try:
+            if args.entries:
+                _parse_range(args.entries)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         for line in _task_commands(args):
             print(line)
         return 0
@@ -705,6 +762,13 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
             else None
         )
         entry_range = _parse_range(args.entries) if args.entries else None
+        if args.dry_run:
+            if args.resume:
+                check_resume_target(args.output, spec, config)
+            _print_dataset_dry_run(
+                spec, source_desc, args, splits, entry_range, args.output
+            )
+            return 0
         summary = run_dataset(
             config,
             spec,
@@ -715,6 +779,7 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
             task_index=args.task_index or 0,
             entry_range=entry_range,
             resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
             log=print,
         )
     except (ValueError, OSError, KeyError, yaml.YAMLError) as exc:
@@ -727,6 +792,62 @@ def cmd_batch_dataset(args: argparse.Namespace) -> int:
     return 1 if summary["failed"] else 0
 
 
+def cmd_describe(args: argparse.Namespace) -> int:
+    """``sensoryforge describe``: every component, world kind and recipe.
+
+    Args:
+        args: Command-line arguments (``json``, ``schema``, ``section``).
+
+    Returns:
+        Exit code (0 for success, 1 for an unknown section).
+    """
+    from sensoryforge import describe as dsc
+
+    if args.schema:
+        print(dsc.schema_text(args.schema), end="")
+        return 0
+    data = dsc.describe()
+    if args.section:
+        if args.section not in data or args.section == "format":
+            known = [k for k in data if k != "format"]
+            print(
+                f"Error: unknown section {args.section!r}; known: {known}",
+                file=sys.stderr,
+            )
+            return 1
+        data = {"format": data["format"], args.section: data[args.section]}
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return 0
+    print("SensoryForge description (use --json for the full parameter lists)")
+    for kind, entries in data.get("components", {}).items():
+        print(f"  {kind}: {', '.join(entries)}")
+    world = data.get("world")
+    if world:
+        for part in (
+            "shapes",
+            "patterns",
+            "modulations",
+            "distributions",
+            "class_kinds",
+        ):
+            print(f"  world {part}: {', '.join(world[part])}")
+    for part, entries in data.get("evaluation", {}).items():
+        print(f"  evaluation {part}: {', '.join(entries)}")
+    if "recipes" in data:
+        print(f"  recipes: {', '.join(data['recipes'])}")
+    return 0
+
+
+def _cmd_validate_json(args: argparse.Namespace) -> int:
+    """``sensoryforge validate --json``: the problems of a file as data."""
+    from sensoryforge import describe as dsc
+
+    report = dsc.validate_file(args.config, args.kind)
+    print(json.dumps(report, indent=2))
+    return 0 if report["valid"] else 1
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     """Validate YAML configuration without running.
 
@@ -736,6 +857,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for valid, 1 for invalid).
     """
+    if getattr(args, "json", False):
+        return _cmd_validate_json(args)
     try:
         # Load configuration
         config = load_config_file(args.config)
@@ -1069,6 +1192,452 @@ def cmd_world(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_evaluate_run(args: argparse.Namespace) -> int:
+    """``sensoryforge evaluate run SOURCE``: build, simulate, audit, compare, report."""
+    from sensoryforge.evaluate.pipeline import dataset_mapping, run_pipeline
+    from sensoryforge.world.dataset import load_dataset
+
+    try:
+        source = Path(args.source)
+        raw = load_config_file(source)
+        if not isinstance(raw, dict):
+            raise ValueError(f"{source}: expected a mapping")
+        if "dataset" in raw:
+            if args.draws is not None or args.duration_ms is not None:
+                raise ValueError(
+                    "--draws and --duration-ms apply to a world file; a data-set "
+                    "file declares its own splits and duration"
+                )
+            spec = load_dataset(source)
+        elif "world" in raw:
+            if args.draws is None or args.duration_ms is None:
+                raise ValueError(
+                    "a world file needs --draws N and --duration-ms MS "
+                    "(or give a data-set file that declares them)"
+                )
+            spec = load_dataset(
+                dataset_mapping(source, args.draws, args.seed, args.duration_ms)
+            )
+        else:
+            raise ValueError(f"{source}: neither a 'world:' nor a 'dataset:' file")
+        config_dict, design_manifest, source_desc = _resolve_sensor_config(args)
+        if args.device:
+            config_dict.setdefault("simulation", {})["device"] = args.device
+        config = SensoryForgeConfig.from_dict(config_dict)
+        splits = (
+            [s.strip() for s in args.splits.split(",") if s.strip()]
+            if args.splits
+            else None
+        )
+        doc = run_pipeline(
+            config,
+            spec,
+            Path(args.out),
+            design_manifest=design_manifest,
+            sensor_desc=source_desc,
+            source=str(source),
+            packs=[p for p in args.packs.split(",") if p],
+            adapter=args.adapter,
+            run_check_stage=not args.no_checks,
+            check_packs=[p for p in args.check_packs.split(",") if p],
+            check_sample=args.check_sample,
+            splits=splits,
+            resume=bool(args.resume),
+            sparse_weights=False if args.dense_weights else "auto",
+            log=print,
+        )
+    except (ValueError, KeyError, OSError, yaml.YAMLError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    report = Path(args.out) / "evaluate"
+    print(f"report folder: {report}")
+    for stage in doc["stages"]:
+        print(f"  {stage['name']:<9}{stage['status']:<8}{stage['seconds']:>8.1f} s")
+    for note in doc["notes"]:
+        print(f"note: {note}")
+    if doc["status"] != "ok":
+        print(f"Error: {doc['error']}", file=sys.stderr)
+        return 1
+    checks = doc["counts"].get("checks")
+    if checks:
+        print(
+            f"checks: {checks['pass']} passed, {checks['fail']} failed, "
+            f"{checks['skipped']} skipped, {checks['error']} errors"
+        )
+        if checks["fail"] or checks["error"]:
+            return 1
+    return 0
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    """``sensoryforge evaluate {run,serve}``: the pipeline and the local browser."""
+    if args.evaluate_command == "run":
+        return cmd_evaluate_run(args)
+    if args.evaluate_command == "export":
+        from sensoryforge.evaluate.export.__main__ import run as run_export
+
+        return run_export(args)
+    if args.evaluate_command != "serve":
+        print(
+            "usage: sensoryforge evaluate "
+            "{run SOURCE --out DIR | serve DATASET_DIR | export DATASET_DIR OUT_DIR}",
+            file=sys.stderr,
+        )
+        return 1
+    from sensoryforge.evaluate.server import Api, DatasetService, serve
+
+    try:
+        service = DatasetService(
+            Path(args.folder),
+            args.stages and Path(args.stages),
+            frame_cache_bytes=int(args.frame_cache_mb * (1 << 20)),
+            voltage_cache_bytes=int(args.voltage_cache_mb * (1 << 20)),
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error opening data set: {exc}", file=sys.stderr)
+        return 1
+    serve(Api(service), args.host, args.port)
+    return 0
+
+
+def _agents_export(args: argparse.Namespace) -> int:
+    """``agents install`` / ``agents export``: write the skills for an environment."""
+    from sensoryforge.agents import install as ins
+
+    export = args.agents_command == "export"
+    target = getattr(args, "target", None) or "claude"
+    dest = Path(args.dest)
+    try:
+        if target == "auto":
+            found = ins.detect_targets(dest) if dest.is_dir() else []
+            if len(found) != 1:
+                seen = ", ".join(found) if found else "none"
+                raise ValueError(
+                    f"cannot tell which environment {dest.resolve()} is for (found: "
+                    f"{seen}); pass --target {{{','.join(ins.EXPORT_TARGETS)}}}"
+                )
+            target = found[0]
+            print(f"Target {target} (found in {dest.resolve()})")
+        if export and args.check:
+            states = ins.check(dest, target)
+            for path, state in states:
+                print(f"{state:>9}  {path}")
+            bad = [s for _, s in states if s not in ("current", "foreign")]
+            print(ins.summarize(states))
+            if bad:
+                print(
+                    f"Run `sensoryforge agents export --target {target}` to refresh.",
+                    file=sys.stderr,
+                )
+            return 1 if bad else 0
+        written = ins.install(dest, target)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    spec = ins.EXPORT_TARGETS[target]
+    for path, state in written:
+        print(f"{state:>9}  {path}")
+    folder = dest.resolve() / spec.skills_dir
+    print(f"{ins.summarize(written)}: the skills and the glossary are in {folder}")
+    if spec.index:
+        print(
+            "No tool reads this folder by itself: give the agent "
+            "`sensoryforge agents prompt generic`."
+        )
+    else:
+        print("Run `sensoryforge agents setup` to set how they work with you.")
+    return 0
+
+
+def _agents_instructions(args: argparse.Namespace) -> int:
+    """``agents instructions``: SensoryForge's section in a project instruction file."""
+    from sensoryforge.agents import install as ins
+
+    dest = Path(args.dest)
+    target = args.target
+    try:
+        if target == "auto":
+            found = ins.detect_targets(dest) if dest.is_dir() else []
+            if len(found) != 1:
+                seen = ", ".join(found) if found else "none"
+                raise ValueError(
+                    f"cannot tell which environment {dest.resolve()} is for (found: "
+                    f"{seen}); pass --target {{{','.join(ins.EXPORT_TARGETS)}}}"
+                )
+            target = found[0]
+            print(f"Target {target} (found in {dest.resolve()})")
+        spec = ins.EXPORT_TARGETS.get(target)
+        if spec is not None and spec.instructions is None and not args.file:
+            if args.write or args.check:
+                raise ValueError(
+                    "no instruction file is known for this environment: pass --file "
+                    "with the file it reads (an existing AGENTS.md is a good choice)"
+                )
+            print(ins.render_block(), end="\n")
+            print(
+                "No file is known for this environment: put the lines above in the "
+                "file it reads, unchanged, or run again with --file FILE --write.",
+                file=sys.stderr,
+            )
+            return 0
+        path, state, text = ins.instructions(
+            dest,
+            target,
+            Path(args.file) if args.file else None,
+            write=args.write and not args.check,
+        )
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{state:>9}  {path}")
+    if args.check:
+        if state != "unchanged":
+            print(
+                f"Run `sensoryforge agents instructions --target {target} --write`.",
+                file=sys.stderr,
+            )
+        return 0 if state == "unchanged" else 1
+    if not args.write:
+        shown = (
+            ins.render_block()
+            if spec is None or spec.instructions_kind == "block" or args.file
+            else text
+        )
+        print("Nothing written. SensoryForge's part of the file:\n")
+        print(shown)
+        print("\nRun again with --write to write it.")
+    return 0
+
+
+def cmd_agents(args: argparse.Namespace) -> int:
+    """``sensoryforge agents``: setup, brief, install, export, instructions, prompt."""
+    from sensoryforge.agents import style as ws
+
+    commands = ("setup", "brief", "install", "export", "prompt", "instructions")
+    if args.agents_command not in commands:
+        print(f"usage: sensoryforge agents {{{','.join(commands)}}}", file=sys.stderr)
+        return 1
+    if args.agents_command == "instructions":
+        return _agents_instructions(args)
+    if args.agents_command in ("install", "export"):
+        return _agents_export(args)
+    if args.agents_command == "prompt":
+        from sensoryforge.agents.install import packaged_prompt
+
+        try:
+            print(packaged_prompt(args.name).read_text(encoding="utf-8"), end="")
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        return 0
+    try:
+        found = Path(args.path) if args.path else ws.find_config()
+        if args.agents_command == "brief":
+            print(ws.render_brief(ws.load_style(found), found), end="")
+            return 0
+        root = Path(args.dest).resolve()
+        target = found or root / ws.CONFIG_RELPATH
+        base = ws.WorkingStyle() if args.reset else ws.load_style(found)
+        given = {}
+        for opt in ws.OPTIONS:
+            value = getattr(args, opt.key, None)
+            if value is not None:
+                given[opt.key] = ws.parse_value(opt.key, value)
+        environment = ws.detect_environment(root)
+        if given.get("hooks") and environment != "claude-code":
+            raise ValueError(
+                "hooks are offered only in Claude Code (no CLAUDECODE marker or "
+                ".claude/ folder found)"
+            )
+        if args.no_input or not sys.stdin.isatty():
+            style = ws.WorkingStyle.from_dict({**base.to_dict(), **given})
+        else:
+            style = ws.ask_style(
+                given,
+                input,
+                print,
+                environment,
+                lambda: ws.discover_tools(root, Path.home()),
+                base,
+            )
+        settings = root / ".claude" / "settings.local.json"
+        ws.set_hook(settings, style.hooks, check_only=True)  # refuse before saving
+        ws.save_style(style, target)
+        print(f"Saved {target}")
+        if ws.set_hook(settings, style.hooks):
+            state = "installed in" if style.hooks else "removed from"
+            print(f"Routing hook {state} {settings}")
+        print(ws.render_brief(style, target), end="")
+        return 0
+    except (ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _add_agents_parser(subparsers: Any) -> None:
+    """``sensoryforge agents``: flags generated from the working-style options."""
+    from sensoryforge.agents.style import OPTIONS, CONFIG_ENV, CONFIG_RELPATH
+
+    agents_parser = subparsers.add_parser(
+        "agents", help="Set up how SensoryForge's agent skills work with you"
+    )
+    agents_sub = agents_parser.add_subparsers(dest="agents_command")
+    where = (
+        f"default: ${CONFIG_ENV}, else the nearest {CONFIG_RELPATH} above the "
+        f"current folder, else ./{CONFIG_RELPATH} when saving"
+    )
+    brief = agents_sub.add_parser(
+        "brief", help="Print the working style every skill reads first"
+    )
+    brief.add_argument("--path", help=f"Working-style file ({where})")
+    install = agents_sub.add_parser(
+        "install",
+        help="Copy the skills and the glossary into a project's .claude/skills",
+        description="Copy SensoryForge's agent skills and its glossary into "
+        "<dest>/.claude/skills/, where Claude Code finds them. The copies are "
+        "generated: running it again replaces them with this release's files and "
+        "touches nothing else. Same as `export --target claude`.",
+    )
+    install.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder (default: the current folder)",
+    )
+    from sensoryforge.agents.install import EXPORT_TARGETS
+
+    export = agents_sub.add_parser(
+        "export",
+        help="Write the skills and the glossary for Claude Code, Copilot, Cursor, "
+        "Codex or any other environment",
+        description="Write SensoryForge's agent skills and its glossary in the folder "
+        "the chosen environment reads: "
+        + "; ".join(
+            f"{t.name} -> <dest>/{t.skills_dir.as_posix()}/"
+            for t in EXPORT_TARGETS.values()
+        )
+        + ". Every file carries a do-not-edit header; running it again replaces them "
+        "with this release's files and touches nothing else. `generic` writes a "
+        "neutral folder with an index, for an environment this release does not know: "
+        "give the agent `sensoryforge agents prompt generic`.",
+    )
+    export.add_argument(
+        "--target",
+        choices=("auto", *EXPORT_TARGETS),
+        default="auto",
+        help="The environment (default auto: the one the project folder already "
+        "uses, an error when none or several do)",
+    )
+    export.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder (default: the current folder)",
+    )
+    export.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing; list files that are missing or differ from this "
+        "release's, and exit 1 if any are",
+    )
+    instructions = agents_sub.add_parser(
+        "instructions",
+        help="Add SensoryForge's short section to the project's instruction file "
+        "(CLAUDE.md, AGENTS.md, ...)",
+        description="Show, write or check SensoryForge's section in the file your "
+        "environment reads at the start of every session: "
+        + "; ".join(
+            f"{t.name} -> {t.instructions.as_posix()}"
+            for t in EXPORT_TARGETS.values()
+            if t.instructions
+        )
+        + ". The file is yours: the section sits between two marker lines, a later run "
+        "replaces only that block and nothing else is touched. Without --write nothing "
+        "is written. `agents prompt instructions` is the prompt for an agent to build "
+        "the rest of the file.",
+    )
+    instructions.add_argument(
+        "--target",
+        choices=("auto", *EXPORT_TARGETS),
+        default="auto",
+        help="The environment (default auto, as for export)",
+    )
+    instructions.add_argument(
+        "--file",
+        help="The file to put the section in, relative to --dest (default the "
+        "environment's own; required for generic)",
+    )
+    instructions.add_argument(
+        "--dest", default=".", help="The project folder (default: the current folder)"
+    )
+    instructions.add_argument(
+        "--write", action="store_true", help="Write the file (default: only show)"
+    )
+    instructions.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing; exit 1 unless the section is there and current",
+    )
+    prompt = agents_sub.add_parser(
+        "prompt",
+        help="Print a prompt to give an agent: install (picks the environment), "
+        "generic (for an unknown one) or instructions (builds the project's "
+        "instruction file)",
+    )
+    prompt.add_argument(
+        "name",
+        nargs="?",
+        default="install",
+        choices=("install", "generic", "instructions"),
+    )
+    setup = agents_sub.add_parser(
+        "setup",
+        help="Ask the setup questions (or take them as flags) and save the answers",
+        description="Ask three things and save them: use your own tools (default no), "
+        "how you like to work, and an optional Claude Code hook (default no). "
+        "Unanswered options keep their saved value, or the self-contained default.",
+    )
+    setup.add_argument("--path", help=f"Working-style file ({where})")
+    setup.add_argument(
+        "--dest",
+        default=".",
+        help="The project folder, where the routing hook goes and the environment is "
+        "detected (default: the current folder, never where the style file is)",
+    )
+    setup.add_argument(
+        "--no-input",
+        action="store_true",
+        help="Ask nothing; options not given keep their saved value or default",
+    )
+    setup.add_argument(
+        "--reset",
+        action="store_true",
+        help="Start from the defaults, not the saved file",
+    )
+    for opt in OPTIONS:
+        flag = "--" + opt.key.replace("_", "-")
+        if opt.key == "tools":
+            setup.add_argument(
+                "--tool",
+                dest="tools",
+                action="append",
+                metavar="NAME",
+                help=f"{opt.question} Repeat for each (default none)",
+            )
+        elif opt.choices:
+            setup.add_argument(
+                flag,
+                choices=opt.choices,
+                help=f"{opt.question} (default {opt.default})",
+            )
+        elif opt.key == "session_tokens":
+            setup.add_argument(
+                flag, metavar="N", help=f"{opt.question} (default none; 'none' clears)"
+            )
+        else:
+            setup.add_argument(
+                flag, choices=("yes", "no"), help=f"{opt.question} (default no)"
+            )
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser for CLI.
 
@@ -1179,6 +1748,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     batch_parser.add_argument("--entries", help="Run entries a:b only (with --dataset)")
     batch_parser.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help=(
+            "Store receptive-field weights dense in every bundle (default: sparse "
+            "when under 10%% nonzero; with --dataset)"
+        ),
+    )
+    batch_parser.add_argument(
         "--print-tasks",
         action="store_true",
         help=(
@@ -1193,7 +1770,9 @@ def create_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate configuration and show execution plan without running",
+        help="Validate configuration and show execution plan without running; "
+        "with --dataset, the entries, splits, sensor and output folder, with "
+        "nothing simulated or written",
     )
     batch_parser.add_argument(
         "--resume",
@@ -1226,6 +1805,97 @@ def create_parser() -> argparse.ArgumentParser:
     build_parser.add_argument("spec", help="Data-set YAML (a 'dataset:' mapping)")
     build_parser.add_argument("--out", required=True, help="Output directory")
 
+    evaluate_parser = subparsers.add_parser(
+        "evaluate", help="Evaluate a world: the pipeline and the local server"
+    )
+    evaluate_sub = evaluate_parser.add_subparsers(dest="evaluate_command")
+    run_eval = evaluate_sub.add_parser(
+        "run",
+        help="World or data set to report folder: build, simulate, audit, "
+        "declare, compare, check",
+    )
+    run_eval.add_argument(
+        "source", help="A world file ('world:') or a data-set file ('dataset:')"
+    )
+    run_eval.add_argument("--out", required=True, help="The data-set folder to write")
+    run_eval.add_argument("--design", help="A design directory (the sensor)")
+    run_eval.add_argument("--preset", help="A preset name (the sensor)")
+    run_eval.add_argument(
+        "--config", help="A sensor config file, merged over --design/--preset"
+    )
+    run_eval.add_argument("--device", help="Device for the simulation (cpu, cuda, mps)")
+    run_eval.add_argument(
+        "--draws", type=int, help="Draws from a world file (one 'train' split)"
+    )
+    run_eval.add_argument(
+        "--duration-ms", type=float, help="Duration of each draw (world file)"
+    )
+    run_eval.add_argument(
+        "--seed", type=int, default=0, help="Seed of a world file's data set"
+    )
+    run_eval.add_argument("--splits", help="Comma-separated splits to simulate")
+    run_eval.add_argument(
+        "--packs",
+        default="core",
+        help="Comma-separated metric packs of the audit, e.g. core,tactile "
+        "(never detected from the world; default core)",
+    )
+    run_eval.add_argument(
+        "--adapter",
+        help="Declared adapter (default: the first that accepts the data set)",
+    )
+    run_eval.add_argument(
+        "--dense-weights",
+        action="store_true",
+        help="Store receptive-field weights dense in every bundle (default: sparse)",
+    )
+    run_eval.add_argument(
+        "--no-checks", action="store_true", help="Skip the reference-free checks"
+    )
+    run_eval.add_argument(
+        "--check-packs", default="core", help="Comma-separated check packs"
+    )
+    run_eval.add_argument(
+        "--check-sample", type=int, default=8, help="Entries the engine checks re-run"
+    )
+    run_eval.add_argument(
+        "--resume", action="store_true", help="Skip entries that already have a bundle"
+    )
+    serve_parser = evaluate_sub.add_parser(
+        "serve", help="Serve a data set to the evaluation browser (loopback only)"
+    )
+    serve_parser.add_argument("folder", help="The data-set folder")
+    serve_parser.add_argument(
+        "--stages",
+        help="Folder of audit.json, declared.json and compare.json "
+        "(default: FOLDER/evaluate)",
+    )
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Address to bind")
+    serve_parser.add_argument("--port", type=int, default=8765, help="Port to bind")
+    serve_parser.add_argument(
+        "--frame-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of decompressed stimulus frames kept between requests "
+        "(default 256; 0 keeps none)",
+    )
+    serve_parser.add_argument(
+        "--voltage-cache-mb",
+        type=float,
+        default=256.0,
+        help="Megabytes of re-simulated membrane voltage kept between requests "
+        "(default 256; 0 keeps none)",
+    )
+    export_parser = evaluate_sub.add_parser(
+        "export",
+        help="Write a snapshot of a data set that opens offline, with no server",
+    )
+    from sensoryforge.evaluate.export.arguments import add_arguments as add_export
+
+    add_export(export_parser)
+
+    _add_agents_parser(subparsers)
+
     world_parser = subparsers.add_parser("world", help="Inspect a world file")
     world_sub = world_parser.add_subparsers(dest="world_command")
     validate_world = world_sub.add_parser(
@@ -1245,6 +1915,37 @@ def create_parser() -> argparse.ArgumentParser:
         "validate", help="Validate YAML config without running"
     )
     validate_parser.add_argument("config", help="Path to YAML configuration file")
+    validate_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Print the problems as JSON ({path, message, fix, source} each) for a "
+            "config, world or data-set file; exit 1 if there are any"
+        ),
+    )
+    validate_parser.add_argument(
+        "--kind",
+        choices=("auto", "config", "world", "dataset"),
+        default="auto",
+        help="With --json: what the file is (default: decide from its keys)",
+    )
+
+    describe_parser = subparsers.add_parser(
+        "describe",
+        help="List every component, world kind and recipe with its parameters",
+    )
+    describe_parser.add_argument(
+        "--json", action="store_true", help="Print the full description as JSON"
+    )
+    describe_parser.add_argument(
+        "--section",
+        help="Limit to one of: formats, components, world, evaluation, recipes",
+    )
+    describe_parser.add_argument(
+        "--schema",
+        choices=("config", "world", "dataset"),
+        help="Print the JSON Schema of a YAML format instead",
+    )
 
     # List components command
     subparsers.add_parser(
@@ -1315,12 +2016,15 @@ def main() -> int:
         "run": cmd_run,
         "batch": cmd_batch,
         "validate": cmd_validate,
+        "describe": cmd_describe,
         "list-components": cmd_list_components,
         "list-presets": cmd_list_presets,
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
         "dataset": cmd_dataset,
+        "evaluate": cmd_evaluate,
         "world": cmd_world,
+        "agents": cmd_agents,
     }
 
     handler = commands.get(args.command)

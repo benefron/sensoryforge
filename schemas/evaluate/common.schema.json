@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/common.schema.json",
+  "title": "Evaluation report contract: shared definitions",
+  "description": "Units, metric definitions, values, summaries and groups shared by audit.json, declared.json and compare.json. See docs/reference/report_contract.md, sections 3 and 4.",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metric_id": {
+      "description": "<pack>.<quantity>.<name>, for example core.frames.onset_time.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "sensoryforge_version": {
+          "type": "string"
+        },
+        "sensoryforge_sha": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sensoryforge_version",
+        "sensoryforge_sha"
+      ],
+      "additionalProperties": false
+    },
+    "quantity": {
+      "description": "A quantity whose unit is resolved once per data set (section 3).",
+      "enum": [
+        "time",
+        "space",
+        "frame",
+        "drive",
+        "filtered",
+        "state"
+      ]
+    },
+    "unit": {
+      "description": "A unit symbol with the origin that states it. A quantity nobody states is the whole value null (see unit_or_null), not a unit with a null symbol.",
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin": {
+          "$ref": "#/$defs/unit_origin"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "unit_origin": {
+      "oneOf": [
+        {
+          "enum": [
+            "data",
+            "user",
+            "derived"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^pack:.+$"
+        }
+      ]
+    },
+    "unit_or_null": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/unit"
+        }
+      ]
+    },
+    "units": {
+      "description": "Resolved units by quantity. A quantity is listed with null when nobody states its unit.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/quantity"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/unit_or_null"
+      }
+    },
+    "metric_definition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/metric_id"
+        },
+        "pack": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "enum": [
+            "entry",
+            "dataset"
+          ]
+        },
+        "value_type": {
+          "enum": [
+            "number",
+            "integer",
+            "string"
+          ]
+        },
+        "unit": {
+          "$ref": "#/$defs/unit_or_null"
+        },
+        "resolution": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "entry",
+            "channel",
+            "population"
+          ]
+        },
+        "applies_to": {
+          "description": "For scope population: the readouts the metric applies to.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/readout"
+          },
+          "uniqueItems": true
+        },
+        "summarised": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "pack",
+        "level",
+        "value_type",
+        "unit",
+        "resolution",
+        "scope",
+        "summarised"
+      ],
+      "additionalProperties": false
+    },
+    "readout": {
+      "enum": [
+        "spikes",
+        "events",
+        "state"
+      ]
+    },
+    "value": {
+      "description": "One measured or declared value. channel (the channel's 0-based index) only when the data has more than one channel; population (its name) for population-scoped metrics.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/metric_id"
+        },
+        "value": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "population": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "histogram": {
+      "type": "object",
+      "properties": {
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2
+        },
+        "counts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "edges",
+        "counts"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "description": "One metric over a set of entries. n counts the non-null numeric values that entered it, n_null the entries in the set whose value is null. When n is 0 every statistic and the histogram are null.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/metric_id"
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "population": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_null": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "std": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "q05": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "q25": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "q50": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "q75": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "q95": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "histogram": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/histogram"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "n",
+        "n_null",
+        "mean",
+        "std",
+        "min",
+        "q05",
+        "q25",
+        "q50",
+        "q75",
+        "q95",
+        "max",
+        "histogram"
+      ],
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "n_entries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/summary"
+          }
+        }
+      },
+      "required": [
+        "n_entries",
+        "n_failed",
+        "summaries"
+      ],
+      "additionalProperties": false
+    },
+    "groupings": {
+      "description": "Summaries per class label and per split label. An entry without a class appears under its split and in the data set only.",
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "split": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/group"
+          }
+        }
+      },
+      "required": [
+        "class",
+        "split"
+      ],
+      "additionalProperties": false
+    },
+    "entries_file": {
+      "description": "The per-entry rows file written beside the stage's .json and its sha256.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "file",
+        "n",
+        "sha256"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

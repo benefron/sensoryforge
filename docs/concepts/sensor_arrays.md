@@ -31,7 +31,8 @@ that point in space.
 | `"blue_noise"` | Jitter + Lloyd-style relaxation (blue-noise-like spacing), density-derived from `rows`/`cols`/`spacing` (or `density`, below) | Yes, via `GridConfig.seed` (F-050) |
 | `"poisson"` | Jittered grid at a target density-derived from `rows`/`cols`/`spacing` (or `density`, below); an approximation, not true Poisson-disk sampling | Yes, via `GridConfig.seed` (F-050) |
 
-All five are registered grid-arrangement classes (`core/grid_arrangements.py`) discoverable via
+The registered arrangements and their parameters are listed in the generated
+[Component Reference](../reference/components.md#grid). All five are registered grid-arrangement classes (`core/grid_arrangements.py`) discoverable via
 `GRID_REGISTRY`, so `sensoryforge list-components` shows them and a plugin can add a sixth (see
 [Adding a Grid Arrangement](../extending/add_grid_arrangement.md)).
 

@@ -2,7 +2,7 @@ Systematically implement all findings from a review document, one at a time, wit
 
 Read the review findings file specified in $ARGUMENTS (e.g., `docs/development/reviews/REVIEW_AGENT_FINDINGS_20260408.md`). If no file is given, look for the most recent file matching `docs/development/reviews/REVIEW_AGENT_FINDINGS_*.md`.
 
-Also read `.github/copilot-instructions.md` for project standards before touching any code.
+Also read `AGENTS.md` for project standards before touching any code.
 
 ## Workflow
 

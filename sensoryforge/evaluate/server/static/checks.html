@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensoryForge evaluate: checks</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="checks">
+<header>
+  <h1>SensoryForge evaluate</h1>
+  <nav aria-label="Pages"><a href="/">Draws</a> · <a href="/dashboard">Dashboard</a> · <a href="/gallery">Gallery</a> · <a href="/checks" aria-current="page">Checks</a></nav>
+  <p id="summary" class="muted">loading…</p>
+</header>
+<div id="checks">
+  <p id="offer" hidden>
+    <button type="button" id="run">Run the checks</button>
+    <label>Packs <input id="packs" value="core" size="14" aria-label="check packs, comma separated"></label>
+    <span id="job" class="muted"></span>
+  </p>
+  <div id="list"></div>
+  <p id="notes" class="muted"></p>
+</div>
+<script src="/static/checks.js"></script>
+<script src="/static/checks_page.js"></script>
+</body>
+</html>

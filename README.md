@@ -33,12 +33,13 @@ Designed for **neuroscientists**, **neuromorphic engineers**, and **ML researche
 ### Installation
 
 ```bash
-git clone https://github.com/benefron/sensoryforge.git
-cd sensoryforge
-pip install -e .
+pip install "git+https://github.com/benefron/sensoryforge.git"
 ```
 
-Not yet published to PyPI; install from source.
+Not yet published to PyPI; install from source. This is also the install for extending
+SensoryForge: `sensoryforge new-component neuron MyNeuron` writes a standalone plugin
+package, with no fork needed. To change SensoryForge itself, fork and clone it; see
+[Installation](https://benefron.github.io/sensoryforge/getting_started/installation/).
 
 ### Basic Example
 
@@ -280,7 +281,7 @@ config = {
 }
 ```
 
-See the [Extensibility Guide](docs/developer_guide/extensibility.md) for detailed tutorials and the [Add Component Skill](.cursor/skills/add-new-component/SKILL.md) for step-by-step instructions.
+See the [Extensibility Guide](docs/developer_guide/extensibility.md) for detailed tutorials and the [Plugin Packages](docs/developer_guide/plugins.md) guide for step-by-step instructions.
 
 ---
 

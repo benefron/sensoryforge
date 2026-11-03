@@ -83,7 +83,9 @@ giving both forms, or neither, raises.
 | `template` | derived from `d` | analytic Gaussian on the `k` nearest receptors, unit-L2 rows | no |
 | `imported` | from the file | from the file | no |
 
-Every builder exposes `get_param_spec()`, so the GUI shows its parameters, and
+Each builder's parameters, with defaults, ranges and units, are listed in the generated
+[Component Reference](../reference/components.md#innervation). Every builder exposes
+`get_param_spec()`, so the GUI shows its parameters, and
 `build()` returns a bank whose `provenance` records the builder name, its full
 configuration, the seed and the SensoryForge version.
 

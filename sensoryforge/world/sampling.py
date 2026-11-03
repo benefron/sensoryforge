@@ -1,4 +1,13 @@
-"""Sampling a world: draws, fixed draws and sessions (spec §4)."""
+"""Sampling a world: draws, fixed draws and sessions (spec §4).
+
+Topic: world
+Tests: tests/unit/test_world_sampling.py, tests/contract/test_world_contract.py
+Entry points: sample, Draw, fixed_draw, Session, session, class_pool
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md
+Do not change without: sample(world, n, seed) is counter-based, so draw i never depends
+    on n; a change that alters any draw is a format-tag bump with the contract page
+    updated.
+"""
 
 from __future__ import annotations
 

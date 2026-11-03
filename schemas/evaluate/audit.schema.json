@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/audit.schema.json",
+  "title": "audit.json (sensoryforge-audit/1)",
+  "description": "Everything measured from a data set's generated data alone. #/$defs/entry_row validates a row of audit_entries.jsonl. See docs/reference/report_contract.md, section 5.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-audit/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "batch_dir": {"type": "string"},
+        "manifest": {"type": "string"},
+        "data_sensoryforge_sha": {"type": "array", "items": {"type": "string"}},
+        "bundle_schema_versions": {"type": "array", "items": {"type": "string"}}
+      },
+      "required": ["batch_dir", "manifest", "data_sensoryforge_sha", "bundle_schema_versions"],
+      "additionalProperties": false
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1}
+        },
+        "required": ["name", "version"],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "params": {
+      "description": "Each pack's parameters by pack name; the keys are the pack's own.",
+      "type": "object",
+      "additionalProperties": {"type": "object"}
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "n_sensors": {"type": "integer", "minimum": 1},
+        "dims": {"enum": [1, 2, 3]},
+        "n_channels": {"type": "integer", "minimum": 1},
+        "channel_names": {
+          "oneOf": [{"type": "null"}, {"type": "array", "items": {"type": "string"}}]
+        },
+        "bounds": {
+          "description": "[lo, hi] of the sensor coordinates in each dimension, in the space unit.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "minItems": 1,
+          "maxItems": 3
+        },
+        "regular_grid": {
+          "description": "The regular grid the sensors form, or null when they do not form one.",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "properties": {
+                "rows": {"type": "integer", "minimum": 1},
+                "cols": {"type": "integer", "minimum": 1},
+                "spacing": {"type": "number"}
+              },
+              "required": ["rows", "cols", "spacing"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": ["n_sensors", "dims", "n_channels", "channel_names", "bounds", "regular_grid"],
+      "additionalProperties": false
+    },
+    "populations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "readout": {"$ref": "common.schema.json#/$defs/readout"},
+          "n_units": {"type": "integer", "minimum": 1}
+        },
+        "required": ["name", "readout", "n_units"],
+        "additionalProperties": false
+      }
+    },
+    "units": {"$ref": "common.schema.json#/$defs/units"},
+    "metrics": {
+      "type": "array",
+      "items": {"$ref": "common.schema.json#/$defs/metric_definition"}
+    },
+    "entries": {
+      "type": "object",
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "n": {"type": "integer", "minimum": 0},
+        "n_ok": {"type": "integer", "minimum": 0},
+        "n_failed": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "common.schema.json#/$defs/sha256"}
+      },
+      "required": ["file", "n", "n_ok", "n_failed", "sha256"],
+      "additionalProperties": false
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entry": {"type": "string", "minLength": 1},
+          "stage": {"enum": ["batch", "read", "measure"]},
+          "error": {"type": "string"}
+        },
+        "required": ["entry", "stage", "error"],
+        "additionalProperties": false
+      }
+    },
+    "dataset": {"$ref": "common.schema.json#/$defs/group"},
+    "groupings": {"$ref": "common.schema.json#/$defs/groupings"},
+    "dataset_values": {
+      "description": "The values of the metrics whose level is dataset.",
+      "type": "array",
+      "items": {"$ref": "common.schema.json#/$defs/value"}
+    }
+  },
+  "required": [
+    "format", "created_at", "producer", "inputs", "packs", "params", "layout", "populations",
+    "units", "metrics", "entries", "failures", "dataset", "groupings", "dataset_values"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "entry_row": {
+      "description": "One row of audit_entries.jsonl. A failed entry has values [] and appears in failures.",
+      "type": "object",
+      "properties": {
+        "entry": {"type": "string", "minLength": 1},
+        "split": {"type": "string"},
+        "class": {"type": ["string", "null"]},
+        "repeat": {"type": "integer", "minimum": 0},
+        "noise_repeat": {"type": "integer", "minimum": 0},
+        "bundle": {"type": ["string", "null"]},
+        "values": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/value"}}
+      },
+      "required": ["entry", "split", "class", "repeat", "noise_repeat", "bundle", "values"],
+      "additionalProperties": false
+    }
+  }
+}

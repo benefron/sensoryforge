@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/diff.schema.json",
+  "title": "diff.json (sensoryforge-diff/1)",
+  "description": "What moved between a baseline run and a new run of the same data set: a verdict, counts by entry status, the first diverging frame, the arrays that differ, per-metric deltas. #/$defs/entry_row validates a row of diff_entries.jsonl. See docs/reference/report_contract.md, section 14.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-diff/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "baseline": {"$ref": "#/$defs/side"},
+        "new": {"$ref": "#/$defs/side"},
+        "atol": {"type": "number", "minimum": 0},
+        "rtol": {"type": "number", "minimum": 0},
+        "tolerance_source": {"type": "string"},
+        "packs": {"type": ["array", "null"], "items": {"type": "string"}}
+      },
+      "required": ["baseline", "new", "atol", "rtol", "tolerance_source", "packs"],
+      "additionalProperties": false
+    },
+    "verdict": {"enum": ["identical", "equivalent", "different"]},
+    "counts": {
+      "type": "object",
+      "properties": {
+        "identical": {"type": "integer", "minimum": 0},
+        "equivalent": {"type": "integer", "minimum": 0},
+        "different": {"type": "integer", "minimum": 0},
+        "only_a": {"type": "integer", "minimum": 0},
+        "only_b": {"type": "integer", "minimum": 0},
+        "unreadable": {"type": "integer", "minimum": 0},
+        "both_failed": {"type": "integer", "minimum": 0}
+      },
+      "required": ["identical", "equivalent", "different", "only_a", "only_b", "unreadable", "both_failed"],
+      "additionalProperties": false
+    },
+    "first_divergence": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "properties": {
+            "entry": {"type": "string"},
+            "step": {"type": "integer", "minimum": 0},
+            "ms": {"type": ["number", "null"]}
+          },
+          "required": ["entry", "step", "ms"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "by_array": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "n_equivalent": {"type": "integer", "minimum": 0},
+          "n_different": {"type": "integer", "minimum": 0}
+        },
+        "required": ["n_equivalent", "n_different"],
+        "additionalProperties": false
+      }
+    },
+    "most_divergent": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entry": {"type": "string"},
+          "split": {"type": "string"},
+          "class": {"type": ["string", "null"]},
+          "first_step": {"type": ["integer", "null"]},
+          "first_ms": {"type": ["number", "null"]},
+          "largest_abs_diff": {"type": ["number", "null"]}
+        },
+        "required": ["entry", "split", "class", "first_step", "first_ms", "largest_abs_diff"],
+        "additionalProperties": false
+      }
+    },
+    "metrics": {
+      "oneOf": [{"type": "null"}, {"type": "array", "items": {"$ref": "#/$defs/metric_delta"}}]
+    },
+    "notes": {"type": "array", "items": {"type": "string"}},
+    "entries": {
+      "type": "object",
+      "properties": {
+        "file": {"type": "string"},
+        "n": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "common.schema.json#/$defs/sha256"}
+      },
+      "required": ["file", "n", "sha256"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["format", "created_at", "producer", "inputs", "verdict", "counts", "first_divergence", "by_array", "most_divergent", "metrics", "notes", "entries"],
+  "additionalProperties": false,
+  "$defs": {
+    "side": {
+      "type": "object",
+      "properties": {
+        "dataset_dir": {"type": "string"},
+        "dataset_id": {"type": ["string", "null"]},
+        "world_id": {"type": ["string", "null"]},
+        "seed": {"type": ["integer", "null"]},
+        "name": {"type": ["string", "null"]},
+        "schema_version": {"type": "string"},
+        "sensoryforge_sha": {"type": "string"}
+      },
+      "required": ["dataset_dir"],
+      "additionalProperties": false
+    },
+    "metric_delta": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+        "channel": {"type": ["integer", "null"]},
+        "population": {"type": ["string", "null"]},
+        "n_pairs": {"type": "integer", "minimum": 0},
+        "n_changed": {"type": "integer", "minimum": 0},
+        "mean_a": {"type": ["number", "null"]},
+        "mean_b": {"type": ["number", "null"]},
+        "max_abs_delta": {"type": ["number", "null"]},
+        "max_entry": {"type": ["string", "null"]}
+      },
+      "required": ["id", "channel", "population", "n_pairs", "n_changed", "mean_a", "mean_b", "max_abs_delta", "max_entry"],
+      "additionalProperties": false
+    },
+    "array_result": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "status": {"enum": ["equivalent", "different"]},
+        "n_total": {"type": "integer", "minimum": 0},
+        "n_differing": {"type": "integer", "minimum": 0},
+        "max_abs_diff": {"type": ["number", "null"]},
+        "first_step": {"type": ["integer", "null"], "minimum": 0},
+        "shapes": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}}
+      },
+      "required": ["name", "status", "n_total", "n_differing", "max_abs_diff", "first_step"],
+      "additionalProperties": false
+    },
+    "entry_row": {
+      "type": "object",
+      "properties": {
+        "entry": {"type": "string"},
+        "split": {"type": "string"},
+        "class": {"type": ["string", "null"]},
+        "status": {"enum": ["identical", "equivalent", "different", "only_a", "only_b", "unreadable", "both_failed"]},
+        "baseline": {"type": ["string", "null"]},
+        "new": {"type": ["string", "null"]},
+        "n_arrays": {"type": "integer", "minimum": 0},
+        "arrays": {"type": "array", "items": {"$ref": "#/$defs/array_result"}},
+        "structure": {"type": "array", "items": {"type": "string"}},
+        "first_step": {"type": ["integer", "null"], "minimum": 0},
+        "first_ms": {"type": ["number", "null"]},
+        "largest_abs_diff": {"type": ["number", "null"]}
+      },
+      "required": ["entry", "split", "class", "status"],
+      "additionalProperties": false
+    }
+  }
+}

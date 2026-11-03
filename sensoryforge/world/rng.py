@@ -5,6 +5,13 @@ splitmix64 mix of a seed, a draw's index and a *slot* naming the choice.
 Nothing is drawn from a stream, so draw ``i`` depends only on ``(seed, i)``
 -- never on how many draws were asked for -- and the bits are the same on
 every machine (integer arithmetic plus one exact scaling to ``[0, 1)``).
+
+Topic: world
+Tests: tests/unit/test_world_rng.py, tests/contract/test_world_contract.py
+Entry points: seed53, draw_seeds, uniforms, permutation, mix, hash_parts, key
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md
+Do not change without: the constants and the hashing never change: every draw of every
+    world changes with them, and pressure-simulation pins the draws.
 """
 
 from __future__ import annotations

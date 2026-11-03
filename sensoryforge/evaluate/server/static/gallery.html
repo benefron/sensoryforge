@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensoryForge evaluate: gallery</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="gallery">
+<header>
+  <h1>SensoryForge evaluate</h1>
+  <nav aria-label="Pages"><a href="/">Draws</a> · <a href="/dashboard">Dashboard</a> · <a href="/gallery" aria-current="page">Gallery</a> · <a href="/checks">Checks</a></nav>
+  <p id="summary" class="muted">loading…</p>
+</header>
+<div id="gallery">
+  <form id="signals" aria-label="Signals"></form>
+  <p><label>Show <select id="limit"><option>12</option><option selected>24</option><option>60</option><option>200</option></select> worst</label>
+     <span id="shown" class="muted"></span></p>
+  <div id="systemic-box" hidden><h2>Silent for most of a class</h2>
+    <p class="muted">Not listed per draw: this is a property of the class, not of one entry.</p><ul id="systemic"></ul></div>
+  <div id="cards"></div>
+  <p id="notes" class="muted"></p>
+</div>
+<script src="/static/gallery.js"></script>
+<script src="/static/gallery_page.js"></script>
+</body>
+</html>

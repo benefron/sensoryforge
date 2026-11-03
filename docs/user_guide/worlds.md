@@ -67,6 +67,12 @@ range (durations are never negative; a gaussian's `sigma_mm` lies within its `Pa
 numeric fields need numbers, and PyYAML reads `3e-1` as text, so write `3.0e-1`; a key
 written twice, and a class name that could not name a directory, are refused.
 
+!!! tip "Not in millimetres?"
+    Declare the space unit with `units: {space: px}` and, if you like, write the space fields
+    without the suffix (`sigma`, `x`, `y`, `speed`). They mean the same as `sigma_mm`, `x_mm`,
+    ... and give the same `world_id`. See [the world contract](../reference/world_contract.md),
+    10.14.
+
 ## Axes
 
 An axis is one of five forms:
@@ -97,6 +103,10 @@ fixes; otherwise the world's `defaults`; otherwise a built-in (durations 0, `con
 `amplitude` 1, `x_mm` and `y_mm` 0). `fixed_draws:` names draws by explicit values, and any
 axis it leaves out takes its midpoint, for example
 `braille_H: {class: braille, dots: "125", hold_ms: 40, delay_ms: 0}`.
+
+A value a layer fixes is checked when the world loads, like an axis: `sigma_mm: 0`, a
+negative `radius_mm` or a depth written `3e-1` (YAML reads that as text; write `3.0e-1`) fail
+with the path, for example `world.classes.dots.layer.shape.sigma_mm`.
 
 ## Time
 
@@ -381,14 +391,18 @@ simulates every entry through the sensor and writes one data bundle per entry to
 
 - `--splits test,probes` runs only those splits; `--entries 100:200` runs a slice.
 - `--tasks 50 --task-index 7` runs the eighth of 50 contiguous tasks, for a job array;
-  `--tasks 50 --print-tasks` prints the 50 commands instead of running them.
+  `--tasks 50 --print-tasks` prints the 50 commands instead of running them. With
+  `--entries`, the tasks split that slice (`--entries 100:200 --tasks 4` is four tasks of
+  25 entries), and `--print-tasks` repeats `--entries` in every command.
 - `--resume` skips every entry whose bundle is already complete. Bundles are written to a
   temporary folder and moved into place, so an interrupted run leaves no half bundle.
 
 Each entry is simulated with noise seeded from the entry's own noise seed, so a rerun gives
 the same spikes. `runs/small/batch.json` records the data set, the config and SensoryForge's
 sha; each task appends to `runs/small/index/task_<i>.jsonl` one row per entry (`entry`,
-`status`, `error`, `seconds`, ...). `read_batch_index("runs/small")` merges the rows, the
+`status`, `error`, `seconds`, ...). A run given `--entries a:b` writes
+`task_<i>_entries_<a>_<b>.jsonl` instead (the numbers padded to eight digits), so jobs
+that each run their own slice into one folder never share a file. `read_batch_index("runs/small")` merges the rows, the
 latest run of an entry winning. The command exits non-zero if any entry failed.
 
 ## Extending

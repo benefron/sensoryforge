@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benefron.github.io/sensoryforge/schemas/evaluate/checks.schema.json",
+  "title": "checks.json (sensoryforge-checks/1)",
+  "description": "The reference-free checks of one data set: for each check a verdict, the count it tried and failed, the first failures with where they happened, and the raw numbers behind the verdict. Reads no other stage's file. See docs/reference/report_contract.md, section 13.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "sensoryforge-checks/1"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "producer": {"$ref": "common.schema.json#/$defs/producer"},
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "dataset_dir": {"type": "string"},
+        "packs": {"type": "array", "items": {"type": "string"}},
+        "params": {
+          "type": "object",
+          "properties": {
+            "sample": {"type": "integer", "minimum": 1},
+            "seed": {"type": "integer"},
+            "limit": {"type": ["integer", "null"], "minimum": 1},
+            "bounds_mv": {
+              "oneOf": [
+                {"type": "null"},
+                {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+              ]
+            },
+            "max_failures": {"type": "integer", "minimum": 0},
+            "packs": {"type": "object", "additionalProperties": {"type": "object"}}
+          },
+          "required": ["sample", "seed", "limit", "bounds_mv", "max_failures", "packs"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["dataset_dir", "packs", "params"],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "pass": {"type": "integer", "minimum": 0},
+        "fail": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "error": {"type": "integer", "minimum": 0}
+      },
+      "required": ["pass", "fail", "skipped", "error"],
+      "additionalProperties": false
+    },
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "entries_with_failures": {
+      "description": "Every entry named by at least one listed failure, sorted, with the ids of the checks that named it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entry": {"type": "string"},
+          "checks": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        },
+        "required": ["entry", "checks"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "created_at", "producer", "inputs", "counts", "checks", "entries_with_failures"],
+  "additionalProperties": false,
+  "$defs": {
+    "check": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "common.schema.json#/$defs/metric_id"},
+        "pack": {"type": "string"},
+        "title": {"type": "string"},
+        "what": {"type": "string"},
+        "scope": {"enum": ["entry", "probe", "dataset"]},
+        "status": {"enum": ["pass", "fail", "skipped", "error"]},
+        "tested": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "failures": {"type": "array", "items": {"$ref": "#/$defs/failure"}},
+        "numbers": {"type": "object"},
+        "note": {"type": ["string", "null"]}
+      },
+      "required": ["id", "pack", "title", "what", "scope", "status", "tested", "failed", "failures", "numbers", "note"],
+      "additionalProperties": false
+    },
+    "failure": {
+      "type": "object",
+      "properties": {
+        "where": {"type": "string"},
+        "detail": {"type": "string"},
+        "entry": {"type": "string"}
+      },
+      "required": ["where", "detail"],
+      "additionalProperties": false
+    }
+  }
+}

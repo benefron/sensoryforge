@@ -8,6 +8,13 @@ device, simulated with its own noise seeds, and written to
 ``<out>/.partial/<entry>/`` before an atomic rename to ``<out>/<entry>/``.
 Each task appends to its own ``index/task_<i>.jsonl``, so array tasks never
 share a file.
+
+Topic: dataset, batch
+Tests: tests/integration/test_world_batch.py, tests/unit/test_world_runner_chunks.py
+Entry points: run_dataset, select_entries, render_frames, task_slice, read_batch_index
+Pinned by: docs/reference/world_contract.md, .claude/rules/world-engine.md, F-3658a63
+Do not change without: a draw's result is the same alone, in any batch and in any chunk
+    (test_world_batch.py); one bundle is written per entry.
 """
 
 from __future__ import annotations
@@ -155,14 +162,45 @@ def render_frames(
     return buffer
 
 
-def stimulus_payload(entry: Entry) -> Dict[str, Any]:
-    """The ``stimulus_config`` that marks a bundle as this world entry (spec §7.3)."""
+#: The units a world gets when it names none; a bundle records only what differs.
+DEFAULT_UNITS = {"space": "mm", "time": "ms"}
+
+
+def declared_units(world: World) -> Dict[str, str]:
+    """The units a world names beyond the defaults (``{}`` when it names none).
+
+    A world's ``units`` block says what its space fields (``sigma_mm``, ``x_mm``: the
+    ``_mm`` is historical) and its other quantities are in. The bundle carries the
+    entries that differ from ``mm``/``ms``, so a tactile bundle is unchanged and a world
+    in pixels says so (``{"space": "px"}``).
+
+    Args:
+        world: The data set's world.
+
+    Returns:
+        ``{quantity: unit}`` for each entry not equal to the default.
+    """
+    return {k: v for k, v in world.units.items() if DEFAULT_UNITS.get(k) != v}
+
+
+def stimulus_payload(
+    entry: Entry, units: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
+    """The ``stimulus_config`` that marks a bundle as this world entry (spec §7.3).
+
+    Args:
+        entry: The entry.
+        units: The world's :func:`declared_units`; omitted from the payload when empty.
+    """
     item = entry.item
     if isinstance(item, Session):
         layer: Any = [[start, draw.to_layer()] for start, draw in item.items]
     else:
         layer = item.to_layer()
-    return {"kind": WORLD_ENTRY_KIND, "entry": entry.to_dict(), "layer": layer}
+    payload = {"kind": WORLD_ENTRY_KIND, "entry": entry.to_dict(), "layer": layer}
+    if units:
+        payload["units"] = dict(units)
+    return payload
 
 
 def _write_json_atomic(path: Path, data: Dict[str, Any], task_index: int = 0) -> None:
@@ -177,6 +215,129 @@ def _write_json_atomic(path: Path, data: Dict[str, Any], task_index: int = 0) ->
     os.replace(tmp, path)
 
 
+def index_file_name(task_index: int, entry_range: Optional[slice] = None) -> str:
+    """The index file a run appends to: its task, and its range when it has one.
+
+    Jobs that each run their own ``--entries`` range into one output directory
+    would otherwise share ``task_0000.jsonl``; the range in the name keeps every
+    job's rows in a file of its own. ``read_batch_index`` reads them all.
+
+    Args:
+        task_index: The task this run is (0 without ``--tasks``).
+        entry_range: The slice of the selected entries, if the run was given one.
+
+    Returns:
+        ``task_0003.jsonl``, or ``task_0003_entries_00000100_00000200.jsonl``.
+    """
+    name = f"task_{task_index:04d}"
+    if entry_range is None:
+        return f"{name}.jsonl"
+    if entry_range.step not in (None, 1):
+        raise ValueError("entry_range must be a contiguous slice (step 1)")
+    start = entry_range.start or 0
+    stop = "end" if entry_range.stop is None else f"{entry_range.stop:08d}"
+    return f"{name}_entries_{start:08d}_{stop}.jsonl"
+
+
+def _comparable_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """A config dict as ``batch.json`` stores it, without ``simulation.device``.
+
+    A resume on another device is allowed (the output equals the CPU render
+    whatever the device), so the device is not part of what must match.
+    """
+    data = json.loads(json.dumps(config, default=str))
+    simulation = data.get("simulation")
+    if isinstance(simulation, dict):
+        simulation.pop("device", None)
+    return data
+
+
+def _differing_paths(old: Any, new: Any, prefix: str = "", limit: int = 3) -> List[str]:
+    """Up to ``limit`` dotted paths where two JSON values differ, with both values."""
+    if isinstance(old, dict) and isinstance(new, dict):
+        found: List[str] = []
+        for key in sorted(set(old) | set(new)):
+            if len(found) >= limit:
+                break
+            where = f"{prefix}.{key}" if prefix else str(key)
+            if key not in old or key not in new:
+                found.append(
+                    f"{where} ({'absent' if key not in old else 'set'} before)"
+                )
+            else:
+                found += _differing_paths(old[key], new[key], where, limit - len(found))
+        return found
+    if isinstance(old, list) and isinstance(new, list) and len(old) == len(new):
+        found = []
+        for i, (a, b) in enumerate(zip(old, new)):
+            if len(found) >= limit:
+                break
+            found += _differing_paths(a, b, f"{prefix}.{i}", limit - len(found))
+        return found
+    if old == new:
+        return []
+
+    def short(value: Any) -> str:
+        text = repr(value)
+        return text if len(text) <= 40 else text[:37] + "..."
+
+    return [f"{prefix}: {short(old)} -> {short(new)}"]
+
+
+def check_resume_target(
+    out_dir: Union[str, Path], spec: DatasetSpec, config: SensoryForgeConfig
+) -> None:
+    """Refuse a resume into a folder that another data set or sensor wrote.
+
+    ``--resume`` skips every entry whose bundle exists, and entry ids repeat across
+    data sets, so without this check a resume mixes bundles of two runs under one
+    ``batch.json``. Nothing is read from the bundles; the folder's ``batch.json`` is
+    compared with this run's data set, world and sensor config (without the device).
+    A folder with no ``batch.json`` passes.
+
+    Args:
+        out_dir: The output folder of the run.
+        spec: This run's data set.
+        config: This run's sensor.
+
+    Raises:
+        ValueError: If ``batch.json`` cannot be read, or names another data set,
+            world or sensor; the message gives both values.
+    """
+    path = Path(out_dir) / "batch.json"
+    if not path.exists():
+        return
+    try:
+        old = json.loads(path.read_text())
+    except ValueError as exc:
+        raise ValueError(
+            f"cannot resume in {out_dir}: batch.json is unreadable ({exc}); "
+            "use a new output folder"
+        ) from exc
+    problems: List[str] = []
+    if old.get("dataset_id") != spec.dataset_id:
+        problems.append(
+            f"it holds data set {old.get('dataset_id')}, this run is {spec.dataset_id}"
+        )
+    if old.get("world_id") != spec.world.world_id:
+        problems.append(
+            f"it holds world {old.get('world_id')}, this run is {spec.world.world_id}"
+        )
+    where = _differing_paths(
+        _comparable_config(old.get("config") or {}),
+        _comparable_config(config.to_dict()),
+    )
+    if where:
+        problems.append("the sensor differs (" + "; ".join(where) + ")")
+    if problems:
+        raise ValueError(
+            f"cannot resume in {out_dir}: "
+            + "; ".join(problems)
+            + ". --resume only continues the same data set on the same sensor; "
+            "use a new output folder"
+        )
+
+
 def run_dataset(
     config: SensoryForgeConfig,
     spec: DatasetSpec,
@@ -188,6 +349,7 @@ def run_dataset(
     task_index: int = 0,
     entry_range: Optional[slice] = None,
     resume: bool = False,
+    sparse_weights: Union[bool, str] = "auto",
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, int]:
     """Simulate a data set's entries, one bundle each (spec §7.2).
@@ -201,20 +363,29 @@ def run_dataset(
         splits: Only these splits.
         tasks: Split the (selected) entries into this many contiguous tasks...
         task_index: ...and run this one.
-        entry_range: Run this slice of the selected entries instead of a task.
-        resume: Skip entries whose bundle already holds ``data.h5``.
+        entry_range: Only this slice of the selected entries; ``tasks`` then
+            splits the slice, not the whole data set.
+        resume: Skip entries whose bundle already holds ``data.h5``. Only into a
+            folder written for this data set and sensor (:func:`check_resume_target`).
+        sparse_weights: How bundles store receptive-field weights (see
+            :func:`~sensoryforge.io.bundle.write_bundle`); ``False`` writes them dense.
         log: Called with one line per entry.
 
     Returns:
         ``{"ok": int, "failed": int, "skipped": int}``.
+
+    Raises:
+        ValueError: If ``resume`` is set and the folder holds another data set's or
+            sensor's run.
     """
+    index_name = index_file_name(task_index, entry_range)
     out = Path(out_dir)
+    if resume:
+        check_resume_target(out, spec, config)
     out.mkdir(parents=True, exist_ok=True)
     entries = select_entries(build_dataset(spec), splits)
-    if entry_range is not None:
-        chosen = entries[entry_range]
-    else:
-        chosen = [entries[i] for i in task_slice(len(entries), tasks, task_index)]
+    chosen = entries if entry_range is None else entries[entry_range]
+    chosen = [chosen[i] for i in task_slice(len(chosen), tasks, task_index)]
     provenance = source_info()
     _write_json_atomic(
         out / "batch.json",
@@ -231,12 +402,13 @@ def run_dataset(
         },
         task_index=task_index,
     )
+    units = declared_units(spec.world)
     grid = config.grids[0]
     layout = channel_layout(spec.world, grid)
     n_grid_channels = len(grid.channels or ["value"])
     engine = SimulationEngine(config)
     canvas = Canvas.from_grid_config(grid)
-    index_path = out / "index" / f"task_{task_index:04d}.jsonl"
+    index_path = out / "index" / index_name
     index_path.parent.mkdir(parents=True, exist_ok=True)
     design_id = (design_manifest or {}).get("design_id")
     summary = {"ok": 0, "failed": 0, "skipped": 0}
@@ -280,12 +452,13 @@ def run_dataset(
             engine.run(
                 frames.unsqueeze(0),
                 bundle_dir=partial,
-                stimulus_config=stimulus_payload(entry),
+                stimulus_config=stimulus_payload(entry, units),
                 # numpy seeds only take 32 bits; the 53-bit noise seed itself
                 # reaches the receptor and population generators via the config.
                 seed=noise & 0xFFFFFFFF,
                 bundle_overwrite=True,
                 design_manifest=design_manifest,
+                sparse_weights=sparse_weights,
             )
             if final.exists():
                 shutil.rmtree(final)

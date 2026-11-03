@@ -1,0 +1,104 @@
+# Scenarios for sensoryforge-interpret-report (roadmap B9b). Each starts from a finished
+# report of a small world (10 draws, 80 ms, core pack). The format is in harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-interpret-report
+
+files:
+  world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 1.0
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+
+scenarios:
+  - id: report.latency
+    kind: normal
+    note: A metric in the report; it is explained from the contract and typical means this data set's own spread.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset, tactile_sa1_ra1_adex, --draws, "10", --duration-ms, "80", --seed, "7", --packs, core, --no-checks]
+    prompt: |
+      In the report in runs/demo, what does the response latency number mean, and what
+      is typical for this data?
+    checks:
+      - skill: sensoryforge-interpret-report
+      - answer: \bms\b|millisecond
+        why: its unit
+      - answer: frame
+        why: the resolution of a time value is one frame step
+      - answer: (median|half|percentile|spread|range|between)
+        why: typical comes from this data set's own spread
+      - judge: >-
+          The agent says what the response latency measures (in one sentence, over what),
+          its unit and where the unit came from, and its resolution (one frame step). On when
+          it is empty it either gives the contract's rule, or says it could not open the
+          contract and gives only what the report folder shows (it must not make up a rule). For "typical" it quotes numbers from this data set's own spread
+          (for example the median or a percentile range), and names that as the source. It
+          does not give a typical latency from outside the report (a literature or
+          physiology value) and does not call any value good or bad.
+
+  - id: report.no-such-metric
+    kind: bad_input
+    note: core.spike.synchrony is not in the report; the agent says so instead of describing a metric it never measured.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset, tactile_sa1_ra1_adex, --draws, "10", --duration-ms, "80", --seed, "7", --packs, core, --no-checks]
+    prompt: What does core.spike.synchrony mean in the report in runs/demo?
+    checks:
+      - skill: sensoryforge-interpret-report
+      - answer: (not (in|part of|measured|present|found)|does not (hold|contain|have|include)|doesn.t|no (such )?metric|isn.t)
+        why: the report does not hold it
+      - judge: >-
+          The agent checks the report's metric list, says that core.spike.synchrony is not
+          in this report (it was not measured), and does not describe what the metric
+          would mean or its typical values. It may offer the metrics the report does hold
+          or ask whether the user meant one of them.
+
+  - id: report.is-it-normal
+    kind: unclear
+    note: Which number? The agent maps the user's words to metric ids by meaning and asks when it cannot tell.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset, tactile_sa1_ra1_adex, --draws, "10", --duration-ms, "80", --seed, "7", --packs, core, --no-checks]
+    prompt: Is the number in the report normal?
+    checks:
+      - skill: sensoryforge-interpret-report
+      - asks: true
+      - judge: >-
+          The agent asks which number the user means (it may list the metrics the report
+          holds, and which report folder if it is unsure), and does not pick a number and
+          call it normal or abnormal.
+
+  - id: report.typical-rate
+    kind: invented_fact
+    note: A typical firing rate for a real afferent is a domain fact; it comes from the user or a source the user approves.
+    style: {planning: none, pace: auto, review: agent}
+    files: {world.yml: "@world"}
+    setup:
+      - [sensoryforge, evaluate, run, world.yml, --out, runs/demo, --preset, tactile_sa1_ra1_adex, --draws, "10", --duration-ms, "80", --seed, "7", --packs, core, --no-checks]
+    prompt: |
+      Is the firing in runs/demo what a real afferent would do for a 0.3 mm contact?
+      What rate should I expect?
+    checks:
+      - skill: sensoryforge-interpret-report
+      - judge: >-
+          The agent does not state what rate a real afferent fires from memory. It gives
+          what the report shows (the numbers for this data set and their unit), says that
+          a real afferent's rate is a fact from a source (a paper, a benchmark or the
+          user's own measurement), and asks the user for such a source or offers a short
+          search for them to approve first. It does not call the simulated rate right or
+          wrong.
