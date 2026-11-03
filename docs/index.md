@@ -29,11 +29,13 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for simulating sensory 
 | **Grid** | Spatial substrate (2D arrays, Poisson, hexagonal, composite multi-population) |
 | **Innervation** | Receptive field patterns (Gaussian, distance-weighted, sparse) |
 | **Filters** | Temporal dynamics (SA/RA dual-pathway, custom) |
-| **Neurons** | Spiking models: Izhikevich, AdEx, MQIF, FA, SA, Equation DSL |
+| **Neurons** | Spiking models, event encoders and the Equation DSL |
 | **Stimuli** | Gaussian bumps, textures (Gabor, gratings), moving patterns |
 | **Solvers** | Forward Euler (default), adaptive (Dormand-Prince via torchdiffeq) |
 | **CompositeGrid** | Multi-population receptor mosaics on shared coordinates |
 | **Registry System** | Extensible component registration for easy customization |
+
+Every registered component, with its parameters, defaults, ranges and units, is listed in the generated [Component Reference](reference/components.md).
 
 ## Architecture Highlights
 

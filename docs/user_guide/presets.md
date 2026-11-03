@@ -11,14 +11,9 @@ new named, reproducible experiment: add a `.yml` file, no Python required.
 sensoryforge list-presets
 ```
 
-```
-Available SensoryForge Presets:
-==================================================
-  - tactile_sa1_ra1: The pressure-simulation recipe: 80x80 grid at 0.15 mm, ...
-  - tactile_stochastic_control: Named control arm (D-019): identical to ...
-
-💡 Use 'sensoryforge run --preset <name>' to run one, or 'sensoryforge run --preset <name> config.yml' to override it
-```
+This prints each preset's name and description. The [Recipe Reference](../reference/recipes.md)
+lists every shipped preset with a digest of its grids and populations, generated from the
+presets themselves.
 
 Run a preset with no config file at all:
 
@@ -26,7 +21,10 @@ Run a preset with no config file at all:
 sensoryforge run --preset tactile_sa1_ra1 --duration 1000
 ```
 
-## The two shipped presets
+## The tactile presets
+
+The notes below describe the tactile presets; the [Recipe Reference](../reference/recipes.md)
+lists all of them.
 
 - **`tactile_sa1_ra1`** — the [pressure-simulation recipe](../concepts/pressure_simulation_use_case.md):
   an 80×80 grid at 0.15 mm, one SA and one RA population, both with `template`

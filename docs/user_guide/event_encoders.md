@@ -35,23 +35,25 @@ tolerance, in thetas. A step that moves the input by several `theta` emits sever
 once, as one signed count. Without a leak the running sum of events times `theta` tracks the
 input to within `theta`, so the encoding is invertible up to one quantum.
 
-| Parameter | Default | Unit | Meaning |
-|---|---|---|---|
-| `theta` | 1.0 | mA (the drive's units, after gain) | input change per event |
-| `refractory_ms` | 0 | ms | minimum interval between two events of one neuron; 0 = none (several events per step allowed) |
-| `initial_reference` | `"zero"` | -- | `"zero"`: reference starts at 0; `"first"`: at the first input sample (report changes only) |
-| `noise_std` | 0 | mA | comparator noise added to the input each step |
-| `reference_leak_tau_ms` | none | ms | since v1.3.0: the reference relaxes toward the input with this time constant (a change-only unit); none = no leak, the v1.2.1 unit bit for bit. Must be a finite number `>= dt` |
+The parameters (`theta`, `refractory_ms`, `initial_reference`, `noise_std` and
+`reference_leak_tau_ms`), with their defaults, ranges and units, are listed in the
+[Component Reference](../reference/components.md#neuron-level-crossing), which is generated
+from the code. `theta` is in the drive's units after gain.
 
-With a refractory period the unit emits at most one event per `refractory_ms` (`R =
-max(1, round(refractory_ms / dt))` steps) and the reference still moves by one `theta` per
-event, so without a leak a change faster than `theta / refractory_ms` is paid out late rather
-than lost (slew-rate limited).
+`initial_reference: "zero"` starts the reference at 0; `"first"` starts it at the first input
+sample, so the unit reports changes only.
+
+`refractory_ms` is the minimum interval between two events of one neuron; 0 means none, and
+several events may then fall in one step. With a refractory period the unit emits at most one
+event per `refractory_ms` (`R = max(1, round(refractory_ms / dt))` steps) and the reference
+still moves by one `theta` per event, so without a leak a change faster than
+`theta / refractory_ms` is paid out late rather than lost (slew-rate limited).
 
 ### The leaky reference (`reference_leak_tau_ms`, v1.3.0)
 
-With `reference_leak_tau_ms = tau` the last line runs after the step's events, so the unit
-forgets a held level and reports **change only**:
+`reference_leak_tau_ms` is `none` by default: no leak, and the unit is the v1.2.1 unit bit for
+bit. Set, it must be a finite number `>= dt`. With `reference_leak_tau_ms = tau` the last line
+runs after the step's events, so the unit forgets a held level and reports **change only**:
 
 - **A held level is forgotten.** With `x` held, `x - ref` shrinks by `1 - dt / tau` per step
   (time constant about `tau`). Two steps of `0.6 theta` separated by a long hold make one ON
@@ -128,12 +130,18 @@ divided by `theta`, to within one spike. For a constant drive the rate is exactl
 error is first-order noise-shaped: pushed to high frequencies, so a low-pass of the spike
 train recovers a slow drive.
 
-| Parameter | Default | Unit | Meaning |
-|---|---|---|---|
-| `theta` | 100.0 | mA*ms | charge per spike; rate = drive / theta per ms (default: 10 Hz per mA) |
-| `leak_tau_ms` | none | ms | optional accumulator leak; adds a rheobase `theta / leak_tau_ms` and breaks exact linearity |
-| `refractory_ms` | 0 | ms | minimum inter-spike interval (caps the rate at `1 / refractory_ms`); whenever it is above 0 the accumulator is clipped at `theta` after every step, refractory or not (anti-windup), so a dead time loses charge rather than paying it out late, and a dropped drive gives at most one more spike |
-| `noise_std` | 0 | mA | noise added to the input each step |
+The parameters (`theta`, `leak_tau_ms`, `refractory_ms` and `noise_std`), with their defaults,
+ranges and units, are listed in the
+[Component Reference](../reference/components.md#neuron-sigma-delta), which is generated from
+the code. `theta` is the charge per spike, so the rate is `drive / theta` per ms.
+
+`leak_tau_ms` is an optional accumulator leak (none by default); it adds a rheobase
+`theta / leak_tau_ms` and breaks exact linearity.
+
+`refractory_ms` is the minimum inter-spike interval; it caps the rate at `1 / refractory_ms`.
+Whenever it is above 0 the accumulator is clipped at `theta` after every step, refractory or
+not (anti-windup), so a dead time loses charge rather than paying it out late, and a dropped
+drive gives at most one more spike.
 
 A sigma-delta SA population also runs with `filter_method: none` (it integrates the level
 itself); a tactile SA population's input keeps the default 0 mA floor.

@@ -117,6 +117,7 @@ neuron = model.compile(solver="dopri5", dt=0.05)
 
 ## See Also
 
+- [Component Reference](../reference/components.md#solver) (the registered solvers and their arguments, generated from the code)
 - [Equation DSL](equation_dsl.md)
 - [Composite Grid](composite_grid.md)
 - [YAML Configuration](yaml_configuration.md)

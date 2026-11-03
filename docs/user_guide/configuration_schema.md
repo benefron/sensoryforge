@@ -28,7 +28,7 @@ Configuration for a single receptor grid layer.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | **Required** | Unique identifier for this grid layer |
-| `arrangement` | string | `"grid"` | Grid arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"` |
+| `arrangement` | string | `"grid"` | A registered grid arrangement; the names are listed in the [Component Reference](../reference/components.md#grid) |
 | `rows` | int | `None` | Number of rows (for grid arrangement) |
 | `cols` | int | `None` | Number of columns (for grid arrangement) |
 | `spacing` | float | `0.15` | Spacing between receptors in mm |
@@ -82,7 +82,7 @@ Configuration for a single neuron population. Supports N populations with per-po
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `innervation_method` | string | `"gaussian"` | Builder: `"gaussian"`, `"one_to_one"`, `"uniform"`, `"distance_weighted"`, `"template"`, `"imported"`, or a registered plugin's name (see [Receptive Fields](receptive_fields.md)) |
+| `innervation_method` | string | `"gaussian"` | A registered receptive-field builder, or a plugin's: the names are listed in the [Component Reference](../reference/components.md#innervation) (see also [Receptive Fields](receptive_fields.md)) |
 | `resolvable_distance_mm` | float | `null` | `d` for the `template` builder: sigma = d/π, lattice pitch = d, neuron count derived (`neurons_per_row` ignored) |
 | `innervation_params` | dict | `{}` | Extra builder parameters merged last (`template`: `k`, `normalize`, `weight_scale`, `edge_offset_mm`; `imported`: `path`; plugins: anything) |
 | `connections_per_neuron` | int | `28` | Number of receptor connections per neuron |
@@ -163,7 +163,7 @@ populations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `neuron_model` | string | `"Izhikevich"` | Model type: `"Izhikevich"`, `"AdEx"`, `"MQIF"`, `"FA"`, `"SA"`, `"DSL"` |
+| `neuron_model` | string | `"Izhikevich"` | A registered neuron model; the names are listed in the [Component Reference](../reference/components.md#neuron) |
 | `model_params` | dict | `{}` | Model-specific parameters dict |
 | `dsl_config` | dict | `None` | DSL configuration (equations, threshold, reset, parameters) |
 | `readout` | string | `"auto"` | How to read out a DSL population (Wave N): `"auto"` infers analog when `dsl_config` has no `threshold`, else spiking; `"spiking"`/`"analog"` force it, raising `ValueError` if incompatible with `dsl_config`; ignored for non-DSL `neuron_model` values. See [Analog Readouts](analog_readouts.md) |
@@ -172,7 +172,7 @@ populations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `filter_method` | string | `"none"` | Filter type: `"SA"`, `"RA"`, `"none"` |
+| `filter_method` | string | `"none"` | A registered filter; the names are listed in the [Component Reference](../reference/components.md#filter) |
 | `filter_params` | dict | `{}` | Filter-specific parameters dict |
 
 **Filter Parameters Examples:**
@@ -304,7 +304,7 @@ Configuration for stimulus generation.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | `"Stimulus"` | Stimulus name/identifier |
-| `type` | string | `"gaussian"` | Stimulus type: `"gaussian"`, `"texture"`, `"moving"`, `"timeline"`, `"repeated_pattern"` |
+| `type` | string | `"gaussian"` | A registered stimulus, whose names are listed in the [Component Reference](../reference/components.md#stimulus), or a legacy name: `"trapezoidal"`, `"step"`, `"ramp"`, `"custom"` |
 | `motion` | string | `"static"` | Motion type: `"static"`, `"moving"` |
 | `composition_mode` | string | `"single"` | Composition mode for multi-stimulus configs |
 | `target_layer` | string | `None` | Target grid layer name |
