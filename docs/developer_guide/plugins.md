@@ -104,6 +104,27 @@ This is exactly what the generated `tests/test_contract.py` calls — running
 default-constructed instance cannot show that `from_config` ignores a key, so
 pass `instance=` built with non-default values to make the round trip bite.
 
+A plugin that registers a world **shape, pattern, modulation, distribution or
+class kind** (`register_shape`, `register_pattern`, `register_modulation`,
+`register_distribution`, `register_class_kind`) is checked by name, once
+registered, with `sensoryforge.testing.world_contracts.check_world_component`:
+
+```python
+from sensoryforge.testing.world_contracts import check_world_component
+from my_package import register  # calls register_shape("ring", ...)
+
+register()
+check_world_component("shape", "ring")
+```
+
+It calls your function as the renderer does and checks, among other things, that a
+shape's specs include `amplitude`, that its function takes the documented
+arguments and returns finite values of the coordinates' shape, that a draw alone
+equals the same draw in a batch, and that the specs round-trip through a world
+file. A distribution that needs options, and a class kind (which is checked on a
+world you give it), take an `example=`. The rules for each kind are listed in
+[Extensibility](extensibility.md#world-registries).
+
 ## 5. The `plugins:` YAML key (an alternative to entry points)
 
 Besides the installed entry point, any SensoryForge config file can name

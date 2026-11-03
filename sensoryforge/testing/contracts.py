@@ -8,6 +8,10 @@ fixed point) -- can be shared between the in-repo contract test sweep and the
 ``tests/test_contract.py`` generated for every ``sensoryforge new-component``
 plugin package.
 
+The world registries (shapes, patterns, modulations, distributions, class
+kinds) register functions and tables rather than classes, so they are checked
+by :func:`sensoryforge.testing.world_contracts.check_world_component`.
+
 No Qt imports; only ``torch`` plus stdlib, so a generated plugin package can
 depend on nothing but ``sensoryforge`` itself to run its own tests.
 
@@ -480,6 +484,10 @@ def check_component(kind: str, cls: type, instance: Optional[Any] = None) -> Non
        :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with
        ``[N, M]`` weights, ``[N, 2]``/``[M, 2]`` coordinates and a provenance
        naming the builder (Phase 2, I3).
+
+    World shapes, patterns, modulations, distributions and class kinds are
+    registered as functions and tables, not classes: check them with
+    :func:`sensoryforge.testing.world_contracts.check_world_component`.
 
     Args:
         kind: One of ``"neuron"``, ``"filter"``, ``"grid"``, ``"solver"``,

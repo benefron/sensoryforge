@@ -436,6 +436,13 @@ Then `shape: {kind: ring}` works in a world and in a layered stimulus. In the sa
 `register_class_kind(kind)` adds a class kind (a `ClassKind` instance) next to `layered` and
 `quiet`. Each refuses a name that is already registered unless you pass `replace=True`.
 
+Once registered, check an entry with
+`sensoryforge.testing.world_contracts.check_world_component(kind, name)`: it calls your
+function as the renderer does and checks, for a shape, that `amplitude` is a spec, that the
+values are finite and of the coordinates' shape, and that draw *i* alone equals draw *i* in a
+batch. The rules for each kind are in the
+[Extensibility guide](../developer_guide/extensibility.md#world-registries).
+
 A world can have several **channels** (`world: {channels: [a, b]}`); each class names the
 channel it draws on with `channel:`, and renders have shape `[n, K, C, *S]`. A batch run maps
 the world's channels onto the grid's `channels`.
