@@ -1038,3 +1038,136 @@ python use_layout.py
 # prints: contract ok, same points True
 # prints: frames (50, 32, 32) weights (1, 64)
 ```
+
+## Extend the world engine
+
+`sensoryforge-extend-world`
+
+**When an agent uses it.** Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone says the worlds cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
+
+A world draws stimuli: each draw is one class with a value for every axis, rendered as
+frames. Everything it uses is looked up by name in a registry, so you add a piece by
+registering it from a small plugin; nothing inside SensoryForge is edited. You end with
+a plugin that passes the world contract check, a world file or dict that uses it, and
+frames the user has looked at. A new component of the sensing pipeline (a neuron, a
+filter, a grid) is `sensoryforge-extend-pipeline`, not this skill.
+
+**Steps.** Read the working style; Which piece, and is it already there?; Get the physics from the user; Write the plugin; Check it; Use it.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A plugin with a ring shape and a class kind for a light flash (a uniform field at a level
+for a time), checked, loaded twice and drawn from:
+
+```python
+# file: demo_world.py
+"""A world plugin: a ring shape and a class kind for another modality (a light flash)."""
+import torch
+
+from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.world import register_class_kind, register_shape
+from sensoryforge.world.kinds import ClassKind, FieldInfo, UnknownField
+
+_FIELDS = {"onset_ms": 0.0, "flash_ms": 0.0, "level": 1.0}
+
+
+def ring(x, y, p):
+    r = torch.sqrt(x**2 + y**2)
+    return torch.exp(-((r - p["radius_mm"]) ** 2) / (2.0 * p["width_mm"] ** 2))
+
+
+class FlashKind(ClassKind):
+    """A uniform field at the level from the onset for the flash time, then nothing."""
+
+    name = "flash"
+
+    def normalise_layer(self, layer, where):
+        if layer:
+            raise ValueError(f"{where}: a flash class has no layer")
+        return None
+
+    def builtin_defaults(self, layer):
+        return dict(_FIELDS)
+
+    def resolve(self, name, layer):
+        if name in _FIELDS:
+            return ("flash", name)
+        raise UnknownField(f"{name!r}: a flash class has the axes {sorted(_FIELDS)}")
+
+    def domain(self, ref, layer):
+        return (0.0, None)
+
+    def field_info(self, ref, layer):
+        return FieldInfo("number", 0.0, None)
+
+    def end_ms(self, values):
+        return float(values["onset_ms"]) + float(values["flash_ms"])
+
+    def timeline(self, values):
+        start, end = float(values["onset_ms"]), self.end_ms(values)
+        phases = [["quiet", 0.0, start], ["flash", start, end]]
+        return [p for p in phases if p[2] > p[1]]
+
+    def render_group(self, spec, draws, X, Y, times):
+        def column(name):
+            vals = [float(d.values[name]) for d in draws]
+            return torch.tensor(vals, dtype=X.dtype, device=X.device).view(-1, 1)
+
+        start = column("onset_ms")
+        on = (times >= start) & (times < start + column("flash_ms"))
+        frames = (column("level") * on).to(X.dtype)  # [g, K]
+        shape = frames.shape + (1,) * X.ndim
+        return frames.reshape(shape).expand(frames.shape + tuple(X.shape)).contiguous()
+
+
+def register():
+    amp = ParamSpec("amplitude", dtype="float", default=1.0, min_val=0.0, max_val=1.0e4)
+    radius = ParamSpec(
+        "radius_mm", dtype="float", default=1.0, min_val=0.0, max_val=10.0, unit="mm"
+    )
+    width = ParamSpec(
+        "width_mm", dtype="float", default=0.1, min_val=0.001, max_val=10.0, unit="mm"
+    )
+    register_shape("ring", ring, [amp, radius, width])
+    register_class_kind(FlashKind())
+```
+
+```python
+# file: use_world.py
+"""Register a world plugin, check it, and draw from a world that uses it."""
+import torch
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.testing.world_contracts import check_world_component
+from sensoryforge.world import Canvas, World, render, sample
+
+print("loaded", len(load_plugin_import_paths(["demo_world:register"])))
+print("loaded again", len(load_plugin_import_paths(["demo_world:register"])))
+
+spec = {
+    "world": {
+        "name": "flashes",
+        "modality": "light",
+        "defaults": {"onset_ms": {"range": [0, 10]}, "level": {"range": [0.5, 1.0]}},
+        "classes": {
+            "flash": {"kind": "flash", "weight": 1, "axes": {"flash_ms": {"range": [5, 20]}}}
+        },
+    }
+}
+check_world_component("shape", "ring")
+check_world_component("class_kind", "flash", example=spec)
+print("contract ok")
+
+draws = sample(World.from_dict(spec), n=6, seed=7)
+frames = render(draws, Canvas.from_grid(8, 8, 0.2), torch.tensor([0.0, 10.0, 40.0]))
+print("frames", tuple(frames.shape), "lit", bool(frames.amax() > 0))
+```
+
+```bash
+python use_world.py
+# prints: loaded again 1
+# prints: contract ok
+# prints: frames (6, 3, 8, 8) lit True
+```

@@ -51,7 +51,7 @@ sensoryforge new-component neuron NAME --dest .
 sensoryforge new-component innervation NAME --dest .
 ```
 
-The kind is `neuron`, `filter`, `stimulus`, `grid`, or `innervation` for a
+The kind is neuron, filter, stimulus, grid, or innervation for a
 receptive-field builder. It writes `sensoryforge-NAME/`: `pyproject.toml` with the
 entry point, a module with the class and a `register()` function, a contract test in
 its own test folder and a README. It refuses
@@ -106,12 +106,12 @@ Inherit `BaseFilter`. It turns the spatial drive into the current a neuron recei
 Inherit `BaseStimulus`. It is the spatial field the sensors sample.
 
 - **Shapes.** `forward(xx, yy)` takes two `[H, W]` meshgrids of positions in mm and
-  returns one frame `[H, W]` or a sequence `[T, H, W]`, on the device of `xx`. Vectorise
+  returns one frame `[H, W]` or a sequence `[T, H, W]`, on the device of the inputs. Vectorise
   over the grid. Values are in the sensor's units; ask the user which.
 - **Time.** A single frame is a still image the renderer ramps in, holds and ramps out
-  (a config's `ramp_up_ms`, `plateau_ms`, `ramp_down_ms`). A stimulus with its own clock
+  (a config's ramp-up, plateau and ramp-down times in ms). A stimulus with its own clock
   takes `dt_ms=` and `total_ms=` in `__init__`: both are filled from the run, and a
-  `dt_ms` that differs from the run's is refused.
+  step that differs from the run's is refused.
 - **`to_dict()` and `get_param_spec()`** as for a neuron; `from_config()` is inherited.
   Make each spec's default the one `__init__` uses (forms show it as what runs).
 - **Use** it as a `stimuli:` entry, `type: <stimulus name>` with its parameters.
@@ -120,7 +120,7 @@ Inherit `BaseStimulus`. It is the spatial field the sensors sample.
 
 Inherit `BaseGrid`. It places the sensors.
 
-- **`get_all_coordinates()`** returns `[N, 2]`, `(x, y)` in mm. Row `k` is sensor `k` for
+- **`get_all_coordinates()`** returns `[N, 2]`, `(x, y)` in mm. Row k is sensor k for
   every later stage, so the order is part of the layout.
 - **Randomness** comes from a `torch.Generator` seeded by a `seed` parameter, never the
   global one (the scaffold does this). The check tests the shape of a round trip, not
@@ -140,7 +140,7 @@ weights of one population.
   first (`[M, 2]` and `[N, 2]`, mm), then your parameters with defaults. The engine
   passes only the parameters your constructor names; the builder's own come from the
   population's `innervation_params:`.
-- **`compute_weights()`** returns `[N, M]`: column `m` is sensor `m`. Broadcast (for
+- **`compute_weights()`** returns `[N, M]`: column m is sensor m. Broadcast (for
   example `torch.cdist`); no loop over neurons. `build()` is inherited.
 - **`to_dict()`** starts from `super().to_dict()` and adds your parameters; the tensors
   stay out. `from_config()` is inherited.
