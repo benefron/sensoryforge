@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-16f7ce4 · OPEN · finding · - · 2026-11-03
+main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
+→ commit c90a1b4
+
+## F-439d607 · OPEN · finding · - · 2026-11-03
+tests/unit/test_world_braille_lines.py passes nested tuples to pytest.approx, which the CI runners' pytest refuses with TypeError (three tests); a test bug, not a model change
+→ commit c90a1b4
+
 ## D-6cf4332 · CLOSED · decision · docs · 2026-11-03
 cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review
 → commit 9449397
@@ -1765,6 +1773,7 @@ F-070 the comparison against published afferent data is qualitative only -- SA s
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
 → commit 992e6ca
+↔ c90a1b4 chore: record main's failing CI tests job
 
 ## F-067 · CLOSED · finding · - · 2026-09-17
 F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
