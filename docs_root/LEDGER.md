@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-6cf4332 · CLOSED · decision · docs · 2026-11-03
+cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review
+→ commit 9449397
+
 ## D-2293851 · CLOSED · decision · - · 2026-11-03
 world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves
 → commit d68c86a
