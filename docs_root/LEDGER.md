@@ -1812,6 +1812,7 @@ On non-composite grids SimulationEngine builds InnervationModule without innerva
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
 ↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
+↔ b9e0005 feat(testing): hold processing layers to the full to_dict round trip
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered
