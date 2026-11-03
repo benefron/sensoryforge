@@ -102,18 +102,19 @@ Each target is written by one command and checked in CI against its source (see 
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (16 used) |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (17 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires with the extension skills) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
-Shipped: ten skills, setup, design-and-plan, design-world, ground-assumptions,
-build-dataset, run-simulation, evaluate, diagnose, interpret-report and the master skill,
-workflow ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
-14: extend-pipeline (every pipeline component kind), extend-world (world registries and
-another modality's class kinds), extend-evaluation (the evaluation seams) and the plugin
-lifecycle. A change that would pass a limit merges skills or raises the limit here first,
+Shipped: eleven skills, setup, design-and-plan, design-world, ground-assumptions,
+build-dataset, run-simulation, evaluate, diagnose, interpret-report, the master skill,
+workflow, and extend-pipeline, which so far covers the neuron model and the temporal
+filter ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
+14: more kinds in extend-pipeline (stimulus, grid, receptive-field builder, solver,
+processing layer, event converter), extend-world (world registries and another modality's
+class kinds), extend-evaluation (the evaluation seams) and the plugin lifecycle. A change that would pass a limit merges skills or raises the limit here first,
 with the reason.
 
 ## Keeping the agent files current

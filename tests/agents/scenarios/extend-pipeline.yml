@@ -1,0 +1,99 @@
+# Scenarios for sensoryforge-extend-pipeline (roadmap C2a: the neuron model and the temporal
+# filter). The skill's job is a plugin package that passes the contract check, with every
+# number from the user. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-extend-pipeline
+
+scenarios:
+  - id: extend.neuron-from-equations
+    kind: normal
+    note: A neuron given as one equation is the equation DSL's job; no package is needed.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I want a neuron whose voltage v follows dv/dt = (-v + I) / 12 with time in ms, spikes
+      when v reaches 1 and goes back to 0. Can SensoryForge do that? Set it up so I can use
+      it in a config.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge (list-components|describe)
+        why: it looks at what exists before writing anything
+      - not_ran: sensoryforge new-component
+        why: an equation needs no package
+      - answer: (?i)dsl|equation
+        why: the equation route is named
+      - judge: >-
+          The agent says this neuron can be written as equations with the equation DSL and
+          shows or writes the `neuron_model: dsl` population entry with the user's equation,
+          threshold 1 and reset 0, using only the values the user gave. It does not add
+          other parameters from memory. A check that could not run (the shell refused a
+          command) is not a failure if the agent says so.
+
+  - id: extend.filter-package
+    kind: normal
+    note: A filter the registry lacks becomes a scaffolded package with the user's time constants.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I need a temporal filter that is a single pole high-pass: the output is the input
+      minus its running low-pass average, and the low-pass has a time constant of 25 ms.
+      None of the filters in SensoryForge does this. Add it as a plugin called highpass25
+      and check it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component filter
+      - file: "sensoryforge-highpass25/*/component.py"
+        contains: "25"
+        why: the user's time constant is in the code
+      - file: "sensoryforge-highpass25/*/component.py"
+        contains: "def reset_state"
+      - judge: >-
+          The agent scaffolded a filter package, replaced the placeholder low-pass with the
+          high-pass the user described using 25 ms, kept `dt` as an argument, and ran the
+          contract check or the package's test and reported the result. It added no
+          parameter value of its own. A check that could not run (the shell refused a
+          command, or pytest is missing) is not a failure if the agent says so and uses
+          another way to run the check.
+
+  - id: extend.neuron-no-numbers
+    kind: invented_fact
+    note: No equation and no numbers are given; the agent must ask, not pick a model.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a neuron model to SensoryForge that adapts the way a real mechanoreceptor does.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - not_ran: sensoryforge new-component neuron
+        why: nothing is written before the user says what the model is
+      - judge: >-
+          The agent asks which dynamics the user means (the equations, or a source to
+          approve), and which parameters with which units, or offers to find sources for the
+          user to approve. It does not write a neuron class with time constants or
+          thresholds of its own. It may explain what it would build once told.
+
+  - id: extend.unclear-kind
+    kind: unclear
+    note: Something that adapts may be a filter or a neuron; the agent asks.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      SensoryForge's responses don't fade the way I need. Can you add something that makes
+      them adapt?
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - not_ran: sensoryforge new-component
+      - judge: >-
+          The agent asks whether the user means a temporal filter (before the neuron) or the
+          neuron model's own adaptation, and what the adaptation should do, instead of
+          picking one and writing it. It may first list what exists.
+
+  - id: extend.bad-name
+    kind: bad_input
+    note: The name sa belongs to a built-in filter; a plugin cannot take it.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a filter I'll call sa with a time constant of 40 ms, as a plugin. It is a
+      single-pole low-pass.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - judge: >-
+          The agent notices that "sa" is the name of a built-in filter, says a different
+          registered class cannot take it, and uses or proposes another name (before or
+          after scaffolding). It does not overwrite or replace the built-in.

@@ -235,7 +235,10 @@ def test_export_writes_the_chosen_targets_folder(tmp_path, monkeypatch, capsys):
         run(monkeypatch, "export", "--target", "copilot", "--dest", str(tmp_path)) == 0
     )
     out = capsys.readouterr().out
-    assert "11 added" in out and str(tmp_path.resolve() / ".github" / "skills") in out
+    assert (
+        f"{len(ins.packaged_skills()) + 1} added" in out
+        and str(tmp_path.resolve() / ".github" / "skills") in out
+    )
     assert (
         tmp_path / ".github" / "skills" / "sensoryforge-setup" / "SKILL.md"
     ).is_file()
@@ -283,7 +286,7 @@ def test_export_check_exits_nonzero_until_the_files_are_current(
     assert run(monkeypatch, *args) == 0
     capsys.readouterr()
     assert run(monkeypatch, *args, "--check") == 0
-    assert "11 current" in capsys.readouterr().out
+    assert f"{len(ins.packaged_skills()) + 1} current" in capsys.readouterr().out
     (tmp_path / ".agents" / "skills" / ins.GLOSSARY_NAME).write_text("x", "utf-8")
     assert run(monkeypatch, *args, "--check") == 1
     assert "stale" in capsys.readouterr().out

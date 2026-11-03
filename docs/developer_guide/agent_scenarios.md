@@ -198,6 +198,7 @@ before anything is changed. A later run is compared with this table, a skill at 
 | workflow | 2 of 5 | `flow.resume` (not loaded for "where does my job stand"); `flow.realistic-fingertip` (fingertip sizes and timings written from memory under "carry on"); `flow.take-it-from-here` (the repeat list leaves out the world check and says no assumptions) |
 | ground-assumptions | 5 of 7 | `ground.no-unit` and `ground.out-of-range` (a number with no unit, or far out of range, is not read as a missing or odd value, so the skill is not loaded; the unit was guessed and written as "given by you") |
 | setup | 5 of 5 | |
+| extend-pipeline | 5 of 5 | added 2026-11-03 (C2a: neuron and filter); two scenarios failed on a first run, one for the skill (fields the user did not give were filled in) and one for the scenario (the package's own `tests/` folder tripped the repo-path check), and both pass after the fixes |
 | install prompt | 3 of 4 | `export-install.zed-path`: wrote nothing under `.zed/`, but took itself to be Claude Code without saying why |
 | generic prompt | 3 of 4 | `export-generic.which-editor`: took "my editor" to be Claude Code and exported there instead of asking |
 | instructions prompt | 3 of 4 | `export-instructions.broken-markers`: after "go ahead" deleted the user's half section and the stray marker to make the command work |

@@ -45,6 +45,7 @@ first, states what it will do, and stops to ask at the points that are yours to 
 | `sensoryforge-diagnose` | "why are five of my six draws silent?" | the entries behind a bad number, their draws, and which of four places holds the cause (the data set, the sensor, the measurement, the code) with the evidence |
 | `sensoryforge-interpret-report` | "what does this latency number mean, and is it typical?" | what a metric measures, its unit and resolution from the report contract, and how this data set's own values are spread |
 | `sensoryforge-workflow` | "take it from here" or "do the whole thing" | the other skills run in order, each at your pace, with a summary of every output, command and assumption at the end |
+| `sensoryforge-extend-pipeline` | "SensoryForge has no neuron that does this" or "I need a different temporal filter" | a plugin package for a neuron model or a temporal filter, built from your model, that passes the contract check and is used from a config (an equation-defined neuron needs no package) |
 
 A usual chain is plan, world, data set, simulation, evaluation, and you can start or stop at
 any step: each one reads what the one before wrote. Diagnose and interpret-report start from
