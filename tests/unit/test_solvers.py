@@ -273,6 +273,37 @@ class TestAdaptiveSolver:
             trajectory[:, 0, :], state
         ), "First time point should be initial state"
 
+    def test_adaptive_to_dict_keeps_every_constructor_parameter(self, monkeypatch):
+        """F-049: ``to_dict`` held only ``type`` and ``dt``, so a saved solver
+        reloaded as ``dopri5`` with the default tolerances.
+
+        ``to_dict``/``from_config`` need no solver backend, so the backend flag
+        is patched and this runs where torchdiffeq is not installed (CI).
+        """
+        import sensoryforge.solvers.adaptive as adaptive
+        from sensoryforge.testing.contracts import (
+            _assert_to_dict_roundtrip_complete,
+        )
+
+        monkeypatch.setattr(adaptive, "HAS_TORCHDIFFEQ", True)
+        solver = AdaptiveSolver(dt=0.1, method="dopri8", rtol=1e-6, atol=1e-9)
+
+        assert solver.to_dict() == {
+            "type": "adaptive",
+            "dt": 0.1,
+            "method": "dopri8",
+            "rtol": 1e-6,
+            "atol": 1e-9,
+        }
+        clone = AdaptiveSolver.from_config(solver.to_dict())
+        assert (clone.dt, clone.method, clone.rtol, clone.atol) == (
+            0.1,
+            "dopri8",
+            1e-6,
+            1e-9,
+        )
+        _assert_to_dict_roundtrip_complete(AdaptiveSolver, solver)
+
 
 class TestSolverFactory:
     """Test suite for the get_solver factory function."""

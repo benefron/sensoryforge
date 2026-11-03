@@ -304,3 +304,21 @@ class AdaptiveSolver(BaseSolver):
         atol = config.get("atol", 1e-7)
 
         return cls(dt=dt, method=method, rtol=rtol, atol=atol)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize every constructor parameter (F-049).
+
+        :meth:`BaseSolver.to_dict` holds only ``type`` and ``dt``, so an
+        adaptive solver saved and reloaded fell back to ``dopri5`` with the
+        default tolerances whatever it had been built with.
+
+        Returns:
+            ``{"type": "adaptive", "dt": ..., "method": ..., "rtol": ...,
+            "atol": ...}`` with ``dt`` in ms; ``from_config`` reads it back.
+        """
+        return {
+            **super().to_dict(),
+            "method": self.method,
+            "rtol": self.rtol,
+            "atol": self.atol,
+        }
