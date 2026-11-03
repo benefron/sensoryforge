@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-6b8a1da · CLOSED · finding · - · 2026-11-03
+`sensoryforge new-component innervation`, promised by add_rf_builder.md, did not exist; the scaffold now writes a receptive-field builder package whose own contract test passes
+→ commit 953661e
+
+## F-119cacc · CLOSED · finding · - · 2026-11-03
+the grid scaffold's placeholder used the global RNG, so a to_dict/from_config round trip gave other points; it now uses a generator seeded by a seed parameter
+→ commit 953661e
+
+## F-5f4e887 · OPEN · finding · - · 2026-11-03
+a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
+→ commit 953661e
+
 ## D-702cf20 · CLOSED · decision · - · 2026-11-03
 one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
 → commit b53dfd6
