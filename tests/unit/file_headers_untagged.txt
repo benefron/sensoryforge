@@ -107,7 +107,6 @@ sensoryforge/neurons/model_dsl.py
 sensoryforge/neurons/mqif.py
 sensoryforge/neurons/sa.py
 sensoryforge/provenance.py
-sensoryforge/scaffold.py
 sensoryforge/solvers/adaptive.py
 sensoryforge/solvers/base.py
 sensoryforge/solvers/euler.py

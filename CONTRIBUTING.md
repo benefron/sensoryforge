@@ -1,6 +1,6 @@
 # Contributing to SensoryForge
 
-Adding a neuron, filter, stimulus, solver or grid does not need a fork: write it as a
+Adding a neuron, filter, stimulus, solver, grid or receptive-field builder does not need a fork: write it as a
 plugin package (`sensoryforge new-component`, see `docs/developer_guide/plugins.md`). To
 change SensoryForge itself, fork the repository on GitHub, clone your fork and open a pull
 request from a branch.

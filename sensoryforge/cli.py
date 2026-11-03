@@ -1967,10 +1967,14 @@ def create_parser() -> argparse.ArgumentParser:
     # New-component scaffold command (G5)
     new_component_parser = subparsers.add_parser(
         "new-component",
-        help="Scaffold a new neuron/filter/stimulus/solver/grid component",
+        help=(
+            "Scaffold a new neuron/filter/stimulus/solver/grid/innervation "
+            "(receptive-field builder) component"
+        ),
     )
     new_component_parser.add_argument(
-        "kind", choices=["neuron", "filter", "stimulus", "solver", "grid"]
+        "kind",
+        choices=["neuron", "filter", "stimulus", "solver", "grid", "innervation"],
     )
     new_component_parser.add_argument(
         "name", help="Component name, e.g. 'Bandpass' or 'my_cool_filter'"

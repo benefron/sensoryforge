@@ -1,6 +1,7 @@
 # Plugin Packages
 
-SensoryForge components (neurons, filters, stimuli, solvers, grids) can be
+SensoryForge components (neurons, filters, stimuli, solvers, grids, receptive-field
+builders) can be
 distributed as standalone, installable Python packages — no edits to the
 SensoryForge checkout required. This is the recommended route for anyone
 outside the core project who wants to add a component: a lab sharing a
@@ -20,7 +21,7 @@ sensoryforge new-component filter MyBandpass --dest ~/code
 ```
 
 - `filter` is the component **kind**: one of `neuron`, `filter`, `stimulus`,
-  `solver`, `grid`.
+  `solver`, `grid`, `innervation` (a receptive-field builder).
 - `MyBandpass` is the component **name** (accepts `CamelCase` or
   `snake_case`; the scaffold derives both a class name and a registry key
   from it).

@@ -160,6 +160,43 @@ def test_generated_neuron_template_accepts_noise_std(tmp_path):
     assert "OK" in check.stdout
 
 
+def test_generated_innervation_package_passes_its_own_contract_test(tmp_path):
+    """The receptive-field builder package's test gives the check an instance
+    (the class has no argument-free constructor), and passes as generated."""
+    result = _run_cli(
+        ["new-component", "innervation", "DemoScaffoldRing", "--dest", "."],
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    package_root = tmp_path / "sensoryforge-demo-scaffold-ring"
+    module_text = (
+        package_root / "sensoryforge_demo_scaffold_ring" / "component.py"
+    ).read_text()
+    assert "class DemoScaffoldRingRFBuilder(BaseInnervation)" in module_text
+    assert "INNERVATION_REGISTRY.register" in module_text
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(_WORKTREE_ROOT), str(package_root), env.get("PYTHONPATH", "")]
+    )
+    check = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import importlib.util, sys; "
+            "spec = importlib.util.spec_from_file_location('t', sys.argv[1]); "
+            "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); "
+            "m.test_demo_scaffold_ring_satisfies_component_contract(); print('OK')",
+            str(package_root / "tests" / "test_contract.py"),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    assert "OK" in check.stdout
+
+
 def test_cli_in_repo_mode_refuses_outside_checkout(tmp_path):
     result = _run_cli(
         ["new-component", "filter", "ShouldNotWrite", "--in-repo"],

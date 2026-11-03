@@ -44,7 +44,14 @@ def scaffold_repo(tmp_path):
 
 
 def test_available_kinds():
-    assert available_kinds() == ["filter", "grid", "neuron", "solver", "stimulus"]
+    assert available_kinds() == [
+        "filter",
+        "grid",
+        "innervation",
+        "neuron",
+        "solver",
+        "stimulus",
+    ]
 
 
 @pytest.mark.parametrize("kind", available_kinds())
@@ -147,6 +154,24 @@ def test_scaffolded_grid_satisfies_contract(scaffold_repo):
 
     reconstructed = cls.from_config(instance.to_dict())
     assert isinstance(reconstructed, cls)
+    # The placeholder is seeded, so the round trip gives the same points.
+    assert torch.equal(reconstructed.get_all_coordinates(), coords)
+
+
+def test_scaffolded_innervation_satisfies_contract(scaffold_repo):
+    from sensoryforge.testing.contracts import check_component
+
+    paths = generate_in_repo_component(
+        "innervation", "ContractCheck", repo_root=scaffold_repo
+    )
+    mod = _load_module(paths["module"], "sf_scaffold_test_innervation")
+    cls = mod.ContractCheckRFBuilder
+
+    receptors = torch.tensor([[0.0, 0.0], [0.1, 0.0], [1.0, 1.0]])
+    centres = torch.tensor([[0.0, 0.0]])
+    instance = cls(receptors, centres, radius_mm=0.2)
+    check_component("innervation", cls, instance)
+    assert instance.compute_weights().tolist() == [[1.0, 1.0, 0.0]]
 
 
 def test_cli_new_component_in_repo_writes_files(scaffold_repo, monkeypatch):

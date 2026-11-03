@@ -1,8 +1,8 @@
 """``sensoryforge new-component`` scaffold generator (G5, H2/F-047).
 
-Writes a starter component class and a contract test for one of the five
-extensible component kinds: neuron, filter, stimulus, solver, grid. Two
-modes:
+Writes a starter component class and a contract test for one of the six
+extensible component kinds: neuron, filter, stimulus, solver, grid and
+innervation (a receptive-field builder). Two modes:
 
 - **Default (standalone plugin) mode** -- :func:`generate_plugin_package` --
   writes an installable ``sensoryforge-<name>/`` package with a
@@ -25,6 +25,12 @@ modes:
 Both modes refuse to write anywhere under a ``site-packages`` or
 ``dist-packages`` directory (F-047's core safety fix: a wheel install must
 never let this command write into the installed package).
+
+Topic: plugin, registry, cli
+Tests: tests/unit/test_scaffold.py, tests/unit/test_new_component_scaffold.py
+Entry points: generate_plugin_package, generate_in_repo_component, available_kinds
+Do not change without: the extend-pipeline skill's scaffold step and the
+    developer guide's add_* pages, which name each kind's placeholder.
 """
 
 from __future__ import annotations
@@ -58,6 +64,10 @@ class _KindSpec:
     test_template: str
     docs_template: str
     registry_const: str
+    # The plugin package's tests/test_contract.py; None uses the generic
+    # check_component(kind, Class) template (a kind whose class has no
+    # argument-free constructor needs its own).
+    plugin_test_template: Optional[str] = None
 
 
 def _neuron_kind() -> _KindSpec:
@@ -646,10 +656,15 @@ from sensoryforge.stimuli.base import ParamSpec
 class {{class_name}}(BaseGrid):
     """{{class_name}} grid arrangement (placeholder: uniform random points).
 
+    The points are drawn from a generator seeded by ``seed``, never from
+    the global random number generator, so the same parameters give the
+    same points and ``from_config(to_dict())`` reproduces them.
+
     Args:
         num_points: Number of receptor points to generate.
         xlim: Spatial bounds along x-axis (min, max) in mm.
         ylim: Spatial bounds along y-axis (min, max) in mm.
+        seed: Seed of the placeholder's random draw.
         device: PyTorch device identifier.
     """
 
@@ -658,20 +673,24 @@ class {{class_name}}(BaseGrid):
         num_points: int = 100,
         xlim: Tuple[float, float] = (-1.0, 1.0),
         ylim: Tuple[float, float] = (-1.0, 1.0),
+        seed: int = 0,
         device: torch.device | str = "cpu",
     ) -> None:
         super().__init__(xlim=xlim, ylim=ylim, device=device)
         self.num_points = num_points
+        self.seed = int(seed)
+        generator = torch.Generator().manual_seed(self.seed)
         x0, x1 = xlim
         y0, y1 = ylim
-        xs = torch.rand(num_points, device=self.device) * (x1 - x0) + x0
-        ys = torch.rand(num_points, device=self.device) * (y1 - y0) + y0
-        self._coords = torch.stack([xs, ys], dim=1)
+        xs = torch.rand(num_points, generator=generator) * (x1 - x0) + x0
+        ys = torch.rand(num_points, generator=generator) * (y1 - y0) + y0
+        self._coords = torch.stack([xs, ys], dim=1).to(self.device)
 
     def get_all_coordinates(self) -> torch.Tensor:
+        """Receptor positions ``[num_points, 2]``, ``(x, y)`` in mm."""
         return self._coords
 
-    _CONSTRUCTOR_KEYS = frozenset({"num_points", "xlim", "ylim", "device"})
+    _CONSTRUCTOR_KEYS = frozenset({"num_points", "xlim", "ylim", "seed", "device"})
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "{{class_name}}":
@@ -687,12 +706,14 @@ class {{class_name}}(BaseGrid):
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
         result["num_points"] = self.num_points
+        result["seed"] = self.seed
         return result
 
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:
         return [
             ParamSpec("num_points", dtype="int", default=100, min_val=1),
+            ParamSpec("seed", dtype="int", default=0, min_val=0),
         ]
 '''
     test_template = (
@@ -717,10 +738,15 @@ def test_param_spec_returns_param_specs():
 
 
 def test_from_config_to_dict_round_trip():
+    import torch
+
     grid = {{class_name}}(num_points=5)
     reconstructed = {{class_name}}.from_config(grid.to_dict())
     assert isinstance(reconstructed, {{class_name}})
     assert reconstructed.num_points == 5
+    assert torch.equal(
+        reconstructed.get_all_coordinates(), grid.get_all_coordinates()
+    )
 '''
     )
     docs_template = """# {{class_name}}
@@ -753,12 +779,148 @@ GRID_REGISTRY.register("{{registry_key}}", {{class_name}})
     )
 
 
+def _innervation_kind() -> _KindSpec:
+    module_template = '''"""{{class_name}}: a new receptive-field builder.
+
+Implements the ``BaseInnervation`` contract.
+Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_rf_builder/
+"""
+
+from __future__ import annotations
+
+from typing import List
+
+import torch
+
+from sensoryforge.core.innervation import BaseInnervation
+from sensoryforge.stimuli.base import ParamSpec
+
+
+class {{class_name}}(BaseInnervation):
+    """{{class_name}} receptive fields (placeholder: a flat disc).
+
+    Neuron ``n`` takes weight 1 from every receptor within ``radius_mm`` of
+    its centre and 0 from the rest.
+
+    Args:
+        receptor_coords: Receptor positions ``[M, 2]``, ``(x, y)`` in mm.
+        neuron_centers: Neuron centres ``[N, 2]``, ``(x, y)`` in mm.
+        radius_mm: Radius of each receptive field, mm.
+        device: PyTorch device identifier.
+    """
+
+    def __init__(
+        self,
+        receptor_coords: torch.Tensor,
+        neuron_centers: torch.Tensor,
+        radius_mm: float = 0.3,
+        device: torch.device | str = "cpu",
+    ) -> None:
+        super().__init__(receptor_coords, neuron_centers, device)
+        if radius_mm <= 0:
+            raise ValueError(f"radius_mm must be positive, got {radius_mm}")
+        self.radius_mm = float(radius_mm)
+
+    def compute_weights(self, **kwargs) -> torch.Tensor:
+        """Weights ``[N, M]``: the gain from receptor ``m`` to neuron ``n``."""
+        distance = torch.cdist(self.neuron_centers, self.receptor_coords)
+        return (distance <= self.radius_mm).to(torch.float32)
+
+    def to_dict(self) -> dict:
+        result = super().to_dict()
+        result["radius_mm"] = self.radius_mm
+        return result
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        return [
+            ParamSpec(
+                "radius_mm", dtype="float", default=0.3, min_val=0.001, unit="mm"
+            ),
+        ]
+'''
+    test_template = '''"""Unit test for {{class_name}}."""
+
+import torch
+
+from sensoryforge.testing.contracts import check_component
+
+from {{module_path}} import {{class_name}}
+
+
+def _instance(**params):
+    receptors = torch.rand(30, 2, generator=torch.Generator().manual_seed(0))
+    centres = torch.tensor([[0.25, 0.25], [0.75, 0.75]])
+    return {{class_name}}(receptors, centres, **params)
+
+
+def test_satisfies_component_contract():
+    check_component("innervation", {{class_name}}, _instance())
+
+
+def test_weights_shape():
+    assert _instance().compute_weights().shape == (2, 30)
+'''
+    plugin_test_template = '''"""Contract test for {{class_name}}.
+
+Generated by `sensoryforge new-component`.
+
+A receptive-field builder needs receptor positions and neuron centres to be
+built, so the check is given an instance. See
+`sensoryforge.testing.contracts.check_component`.
+"""
+
+import torch
+
+from sensoryforge.testing.contracts import check_component
+
+from {{package_name}}.component import {{class_name}}
+
+
+def test_{{snake}}_satisfies_component_contract():
+    receptors = torch.rand(30, 2, generator=torch.Generator().manual_seed(0))
+    centres = torch.tensor([[0.25, 0.25], [0.75, 0.75]])
+    instance = {{class_name}}(receptors, centres)
+    check_component("innervation", {{class_name}}, instance)
+'''
+    docs_template = """# {{class_name}}
+
+Scaffolded with `sensoryforge new-component innervation {{name}}`.
+
+Implements the `BaseInnervation` contract (see
+`docs/developer_guide/add_rf_builder.md`). Edit `{{module_path}}` to replace
+the placeholder flat disc with your receptive fields.
+
+## Registration
+
+Add to `sensoryforge/register_components.py`:
+
+```python
+from {{module_path}} import {{class_name}}
+
+INNERVATION_REGISTRY.register("{{registry_key}}", {{class_name}})
+```
+"""
+    return _KindSpec(
+        module_dir="sensoryforge/core/rf_builders",
+        base_import="sensoryforge.core.innervation",
+        base_class="BaseInnervation",
+        class_suffix="RFBuilder",
+        registry_const="INNERVATION_REGISTRY",
+        module_template=module_template,
+        test_template=test_template,
+        docs_template=docs_template,
+        plugin_test_template=plugin_test_template,
+    )
+
+
 _KINDS: Dict[str, _KindSpec] = {
     "neuron": _neuron_kind(),
     "filter": _filter_kind(),
     "stimulus": _stimulus_kind(),
     "solver": _solver_kind(),
     "grid": _grid_kind(),
+    "innervation": _innervation_kind(),
 }
 
 
@@ -869,7 +1031,7 @@ def generate_in_repo_component(
 
     Args:
         kind: One of :func:`available_kinds` (``neuron``, ``filter``,
-            ``stimulus``, ``solver``, ``grid``).
+            ``stimulus``, ``solver``, ``grid``, ``innervation``).
         name: A human-readable component name, e.g. ``"my cool filter"`` or
             ``"MyCoolFilter"`` -- converted to ``PascalCase`` for the class
             name and ``snake_case`` for the module/test file names and
@@ -1107,7 +1269,9 @@ def generate_plugin_package(kind: str, name: str, dest: Path) -> Dict[str, Path]
     pyproject_file.write_text(render(_PYPROJECT_TEMPLATE), encoding="utf-8")
 
     test_file = tests_dir / "test_contract.py"
-    test_file.write_text(render(_PLUGIN_TEST_TEMPLATE), encoding="utf-8")
+    test_file.write_text(
+        render(spec.plugin_test_template or _PLUGIN_TEST_TEMPLATE), encoding="utf-8"
+    )
 
     readme_file = package_root / "README.md"
     readme_file.write_text(render(_PLUGIN_README_TEMPLATE), encoding="utf-8")

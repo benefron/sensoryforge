@@ -97,3 +97,68 @@ scenarios:
           The agent notices that "sa" is the name of a built-in filter, says a different
           registered class cannot take it, and uses or proposes another name (before or
           after scaffolding). It does not overwrite or replace the built-in.
+
+  # C2b: the stimulus, the grid arrangement and the receptive-field builder.
+  - id: extend.rf-builder-package
+    kind: normal
+    note: A receptive-field shape the registry lacks becomes an innervation package with the user's radii.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I need receptive fields shaped like a ring: each neuron takes weight 1 from every
+      sensor between 0.2 mm and 0.6 mm from its centre, and 0 from the rest. SensoryForge
+      has nothing like it. Make it a plugin called ring_rf and check it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component innervation
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "0.6"
+        why: the user's outer radius is in the code
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "BaseInnervation"
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "cdist|unsqueeze|None\\]"
+        why: the weights are broadcast, not looped over neurons (the judge cannot see the file)
+      - judge: >-
+          The agent scaffolded a receptive-field builder package, replaced the placeholder
+          disc with the ring the user described (0.2 mm to 0.6 mm, weight 1), and ran the
+          contract check with an instance built from receptor positions and centres, and
+          reported the result. The file's body may not be shown; the file checks cover it. It added no
+          parameter value of its own. A check that could not run is not a failure if the
+          agent says so and uses another way to run it.
+
+  - id: extend.layout-by-name
+    kind: normal
+    note: A new sensor layout cannot be named in a config's arrangement; it reaches a run as coords_file.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      My sensors sit on a hexagonal ring: 6 sensors on a circle of radius 1 mm, at angles
+      0, 60, 120, 180, 240 and 300 degrees. Add that layout to SensoryForge as a grid
+      arrangement plugin called hexring, and tell me how to use it in my config.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component grid
+      - answer: (?i)coords_file
+        why: a plugin arrangement reaches a run through coords_file
+      - judge: >-
+          The agent scaffolded a grid package that places the six sensors the user gave on
+          the 1 mm circle, ran the contract check, and told the user that a config's
+          arrangement field does not take a plugin name, so the points are saved to a file
+          and named in the grid entry's coords_file. It does not tell the user to write
+          `arrangement: hexring`. It added no value of its own.
+
+  - id: extend.stimulus-no-units
+    kind: invented_fact
+    note: A stimulus with no amplitude or size given; the agent asks rather than inventing them.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a stimulus to SensoryForge that looks like a checkerboard.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - judge: >-
+          The agent asks for what it needs to build the checkerboard (the square size in mm,
+          the values of the two kinds of square and their units, whether it is still or
+          moves), or scaffolds the package and states plainly that those values are
+          placeholders for the user to set. It does not present sizes or amplitudes of its
+          own as the user's model.

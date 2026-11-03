@@ -1,6 +1,6 @@
 ---
 name: sensoryforge-extend-pipeline
-description: Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model and a temporal filter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation or temporal filter, or says SensoryForge cannot do what they need, in whatever words they put it.
+description: Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement) and a receptive-field builder. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, or says SensoryForge cannot do what they need, in whatever words they put it.
 ---
 
 # Extend the pipeline with a new component
@@ -9,9 +9,10 @@ A component is one part of the pipeline that a config names: a neuron model, a t
 filter, and so on. You add one as its own small package, so nothing inside SensoryForge is
 edited and the user's install stays as it is. You end with a package that passes the
 contract check, shows up in `sensoryforge list-components`, and is used from a config.
-This skill covers the neuron model and the temporal filter; ask what the user needs by
-meaning, not by the word they chose ("firing model", "adaptation" and "receptor
-dynamics" may each be either).
+This skill covers the neuron model, the temporal filter, the stimulus, the grid
+arrangement and the receptive-field builder; ask what the user needs by meaning, not by
+the word they chose ("adaptation" may be a neuron or a filter, "layout" a grid or the
+neurons' wiring, "pattern" a stimulus).
 
 ## 0. Read the working style
 
@@ -29,6 +30,9 @@ stop here if the user is content. Two routes need no new package:
   is https://benefron.github.io/sensoryforge/user_guide/equation_dsl/ and a config uses
   it as `neuron_model: dsl` with a `dsl_config:` entry. Offer this first for a neuron.
 - **A different value of an existing parameter** is a config change, not a component.
+- **A fixed set of sensor positions** (from a file or a drawing) needs no package: an
+  `[N, 2]` file of `(x, y)` in mm goes in a grid entry's `coords_file:`. Weights already
+  computed elsewhere go to the `imported` builder.
 
 ## 2. Get the model from the user
 
@@ -44,11 +48,13 @@ user can check by hand (a step in, what comes out).
 
 ```
 sensoryforge new-component neuron NAME --dest .
-sensoryforge new-component filter NAME --dest .
+sensoryforge new-component innervation NAME --dest .
 ```
 
-This writes `sensoryforge-NAME/`: `pyproject.toml` with the entry point, a module with
-the class and a `register()` function, a contract test in its own test folder and a README. It refuses
+The kind is `neuron`, `filter`, `stimulus`, `grid`, or `innervation` for a
+receptive-field builder. It writes `sensoryforge-NAME/`: `pyproject.toml` with the
+entry point, a module with the class and a `register()` function, a contract test in
+its own test folder and a README. It refuses
 to write inside the installed package. Replace the placeholder body with the user's
 model; keep the class's shape (below). Registered names are matched without regard to
 case, and a different class under a taken name is refused; an identical repeat is
@@ -95,17 +101,67 @@ Inherit `BaseFilter`. It turns the spatial drive into the current a neuron recei
   neuron. Time constants are in ms.
 - **Names.** Do not reuse `sa`, `ra`, `none` or `identity`.
 
-## 6. Check it
+## 6. A stimulus
 
-The package's own test calls `check_component("neuron", Class)` (or `"filter"`) from
-`sensoryforge.testing.contracts`, which checks the parameter spec, one forward pass with
-the canonical shapes, and the `to_dict()` round trip. Run the test with pytest if the user
+Inherit `BaseStimulus`. It is the spatial field the sensors sample.
+
+- **Shapes.** `forward(xx, yy)` takes two `[H, W]` meshgrids of positions in mm and
+  returns one frame `[H, W]` or a sequence `[T, H, W]`, on the device of `xx`. Vectorise
+  over the grid. Values are in the sensor's units; ask the user which.
+- **Time.** A single frame is a still image the renderer ramps in, holds and ramps out
+  (a config's `ramp_up_ms`, `plateau_ms`, `ramp_down_ms`). A stimulus with its own clock
+  takes `dt_ms=` and `total_ms=` in `__init__`: both are filled from the run, and a
+  `dt_ms` that differs from the run's is refused.
+- **`to_dict()` and `get_param_spec()`** as for a neuron; `from_config()` is inherited.
+  Make each spec's default the one `__init__` uses (forms show it as what runs).
+- **Use** it as a `stimuli:` entry, `type: <stimulus name>` with its parameters.
+
+## 7. A grid arrangement
+
+Inherit `BaseGrid`. It places the sensors.
+
+- **`get_all_coordinates()`** returns `[N, 2]`, `(x, y)` in mm. Row `k` is sensor `k` for
+  every later stage, so the order is part of the layout.
+- **Randomness** comes from a `torch.Generator` seeded by a `seed` parameter, never the
+  global one (the scaffold does this). The check tests the shape of a round trip, not
+  the points: test that `from_config(to_dict())` gives the same points.
+- **`from_config()`** keeps only constructor keys (`to_dict()` adds derived ones) and
+  turns lists back into tuples, as the scaffold's does.
+- **Use.** A config's `arrangement:` knows only the built-in names, so a new arrangement
+  reaches a run as a file: save its `[N, 2]` points (`torch.save`, or a CSV) and name the
+  file in the grid entry's `coords_file:`. Say so to the user.
+
+## 8. A receptive-field builder
+
+Inherit `BaseInnervation`. It turns sensor positions and neuron centres into the
+weights of one population.
+
+- **`__init__(receptor_coords, neuron_centers, ..., device="cpu")`**: the two tensors
+  first (`[M, 2]` and `[N, 2]`, mm), then your parameters with defaults. The engine
+  passes only the parameters your constructor names; the builder's own come from the
+  population's `innervation_params:`.
+- **`compute_weights()`** returns `[N, M]`: column `m` is sensor `m`. Broadcast (for
+  example `torch.cdist`); no loop over neurons. `build()` is inherited.
+- **`to_dict()`** starts from `super().to_dict()` and adds your parameters; the tensors
+  stay out. `from_config()` is inherited.
+- **Randomness** from a per-instance `torch.Generator` seeded by a `seed` parameter.
+- **A builder that places its own neurons** sets `DERIVES_NEURON_CENTERS = True` and
+  accepts `neuron_centers=None`.
+- **Names.** `sensoryforge list-components` shows the taken ones (`gaussian` and others).
+
+## 9. Check it
+
+The package's own test calls `check_component(KIND, Class)` from
+`sensoryforge.testing.contracts`, which checks the parameter spec, one pass with the
+canonical shapes, and the `to_dict()` round trip. A receptive-field builder has no
+constructor without tensors, so its check is given an instance:
+`check_component("innervation", Class, Class(receptors, centres))`. Run the test with pytest if the user
 has it (it is not installed with SensoryForge), or call `check_component()` from a few
 lines of Python, as the example below does. Then add a test of the user's own case from step 2: the
 check says the component is well formed, not that it is right. If the check fails, the
 message names the class and the rule; fix the class, not the check.
 
-## 7. Use it
+## 10. Use it
 
 Install the folder into the same environment (`python -m pip install ./sensoryforge-NAME`;
 pip's editable mode while it is still changing), and `sensoryforge list-components` shows
@@ -119,11 +175,16 @@ populations:
     neuron_type: SA
     neuron_model: <neuron name>
     filter_method: <filter name>
+    innervation_method: <builder name>
     model_params: {}      # the neuron's own parameters
     filter_params: {}     # the filter's own parameters
+    innervation_params: {}  # the builder's own parameters
+stimuli:
+  - type: <stimulus name>
 ```
 
-That is only the part of a population that names the components: write it into the user's
+That is only the part of a config that names the components (leave out the lines for
+kinds you did not add): write it into the user's
 real config (`sensoryforge describe --schema config` lists the rest) and run
 `sensoryforge validate --json CONFIG`.
 A population has fields the user may not have given (its name, its neuron type, the
@@ -141,7 +202,8 @@ step 2 is tested, and no number in the package came from you.
 ## Worked example
 
 A neuron and a filter scaffolded side by side, checked, loaded twice (as an entry point
-and a config's `plugins:` entry may both do), and driven with a step:
+and a config's `plugins:` entry may both do), and driven with a step; then a stimulus, a
+grid arrangement and a receptive-field builder, checked and used together:
 
 ```python
 # file: use_it.py
@@ -185,4 +247,49 @@ python use_it.py
 # prints: loaded again 2
 # prints: contract ok
 # prints: filtered (1, 40, 2) neuron (1, 41, 2)
+```
+
+```python
+# file: use_layout.py
+"""Check a stimulus, a layout and a builder, and use them together."""
+import sys
+from pathlib import Path
+
+import torch
+
+sys.path[:0] = [str(p.parent) for p in Path(".").glob("*/pyproject.toml")]
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.registry import GRID_REGISTRY, INNERVATION_REGISTRY, STIMULUS_REGISTRY
+from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.testing.contracts import check_component
+
+names = ("demo_ring", "demo_spiral", "demo_disc")
+print("loaded", len(load_plugin_import_paths([f"sensoryforge_{n}.component:register" for n in names])))
+
+grid = GRID_REGISTRY.create("demo_spiral", num_points=64)
+points = grid.get_all_coordinates()  # [64, 2], mm
+builder = INNERVATION_REGISTRY.get_class("demo_disc")(points, torch.zeros(1, 2))
+check_component("stimulus", STIMULUS_REGISTRY.get_class("demo_ring"))
+check_component("grid", type(grid))
+check_component("innervation", type(builder), builder)
+again = type(grid).from_config(grid.to_dict()).get_all_coordinates()
+print("contract ok, same points", torch.equal(again, points))
+torch.save(points, "points.pt")  # what a grid entry's coords_file reads
+
+x = torch.linspace(-1, 1, 32)
+xx, yy = torch.meshgrid(x, x, indexing="ij")
+frames, _ = render_stimulus("demo_ring", {"radius": 0.4}, xx, yy, dt_ms=1.0, duration_ms=50)
+print("frames", tuple(frames.shape), "weights", tuple(builder.build().weights.shape))
+```
+
+```bash
+sensoryforge new-component stimulus demo_ring --dest .
+sensoryforge new-component grid demo_spiral --dest .
+sensoryforge new-component innervation demo_disc --dest .
+# prints: Scaffolded new innervation plugin package
+python use_layout.py
+# prints: loaded 3
+# prints: contract ok, same points True
+# prints: frames (50, 32, 32) weights (1, 64)
 ```

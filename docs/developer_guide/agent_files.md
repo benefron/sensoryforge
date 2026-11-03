@@ -110,10 +110,10 @@ Each target is written by one command and checked in CI against its source (see 
 
 Shipped: eleven skills, setup, design-and-plan, design-world, ground-assumptions,
 build-dataset, run-simulation, evaluate, diagnose, interpret-report, the master skill,
-workflow, and extend-pipeline, which so far covers the neuron model and the temporal
-filter ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
-14: more kinds in extend-pipeline (stimulus, grid, receptive-field builder, solver,
-processing layer, event converter), extend-world (world registries and another modality's
+workflow, and extend-pipeline, which so far covers the neuron model, the temporal
+filter, the stimulus, the grid arrangement and the receptive-field builder
+([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
+14: more kinds in extend-pipeline (solver, processing layer, event converter), extend-world (world registries and another modality's
 class kinds), extend-evaluation (the evaluation seams) and the plugin lifecycle. A change that would pass a limit merges skills or raises the limit here first,
 with the reason.
 

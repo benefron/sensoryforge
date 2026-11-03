@@ -929,24 +929,26 @@ python where.py runs/demo
 
 `sensoryforge-extend-pipeline`
 
-**When an agent uses it.** Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model and a temporal filter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation or temporal filter, or says SensoryForge cannot do what they need, in whatever words they put it.
+**When an agent uses it.** Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement) and a receptive-field builder. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, or says SensoryForge cannot do what they need, in whatever words they put it.
 
 A component is one part of the pipeline that a config names: a neuron model, a temporal
 filter, and so on. You add one as its own small package, so nothing inside SensoryForge is
 edited and the user's install stays as it is. You end with a package that passes the
 contract check, shows up in `sensoryforge list-components`, and is used from a config.
-This skill covers the neuron model and the temporal filter; ask what the user needs by
-meaning, not by the word they chose ("firing model", "adaptation" and "receptor
-dynamics" may each be either).
+This skill covers the neuron model, the temporal filter, the stimulus, the grid
+arrangement and the receptive-field builder; ask what the user needs by meaning, not by
+the word they chose ("adaptation" may be a neuron or a filter, "layout" a grid or the
+neurons' wiring, "pattern" a stimulus).
 
-**Steps.** Read the working style; Is it already there?; Get the model from the user; Scaffold the package; A neuron model; A temporal filter; Check it; Use it.
+**Steps.** Read the working style; Is it already there?; Get the model from the user; Scaffold the package; A neuron model; A temporal filter; A stimulus; A grid arrangement; A receptive-field builder; Check it; Use it.
 
 **Also covers.** Verify.
 
 ### Worked example
 
 A neuron and a filter scaffolded side by side, checked, loaded twice (as an entry point
-and a config's `plugins:` entry may both do), and driven with a step:
+and a config's `plugins:` entry may both do), and driven with a step; then a stimulus, a
+grid arrangement and a receptive-field builder, checked and used together:
 
 ```python
 # file: use_it.py
@@ -990,4 +992,49 @@ python use_it.py
 # prints: loaded again 2
 # prints: contract ok
 # prints: filtered (1, 40, 2) neuron (1, 41, 2)
+```
+
+```python
+# file: use_layout.py
+"""Check a stimulus, a layout and a builder, and use them together."""
+import sys
+from pathlib import Path
+
+import torch
+
+sys.path[:0] = [str(p.parent) for p in Path(".").glob("*/pyproject.toml")]
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.registry import GRID_REGISTRY, INNERVATION_REGISTRY, STIMULUS_REGISTRY
+from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.testing.contracts import check_component
+
+names = ("demo_ring", "demo_spiral", "demo_disc")
+print("loaded", len(load_plugin_import_paths([f"sensoryforge_{n}.component:register" for n in names])))
+
+grid = GRID_REGISTRY.create("demo_spiral", num_points=64)
+points = grid.get_all_coordinates()  # [64, 2], mm
+builder = INNERVATION_REGISTRY.get_class("demo_disc")(points, torch.zeros(1, 2))
+check_component("stimulus", STIMULUS_REGISTRY.get_class("demo_ring"))
+check_component("grid", type(grid))
+check_component("innervation", type(builder), builder)
+again = type(grid).from_config(grid.to_dict()).get_all_coordinates()
+print("contract ok, same points", torch.equal(again, points))
+torch.save(points, "points.pt")  # what a grid entry's coords_file reads
+
+x = torch.linspace(-1, 1, 32)
+xx, yy = torch.meshgrid(x, x, indexing="ij")
+frames, _ = render_stimulus("demo_ring", {"radius": 0.4}, xx, yy, dt_ms=1.0, duration_ms=50)
+print("frames", tuple(frames.shape), "weights", tuple(builder.build().weights.shape))
+```
+
+```bash
+sensoryforge new-component stimulus demo_ring --dest .
+sensoryforge new-component grid demo_spiral --dest .
+sensoryforge new-component innervation demo_disc --dest .
+# prints: Scaffolded new innervation plugin package
+python use_layout.py
+# prints: loaded 3
+# prints: contract ok, same points True
+# prints: frames (50, 32, 32) weights (1, 64)
 ```
