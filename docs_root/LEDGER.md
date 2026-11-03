@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-f17cc7e · STANDING · finding · - · 2026-11-03
+AdaptiveSolver.to_dict dropped method, rtol and atol; the contract sweep skips it without torchdiffeq and CI does not install the solvers extra, so the completeness check never reached it
+→ commit ed20f88
+
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
 → commit 8459dc6
@@ -1807,6 +1811,7 @@ On non-composite grids SimulationEngine builds InnervationModule without innerva
 ## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
+↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered
