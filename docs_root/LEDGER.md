@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-e0adcb7 · CLOSED · decision · - · 2026-11-03
+identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level.
+→ commit 1957ef7
+
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
 → commit 8459dc6
@@ -1149,9 +1153,10 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 → commit 67e3b60
 ⤳ superseded in b2f4bee docs(world): the contract records the Linux x86-64 CI result for batch invariance
 
-## F-5bd542f · OPEN · finding · - · 2026-10-02
+## F-5bd542f · CLOSED · finding · - · 2026-10-02
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
+✓ closed by 1957ef7 fix(world): registering the same world component again is a no-op
 
 ## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
