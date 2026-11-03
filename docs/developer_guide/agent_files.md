@@ -47,6 +47,7 @@ Each target is written by one command and checked in CI against its source (see 
 | `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` (the marked section only; the rest is the user's) and `.cursor/rules/sensoryforge.mdc` (whole file) in the user's project | `sensoryforge/agents/section.md` | `sensoryforge agents instructions --target <env> --write` (`--check` reports a missing or stale section; the files each tool reads were checked against its documentation, dated in `INSTRUCTIONS_CHECKED`) |
 | `llms.txt` | the docs navigation in `mkdocs.yml` | `python scripts/build_llms_txt.py` |
 | `docs/agents/skills_reference.md` (the [Skills Reference](../agents/skills_reference.md) page) | `sensoryforge/agents/skills/` | `python -m sensoryforge.agents.reference docs/agents/skills_reference.md` (`tests/unit/test_agent_docs.py` fails when it differs) |
+| `docs/reference/components.md`, `world_language.md`, `evaluation.md`, `recipes.md` and `formats.md` (the generated [Component Reference](../reference/components.md) and its siblings) | `sensoryforge describe --json`: the registries, each component's `ParamSpec` list, the world kinds, the shipped presets | `python scripts/build_reference.py` (`tests/unit/test_reference_pages.py` fails when a page differs, or when a registered component is missing from one) |
 | `.sensoryforge/agents.yml` (the user's answers, not committed) | the setup questions | `sensoryforge agents setup` |
 
 ## What happens to today's files

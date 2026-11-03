@@ -28,6 +28,14 @@ A parameter in `params` is a `ParamSpec`: `name`, `label`, `dtype`, `default`, `
 `step`, `unit` (empty for a dimensionless one), `choices`, `tooltip`, `help`, `group` and
 `advanced`. Units are the component's own; nothing is copied from the docs.
 
+The pages of the API Reference that list components, world kinds, evaluation packs, recipes and
+format tags are generated from this output by `python scripts/build_reference.py`:
+[Component Reference](../reference/components.md), [World Language
+Reference](../reference/world_language.md), [Evaluation Packs
+Reference](../reference/evaluation.md), [Recipe Reference](../reference/recipes.md) and [File
+Format Tags](../reference/formats.md). A test fails when a page differs from the output, so the
+pages and `describe` cannot disagree.
+
 **An empty `params` list means the component declares no `ParamSpec`**, not that it takes no
 arguments. `init_params` is then the parameter list: each constructor argument with `required`
 and, when it is a plain value, its `default`.

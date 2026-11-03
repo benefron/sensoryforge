@@ -100,7 +100,10 @@ string name in `sensoryforge/register_components.py` and discovered dynamically 
 
 Every new component needs: a base-class subclass implementing `forward()`, `reset_state()`,
 `from_config()`, `to_dict()`; a `sensoryforge/register_components.py` entry; Google-style docstrings with tensor
-shapes and physical units; and a unit test.
+shapes and physical units; and a unit test. The reference pages in `docs/reference/` list every
+registered component, its `ParamSpec` parameters, the world kinds and the recipes; they are
+generated, so after you add or change one run `python scripts/build_reference.py`
+(`tests/unit/test_reference_pages.py` fails until you do).
 
 ## Commit conventions
 

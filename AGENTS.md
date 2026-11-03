@@ -37,6 +37,7 @@ tests and rules, is in `docs/agents/task_index.md`.
 | To work on | Code | Read first |
 |---|---|---|
 | Running a config (canonical engine, CLI, batch) | `sensoryforge/core/simulation_engine.py`, `sensoryforge/cli.py`, `sensoryforge/core/batch_executor.py` | `docs/developer_guide/architecture_notes.md` |
+| Component, parameter, world-kind and recipe reference pages (generated) | `scripts/build_reference.py` | `docs/reference/components.md`; run the script after a component, `ParamSpec`, world kind or recipe changes |
 | Config schema and defaults | `sensoryforge/config/schema.py`, `sensoryforge/config/defaults.py` | `docs/user_guide/configuration_schema.md` |
 | A new neuron, filter, stimulus, grid, solver, receptive-field builder or processing layer | `sensoryforge/registry.py`, `sensoryforge/register_components.py`, `sensoryforge new-component` | `docs/developer_guide/extensibility.md`, `docs/developer_guide/plugins.md` |
 | Receptive fields | `sensoryforge/core/rf_bank.py`, `sensoryforge/core/rf_builders/` | `docs/user_guide/receptive_fields.md` |

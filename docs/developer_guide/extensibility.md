@@ -62,6 +62,10 @@ def register_all():
     NEURON_REGISTRY.register("my_neuron", MyNeuron)
 ```
 
+After you register a component in the repository, run `python scripts/build_reference.py`:
+the [Component Reference](../reference/components.md) is generated from the registries and each
+component's `ParamSpec` list, and a test fails until the committed page matches.
+
 Registry lookups are case-insensitive (H1, F-046): `"MyNeuron"` and
 `"myneuron"` refer to the same registration; a genuine collision between
 two different classes under the same case-folded name still raises.

@@ -20,7 +20,8 @@ prints them from the registries.
 | Change a config key or its default | `sensoryforge/config/schema.py`, `sensoryforge/config/defaults.py` | `tests/unit/test_config_schema.py`, `tests/unit/test_describe.py` | `docs/user_guide/configuration_schema.md`; then `python scripts/build_schemas.py` |
 | Run a config | `sensoryforge/core/simulation_engine.py`, `sensoryforge/cli.py` | `tests/integration/test_gui_engine_equality.py`, `tests/validation/test_reproducibility.py` | `docs/user_guide/cli.md`, `docs/developer_guide/architecture_notes.md` |
 | Check a file before running it | `sensoryforge validate --json FILE` | `tests/unit/test_describe.py` | `docs/user_guide/describe.md` |
-| See what components and kinds exist | `sensoryforge describe --json` | `tests/unit/test_describe.py` | `docs/user_guide/describe.md` |
+| See what components and kinds exist | `sensoryforge describe --json` | `tests/unit/test_describe.py` | `docs/user_guide/describe.md`, `docs/reference/components.md` |
+| Look up a component's parameters, defaults and units, or refresh the reference pages | `scripts/build_reference.py` | `tests/unit/test_reference_pages.py` | `docs/reference/components.md` (generated: never edit it, run the script) |
 | Read a bundle | `sensoryforge/io/bundle.py` | `tests/unit/test_bundle_io.py` | `docs/user_guide/bundles.md`; the bundle schema version changes with any new field |
 | Add a field to a bundle | `sensoryforge/io/bundle.py` | `tests/unit/test_bundle_io.py`, `tests/contract/test_world_contract.py` | `docs/reference/world_contract.md`; a field the file does not set must not appear |
 | Design a world or a stimulus class | `sensoryforge/world/`, `sensoryforge/stimuli/layered.py` | `tests/unit/test_world_schema.py`, `tests/unit/test_layered_stimuli.py` | `docs/user_guide/worlds.md`, `.claude/rules/world-engine.md` |

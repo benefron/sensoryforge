@@ -99,6 +99,11 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 
 - [Pipeline](https://benefron.github.io/sensoryforge/api_reference/pipeline/)
 - [Neurons](https://benefron.github.io/sensoryforge/api_reference/neurons/)
+- [Component Reference](https://benefron.github.io/sensoryforge/reference/components/)
+- [World Language Reference](https://benefron.github.io/sensoryforge/reference/world_language/)
+- [Evaluation Packs Reference](https://benefron.github.io/sensoryforge/reference/evaluation/)
+- [Recipe Reference](https://benefron.github.io/sensoryforge/reference/recipes/)
+- [File Format Tags](https://benefron.github.io/sensoryforge/reference/formats/)
 - [Benchmarks](https://benefron.github.io/sensoryforge/reference/benchmarks/)
 - [World Engine Contract](https://benefron.github.io/sensoryforge/reference/world_contract/)
 - [Event Converter Contract](https://benefron.github.io/sensoryforge/reference/converter_contract/)

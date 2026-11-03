@@ -180,6 +180,11 @@ nav:
   - API Reference:
     - Pipeline: api_reference/pipeline.md
     - Neurons: api_reference/neurons.md
+    - Component Reference: reference/components.md
+    - World Language Reference: reference/world_language.md
+    - Evaluation Packs Reference: reference/evaluation.md
+    - Recipe Reference: reference/recipes.md
+    - File Format Tags: reference/formats.md
     - Benchmarks: reference/benchmarks.md
     - World Engine Contract: reference/world_contract.md
     - Event Converter Contract: reference/converter_contract.md

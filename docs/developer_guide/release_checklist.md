@@ -20,6 +20,7 @@ only a release needs.
    in `sensoryforge/agents/install.py`) against each tool's own pages, and change the date
    only after reading them.
 5. **Regenerate what is generated:** `python scripts/build_llms_txt.py`,
+   `python scripts/build_reference.py` (run it in an environment with no plugin packages),
    `python -m sensoryforge.agents.reference docs/agents/skills_reference.md`, then
    `sensoryforge agents export --check --target <each>` in a scratch project.
 6. **Changelog and version** (`CHANGELOG.md`, `pyproject.toml`), then tag.
