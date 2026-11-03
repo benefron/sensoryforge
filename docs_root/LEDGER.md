@@ -1819,6 +1819,7 @@ _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _
 ↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
 ↔ b9e0005 feat(testing): hold processing layers to the full to_dict round trip
 ↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 58a6db4 fix(testing): world contract checks report a crashing function as a failure
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered
