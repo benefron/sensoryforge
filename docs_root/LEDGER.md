@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-c7ab774 · CLOSED · decision · - · 2026-11-03
+world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full.
+→ commit 31422a5
+
+## F-bacad9d · STANDING · finding · - · 2026-11-03
+exports copy only SKILL.md, so a reference file inside a skill folder would not reach a user's project; C2c's solver, processing layer and event converter sections for extend-pipeline need install.py (planned_files, dropped skills) and the skill tests widened first.
+→ commit 31422a5
+
+## F-85f1687 · OPEN · finding · - · 2026-11-03
+the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
+→ commit 31422a5
+
 ## F-16f7ce4 · OPEN · finding · - · 2026-11-03
 main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
 → commit c90a1b4

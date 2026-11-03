@@ -1141,4 +1141,5 @@ Do not hand-edit between the markers.
 | 2026-11-03 | D-702cf20 | one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in. | `b53dfd6` |
 | 2026-11-03 | D-2293851 | world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves | `d68c86a` |
 | 2026-11-03 | D-6cf4332 | cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review | `9449397` |
+| 2026-11-03 | D-c7ab774 | world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full. | `31422a5` |
 <!-- DECISIONS_LOG_END -->
