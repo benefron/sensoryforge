@@ -170,6 +170,11 @@ def test_a_shape_whose_defaults_fail_its_own_check_fails():
     fails("shape", "contract_refuses", "defaults .* fail the shape's own check")
 
 
+def test_a_shape_check_that_crashes_is_reported_not_propagated():
+    put_shape("contract_crash", ring, RING_SPECS, check=lambda values, path: 1 / 0)
+    fails("shape", "contract_crash", "check.*raised ZeroDivisionError")
+
+
 def test_a_shape_check_that_refuses_some_draws_is_respected():
     """A range end the shape's own check refuses is not a draw, so it is skipped."""
 

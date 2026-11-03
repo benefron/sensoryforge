@@ -56,7 +56,7 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -182,7 +182,7 @@ def _normalised_part(part: str, source: Dict[str, Any], label: str) -> Dict[str,
     """The part a world file normalises ``source`` to (defaults filled in)."""
     try:
         layer = kinds.LayeredKind().normalise_layer({part: source}, "contract")
-    except ValueError as exc:
+    except _CALL_ERRORS as exc:
         _fail(f"{label}: a world refuses {source!r}: {exc}")
     return layer[part]
 
@@ -267,7 +267,7 @@ def _tensor_params(
     return out
 
 
-def _draw_edges(specs: Sequence[ParamSpec]) -> List[tuple]:
+def _draw_edges(specs: Sequence[ParamSpec]) -> List[Tuple[ParamSpec, Any]]:
     """``(spec, value)`` for each declared end of each numeric range."""
     edges = []
     for spec in specs:
@@ -291,10 +291,17 @@ def _shape_accepts(shape: kernel.ShapeKind, draw: Dict[str, Any]) -> bool:
         shape.check(fields, lambda field: f"shape.{field}")
     except ValueError:
         return False
+    except _CALL_ERRORS as exc:
+        _fail(
+            f"shape check(values, path) raised {type(exc).__name__}: {exc} on "
+            f"{draw!r}; it must raise ValueError for a draw it refuses"
+        )
     return True
 
 
-def _coordinates(g: int, k: int, dtype: torch.dtype):
+def _coordinates(
+    g: int, k: int, dtype: torch.dtype
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """``x``, ``y`` of the renderer's shape ``[g, k, *S]``: mm from each centre."""
     xx, yy = torch.meshgrid(*_AXES_MM, indexing="ij")
     off_x = _OFFSETS_MM[:g, :k, None, None]
@@ -326,7 +333,7 @@ def _call_shape(
         params["depth"] = torch.full((g, k, 1, 1), float(depth), dtype=dtype)
     try:
         out = shape.fn(x, y, params)
-    except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+    except _CALL_ERRORS as exc:
         _fail(
             f"shape {name!r}: fn(x, y, params) failed on {sorted(params)} with "
             f"tensors of shape {tuple(x.shape)} ({type(exc).__name__}: {exc})"
@@ -420,7 +427,7 @@ def _check_pattern(name: str, example: Any) -> None:
     for _ in range(2):
         try:
             results.append(pattern.fn(dict(params)))
-        except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+        except _CALL_ERRORS as exc:
             _fail(
                 f"{label}: fn(params) failed on {sorted(params)} "
                 f"({type(exc).__name__}: {exc})"
@@ -484,7 +491,7 @@ def _check_modulation(name: str, example: Any) -> None:
             params = _tensor_params(draws, dtype, (len(draws), 1))
             try:
                 out = modulation.fn(tc[rows], params)
-            except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+            except _CALL_ERRORS as exc:
                 _fail(
                     f"{label}: fn(tc, params) failed on {sorted(params)} "
                     f"({type(exc).__name__}: {exc})"
@@ -562,7 +569,7 @@ def _check_distribution(name: str, example: Any) -> None:
     u = _U.copy()
     try:
         values = dist.sample(u.copy(), axis)
-    except (KeyError, TypeError, ValueError) as exc:
+    except _CALL_ERRORS as exc:
         _fail(f"{label}: sample(u, axis) failed ({type(exc).__name__}: {exc})")
     if not isinstance(values, list) or len(values) != len(u):
         _fail(f"{label}: sample must return a list with one value per u")
