@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-702cf20 · CLOSED · decision · - · 2026-11-03
+one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
+→ commit b53dfd6
+
+## F-2ba1eff · CLOSED · finding · - · 2026-11-03
+add_filter.md said the to_dict completeness check was neuron-only; _check_filter runs it and the built-in SA and RA filters pass.
+→ commit b53dfd6
+
 ## D-e0adcb7 · CLOSED · decision · - · 2026-11-03
 identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level.
 → commit 1957ef7
@@ -451,6 +459,7 @@ examples/ does not reach a user on the default no-clone install; D4 decides betw
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
 → commit 9873eb4
+↔ b53dfd6 feat(agents): extend-pipeline skill, neuron model and temporal filter (C2a)
 
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
