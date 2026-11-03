@@ -43,15 +43,14 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 
 `to_dict()` should include **every** `__init__` parameter, and
 `from_config(instance.to_dict())` should round-trip to an equal `to_dict()`.
-`sensoryforge.testing.contracts.check_component("filter", cls)` checks the
-basic `from_config`/`to_dict` round-trip, `get_param_spec()` presence, and
-a forward-pass shape check — but **not** full parameter-completeness: the
-H3 completeness check (every `__init__` argument present in `to_dict()`)
-is currently wired up for neurons only (`_check_neuron` in
-`sensoryforge/testing/contracts.py`), not `_check_filter`. `SAFilterTorch`
-and `RAFilterTorch` would fail it today (missing `tau_r`/`tau_d`/`k1`/`k2`/
-`clip_to_positive` and `tau_RA`/`k3` respectively). Not yet enforced for
-other kinds (see ledger F-049).
+`sensoryforge.testing.contracts.check_component("filter", cls)` checks
+`get_param_spec()`, a forward-pass shape check, and the **full round trip**:
+every `__init__` argument must be present in `to_dict()` (a name you list in
+`_TO_DICT_EXCLUDE_PARAMS` is the one exception), and
+`from_config(instance.to_dict()).to_dict()` must equal `instance.to_dict()`
+(F-049). `SAFilterTorch` and `RAFilterTorch` serialise all of theirs
+(`tau_r`/`tau_d`/`k1`/`k2`/`clip_to_positive`, `tau_RA`/`k3`), so that is the
+pattern to copy.
 
 > **Polymorphism warning:** The interface uses `reset_state()` (singular).
 > The existing `SAFilterTorch` has `reset_states()` (plural) — this is a

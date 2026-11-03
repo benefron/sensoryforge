@@ -304,18 +304,32 @@ All components must implement:
 - `get_param_spec() -> List[ParamSpec]` (classmethod, required on every
   component since G1 — not just stimuli)
 
-`sensoryforge.testing.contracts.check_component(kind, cls)` runs the basic
-`from_config`/`to_dict` round-trip, `get_param_spec()` presence, and a
-forward-pass shape check for every kind. The **full parameter-completeness
-check** (H3 — every `__init__` argument must appear in `to_dict()`, not
-just a fixed point over whatever it does include) is currently wired up
-for **neurons only**: `_check_neuron` is the only one of the six
-`_check_<kind>` functions in `sensoryforge/testing/contracts.py` that calls
-`_assert_to_dict_roundtrip_complete`. Filters, stimuli, grids, solvers and
-innervation are not yet held to it — several shipped built-ins
-(`SAFilterTorch`, `RAFilterTorch`, the grid arrangement classes,
-`EdgeGrating`) would fail it today. Not yet enforced for other kinds (see
-ledger F-049).
+`sensoryforge.testing.contracts.check_component(kind, cls)` runs the same checks
+for every kind it supports (`available_kinds()`: `neuron`, `filter`, `grid`,
+`solver`, `innervation`, `stimulus`, `processing`):
+
+1. `get_param_spec()` returns a list of `ParamSpec`.
+2. One forward pass with the kind's canonical tensor shape.
+3. `from_config(instance.to_dict())` returns an instance of the class.
+4. **The round trip is complete** (F-049): every `__init__` parameter appears
+   in `instance.to_dict()`, and `from_config(instance.to_dict()).to_dict()`
+   equals `instance.to_dict()` (a fixed point). A name in the class's
+   `_TO_DICT_EXCLUDE_PARAMS` is the one exception, for a parameter a bundle
+   stores separately (an innervation's `receptor_coords`/`neuron_centers`) or a
+   convenience that is not round-tripped (a neuron's `preset`). A processing
+   layer is held to the same two rules against its `{"method": ..., "params":
+   {...}}` shape; its `receptor_coords` is exempt.
+5. For `innervation`, `build()` returns a `ReceptiveFieldBank` of the right shapes.
+
+Pass an `instance` built with **non-default values** when you can: a default
+instance reaches the fixed point even if `from_config` ignores a key, because
+the missing key falls back to the same default. A component that leaves a
+parameter out of `to_dict()` fails with
+`... to_dict() is missing constructor parameters: [...]`; one whose
+`from_config` drops or changes a value fails with
+`... round trip is not a fixed point`. Every shipped built-in passes, and
+`tests/unit/test_contract_checks.py` breaks one of each kind on purpose to show
+the check refuses it.
 
 ### 5. Write Tests
 

@@ -33,10 +33,10 @@ user-facing API. `step()` and `integrate()` must preserve `state`'s shape exactl
 to feed back in unchanged.
 
 `sensoryforge.testing.contracts.check_component("solver", cls)` checks `get_param_spec()`'s shape,
-one `step()` call preserving state shape, and a `from_config(instance.to_dict())` round trip to a
-`cls` instance -- **not** full parameter-completeness (the H3 check in `_assert_to_dict_roundtrip_complete`
-is wired up for the `"neuron"` kind only; see ledger F-049 and `docs/developer_guide/add_filter.md`
-section 1 for the same caveat as it applies to filters).
+one `step()` call preserving state shape, and the full `to_dict()`/`from_config()` round trip:
+every `__init__` argument must appear in `to_dict()` and `from_config(instance.to_dict())` must be a
+fixed point (F-049). `BaseSolver.to_dict()` holds only `type` and `dt`, so a solver with more
+arguments overrides `to_dict()` to add them, as `AdaptiveSolver` does for `method`, `rtol` and `atol`.
 
 ## 2. Register it
 

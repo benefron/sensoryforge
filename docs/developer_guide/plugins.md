@@ -86,10 +86,11 @@ point produces a `UserWarning` and is skipped
 `sensoryforge.testing.contracts.check_component(kind, cls)` runs the same
 checks used across the project's own contract-test sweep (G4): it asserts
 `get_param_spec()` returns a list of `ParamSpec`, runs one `forward()` pass
-with the kind's canonical tensor shape, and checks
-`from_config(instance.to_dict())` reconstructs correctly. It has no Qt
-dependency and needs nothing but `torch` and `sensoryforge` itself, so it
-runs anywhere the plugin package runs.
+with the kind's canonical tensor shape, and checks the `to_dict()`/`from_config()`
+round trip is **complete** (F-049): every `__init__` parameter appears in
+`to_dict()`, and `from_config(instance.to_dict())` gives back the same
+`to_dict()`. It has no Qt dependency and needs nothing but `torch` and
+`sensoryforge` itself, so it runs anywhere the plugin package runs.
 
 ```python
 from sensoryforge.testing.contracts import check_component
@@ -99,7 +100,9 @@ check_component("filter", MyBandpassFilter)
 ```
 
 This is exactly what the generated `tests/test_contract.py` calls — running
-`pytest` in the scaffolded package is enough to get this check for free.
+`pytest` in the scaffolded package is enough to get this check for free. A
+default-constructed instance cannot show that `from_config` ignores a key, so
+pass `instance=` built with non-default values to make the round trip bite.
 
 ## 5. The `plugins:` YAML key (an alternative to entry points)
 
