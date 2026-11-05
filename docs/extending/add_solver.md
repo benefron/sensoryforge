@@ -48,19 +48,21 @@ Two routes, same as every other kind (see `docs/developer_guide/plugins.md`):
   `sensoryforge/solvers/`; add one line to `register_components.py`'s `register_all()`:
   `SOLVER_REGISTRY.register("heun", HeunSolver)`.
 
-## 3. Using it from a config
+## 3. Using it
 
-A population's `solver_config` (or the top-level `SimulationConfig.solver`) names the registered
-solver by its `"type"` key:
+A registered solver is used by code that creates it, `SOLVER_REGISTRY.create("heun", dt=0.05)`
+(for instance inside a neuron model of your own), and `step()`/`integrate()` take it from there.
 
-```yaml
-populations:
-  - name: "Custom-Integrated Population"
-    neuron_model: "izhikevich"
-    solver_config:
-      type: "heun"
-      dt: 0.05
-```
+!!! warning "A config does not reach a plugin solver today"
+    `SimulationEngine` builds no solver from a population's `solver_config`, `get_solver()`
+    (the factory the [Solvers](../user_guide/solvers.md) page shows) knows only `euler` and
+    `adaptive`, and the equation DSL's `compile(solver=...)` accepts only `euler`. A config key
+    that selects a registered solver is an open item, recorded in the project ledger.
+
+Also: the scaffold's `BaseSolver.to_dict()` writes the class name in lowercase with "solver"
+removed as `type` (a class `Heun` registered as `heun` gives `heun`, but `DemoRk2Solver`
+registered as `demo_rk2` gives `demork2`), so override `to_dict()` when the registered name
+differs.
 
 See `docs/user_guide/solvers.md` for the built-in `euler`/`adaptive` choices, and
 `docs/examples/plugin_solver.py` for the worked, executed example.

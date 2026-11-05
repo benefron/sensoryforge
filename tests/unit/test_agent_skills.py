@@ -65,7 +65,8 @@ def test_the_skills_stay_within_the_file_budget():
         if p.is_file() and p.name not in ("SKILL.md", ins.GLOSSARY_NAME)
         if "__pycache__" not in p.parts
     ]
-    assert not extra, extra
+    # one reference file for the one skill that outgrew 300 lines (agent_files.md)
+    assert extra == [SKILL_DIR / "sensoryforge-extend-pipeline" / "reference.md"], extra
 
 
 @pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)
@@ -84,7 +85,7 @@ def test_a_skill_is_well_formed(path):
 
 @pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)
 def test_a_skill_uses_nothing_that_exists_only_in_a_clone(path):
-    text = re.sub(r"https?://\S+", "", path.read_text(encoding="utf-8"))
+    text = re.sub(r"https?://\S+", "", ex.skill_text(path))
     assert not re.search(r"(?<![\w./-])(tests|docs|\.claude)/", text), path.parent.name
     assert not re.search(r"pip install\s+sensoryforge\b", text, re.I)
     assert "pip install -e" not in text
@@ -92,7 +93,7 @@ def test_a_skill_uses_nothing_that_exists_only_in_a_clone(path):
 
 @pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)
 def test_a_skill_names_only_skills_that_exist(path):
-    text = path.read_text(encoding="utf-8")
+    text = ex.skill_text(path)
     named = set(re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b", text))
     named -= {ins.GLOSSARY_NAME[: -len(".md")]}
     assert named <= NAMES, sorted(named - NAMES)
@@ -180,6 +181,9 @@ def test_install_copies_every_skill_and_the_glossary_and_is_repeatable(tmp_path)
     for name, path in ins.packaged_skills():
         want = ins.render_skill(path.read_text(encoding="utf-8"), claude)
         assert (base / name / "SKILL.md").read_text(encoding="utf-8") == want
+    for name, path in ins.packaged_references():
+        want = ins.render_glossary(path.read_text(encoding="utf-8"), claude)
+        assert (base / name / "reference.md").read_text(encoding="utf-8") == want
     assert {s for _, s in ins.install(tmp_path)} == {"unchanged"}
     edited = base / "sensoryforge-setup" / "SKILL.md"
     edited.write_text("changed by hand", encoding="utf-8")
@@ -337,7 +341,7 @@ def _command_problems(command):
 
 @pytest.mark.parametrize("path", SKILLS, ids=lambda p: p.parent.name)
 def test_every_sensoryforge_command_in_a_skill_body_parses(path):
-    commands = _skill_commands(path.read_text(encoding="utf-8"))
+    commands = _skill_commands(ex.skill_text(path))
     assert commands, "every skill runs at least `sensoryforge agents brief`"
     problems = [p for c in commands for p in _command_problems(c)]
     assert not problems, "\n".join(problems)
@@ -422,15 +426,17 @@ def test_the_docs_section_names_only_skills_that_exist(path):
 
 
 def test_the_hand_written_agent_files_stay_within_the_budget():
-    """``AGENTS.md``, ``CLAUDE.md``, skills, prompts and the section: 18 at most."""
-    count = 2 + len(SKILLS) + len(PROMPTS)
-    assert count <= 18, count  # docs/developer_guide/agent_files.md
+    """``AGENTS.md``, ``CLAUDE.md``, skills, prompts, the section and reference files:
+    19 at most."""
+    references = len(list(SKILL_DIR.glob("*/reference.md")))
+    count = 2 + len(SKILLS) + len(PROMPTS) + references
+    assert count <= 19, count  # docs/developer_guide/agent_files.md
 
 
 def test_python_dash_c_lines_in_the_skills_compile():
     found = 0
     for path in SKILLS:
-        for command in _spans(path.read_text(encoding="utf-8"))[1]:
+        for command in _spans(ex.skill_text(path))[1]:
             if command.startswith("python -c "):
                 found += 1
                 compile(shlex.split(command)[2], path.parent.name, "exec")
@@ -450,7 +456,7 @@ def _anchors(page):
 def test_every_docs_url_in_a_skill_is_a_page_and_anchor_that_exist():
     checked = 0
     for path in SKILLS:
-        for raw in re.findall(re.escape(_SITE) + r"[^\s`)\]>]*", path.read_text()):
+        for raw in re.findall(re.escape(_SITE) + r"[^\s`)\]>]*", ex.skill_text(path)):
             url = urlsplit(raw.rstrip(".,;:"))
             slug = url.path[len("/sensoryforge/") :].strip("/")
             page = REPO / "docs" / (slug + ".md" if slug else "index.md")
@@ -470,7 +476,7 @@ DESIGN = REPO / "tests" / "fixtures" / "design_8x8"
 
 
 def _script(skill, name):
-    text = (SKILL_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+    text = ex.skill_text(SKILL_DIR / skill / "SKILL.md")
     return next(s.content for s in ex.parse_example(text) if s.name == name)
 
 
@@ -573,6 +579,10 @@ def test_a_wheel_holds_every_skill_and_the_glossary(tmp_path):
         names = set(wheel.namelist())
         for path in SKILLS:
             inside = f"sensoryforge/agents/skills/{path.parent.name}/SKILL.md"
+            assert inside in names, inside
+            assert wheel.read(inside) == path.read_bytes()
+        for name, path in ins.packaged_references():
+            inside = f"sensoryforge/agents/skills/{name}/reference.md"
             assert inside in names, inside
             assert wheel.read(inside) == path.read_bytes()
         for prompt in PROMPTS:

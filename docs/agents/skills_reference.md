@@ -929,18 +929,19 @@ python where.py runs/demo
 
 `sensoryforge-extend-pipeline`
 
-**When an agent uses it.** Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement) and a receptive-field builder. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, or says SensoryForge cannot do what they need, in whatever words they put it.
+**When an agent uses it.** Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement), a receptive-field builder, an ODE solver, a processing layer and an event converter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, integration method, a step between sensing and wiring, a way to turn drive into events, or says SensoryForge cannot do what they need, in whatever words they put it.
 
 A component is one part of the pipeline that a config names: a neuron model, a temporal
 filter, and so on. You add one as its own small package, so nothing inside SensoryForge is
 edited and the user's install stays as it is. You end with a package that passes the
 contract check, shows up in `sensoryforge list-components`, and is used from a config.
-This skill covers the neuron model, the temporal filter, the stimulus, the grid
-arrangement and the receptive-field builder; ask what the user needs by meaning, not by
-the word they chose ("adaptation" may be a neuron or a filter, "layout" a grid or the
-neurons' wiring, "pattern" a stimulus).
+Steps 4-8 cover the neuron model, the temporal filter, the stimulus, the grid
+arrangement and the receptive-field builder; step 9 sends you to `reference.md`, beside
+this file, for the solver, the processing layer and the event converter. Ask what the user
+needs by meaning, not by the word they chose ("adaptation" may be a neuron or a filter,
+"layout" a grid or the neurons' wiring, "pattern" a stimulus, "events" a converter).
 
-**Steps.** Read the working style; Is it already there?; Get the model from the user; Scaffold the package; A neuron model; A temporal filter; A stimulus; A grid arrangement; A receptive-field builder; Check it; Use it.
+**Steps.** Read the working style; Is it already there?; Get the model from the user; Scaffold the package; A neuron model; A temporal filter; A stimulus; A grid arrangement; A receptive-field builder; A solver, a processing layer, an event converter; Check it; Use it.
 
 **Also covers.** Verify.
 

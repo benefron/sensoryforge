@@ -1,6 +1,6 @@
 ---
 name: sensoryforge-extend-pipeline
-description: Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement) and a receptive-field builder. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, or says SensoryForge cannot do what they need, in whatever words they put it.
+description: Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement), a receptive-field builder, an ODE solver, a processing layer and an event converter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, integration method, a step between sensing and wiring, a way to turn drive into events, or says SensoryForge cannot do what they need, in whatever words they put it.
 ---
 
 # Extend the pipeline with a new component
@@ -9,10 +9,11 @@ A component is one part of the pipeline that a config names: a neuron model, a t
 filter, and so on. You add one as its own small package, so nothing inside SensoryForge is
 edited and the user's install stays as it is. You end with a package that passes the
 contract check, shows up in `sensoryforge list-components`, and is used from a config.
-This skill covers the neuron model, the temporal filter, the stimulus, the grid
-arrangement and the receptive-field builder; ask what the user needs by meaning, not by
-the word they chose ("adaptation" may be a neuron or a filter, "layout" a grid or the
-neurons' wiring, "pattern" a stimulus).
+Steps 4-8 cover the neuron model, the temporal filter, the stimulus, the grid
+arrangement and the receptive-field builder; step 9 sends you to `reference.md`, beside
+this file, for the solver, the processing layer and the event converter. Ask what the user
+needs by meaning, not by the word they chose ("adaptation" may be a neuron or a filter,
+"layout" a grid or the neurons' wiring, "pattern" a stimulus, "events" a converter).
 
 ## 0. Read the working style
 
@@ -42,7 +43,7 @@ came from (the user, a source they approved). Do not fill in an equation, a time
 or a threshold from memory, and do not keep the scaffold's placeholder numbers as if they
 were a model: they are there so the package runs. Write down before coding: what goes in
 and what comes out (with units), each parameter with its unit and range, and one case the
-user can check by hand (a step in, what comes out).
+user can check by hand.
 
 ## 3. Scaffold the package
 
@@ -51,14 +52,13 @@ sensoryforge new-component neuron NAME --dest .
 sensoryforge new-component innervation NAME --dest .
 ```
 
-The kind is neuron, filter, stimulus, grid, or innervation for a
-receptive-field builder. It writes `sensoryforge-NAME/`: `pyproject.toml` with the
-entry point, a module with the class and a `register()` function, a contract test in
-its own test folder and a README. It refuses
-to write inside the installed package. Replace the placeholder body with the user's
-model; keep the class's shape (below). Registered names are matched without regard to
-case, and a different class under a taken name is refused; an identical repeat is
-harmless, so `register()` may run twice.
+The kind is neuron, filter, stimulus, grid, solver, or innervation for a receptive-field
+builder (a processing layer has no scaffold). It writes `sensoryforge-NAME/`:
+`pyproject.toml` with the entry point, a module with the class and a `register()`
+function, a contract test and a README; it refuses to write inside the installed package.
+Replace the placeholder body with the user's model; keep the class's shape (below).
+Registered names are matched without regard to case, and a different class under a taken
+name is refused; an identical repeat is harmless, so `register()` may run twice.
 
 ## 4. A neuron model
 
@@ -149,7 +149,13 @@ weights of one population.
   accepts `neuron_centers=None`.
 - **Names.** `sensoryforge list-components` shows the taken ones (`gaussian` and others).
 
-## 9. Check it
+## 9. A solver, a processing layer, an event converter
+
+Read `reference.md`, in the same folder as this file, for the section of the kind the
+user needs. Each states what the engine does with the class, the trap no shape test
+catches, and what reaches a run today.
+
+## 10. Check it
 
 The package's own test calls `check_component(KIND, Class)` from
 `sensoryforge.testing.contracts`, which checks the parameter spec, one pass with the
@@ -161,7 +167,7 @@ lines of Python, as the example below does. Then add a test of the user's own ca
 check says the component is well formed, not that it is right. If the check fails, the
 message names the class and the rule; fix the class, not the check.
 
-## 10. Use it
+## 11. Use it
 
 Install the folder into the same environment (`python -m pip install ./sensoryforge-NAME`;
 pip's editable mode while it is still changing), and `sensoryforge list-components` shows
@@ -184,13 +190,12 @@ stimuli:
 ```
 
 That is only the part of a config that names the components (leave out the lines for
-kinds you did not add): write it into the user's
-real config (`sensoryforge describe --schema config` lists the rest) and run
-`sensoryforge validate --json CONFIG`.
-A population has fields the user may not have given (its name, its neuron type, the
-initial value of a state variable): leave them out and ask, or write them and say plainly
-that they are placeholders for the user to settle. Report the package folder, the names it registers,
-the checks that passed, and the values that came from the user.
+kinds you did not add): write it into the user's real config
+(`sensoryforge describe --schema config` lists the rest) and run
+`sensoryforge validate --json CONFIG`. A population has fields the user may not have given
+(its name, its neuron type, a state variable's start value): leave them out and ask, or
+write them and say that they are placeholders. Report the package folder, the names it
+registers, the checks that passed, and the values that came from the user.
 
 ## Verify
 

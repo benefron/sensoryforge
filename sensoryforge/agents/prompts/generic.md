@@ -9,7 +9,9 @@ user's own tool, not one you pick: if you do not know which it is, ask before st
    - `README.md`: what to read and in what order, and every skill with the situation it is
      for;
    - `<skill name>/SKILL.md`: one skill each, with front matter (`name`, `description`)
-     and instructions in markdown;
+     and instructions in markdown (`sensoryforge-extend-pipeline` also has a `reference.md`
+     beside its `SKILL.md`, which that file points at; keep it there, or put its text after the
+     skill's own where the format allows one file per skill);
    - `sensoryforge-glossary.md`: the words the skills use, linked from them as
      `../sensoryforge-glossary.md`.
 2. **Find this environment's format in its own documentation.** Look for where it keeps

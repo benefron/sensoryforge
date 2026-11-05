@@ -12,6 +12,7 @@ import pytest
 from sensoryforge import describe as dsc
 from sensoryforge.agents import style
 from sensoryforge.cli import create_parser
+from sensoryforge.testing.skill_examples import skill_text
 
 REPO = Path(__file__).resolve().parents[2]
 GLOSSARY = REPO / "docs" / "agents" / "glossary.md"
@@ -142,7 +143,7 @@ def test_every_term_a_skill_uses_is_in_the_glossary(path):
     known = _known_elsewhere()
     missing = [
         w
-        for w in _plain_words(path.read_text(encoding="utf-8"))
+        for w in _plain_words(skill_text(path))
         if not _in_glossary(w) and w.lower() not in known
     ]
     assert (

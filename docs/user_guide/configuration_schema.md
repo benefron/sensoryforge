@@ -231,7 +231,7 @@ solver_config:
 |-------|------|---------|-------------|
 | `enabled` | bool | `True` | Whether this population is enabled for simulation |
 | `input_gain` | float | `50.0` | Input gain multiplier |
-| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on a built-in neuron model and to no floor otherwise; `-.inf` disables it (D-43dc520) |
+| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on any neuron model except `level_crossing` and the DSL (a plugin model included) and to no floor otherwise; `-.inf` disables it (D-43dc520) |
 | `voltage_probes` | int, list of int, `"all"` or null | `null` | Opt-in: which neurons' membrane voltage the run's bundle keeps (a count `K` of evenly spaced neurons, a list of neuron ids, or `"all"`); overrides `simulation.voltage_probes` for this population. Raises `ValueError` at bundle time if the neuron model returns no voltage. See [Voltage probes](bundles.md#voltage-probes-schema-240) |
 | `seed` | int | `None` | Random seed for innervation generation |
 

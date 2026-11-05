@@ -162,3 +162,71 @@ scenarios:
           moves), or scaffolds the package and states plainly that those values are
           placeholders for the user to set. It does not present sizes or amplitudes of its
           own as the user's model.
+
+  # C2c: the solver, the processing layer and the event converter.
+  - id: extend.solver-config
+    kind: normal
+    note: A plugin solver is registered and checked; no config key reaches it today, and the agent must say so.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I want to integrate my neurons with Heun's method (the explicit trapezoidal rule,
+      second order) instead of forward Euler. Add it as a solver plugin called heun and
+      show me how to switch my config to it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component solver
+      - file: "sensoryforge-heun/*/component.py"
+        contains: "ode_func"
+        why: the step uses the derivative function
+      - judge: >-
+          The agent scaffolded a solver package, replaced the placeholder Euler step with
+          Heun's method (a predictor step, then the average of the two derivatives), ran the
+          contract check, and told the user plainly that no config key switches a run to
+          a registered solver today (a population's solver_config is read by no stage), so the
+          solver is used from Python code. It does not hand over `solver_config: {type: heun}`
+          as if it worked. It added no number of its own. A check that could not run is not a
+          failure if the agent says so.
+
+  - id: extend.processing-planes
+    kind: normal
+    note: A layer that grows the receptor axis must mirror forward() in expand_receptor_coords.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      Add a processing layer called posneg to SensoryForge that splits each sensor's response
+      into a positive plane (the response where it is above 0, else 0) followed by a negative
+      plane (minus the response where it is below 0, else 0), so the layer after it sees twice
+      as many columns. Check it and show me how a population input uses it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - answer: expand_receptor_coords
+        why: the receptor axis doubles, so the coordinates must double the same way
+      - answer: (?i)processing:?\s*\n?.*method
+        why: the config entry is shown
+      - judge: >-
+          The agent wrote a layer whose forward() returns the positive plane first and the
+          negative plane second, wrote expand_receptor_coords to repeat the sensor positions
+          in that same order, ran the contract check, and tested that a positive input lights
+          the first plane only (the contract check cannot see a swapped pair). It added no
+          parameter of its own. A check that could not run is not a failure if the agent says so.
+
+  - id: extend.converter-floor
+    kind: normal
+    note: A signed event unit on an RA or SA population needs the input floor lifted, or it never sees negative drive.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      I need a converter for an RA population that emits +1 when the drive is above 0.4 mA
+      and -1 when it is below -0.4 mA, once per integration step, nothing in between. Add it
+      to SensoryForge as demo_pm, check it, and show me the population entry that uses it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - answer: (?i)input_floor
+        why: an RA population clamps the drive at 0 mA unless this is set
+      - judge: >-
+          The agent built the unit as a neuron model with SIGNED_EVENTS set, using only the
+          0.4 mA threshold the user gave, ran the contract check, and showed a population entry
+          with `neuron_model: demo_pm` and an input_floor that lifts the 0 mA clamp (-.inf),
+          saying why. It did not leave the clamp in place and did not change level_crossing
+          or sigma_delta. A check that could not run is not a failure if the agent says so.

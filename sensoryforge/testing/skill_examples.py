@@ -22,7 +22,8 @@ Example:
 
 Topic: testing
 Tests: tests/unit/test_agent_skills.py
-Entry points: Step, StepResult, parse_example, run_example, example_section
+Entry points: Step, StepResult, parse_example, run_example, example_section,
+    skill_text
 Do not change without: skills ship to users who have only SensoryForge installed, so an
     example runs only ``sensoryforge`` and ``python`` and reads nothing from the
     repository.
@@ -76,14 +77,32 @@ class StepResult:
     output: str
 
 
+def skill_text(skill_md: Path) -> str:
+    """A skill's ``SKILL.md`` and, when it has one, the ``reference.md`` beside it.
+
+    Every check that reads a skill (commands, links, names, the example) reads both, so
+    the detail a skill keeps in its reference file is held to the same rules.
+    """
+    skill_md = Path(skill_md)
+    text = skill_md.read_text(encoding="utf-8")
+    extra = skill_md.parent / "reference.md"
+    if extra.is_file():
+        text += "\n" + extra.read_text(encoding="utf-8")
+    return text
+
+
 def example_section(text: str) -> Optional[str]:
-    """The text of the ``## Worked example`` section, or ``None`` when there is none."""
-    match = re.search(rf"^{re.escape(HEADING)}[ \t]*$", text, re.M)
-    if match is None:
-        return None
-    rest = text[match.end() :]
-    nxt = re.search(r"^## ", rest, re.M)
-    return rest[: nxt.start()] if nxt else rest
+    """The text of the ``## Worked example`` section(s), or ``None`` when there is none.
+
+    A skill with a reference file may have a second section of that name there; they
+    are joined in order.
+    """
+    parts = []
+    for match in re.finditer(rf"^{re.escape(HEADING)}[ \t]*$", text, re.M):
+        rest = text[match.end() :]
+        nxt = re.search(r"^## ", rest, re.M)
+        parts.append(rest[: nxt.start()] if nxt else rest)
+    return "\n".join(parts) if parts else None
 
 
 def parse_example(text: str) -> List[Step]:
@@ -183,7 +202,7 @@ def run_example(
             exit status or the output the example states, or a file would be written
             outside ``workdir``.
     """
-    steps = parse_example(Path(skill_md).read_text(encoding="utf-8"))
+    steps = parse_example(skill_text(skill_md))
     if not any(s.kind == "command" for s in steps):
         raise ValueError(f"{skill_md}: no worked example with commands")
     workdir = Path(workdir).resolve()

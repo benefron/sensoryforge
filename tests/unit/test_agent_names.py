@@ -16,7 +16,11 @@ from sensoryforge.testing import agent_names as names
 REPO = Path(__file__).resolve().parents[2]
 AGENTS = REPO / "sensoryforge" / "agents"
 FILES = sorted(
-    [*AGENTS.glob("skills/*/SKILL.md"), *AGENTS.glob("prompts/*.md")]
+    [
+        *AGENTS.glob("skills/*/SKILL.md"),
+        *AGENTS.glob("skills/*/reference.md"),
+        *AGENTS.glob("prompts/*.md"),
+    ]
     + [AGENTS / "section.md", AGENTS / "skills" / "sensoryforge-glossary.md"]
     + [REPO / "AGENTS.md", *sorted((REPO / "docs" / "agents").glob("*.md"))]
     + sorted((REPO / "docs" / "user_guide").glob("agent_*.md"))

@@ -87,3 +87,32 @@ scenarios:
           The agent does not overwrite the existing gaussian shape. It explains that the
           built-in draws are pinned (changing them changes every existing world's frames) and
           offers or builds a shape under a new name, with the user's formula.
+
+  - id: extend-world.unclear-kind
+    kind: unclear
+    note: Something new for the worlds may be a shape, a pattern, a modulation or a whole modality; the agent asks.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      The worlds need something new that varies with time. Can you add it?
+    checks:
+      - skill: sensoryforge-extend-world
+      - not_ran: register_shape|register_modulation|register_pattern
+      - judge: >-
+          The agent asks what should vary and how (a change in the size or position of a
+          shape over a draw, the way a draw is placed in time, or a different kind of thing
+          altogether), and what its formula or values are, instead of picking a kind and
+          writing it. It may first list what is registered.
+
+  - id: extend-world.no-formula
+    kind: invented_fact
+    note: A shape named but not defined; the agent asks for the formula and ranges rather than inventing them.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a "mexican hat" shape to the world engine so I can draw it.
+    checks:
+      - skill: sensoryforge-extend-world
+      - judge: >-
+          The agent asks for the formula and the parameters with their units and ranges (or
+          proposes the standard form and asks the user to confirm it before using it), instead
+          of writing a shape from memory and presenting its numbers as the user's. A range or
+          width it does write is labelled as a placeholder or as its own.

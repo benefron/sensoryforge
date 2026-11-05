@@ -236,7 +236,8 @@ def test_export_writes_the_chosen_targets_folder(tmp_path, monkeypatch, capsys):
     )
     out = capsys.readouterr().out
     assert (
-        f"{len(ins.packaged_skills()) + 1} added" in out
+        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 1} added"
+        in out
         and str(tmp_path.resolve() / ".github" / "skills") in out
     )
     assert (
@@ -286,7 +287,10 @@ def test_export_check_exits_nonzero_until_the_files_are_current(
     assert run(monkeypatch, *args) == 0
     capsys.readouterr()
     assert run(monkeypatch, *args, "--check") == 0
-    assert f"{len(ins.packaged_skills()) + 1} current" in capsys.readouterr().out
+    assert (
+        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 1} current"
+        in capsys.readouterr().out
+    )
     (tmp_path / ".agents" / "skills" / ins.GLOSSARY_NAME).write_text("x", "utf-8")
     assert run(monkeypatch, *args, "--check") == 1
     assert "stale" in capsys.readouterr().out
@@ -591,6 +595,26 @@ def test_a_skill_a_release_dropped_is_stale_and_install_removes_it(tmp_path):
     assert [p.parent.name for p, _ in removed] == ["sensoryforge-old"]
     assert not old.exists()
     assert all(s == "current" for _, s in ins.check(tmp_path))
+
+
+def test_a_dropped_skill_takes_its_generated_reference_file_with_it(tmp_path):
+    ins.install(tmp_path)
+    old = _drop_a_skill(tmp_path)
+    spec = ins.EXPORT_TARGETS["claude"]
+    (old / "reference.md").write_text(ins.render_glossary("detail", spec))
+    ins.install(tmp_path)
+    assert not old.exists()
+
+
+def test_a_skill_reference_file_is_exported_beside_its_skill(tmp_path):
+    ins.install(tmp_path)
+    name, source = ins.packaged_references()[0]
+    written = tmp_path / ".claude" / "skills" / name / "reference.md"
+    spec = ins.EXPORT_TARGETS["claude"]
+    assert written.read_text(encoding="utf-8") == ins.render_glossary(
+        source.read_text(encoding="utf-8"), spec
+    )
+    assert ins.GENERATED_MARK in written.read_text(encoding="utf-8")
 
 
 def test_a_dropped_skill_folder_with_other_files_keeps_them(tmp_path):

@@ -34,8 +34,9 @@ Example:
 Topic: agents
 Tests: tests/unit/test_agent_skills.py, tests/unit/test_agent_export.py
 Entry points: install, check, instructions, detect_targets, register_target,
-    packaged_skills, packaged_glossary, packaged_prompt, packaged_section,
-    glossary_path, EXPORT_TARGETS, Target, SKILLS_RELPATH, GLOSSARY_NAME
+    packaged_skills, packaged_references, packaged_glossary, packaged_prompt,
+    packaged_section, glossary_path, EXPORT_TARGETS, Target, SKILLS_RELPATH,
+    GLOSSARY_NAME, REFERENCE_NAME
 Pinned by: docs/developer_guide/agent_files.md, docs/user_guide/agent_export.md
 Do not change without: the glossary sits beside the skill folders in the package and
     in every target, so a link from a skill to ``../sensoryforge-glossary.md`` works in
@@ -55,6 +56,9 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 GLOSSARY_NAME = "sensoryforge-glossary.md"
 """The glossary's file name, beside the skill folders (package and project)."""
+
+REFERENCE_NAME = "reference.md"
+"""A skill's reference file, beside its ``SKILL.md`` (a skill may have one)."""
 
 INDEX_NAME = "README.md"
 """The generic target's README: what to read, in what order, and the skills it wrote."""
@@ -207,6 +211,18 @@ def packaged_skills() -> List[Tuple[str, Path]]:
     return sorted((p.parent.name, p) for p in _PACKAGED.glob("*/SKILL.md"))
 
 
+def packaged_references() -> List[Tuple[str, Path]]:
+    """The reference files that ship beside a skill (``<name>/reference.md``).
+
+    A skill past about 300 lines keeps its per-kind detail in one ``reference.md`` that
+    its ``SKILL.md`` points at; each is exported beside its skill.
+
+    Returns:
+        ``(skill name, reference.md path)`` pairs sorted by name.
+    """
+    return sorted((p.parent.name, p) for p in _PACKAGED.glob("*/reference.md"))
+
+
 def packaged_glossary() -> Path:
     """The glossary that ships with this release (a copy of the docs page)."""
     return _PACKAGED / GLOSSARY_NAME
@@ -322,7 +338,9 @@ def render_index(target: Target) -> str:
         "in its own documentation or from the user, never from memory alone. If it "
         "reads the folder-per-skill layout, copy these folders as they are, with the "
         "glossary beside them. Otherwise write one file per skill in its format, "
-        "keeping each skill's text and commands unchanged. "
+        "keeping each skill's text and commands unchanged; a skill folder that also "
+        f"holds `{REFERENCE_NAME}` (its `SKILL.md` points at it) keeps that file "
+        "beside the skill, or its text goes after the skill's own. "
         "`sensoryforge agents prompt generic` is the full instruction.",
         "",
         "## Build the project's instruction file",
@@ -359,6 +377,13 @@ def planned_files(target: str = "claude") -> List[Tuple[Path, str]]:
         )
         for name, path in packaged_skills()
     ]
+    files.extend(
+        (
+            spec.skills_dir / name / REFERENCE_NAME,
+            render_glossary(path.read_text(encoding="utf-8"), spec),
+        )
+        for name, path in packaged_references()
+    )
     files.append(
         (
             spec.skills_dir / GLOSSARY_NAME,
@@ -446,6 +471,13 @@ def install(project: Path, target: str = "claude") -> List[Tuple[Path, str]]:
     for path, generated in _dropped_skills(project, target):
         if generated:
             path.unlink()
+            extra = path.parent / REFERENCE_NAME
+            if (
+                extra.is_file()
+                and GENERATED_MARK
+                in extra.read_text(encoding="utf-8", errors="replace")[:2000]
+            ):
+                extra.unlink()
             try:
                 path.parent.rmdir()  # only when nothing else is in it
             except OSError:

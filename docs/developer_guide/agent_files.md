@@ -102,23 +102,25 @@ Each target is written by one command and checked in CI against its source (see 
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (18 used) |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section, a skill's reference file) | **19** (19 used) |
 | of which skills (`SKILL.md` files) | **14** |
-| Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
+| Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 19. `sensoryforge-extend-pipeline` has the only one (`reference.md`: the solver, processing layer and event converter); exports write it beside the skill |
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires with the extension skills) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
 Shipped: twelve skills, setup, design-and-plan, design-world, ground-assumptions,
 build-dataset, run-simulation, evaluate, diagnose, interpret-report, the master skill,
-workflow, extend-pipeline, which so far covers the neuron model, the temporal
-filter, the stimulus, the grid arrangement and the receptive-field builder, and extend-world,
+workflow, extend-pipeline, which covers the neuron model, the temporal
+filter, the stimulus, the grid arrangement and the receptive-field builder in its
+`SKILL.md` and the solver, the processing layer and the event converter in its `reference.md`, and extend-world,
 which covers the world shape, pattern, modulation, distribution and the class kind of another
 modality ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
-14: more kinds in extend-pipeline (solver, processing layer, event converter), extend-evaluation
-(the evaluation seams) and the plugin lifecycle. Files: those three leave room for no extra
-reference file, so the limit of 18 is reached; the next file (a reference file for
-extend-pipeline, or a skill) raises it here first, with the reason. A change that would pass a limit merges skills or raises the limit here first,
-with the reason.
+14: extend-evaluation (the evaluation seams) and the plugin lifecycle. Files: the limit
+rose from 18 to 19 for extend-pipeline's reference file (it held 295 of 300 lines before the solver,
+processing layer and converter sections, and a fourth skill for them would have been a
+fifteenth); those two skills take it to 21, which is raised here when each is written.
+A change that would pass a limit merges skills or raises the limit here first, with the
+reason.
 
 ## Keeping the agent files current
 
