@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-b4d75c0 · CLOSED · decision · - · 2026-11-05
+a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
+→ commit 400d5d8
+
+## F-567af3c · STANDING · finding · - · 2026-11-05
+an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
+→ commit 400d5d8
+
+## F-74f5c58 · OPEN · finding · - · 2026-11-05
+no config key or stage builds a registered plugin solver (solver_config is unread by the engine, get_solver() ignores SOLVER_REGISTRY, NeuronModel.compile accepts only euler); a candidate for C4 or a later row
+→ commit 400d5d8
+
+## F-8e2b55e · OPEN · finding · - · 2026-11-05
+new-component solver scaffolds to_dict()["type"] as the class name lowercased minus "solver" (demork2), not the registered name (demo_rk2), and new-component has no processing-layer kind
+→ commit 400d5d8
+
 ## F-e1c618e · STANDING · finding · - · 2026-11-03
 a skill whose description covers only the add case is not loaded for the "is there one already" question, and the agent then reads the wrong registry (list-components, not describe --section world).
 → commit be4a4c8
@@ -250,6 +266,7 @@ the ground-assumptions skill is not loaded for a number with no unit or a value 
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
 ↔ be4a4c8 fix(agents): extend-world skill covers asking and placeholder defaults; its four scenarios
+↔ 400d5d8 feat(agents): extend-pipeline covers solver, processing layer and event converter (C2c)
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)

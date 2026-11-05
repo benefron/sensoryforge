@@ -1142,4 +1142,5 @@ Do not hand-edit between the markers.
 | 2026-11-03 | D-2293851 | world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves | `d68c86a` |
 | 2026-11-03 | D-6cf4332 | cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review | `9449397` |
 | 2026-11-03 | D-c7ab774 | world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full. | `31422a5` |
+| 2026-11-05 | D-b4d75c0 | a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14 | `400d5d8` |
 <!-- DECISIONS_LOG_END -->
