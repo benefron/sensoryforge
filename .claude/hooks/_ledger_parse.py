@@ -46,7 +46,7 @@ every clone and branch, so two machines or two branches can never hand out one i
 rebase or squash-merge leaves the id intact. Legacy sequential ids (`F-014`) are still parsed
 everywhere and never renumbered.
 
-ledger-template-version: 10
+ledger-template-version: 11
 """
 import datetime
 import hashlib
@@ -1066,9 +1066,17 @@ def tidy_report(ledger, root, max_open=22):
     by_commit = {}
     for e in entries:
         by_commit.setdefault(entry_commit(e), []).append(e)
+    by_id_all = {e['id']: e for e in entries}
 
-    def line(e, why, act, width=90):
-        return f"- {e['id']} · {entry_text(e)[:width]} — {why} → {act}"
+    def line(e, why, act, width=240):
+        # the entry in words first (a person judges it from the page), the id last (for lookup)
+        t = entry_text(e)
+        t = t if len(t) <= width else t[:width].rstrip() + ' …'
+        return f"- {t} — {why} → {act} [{e['id']}]"
+
+    def gist(e, width=90):
+        t = entry_text(e)
+        return t if len(t) <= width else t[:width].rstrip() + ' …'
 
     def section(title, items, cap=25):
         if items:
@@ -1095,7 +1103,9 @@ def tidy_report(ledger, root, max_open=22):
         if fact.search(entry_text(e)):
             settled.append(line(e, 'reads like a settled result', 'STANDING (a fact) or CLOSED'))
         elif partners:
-            settled.append(line(e, f'opened in the same commit as {", ".join(partners)}',
+            said = '; '.join(f'"{gist(by_id_all[x])}" [{x}]' for x in partners[:2]) + (
+                f' and {len(partners) - 2} more' if len(partners) > 2 else '')
+            settled.append(line(e, f'opened in the same commit as the decision {said}',
                                 'CLOSED if that decision resolved it'))
         elif re.match(r'fix\b|fix[(:]', subj):
             settled.append(line(e, f'born in a fix commit ({c})', 'CLOSED if the fix covers it'))
@@ -1150,9 +1160,9 @@ def tidy_report(ledger, root, max_open=22):
                 continue
             for b, tb in group[i + 1:]:
                 if similar(ta, tb):
-                    dups.append(f"- {a['id']} ≈ {b['id']} · {entry_text(a)[:60]} | {entry_text(b)[:60]}"
+                    dups.append(f'- "{gist(a, 120)}" ≈ "{gist(b, 120)}"'
                                 f" → same thing (Supersedes: <older> by <newer>), a refinement, or a"
-                                f" contradiction to settle")
+                                f" contradiction to settle [{a['id']} ≈ {b['id']}]")
     section('Similar entries — duplicate, refinement or contradiction?', dups)
 
     # 3b. open items that mirror another register's item: show its status there
@@ -1173,7 +1183,7 @@ def tidy_report(ledger, root, max_open=22):
             act = f'keep ({len(closed)} of {len(states)} closed there — reword to what is still open?)'
         else:
             act = 'still open there — keep'
-        mirrors.append(line(e, summary, act, width=60))
+        mirrors.append(line(e, summary, act))
     section('Mirrors of another register — its status beside the ledger\'s', mirrors, cap=30)
 
     # 4. entries with no content of their own
@@ -1227,7 +1237,7 @@ def tidy_report(ledger, root, max_open=22):
         name = ', '.join(succ) or (f'commit {sha}' if sha else '<what replaced it>')
         unlinked.append(line(e, f'superseded by {name}; its section "{sec["heading"].lstrip("# ")[:50]}" '
                                 f'still reads as current',
-                             f'add "**Superseded by:** {name}" to its section in {dec_rel}', width=70))
+                             f'add "**Superseded by:** {name}" to its section in {dec_rel}'))
     section('Superseded decisions whose record section has no back-link', unlinked)
 
     # 6b. the paper's `lore stale`, and decisions taken on low confidence
