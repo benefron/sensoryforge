@@ -1172,3 +1172,156 @@ python use_world.py
 # prints: contract ok
 # prints: frames (6, 3, 8, 8) lit True
 ```
+
+## Extend the evaluation
+
+`sensoryforge-extend-evaluation`
+
+**When an agent uses it.** Add a metric pack or a declared adapter to SensoryForge's evaluation, as a plugin that passes the contract check. A metric pack is what the audit measures; a declared adapter is what a data set's own declaration says each entry should show; together they let the evaluation measure something new or work on data from another sense. Use when someone asks whether the audit can measure a quantity it does not, wants a new statistic or metric over generated data, wants to compare the data against what their world file declares for a world SensoryForge has no adapter for, wants to evaluate data from vision, hearing or any other modality, or asks how to add a check, a metric or a report column, in whatever words they put it.
+
+The evaluation reads a generated data set twice and sets the two readings side by side.
+The **audit** measures it blind, from the frames and responses alone, with **metric
+packs**. The **declared stage** reads what the data set's own declaration says each entry
+should show, with a **declared adapter**, in the same metric ids and units. Both are
+looked up by name in a registry, so you add one by registering it from a small plugin;
+nothing inside SensoryForge is edited. You end with a plugin that passes the contract
+check on a real data set, and a report the user has read. A new neuron, filter or grid is
+`sensoryforge-extend-pipeline`; a new stimulus or a world for another modality is
+`sensoryforge-extend-world`.
+
+**Steps.** Read the working style; Which seam, and is it already there?; Get the definition from the user; A metric pack; A declared adapter; Check it; Use it.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A pack that counts the sensors that ever pass half of full scale, and an adapter that
+declares only each entry's duration (it reads the manifest), checked against a small data
+set and run:
+
+```yaml
+# file: world.yml
+world:
+  name: demo
+  defaults:
+    delay_ms:   {range: [0, 10]}
+    touch_ms:   {range: [5, 15]}
+    hold_ms:    {range: [20, 40]}
+    release_ms: {range: [5, 15]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.3, 0.3]}
+    y_mm: {range: [-0.3, 0.3]}
+  classes:
+    dots:
+      weight: 1.0
+      layer: {shape: {kind: gaussian}}
+      axes: {sigma_mm: {range: [0.15, 0.45]}}
+```
+
+```python
+# file: demo_eval.py
+"""An evaluation plugin: a metric pack and a declared adapter."""
+from sensoryforge.evaluate.audit.units import QUANTITIES, unit_of
+from sensoryforge.evaluate.declared import Declaration, DeclaredAdapter
+from sensoryforge.evaluate.pack import MetricPack, metric_definition
+from sensoryforge.evaluate.registry import (
+    DECLARED_ADAPTER_REGISTRY,
+    METRIC_PACK_REGISTRY,
+)
+
+PEAKS = "peaks.frames.n_sensors_over_half"
+
+
+class PeakCount(MetricPack):
+    """How many sensors ever pass half of 1 in an entry's frames."""
+
+    name = "peaks"
+    version = "1"
+
+    def metrics(self, layout, units, dt=None):
+        return [metric_definition(PEAKS, None, scope="entry", value_type="integer")]
+
+    def measure(self, view):
+        # view.frames is [T, C, M]; the view holds nothing of the world's declaration.
+        return [{"id": PEAKS, "value": int((view.frames.max(axis=(0, 1)) > 0.5).sum())}]
+
+
+class DurationOnly(DeclaredAdapter):
+    """Declares only the entry's duration, which the manifest states."""
+
+    name = "duration_only"
+    version = "1"
+
+    @classmethod
+    def accepts(cls, dataset_meta):
+        return "dataset_id" in dataset_meta
+
+    def load(self, dataset_meta):
+        return dict(dataset_meta)
+
+    def describe(self, dataset_meta, world):
+        return {
+            "dataset_id": str(world["dataset_id"]),
+            "world_id": str(world.get("world_id", "")),
+            "world_format": "none",
+        }
+
+    def units(self, world):
+        return {q: None for q in QUANTITIES}
+
+    def metrics(self, units):
+        return [
+            {
+                "id": "core.frames.duration",
+                "unit": unit_of("time", units),
+                "basis": "manifest",
+                "source": "the manifest's duration_ms",
+            }
+        ]
+
+    def declare(self, row, world):
+        value = {"id": "core.frames.duration", "value": float(row["duration_ms"])}
+        return Declaration(values=[value], omitted=[])
+
+    def bounds(self, world):
+        return []
+
+
+def register():
+    METRIC_PACK_REGISTRY.register("peaks", PeakCount)
+    DECLARED_ADAPTER_REGISTRY.register("duration_only", DurationOnly)
+```
+
+```python
+# file: use_eval.py
+"""Register an evaluation plugin, check it against a data set, and run it."""
+import json
+
+from sensoryforge.evaluate.audit.run import run_audit
+from sensoryforge.evaluate.declared import run_declared
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.testing.evaluate_contracts import check_evaluation_component
+
+print("loaded", len(load_plugin_import_paths(["demo_eval:register"])))
+print("loaded again", len(load_plugin_import_paths(["demo_eval:register"])))
+
+data = "runs/demo"
+check_evaluation_component("metric_pack", "peaks", example=data)
+check_evaluation_component("declared_adapter", "duration_only", example=data)
+print("contract ok")
+
+audit = run_audit(data, "runs/demo/plugin", packs=["core", "peaks"])
+row = json.loads(open("runs/demo/plugin/audit_entries.jsonl").readline())
+print("peaks", [v["value"] for v in row["values"] if v["id"] == "peaks.frames.n_sensors_over_half"])
+declared = run_declared(data, "runs/demo/plugin", adapter="duration_only")
+print("declared", [m["id"] for m in declared["metrics"]], "rows", declared["entries"]["n"])
+```
+
+```bash
+sensoryforge evaluate run world.yml --out runs/demo --preset tactile_sa1_ra1_adex --draws 6 --duration-ms 80 --seed 7 --packs core,tactile
+# prints: 0 failed
+python use_eval.py
+# prints: loaded again 1
+# prints: contract ok
+# prints: declared ['core.frames.duration'] rows 6
+```

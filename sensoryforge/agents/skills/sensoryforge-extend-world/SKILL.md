@@ -118,7 +118,7 @@ check from a few lines of Python, as the example does.
 
 ## 5. Use it
 
-Package the module (a folder with `pyproject.toml` and a `sensoryforge.plugins` entry
+Package the module (a folder with `pyproject.toml` and a `sensoryforge.components` entry
 point to the register function, as `sensoryforge new-component` writes for the other
 kinds) and install it into the same environment; the world commands then see the new
 names. Or load it in Python: `load_plugin_import_paths(["module:register"])`. Write a

@@ -134,6 +134,21 @@ Rules that keep the two sides comparable:
   is. Never register it from `sensoryforge/evaluate/registry.py`: that module is inside the
   audit's wall.
 
+Check it against a data set (the folder needs `dataset.json` and `manifest.jsonl`; the
+bundles are not read):
+
+```python
+from sensoryforge.testing.evaluate_contracts import check_evaluation_component
+
+check_evaluation_component("declared_adapter", "my_modality", example="runs/demo")
+```
+
+It fails when the adapter's name is not the registered one, `accepts()` refuses the data
+set, the catalogue repeats an id or lacks a key, a value or an omission names an id outside
+the catalogue, an omission has no reason, the rows are not one per manifest entry in
+entry-id order, values are out of catalogue order, or two runs differ. The agent skill
+`sensoryforge-extend-evaluation` walks through the same steps.
+
 `sensoryforge/evaluate/tactile/declared.py` is the worked example; its tests
 (`tests/unit/test_declared.py`) re-derive the timeline values from the manifest alone and
 check the shape values against the world's own renderer.

@@ -126,6 +126,12 @@ file. A distribution that needs options, and a class kind (which is checked on a
 world you give it), take an `example=`. The rules for each kind are listed in
 [Extensibility](extensibility.md#world-registries).
 
+The evaluation's two plug-in points, a metric pack and a declared adapter, are checked the
+same way, on a data set you have built, with
+`sensoryforge.testing.evaluate_contracts.check_evaluation_component(kind, name, example=folder)`;
+see [the audit's metrics](audit_metrics.md#check-a-pack) and
+[the declared side](declared_adapter.md).
+
 ## 5. The `plugins:` YAML key (an alternative to entry points)
 
 Besides the installed entry point, any SensoryForge config file can name

@@ -263,6 +263,7 @@ PLACEHOLDERS = {
     "<name>": "mine",
     "<command>": "validate",
     "<N>": "1000",
+    "<adapter-name>": "tactile",
 }
 _ALTERNATIVES = re.compile(r"<([\w-]+(?:\|[\w-]+)+)>")
 _UPPER = re.compile(r"^[A-Z][A-Z_]*(?::[A-Z][A-Z_]*)?$")
@@ -427,10 +428,10 @@ def test_the_docs_section_names_only_skills_that_exist(path):
 
 def test_the_hand_written_agent_files_stay_within_the_budget():
     """``AGENTS.md``, ``CLAUDE.md``, skills, prompts, the section and reference files:
-    19 at most."""
+    20 at most."""
     references = len(list(SKILL_DIR.glob("*/reference.md")))
     count = 2 + len(SKILLS) + len(PROMPTS) + references
-    assert count <= 19, count  # docs/developer_guide/agent_files.md
+    assert count <= 20, count  # docs/developer_guide/agent_files.md
 
 
 def test_python_dash_c_lines_in_the_skills_compile():
