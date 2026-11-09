@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-07a1ad1 · CLOSED · decision · - · 2026-11-09
+recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, and 3 of 188 just under it were looked up anyway
+→ commit 4017376
+
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
 → commit 8459dc6
@@ -121,9 +125,10 @@ phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's requi
 → commit 1744cbc
 ✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
 
-## F-8828df9 · OPEN · finding · docs/development · 2026-11-02
+## F-8828df9 · CLOSED · finding · docs/development · 2026-11-02
 agents/style.py set_hook raises AttributeError on a settings file whose hooks is a list or whose hook entry is a string, after the style file is already saved; an event given as a dict is replaced and a user group with empty hooks is dropped
 → commit 1744cbc
+✓ closed by 4017376 chore(ledger): tidy
 
 ## F-b5abfcd · CLOSED · finding · docs/development · 2026-11-02
 agents export never removes or reports a sensoryforge-* skill that a later release drops, so it keeps loading while export --check says current
@@ -881,10 +886,11 @@ the engine's only space unit is mm and the world's layered fields are named *_mm
 the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it
 → commit f1e184f
 
-## D-423556b · CLOSED · decision · - · 2026-10-22
+## D-423556b · SUPERSEDED · decision · - · 2026-10-22
 the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it
 → commit 5692ef2
 ↔ f1e184f docs(evaluate): mark the report contract accepted after review
+⤳ superseded by D-e292f1a in 4017376 chore(ledger): tidy
 
 ## F-39e80f5 · CLOSED · finding · - · 2026-10-22
 Ben's review of the nine choices Q1-Q9 in section 11 of the report contract before A2a starts
