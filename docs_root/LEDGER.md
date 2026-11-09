@@ -283,6 +283,7 @@ the front-door test that forbids pointing at the repo's retired agent files had 
 
 ## F-d3d0a2b · OPEN · finding · - · 2026-10-28
 the instruction files were checked against each tool's documentation and not run inside the tools, and Copilot's page does not say which editor surfaces read .github/copilot-instructions.md, only github.com chat, the cloud agent and code review
+· tidied 2026-11-09: kept open -- not yet run inside the tools; still real
 → commit c5c12aa
 
 ## D-5d48fdc · CLOSED · decision · - · 2026-10-27
@@ -295,6 +296,7 @@ Claude Code (.claude/skills), GitHub Copilot (.github/skills), Cursor (.cursor/s
 
 ## F-4f3a248 · OPEN · finding · - · 2026-10-27
 the exports were checked against each tool's documentation and not run inside the tools, and a tool that also reads another tool's folder (Copilot and Cursor read .claude/skills and .agents/skills) can list a skill twice when exported for several
+· tidied 2026-11-09: kept open -- not yet run inside the tools; still real
 → commit 1af26dc
 
 ## D-28a4edc · CLOSED · decision · - · 2026-10-27
@@ -408,6 +410,7 @@ D4 ships only the configs a preset cannot give (a canonical batch config and a s
 
 ## A-25817b1 · OPEN · action · - · 2026-10-25
 D4 builds the examples command and its wheel test, and the install page and README link the rest on GitHub; Due: with D4
+· tidied 2026-11-09: kept open -- waits for D4
 → commit e7f8d04
 
 ## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
@@ -441,11 +444,13 @@ the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, 
 
 ## F-c5e90d8 · OPEN · finding · - · 2026-10-24
 examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
+· tidied 2026-11-09: kept open -- D4 has not decided yet
 → commit 9873eb4
 ↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
 
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
+· tidied 2026-11-09: kept open -- still real; no extend extra yet
 → commit 9873eb4
 
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
@@ -480,6 +485,7 @@ a module header is tag lines at the end of its docstring, with a closed topic li
 
 ## F-f324e8a · OPEN · finding · - · 2026-10-24
 127 modules of 40 lines or more still have no header (tests/unit/file_headers_untagged.txt); tag them as they are touched, starting with the GUI screens and the rest of evaluate
+· tidied 2026-11-09: kept open -- ratchet: tag modules as they are touched
 → commit 0ce453c
 
 ## D-d97f27f · CLOSED · decision · - · 2026-10-24
@@ -607,6 +613,7 @@ pins are recorded for chosen points (default the middle sensor and each populati
 
 ## F-1844d82 · OPEN · finding · - · 2026-10-23
 the snapshot cannot answer combined filters, text or seed searches, Random draw, or an unticked gallery signal; each answers "not in this snapshot".
+· tidied 2026-11-09: kept open -- a known limit of the snapshot, not fixed
 → commit f6412d3
 
 ## D-e76de48 · CLOSED · decision · - · 2026-10-23
@@ -798,6 +805,7 @@ core.frames.direction reports a float32-noise angle for still shapes (20 of 28 e
 
 ## F-45aa5a6 · OPEN · finding · docs/development · 2026-10-22
 centroid, direction and speed of a shape the canvas cuts off are biased towards the middle (a sigma 0.3 mm Gaussian on the 1.05 mm test canvas reads 30-55 % slow), and the declared side, not knowing the canvas, still declares them
+· tidied 2026-11-09: kept open -- edge bias still present
 → commit 09f6568
 
 ## D-8b78a55 · CLOSED · decision · - · 2026-10-22
@@ -1013,6 +1021,7 @@ with the other repo's values guarantee 11 covers every exploration (short-episod
 
 ## F-3fe9e9c · OPEN · finding · - · 2026-10-04
 a model session cannot hold both its declared contact fraction and exponential gaps when it holds few gaps; which to keep exact (exponential gaps with the fraction on average, or longer sessions) is the other project's owner's decision
+· tidied 2026-11-09: kept open -- the choice is the other project's owner's and has not been made
 · tidied 2026-10-22: kept open -- the choice it names is the other project's owner's and has not been made
 → commit 0d6c48a
 
@@ -1123,10 +1132,12 @@ v1.1.0 and this branch before any code change give byte-identical world ids, dra
 
 ## F-e9f7b0e · OPEN · finding · docs/development · 2026-10-04
 the world §174 addendum plan's nine provisional decisions (P1-P9: contact types, "touches for", tied fall, lateral-bias family, indenter semantics, background floor, self-affine scale, session layout, dot arrays) await the supervisor's or Ben's answer
+· tidied 2026-11-09: kept open -- still waiting for the supervisor's or Ben's answer
 → commit 6b7c43a
 
 ## F-29e949e · OPEN · finding · docs/development · 2026-10-04
 a 120 s session at 80x80 and 1 ms is 3.1 GB of float32 stimulus that the simulation engine holds whole; the addendum chunks only the rendering
+· tidied 2026-11-09: kept open -- engine still holds the whole stimulus
 · tidied 2026-10-22: kept open -- the Phase A11 scale tests will hit this limit; not a closed fact
 → commit 6b7c43a
 ↔ 5b53366 feat(world): render long entries in time chunks [structural]
