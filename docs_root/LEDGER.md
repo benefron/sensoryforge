@@ -108,6 +108,27 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5a1841e · CLOSED · decision · - · 2026-11-09
+check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check
+· Rejected: validate audit.json and declared.json against schemas/evaluate | the schemas are repo files and a plain install has no clone
+→ commit e0207bc
+
+## F-70d3b00 · OPEN · finding · - · 2026-11-09
+the report contract lists a FRAME_RENDERER_REGISTRY (points, grid, tactile) that was never built; the evaluation server draws channel 0 as a heat map itself, so no plugin can add how a frame is drawn and a data set of three colour channels shows as grey
+→ commit e0207bc
+
+## F-f91c230 · OPEN · finding · - · 2026-11-09
+sensoryforge new-component has no template for a metric pack or a declared adapter, so the extend-evaluation skill has the agent write both by hand
+→ commit e0207bc
+
+## F-44f1c67 · OPEN · finding · - · 2026-11-09
+sensoryforge describe --section evaluation lists only the names of the metric packs, check packs and declared adapters, not their metric ids, so an agent has to read an audit.json to see what exists
+→ commit e0207bc
+
+## F-36f1dd9 · CLOSED · finding · - · 2026-11-09
+the extend-world skill told an agent to register a plugin under the sensoryforge.plugins entry-point group; the group is sensoryforge.components
+→ commit e0207bc
+
 ## D-b4d75c0 · CLOSED · decision · - · 2026-11-05
 a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
 → commit 400d5d8
@@ -997,6 +1018,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 ↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ e0207bc feat(agents): extend-evaluation skill and check_evaluation_component for metric packs and
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger

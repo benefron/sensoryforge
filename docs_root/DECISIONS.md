@@ -1143,4 +1143,5 @@ Do not hand-edit between the markers.
 | 2026-11-03 | D-6cf4332 | cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review | `9449397` |
 | 2026-11-03 | D-c7ab774 | world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full. | `31422a5` |
 | 2026-11-05 | D-b4d75c0 | a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14 | `400d5d8` |
+| 2026-11-09 | D-5a1841e | check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check | `e0207bc` |
 <!-- DECISIONS_LOG_END -->
