@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-83424a9 · STANDING · finding · - · 2026-11-18
+SensoryForge has no plugin version of its own and checks nothing when it loads a plugin, so "sensoryforge>=X" in a plugin's dependencies is only pip's check at install time; an editable install keeps the version metadata it had when installed (0.2.0 beside __version__ 1.3.0 here)
+→ commit 87821a5
+
+## F-64ac196 · OPEN · finding · - · 2026-11-18
+no plugin API version or load-time compatibility check exists, so a plugin checked on one release loads silently on a later one that changed a contract; decide whether to add one
+→ commit 87821a5
+
 ## D-5a1841e · CLOSED · decision · - · 2026-11-09
 check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check
 · Rejected: validate audit.json and declared.json against schemas/evaluate | the schemas are repo files and a plain install has no clone
@@ -132,6 +140,7 @@ the extend-world skill told an agent to register a plugin under the sensoryforge
 ## D-b4d75c0 · CLOSED · decision · - · 2026-11-05
 a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
 → commit 400d5d8
+↔ 87821a5 feat(agents): plugin-lifecycle skill, from scaffold to a plugin SensoryForge found (C3)
 
 ## F-567af3c · STANDING · finding · - · 2026-11-05
 an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
