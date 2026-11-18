@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-22e8a63 · CLOSED · decision · - · 2026-11-18
+the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
+→ commit e2f6039
+
 ## F-146f748 · CLOSED · finding · - · 2026-11-18
 the filter scaffold kept state across forward calls and failed the report's determinism check
 → commit 5f0895a
