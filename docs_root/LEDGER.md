@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-cac97e0 · STANDING · finding · - · 2026-11-18
+a world shape function never sees `amplitude`; the engine multiplies by it, so the spec lists it but fn must not read it.
+→ commit afca3cc
+
 ## F-83424a9 · STANDING · finding · - · 2026-11-18
 SensoryForge has no plugin version of its own and checks nothing when it loads a plugin, so "sensoryforge>=X" in a plugin's dependencies is only pip's check at install time; an editable install keeps the version metadata it had when installed (0.2.0 beside __version__ 1.3.0 here)
 → commit 87821a5
