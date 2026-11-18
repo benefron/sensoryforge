@@ -102,24 +102,23 @@ Each target is written by one command and checked in CI against its source (see 
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section, a skill's reference file) | **20** (20 used) |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section, a skill's reference file) | **21** (21 used) |
 | of which skills (`SKILL.md` files) | **14** |
 | Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 19. `sensoryforge-extend-pipeline` has the only one (`reference.md`: the solver, processing layer and event converter); exports write it beside the skill |
 | Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands (`add-component` retired in C2d: the extension skills replace it) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
-Shipped: thirteen skills, setup, design-and-plan, design-world, ground-assumptions,
+Shipped: fourteen skills, setup, design-and-plan, design-world, ground-assumptions,
 build-dataset, run-simulation, evaluate, diagnose, interpret-report, the master skill,
 workflow, extend-pipeline, which covers the neuron model, the temporal
 filter, the stimulus, the grid arrangement and the receptive-field builder in its
 `SKILL.md` and the solver, the processing layer and the event converter in its `reference.md`, and extend-world,
 which covers the world shape, pattern, modulation, distribution and the class kind of another
-modality, and extend-evaluation, which covers the metric pack and the declared adapter
-([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same 14: the plugin
-lifecycle. Files: the limit rose from 18 to 19 for extend-pipeline's reference file (it held 295
+modality, and extend-evaluation, which covers the metric pack and the declared adapter, and plugin-lifecycle,
+which covers the package around any of them: version, build, install and the proof that
+SensoryForge found it ([Skills Reference](../agents/skills_reference.md)). Files: the limit rose from 18 to 19 for extend-pipeline's reference file (it held 295
 of 300 lines before the solver, processing layer and converter sections, and a fourth skill for
-them would have been a fifteenth) and from 19 to 20 for extend-evaluation; the plugin lifecycle
-takes it to 21, which is raised here when it is written.
+them would have been a fifteenth), from 19 to 20 for extend-evaluation and from 20 to 21 for the plugin lifecycle.
 A change that would pass a limit merges skills or raises the limit here first, with the
 reason.
 

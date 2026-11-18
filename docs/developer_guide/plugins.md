@@ -132,6 +132,13 @@ same way, on a data set you have built, with
 see [the audit's metrics](audit_metrics.md#check-a-pack) and
 [the declared side](declared_adapter.md).
 
+The agent skill `sensoryforge-plugin-lifecycle` walks through sections 1 to 4 and what
+follows them: it names the version and the SensoryForge release the plugin needs, builds a
+wheel, installs it into the environment SensoryForge runs in and shows that a fresh process
+lists it. SensoryForge itself has no plugin version and checks nothing when it loads a
+plugin; the `sensoryforge>=X` line in `dependencies` is only pip's check at install time,
+and an editable install keeps the version it had when it was installed.
+
 ## 5. The `plugins:` YAML key (an alternative to entry points)
 
 Besides the installed entry point, any SensoryForge config file can name

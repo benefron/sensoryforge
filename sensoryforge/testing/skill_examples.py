@@ -3,8 +3,8 @@
 Every ``SKILL.md`` that ships has a ``## Worked example`` section. This module reads it
 and runs it in a scratch folder, exactly as the skill tells an agent to:
 
-* a ``yaml``, ``python`` or ``markdown`` block whose first line is ``# file: NAME`` is
-  written to ``NAME``;
+* a ``yaml``, ``python``, ``toml`` or ``markdown`` block whose first line is
+  ``# file: NAME`` is written to ``NAME``;
 * a ``bash`` block is a list of commands, one per line (a trailing ``\\`` continues a
   line). Only ``sensoryforge ...`` and ``python ...`` are allowed, so an example cannot
   depend on the user's machine;
@@ -126,7 +126,7 @@ def parse_example(text: str) -> List[Step]:
         lang, body = fence.group(1), fence.group(2)
         lines = body.splitlines()
         first = FILE_LINE.match(lines[0]) if lines else None
-        if lang in ("yaml", "python", "markdown") and first:
+        if lang in ("yaml", "python", "toml", "markdown") and first:
             steps.append(
                 Step("file", name=first.group(1), content="\n".join(lines[1:]) + "\n")
             )

@@ -1325,3 +1325,171 @@ python use_eval.py
 # prints: contract ok
 # prints: declared ['core.frames.duration'] rows 6
 ```
+
+## The life of a plugin
+
+`sensoryforge-plugin-lifecycle`
+
+**When an agent uses it.** Take a SensoryForge plugin from scaffold to install: version it, name the SensoryForge release it needs, build it, install it in the right environment and confirm SensoryForge found it. Covers updating, sharing and removing it too. Use when someone wants to package, install, ship, version, share, update or uninstall a component they wrote, asks why their plugin or new component does not show up, or says it was installed but SensoryForge cannot see it, which version of SensoryForge it works with, or how to hand it to a colleague, in whatever words they put it.
+
+A plugin is a small Python package that registers one or more components (a neuron, a
+filter, a world shape, a metric pack, and so on) with SensoryForge when it is installed.
+Nothing inside SensoryForge is edited. This skill is the whole path around the component:
+the package, its version, the install and the proof that SensoryForge found it. What
+goes inside the component is the job of `sensoryforge-extend-pipeline` (neuron, filter,
+stimulus, grid, receptive-field builder, solver, processing layer, event converter),
+`sensoryforge-extend-world` (world shapes, patterns, modulations, distributions, class
+kinds) and `sensoryforge-extend-evaluation` (metric packs, declared adapters); use the
+one that fits for step 3 and come back here. You end with a package that passes its
+contract check, is installed in the environment SensoryForge runs in, and shows up in
+SensoryForge's own list, and with the user knowing which release it needs.
+
+**Steps.** Read the working style; Which route, and which environment?; What the user decides; Scaffold and fill in; Check it before it is built; Name the version and the SensoryForge it needs; Build and install it; Prove SensoryForge found it; After it is installed.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A filter scaffolded, given a gain the user asked for, checked, versioned with the
+SensoryForge it needs, built into a wheel, installed into a folder (so the example leaves
+the environment alone), and confirmed from a fresh process:
+
+```bash
+sensoryforge new-component filter Bandpass --dest .
+# prints: Scaffolded new filter plugin package
+```
+
+```python
+# file: sensoryforge-bandpass/sensoryforge_bandpass/component.py
+"""A single-pole lowpass with an output gain (the user's definition)."""
+
+from typing import List, Optional
+
+import torch
+
+from sensoryforge.filters.base import BaseFilter
+from sensoryforge.stimuli.base import ParamSpec
+
+
+class BandpassFilterTorch(BaseFilter):
+    """Single-pole lowpass (tau in ms) scaled by a unitless gain."""
+
+    def __init__(self, tau: float = 10.0, gain: float = 1.0, dt: float = 0.1) -> None:
+        super().__init__(dt=dt)
+        if tau <= 0:
+            raise ValueError(f"tau must be positive, got {tau}")
+        self.tau = tau
+        self.gain = gain
+        self._state: Optional[torch.Tensor] = None
+
+    def reset_state(self) -> None:
+        self._state = None
+
+    def forward(self, x: torch.Tensor, dt: Optional[float] = None) -> torch.Tensor:
+        """Filter the drive ``[batch, time, N_neurons]`` (mA); same shape out."""
+        step = dt if dt is not None else self.dt
+        batch, steps, n = x.shape
+        state = (
+            self._state
+            if self._state is not None
+            else torch.zeros(batch, n, device=x.device, dtype=x.dtype)
+        )
+        outputs = []
+        for t in range(steps):
+            state = state + (x[:, t, :] - state) / self.tau * step
+            outputs.append(state.unsqueeze(1))
+        self._state = state.detach()
+        return self.gain * torch.cat(outputs, dim=1)
+
+    def to_dict(self) -> dict:
+        return {"tau": self.tau, "gain": self.gain, "dt": self.dt}
+
+    @classmethod
+    def from_config(cls, config: dict) -> "BandpassFilterTorch":
+        return cls(
+            tau=config.get("tau", 10.0),
+            gain=config.get("gain", 1.0),
+            dt=config.get("dt", 0.1),
+        )
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        return [
+            ParamSpec("tau", dtype="float", default=10.0, min_val=0.01, unit="ms"),
+            ParamSpec("gain", dtype="float", default=1.0, min_val=0.0, unit=""),
+        ]
+
+
+def register() -> None:
+    """Entry-point target."""
+    from sensoryforge.registry import FILTER_REGISTRY
+
+    FILTER_REGISTRY.register("bandpass", BandpassFilterTorch)
+```
+
+```toml
+# file: sensoryforge-bandpass/pyproject.toml
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensoryforge-bandpass"
+version = "0.2.0"
+description = "SensoryForge filter plugin: BandpassFilterTorch"
+requires-python = ">=3.10"
+dependencies = ["sensoryforge>=1.3.0"]
+
+[project.entry-points."sensoryforge.components"]
+bandpass = "sensoryforge_bandpass.component:register"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sensoryforge_bandpass*"]
+```
+
+```python
+# file: check_it.py
+import sys
+
+sys.path.insert(0, "sensoryforge-bandpass")
+from sensoryforge.testing.contracts import check_component
+from sensoryforge_bandpass.component import BandpassFilterTorch
+
+check_component(
+    "filter", BandpassFilterTorch, instance=BandpassFilterTorch(tau=7.0, gain=2.5, dt=0.2)
+)
+print("contract ok")
+```
+
+```python
+# file: verify.py
+import importlib.metadata as md
+import sys
+
+sys.path.insert(0, "site")  # the install target; a real install needs no line like this
+import torch
+
+import sensoryforge_bandpass
+from sensoryforge.registry import FILTER_REGISTRY
+
+print("from the install", "site" in sensoryforge_bandpass.__file__)
+print("registered", "bandpass" in FILTER_REGISTRY.list_registered())
+print("version", md.version("sensoryforge-bandpass"), md.requires("sensoryforge-bandpass"))
+y = FILTER_REGISTRY.create("bandpass", tau=5.0, gain=2.0, dt=0.1)(torch.ones(1, 50, 2))
+print("step response", round(float(y[0, -1, 0]), 3))
+```
+
+```bash
+python check_it.py
+# prints: contract ok
+python -m pip wheel --no-deps --no-build-isolation -w dist ./sensoryforge-bandpass
+# prints: Successfully built sensoryforge-bandpass
+python -m pip install --no-deps --target site dist/sensoryforge_bandpass-0.2.0-py3-none-any.whl
+# prints: Successfully installed sensoryforge-bandpass-0.2.0
+python verify.py
+# prints: from the install True
+# prints: registered True
+# prints: version 0.2.0 ['sensoryforge>=1.3.0']
+# prints: step response 1.272
+```

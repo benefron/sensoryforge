@@ -28,6 +28,8 @@ REPO = Path(__file__).resolve().parents[2]
 SKILL_DIR = REPO / "sensoryforge" / "agents" / "skills"
 SKILLS = sorted(SKILL_DIR.glob("*/SKILL.md"))
 NAMES = {p.parent.name for p in SKILLS}
+# plugin packages a worked example scaffolds (``sensoryforge-NAME``), not skills
+EXAMPLE_PLUGINS = {"sensoryforge-bandpass"}
 
 
 def _meta(path):
@@ -96,6 +98,7 @@ def test_a_skill_names_only_skills_that_exist(path):
     text = ex.skill_text(path)
     named = set(re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b", text))
     named -= {ins.GLOSSARY_NAME[: -len(".md")]}
+    named -= EXAMPLE_PLUGINS
     assert named <= NAMES, sorted(named - NAMES)
 
 
@@ -394,6 +397,7 @@ def test_a_prompt_names_only_skills_that_exist(path):
         re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b", path.read_text("utf-8"))
     )
     named -= {ins.GLOSSARY_NAME[: -len(".md")], "sensoryforge-agents"}
+    named -= EXAMPLE_PLUGINS
     assert named <= NAMES, sorted(named - NAMES)
 
 
@@ -423,15 +427,16 @@ def test_the_docs_section_names_only_skills_that_exist(path):
         re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b(?!/)", path.read_text("utf-8"))
     )
     named -= {ins.GLOSSARY_NAME[: -len(".md")], "sensoryforge-agents"}
+    named -= EXAMPLE_PLUGINS
     assert named <= NAMES, sorted(named - NAMES)
 
 
 def test_the_hand_written_agent_files_stay_within_the_budget():
     """``AGENTS.md``, ``CLAUDE.md``, skills, prompts, the section and reference files:
-    20 at most."""
+    21 at most."""
     references = len(list(SKILL_DIR.glob("*/reference.md")))
     count = 2 + len(SKILLS) + len(PROMPTS) + references
-    assert count <= 20, count  # docs/developer_guide/agent_files.md
+    assert count <= 21, count  # docs/developer_guide/agent_files.md
 
 
 def test_python_dash_c_lines_in_the_skills_compile():

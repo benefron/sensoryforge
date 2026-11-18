@@ -49,6 +49,7 @@ CHAIN_ORDER = (
     "sensoryforge-extend-pipeline",
     "sensoryforge-extend-world",
     "sensoryforge-extend-evaluation",
+    "sensoryforge-plugin-lifecycle",
 )
 """The order the page lists the skills in: the usual chain. A skill not named here
 follows, by name."""
