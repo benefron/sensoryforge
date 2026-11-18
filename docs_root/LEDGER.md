@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
+the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
+→ commit 69bc432
+
 ## D-22e8a63 · CLOSED · decision · - · 2026-11-18
 the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
 → commit e2f6039
