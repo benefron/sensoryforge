@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-146f748 · CLOSED · finding · - · 2026-11-18
+the filter scaffold kept state across forward calls and failed the report's determinism check
+→ commit 5f0895a
+
+## F-123c332 · STANDING · finding · - · 2026-11-18
+the engine runs one forward per stimulus and does not reset a filter between them, so a plugin filter must start from rest on every call
+→ commit 5f0895a
+
 ## F-cac97e0 · STANDING · finding · - · 2026-11-18
 a world shape function never sees `amplitude`; the engine multiplies by it, so the spec lists it but fn must not read it.
 → commit afca3cc
