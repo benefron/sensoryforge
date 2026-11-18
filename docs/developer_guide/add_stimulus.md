@@ -269,13 +269,13 @@ simulation:
   dt_ms: 1.0
   device: cpu
 
-stimuli:
-  - type: ring          # ← your new stimulus key
-    center_x: 0.0
-    center_y: 0.0
-    radius: 1.5
-    width: 0.1
-    amplitude: 8.0
+stimulus:
+  type: ring            # ← your new stimulus key
+  center_x: 0.0
+  center_y: 0.0
+  radius: 1.5
+  width: 0.1
+  amplitude: 8.0
 ```
 
 ```bash
