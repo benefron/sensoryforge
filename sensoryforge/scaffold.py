@@ -266,10 +266,9 @@ class {{class_name}}(BaseFilter):
         if tau <= 0:
             raise ValueError(f"tau must be positive, got {tau}")
         self.tau = tau
-        self._state: Optional[torch.Tensor] = None
 
     def reset_state(self) -> None:
-        self._state = None
+        """No state is kept between calls."""
 
     def forward(
         self, x: torch.Tensor, dt: Optional[float] = None
@@ -285,16 +284,14 @@ class {{class_name}}(BaseFilter):
         """
         step = dt if dt is not None else self.dt
         batch, steps, n = x.shape
-        state = (
-            self._state
-            if self._state is not None
-            else torch.zeros(batch, n, device=x.device, dtype=x.dtype)
-        )
+        # Start from rest on every call: the engine runs one forward per stimulus
+        # and a filter that carries state between calls gives a different answer
+        # for the same stimulus the second time (the determinism check fails).
+        state = torch.zeros(batch, n, device=x.device, dtype=x.dtype)
         outputs = []
         for t in range(steps):
             state = state + (x[:, t, :] - state) / self.tau * step
             outputs.append(state.unsqueeze(1))
-        self._state = state.detach()
         return torch.cat(outputs, dim=1)
 
     def to_dict(self) -> dict:
