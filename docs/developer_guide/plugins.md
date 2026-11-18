@@ -47,6 +47,8 @@ The scaffold refuses to write anywhere under a `site-packages` or
 SensoryForge is always safe — it never touches the installed package
 location, only `--dest`.
 
+Three finished examples (a neuron, a filter and a world shape) are in `examples/plugins/`; see [Reference Plugins](reference_plugins.md).
+
 ## 2. Fill in the component
 
 Edit the starter class the scaffold generated: implement `forward()` (and
