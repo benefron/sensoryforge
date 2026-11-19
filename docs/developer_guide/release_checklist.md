@@ -23,7 +23,16 @@ only a release needs.
    `python scripts/build_reference.py` (run it in an environment with no plugin packages),
    `python -m sensoryforge.agents.reference docs/agents/skills_reference.md`, then
    `sensoryforge agents export --check --target <each>` in a scratch project.
-6. **Changelog and version** (`CHANGELOG.md`, `pyproject.toml`), then tag.
+6. **Check the docs:** `mkdocs build --strict` (it fails on a broken link or anchor inside the
+   site) and `python scripts/check_docs_links.py` (the external links; also run monthly by the
+   `docs-links` workflow, or by hand with its "Run workflow" button). A 403 or 429 is reported
+   as "unverified", not broken: open the address once by hand.
+7. **Changelog and version** (`CHANGELOG.md`, `pyproject.toml` and `sensoryforge/__init__.py`):
+   move the `[Unreleased]` entries under a new version heading with its date, then tag.
 
-The rest of the release documentation (the published docs and the reference) will be
-listed on this page as it is written.
+## After tagging
+
+The `deploy-docs` workflow publishes the site to
+[benefron.github.io/sensoryforge](https://benefron.github.io/sensoryforge/) on every push to
+`main`, so the docs go live when the release is merged, not at the tag. Open the site once
+afterwards and follow a link from the home page to a page added in that release.

@@ -6,7 +6,47 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ## [Unreleased]
 
-### Added
+Four additions since 1.3.0: a way to evaluate a generated data set, agent skills and files that ship
+with the package, a way to extend every part of a run without editing the core, and a reworked docs
+site. Nothing changes for an existing design, world or data set: a world draw, frame, seed, entry id
+and converter step are as in 1.3.0. The one format change is bundle schema 2.3.0 to 2.5.0, additive
+(`load_bundle` reads any 2.x bundle).
+
+### Added: evaluating a data set (`sensoryforge/evaluate`)
+
+- **`sensoryforge evaluate run`** takes a world to a report folder in one command: build, batch,
+  blind audit, comparison and checks. Each stage also runs alone. Contract:
+  `docs/reference/report_contract.md`.
+- **A blind audit** that reads only the generated data and never the world file (an import-graph
+  test enforces it), with a core metric pack and a tactile pack (`tactile.episode.*`,
+  `tactile.motion.speed`). A raw comparison table sets the measured values beside the declared
+  ones, with the raw difference, before any verdict.
+- **Reference-free checks, an anomaly gallery, data-set dashboards and a run-to-run diff.**
+- **A local evaluation server and page** (standard library only): a draw picker, a movie with a
+  scrubber, click-to-pin traces with re-simulated membrane voltage, a declared-fields panel and a
+  two-draw comparison. `evaluate export` writes a static copy that opens offline.
+- **Bundle schema 2.4.0 and 2.5.0** (additive): opt-in voltage probes, and receptive-field weights
+  stored sparsely (about 1.6 MB per entry instead of 47 MB).
+- World field names are unit-free and a world declares its space unit.
+
+### Added: agent files that ship with the package
+
+- **`sensoryforge agents setup | install | export`**: setup asks instead of assuming; the skills
+  (design, plan, build a data set, run, evaluate, diagnose, interpret a report, ground the
+  assumptions, extend, plugin lifecycle, and a workflow skill that chains them) are installed for
+  Claude or exported for Copilot, Cursor, Codex and other environments, with the project's
+  instruction file built in each environment's own way. A harness runs fresh agents against 64
+  scenarios; CI fails when a skill names something that is no longer registered.
+- **`sensoryforge describe --json`**, JSON Schemas for config, world and data set, and
+  `validate --json`.
+- **`sensoryforge examples list | copy`**: two small example configs a preset cannot give. Every
+  snippet in the docs is run by `tests/docs/test_docs_snippets.py`.
+- `AGENTS.md`, a glossary, a task index and a header block on each module. The glossary and the
+  report contract ship in the package.
+- **`sensoryforge new-component`** scaffolds a component and `sensoryforge.testing.contracts`
+  holds it to its contract; three reference plugins (a neuron, a filter and a world shape).
+
+### Added: contract checks for plugin authors
 
 - **`sensoryforge.testing.world_contracts.check_world_component(kind, name)`**: contract
   checks for the world registries, for plugin authors and for SensoryForge's own tests. It
@@ -20,6 +60,10 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ### Fixed
 
+- Registering the same world component twice is a no-op, not an error.
+- `--resume` refuses a different data set or sensor, and `--dry-run` works with `--dataset`.
+- `check_evaluation_component(kind, name, example=folder)` checks a metric pack or a declared
+  adapter on a built data set (added alongside the checks above).
 - **`AdaptiveSolver.to_dict()`** now includes `method`, `rtol` and `atol`. It returned only
   `type` and `dt`, so a saved adaptive solver reloaded as `dopri5` with the default tolerances.
 

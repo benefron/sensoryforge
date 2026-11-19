@@ -202,3 +202,11 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/benefron/sensoryforge
+
+# Broken links and anchors inside the site fail the strict build (the link check for the site's
+# own pages); `scripts/check_docs_links.py` checks the external ones.
+validation:
+  omitted_files: info
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

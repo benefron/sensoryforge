@@ -1,0 +1,30 @@
+name: docs-links
+
+# Checks the external links of the built docs site. It needs the network and other people's
+# servers, so it runs on demand and monthly, not on every push; a broken internal link or anchor
+# already fails `mkdocs build --strict` in the tests workflow.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "17 5 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install sensoryforge
+        run: pip install -e ".[gui,hdf5,dsl,dev,docs]"
+      - name: mkdocs build --strict
+        run: mkdocs build --strict
+      - name: Check external links
+        run: python scripts/check_docs_links.py
