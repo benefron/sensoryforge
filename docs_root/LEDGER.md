@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-b83b5e6 · OPEN · finding · - · 2026-11-19
+the quick starts have not been timed by a person who has not used SensoryForge (D3's done-when); only the commands were run, from a wheel in a fresh environment
+→ commit a5b15a0
+
 ## D-5738304 · CLOSED · decision · - · 2026-11-19
 phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run
 → commit 3883d7d
