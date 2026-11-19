@@ -71,8 +71,9 @@ Name the place, the evidence and how sure you are (shown by a test, likely, or u
 3. **The measurement cannot see it.** The metric's definition, or its resolution (one
    frame step for time values), explains the number: activity shorter than a frame, a value
    that is null by definition, a shape the canvas cuts off. Evidence: the raw difference
-   against the resolution, and the definition in the report contract,
-   https://benefron.github.io/sensoryforge/reference/report_contract/ (each metric's
+   against the resolution, and the definition in the report contract
+   (`../sensoryforge-report-contract.md` beside this skill's folder, else
+   https://benefron.github.io/sensoryforge/reference/report_contract/; each metric's
    "how the audit applies these definitions" notes). Say what the metric measures, then
    what it cannot.
 4. **The code does it.** A check under the run area fails (determinism, a re-run that does

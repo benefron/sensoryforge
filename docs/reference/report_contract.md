@@ -1,18 +1,22 @@
 # Evaluation report contract
 
-!!! note "Status: accepted (roadmap task A1, reviewed and approved 2026-10-22)"
+!!! note "Status: accepted (reviewed and approved 2026-10-22)"
     This page fixes the formats the evaluation stages exchange before any of them is written.
-    The audit's reader layer (A2a, see the [audit reader](../developer_guide/audit_reader.md))
-    implements section 2; the core metrics, the summariser and `audit.json` (A2b–A2c, see
+    The audit's reader layer (see the [audit reader](../developer_guide/audit_reader.md))
+    implements section 2; the core metrics, the summariser and `audit.json` (see
     [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
-    tactile pack (A2d) section 7, the declared side (A3, see [the declared
-    side](../developer_guide/declared_adapter.md)) section 8, the comparison (A4, see [the raw
+    tactile pack section 7, the declared side (see [the declared
+    side](../developer_guide/declared_adapter.md)) section 8, the comparison (see [the raw
     comparison](../developer_guide/compare_stage.md)) section 9, the reference-free checks
-    (A8, see [the checks stage](../developer_guide/checks_stage.md)) section 13, the run-to-run diff (A10, see [the diff
-    stage](../developer_guide/diff_stage.md)) section 14, the one-command pipeline (A11a, see [the
+    (see [the checks stage](../developer_guide/checks_stage.md)) section 13, the run-to-run diff (see [the diff
+    stage](../developer_guide/diff_stage.md)) section 14, the one-command pipeline (see [the
     pipeline](../developer_guide/pipeline_stage.md)) section 15. The JSON Schemas are in
     `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
     written.
+
+    A copy of this page ships in the package, and `sensoryforge agents install` (or
+    `agents export`) writes it beside the skills as `sensoryforge-report-contract.md`, so an
+    agent explaining a report reads the contract of the release that wrote it.
 
 Evaluating a data set takes three stages that never share code. Each stage writes one file
 the next one reads:
@@ -29,7 +33,7 @@ audit.json + declared.json ────► compare ─────────�
   show, expressed with the same metric ids and units as the audit.
 - **compare**: for every metric both sides carry, the measured value, the declared value and
   the raw difference `measured − declared`. It gives no verdict.
-- **checks** (A8, section 13): pass/fail tests of the simulator itself, which need no
+- **checks** (section 13): pass/fail tests of the simulator itself, which need no
   declaration. They have their own file, `checks.json`, and read neither `compare.json` nor
   any other stage file, so they change none of them. A pass or fail rule on a *comparison*
   (does the measured value match the declared one?) is a later stage.
@@ -63,9 +67,9 @@ reads is batch-free: frames `[T, C, M]`, a population's arrays `[T, N]`.
 
 The audit sees the data through one reader, which projects everything it opens onto the
 allow-list below **at read time**: a field not listed never reaches a metric pack. A test
-(A2a) builds the reader's view of a bundle and fails if any other key is present, and a
+builds the reader's view of a bundle and fails if any other key is present, and a
 second test fails if any module reachable from the audit or from a registered metric pack
-imports `sensoryforge.world` (D-c52e668).
+imports `sensoryforge.world`.
 
 | Source | Allowed | Never read |
 |---|---|---|
@@ -80,7 +84,7 @@ imports `sensoryforge.world` (D-c52e668).
 **Sensor coordinates.** For a world entry the frames are the stimulus rendered on grid 0's
 canvas, so the sensors are that canvas's points. The reader computes their coordinates from
 `config.json["grid"]` with SensoryForge's centred layout (dim 0 = x, `indexing="ij"`, sensor
-`k = i · cols + j`). It does this without importing the world package. A2a's test checks
+`k = i · cols + j`). It does this without importing the world package. A test checks
 the result against `Canvas.from_grid_config`; the test may import the world package, the
 reader may not.
 
@@ -135,7 +139,7 @@ alone. Entries are sorted by id, and metric lists follow the catalogue's order (
 order given, metrics in each pack's declared order). Floats are written in Python's shortest
 round-trip form. NaN and infinity are never written: an undefined value is `null`. Two audits
 of the same data with the same parameters are byte-identical apart from `created_at`, which is
-what the run-to-run diff (A10) relies on. The `_entries.jsonl` file's sha256 is recorded in its
+what the run-to-run diff relies on. The `_entries.jsonl` file's sha256 is recorded in its
 `.json`.
 
 **Metric ids** are `<pack>.<quantity>.<name>` (`core.frames.onset_time`). A metric's
@@ -287,8 +291,8 @@ Per-entry runtime: `core.run.seconds` (time in `s`, origin `data`: the index's `
 
 ### 6.5 How the audit applies these definitions
 
-Where a definition above leaves a detail open, the audit (A2b, A2c) does this. These are
-implementation choices, listed for the review at R-A4; none changes a metric's name, unit or
+Where a definition above leaves a detail open, the audit does this. These are
+implementation choices; none changes a metric's name, unit or
 shape.
 
 - **Activity per channel and across channels.** `core.frames.*` use the channel's own active
@@ -347,8 +351,8 @@ states the units `drive` = `filtered` = `mA` (section 3).
 
 ### 7.1 How the audit applies these definitions
 
-Where section 7 leaves a detail open, the tactile pack (A2d) does this. None changes a metric's
-name, unit or shape; they are listed for the review at R-A4.
+Where section 7 leaves a detail open, the tactile pack does this. None changes a metric's
+name, unit or shape.
 
 - **Bouts.** The pack finds bouts itself, on the envelope, with a frame active when its
   envelope is exactly above 0. It has no `zero_tolerance` parameter (section 7 lists two), so
@@ -359,7 +363,7 @@ name, unit or shape; they are listed for the review at R-A4.
   them. With a tolerance of 1 the whole bout is plateau.
 - **Averaging.** Rise, plateau and fall are counted in frames per bout, averaged over the
   entry's bouts, then multiplied by `dt`.
-- **Speed** (changed at R-A4, D2; it first pooled the plateau's steps). A *moving step* is
+- **Speed** (changed on review; it first pooled the plateau's steps). A *moving step* is
   the centroid step between two consecutive frames of a bout (the `core.frames.centroid_*`
   weighting) that is longer than the motion floor of section 6.5 (`1e-6` of the layout's
   largest extent). The value pools the moving steps of all the entry's bouts: their total
@@ -442,15 +446,15 @@ value is declared.
 
 ### 8.4 How the tactile adapter applies these definitions
 
-Where section 8.3 leaves a detail open, the tactile adapter (A3) does this. These are
-implementation choices, listed for the review at R-A4; none changes a metric's name, unit or
+Where section 8.3 leaves a detail open, the tactile adapter does this. These are
+implementation choices; none changes a metric's name, unit or
 shape. The reasons below are the strings counted under `omitted`.
 
 - **Contact intervals** come from the draw's `timeline` (`touch`, `hold`, `slide`,
   `release`), in the unrounded ms the world gives, clipped to `duration_ms` and merged when
   one ends where the next starts. A draw with no contact within the duration has no onset
   or offset (`no contact`) and declares 0 for `active_time` and `bouts`.
-- **A modulation that reaches 0** (R-A4, D4). A `sine` or `pulses` modulation with `depth`
+- **A modulation that reaches 0**. A `sine` or `pulses` modulation with `depth`
   1 or more (the default is 1) renders exactly 0 between taps, which cuts the contact into
   bouts the timeline cannot see. The adapter then leaves out `offset_time`, `active_time`,
   `active_fraction`, `bouts`, `gap_mean` and `gap_max` (`modulation reaches 0`); `onset_time`
@@ -480,8 +484,7 @@ shape. The reasons below are the strings counted under `omitted`.
   sampled. Where the canvas cuts the shape off (a σ 0.3 mm Gaussian on a 1.05 mm canvas is
   cut at about ±1.75 σ) the weighted centroid moves at about 0.6–0.7 of the true speed and
   is pulled towards the middle, so speed, direction and centroid read low there; the
-  adapter does not know the sensor extent and still declares them (open, see the review R-A4,
-  finding 7).
+  adapter does not know the sensor extent and still declares them (open).
 - **Frequency.** `frequency_hz / 1000` (sine) or `rate_hz / 1000` (pulses), in 1/ms; a
   modulation kind the adapter does not know is left out (`modulation not known`).
 - **Episode phases.** `touch_ms`, `hold_ms + slide_ms`, `release_ms`, per contact. Left out
@@ -489,7 +492,7 @@ shape. The reasons below are the strings counted under `omitted`.
   changes as it crosses the lattice and the canvas edge, so it has no flat plateau), when the
   draw is `truncated` by the duration, when contacts `merge` into fewer bouts than `contacts`
   (a zero pause), and for a `session`.
-- **The sampled peak** (R-A4, finding 6). `core.frames.peak` is the declared shape peak. The
+- **The sampled peak**. `core.frames.peak` is the declared shape peak. The
   sensors sample the kernel at lattice points, so the measured peak reaches `amplitude` only
   when the centre falls on a sensor; the measured value is below the declared one in every
   pair, by up to the kernel's change over half a sensor spacing. This is the definition of the
@@ -552,7 +555,7 @@ A row of `compare_entries.jsonl`:
 
 ### 9.1 How the compare stage applies these definitions
 
-Choices made while building A4 (none changes a metric id, unit or an existing field):
+Choices made while building the comparison (none changes a metric id, unit or an existing field):
 
 - **Order of the pairing rules.** The first that applies decides: measured `null` or absent
   is `missing_measured` (also when the declared value is `null` too), declared `null` is
@@ -567,13 +570,13 @@ Choices made while building A4 (none changes a metric id, unit or an existing fi
   the entry pairs whose difference was computed. A declared id the audit does not carry is
   listed in `unpaired.declared_only` and still pairs, as `missing_measured`, in each entry.
 - **Input paths** are written relative to the output folder.
-- **Summaries cover the same entries** (R-A4, D5). For each key and group, the stage
+- **Summaries cover the same entries**. For each key and group, the stage
   summarises the *measured* values of the entries whose declared row carries that key, with
   the audit's summariser (`audit/summary.py`) and `histogram_bins`, and pairs that with the
   declared summary. The measured `n` is then the declared `n` minus the group's
   `missing_measured`, and a difference in a mean or quantile is not a difference of
   populations. `audit.json` keeps the summaries of all the entries.
-- **`distributions` (optional, added in A4, the tag stays).** For each declared value key
+- **`distributions` (optional, added with the comparison, the tag stays).** For each declared value key
   and each group (`dataset`, then `class` and `split` labels): over the entries whose
   difference was computed, `n_pairs`, `diff_mean`, `diff_abs_mean`, `ks`, `wasserstein` and
   a paired `histogram` (`edges`, `measured`, `declared`) on shared equal-width bins
@@ -604,7 +607,7 @@ A metric pack's `measure` receives an **entry view** built by the reader (sectio
 A view carries nothing else, so a pack cannot reach the declaration. Packs are chosen
 explicitly (`--packs core,tactile`) and recorded in `audit.json`. The audit never picks a pack
 by looking at the data set's world. The default is `core` alone. The one-command pipeline
-(A11a) takes `--packs` from the user like the audit does, and notes a missing same-named pack. Modules a metric pack imports are inside the
+takes `--packs` from the user like the audit does, and notes a missing same-named pack. Modules a metric pack imports are inside the
 import wall. A declared adapter lives in its own module, outside the wall, and may import the
 world package: `sensoryforge/evaluate/tactile/metrics.py` (inside) and
 `sensoryforge/evaluate/tactile/declared.py` (outside).
@@ -625,9 +628,9 @@ only the sections named, and needs a new decision.
 | Q5 | Bundles state units for time and space only. The tactile pack states `drive`/`filtered` = `mA` from the units guide. Frame values stay unitless unless the user gives a unit | 3 |
 | Q6 | The declared side writes a value only where the declaration determines it, and the tactile adapter's basis is the contact timeline, ignoring shape and amplitude (section 8.3's table) | 8 |
 | Q7 | Episode phases (rise, plateau, fall) and plateau speed are tactile metrics; everything else is core | 6, 7 |
-| Q8 | No verdicts in `compare.json`; checks (A8) write their own file | 9 |
+| Q8 | No verdicts in `compare.json`; checks write their own file | 9 |
 | Q9 | Packs are chosen explicitly, never detected from the world; default `core` | 10 |
-| Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`, with a relative term of two float32 steps added in the R-A review), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference (decided in A10, not yet reviewed) | 14 |
+| Q11 | The diff compares two runs of one data set under the golden fixtures' tolerance (`FLOAT32_GOLDEN_ATOL`, with a relative term of two float32 steps), calls a value moved by less than it *equivalent* (platform rounding), reads both sides through the blind reader, and treats an entry that failed identically on both sides as no difference | 14 |
 | Q10 | The reference-free checks are their own stage with their own file `checks.json` and their own registry of check packs; they read bundles through the audit's blind reader plus each bundle's `config.json`, and run the engine on probes scaled by the data's own peak (decided in A8, not yet reviewed) | 13 |
 | Q12 | The one-command pipeline never picks a pack from the world: `--packs` is the user's, default `core`; the pipeline only notes a declared adapter's same-named pack that was not run. It runs the audit in its own process. A failed stage stops it and `pipeline.json` says which (decided in A11a, not yet reviewed) | 15 |
 
@@ -643,7 +646,7 @@ only the sections named, and needs a new decision.
 | `schemas/evaluate/diff.schema.json` | `diff.json`; `#/$defs/entry_row` a row of `diff_entries.jsonl` |
 | `schemas/evaluate/pipeline.schema.json` | `pipeline.json` |
 
-They are JSON Schema 2020-12 and refer to each other by relative `$ref`. A2a, A3 and A4
+They are JSON Schema 2020-12 and refer to each other by relative `$ref`. The audit, the declared side and the comparison
 validate everything they write against them in their tests.
 
 ## 13. `checks.json`
@@ -685,7 +688,7 @@ engine configuration the batch ran, which probes are built from) and, for one ch
   amplitude), shown before any verdict like the comparison's raw table.
 - A failure that names an entry carries `entry`; `entries_with_failures` lists those
   entries (from the *listed* failures) with the checks that named them, for the anomaly
-  gallery (A9).
+  gallery.
 - Two runs over the same data with the same parameters are byte-identical apart from
   `created_at`. Probes are seeded; no timing is recorded.
 
@@ -785,7 +788,7 @@ reads audits it is given). It reads no declaration.
 
 ## 15. `pipeline.json`
 
-`sensoryforge evaluate run` (A11a) chains the stages above and writes one more file beside
+`sensoryforge evaluate run` chains the stages above and writes one more file beside
 theirs, `OUT/evaluate/pipeline.json`, format tag `sensoryforge-pipeline/1`. It records what
 was run, not what was found: no metric value appears in it.
 
