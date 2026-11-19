@@ -7,7 +7,12 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 ## Getting Started
 
 - [Installation](https://benefron.github.io/sensoryforge/getting_started/installation/)
-- [Quick Start](https://benefron.github.io/sensoryforge/getting_started/quickstart/)
+- Quick Starts
+  - [Overview](https://benefron.github.io/sensoryforge/getting_started/quickstart/)
+  - [Extend SensoryForge](https://benefron.github.io/sensoryforge/getting_started/quickstart_extend/)
+  - [Command Line](https://benefron.github.io/sensoryforge/getting_started/quickstart_cli/)
+  - [The GUI](https://benefron.github.io/sensoryforge/getting_started/quickstart_gui/)
+  - [World to Report](https://benefron.github.io/sensoryforge/getting_started/quickstart_world/)
 - [Core Concepts](https://benefron.github.io/sensoryforge/getting_started/concepts/)
 - [First Simulation](https://benefron.github.io/sensoryforge/getting_started/first_simulation/)
 

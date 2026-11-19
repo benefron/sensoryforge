@@ -94,7 +94,12 @@ nav:
   
   - Getting Started:
     - Installation: getting_started/installation.md
-    - Quick Start: getting_started/quickstart.md
+    - Quick Starts:
+      - Overview: getting_started/quickstart.md
+      - Extend SensoryForge: getting_started/quickstart_extend.md
+      - Command Line: getting_started/quickstart_cli.md
+      - The GUI: getting_started/quickstart_gui.md
+      - World to Report: getting_started/quickstart_world.md
     - Core Concepts: getting_started/concepts.md
     - First Simulation: getting_started/first_simulation.md
     

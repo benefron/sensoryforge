@@ -203,6 +203,6 @@ pip install -r requirements.txt
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) — Your first SensoryForge simulation
+- [Quick Starts](quickstart.md) — five ways in, five minutes each
 - [Core Concepts](concepts.md) — Understanding the architecture
 - [First Simulation](first_simulation.md) — Step-by-step tutorial
