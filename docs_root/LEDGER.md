@@ -108,6 +108,14 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-fcf9f18 · CLOSED · decision · - · 2026-11-19
+the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6
+→ commit f459ad2
+
+## F-eef3e0b · OPEN · finding · - · 2026-11-19
+the site restructure (D-22e8a63, Ben's Q1-Q4 in D1_audit.md) is not done, and D3's timing by a new user is Ben's
+→ commit f459ad2
+
 ## D-114d396 · CLOSED · decision · - · 2026-11-19
 the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site
 → commit a6c7059

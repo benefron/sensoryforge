@@ -1151,4 +1151,5 @@ Do not hand-edit between the markers.
 | 2026-11-19 | D-69afd06 | the packaged examples are amplitude_sweep (sweep batch file) and moving_edge (stimulus block over a preset), read through importlib.resources and written out by `sensoryforge examples copy`; the repository's examples/ folder stays out of the package | `4cedcda` |
 | 2026-11-19 | D-3a43fe5 | published docs pages are checked without running them: commands parse, python blocks compile, sensoryforge imports resolve; pseudocode goes in a text fence and a reader's own module is named my_* | `4cedcda` |
 | 2026-11-19 | D-114d396 | the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site | `a6c7059` |
+| 2026-11-19 | D-fcf9f18 | the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6 | `f459ad2` |
 <!-- DECISIONS_LOG_END -->
