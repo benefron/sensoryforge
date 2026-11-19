@@ -35,8 +35,8 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 
 | Method | Signature | Purpose |
 |--------|-----------|---------|
-| `forward(x)` | `[B, T, N] → [B, T, N]` | Apply temporal filter |
-| `reset_state()` | `→ None` | Clear filter state between runs |
+| `forward(x)` | `[B, T, N] → [B, T, N]` | Apply temporal filter, starting from rest on every call (the engine calls it once per stimulus and never resets it) |
+| `reset_state()` | `→ None` | Clear filter state, for callers that run the filter step by step |
 | `from_config(config)` | `dict → cls` | Construct from YAML dict |
 | `to_dict()` | `→ dict` | Serialise for YAML round-trip |
 | `get_param_spec()` | `→ list[ParamSpec]` | Required on every component (G1); GUI auto-discovery |

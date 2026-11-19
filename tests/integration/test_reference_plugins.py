@@ -24,6 +24,13 @@ PACKAGES = {
 
 @pytest.fixture
 def loaded_plugins():
+    # The plugins register into process-wide tables; put them back afterwards so a
+    # later test (the committed describe schemas, for one) never sees them.
+    saved = [
+        (FILTER_REGISTRY._registry, dict(FILTER_REGISTRY._registry)),
+        (NEURON_REGISTRY._registry, dict(NEURON_REGISTRY._registry)),
+        (SHAPE_KINDS, dict(SHAPE_KINDS)),
+    ]
     paths = [str(PLUGINS / d) for d in PACKAGES]
     sys.path[:0] = paths
     try:
@@ -32,6 +39,9 @@ def loaded_plugins():
     finally:
         for p in paths:
             sys.path.remove(p)
+        for table, before in saved:
+            table.clear()
+            table.update(before)
 
 
 def test_the_three_plugins_run_in_a_data_set(loaded_plugins, tmp_path):

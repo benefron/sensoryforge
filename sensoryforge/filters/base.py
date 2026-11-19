@@ -23,7 +23,11 @@ class BaseFilter(nn.Module, ABC):
     All filters must:
     1. Inherit from ``nn.Module`` (for PyTorch compatibility)
     2. Implement ``forward()`` for filtering input signals
-    3. Implement ``reset_state()`` to clear internal temporal state
+    3. Implement ``reset_state()`` to clear internal temporal state, and
+       start every ``forward()`` call from rest: ``SimulationEngine`` calls
+       ``forward()`` once per stimulus and never calls ``reset_state()``, so
+       a filter that carries state between calls answers the same stimulus
+       differently the second time
     4. Provide ``from_config()`` class method for YAML instantiation
     5. Provide ``to_dict()`` method for serialization
 
@@ -82,8 +86,9 @@ class BaseFilter(nn.Module, ABC):
     def reset_state(self) -> None:
         """Reset all internal temporal state.
 
-        Must be called between independent sequences to avoid temporal
-        carryover from previous inputs.
+        A caller that runs the filter step by step calls it between
+        independent sequences. ``forward()`` on a whole sequence must not
+        depend on it: the engine never calls it (see the class docstring).
         """
         ...
 
