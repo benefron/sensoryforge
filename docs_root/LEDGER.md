@@ -108,6 +108,22 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-cd69253 · CLOSED · finding · - · 2026-11-19
+the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the global registries and failed test_committed_schema_is_current in the full suite
+→ commit f84db10
+
+## F-b50ec4e · CLOSED · finding · - · 2026-11-19
+BaseFilter and add_filter.md said reset_state() is called between sequences; the engine never calls it, so forward() must start from rest
+→ commit f84db10
+
+## F-0006a08 · OPEN · finding · - · 2026-11-19
+check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
+→ commit f84db10
+
+## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
+install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
+→ commit f84db10
+
 ## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
 the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
 → commit 69bc432
