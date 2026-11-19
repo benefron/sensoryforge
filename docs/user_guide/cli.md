@@ -214,6 +214,23 @@ PIPELINE STRUCTURE
 
 Print the shipped presets (`sensoryforge run --preset NAME` starts from one).
 
+### `sensoryforge examples`
+
+List the example configs that ship in the package, or copy one into a folder to edit and
+run. They are the configs a preset cannot give: a sweep batch file, which holds its own
+sensor, and a stimulus block to merge over a preset.
+
+```bash
+sensoryforge examples list
+sensoryforge examples copy amplitude_sweep        # writes ./amplitude_sweep.yml
+sensoryforge examples copy moving_edge --to configs
+sensoryforge batch amplitude_sweep.yml --dry-run
+sensoryforge run --preset tactile_sa1_ra1 configs/moving_edge.yml
+```
+
+`copy` will not replace a file that is already there unless you pass `--force`. Each file's
+header says how to run it.
+
 ### `sensoryforge batch`
 
 Run a sweep from a batch YAML (`sensoryforge batch sweep.yml`), or a whole

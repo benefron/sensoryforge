@@ -162,11 +162,11 @@ The `ComponentRegistry` provides a unified interface for component lookup:
 
 ```python
 class ComponentRegistry:
-    def register(self, name: str, cls: Type, factory_func: Optional[Callable] = None)
-    def create(self, name: str, **kwargs) -> Any
-    def get_class(self, name: str) -> Type
-    def is_registered(self, name: str) -> bool
-    def list_registered(self) -> List[str]
+    def register(self, name: str, cls: Type, factory_func: Optional[Callable] = None): ...
+    def create(self, name: str, **kwargs) -> Any: ...
+    def get_class(self, name: str) -> Type: ...
+    def is_registered(self, name: str) -> bool: ...
+    def list_registered(self) -> List[str]: ...
 ```
 
 ### Benefits

@@ -1,0 +1,63 @@
+# Amplitude sweep: one sensor, three stimulus amplitudes, one run each.
+#
+# A sweep batch file holds the whole sensor (`base_config`) and the sweep
+# (`batch:`), so no preset can stand in for it. `base_config` is a normal
+# config: the same `grids:`, `populations:` and `simulation:` blocks a
+# `sensoryforge run` config has. `batch.stimuli` lists sweeps; each sweep's
+# `parameters` are crossed (every combination) and each combination is run
+# `repetitions` times.
+#
+#   sensoryforge examples copy amplitude_sweep
+#   sensoryforge batch amplitude_sweep.yml --dry-run    # list the runs
+#   sensoryforge batch amplitude_sweep.yml              # run them
+#
+# `neurons_per_row` is per row: 10 builds 10 x 10 = 100 neurons.
+metadata:
+  batch_name: amplitude_sweep
+  version: "1.0"
+  description: Three stimulus amplitudes on a 40 x 40 sensor with two populations.
+
+base_config:
+  grids:
+  - name: Main Grid
+    arrangement: grid
+    rows: 40
+    cols: 40
+    spacing: 0.15        # mm between sensors
+  populations:
+  - name: SA Population
+    neuron_type: SA
+    target_grid: Main Grid
+    innervation_method: gaussian
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+    neurons_per_row: 10
+    neuron_model: Izhikevich
+    filter_method: sa
+    input_gain: 50.0
+  - name: RA Population
+    neuron_type: RA
+    target_grid: Main Grid
+    innervation_method: gaussian
+    connections_per_neuron: 28
+    sigma_d_mm: 0.3
+    neurons_per_row: 14
+    neuron_model: Izhikevich
+    filter_method: ra
+    input_gain: 50.0
+  simulation:
+    device: cpu
+    dt_ms: 1.0
+
+batch:
+  output_dir: ./batch_results/amplitude_sweep
+  save_format: pytorch   # or hdf5 (needs the hdf5 extra)
+  stimuli:
+  - type: gaussian_sweep
+    base_seed: 42
+    parameters:
+      amplitude: [10.0, 30.0, 50.0]
+      sigma: [0.5]         # mm
+      center_x: [0.0]      # mm
+      center_y: [0.0]      # mm
+    repetitions: 1

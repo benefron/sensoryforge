@@ -84,7 +84,7 @@ class NeuronModel:
         reset: str,
         parameters: Optional[Dict[str, float]] = None,
         state_vars: Optional[Dict[str, float]] = None,
-    )
+    ): ...
 ```
 
 **Arguments:**
@@ -263,7 +263,7 @@ class _CompiledNeuronModel(nn.Module):
 
 **Example Errors:**
 
-```python
+```text
 # Error 1: Undefined variable
 equations = 'dv/dt = -v + w + I'  # w not defined!
 → ValueError: Undefined variables: {'w'}
@@ -514,7 +514,7 @@ neuron = model.compile(solver='euler', dt=0.05)
 
 ### 2. Different Threshold Operators
 
-```python
+```text
 # Greater than
 NeuronModel(threshold='v > 30', ...)
 
@@ -737,7 +737,7 @@ equations = 'dm/dt = (0.1 * (v + 40) / (1 - exp(-(v + 40) / 10))) * (1 - m) - ..
 ```python
 # Not possible:
 if v > spike_threshold and w < w_max:
-    # Do something
+    ...  # do something
 ```
 
 **Workaround:** Use mathematical expressions (e.g., piecewise with heaviside)

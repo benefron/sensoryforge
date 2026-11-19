@@ -1474,6 +1474,34 @@ def cmd_agents(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_examples(args: argparse.Namespace) -> int:
+    """List the shipped example configs, or copy one into a folder (D4).
+
+    Args:
+        args: ``examples_command`` (``list`` or ``copy``); for ``copy``, also
+            ``name``, ``to`` and ``force``.
+
+    Returns:
+        Exit code (0 for success, 1 for an unknown name or a file in the way).
+    """
+    from sensoryforge.examples import copy_example, example_description, list_examples
+
+    if args.examples_command == "copy":
+        try:
+            path = copy_example(args.name, args.to, force=args.force)
+        except (ValueError, FileExistsError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(f"Wrote {path}")
+        return 0
+
+    print("Example configs (copy one with 'sensoryforge examples copy <name>'):")
+    for name in list_examples():
+        desc = example_description(name)
+        print(f"  - {name}: {desc}" if desc else f"  - {name}")
+    return 0
+
+
 def _add_agents_parser(subparsers: Any) -> None:
     """``sensoryforge agents``: flags generated from the working-style options."""
     from sensoryforge.agents.style import OPTIONS, CONFIG_ENV, CONFIG_RELPATH
@@ -1955,6 +1983,27 @@ def create_parser() -> argparse.ArgumentParser:
     # List presets command (K4)
     subparsers.add_parser("list-presets", help="List shipped canonical-config presets")
 
+    # Example configs that ship with the package (D4)
+    examples_parser = subparsers.add_parser(
+        "examples",
+        help="List or copy the example configs that ship with the package",
+        description="Example configs a preset cannot give: a sweep batch file "
+        "and a stimulus block to merge over a preset. 'copy' writes one into a "
+        "folder to edit and run.",
+    )
+    examples_sub = examples_parser.add_subparsers(dest="examples_command")
+    examples_sub.add_parser("list", help="List the example configs")
+    examples_copy = examples_sub.add_parser(
+        "copy", help="Write <name>.yml into a folder (default: here)"
+    )
+    examples_copy.add_argument("name", help="Example name (see 'examples list')")
+    examples_copy.add_argument(
+        "--to", default=".", help="Folder to write into (default: current folder)"
+    )
+    examples_copy.add_argument(
+        "--force", action="store_true", help="Replace a file of the same name"
+    )
+
     # Visualize command
     viz_parser = subparsers.add_parser(
         "visualize", help="Visualize pipeline structure from config"
@@ -2023,6 +2072,7 @@ def main() -> int:
         "describe": cmd_describe,
         "list-components": cmd_list_components,
         "list-presets": cmd_list_presets,
+        "examples": cmd_examples,
         "visualize": cmd_visualize,
         "new-component": cmd_new_component,
         "dataset": cmd_dataset,

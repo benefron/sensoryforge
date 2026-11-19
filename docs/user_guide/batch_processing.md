@@ -497,14 +497,18 @@ Future feature - currently serial execution only.
 
 - [YAML Configuration](yaml_configuration.md) - Full config reference
 - [CLI Reference](cli.md) - Command-line usage
-- [Example Configurations](../../examples/) - Ready-to-use templates
+- [CLI Reference: `sensoryforge examples`](cli.md#sensoryforge-examples) - Example configs that ship in the package
 - [Stimulus Types](extended_stimuli.md) - Available stimulus types
 
-## Examples Repository
+## An example to start from
 
-See `examples/batch_config.yml` for a comprehensive template with:
-- Gaussian parameter sweeps
-- Texture pattern sweeps
-- Moving stimulus sweeps
-- Single stimulus with multiple noise realizations
-- Inline usage documentation
+A sweep batch file ships in the package. Copy it, then dry-run it to see the runs it plans:
+
+```bash
+sensoryforge examples copy amplitude_sweep
+sensoryforge batch amplitude_sweep.yml --dry-run
+sensoryforge batch amplitude_sweep.yml
+```
+
+It holds a 40 x 40 sensor with an SA and an RA population (`base_config`) and one Gaussian
+sweep over three amplitudes (`batch.stimuli`).

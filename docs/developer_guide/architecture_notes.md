@@ -104,7 +104,7 @@ pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
 **Legacy format** (still supported):
 
 ```python
-config = {'pipeline': {'device': 'cpu'}, 'neurons': {'sa_neurons': 100}, ...}
+config = {'pipeline': {'device': 'cpu'}, 'neurons': {'sa_neurons': 100}}  # and the rest
 pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
 ```
 

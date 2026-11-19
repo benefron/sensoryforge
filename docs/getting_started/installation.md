@@ -55,10 +55,11 @@ group, and a contract test. It never writes into SensoryForge's installed files.
 ([neuron](../developer_guide/add_neuron.md), [filter](../developer_guide/add_filter.md),
 [stimulus](../developer_guide/add_stimulus.md)).
 
-`new-component` covers neurons, filters, stimuli, solvers and grids. For a receptive-field
-builder or a processing layer, start from the
+`new-component` covers neurons, filters, stimuli, solvers, grids and receptive-field
+builders. For a processing layer, start from the
 [plugin template](https://github.com/benefron/sensoryforge/tree/main/examples/plugin_template)
-in the repository: a complete plugin package with one of each.
+in the repository: a complete plugin package with a processing layer and a receptive-field
+builder.
 
 ## Run something first
 
@@ -69,8 +70,19 @@ sensoryforge list-presets
 sensoryforge run --preset tactile_sa1_ra1 --duration 100
 ```
 
-The `examples/` folder in the repository (more configs, a notebook, scripts) is not in the
-installed package. Fetch the file you need, for example:
+Two example configs a preset cannot give also ship in the package: a sweep batch file and
+a stimulus block to merge over a preset. Copy one into the current folder to edit and run:
+
+```bash
+sensoryforge examples list
+sensoryforge examples copy moving_edge
+sensoryforge run --preset tactile_sa1_ra1 moving_edge.yml
+```
+
+The `examples/` folder in the repository (a notebook, scripts, reference plugins) is not in
+the installed package. Read it on
+[GitHub](https://github.com/benefron/sensoryforge/tree/main/examples), or fetch one file,
+for example:
 
 ```bash
 curl -O https://raw.githubusercontent.com/benefron/sensoryforge/main/examples/canonical_config.yml

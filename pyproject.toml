@@ -89,6 +89,7 @@ include = ["sensoryforge*"]
 sensoryforge = [
     "config/*.yml",
     "presets/*.yml",
+    "examples/*.yml",
     "evaluate/server/static/*",
     "evaluate/export/static/*",
     "agents/skills/*.md",
