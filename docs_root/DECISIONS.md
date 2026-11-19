@@ -1150,4 +1150,5 @@ Do not hand-edit between the markers.
 | 2026-11-19 | D-5738304 | phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run | `3883d7d` |
 | 2026-11-19 | D-69afd06 | the packaged examples are amplitude_sweep (sweep batch file) and moving_edge (stimulus block over a preset), read through importlib.resources and written out by `sensoryforge examples copy`; the repository's examples/ folder stays out of the package | `4cedcda` |
 | 2026-11-19 | D-3a43fe5 | published docs pages are checked without running them: commands parse, python blocks compile, sensoryforge imports resolve; pseudocode goes in a text fence and a reader's own module is named my_* | `4cedcda` |
+| 2026-11-19 | D-114d396 | the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site | `a6c7059` |
 <!-- DECISIONS_LOG_END -->

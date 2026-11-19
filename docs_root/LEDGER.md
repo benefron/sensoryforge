@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-114d396 · CLOSED · decision · - · 2026-11-19
+the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site
+→ commit a6c7059
+
 ## D-69afd06 · CLOSED · decision · - · 2026-11-19
 the packaged examples are amplitude_sweep (sweep batch file) and moving_edge (stimulus block over a preset), read through importlib.resources and written out by `sensoryforge examples copy`; the repository's examples/ folder stays out of the package
 → commit 4cedcda
@@ -201,6 +205,7 @@ recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, a
 a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
 → commit 400d5d8
 ↔ 87821a5 feat(agents): plugin-lifecycle skill, from scaffold to a plugin SensoryForge found (C3)
+↔ a6c7059 feat(agents): ship the report contract in the package and read it first (D5)
 
 ## F-567af3c · STANDING · finding · - · 2026-11-05
 an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
@@ -786,9 +791,10 @@ phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are
 the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
 → commit 3b78cef
 
-## F-dc0c574 · OPEN · finding · - · 2026-10-23
+## F-dc0c574 · CLOSED · finding · - · 2026-10-23
 report_contract.md still names roadmap rows (A1-A11, R-A4) in about 40 places, left because removing the parentheticals changes sentences in an accepted contract; needs a careful pass, with Ben's answer on Q2 (internal references in public pages).
 → commit 3b78cef
+✓ closed by a6c7059 feat(agents): ship the report contract in the package and read it first (D5)
 
 ## D-e7972cb · CLOSED · decision · - · 2026-10-23
 the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint.
