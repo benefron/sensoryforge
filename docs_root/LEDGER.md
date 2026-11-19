@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5738304 · CLOSED · decision · - · 2026-11-19
+phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run
+→ commit 3883d7d
+
 ## F-cd69253 · CLOSED · finding · - · 2026-11-19
 the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the global registries and failed test_committed_schema_is_current in the full suite
 → commit f84db10
@@ -1317,6 +1321,7 @@ world register_shape/pattern/modulation/distribution refuse even an identical re
 → commit 67e3b60
 ✓ closed by 1957ef7 fix(world): registering the same world component again is a no-op
 ↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 3883d7d Merge phase C (extensions and plugins) into main
 
 ## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)

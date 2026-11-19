@@ -1146,4 +1146,5 @@ Do not hand-edit between the markers.
 | 2026-11-09 | D-07a1ad1 | recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, and 3 of 188 just under it were looked up anyway | `4017376` |
 | 2026-11-09 | D-5a1841e | check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check | `e0207bc` |
 | 2026-11-18 | D-22e8a63 | the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge. | `e2f6039` |
+| 2026-11-19 | D-5738304 | phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run | `3883d7d` |
 <!-- DECISIONS_LOG_END -->
