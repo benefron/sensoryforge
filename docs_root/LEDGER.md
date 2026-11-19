@@ -108,6 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-69afd06 · CLOSED · decision · - · 2026-11-19
+the packaged examples are amplitude_sweep (sweep batch file) and moving_edge (stimulus block over a preset), read through importlib.resources and written out by `sensoryforge examples copy`; the repository's examples/ folder stays out of the package
+→ commit 4cedcda
+
+## D-3a43fe5 · CLOSED · decision · - · 2026-11-19
+published docs pages are checked without running them: commands parse, python blocks compile, sensoryforge imports resolve; pseudocode goes in a text fence and a reader's own module is named my_*
+→ commit 4cedcda
+
+## F-0d9d3a9 · CLOSED · finding · - · 2026-11-19
+examples/scripts/example_pipeline.py failed on an unknown stimulus type and no test ran it; rewritten on SimulationEngine and run in CI with generalized_pipeline_demo.py
+→ commit 4cedcda
+
 ## F-b83b5e6 · OPEN · finding · - · 2026-11-19
 the quick starts have not been timed by a person who has not used SensoryForge (D3's done-when); only the commands were run, from a wheel in a fresh environment
 → commit a5b15a0
@@ -217,6 +229,7 @@ exports copy only SKILL.md, so a reference file inside a skill folder would not 
 ## F-85f1687 · OPEN · finding · - · 2026-11-03
 the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
 → commit 31422a5
+↔ 4cedcda feat(examples): ship two example configs, `sensoryforge examples`, and check every docs sn
 
 ## F-16f7ce4 · OPEN · finding · - · 2026-11-03
 main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
