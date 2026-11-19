@@ -108,6 +108,156 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5738304 · CLOSED · decision · - · 2026-11-19
+phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run
+→ commit 3883d7d
+
+## F-cd69253 · CLOSED · finding · - · 2026-11-19
+the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the global registries and failed test_committed_schema_is_current in the full suite
+→ commit f84db10
+
+## F-b50ec4e · CLOSED · finding · - · 2026-11-19
+BaseFilter and add_filter.md said reset_state() is called between sequences; the engine never calls it, so forward() must start from rest
+→ commit f84db10
+
+## F-0006a08 · OPEN · finding · - · 2026-11-19
+check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
+→ commit f84db10
+
+## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
+install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
+→ commit f84db10
+
+## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
+the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
+→ commit 69bc432
+
+## D-22e8a63 · CLOSED · decision · - · 2026-11-18
+the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
+→ commit e2f6039
+
+## F-146f748 · CLOSED · finding · - · 2026-11-18
+the filter scaffold kept state across forward calls and failed the report's determinism check
+→ commit 5f0895a
+
+## F-123c332 · STANDING · finding · - · 2026-11-18
+the engine runs one forward per stimulus and does not reset a filter between them, so a plugin filter must start from rest on every call
+→ commit 5f0895a
+
+## F-cac97e0 · STANDING · finding · - · 2026-11-18
+a world shape function never sees `amplitude`; the engine multiplies by it, so the spec lists it but fn must not read it.
+→ commit afca3cc
+
+## F-83424a9 · STANDING · finding · - · 2026-11-18
+SensoryForge has no plugin version of its own and checks nothing when it loads a plugin, so "sensoryforge>=X" in a plugin's dependencies is only pip's check at install time; an editable install keeps the version metadata it had when installed (0.2.0 beside __version__ 1.3.0 here)
+→ commit 87821a5
+
+## F-64ac196 · OPEN · finding · - · 2026-11-18
+no plugin API version or load-time compatibility check exists, so a plugin checked on one release loads silently on a later one that changed a contract; decide whether to add one
+→ commit 87821a5
+
+## D-5a1841e · CLOSED · decision · - · 2026-11-09
+check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check
+· Rejected: validate audit.json and declared.json against schemas/evaluate | the schemas are repo files and a plain install has no clone
+→ commit e0207bc
+
+## F-70d3b00 · OPEN · finding · - · 2026-11-09
+the report contract lists a FRAME_RENDERER_REGISTRY (points, grid, tactile) that was never built; the evaluation server draws channel 0 as a heat map itself, so no plugin can add how a frame is drawn and a data set of three colour channels shows as grey
+→ commit e0207bc
+
+## F-f91c230 · OPEN · finding · - · 2026-11-09
+sensoryforge new-component has no template for a metric pack or a declared adapter, so the extend-evaluation skill has the agent write both by hand
+→ commit e0207bc
+
+## F-44f1c67 · OPEN · finding · - · 2026-11-09
+sensoryforge describe --section evaluation lists only the names of the metric packs, check packs and declared adapters, not their metric ids, so an agent has to read an audit.json to see what exists
+→ commit e0207bc
+
+## F-36f1dd9 · CLOSED · finding · - · 2026-11-09
+the extend-world skill told an agent to register a plugin under the sensoryforge.plugins entry-point group; the group is sensoryforge.components
+→ commit e0207bc
+
+## D-07a1ad1 · CLOSED · decision · - · 2026-11-09
+recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, and 3 of 188 just under it were looked up anyway
+→ commit 4017376
+
+## D-b4d75c0 · CLOSED · decision · - · 2026-11-05
+a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
+→ commit 400d5d8
+↔ 87821a5 feat(agents): plugin-lifecycle skill, from scaffold to a plugin SensoryForge found (C3)
+
+## F-567af3c · STANDING · finding · - · 2026-11-05
+an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
+→ commit 400d5d8
+
+## F-74f5c58 · OPEN · finding · - · 2026-11-05
+no config key or stage builds a registered plugin solver (solver_config is unread by the engine, get_solver() ignores SOLVER_REGISTRY, NeuronModel.compile accepts only euler); a candidate for C4 or a later row
+→ commit 400d5d8
+
+## F-8e2b55e · OPEN · finding · - · 2026-11-05
+new-component solver scaffolds to_dict()["type"] as the class name lowercased minus "solver" (demork2), not the registered name (demo_rk2), and new-component has no processing-layer kind
+→ commit 400d5d8
+
+## F-e1c618e · STANDING · finding · - · 2026-11-03
+a skill whose description covers only the add case is not loaded for the "is there one already" question, and the agent then reads the wrong registry (list-components, not describe --section world).
+→ commit be4a4c8
+
+## D-c7ab774 · CLOSED · decision · - · 2026-11-03
+world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full.
+→ commit 31422a5
+
+## F-bacad9d · STANDING · finding · - · 2026-11-03
+exports copy only SKILL.md, so a reference file inside a skill folder would not reach a user's project; C2c's solver, processing layer and event converter sections for extend-pipeline need install.py (planned_files, dropped skills) and the skill tests widened first.
+→ commit 31422a5
+
+## F-85f1687 · OPEN · finding · - · 2026-11-03
+the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
+→ commit 31422a5
+
+## F-16f7ce4 · OPEN · finding · - · 2026-11-03
+main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
+→ commit c90a1b4
+
+## F-439d607 · OPEN · finding · - · 2026-11-03
+tests/unit/test_world_braille_lines.py passes nested tuples to pytest.approx, which the CI runners' pytest refuses with TypeError (three tests); a test bug, not a model change
+→ commit c90a1b4
+
+## D-6cf4332 · CLOSED · decision · docs · 2026-11-03
+cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review
+→ commit 9449397
+
+## D-2293851 · CLOSED · decision · - · 2026-11-03
+world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves
+→ commit d68c86a
+
+## F-f17cc7e · STANDING · finding · - · 2026-11-03
+AdaptiveSolver.to_dict dropped method, rtol and atol; the contract sweep skips it without torchdiffeq and CI does not install the solvers extra, so the completeness check never reached it
+→ commit ed20f88
+
+## F-6b8a1da · CLOSED · finding · - · 2026-11-03
+`sensoryforge new-component innervation`, promised by add_rf_builder.md, did not exist; the scaffold now writes a receptive-field builder package whose own contract test passes
+→ commit 953661e
+
+## F-119cacc · CLOSED · finding · - · 2026-11-03
+the grid scaffold's placeholder used the global RNG, so a to_dict/from_config round trip gave other points; it now uses a generator seeded by a seed parameter
+→ commit 953661e
+
+## F-5f4e887 · OPEN · finding · - · 2026-11-03
+a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
+→ commit 953661e
+
+## D-702cf20 · CLOSED · decision · - · 2026-11-03
+one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
+→ commit b53dfd6
+
+## F-2ba1eff · CLOSED · finding · - · 2026-11-03
+add_filter.md said the to_dict completeness check was neuron-only; _check_filter runs it and the built-in SA and RA filters pass.
+→ commit b53dfd6
+
+## D-e0adcb7 · CLOSED · decision · - · 2026-11-03
+identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level.
+→ commit 1957ef7
+
 ## D-9ef798b · CLOSED · decision · - · 2026-11-03
 the component, world-kind, evaluation, recipe and format-tag reference pages are generated by scripts/build_reference.py from sensoryforge describe --json and never written by hand; tests/unit/test_reference_pages.py fails when a page is stale or a registered component is missing
 → commit 808ff56
@@ -137,9 +287,10 @@ phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's requi
 → commit 1744cbc
 ✓ closed by e7cd5a0 fix(agents): hook goes in the project, set_hook refuses odd shapes, export removes dropped
 
-## F-8828df9 · OPEN · finding · docs/development · 2026-11-02
+## F-8828df9 · CLOSED · finding · docs/development · 2026-11-02
 agents/style.py set_hook raises AttributeError on a settings file whose hooks is a list or whose hook entry is a string, after the style file is already saved; an event given as a dict is replaced and a user group with empty hooks is dropped
 → commit 1744cbc
+✓ closed by 4017376 chore(ledger): tidy
 
 ## F-b5abfcd · CLOSED · finding · docs/development · 2026-11-02
 agents export never removes or reports a sensoryforge-* skill that a later release drops, so it keeps loading while export --check says current
@@ -205,6 +356,8 @@ the ground-assumptions skill is not loaded for a number with no unit or a value 
 ↔ 1744cbc docs(review): R-B, the review of phase B
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+↔ be4a4c8 fix(agents): extend-world skill covers asking and placeholder defaults; its four scenarios
+↔ 400d5d8 feat(agents): extend-pipeline covers solver, processing layer and event converter (C2c)
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
@@ -299,6 +452,7 @@ the front-door test that forbids pointing at the repo's retired agent files had 
 
 ## F-d3d0a2b · OPEN · finding · - · 2026-10-28
 the instruction files were checked against each tool's documentation and not run inside the tools, and Copilot's page does not say which editor surfaces read .github/copilot-instructions.md, only github.com chat, the cloud agent and code review
+· tidied 2026-11-09: kept open -- not yet run inside the tools; still real
 → commit c5c12aa
 
 ## D-5d48fdc · CLOSED · decision · - · 2026-10-27
@@ -311,6 +465,7 @@ Claude Code (.claude/skills), GitHub Copilot (.github/skills), Cursor (.cursor/s
 
 ## F-4f3a248 · OPEN · finding · - · 2026-10-27
 the exports were checked against each tool's documentation and not run inside the tools, and a tool that also reads another tool's folder (Copilot and Cursor read .claude/skills and .agents/skills) can list a skill twice when exported for several
+· tidied 2026-11-09: kept open -- not yet run inside the tools; still real
 → commit 1af26dc
 
 ## D-28a4edc · CLOSED · decision · - · 2026-10-27
@@ -424,6 +579,7 @@ D4 ships only the configs a preset cannot give (a canonical batch config and a s
 
 ## A-25817b1 · OPEN · action · - · 2026-10-25
 D4 builds the examples command and its wheel test, and the install page and README link the rest on GitHub; Due: with D4
+· tidied 2026-11-09: kept open -- waits for D4
 → commit e7f8d04
 
 ## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
@@ -457,12 +613,15 @@ the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, 
 
 ## F-c5e90d8 · OPEN · finding · - · 2026-10-24
 examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
+· tidied 2026-11-09: kept open -- D4 has not decided yet
 → commit 9873eb4
 ↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
 
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
+· tidied 2026-11-09: kept open -- still real; no extend extra yet
 → commit 9873eb4
+↔ b53dfd6 feat(agents): extend-pipeline skill, neuron model and temporal filter (C2a)
 
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
@@ -496,6 +655,7 @@ a module header is tag lines at the end of its docstring, with a closed topic li
 
 ## F-f324e8a · OPEN · finding · - · 2026-10-24
 127 modules of 40 lines or more still have no header (tests/unit/file_headers_untagged.txt); tag them as they are touched, starting with the GUI screens and the rest of evaluate
+· tidied 2026-11-09: kept open -- ratchet: tag modules as they are touched
 → commit 0ce453c
 
 ## D-d97f27f · CLOSED · decision · - · 2026-10-24
@@ -623,6 +783,7 @@ pins are recorded for chosen points (default the middle sensor and each populati
 
 ## F-1844d82 · OPEN · finding · - · 2026-10-23
 the snapshot cannot answer combined filters, text or seed searches, Random draw, or an unticked gallery signal; each answers "not in this snapshot".
+· tidied 2026-11-09: kept open -- a known limit of the snapshot, not fixed
 → commit f6412d3
 
 ## D-e76de48 · CLOSED · decision · - · 2026-10-23
@@ -814,6 +975,7 @@ core.frames.direction reports a float32-noise angle for still shapes (20 of 28 e
 
 ## F-45aa5a6 · OPEN · finding · docs/development · 2026-10-22
 centroid, direction and speed of a shape the canvas cuts off are biased towards the middle (a sigma 0.3 mm Gaussian on the 1.05 mm test canvas reads 30-55 % slow), and the declared side, not knowing the canvas, still declares them
+· tidied 2026-11-09: kept open -- edge bias still present
 → commit 09f6568
 
 ## D-8b78a55 · CLOSED · decision · - · 2026-10-22
@@ -889,10 +1051,11 @@ the engine's only space unit is mm and the world's layered fields are named *_mm
 the evaluation report contract (docs/reference/report_contract.md and schemas/evaluate/) is accepted as written, including the nine choices Q1-Q9 of section 11; stages A2a, A3 and A4 are built against it
 → commit f1e184f
 
-## D-423556b · CLOSED · decision · - · 2026-10-22
+## D-423556b · SUPERSEDED · decision · - · 2026-10-22
 the report contract (docs/reference/report_contract.md and schemas/evaluate/) is proposed for Ben's review; no stage is built on it until he approves it
 → commit 5692ef2
 ↔ f1e184f docs(evaluate): mark the report contract accepted after review
+⤳ superseded by D-e292f1a in 4017376 chore(ledger): tidy
 
 ## F-39e80f5 · CLOSED · finding · - · 2026-10-22
 Ben's review of the nine choices Q1-Q9 in section 11 of the report contract before A2a starts
@@ -950,6 +1113,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 ↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ e0207bc feat(agents): extend-evaluation skill and check_evaluation_component for metric packs and
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
@@ -1049,6 +1213,7 @@ with the other repo's values guarantee 11 covers every exploration (short-episod
 
 ## F-3fe9e9c · OPEN · finding · - · 2026-10-04
 a model session cannot hold both its declared contact fraction and exponential gaps when it holds few gaps; which to keep exact (exponential gaps with the fraction on average, or longer sessions) is the other project's owner's decision
+· tidied 2026-11-09: kept open -- the choice is the other project's owner's and has not been made
 · tidied 2026-10-22: kept open -- the choice it names is the other project's owner's and has not been made
 → commit 0d6c48a
 
@@ -1159,10 +1324,12 @@ v1.1.0 and this branch before any code change give byte-identical world ids, dra
 
 ## F-e9f7b0e · OPEN · finding · docs/development · 2026-10-04
 the world §174 addendum plan's nine provisional decisions (P1-P9: contact types, "touches for", tied fall, lateral-bias family, indenter semantics, background floor, self-affine scale, session layout, dot arrays) await the supervisor's or Ben's answer
+· tidied 2026-11-09: kept open -- still waiting for the supervisor's or Ben's answer
 → commit 6b7c43a
 
 ## F-29e949e · OPEN · finding · docs/development · 2026-10-04
 a 120 s session at 80x80 and 1 ms is 3.1 GB of float32 stimulus that the simulation engine holds whole; the addendum chunks only the rendering
+· tidied 2026-11-09: kept open -- engine still holds the whole stimulus
 · tidied 2026-10-22: kept open -- the Phase A11 scale tests will hit this limit; not a closed fact
 → commit 6b7c43a
 ↔ 5b53366 feat(world): render long entries in time chunks [structural]
@@ -1185,9 +1352,12 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 → commit 67e3b60
 ⤳ superseded in b2f4bee docs(world): the contract records the Linux x86-64 CI result for batch invariance
 
-## F-5bd542f · OPEN · finding · - · 2026-10-02
+## F-5bd542f · CLOSED · finding · - · 2026-10-02
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
+✓ closed by 1957ef7 fix(world): registering the same world component again is a no-op
+↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 3883d7d Merge phase C (extensions and plugins) into main
 
 ## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
@@ -1762,6 +1932,7 @@ F-070 the comparison against published afferent data is qualitative only -- SA s
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
 → commit 992e6ca
+↔ c90a1b4 chore: record main's failing CI tests job
 
 ## F-067 · CLOSED · finding · - · 2026-09-17
 F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
@@ -1843,6 +2014,10 @@ On non-composite grids SimulationEngine builds InnervationModule without innerva
 ## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
+↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
+↔ b9e0005 feat(testing): hold processing layers to the full to_dict round trip
+↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 58a6db4 fix(testing): world contract checks report a crashing function as a failure
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered

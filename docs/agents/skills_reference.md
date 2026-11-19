@@ -924,3 +924,572 @@ sensoryforge evaluate run dataset.yml --out runs/demo --preset tactile_sa1_ra1_a
 python where.py runs/demo
 # prints: evaluated: ok
 ```
+
+## Extend the pipeline with a new component
+
+`sensoryforge-extend-pipeline`
+
+**When an agent uses it.** Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement), a receptive-field builder, an ODE solver, a processing layer and an event converter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, integration method, a step between sensing and wiring, a way to turn drive into events, or says SensoryForge cannot do what they need, in whatever words they put it.
+
+A component is one part of the pipeline that a config names: a neuron model, a temporal
+filter, and so on. You add one as its own small package, so nothing inside SensoryForge is
+edited and the user's install stays as it is. You end with a package that passes the
+contract check, shows up in `sensoryforge list-components`, and is used from a config.
+Steps 4-8 cover the neuron model, the temporal filter, the stimulus, the grid
+arrangement and the receptive-field builder; step 9 sends you to `reference.md`, beside
+this file, for the solver, the processing layer and the event converter. Ask what the user
+needs by meaning, not by the word they chose ("adaptation" may be a neuron or a filter,
+"layout" a grid or the neurons' wiring, "pattern" a stimulus, "events" a converter).
+
+**Steps.** Read the working style; Is it already there?; Get the model from the user; Scaffold the package; A neuron model; A temporal filter; A stimulus; A grid arrangement; A receptive-field builder; A solver, a processing layer, an event converter; Check it; Use it.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A neuron and a filter scaffolded side by side, checked, loaded twice (as an entry point
+and a config's `plugins:` entry may both do), and driven with a step; then a stimulus, a
+grid arrangement and a receptive-field builder, checked and used together:
+
+```python
+# file: use_it.py
+"""Check two scaffolded plugins and drive them, as a plain install can."""
+import sys
+from pathlib import Path
+
+import torch
+
+# a plugin folder is on the path here; an installed one is already
+sys.path[:0] = [str(p.parent) for p in Path(".").glob("*/pyproject.toml")]
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.registry import FILTER_REGISTRY, NEURON_REGISTRY
+from sensoryforge.testing.contracts import check_component
+
+paths = [
+    "sensoryforge_demo_lif.component:register",
+    "sensoryforge_demo_band.component:register",
+]
+print("loaded", len(load_plugin_import_paths(paths)))
+print("loaded again", len(load_plugin_import_paths(paths)))
+
+check_component("neuron", NEURON_REGISTRY.get_class("demo_lif"))
+check_component("filter", FILTER_REGISTRY.get_class("demo_band"))
+print("contract ok")
+
+drive = torch.zeros(1, 40, 2)
+drive[:, 10:30] = 60.0  # a step of drive, mA
+current = FILTER_REGISTRY.create("demo_band")(drive)
+v_trace, spikes = NEURON_REGISTRY.create("demo_lif")(current)
+print("filtered", tuple(current.shape), "neuron", tuple(spikes.shape))
+```
+
+```bash
+sensoryforge new-component neuron demo_lif --dest .
+# prints: Scaffolded new neuron plugin package
+sensoryforge new-component filter demo_band --dest .
+# prints: Scaffolded new filter plugin package
+python use_it.py
+# prints: loaded again 2
+# prints: contract ok
+# prints: filtered (1, 40, 2) neuron (1, 41, 2)
+```
+
+```python
+# file: use_layout.py
+"""Check a stimulus, a layout and a builder, and use them together."""
+import sys
+from pathlib import Path
+
+import torch
+
+sys.path[:0] = [str(p.parent) for p in Path(".").glob("*/pyproject.toml")]
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.registry import GRID_REGISTRY, INNERVATION_REGISTRY, STIMULUS_REGISTRY
+from sensoryforge.stimuli.render import render_stimulus
+from sensoryforge.testing.contracts import check_component
+
+names = ("demo_ring", "demo_spiral", "demo_disc")
+print("loaded", len(load_plugin_import_paths([f"sensoryforge_{n}.component:register" for n in names])))
+
+grid = GRID_REGISTRY.create("demo_spiral", num_points=64)
+points = grid.get_all_coordinates()  # [64, 2], mm
+builder = INNERVATION_REGISTRY.get_class("demo_disc")(points, torch.zeros(1, 2))
+check_component("stimulus", STIMULUS_REGISTRY.get_class("demo_ring"))
+check_component("grid", type(grid))
+check_component("innervation", type(builder), builder)
+again = type(grid).from_config(grid.to_dict()).get_all_coordinates()
+print("contract ok, same points", torch.equal(again, points))
+torch.save(points, "points.pt")  # what a grid entry's coords_file reads
+
+x = torch.linspace(-1, 1, 32)
+xx, yy = torch.meshgrid(x, x, indexing="ij")
+frames, _ = render_stimulus("demo_ring", {"radius": 0.4}, xx, yy, dt_ms=1.0, duration_ms=50)
+print("frames", tuple(frames.shape), "weights", tuple(builder.build().weights.shape))
+```
+
+```bash
+sensoryforge new-component stimulus demo_ring --dest .
+sensoryforge new-component grid demo_spiral --dest .
+sensoryforge new-component innervation demo_disc --dest .
+# prints: Scaffolded new innervation plugin package
+python use_layout.py
+# prints: loaded 3
+# prints: contract ok, same points True
+# prints: frames (50, 32, 32) weights (1, 64)
+```
+
+## Extend the world engine
+
+`sensoryforge-extend-world`
+
+**When an agent uses it.** Add a stimulus shape, pattern, modulation, distribution or class kind to the world engine as a plugin that passes the world contract check; a class kind is how a world for another modality is added. Use when someone asks whether the worlds have a stimulus shape, texture or vibration, says they cannot draw what they need, wants a new shape, texture, vibration or sampling rule for generated stimuli, or wants worlds and data sets for a sense SensoryForge has no world for (light, sound, anything with its own frames), in whatever words they put it.
+
+A world draws stimuli: each draw is one class with a value for every axis, rendered as
+frames. Everything it uses is looked up by name in a registry, so you add a piece by
+registering it from a small plugin; nothing inside SensoryForge is edited. You end with
+a plugin that passes the world contract check, a world file or dict that uses it, and
+frames the user has looked at. A new component of the sensing pipeline (a neuron, a
+filter, a grid) is `sensoryforge-extend-pipeline`, not this skill.
+
+**Steps.** Read the working style; Which piece, and is it already there?; Get the physics from the user; Write the plugin; Check it; Use it.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A plugin with a ring shape and a class kind for a light flash (a uniform field at a level
+for a time), checked, loaded twice and drawn from:
+
+```python
+# file: demo_world.py
+"""A world plugin: a ring shape and a class kind for another modality (a light flash)."""
+import torch
+
+from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.world import register_class_kind, register_shape
+from sensoryforge.world.kinds import ClassKind, FieldInfo, UnknownField
+
+_FIELDS = {"onset_ms": 0.0, "flash_ms": 0.0, "level": 1.0}
+
+
+def ring(x, y, p):
+    r = torch.sqrt(x**2 + y**2)
+    return torch.exp(-((r - p["radius_mm"]) ** 2) / (2.0 * p["width_mm"] ** 2))
+
+
+class FlashKind(ClassKind):
+    """A uniform field at the level from the onset for the flash time, then nothing."""
+
+    name = "flash"
+
+    def normalise_layer(self, layer, where):
+        if layer:
+            raise ValueError(f"{where}: a flash class has no layer")
+        return None
+
+    def builtin_defaults(self, layer):
+        return dict(_FIELDS)
+
+    def resolve(self, name, layer):
+        if name in _FIELDS:
+            return ("flash", name)
+        raise UnknownField(f"{name!r}: a flash class has the axes {sorted(_FIELDS)}")
+
+    def domain(self, ref, layer):
+        return (0.0, None)
+
+    def field_info(self, ref, layer):
+        return FieldInfo("number", 0.0, None)
+
+    def end_ms(self, values):
+        return float(values["onset_ms"]) + float(values["flash_ms"])
+
+    def timeline(self, values):
+        start, end = float(values["onset_ms"]), self.end_ms(values)
+        phases = [["quiet", 0.0, start], ["flash", start, end]]
+        return [p for p in phases if p[2] > p[1]]
+
+    def render_group(self, spec, draws, X, Y, times):
+        def column(name):
+            vals = [float(d.values[name]) for d in draws]
+            return torch.tensor(vals, dtype=X.dtype, device=X.device).view(-1, 1)
+
+        start = column("onset_ms")
+        on = (times >= start) & (times < start + column("flash_ms"))
+        frames = (column("level") * on).to(X.dtype)  # [g, K]
+        shape = frames.shape + (1,) * X.ndim
+        return frames.reshape(shape).expand(frames.shape + tuple(X.shape)).contiguous()
+
+
+def register():
+    amp = ParamSpec("amplitude", dtype="float", default=1.0, min_val=0.0, max_val=1.0e4)
+    radius = ParamSpec(
+        "radius_mm", dtype="float", default=1.0, min_val=0.0, max_val=10.0, unit="mm"
+    )
+    width = ParamSpec(
+        "width_mm", dtype="float", default=0.1, min_val=0.001, max_val=10.0, unit="mm"
+    )
+    register_shape("ring", ring, [amp, radius, width])
+    register_class_kind(FlashKind())
+```
+
+```python
+# file: use_world.py
+"""Register a world plugin, check it, and draw from a world that uses it."""
+import torch
+
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.testing.world_contracts import check_world_component
+from sensoryforge.world import Canvas, World, render, sample
+
+print("loaded", len(load_plugin_import_paths(["demo_world:register"])))
+print("loaded again", len(load_plugin_import_paths(["demo_world:register"])))
+
+spec = {
+    "world": {
+        "name": "flashes",
+        "modality": "light",
+        "defaults": {"onset_ms": {"range": [0, 10]}, "level": {"range": [0.5, 1.0]}},
+        "classes": {
+            "flash": {"kind": "flash", "weight": 1, "axes": {"flash_ms": {"range": [5, 20]}}}
+        },
+    }
+}
+check_world_component("shape", "ring")
+check_world_component("class_kind", "flash", example=spec)
+print("contract ok")
+
+draws = sample(World.from_dict(spec), n=6, seed=7)
+frames = render(draws, Canvas.from_grid(8, 8, 0.2), torch.tensor([0.0, 10.0, 40.0]))
+print("frames", tuple(frames.shape), "lit", bool(frames.amax() > 0))
+```
+
+```bash
+python use_world.py
+# prints: loaded again 1
+# prints: contract ok
+# prints: frames (6, 3, 8, 8) lit True
+```
+
+## Extend the evaluation
+
+`sensoryforge-extend-evaluation`
+
+**When an agent uses it.** Add a metric pack or a declared adapter to SensoryForge's evaluation, as a plugin that passes the contract check. A metric pack is what the audit measures; a declared adapter is what a data set's own declaration says each entry should show; together they let the evaluation measure something new or work on data from another sense. Use when someone asks whether the audit can measure a quantity it does not, wants a new statistic or metric over generated data, wants to compare the data against what their world file declares for a world SensoryForge has no adapter for, wants to evaluate data from vision, hearing or any other modality, or asks how to add a check, a metric or a report column, in whatever words they put it.
+
+The evaluation reads a generated data set twice and sets the two readings side by side.
+The **audit** measures it blind, from the frames and responses alone, with **metric
+packs**. The **declared stage** reads what the data set's own declaration says each entry
+should show, with a **declared adapter**, in the same metric ids and units. Both are
+looked up by name in a registry, so you add one by registering it from a small plugin;
+nothing inside SensoryForge is edited. You end with a plugin that passes the contract
+check on a real data set, and a report the user has read. A new neuron, filter or grid is
+`sensoryforge-extend-pipeline`; a new stimulus or a world for another modality is
+`sensoryforge-extend-world`.
+
+**Steps.** Read the working style; Which seam, and is it already there?; Get the definition from the user; A metric pack; A declared adapter; Check it; Use it.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A pack that counts the sensors that ever pass half of full scale, and an adapter that
+declares only each entry's duration (it reads the manifest), checked against a small data
+set and run:
+
+```yaml
+# file: world.yml
+world:
+  name: demo
+  defaults:
+    delay_ms:   {range: [0, 10]}
+    touch_ms:   {range: [5, 15]}
+    hold_ms:    {range: [20, 40]}
+    release_ms: {range: [5, 15]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.3, 0.3]}
+    y_mm: {range: [-0.3, 0.3]}
+  classes:
+    dots:
+      weight: 1.0
+      layer: {shape: {kind: gaussian}}
+      axes: {sigma_mm: {range: [0.15, 0.45]}}
+```
+
+```python
+# file: demo_eval.py
+"""An evaluation plugin: a metric pack and a declared adapter."""
+from sensoryforge.evaluate.audit.units import QUANTITIES, unit_of
+from sensoryforge.evaluate.declared import Declaration, DeclaredAdapter
+from sensoryforge.evaluate.pack import MetricPack, metric_definition
+from sensoryforge.evaluate.registry import (
+    DECLARED_ADAPTER_REGISTRY,
+    METRIC_PACK_REGISTRY,
+)
+
+PEAKS = "peaks.frames.n_sensors_over_half"
+
+
+class PeakCount(MetricPack):
+    """How many sensors ever pass half of 1 in an entry's frames."""
+
+    name = "peaks"
+    version = "1"
+
+    def metrics(self, layout, units, dt=None):
+        return [metric_definition(PEAKS, None, scope="entry", value_type="integer")]
+
+    def measure(self, view):
+        # view.frames is [T, C, M]; the view holds nothing of the world's declaration.
+        return [{"id": PEAKS, "value": int((view.frames.max(axis=(0, 1)) > 0.5).sum())}]
+
+
+class DurationOnly(DeclaredAdapter):
+    """Declares only the entry's duration, which the manifest states."""
+
+    name = "duration_only"
+    version = "1"
+
+    @classmethod
+    def accepts(cls, dataset_meta):
+        return "dataset_id" in dataset_meta
+
+    def load(self, dataset_meta):
+        return dict(dataset_meta)
+
+    def describe(self, dataset_meta, world):
+        return {
+            "dataset_id": str(world["dataset_id"]),
+            "world_id": str(world.get("world_id", "")),
+            "world_format": "none",
+        }
+
+    def units(self, world):
+        return {q: None for q in QUANTITIES}
+
+    def metrics(self, units):
+        return [
+            {
+                "id": "core.frames.duration",
+                "unit": unit_of("time", units),
+                "basis": "manifest",
+                "source": "the manifest's duration_ms",
+            }
+        ]
+
+    def declare(self, row, world):
+        value = {"id": "core.frames.duration", "value": float(row["duration_ms"])}
+        return Declaration(values=[value], omitted=[])
+
+    def bounds(self, world):
+        return []
+
+
+def register():
+    METRIC_PACK_REGISTRY.register("peaks", PeakCount)
+    DECLARED_ADAPTER_REGISTRY.register("duration_only", DurationOnly)
+```
+
+```python
+# file: use_eval.py
+"""Register an evaluation plugin, check it against a data set, and run it."""
+import json
+
+from sensoryforge.evaluate.audit.run import run_audit
+from sensoryforge.evaluate.declared import run_declared
+from sensoryforge.plugins import load_plugin_import_paths
+from sensoryforge.testing.evaluate_contracts import check_evaluation_component
+
+print("loaded", len(load_plugin_import_paths(["demo_eval:register"])))
+print("loaded again", len(load_plugin_import_paths(["demo_eval:register"])))
+
+data = "runs/demo"
+check_evaluation_component("metric_pack", "peaks", example=data)
+check_evaluation_component("declared_adapter", "duration_only", example=data)
+print("contract ok")
+
+audit = run_audit(data, "runs/demo/plugin", packs=["core", "peaks"])
+row = json.loads(open("runs/demo/plugin/audit_entries.jsonl").readline())
+print("peaks", [v["value"] for v in row["values"] if v["id"] == "peaks.frames.n_sensors_over_half"])
+declared = run_declared(data, "runs/demo/plugin", adapter="duration_only")
+print("declared", [m["id"] for m in declared["metrics"]], "rows", declared["entries"]["n"])
+```
+
+```bash
+sensoryforge evaluate run world.yml --out runs/demo --preset tactile_sa1_ra1_adex --draws 6 --duration-ms 80 --seed 7 --packs core,tactile
+# prints: 0 failed
+python use_eval.py
+# prints: loaded again 1
+# prints: contract ok
+# prints: declared ['core.frames.duration'] rows 6
+```
+
+## The life of a plugin
+
+`sensoryforge-plugin-lifecycle`
+
+**When an agent uses it.** Take a SensoryForge plugin from scaffold to install: version it, name the SensoryForge release it needs, build it, install it in the right environment and confirm SensoryForge found it. Covers updating, sharing and removing it too. Use when someone wants to package, install, ship, version, share, update or uninstall a component they wrote, asks why their plugin or new component does not show up, or says it was installed but SensoryForge cannot see it, which version of SensoryForge it works with, or how to hand it to a colleague, in whatever words they put it.
+
+A plugin is a small Python package that registers one or more components (a neuron, a
+filter, a world shape, a metric pack, and so on) with SensoryForge when it is installed.
+Nothing inside SensoryForge is edited. This skill is the whole path around the component:
+the package, its version, the install and the proof that SensoryForge found it. What
+goes inside the component is the job of `sensoryforge-extend-pipeline` (neuron, filter,
+stimulus, grid, receptive-field builder, solver, processing layer, event converter),
+`sensoryforge-extend-world` (world shapes, patterns, modulations, distributions, class
+kinds) and `sensoryforge-extend-evaluation` (metric packs, declared adapters); use the
+one that fits for step 3 and come back here. You end with a package that passes its
+contract check, is installed in the environment SensoryForge runs in, and shows up in
+SensoryForge's own list, and with the user knowing which release it needs.
+
+**Steps.** Read the working style; Which route, and which environment?; What the user decides; Scaffold and fill in; Check it before it is built; Name the version and the SensoryForge it needs; Build and install it; Prove SensoryForge found it; After it is installed.
+
+**Also covers.** Verify.
+
+### Worked example
+
+A filter scaffolded, given a gain the user asked for, checked, versioned with the
+SensoryForge it needs, built into a wheel, installed into a folder (so the example leaves
+the environment alone), and confirmed from a fresh process:
+
+```bash
+sensoryforge new-component filter Bandpass --dest .
+# prints: Scaffolded new filter plugin package
+```
+
+```python
+# file: sensoryforge-bandpass/sensoryforge_bandpass/component.py
+"""A single-pole lowpass with an output gain (the user's definition)."""
+
+from typing import List, Optional
+
+import torch
+
+from sensoryforge.filters.base import BaseFilter
+from sensoryforge.stimuli.base import ParamSpec
+
+
+class BandpassFilterTorch(BaseFilter):
+    """Single-pole lowpass (tau in ms) scaled by a unitless gain."""
+
+    def __init__(self, tau: float = 10.0, gain: float = 1.0, dt: float = 0.1) -> None:
+        super().__init__(dt=dt)
+        if tau <= 0:
+            raise ValueError(f"tau must be positive, got {tau}")
+        self.tau = tau
+        self.gain = gain
+        self._state: Optional[torch.Tensor] = None
+
+    def reset_state(self) -> None:
+        self._state = None
+
+    def forward(self, x: torch.Tensor, dt: Optional[float] = None) -> torch.Tensor:
+        """Filter the drive ``[batch, time, N_neurons]`` (mA); same shape out."""
+        step = dt if dt is not None else self.dt
+        batch, steps, n = x.shape
+        state = (
+            self._state
+            if self._state is not None
+            else torch.zeros(batch, n, device=x.device, dtype=x.dtype)
+        )
+        outputs = []
+        for t in range(steps):
+            state = state + (x[:, t, :] - state) / self.tau * step
+            outputs.append(state.unsqueeze(1))
+        self._state = state.detach()
+        return self.gain * torch.cat(outputs, dim=1)
+
+    def to_dict(self) -> dict:
+        return {"tau": self.tau, "gain": self.gain, "dt": self.dt}
+
+    @classmethod
+    def from_config(cls, config: dict) -> "BandpassFilterTorch":
+        return cls(
+            tau=config.get("tau", 10.0),
+            gain=config.get("gain", 1.0),
+            dt=config.get("dt", 0.1),
+        )
+
+    @classmethod
+    def get_param_spec(cls) -> List[ParamSpec]:
+        return [
+            ParamSpec("tau", dtype="float", default=10.0, min_val=0.01, unit="ms"),
+            ParamSpec("gain", dtype="float", default=1.0, min_val=0.0, unit=""),
+        ]
+
+
+def register() -> None:
+    """Entry-point target."""
+    from sensoryforge.registry import FILTER_REGISTRY
+
+    FILTER_REGISTRY.register("bandpass", BandpassFilterTorch)
+```
+
+```toml
+# file: sensoryforge-bandpass/pyproject.toml
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensoryforge-bandpass"
+version = "0.2.0"
+description = "SensoryForge filter plugin: BandpassFilterTorch"
+requires-python = ">=3.10"
+dependencies = ["sensoryforge>=1.3.0"]
+
+[project.entry-points."sensoryforge.components"]
+bandpass = "sensoryforge_bandpass.component:register"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sensoryforge_bandpass*"]
+```
+
+```python
+# file: check_it.py
+import sys
+
+sys.path.insert(0, "sensoryforge-bandpass")
+from sensoryforge.testing.contracts import check_component
+from sensoryforge_bandpass.component import BandpassFilterTorch
+
+check_component(
+    "filter", BandpassFilterTorch, instance=BandpassFilterTorch(tau=7.0, gain=2.5, dt=0.2)
+)
+print("contract ok")
+```
+
+```python
+# file: verify.py
+import importlib.metadata as md
+import sys
+
+sys.path.insert(0, "site")  # the install target; a real install needs no line like this
+import torch
+
+import sensoryforge_bandpass
+from sensoryforge.registry import FILTER_REGISTRY
+
+print("from the install", "site" in sensoryforge_bandpass.__file__)
+print("registered", "bandpass" in FILTER_REGISTRY.list_registered())
+print("version", md.version("sensoryforge-bandpass"), md.requires("sensoryforge-bandpass"))
+y = FILTER_REGISTRY.create("bandpass", tau=5.0, gain=2.0, dt=0.1)(torch.ones(1, 50, 2))
+print("step response", round(float(y[0, -1, 0]), 3))
+```
+
+```bash
+python check_it.py
+# prints: contract ok
+python -m pip wheel --no-deps --no-build-isolation -w dist ./sensoryforge-bandpass
+# prints: Successfully built sensoryforge-bandpass
+python -m pip install --no-deps --target site dist/sensoryforge_bandpass-0.2.0-py3-none-any.whl
+# prints: Successfully installed sensoryforge-bandpass-0.2.0
+python verify.py
+# prints: from the install True
+# prints: registered True
+# prints: version 0.2.0 ['sensoryforge>=1.3.0']
+# prints: step response 1.272
+```

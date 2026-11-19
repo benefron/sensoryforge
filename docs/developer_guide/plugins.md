@@ -1,6 +1,7 @@
 # Plugin Packages
 
-SensoryForge components (neurons, filters, stimuli, solvers, grids) can be
+SensoryForge components (neurons, filters, stimuli, solvers, grids, receptive-field
+builders) can be
 distributed as standalone, installable Python packages — no edits to the
 SensoryForge checkout required. This is the recommended route for anyone
 outside the core project who wants to add a component: a lab sharing a
@@ -20,7 +21,7 @@ sensoryforge new-component filter MyBandpass --dest ~/code
 ```
 
 - `filter` is the component **kind**: one of `neuron`, `filter`, `stimulus`,
-  `solver`, `grid`.
+  `solver`, `grid`, `innervation` (a receptive-field builder).
 - `MyBandpass` is the component **name** (accepts `CamelCase` or
   `snake_case`; the scaffold derives both a class name and a registry key
   from it).
@@ -45,6 +46,8 @@ The scaffold refuses to write anywhere under a `site-packages` or
 `dist-packages` directory, so running it against an installed (wheel)
 SensoryForge is always safe — it never touches the installed package
 location, only `--dest`.
+
+Three finished examples (a neuron, a filter and a world shape) are in `examples/plugins/`; see [Reference Plugins](reference_plugins.md).
 
 ## 2. Fill in the component
 
@@ -86,10 +89,11 @@ point produces a `UserWarning` and is skipped
 `sensoryforge.testing.contracts.check_component(kind, cls)` runs the same
 checks used across the project's own contract-test sweep (G4): it asserts
 `get_param_spec()` returns a list of `ParamSpec`, runs one `forward()` pass
-with the kind's canonical tensor shape, and checks
-`from_config(instance.to_dict())` reconstructs correctly. It has no Qt
-dependency and needs nothing but `torch` and `sensoryforge` itself, so it
-runs anywhere the plugin package runs.
+with the kind's canonical tensor shape, and checks the `to_dict()`/`from_config()`
+round trip is **complete** (F-049): every `__init__` parameter appears in
+`to_dict()`, and `from_config(instance.to_dict())` gives back the same
+`to_dict()`. It has no Qt dependency and needs nothing but `torch` and
+`sensoryforge` itself, so it runs anywhere the plugin package runs.
 
 ```python
 from sensoryforge.testing.contracts import check_component
@@ -99,7 +103,43 @@ check_component("filter", MyBandpassFilter)
 ```
 
 This is exactly what the generated `tests/test_contract.py` calls — running
-`pytest` in the scaffolded package is enough to get this check for free.
+`pytest` in the scaffolded package is enough to get this check for free. A
+default-constructed instance cannot show that `from_config` ignores a key, so
+pass `instance=` built with non-default values to make the round trip bite.
+
+A plugin that registers a world **shape, pattern, modulation, distribution or
+class kind** (`register_shape`, `register_pattern`, `register_modulation`,
+`register_distribution`, `register_class_kind`) is checked by name, once
+registered, with `sensoryforge.testing.world_contracts.check_world_component`:
+
+```python
+from sensoryforge.testing.world_contracts import check_world_component
+from my_package import register  # calls register_shape("ring", ...)
+
+register()
+check_world_component("shape", "ring")
+```
+
+It calls your function as the renderer does and checks, among other things, that a
+shape's specs include `amplitude`, that its function takes the documented
+arguments and returns finite values of the coordinates' shape, that a draw alone
+equals the same draw in a batch, and that the specs round-trip through a world
+file. A distribution that needs options, and a class kind (which is checked on a
+world you give it), take an `example=`. The rules for each kind are listed in
+[Extensibility](extensibility.md#world-registries).
+
+The evaluation's two plug-in points, a metric pack and a declared adapter, are checked the
+same way, on a data set you have built, with
+`sensoryforge.testing.evaluate_contracts.check_evaluation_component(kind, name, example=folder)`;
+see [the audit's metrics](audit_metrics.md#check-a-pack) and
+[the declared side](declared_adapter.md).
+
+The agent skill `sensoryforge-plugin-lifecycle` walks through sections 1 to 4 and what
+follows them: it names the version and the SensoryForge release the plugin needs, builds a
+wheel, installs it into the environment SensoryForge runs in and shows that a fresh process
+lists it. SensoryForge itself has no plugin version and checks nothing when it loads a
+plugin; the `sensoryforge>=X` line in `dependencies` is only pip's check at install time,
+and an editable install keeps the version it had when it was installed.
 
 ## 5. The `plugins:` YAML key (an alternative to entry points)
 
@@ -121,6 +161,14 @@ call a specific callable after import (matching the entry-point
 convention: the callable is expected to register the component itself). A
 plugin that fails to import produces a `UserWarning` and is skipped, same
 as a broken entry point.
+
+A plugin's `register()` may run more than once (the entry point and a config's
+`plugins:` can both name it). Registering the same thing again is a no-op in every
+registry, the world registries included (`register_shape`, `register_pattern`,
+`register_modulation`, `register_distribution`, `register_class_kind`): the same function
+objects, specs and flags. A different registration under a taken name still raises, unless
+you pass `replace=True`. Define the functions at module level; one built afresh on each
+call is a different object and counts as a conflict.
 
 As of H4, every config loader in the project honours `plugins:` identically
 — the CLI (`sensoryforge run`/`validate`/`batch`), `BatchExecutor.from_yaml`,

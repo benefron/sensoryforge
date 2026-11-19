@@ -145,6 +145,24 @@ Run it with `--packs core,peaks`. A third-party pack registers itself from the c
   `dataset_inputs` and implements `measure_dataset(rows)`; the audit keeps those values for
   every entry.
 
+### Check a pack
+
+Register the pack, then check it against a data set you have built:
+
+```python
+from sensoryforge.testing.evaluate_contracts import check_evaluation_component
+
+check_evaluation_component("metric_pack", "peaks", example="runs/demo")
+```
+
+Without `example=` only the rules that need no data run (the class, its name and version,
+its parameters and their round trip, the shape of its definitions). With the folder of a
+data set, the check runs the audit with the pack twice and fails if the pack's module
+imports `sensoryforge.world`, a metric id is outside `<pack>.<quantity>.<metric>`, a value
+names an id nobody defined, values are out of catalogue order, `measure()` fails on an
+entry, or the two runs differ. It raises `AssertionError` naming the pack and the rule.
+The agent skill `sensoryforge-extend-evaluation` walks through the same steps.
+
 The pack and registry modules are `sensoryforge/evaluate/pack.py` and
 `sensoryforge/evaluate/registry.py`; the core pack is
 `sensoryforge/evaluate/audit/core_pack.py`, with its arithmetic in `frame_metrics.py`

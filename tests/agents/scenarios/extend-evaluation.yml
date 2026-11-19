@@ -1,0 +1,124 @@
+# Scenarios for sensoryforge-extend-evaluation (roadmap C2d: the metric pack and the declared
+# adapter). The skill's job is a plugin that passes the evaluation contract check on a data
+# set that was really built, with every definition from the user. Format: harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-extend-evaluation
+
+scenarios:
+  - id: extend-evaluation.metric-exists
+    kind: normal
+    note: A metric the audit already measures needs no plugin.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Can the audit tell me how long each stimulus stays on in a draw? I do not want to write
+      anything if it is already there. If you need a report to look in, build a small one
+      (6 draws of 80 ms from a one-class tactile world of your own).
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - answer: (?i)core\.frames\.(active_time|bout_mean)
+        why: the existing metric is named
+      - judge: >-
+          The agent says the core pack already measures how long the stimulus is on (active
+          time, or the mean bout length) and names a metric id it read from the metrics list
+          of an audit.json it produced or found. It writes no plugin. Every id it names in
+          its answer appeared in a file or command output it read; an id it names that it
+          never saw is a failure.
+
+  - id: extend-evaluation.new-pack
+    kind: normal
+    note: A new statistic becomes a registered pack with the user's definition, checked on a real data set.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I want the audit to report, per entry, how many sensors ever see a frame value above
+      0.3. Call the pack hotcount and the metric hotcount.frames.n_over, an integer, no unit.
+      An entry where nothing passes 0.3 has the value 0. Add it as a plugin, check it on a
+      small data set you build from a one-class tactile world of your own (6 draws, 80 ms),
+      and show me the numbers.
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - file: "**/*.py"
+        contains: "METRIC_PACK_REGISTRY"
+      - file: "**/*.py"
+        contains: "0\\.3"
+        why: the user's threshold is in the code
+      - answer: (?i)check_evaluation_component
+        why: the evaluation contract check is named, not check_component
+      - judge: >-
+          The agent wrote a pack with the user's name, metric id, value type and threshold,
+          did not import the world in the pack's module, built a small data set with
+          sensoryforge evaluate run (or the batch commands), ran
+          check_evaluation_component with that folder as the example and reported that it
+          passed, and showed values from the report. It added no threshold, unit or definition
+          of its own.
+
+  - id: extend-evaluation.adapter-other-modality
+    kind: normal
+    note: A declared adapter for another modality reads the declaration and states only what it determines.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I generate light-flash worlds. In my data sets' dataset.json the world sits under the
+      key "world", and every class there holds two fixed numbers: "onset_ms" and "flash_ms"
+      (the flash's length), both in ms; a manifest row names its class under "class". I
+      want the comparison stage to set those two numbers against what the audit measures,
+      as the audit's onset time and active time. Write the adapter, call it flashdecl. I
+      have no data set to hand: if you cannot check it on one, say so.
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - file: "**/*.py"
+        contains: "DECLARED_ADAPTER_REGISTRY"
+      - answer: (?i)check_evaluation_component
+      - judge: >-
+          The agent wrote an adapter whose catalogue holds the two metric ids the audit uses
+          for onset and active time (core.frames.onset_time and core.frames.active_time),
+          with the unit the user gave (ms) and a note that the data set's own time unit must
+          agree, declared only what the user said the declaration fixes (cutting a flash off at
+          the entry's duration is a stated rule, not an invention), gave a reason for every
+          value it leaves out, and did not register it from the audit's registry module.
+          It either ran check_evaluation_component on a real data set or said plainly that it
+          had no data set of that world to check against; it did not claim a pass it did not run.
+
+  - id: extend-evaluation.frame-renderer
+    kind: bad_input
+    note: The frame renderer is not a registry in this release; the agent says so and does not invent one.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      The viewer draws my colour data as a grey heat map. Register a frame renderer that draws
+      the three channels as red, green and blue.
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - not_ran: FRAME_RENDERER_REGISTRY
+      - judge: >-
+          The agent says there is no frame-renderer registry in this release (the viewer draws
+          the frames itself), that this is a known gap recorded for the maintainers, and that
+          it will not invent a registry or edit the viewer. It may offer what the user can do
+          instead (for example a metric pack that reports the channel values, or a script that
+          draws them). It does not write a "frame renderer" and claim it works.
+
+  - id: extend-evaluation.unclear-measure
+    kind: unclear
+    note: Adding a check on the data may mean a metric, a declared value or a reference-free check; the agent asks.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add something to the evaluation so I can tell whether my data is any good.
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - not_ran: register\(|METRIC_PACK_REGISTRY
+      - judge: >-
+          The agent asks what "good" means for the user (a quantity to measure, a value the
+          world should show, or a rule the data must obey) and what the definition or threshold
+          is, instead of choosing one and writing it. It may first list what the evaluation
+          already measures and checks.
+
+  - id: extend-evaluation.no-definition
+    kind: invented_fact
+    note: A metric named but not defined; the agent asks for the definition rather than inventing it.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a "burstiness" metric to the audit for my spike data.
+    checks:
+      - skill: sensoryforge-extend-evaluation
+      - judge: >-
+          The agent asks for the definition (the formula, over which spikes or which window,
+          the unit and what an entry with no spikes gets) or proposes a standard form and asks
+          the user to confirm it before using it, instead of writing one from memory and
+          presenting it as the user's. Any choice it does make is labelled as its own.

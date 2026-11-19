@@ -1,22 +1,28 @@
 """Reusable contract checks for SensoryForge component classes (H2, F-047).
 
 Extracted from ``tests/contract/test_component_contracts.py`` (G4) so the
-same three checks -- ``get_param_spec()`` shape, one forward pass with the
-kind's canonical tensor shape, and a ``from_config(to_dict())`` round trip --
-can be shared between the in-repo contract test sweep and the
+same checks -- ``get_param_spec()`` shape, one forward pass with the kind's
+canonical tensor shape, and the full ``to_dict()``/``from_config()`` round
+trip (every constructor parameter is serialised, and the round trip is a
+fixed point) -- can be shared between the in-repo contract test sweep and the
 ``tests/test_contract.py`` generated for every ``sensoryforge new-component``
 plugin package.
+
+The world registries (shapes, patterns, modulations, distributions, class
+kinds) register functions and tables rather than classes, so they are checked
+by :func:`sensoryforge.testing.world_contracts.check_world_component`.
 
 No Qt imports; only ``torch`` plus stdlib, so a generated plugin package can
 depend on nothing but ``sensoryforge`` itself to run its own tests.
 
 Topic: testing, registry
-Tests: tests/contract/test_component_contracts.py
+Tests: tests/contract/test_component_contracts.py, tests/unit/test_contract_checks.py
 Entry points: check_component, available_kinds
-Pinned by: docs/developer_guide/extensibility.md, F-049
-Do not change without: the full to_dict() completeness check runs for neurons only;
-    extending it to another kind fails shipped built-ins that do not round-trip every
-    argument (F-049).
+Pinned by: docs/developer_guide/extensibility.md, docs/developer_guide/plugins.md, F-049
+Do not change without: every kind in _CHECKS runs the full to_dict() completeness check
+    (a processing layer against its {method, params} shape); a kind added to _CHECKS
+    must too. A shipped built-in that cannot pass is recorded as an open ledger item,
+    never by weakening the check (F-049).
 """
 
 from __future__ import annotations
@@ -353,7 +359,8 @@ def _check_processing(cls: type, instance: Any) -> None:
     ``from_config`` explicitly (it cannot be recovered from ``to_dict()``,
     which never serialises the receptor axis). So this check is written
     against that actual contract instead of reusing
-    :func:`_assert_to_dict_roundtrip_complete`, which assumes the flat shape.
+    :func:`_assert_to_dict_roundtrip_complete`, which assumes the flat shape;
+    it makes the same two demands of it (completeness, fixed point).
 
     Checks:
     1. ``cls.get_param_spec()`` returns a list of ``ParamSpec``.
@@ -364,7 +371,12 @@ def _check_processing(cls: type, instance: Any) -> None:
     3. ``to_dict()`` includes a ``"method"`` or ``"type"`` key (either is
        ``ProcessingPipeline.from_config()``'s dispatch key into
        ``PROCESSING_REGISTRY``).
-    4. ``cls.from_config(instance.to_dict(), receptor_coords=...)`` (the
+    4. Every ``__init__`` parameter appears in ``to_dict()`` -- at the top
+       level or under ``"params"`` -- except ``receptor_coords`` of a class
+       with ``REQUIRES_RECEPTOR_COORDS`` and any name in the class's
+       ``_TO_DICT_EXCLUDE_PARAMS`` (F-049). Without this a layer whose
+       ``to_dict()`` left out a parameter still reached a fixed point.
+    5. ``cls.from_config(instance.to_dict(), receptor_coords=...)`` (the
        coordinates passed unconditionally; only a class with
        ``REQUIRES_RECEPTOR_COORDS`` uses them) round-trips to the same
        ``to_dict()``.
@@ -400,6 +412,23 @@ def _check_processing(cls: type, instance: Any) -> None:
             "-- ProcessingPipeline.from_config() dispatches on either "
             "(BaseProcessingLayer; 'type' is IdentityLayer's original key, "
             "'method' is PopulationInput.processing's, Wave M3)"
+        )
+    excluded = set(getattr(cls, "_TO_DICT_EXCLUDE_PARAMS", ()))
+    if getattr(cls, "REQUIRES_RECEPTOR_COORDS", False):
+        excluded.add("receptor_coords")
+    params = d1.get("params")
+    serialised = {**d1, **(params if isinstance(params, dict) else {})}
+    missing = [
+        name
+        for name in _init_param_names(cls)
+        if name not in serialised and name not in excluded
+    ]
+    if missing:
+        raise AssertionError(
+            f"{cls.__name__}.to_dict() is missing constructor parameters: "
+            f"{missing} -- every __init__ parameter must round-trip through "
+            f"to_dict()/from_config(), at the top level or under 'params' "
+            f"(F-049)"
         )
     receptor_coords = torch.zeros(m, 2)
     if getattr(cls, "REQUIRES_RECEPTOR_COORDS", False):
@@ -444,10 +473,21 @@ def check_component(kind: str, cls: type, instance: Optional[Any] = None) -> Non
     1. ``cls.get_param_spec()`` returns a list of ``ParamSpec`` instances.
     2. One forward pass succeeds with ``kind``'s canonical tensor shape.
     3. ``cls.from_config(instance.to_dict())`` round-trips to a ``cls`` instance.
-    4. For ``"innervation"``: ``instance.build()`` returns a
+    4. The round trip is complete, for every kind (F-049): every ``__init__``
+       parameter appears in ``instance.to_dict()`` (except the names in the
+       class's ``_TO_DICT_EXCLUDE_PARAMS``), and
+       ``cls.from_config(instance.to_dict()).to_dict()`` equals
+       ``instance.to_dict()``. Pass an ``instance`` built with non-default
+       values to catch a ``from_config`` that ignores a key: a default
+       instance reaches the fixed point even then.
+    5. For ``"innervation"``: ``instance.build()`` returns a
        :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank` with
        ``[N, M]`` weights, ``[N, 2]``/``[M, 2]`` coordinates and a provenance
        naming the builder (Phase 2, I3).
+
+    World shapes, patterns, modulations, distributions and class kinds are
+    registered as functions and tables, not classes: check them with
+    :func:`sensoryforge.testing.world_contracts.check_world_component`.
 
     Args:
         kind: One of ``"neuron"``, ``"filter"``, ``"grid"``, ``"solver"``,

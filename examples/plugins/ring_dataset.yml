@@ -1,0 +1,9 @@
+# A data set on ring_world.yml, small enough to build and run in seconds.
+dataset:
+  name: rings_small
+  world: ring_world.yml
+  seed: 7
+  duration_ms: 80
+  splits:
+    train: {n: 3}
+    test:  {stratified: {bins: 2, per_bin: 1}}

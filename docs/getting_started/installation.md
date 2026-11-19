@@ -9,7 +9,7 @@
 ## Install SensoryForge
 
 Not yet published to PyPI; install from source. This one install is for running
-SensoryForge **and for extending it**: a new neuron, filter, stimulus, solver or grid is a
+SensoryForge **and for extending it**: a new neuron, filter, stimulus, solver, grid or receptive-field builder is a
 small separate package that SensoryForge discovers, so you do not need to fork or clone
 SensoryForge to add one.
 
@@ -39,7 +39,7 @@ Combine them with a comma: `sensoryforge[gui,dsl]`.
 Add a component without touching SensoryForge's own files:
 
 ```bash
-sensoryforge new-component neuron MyNeuron   # also: filter, stimulus, solver, grid
+sensoryforge new-component neuron MyNeuron   # also: filter, stimulus, solver, grid, innervation
 cd sensoryforge-my-neuron
 pip install -e .                             # installs your plugin, not SensoryForge
 pip install pytest

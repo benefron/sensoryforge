@@ -1,0 +1,118 @@
+# Scenarios for sensoryforge-extend-world (roadmap C2c: world registries and a class kind for
+# another modality). The skill's job is a plugin that passes the world contract check, with
+# every formula and range from the user. Format: harness.py and
+# docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-extend-world
+
+scenarios:
+  - id: extend-world.shape-exists
+    kind: normal
+    note: A shape the world engine has needs no plugin.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      My world needs a stimulus that is a smooth round blob of pressure with a width I can
+      vary. Is there something for that, or do I have to write it?
+    checks:
+      - skill: sensoryforge-extend-world
+      - ran: sensoryforge describe
+        why: it looks at what is registered before writing anything
+      - answer: (?i)gaussian
+        why: the existing shape is named
+      - judge: >-
+          The agent says a Gaussian shape already exists in the world engine's shapes and
+          that its width is a parameter of the draw. It writes no plugin. A parameter name it
+          states must be one that appeared in a command's output.
+
+  - id: extend-world.shape-from-formula
+    kind: normal
+    note: A shape the registry lacks becomes a registered function with the user's formula and ranges.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I need a stimulus shape that is a ring: value = exp(-((r - R)^2) / (2 w^2)) where r is
+      the distance from the centre in mm, R is the ring radius from 0.2 to 2 mm and w the
+      width from 0.05 to 0.5 mm. SensoryForge's worlds have nothing like it. Add it as a
+      shape called ring2 and check it.
+    checks:
+      - skill: sensoryforge-extend-world
+      - answer: (?i)check_world_component
+        why: the world contract check is named, not check_component
+      - file: "**/*.py"
+        contains: "register_shape"
+      - file: "**/*.py"
+        contains: "0\\.5"
+        why: the user's width bound is in the code
+      - judge: >-
+          The agent wrote a module with a ring shape function and a register function that
+          calls register_shape with an amplitude spec and the user's two ranges, ran
+          check_world_component on it (from a script, since pytest may be unavailable) and
+          reported the result. It invented no parameter range of its own (an amplitude range
+          is the one value it may have asked about or labelled as its own assumption).
+
+  - id: extend-world.other-modality
+    kind: normal
+    note: A world for another modality is a class kind with its own renderer.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I study vision, not touch. I want worlds that draw a full-field brightness flash: a
+      uniform field at a level from 0.2 to 1 that switches on after 0 to 30 ms and stays
+      on for 10 to 50 ms, then off. SensoryForge's worlds only have touch classes. Add
+      what is needed as a plugin called flashworld, check it, and show me it draws.
+    checks:
+      - skill: sensoryforge-extend-world
+      - file: "**/*.py"
+        contains: "ClassKind"
+      - file: "**/*.py"
+        contains: "register_class_kind"
+      - answer: (?i)check_world_component
+      - judge: >-
+          The agent wrote a class kind (not a tactile contact class) whose axes are the
+          level, the delay before onset and the on time, with the ranges the user gave; its
+          renderer returns exactly 0 before the onset and after the end; it ran the world
+          contract check with an example world and drew from a world that uses it, and said
+          what it saw. It added no range or level the user did not give (a class's weight in
+          a one-class world is structure, not a value; a default or a validity bound
+          (such as times at least 0) that it labels as its own is fine).
+
+  - id: extend-world.pressure-pinned
+    kind: bad_input
+    note: Changing how an existing tactile shape draws would break the pinned contract; a new name is the way.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      The gaussian shape in the world engine falls off too slowly for my study. Replace it
+      with exp(-r^2 / sigma^2) so that all my worlds use the steeper one.
+    checks:
+      - skill: sensoryforge-extend-world
+      - not_ran: replace=True
+      - judge: >-
+          The agent does not overwrite the existing gaussian shape. It explains that the
+          built-in draws are pinned (changing them changes every existing world's frames) and
+          offers or builds a shape under a new name, with the user's formula.
+
+  - id: extend-world.unclear-kind
+    kind: unclear
+    note: Something new for the worlds may be a shape, a pattern, a modulation or a whole modality; the agent asks.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      The worlds need something new that varies with time. Can you add it?
+    checks:
+      - skill: sensoryforge-extend-world
+      - not_ran: register_shape|register_modulation|register_pattern
+      - judge: >-
+          The agent asks what should vary and how (a change in the size or position of a
+          shape over a draw, the way a draw is placed in time, or a different kind of thing
+          altogether), and what its formula or values are, instead of picking a kind and
+          writing it. It may first list what is registered.
+
+  - id: extend-world.no-formula
+    kind: invented_fact
+    note: A shape named but not defined; the agent asks for the formula and ranges rather than inventing them.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a "mexican hat" shape to the world engine so I can draw it.
+    checks:
+      - skill: sensoryforge-extend-world
+      - judge: >-
+          The agent asks for the formula and the parameters with their units and ranges (or
+          proposes the standard form and asks the user to confirm it before using it), instead
+          of writing a shape from memory and presenting its numbers as the user's. A range or
+          width it does write is labelled as a placeholder or as its own.

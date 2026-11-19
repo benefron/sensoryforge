@@ -84,7 +84,9 @@ name; the bank's provenance uses the registry name instead.
 
 **Plugin package (recommended):** `sensoryforge new-component innervation RingRF
 --dest DIR` scaffolds an installable package whose entry point registers the class; see
-`plugins.md`. **In-repo:** add one line to `register_all()` in
+`plugins.md`. Its placeholder is a flat disc (weight 1 within `radius_mm` of a neuron
+centre), and its contract test builds an instance from a few receptor positions and
+centres, because `check_component` cannot construct a builder without them. **In-repo:** add one line to `register_all()` in
 `sensoryforge/register_components.py`:
 
 ```python

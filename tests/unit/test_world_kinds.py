@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from sensoryforge.world.kinds import LayeredKind, register_class_kind
+from sensoryforge.world.kinds import CLASS_KINDS, LayeredKind, register_class_kind
 from sensoryforge.world.schema import load_world
 
 WORLD = load_world(
@@ -89,6 +89,15 @@ def test_the_quiet_kind():
     assert spec.kind_obj.to_layer(spec, v) is None
 
 
-def test_class_kinds_cannot_be_registered_twice():
+def test_a_different_class_kind_cannot_take_a_taken_name():
+    class Other(LayeredKind):
+        pass
+
     with pytest.raises(ValueError, match="already registered"):
-        register_class_kind(LayeredKind())
+        register_class_kind(Other())
+
+
+def test_an_equal_class_kind_registers_again_as_a_no_op():
+    before = CLASS_KINDS["layered"]
+    register_class_kind(LayeredKind())
+    assert CLASS_KINDS["layered"] is before

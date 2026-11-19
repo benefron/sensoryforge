@@ -4,6 +4,25 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); dates are commit dates from
 `docs_root/LEDGER.md`, the project's decision/finding record.
 
+## [Unreleased]
+
+### Added
+
+- **`sensoryforge.testing.world_contracts.check_world_component(kind, name)`**: contract
+  checks for the world registries, for plugin authors and for SensoryForge's own tests. It
+  holds a registered shape, pattern, modulation, distribution or class kind to the rules the
+  renderer and `docs/reference/world_contract.md` rely on (a shape's specs include `amplitude`
+  and round-trip through a world file, its function returns finite values of the coordinates'
+  shape, draw *i* alone equals draw *i* in a batch, and so on). Every shipped built-in passes.
+  It changes no world draw, frame, seed, entry id or bundle field.
+- `check_component("processing", ...)` now also requires every constructor parameter of a
+  processing layer to appear in its `to_dict()`, as the other six kinds already did.
+
+### Fixed
+
+- **`AdaptiveSolver.to_dict()`** now includes `method`, `rtol` and `atol`. It returned only
+  `type` and `dt`, so a saved adaptive solver reloaded as `dopri5` with the default tolerances.
+
 ## [1.3.0] - 2026-10-05
 
 A leaky reference for the level-crossing converter, and bundles that record each converter's

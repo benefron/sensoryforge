@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensoryforge-exp-smoother"
+version = "0.1.0"
+description = "SensoryForge filter plugin: ExpSmootherFilterTorch"
+requires-python = ">=3.10"
+dependencies = ["sensoryforge"]
+
+[project.entry-points."sensoryforge.components"]
+exp_smoother = "sensoryforge_exp_smoother.component:register"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sensoryforge_exp_smoother*"]
