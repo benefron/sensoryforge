@@ -84,7 +84,9 @@ tests and rules, is in `docs/agents/task_index.md`.
   `Entry points:`, `Pinned by:`, `Do not change without:`); search them with `grep -rn
   "^Topic:" sensoryforge/`. `docs/developer_guide/file_headers.md`.
 - Extend by registry or plugin; every component passes
-  `sensoryforge.testing.contracts.check_component`.
+  `sensoryforge.testing.contracts.check_component`, and every world shape, pattern,
+  modulation, distribution and class kind passes
+  `sensoryforge.testing.world_contracts.check_world_component`.
 - Modality-neutral words in the core (sensor, channel, frame, population, draw, entry);
   tactile words only in tactile-specific code.
 - Do not invent domain facts. Physics, models, parameters and units come from the user, a

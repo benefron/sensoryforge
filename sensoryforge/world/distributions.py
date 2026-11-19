@@ -132,24 +132,31 @@ def register_distribution(
             field's domain; such a distribution binds a number field only
             when it declares its bounds.
 
+    Registering the same functions and options again under the same name is a
+    no-op (a plugin's ``register()`` may run more than once).
+
     Raises:
         ValueError: For ``uniform``/``log_uniform`` (built in, never
-            replaced), or a taken name when ``replace`` is false.
+            replaced), or a name held by a different distribution when
+            ``replace`` is false.
     """
     if name in NUMERIC_DISTS:
         raise ValueError(f"{name!r} is a built-in numeric distribution")
-    if name in DISTRIBUTIONS and not replace:
-        raise ValueError(
-            f"distribution {name!r} is already registered; "
-            "pass replace=True to replace it"
-        )
-    DISTRIBUTIONS[name] = Distribution(
+    dist = Distribution(
         sample=sample,
         support=support,
         quantile=quantile,
         check=check,
         bounds=bounds,
     )
+    if name in DISTRIBUTIONS and not replace:
+        if DISTRIBUTIONS[name] == dist:
+            return  # the same registration again: a no-op (F-5bd542f)
+        raise ValueError(
+            f"distribution {name!r} is already registered; "
+            "pass replace=True to replace it"
+        )
+    DISTRIBUTIONS[name] = dist
 
 
 def _sample_braille_cells(u: np.ndarray, axis: "AxisSpec") -> List[str]:

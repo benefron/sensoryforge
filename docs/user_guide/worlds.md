@@ -434,7 +434,18 @@ Then `shape: {kind: ring}` works in a world and in a layered stimulus. In the sa
 `register_distribution(name, sample, support)` adds a distribution for `{dist: name}` axes
 (give `support` when it is finite, so a test split can balance it), and
 `register_class_kind(kind)` adds a class kind (a `ClassKind` instance) next to `layered` and
-`quiet`. Each refuses a name that is already registered unless you pass `replace=True`.
+`quiet`. Each refuses a name that a *different* registration already holds unless you pass
+`replace=True`. Registering the very same thing again (the same function objects, the same specs
+and flags) does nothing, so a plugin's `register()` can run more than once, as the plugin loader
+may call it. Define a plugin's functions at module level: a function built afresh on each call
+is a different object and counts as a conflict.
+
+Once registered, check an entry with
+`sensoryforge.testing.world_contracts.check_world_component(kind, name)`: it calls your
+function as the renderer does and checks, for a shape, that `amplitude` is a spec, that the
+values are finite and of the coordinates' shape, and that draw *i* alone equals draw *i* in a
+batch. The rules for each kind are in the
+[Extensibility guide](../developer_guide/extensibility.md#world-registries).
 
 A world can have several **channels** (`world: {channels: [a, b]}`); each class names the
 channel it draws on with `channel:`, and renders have shape `[n, K, C, *S]`. A batch run maps

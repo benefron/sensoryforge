@@ -79,6 +79,7 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
 - [GUI Forms for a Component](https://benefron.github.io/sensoryforge/extending/gui_forms/)
 - [Adding a Solver](https://benefron.github.io/sensoryforge/extending/add_solver/)
 - [Plugin Packages](https://benefron.github.io/sensoryforge/developer_guide/plugins/)
+- [Reference Plugins](https://benefron.github.io/sensoryforge/developer_guide/reference_plugins/)
 - [Toy Vision Fixture](https://benefron.github.io/sensoryforge/developer_guide/toy_vision_fixture/)
 - [Audit Reader](https://benefron.github.io/sensoryforge/developer_guide/audit_reader/)
 - [Audit Metrics](https://benefron.github.io/sensoryforge/developer_guide/audit_metrics/)

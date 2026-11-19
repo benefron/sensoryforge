@@ -15,7 +15,7 @@ Guidance for Claude Code in this repository. The shared, agent-neutral front doo
   touched (the world engine, engine parity). Write one when a finding keeps being
   re-discovered; the format is in `.claude/rules/README.md`.
 - **Slash commands** in `.claude/commands/` (`/review`, `/remediate`, `/maintain-docs`,
-  `/add-component`, `/scientific-edit`) are maintainer tools; they are not shipped.
+  `/scientific-edit`, `/update-agent-docs`) are maintainer tools; they are not shipped.
 - **Skills for SensoryForge's users** are written in Claude's format under
   `sensoryforge/agents/skills/` and ship with the package. Where every agent file lives,
   and the file-count budget: `docs/developer_guide/agent_files.md`.

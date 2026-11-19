@@ -108,9 +108,151 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-cd69253 · CLOSED · finding · - · 2026-11-19
+the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the global registries and failed test_committed_schema_is_current in the full suite
+→ commit f84db10
+
+## F-b50ec4e · CLOSED · finding · - · 2026-11-19
+BaseFilter and add_filter.md said reset_state() is called between sequences; the engine never calls it, so forward() must start from rest
+→ commit f84db10
+
+## F-0006a08 · OPEN · finding · - · 2026-11-19
+check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
+→ commit f84db10
+
+## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
+install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
+→ commit f84db10
+
+## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
+the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
+→ commit 69bc432
+
+## D-22e8a63 · CLOSED · decision · - · 2026-11-18
+the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
+→ commit e2f6039
+
+## F-146f748 · CLOSED · finding · - · 2026-11-18
+the filter scaffold kept state across forward calls and failed the report's determinism check
+→ commit 5f0895a
+
+## F-123c332 · STANDING · finding · - · 2026-11-18
+the engine runs one forward per stimulus and does not reset a filter between them, so a plugin filter must start from rest on every call
+→ commit 5f0895a
+
+## F-cac97e0 · STANDING · finding · - · 2026-11-18
+a world shape function never sees `amplitude`; the engine multiplies by it, so the spec lists it but fn must not read it.
+→ commit afca3cc
+
+## F-83424a9 · STANDING · finding · - · 2026-11-18
+SensoryForge has no plugin version of its own and checks nothing when it loads a plugin, so "sensoryforge>=X" in a plugin's dependencies is only pip's check at install time; an editable install keeps the version metadata it had when installed (0.2.0 beside __version__ 1.3.0 here)
+→ commit 87821a5
+
+## F-64ac196 · OPEN · finding · - · 2026-11-18
+no plugin API version or load-time compatibility check exists, so a plugin checked on one release loads silently on a later one that changed a contract; decide whether to add one
+→ commit 87821a5
+
+## D-5a1841e · CLOSED · decision · - · 2026-11-09
+check_evaluation_component(kind, name, example=folder) checks a metric pack and a declared adapter on a built data set without reading the JSON schemas, so it works on a plain install; the frame renderer has no check
+· Rejected: validate audit.json and declared.json against schemas/evaluate | the schemas are repo files and a plain install has no clone
+→ commit e0207bc
+
+## F-70d3b00 · OPEN · finding · - · 2026-11-09
+the report contract lists a FRAME_RENDERER_REGISTRY (points, grid, tactile) that was never built; the evaluation server draws channel 0 as a heat map itself, so no plugin can add how a frame is drawn and a data set of three colour channels shows as grey
+→ commit e0207bc
+
+## F-f91c230 · OPEN · finding · - · 2026-11-09
+sensoryforge new-component has no template for a metric pack or a declared adapter, so the extend-evaluation skill has the agent write both by hand
+→ commit e0207bc
+
+## F-44f1c67 · OPEN · finding · - · 2026-11-09
+sensoryforge describe --section evaluation lists only the names of the metric packs, check packs and declared adapters, not their metric ids, so an agent has to read an audit.json to see what exists
+→ commit e0207bc
+
+## F-36f1dd9 · CLOSED · finding · - · 2026-11-09
+the extend-world skill told an agent to register a plugin under the sensoryforge.plugins entry-point group; the group is sensoryforge.components
+→ commit e0207bc
+
 ## D-07a1ad1 · CLOSED · decision · - · 2026-11-09
 recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, and 3 of 188 just under it were looked up anyway
 → commit 4017376
+
+## D-b4d75c0 · CLOSED · decision · - · 2026-11-05
+a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
+→ commit 400d5d8
+↔ 87821a5 feat(agents): plugin-lifecycle skill, from scaffold to a plugin SensoryForge found (C3)
+
+## F-567af3c · STANDING · finding · - · 2026-11-05
+an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
+→ commit 400d5d8
+
+## F-74f5c58 · OPEN · finding · - · 2026-11-05
+no config key or stage builds a registered plugin solver (solver_config is unread by the engine, get_solver() ignores SOLVER_REGISTRY, NeuronModel.compile accepts only euler); a candidate for C4 or a later row
+→ commit 400d5d8
+
+## F-8e2b55e · OPEN · finding · - · 2026-11-05
+new-component solver scaffolds to_dict()["type"] as the class name lowercased minus "solver" (demork2), not the registered name (demo_rk2), and new-component has no processing-layer kind
+→ commit 400d5d8
+
+## F-e1c618e · STANDING · finding · - · 2026-11-03
+a skill whose description covers only the add case is not loaded for the "is there one already" question, and the agent then reads the wrong registry (list-components, not describe --section world).
+→ commit be4a4c8
+
+## D-c7ab774 · CLOSED · decision · - · 2026-11-03
+world pieces get their own skill (extend-world) as the C2 reshape said, and it stays inside the file budget (18 of 18), so the budget is now full.
+→ commit 31422a5
+
+## F-bacad9d · STANDING · finding · - · 2026-11-03
+exports copy only SKILL.md, so a reference file inside a skill folder would not reach a user's project; C2c's solver, processing layer and event converter sections for extend-pipeline need install.py (planned_files, dropped skills) and the skill tests widened first.
+→ commit 31422a5
+
+## F-85f1687 · OPEN · finding · - · 2026-11-03
+the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
+→ commit 31422a5
+
+## F-16f7ce4 · OPEN · finding · - · 2026-11-03
+main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
+→ commit c90a1b4
+
+## F-439d607 · OPEN · finding · - · 2026-11-03
+tests/unit/test_world_braille_lines.py passes nested tuples to pytest.approx, which the CI runners' pytest refuses with TypeError (three tests); a test bug, not a model change
+→ commit c90a1b4
+
+## D-6cf4332 · CLOSED · decision · docs · 2026-11-03
+cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review
+→ commit 9449397
+
+## D-2293851 · CLOSED · decision · - · 2026-11-03
+world shapes, patterns, modulations, distributions and class kinds are checked by check_world_component in sensoryforge/testing/world_contracts.py, apart from check_component, because they register functions and tables rather than classes; no check depends on how a repeated registration behaves
+→ commit d68c86a
+
+## F-f17cc7e · STANDING · finding · - · 2026-11-03
+AdaptiveSolver.to_dict dropped method, rtol and atol; the contract sweep skips it without torchdiffeq and CI does not install the solvers extra, so the completeness check never reached it
+→ commit ed20f88
+
+## F-6b8a1da · CLOSED · finding · - · 2026-11-03
+`sensoryforge new-component innervation`, promised by add_rf_builder.md, did not exist; the scaffold now writes a receptive-field builder package whose own contract test passes
+→ commit 953661e
+
+## F-119cacc · CLOSED · finding · - · 2026-11-03
+the grid scaffold's placeholder used the global RNG, so a to_dict/from_config round trip gave other points; it now uses a generator seeded by a seed parameter
+→ commit 953661e
+
+## F-5f4e887 · OPEN · finding · - · 2026-11-03
+a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
+→ commit 953661e
+
+## D-702cf20 · CLOSED · decision · - · 2026-11-03
+one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
+→ commit b53dfd6
+
+## F-2ba1eff · CLOSED · finding · - · 2026-11-03
+add_filter.md said the to_dict completeness check was neuron-only; _check_filter runs it and the built-in SA and RA filters pass.
+→ commit b53dfd6
+
+## D-e0adcb7 · CLOSED · decision · - · 2026-11-03
+identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level.
+→ commit 1957ef7
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
@@ -194,6 +336,8 @@ the ground-assumptions skill is not loaded for a number with no unit or a value 
 ↔ 1744cbc docs(review): R-B, the review of phase B
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+↔ be4a4c8 fix(agents): extend-world skill covers asking and placeholder defaults; its four scenarios
+↔ 400d5d8 feat(agents): extend-pipeline covers solver, processing layer and event converter (C2c)
 
 ## F-a920f84 · OPEN · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
@@ -457,6 +601,7 @@ examples/ does not reach a user on the default no-clone install; D4 decides betw
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
 · tidied 2026-11-09: kept open -- still real; no extend extra yet
 → commit 9873eb4
+↔ b53dfd6 feat(agents): extend-pipeline skill, neuron model and temporal filter (C2a)
 
 ## D-c2e83a0 · CLOSED · decision · - · 2026-10-24
 B6a ships docs/agents/glossary.md inside the package as data (a test keeps the copy identical to the docs page), `sensoryforge agents install` copies it beside the skills, and the brief points at the installed copy first; the task index stays on the docs site and in the repo
@@ -932,6 +1077,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ↔ 703654c fix(evaluate): the R-A review's required changes (Af)
 ↔ 60ff1c8 docs(plan): phase A is merged to main at 70bf297
 ↔ 1744cbc docs(review): R-B, the review of phase B
+↔ e0207bc feat(agents): extend-evaluation skill and check_evaluation_component for metric packs and
 
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
@@ -1166,9 +1312,11 @@ draw-i-alone-equals-batch bit-equality (contract guarantee 1) is verified only o
 → commit 67e3b60
 ⤳ superseded in b2f4bee docs(world): the contract records the Linux x86-64 CI result for batch invariance
 
-## F-5bd542f · OPEN · finding · - · 2026-10-02
+## F-5bd542f · CLOSED · finding · - · 2026-10-02
 world register_shape/pattern/modulation/distribution refuse even an identical re-registration, but SF's plugin loader calls plugin register() repeatedly, so a world-shape plugin would warn "already registered" on later loads; make identical re-registration a no-op
 → commit 67e3b60
+✓ closed by 1957ef7 fix(world): registering the same world component again is a no-op
+↔ d68c86a feat(testing): check_world_component for the world registries
 
 ## F-398cbd1 · CLOSED · finding · - · 2026-10-02
 fields a world class's layer fixes without an axis are not domain/type-checked at load (sigma 0 gives NaN frames, '3e-1' fails at render)
@@ -1743,6 +1891,7 @@ F-070 the comparison against published afferent data is qualitative only -- SA s
 ## F-071 · CLOSED · finding · - · 2026-09-17
 F-071 three zero-tolerance golden tests -- tests/integration/test_pressure_sim_parity.py, tests/integration/test_stimulus_parity.py and the receptive-field golden weights in tests/fixtures/rf_engine_golden_weights.pt -- compare against fixtures generated on macOS arm64 and have never run on another platform, so a failure on the Linux CI runner may be floating-point rounding rather than a regression and should be diagnosed before either loosening the test or changing code
 → commit 992e6ca
+↔ c90a1b4 chore: record main's failing CI tests job
 
 ## F-067 · CLOSED · finding · - · 2026-09-17
 F-067 the benchmark CI guard compared raw milliseconds from a baseline measured on an Apple M3 Pro against runs on a GitHub Linux runner, so a hardware difference alone could fail it; pinning the run to this machine's efficiency cores made the engine 4.56x slower in raw time, which fails the 3.0x limit with no code changed
@@ -1824,6 +1973,10 @@ On non-composite grids SimulationEngine builds InnervationModule without innerva
 ## F-049 · CLOSED · finding · - · 2026-09-15
 _assert_to_dict_roundtrip_complete (H3) is only called from _check_neuron, not _check_filter/_check_stimulus/_check_grid/_check_solver/_check_innervation; applied to today's built-ins it would fail SAFilterTorch (missing tau_r, tau_d, k1, k2, clip_to_positive), RAFilterTorch (missing tau_RA, k3), the grid arrangement classes (missing density), and EdgeGrating (missing normalize)
 → commit 5b2cc4e
+↔ ed20f88 fix(solvers): AdaptiveSolver.to_dict keeps method, rtol and atol
+↔ b9e0005 feat(testing): hold processing layers to the full to_dict round trip
+↔ d68c86a feat(testing): check_world_component for the world registries
+↔ 58a6db4 fix(testing): world contract checks report a crashing function as a failure
 
 ## F-046 · CLOSED · finding · - · 2026-09-15
 SimulationEngine lowercases neuron_model before a case-sensitive NEURON_REGISTRY lookup (filters are looked up exactly), so a plugin neuron registered as DemoNeuron is listed by list-components but fails with "Unknown neuron model"; built-ins only work because both spellings are registered

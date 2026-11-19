@@ -5,7 +5,8 @@ modality's pack are built in. A pack is registered by name and found from a plug
 through the ``sensoryforge.components`` entry-point group, whose callable registers it
 here. ``DECLARED_ADAPTER_REGISTRY`` holds the declared adapters; it is filled by
 ``sensoryforge.evaluate.declared`` (the adapters import the world package, which this
-module must not). The frame-renderer registry arrives with A5.
+module must not). The frame-renderer registry that section 10 of the contract lists
+has not been built; the evaluation server draws channel 0 as a heat map itself.
 
 This module is inside the audit's import wall: it never imports ``sensoryforge.world``.
 """

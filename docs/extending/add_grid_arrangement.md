@@ -108,7 +108,9 @@ Two routes, same as every other component kind (see
 [Plugin Packages](../developer_guide/plugins.md)):
 
 - **Plugin package (for third parties):** `sensoryforge new-component grid Spiral` scaffolds an
-  installable package with a `pyproject.toml` entry point, discovered automatically.
+  installable package with a `pyproject.toml` entry point, discovered automatically. Its
+  placeholder draws uniform random points from a generator seeded by its `seed` parameter, so
+  `from_config(to_dict())` gives the same points; keep randomness that way.
 - **In-repo (for contributing to SensoryForge):** `sensoryforge new-component grid Spiral
   --in-repo` and add one line to `register_components.py`'s `register_all()`.
 

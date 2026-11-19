@@ -56,7 +56,7 @@ Each target is written by one command and checked in CI against its source (see 
 | `CLAUDE.md` (343 lines) | current, but held facts that also lived in `CODE_MAP.md` and the docs | done: imports `AGENTS.md` and keeps Claude-only notes; the architecture notes moved to [Architecture Notes](architecture_notes.md) |
 | `CODE_MAP.md` | partly repeated `CLAUDE.md`; named deleted GUI tabs | done: folded into `AGENTS.md`'s table and removed |
 | `refs/` (module, test and GUI maps) | last changed 2026-09-14; predates GUI v2 | not linked from `AGENTS.md`; to be replaced by a generated reference |
-| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlaps the planned extension skills | maintainer-only; the stale references now name `AGENTS.md`; `add-component` retires when the extension skills replace it |
+| `.claude/commands/` (5) | `review` and `remediate` name `.github/copilot-instructions.md`, which does not exist; `add-component` overlapped the extension skills | maintainer-only; the stale references now name `AGENTS.md`; `add-component` was retired in C2d, when the extension skills replaced it |
 | `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired; `sensoryforge agents export` generates Cursor's skills from the packaged ones (`export --target cursor`) |
 | `.claude/hooks/`, `.claude/settings.json`, `.claude/ledger.conf` | the living ledger's install | maintainer-only, owned by the ledger skill, not edited by hand |
 | `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | for people | human-first; agents may read them, nothing points agents at them for facts |
@@ -102,19 +102,25 @@ Each target is written by one command and checked in CI against its source (see 
 
 | Group | Limit |
 |---|---|
-| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section) | **18** (16 used) |
+| Hand-written agent files that ship or face users (`AGENTS.md`, `CLAUDE.md`, skills, the three prompts, the section, a skill's reference file) | **21** (21 used) |
 | of which skills (`SKILL.md` files) | **14** |
-| Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 18 |
-| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 6 commands (`update-agent-docs` is the sixth; `add-component` retires with the extension skills) |
+| Extra reference files inside a skill | 0 by default; one only when the `SKILL.md` passes about 300 lines, and it counts towards the 19. `sensoryforge-extend-pipeline` has the only one (`reference.md`: the solver, processing layer and event converter); exports write it beside the skill |
+| Maintainer-only (`.claude/rules/`, `.claude/commands/`) | 6 rules, 5 commands (`add-component` retired in C2d: the extension skills replace it) |
 | Generated targets | no limit, but each comes from one command and is checked in CI |
 
-Shipped: ten skills, setup, design-and-plan, design-world, ground-assumptions,
-build-dataset, run-simulation, evaluate, diagnose, interpret-report and the master skill,
-workflow ([Skills Reference](../agents/skills_reference.md)). Planned, to fit in the same
-14: extend-pipeline (every pipeline component kind), extend-world (world registries and
-another modality's class kinds), extend-evaluation (the evaluation seams) and the plugin
-lifecycle. A change that would pass a limit merges skills or raises the limit here first,
-with the reason.
+Shipped: fourteen skills, setup, design-and-plan, design-world, ground-assumptions,
+build-dataset, run-simulation, evaluate, diagnose, interpret-report, the master skill,
+workflow, extend-pipeline, which covers the neuron model, the temporal
+filter, the stimulus, the grid arrangement and the receptive-field builder in its
+`SKILL.md` and the solver, the processing layer and the event converter in its `reference.md`, and extend-world,
+which covers the world shape, pattern, modulation, distribution and the class kind of another
+modality, and extend-evaluation, which covers the metric pack and the declared adapter, and plugin-lifecycle,
+which covers the package around any of them: version, build, install and the proof that
+SensoryForge found it ([Skills Reference](../agents/skills_reference.md)). Files: the limit rose from 18 to 19 for extend-pipeline's reference file (it held 295
+of 300 lines before the solver, processing layer and converter sections, and a fourth skill for
+them would have been a fifteenth), from 19 to 20 for extend-evaluation and from 20 to 21 for the plugin lifecycle.
+A change that would pass a limit merges skills or raises the limit here first, with the
+reason.
 
 ## Keeping the agent files current
 

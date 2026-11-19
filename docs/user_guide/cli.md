@@ -254,8 +254,9 @@ without simulating anything (see [Worlds and Data Sets](worlds.md)).
 
 ### `sensoryforge new-component`
 
-`sensoryforge new-component {neuron,filter,stimulus,solver,grid} Name [--dest DIR]` writes an
-installable plugin package for a new component; `--in-repo` writes into a SensoryForge checkout
+`sensoryforge new-component {neuron,filter,stimulus,solver,grid,innervation} Name [--dest DIR]`
+writes an installable plugin package for a new component (`innervation` is a receptive-field
+builder); `--in-repo` writes into a SensoryForge checkout
 instead. See [Plugin Packages](../developer_guide/plugins.md).
 
 ### `sensoryforge agents`

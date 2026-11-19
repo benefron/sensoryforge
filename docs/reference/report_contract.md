@@ -586,12 +586,12 @@ Each seam is a `ComponentRegistry` (`sensoryforge.registry`) in
 `sensoryforge/evaluate/registry.py`. Its classes follow the component pattern: they are
 registered by name, configured by `from_config`/`to_dict`, and declare their parameters with
 `get_param_spec()`. They are discovered from plugins through the `sensoryforge.components`
-entry-point group. Contract checks for these kinds are added in C2d.
+entry-point group. `sensoryforge.testing.evaluate_contracts.check_evaluation_component` checks a metric pack and a declared adapter on a data set (see the two developer pages on them); the frame renderer has no check because its registry has not been built.
 
 | Registry | Built-in | Interface |
 |---|---|---|
 | `METRIC_PACK_REGISTRY` | `core`, `tactile` | `name`, `version`; `metrics(layout, units, dt) → [definition]` (section 4); `units() → {quantity: (symbol, source)}`; `measure(view) → [value]` for one entry; `measure_dataset(rows) → [value]` (optional, from the entry values named in the pack's `dataset_inputs`) |
-| `FRAME_RENDERER_REGISTRY` | `points` (any layout), `grid` (a regular grid), `tactile` | `accepts(layout) → bool`; `render(frames [T, C, M], layout, channel) → images [T, H, W]` (float32, with an `extent` in space units) |
+| `FRAME_RENDERER_REGISTRY` (**not built yet**: the viewer draws channel 0 as a heat map itself, and no plugin can register a renderer) | `points` (any layout), `grid` (a regular grid), `tactile` | `accepts(layout) → bool`; `render(frames [T, C, M], layout, channel) → images [T, H, W]` (float32, with an `extent` in space units) |
 | `DECLARED_ADAPTER_REGISTRY` | `tactile` | `name`, `version`; `accepts(dataset_meta) → bool` (`tactile`: world format `sensoryforge-world/1`); `load(dataset_meta) → world`; `describe(dataset_meta, world)`; `channels(world)`; `units(world)`; `metrics(units) → [{id, unit, basis, source}]`; `declare(manifest_row, world) → Declaration(values, omitted)` (the values, and a reason for each one left out, which the stage counts under `omitted`); `bounds(world) → [bound]` |
 
 A metric pack's `measure` receives an **entry view** built by the reader (section 2):

@@ -1,0 +1,62 @@
+# The proof that the setup works (roadmap C6): a plain-language description becomes an
+# installed plugin, goes through the evaluation report on a world, and the user is told
+# what the report says. The agent has only the installed package and the skills. Format:
+# harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-workflow
+
+files:
+  world: |
+    world:
+      name: demo
+      defaults:
+        delay_ms:   {range: [0, 10]}
+        touch_ms:   {range: [5, 15]}
+        hold_ms:    {range: [20, 40]}
+        release_ms: {range: [5, 15]}
+        amplitude:  {range: [0.5, 1.0]}
+        x_mm: {range: [-0.3, 0.3]}
+        y_mm: {range: [-0.3, 0.3]}
+      classes:
+        dots:
+          weight: 1.0
+          layer: {shape: {kind: gaussian}}
+          axes: {sigma_mm: {range: [0.15, 0.45]}}
+
+scenarios:
+  - id: plugin.end-to-end
+    kind: normal
+    note: A described filter is built, checked and installed, used by the sensor on a world, evaluated, and the report is read back.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the plugin package has a tests/ folder of its own
+    files: {world.yml: "@world"}
+    prompt: |
+      I want a new temporal filter called "slowdrift": a single-pole low-pass of the drive
+      with a time constant of 25 ms (y moves towards x by dt/tau each step). Build it as a
+      plugin I can install here, then use it as the filter of the tactile_sa1_ra1_adex
+      sensor's first population, run world.yml through the evaluation report with 4 draws,
+      80 ms each, seed 7, the core metric pack only, and tell me what the report says.
+    checks:
+      - skill: sensoryforge-workflow
+      - skill: sensoryforge-extend-pipeline
+      - ran_ok: new-component|pip (install|wheel)
+      - ran_ok: list-components
+      - ran_ok: sensoryforge evaluate run
+      - file: "**/pyproject.toml"
+        contains: "sensoryforge.components"
+        why: the plugin is a package with an entry point
+      - file: "**/*.py"
+        contains: "25"
+        why: the time constant the user gave
+      - judge: >-
+          The agent built the slowdrift filter as an installable package (a scaffold from
+          sensoryforge new-component or its equivalent), with the 25 ms time constant the
+          user gave and no other number invented, ran the component contract check, installed
+          it into the same environment SensoryForge runs in and showed that SensoryForge lists
+          it, wrote a sensor config that sets the first population's filter to slowdrift over
+          the named recipe, ran evaluate run with 4 draws, 80 ms and seed 7, and then read the
+          report back with measured, declared and the raw difference together, without
+          calling the result good or bad beyond what the numbers show. A check in the report
+          that fails is a result to read back with its numbers, and the agent may offer a
+          cause but must not change the sensor or the world to make it pass. If a command
+          failed on the way it said so and fixed the cause. Writing files in the project
+          folder with the file tools is allowed. It did not edit SensoryForge itself.

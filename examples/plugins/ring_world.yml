@@ -1,0 +1,22 @@
+# A world that uses the ring shape from sensoryforge-ring-shape. The values are
+# placeholders for the example, not a survey of any real stimulus.
+world:
+  name: ring_world
+  description: one class of ring-shaped contacts, for the reference plugins
+  modality: tactile
+  units: {space: mm, time: ms}
+  defaults:
+    delay_ms:   {range: [0, 10]}
+    touch_ms:   {range: [5, 10]}
+    hold_ms:    {range: [20, 40]}
+    release_ms: {range: [5, 10]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.2, 0.2]}
+    y_mm: {range: [-0.2, 0.2]}
+  classes:
+    rings:
+      weight: 1.0
+      layer: {shape: {kind: ring}}
+      axes:
+        radius_mm: {range: [0.1, 0.4]}
+        width_mm:  {range: [0.05, 0.15]}

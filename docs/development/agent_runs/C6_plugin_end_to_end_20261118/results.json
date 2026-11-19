@@ -1,0 +1,459 @@
+[
+  {
+    "id": "plugin.end-to-end",
+    "skill": "sensoryforge-workflow",
+    "kind": "normal",
+    "model": "sonnet",
+    "passed": true,
+    "score": 1.0,
+    "seconds": 83.7,
+    "cost_usd": 0.309,
+    "workspace": "/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b",
+    "checks": [
+      {
+        "kind": "ran",
+        "passed": true,
+        "detail": "sensoryforge agents brief; ls -la; ls .claude/skills",
+        "why": "every skill reads the working style first",
+        "spec": {
+          "ran": "sensoryforge agents brief",
+          "why": "every skill reads the working style first"
+        }
+      },
+      {
+        "kind": "skill",
+        "passed": true,
+        "detail": "loaded",
+        "why": "",
+        "spec": {
+          "skill": "sensoryforge-workflow"
+        }
+      },
+      {
+        "kind": "skill",
+        "passed": true,
+        "detail": "loaded",
+        "why": "",
+        "spec": {
+          "skill": "sensoryforge-extend-pipeline"
+        }
+      },
+      {
+        "kind": "ran_ok",
+        "passed": true,
+        "detail": "sensoryforge list-components | head -40; sensoryforge new-component filter slowdrift --dest . && cat sensoryforge-slowdrift/pyproject.toml sensoryforge-slowdrif",
+        "why": "",
+        "spec": {
+          "ran_ok": "new-component|pip (install|wheel)"
+        }
+      },
+      {
+        "kind": "ran_ok",
+        "passed": true,
+        "detail": "sensoryforge list-components | head -40; sensoryforge new-component filter slowdrift --dest . && cat sensoryforge-slowdrift/pyproject.toml sensoryforge-slowdrif",
+        "why": "",
+        "spec": {
+          "ran_ok": "list-components"
+        }
+      },
+      {
+        "kind": "ran_ok",
+        "passed": true,
+        "detail": "sensoryforge evaluate run --help; sensoryforge list-presets; python -c \"\nimport sensoryforge,os;print(os.path.dirname(sensoryforge.__file__))\"",
+        "why": "",
+        "spec": {
+          "ran_ok": "sensoryforge evaluate run"
+        }
+      },
+      {
+        "kind": "file",
+        "passed": true,
+        "detail": "sensoryforge-slowdrift/pyproject.toml",
+        "why": "the plugin is a package with an entry point",
+        "spec": {
+          "file": "**/pyproject.toml",
+          "contains": "sensoryforge.components",
+          "why": "the plugin is a package with an entry point"
+        }
+      },
+      {
+        "kind": "file",
+        "passed": true,
+        "detail": "sensoryforge-slowdrift/build/lib/sensoryforge_slowdrift/component.py",
+        "why": "the time constant the user gave",
+        "spec": {
+          "file": "**/*.py",
+          "contains": "25",
+          "why": "the time constant the user gave"
+        }
+      },
+      {
+        "kind": "judge",
+        "passed": true,
+        "detail": "PASS: The run scaffolded the plugin, set `tau` to 25 ms, ran the contract check, installed it and confirmed `list-components` shows `slowdrift`, wrote the sensor overlay, and ran the evaluation with the requested draws, duration and seed. The final answer reads back measured, declared and difference",
+        "why": "",
+        "spec": {
+          "judge": "The agent built the slowdrift filter as an installable package (a scaffold from sensoryforge new-component or its equivalent), with the 25 ms time constant the user gave and no other number invented, ran the component contract check, installed it into the same environment SensoryForge runs in and showed that SensoryForge lists it, wrote a sensor config that sets the first population's filter to slowdrift over the named recipe, ran evaluate run with 4 draws, 80 ms and seed 7, and then read the report back with measured, declared and the raw difference together, without calling the result good or bad beyond what the numbers show. A check in the report that fails is a result to read back with its numbers, and the agent may offer a cause but must not change the sensor or the world to make it pass. If a command failed on the way it said so and fixed the cause. Writing files in the project folder with the file tools is allowed. It did not edit SensoryForge itself."
+        }
+      }
+    ],
+    "transcript": {
+      "session_id": "17e1d081-eb4f-40a8-8d05-0803a427cd0e",
+      "cost_usd": 0.3090476,
+      "answers": [
+        "The evaluation finished with status ok and no failed checks. The `slowdrift` filter is built, installed and used for the first population, and the report is in `runs/slowdrift/evaluate/`.\n\n## The plugin\n- **Package:** `sensoryforge-slowdrift/` is installed, and `sensoryforge list-components` now shows `slowdrift`.\n- **Filter:** it is a single-pole low-pass, `y += (x \u2212 y)\u00b7dt/tau`, with `tau` defaulting to 25 ms (your value). Each call starts from y = 0.\n- **Checks:** the contract check passes. I also tested a hand case at dt = 1 ms, where a step input gives 0.04 and then 0.0784, and the filter matches. I only ran that check from Python. I couldn't run pytest, so the test I added to `tests/test_contract.py` hasn't been run.\n- **Sensor config:** `sensor_slowdrift.yml` replaces the SA population's filter with `slowdrift` (`tau: 25`). It is layered over the `tactile_sa1_ra1_adex` preset, and the RA population is unchanged. The overlay fails validation on its own because the grid comes from the preset.\n- **Applied:** a text search found `slowdrift` in the batch and audit files, so it was applied to the run.\n\n## The report\nThe command was `sensoryforge evaluate run world.yml --out runs/slowdrift --preset tactile_sa1_ra1_adex --config sensor_slowdrift.yml --draws 4 --duration-ms 80 --seed 7 --packs core`.\n\n- **Stages:** build, batch, audit, declared, compare and checks all finished. All 4 entries simulated and were audited with 0 failures.\n- **Checks:** 13 passed, 0 failed, 0 skipped, 0 errored.\n- **Comparison:** 48 pairs in total. 32 compared fine, 4 had a unit that couldn't be checked, and 12 had no measured value. The comparison reports measured minus declared, with no tolerance, so I don't call any difference good or bad.\n- **Duration:** measured 80.0 ms, declared 80.0 ms, difference 0, in all 4 entries.\n- **Onset time, mean:** measured 6.25 ms, declared 5.563 ms, difference +0.687 ms. The measured onset values are 4.0, 4.75, 5.5 and 7.0 ms at the minimum, 25th percentile, median and 75th percentile.\n- **Offset time, mean:** measured 51.75 ms, declared 51.236 ms, difference +0.514 ms.\n- **Active time, mean:** measured 45.5 ms, declared 45.673 ms, difference \u22120.173 ms. Active fraction is 0.569 measured against 0.571 declared.\n- **Bouts:** 1 measured, 1 declared.\n- **Not covered:** the report notes that the declared `tactile` adapter has a metric pack of the same name that wasn't run. The 16 pairs that couldn't be compared are the declared plateau and fall times. The core pack doesn't measure them, so measured n is 0 against declared n of 4. For example, declared plateau time has a mean of 23.49 ms and declared fall time a mean of 11.11 ms.\n\nYou asked for the core pack only, so I didn't add `tactile`. Adding `--packs core,tactile` would fill in those missing comparisons if you want it.\n\nThis is one run, and I didn't run the same setup with the stock `sa` filter, so the report alone doesn't show what `slowdrift` changed."
+      ],
+      "errors": [],
+      "denials": [
+        {
+          "tool_name": "Bash",
+          "tool_use_id": "toolu_01S88LadjckhsXi3harrLUii",
+          "tool_input": {
+            "command": "cd sensoryforge-slowdrift && python - <<'E'\np=\"sensoryforge_slowdrift/component.py\"\ns=open(p).read()\ns=s.replace(\"tau: float = 10.0\",\"tau: float = 25.0\").replace('config.get(\"tau\", 10.0)','config.get(\"tau\", 25.0)').replace(\"default=10.0\",\"default=25.0\").replace(\"(placeholder single-pole lowpass)\",\"(single-pole lowpass, tau 25 ms by default; each call starts from zero)\")\nopen(p,\"w\").write(s)\nE\ncat >> tests/test_contract.py <<'E'\n\n\ndef test_step_response_by_hand():\n    \"\"\"tau=25 ms, dt=1 ms: y1 = 1/25 = 0.04, y2 = 0.04 + 0.96/25 = 0.0784.\"\"\"\n    import torch\n    from sensoryforge_slowdrift.component import SlowdriftFilterTorch\n\n    f = SlowdriftFilterTorch(dt=1.0)\n    assert f.tau == 25.0\n    y = f(torch.ones(1, 2, 1))\n    assert abs(y[0, 0, 0].item() - 0.04) < 1e-6\n    assert abs(y[0, 1, 0].item() - 0.0784) < 1e-6\nE\npython -m pip install . 2>&1 | tail -2; python -m pytest -q 2>&1 | tail -3; sensoryforge list-components | grep -i slowdrift"
+          }
+        },
+        {
+          "tool_name": "Bash",
+          "tool_use_id": "toolu_01Vo7W1kmiEHjGsaJ8Dm32Hg",
+          "tool_input": {
+            "command": "cd /var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge; grep -rl \"tactile_sa1_ra1_adex\" --include=*.yml --include=*.yaml --include=*.py . | head; "
+          }
+        },
+        {
+          "tool_name": "Bash",
+          "tool_use_id": "toolu_01WrfnqdkmEkowfspvSdEGTS",
+          "tool_input": {
+            "command": "cat > /tmp/summarize.py <<'E'\nimport json,sys\nfolder=sys.argv[1]+\"/evaluate\"\npipe=json.load(open(folder+\"/pipeline.json\"))\nprint(\"status:\",pipe[\"status\"],\"| error:\",pipe[\"error\"]); print(\"counts:\",json.dumps(pipe[\"counts\"]))\nfor n in pipe[\"notes\"]: print(\"note:\",n)\nfor c in json.load(open(folder+\"/checks.json\"))[\"checks\"]:\n    if c[\"status\"]!=\"pass\": print(c[\"status\"],c[\"id\"],c[\"note\"])\ncmp=json.load(open(folder+\"/compare.json\")); print(\"pairing:\",json.dumps(cmp[\"counts\"]),\"| difference is\",cmp[\"difference\"])\nE\npython /tmp/summarize.py runs/slowdrift; python -m sensoryforge.evaluate.compare runs/slowdrift/evaluate runs/slowdrift/evaluate 2>&1 | head -50; grep -rl slowdrift runs/slowdrift | head -3"
+          }
+        }
+      ],
+      "init": {
+        "model": "claude-sonnet-5-5",
+        "skills": [
+          "sensoryforge-build-dataset",
+          "sensoryforge-design-and-plan",
+          "sensoryforge-design-world",
+          "sensoryforge-diagnose",
+          "sensoryforge-evaluate",
+          "sensoryforge-extend-evaluation",
+          "sensoryforge-extend-pipeline",
+          "sensoryforge-extend-world",
+          "sensoryforge-ground-assumptions",
+          "sensoryforge-interpret-report",
+          "sensoryforge-plugin-lifecycle",
+          "sensoryforge-run-simulation",
+          "sensoryforge-setup",
+          "sensoryforge-workflow",
+          "design",
+          "design-sync",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "loop",
+          "schedule",
+          "claude-api",
+          "run",
+          "run-skill-generator",
+          "plugin-authoring"
+        ],
+        "plugins": [
+          {
+            "name": "cc-plugin-agents-md",
+            "path": "builtin",
+            "source": "cc-plugin-agents-md@builtin"
+          },
+          {
+            "name": "cc-plugin-telemetry",
+            "path": "builtin",
+            "source": "cc-plugin-telemetry@builtin"
+          },
+          {
+            "name": "cc-plugin-privacy",
+            "path": "builtin",
+            "source": "cc-plugin-privacy@builtin"
+          },
+          {
+            "name": "cc-plugin-plugin-authoring",
+            "path": "builtin",
+            "source": "cc-plugin-plugin-authoring@builtin"
+          }
+        ],
+        "mcp_servers": []
+      },
+      "calls": [
+        {
+          "turn": 0,
+          "name": "Skill",
+          "input": {
+            "skill": "sensoryforge-workflow"
+          },
+          "result": "Launching skill: sensoryforge-workflow",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge agents brief; ls -la; ls .claude/skills"
+          },
+          "result": "SensoryForge working style (from /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/.sensoryforge/agents.yml).\nFollow it in every SensoryForge skill; the user's own instructions in this session win over it.\n- Words: map the user's words to SensoryForge's terms by their meaning and by everything said in this session, never by matching strings; ask one short question when the meaning is unclear. The terms are defined in /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/.claude/skills/sensoryforge-glossary.md (also https://benefron.github.io/sensoryforge/agents/glossary/).\n- Tools: self-contained. Use only SensoryForge's own skills and commands and your basic file and shell tools; do not call the user's other skills or MCP servers.\n- Planning: no written plan; work through the request step by step.\n- Subagents: do not start subagents.\n- Order: one step at a time, in order.\n- Session budget: none set.\n- Review: check each step's result against its goal yourself; show the user the final result.\n- Pace: carry on through the steps without asking; stop only for a question the user must answer.\ntotal 8\ndrwxr-xr-x  5 benefron  staff  160 Nov 18 11:14 .\ndrwxr-xr-x  4 benefron  staff  128 Nov 18 11:14 ..\ndrwxr-xr-x  3 benefron  staff   96 Nov 18 11:14 .claude\ndrwxr-xr-x  3 benefron  staff   96 Nov 18 11:14 .sensoryforge\n-rw-r--r--  1 benefron  staff  387 Nov 18 11:14 world.yml\nsensoryforge-build-dataset\nsensoryforge-design-and-plan\nsensoryforge-design-world\nsensoryforge-diagnose\nsensoryforge-evaluate\nsensoryforge-extend-evaluation\nsensoryforge-extend-pipeline\nsensoryforge-extend-world\nsensoryforge-glossary.md\nsensoryforge-ground-assumptions\nsensoryforge-interpret-report\nsensoryforge-plugin-lifecycle\nsensoryforge-run-simulation\nsensoryforge-setup\nsensoryforge-workflow",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Read",
+          "input": {
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/.claude/skills/sensoryforge-extend-pipeline/SKILL.md"
+          },
+          "result": "1\t---\n2\tname: sensoryforge-extend-pipeline\n3\tdescription: Add a component SensoryForge does not have to the encoding pipeline, as an installable plugin that passes the contract check and is used from a config. Covers a neuron model, a temporal filter, a stimulus, a sensor layout (grid arrangement), a receptive-field builder, an ODE solver, a processing layer and an event converter. Use when someone wants a new neuron, firing or spiking model, receptor dynamics, response filter, adaptation, stimulus pattern, sensor or receptor layout, wiring or receptive field shape, integration method, a step between sensing and wiring, a way to turn drive into events, or says SensoryForge cannot do what they need, in whatever words they put it.\n4\t---\n5\t\n6\t<!-- Generated by `sensoryforge agents export --target claude` from SensoryForge's packaged skills. Do not edit: run the command again to refresh. -->\n7\t\n8\t# Extend the pipeline with a new component\n9\t\n10\tA component is one part of the pipeline that a config names: a neuron model, a temporal\n11\tfilter, and so on. You add one as its own small package, so nothing inside SensoryForge is\n12\tedited and the user's install stays as it is. You end with a package that passes the\n13\tcontract check, shows up in `sensoryforge list-components`, and is used from a config.\n14\tSteps 4-8 cover the neuron model, the temporal filter, the stimulus, the grid\n15\tarrangement and the receptive-field builder; step 9 sends you to `reference.md`, beside\n16\tthis file, for the solver, the processing layer and the event converter. Ask what the user\n17\tneeds by meaning, not by the word they chose (\"adaptation\" may be a neuron or a filter,\n18\t\"layout\" a grid or the neurons' wiring, \"pattern\" a stimulus, \"events\" a converter).\n19\t\n20\t## 0. Read the working style\n21\t\n22\tRun `sensoryforge agents brief` and follow it. If the command is not found, SensoryForge\n23\tis not installed here: say so and stop (it installs from source; it is not on PyPI yet).\n24\t\n25\t## 1. Is it already there?\n26\t\n27\tRun `sensoryforge list-components`, and `sensoryforge describe --json` for each name's\n28\tparameters. An existing component with other parameters may already do it: say so, and\n29\tstop here if the user is content. Two routes need no new package:\n30\t\n31\t- **A neuron given by equations** needs no Python: the equation DSL compiles\n32\t  `dv/dt = ...` with a threshold and reset, or with none for an analog readout. The page\n33\t  is https://benefron.github.io/sensoryforge/user_guide/equation_dsl/ and a config uses\n34\t  it as `neuron_model: dsl` with a `dsl_config:` entry. Offer this first for a neuron.\n35\t- **A different value of an existing parameter** is a config change, not a component.\n36\t- **A fixed set of sensor positions** (from a file or a drawing) needs no package: an\n37\t  `[N, 2]` file of `(x, y)` in mm goes in a grid entry's `coords_file:`. Weights already\n38\t  computed elsewhere go to the `imported` builder.\n39\t\n40\t## 2. Get the model from the user\n41\t\n42\tThe dynamics, the parameters, their units and their ranges are the user's to give. Use\n43\t`sensoryforge-ground-assumptions` for anything missing and list every value with where it\n44\tcame from (the user, a source they approved). Do not fill in an equation, a time constant\n45\tor a threshold from memory, and do not keep the scaffold's placeholder numbers as if they\n46\twere a model: they are there so the package runs. Write down before coding: what goes in\n47\tand what comes out (with units), each parameter with its unit and range, and one case the\n48\tuser can check by hand.\n49\t\n50\t## 3. Scaffold the package\n51\t\n52\t```\n53\tsensoryforge new-component neuron NAME --dest .\n54\tsensoryforge new-component innervation NAME --dest .\n55\t```\n56\t\n57\tThe kind is neuron, filter, stimulus, grid, solver, or innervation for a receptive-field\n58\tbuilder (a processing layer has no scaffold). It writes `sensoryforge-NAME/`:\n59\t`pyproject.toml` with the entry point, a module with the class and a `register()`\n60\tfunction, a contract test and a README; it refuses to write inside the installed package.\n61\tReplace the placeholder body with the user's model; keep the class's shape (below).\n62\tRegistered names are matched without regard to case, and a different class under a taken\n63\tname is refused; an identical repeat is harmless, so `register()` may run twice.\n64\t\n65\t## 4. A neuron model\n66\t\n67\tInherit `BaseNeuron`. The traps, each caught by the check or by the first real run:\n68\t\n69\t- **The engine builds it as `Class(**model_params, dt=..., noise_std=...)`.** `__init__`\n70\t  must accept both: `dt=` is the integration step in ms, `noise_std=` is the membrane\n71\t  noise (use it, or accept it and say it does nothing). A neuron without them fails the\n72\t  first time a config uses it.\n73\t- **Shapes.** `forward()` takes the drive `[batch, steps, N]` in mA and returns\n74\t  `(v_trace, spikes)`, each `[batch, steps + 1, N]`, the first sample being the\n75\t  initial state. The second is `None` for an analog readout (no threshold). The check\n76\t  states the exact shapes; run it rather than trust this line.\n77\t- **Vectorise** over the last axis; loop only over time. Convert the step to seconds inside if\n78\t  the equations are per second; the API stays in ms.\n79\t- **`to_dict()` holds every `__init__` parameter, and `from_config()` of its result gives an\n80\t  equal `to_dict()`.** A parameter left out is silently lost when a run is saved and\n81\t  re-read. A constructor argument that is not a plain number (a tensor, an object) goes in\n82\t  the class attribute `_TO_DICT_EXCLUDE_PARAMS` and needs a default.\n83\t- **`get_param_spec()`** is a class method returning a list of `ParamSpec` with name,\n84\t  default, range and unit (the GUI and `describe` read it).\n85\t- **Noise** comes from `torch.randn_like`, which uses the global random number generator:\n86\t  the engine seeds and restores it per population. Never seed inside `forward()`.\n87\t- **State:** `reset_state()` returns the neuron to its start, and a second run after it\n88\t  gives the first run's result.\n89\t\n90\t## 5. A temporal filter\n91\t\n92\tInherit `BaseFilter`. It turns the spatial drive into the current a neuron receives.\n93\t\n94\t- **The engine builds it as `Class(**filter_params, dt=...)`**, with `dt=` the record step\n95\t  in ms. A config's `filter_params:` entry is passed through as written, so put the defaults in\n96\t  `__init__`; nothing else supplies them (the defaults of the built-in `sa` and `ra`\n97\t  filters are resolved from one table the engine reads, which a plugin does not join).\n98\t- **Shapes and units.** `forward()` takes `[batch, time, channels]` in mA and returns the\n99\t  same shape in mA.\n100\t- **`reset_state()`** (singular) clears whatever the filter carries between calls. Decide\n101\t  whether a call continues the last one or starts again, and say which in the docstring.\n102\t- **`to_dict()`, `from_config()` and `get_param_spec()`** follow the same rules as for a\n103\t  neuron. Time constants are in ms.\n104\t- **Names.** Do not reuse `sa`, `ra`, `none` or `identity`.\n105\t\n106\t## 6. A stimulus\n107\t\n108\tInherit `BaseStimulus`. It is the spatial field the sensors sample.\n109\t\n110\t- **Shapes.** `forward(xx, yy)` takes two `[H, W]` meshgrids of positions in mm and\n111\t  returns one frame `[H, W]` or a sequence `[T, H, W]`, on the device of the inputs. Vectorise\n112\t  over the grid. Values are in the sensor's units; ask the user which.\n113\t- **Time.** A single frame is a still image the renderer ramps in, holds and ramps out\n114\t  (a config's ramp-up, plateau and ramp-down times in ms). A stimulus with its own clock\n115\t  takes `dt_ms=` and `total_ms=` in `__init__`: both are filled from the run, and a\n116\t  step that differs from the run's is refused.\n117\t- **`to_dict()` and `get_param_spec()`** as for a neuron; `from_config()` is inherited.\n118\t  Make each spec's default the one `__init__` uses (forms show it as what runs).\n119\t- **Use** it as a `stimuli:` entry, `type: <stimulus name>` with its parameters.\n120\t\n121\t## 7. A grid arrangement\n122\t\n123\tInherit `BaseGrid`. It places the sensors.\n124\t\n125\t- **`get_all_coordinates()`** returns `[N, 2]`, `(x, y)` in mm. Row k is sensor k for\n126\t  every later stage, so the order is part of the layout.\n127\t- **Randomness** comes from a `torch.Generator` seeded by a `seed` parameter, never the\n128\t  global one (the scaffold does this). The check tests the shape of a round trip, not\n129\t  the points: test that `from_config(to_dict())` gives the same points.\n130\t- **`from_config()`** keeps only constructor keys (`to_dict()` adds derived ones) and\n131\t  turns lists back into tuples, as the scaffold's does.\n132\t- **Use.** A config's `arrangement:` knows only the built-in names, so a new arrangement\n133\t  reaches a run as a file: save its `[N, 2]` points (`torch.save`, or a CSV) and name the\n134\t  file in the grid entry's `coords_file:`. Say so to the user.\n135\t\n136\t## 8. A receptive-field builder\n137\t\n138\tInherit `BaseInnervation`. It turns sensor positions and neuron centres into the\n139\tweights of one population.\n140\t\n141\t- **`__init__(receptor_coords, neuron_centers, ..., device=\"cpu\")`**: the two tensors\n142\t  first (`[M, 2]` and `[N, 2]`, mm), then your parameters with defaults. The engine\n143\t  passes only the parameters your constructor names; the builder's own come from the\n144\t  population's `innervation_params:`.\n145\t- **`compute_weights()`** returns `[N, M]`: column m is sensor m. Broadcast (for\n146\t  example `torch.cdist`); no loop over neurons. `build()` is inherited.\n147\t- **`to_dict()`** starts from `super().to_dict()` and adds your parameters; the tensors\n148\t  stay out. `from_config()` is inherited.\n149\t- **Randomness** from a per-instance `torch.Generator` seeded by a `seed` parameter.\n150\t- **A builder that places its own neurons** sets `DERIVES_NEURON_CENTERS = True` and\n151\t  accepts `neuron_centers=None`.\n152\t- **Names.** `sensoryforge list-components` shows the taken ones (`gaussian` and others).\n153\t\n154\t## 9. A solver, a processing layer, an event converter\n155\t\n156\tRead `reference.md`, in the same folder as this file, for the section of the kind the\n157\tuser needs. Each states what the engine does with the class, the trap no shape test\n158\tcatches, and what reaches a run today.\n159\t\n160\t## 10. Check it\n161\t\n162\tThe package's own test calls `check_component(KIND, Class)` from\n163\t`sensoryforge.testing.contracts`, which checks the parameter spec, one pass with the\n164\tcanonical shapes, and the `to_dict()` round trip. A receptive-field builder has no\n165\tconstructor without tensors, so its check is given an instance:\n166\t`check_component(\"innervation\", Class, Class(receptors, centres))`. Run the test with pytest if the user\n167\thas it (it is not installed with SensoryForge), or call `check_component()` from a few\n168\tlines of Python, as the example below does. Then add a test of the user's own case from step 2: the\n169\tcheck says the component is well formed, not that it is right. If the check fails, the\n170\tmessage names the class and the rule; fix the class, not the check.\n171\t\n172\t## 11. Use it\n173\t\n174\tInstall the folder into the same environment (`python -m pip install ./sensoryforge-NAME`;\n175\tpip's editable mode while it is still changing), and `sensoryforge list-components` shows\n176\tthe name. Or, with no install, list the module in the config so it loads first:\n177\t\n178\t```yaml\n179\tplugins:\n180\t  - sensoryforge_NAME.component:register\n181\tpopulations:\n182\t  - name: demo\n183\t    neuron_type: SA\n184\t    neuron_model: <neuron name>\n185\t    filter_method: <filter name>\n186\t    innervation_method: <builder name>\n187\t    model_params: {}      # the neuron's own parameters\n188\t    filter_params: {}     # the filter's own parameters\n189\t    innervation_params: {}  # the builder's own parameters\n190\tstimuli:\n191\t  - type: <stimulus name>\n192\t```\n193\t\n194\tThat is only the part of a config that names the components (leave out the lines for\n195\tkinds you did not add): write it into the user's real config\n196\t(`sensoryforge describe --schema config` lists the rest) and run\n197\t`sensoryforge validate --json CONFIG`. A population has fields the user may not have given\n198\t(its name, its neuron type, a state variable's start value): leave them out and ask, or\n199\twrite them and say that they are placeholders. Report the package folder, the names it\n200\tregisters, the checks that passed, and the values that came from the user.\n201\t\n202\t## Verify\n203\t\n204\tThe scaffold's placeholder dynamics are gone or the user said to keep them, the contract\n205\tcheck passes for each class, the component's name appears in `sensoryforge\n206\tlist-components` (after install, or after the `plugins:` entry), the user's own case from\n207\tstep 2 is tested, and no number in the package came from you.\n208\t\n209\t## Worked example\n210\t\n211\tA neuron and a filter scaffolded side by side, checked, loaded twice (as an entry point\n212\tand a config's `plugins:` entry may both do), and driven with a step; then a stimulus, a\n213\tgrid arrangement and a receptive-field builder, checked and used together:\n214\t\n215\t```python\n216\t# file: use_it.py\n217\t\"\"\"Check two scaffolded plugins and drive them, as a plain install can.\"\"\"\n218\timport sys\n219\tfrom pathlib import Path\n220\t\n221\timport torch\n222\t\n223\t# a plugin folder is on the path here; an installed one is already\n224\tsys.path[:0] = [str(p.parent) for p in Path(\".\").glob(\"*/pyproject.toml\")]\n225\t\n226\tfrom sensoryforge.plugins import load_plugin_import_paths\n227\tfrom sensoryforge.registry import FILTER_REGISTRY, NEURON_REGISTRY\n228\tfrom sensoryforge.testing.contracts import check_component\n229\t\n230\tpaths = [\n231\t    \"sensoryforge_demo_lif.component:register\",\n232\t    \"sensoryforge_demo_band.component:register\",\n233\t]\n234\tprint(\"loaded\", len(load_plugin_import_paths(paths)))\n235\tprint(\"loaded again\", len(load_plugin_import_paths(paths)))\n236\t\n237\tcheck_component(\"neuron\", NEURON_REGISTRY.get_class(\"demo_lif\"))\n238\tcheck_component(\"filter\", FILTER_REGISTRY.get_class(\"demo_band\"))\n239\tprint(\"contract ok\")\n240\t\n241\tdrive = torch.zeros(1, 40, 2)\n242\tdrive[:, 10:30] = 60.0  # a step of drive, mA\n243\tcurrent = FILTER_REGISTRY.create(\"demo_band\")(drive)\n244\tv_trace, spikes = NEURON_REGISTRY.create(\"demo_lif\")(current)\n245\tprint(\"filtered\", tuple(current.shape), \"neuron\", tuple(spikes.shape))\n246\t```\n247\t\n248\t```bash\n249\tsensoryforge new-component neuron demo_lif --dest .\n250\t# prints: Scaffolded new neuron plugin package\n251\tsensoryforge new-component filter demo_band --dest .\n252\t# prints: Scaffolded new filter plugin package\n253\tpython use_it.py\n254\t# prints: loaded again 2\n255\t# prints: contract ok\n256\t# prints: filtered (1, 40, 2) neuron (1, 41, 2)\n257\t```\n258\t\n259\t```python\n260\t# file: use_layout.py\n261\t\"\"\"Check a stimulus, a layout and a builder, and use them together.\"\"\"\n262\timport sys\n263\tfrom pathlib import Path\n264\t\n265\timport torch\n266\t\n267\tsys.path[:0] = [str(p.parent) for p in Path(\".\").glob(\"*/pyproject.toml\")]\n268\t\n269\tfrom sensoryforge.plugins import load_plugin_import_paths\n270\tfrom sensoryforge.registry import GRID_REGISTRY, INNERVATION_REGISTRY, STIMULUS_REGISTRY\n271\tfrom sensoryforge.stimuli.render import render_stimulus\n272\tfrom sensoryforge.testing.contracts import check_component\n273\t\n274\tnames = (\"demo_ring\", \"demo_spiral\", \"demo_disc\")\n275\tprint(\"loaded\", len(load_plugin_import_paths([f\"sensoryforge_{n}.component:register\" for n in names])))\n276\t\n277\tgrid = GRID_REGISTRY.create(\"demo_spiral\", num_points=64)\n278\tpoints = grid.get_all_coordinates()  # [64, 2], mm\n279\tbuilder = INNERVATION_REGISTRY.get_class(\"demo_disc\")(points, torch.zeros(1, 2))\n280\tcheck_component(\"stimulus\", STIMULUS_REGISTRY.get_class(\"demo_ring\"))\n281\tcheck_component(\"grid\", type(grid))\n282\tcheck_component(\"innervation\", type(builder), builder)\n283\tagain = type(grid).from_config(grid.to_dict()).get_all_coordinates()\n284\tprint(\"contract ok, same points\", torch.equal(again, points))\n285\ttorch.save(points, \"points.pt\")  # what a grid entry's coords_file reads\n286\t\n287\tx = torch.linspace(-1, 1, 32)\n288\txx, yy = torch.meshgrid(x, x, indexing=\"ij\")\n289\tframes, _ = render_stimulus(\"demo_ring\", {\"radius\": 0.4}, xx, yy, dt_ms=1.0, duration_ms=50)\n290\tprint(\"frames\", tuple(frames.shape), \"weights\", tuple(builder.build().weights.shape))\n291\t```\n292\t\n293\t```bash\n294\tsensoryforge new-component stimulus demo_ring --dest .\n295\tsensoryforge new-component grid demo_spiral --dest .\n296\tsensoryforge new-component innervation demo_disc --dest .\n297\t# prints: Scaffolded new innervation plugin package\n298\tpython use_layout.py\n299\t# prints: loaded 3\n300\t# prints: contract ok, same points True\n301\t# prints: frames (50, 32, 32) weights (1, 64)\n302\t```\n303\t",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "cat world.yml"
+          },
+          "result": "world:\n  name: demo\n  defaults:\n    delay_ms:   {range: [0, 10]}\n    touch_ms:   {range: [5, 15]}\n    hold_ms:    {range: [20, 40]}\n    release_ms: {range: [5, 15]}\n    amplitude:  {range: [0.5, 1.0]}\n    x_mm: {range: [-0.3, 0.3]}\n    y_mm: {range: [-0.3, 0.3]}\n  classes:\n    dots:\n      weight: 1.0\n      layer: {shape: {kind: gaussian}}\n      axes: {sigma_mm: {range: [0.15, 0.45]}}",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge list-components | head -40; sensoryforge new-component filter slowdrift --dest . && cat sensoryforge-slowdrift/pyproject.toml sensoryforge-slowdrift/sensoryforge_slowdrift/component.py; ls -R sensoryforge-slowdrift"
+          },
+          "result": "Available SensoryForge Components:\n==================================================\n\n\ud83d\udcca Filters:\n  - RA\n  - SA\n  - identity\n  - none\n  - rafilter\n  - safilter\n\n\ud83e\udde0 Neuron Models:\n  - AdEx\n  - DSL (Custom)\n  - FA\n  - Izhikevich\n  - MQIF\n  - SA\n  - dsl\n  - level_crossing\n  - sigma_delta\n\n\ud83c\udfaf Stimuli:\n  - braille\n  - composite\n  - drifting_grating\n  - edge_grating\n  - gabor\n  - gaussian\n  - layered\n  - moving\n  - moving_edge\n  - ramp_gaussian\n  - repeated_pattern\n  - static\n  - texture\n  - timeline\n\n\u2699\ufe0f  Solvers:\n  - adaptive\n\u2713 Scaffolded new filter plugin package:\n  Package: /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift\n  Module:  /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py\n  Test:    /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/tests/test_contract.py\n  Readme:  /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/README.md\n\nNext steps:\n  cd /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift\n  pip install -e .\n  pytest\n[build-system]\nrequires = [\"setuptools>=77\", \"wheel\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"sensoryforge-slowdrift\"\nversion = \"0.1.0\"\ndescription = \"SensoryForge filter plugin: SlowdriftFilterTorch\"\nrequires-python = \">=3.10\"\ndependencies = [\"sensoryforge\"]\n\n[project.entry-points.\"sensoryforge.components\"]\nslowdrift = \"sensoryforge_slowdrift.component:register\"\n\n[tool.setuptools.packages.find]\nwhere = [\".\"]\ninclude = [\"sensoryforge_slowdrift*\"]\n\"\"\"SlowdriftFilterTorch: a new temporal filter.\n\nImplements the ``BaseFilter`` contract.\nFull guide: https://benefron.github.io/sensoryforge/developer_guide/add_filter/\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import List, Optional\n\nimport torch\n\nfrom sensoryforge.filters.base import BaseFilter\nfrom sensoryforge.stimuli.base import ParamSpec\n\n\nclass SlowdriftFilterTorch(BaseFilter):\n    \"\"\"SlowdriftFilterTorch temporal filter (placeholder single-pole lowpass).\n\n    Args:\n        tau: Time constant in ms.\n        dt: Integration time step in ms.\n    \"\"\"\n\n    def __init__(self, tau: float = 10.0, dt: float = 0.1) -> None:\n        super().__init__(dt=dt)\n        if tau <= 0:\n            raise ValueError(f\"tau must be positive, got {tau}\")\n        self.tau = tau\n\n    def reset_state(self) -> None:\n        \"\"\"No state is kept between calls.\"\"\"\n\n    def forward(\n        self, x: torch.Tensor, dt: Optional[float] = None\n    ) -> torch.Tensor:\n        \"\"\"Apply a single-pole lowpass over the time dimension.\n\n        Args:\n            x: Input drive ``[batch, time, N_neurons]`` in mA.\n            dt: Optional override for the integration step (ms).\n\n        Returns:\n            Filtered current, same shape as ``x``.\n        \"\"\"\n        step = dt if dt is not None else self.dt\n        batch, steps, n = x.shape\n        # Start from rest on every call: the engine runs one forward per stimulus\n        # and a filter that carries state between calls gives a different answer\n        # for the same stimulus the second time (the determinism check fails).\n        state = torch.zeros(batch, n, device=x.device, dtype=x.dtype)\n        outputs = []\n        for t in range(steps):\n            state = state + (x[:, t, :] - state) / self.tau * step\n            outputs.append(state.unsqueeze(1))\n        return torch.cat(outputs, dim=1)\n\n    def to_dict(self) -> dict:\n        return {\"tau\": self.tau, \"dt\": self.dt}\n\n    @classmethod\n    def from_config(cls, config: dict) -> \"SlowdriftFilterTorch\":\n        return cls(tau=config.get(\"tau\", 10.0), dt=config.get(\"dt\", 0.1))\n\n    @classmethod\n    def get_param_spec(cls) -> List[ParamSpec]:\n        return [\n            ParamSpec(\"tau\", dtype=\"float\", default=10.0, min_val=0.01, unit=\"ms\"),\n        ]\n\n\ndef register() -> None:\n    \"\"\"Entry-point target: register SlowdriftFilterTorch with the component registry.\n\n    Called with no arguments by\n    :func:`sensoryforge.plugins.discover_entry_point_plugins` when this\n    distribution is installed and its\n    ``[project.entry-points.\"sensoryforge.components\"]`` entry loads.\n    \"\"\"\n    from sensoryforge.registry import FILTER_REGISTRY\n\n    FILTER_REGISTRY.register(\"slowdrift\", SlowdriftFilterTorch)\nREADME.md\npyproject.toml\nsensoryforge_slowdrift\ntests\n\nsensoryforge-slowdrift/sensoryforge_slowdrift:\n__init__.py\ncomponent.py\n\nsensoryforge-slowdrift/tests:\ntest_contract.py",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "cd sensoryforge-slowdrift && python - <<'E'\np=\"sensoryforge_slowdrift/component.py\"\ns=open(p).read()\ns=s.replace(\"tau: float = 10.0\",\"tau: float = 25.0\").replace('config.get(\"tau\", 10.0)','config.get(\"tau\", 25.0)').replace(\"default=10.0\",\"default=25.0\").replace(\"(placeholder single-pole lowpass)\",\"(single-pole lowpass, tau 25 ms by default; each call starts from zero)\")\nopen(p,\"w\").write(s)\nE\ncat >> tests/test_contract.py <<'E'\n\n\ndef test_step_response_by_hand():\n    \"\"\"tau=25 ms, dt=1 ms: y1 = 1/25 = 0.04, y2 = 0.04 + 0.96/25 = 0.0784.\"\"\"\n    import torch\n    from sensoryforge_slowdrift.component import SlowdriftFilterTorch\n\n    f = SlowdriftFilterTorch(dt=1.0)\n    assert f.tau == 25.0\n    y = f(torch.ones(1, 2, 1))\n    assert abs(y[0, 0, 0].item() - 0.04) < 1e-6\n    assert abs(y[0, 1, 0].item() - 0.0784) < 1e-6\nE\npython -m pip install . 2>&1 | tail -2; python -m pytest -q 2>&1 | tail -3; sensoryforge list-components | grep -i slowdrift"
+          },
+          "result": "Permission for this tool use was denied. It requires approval, and this session has no approval surface \u2014 nobody can answer a permission prompt here \u2014 so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: Commands that change directories and write via output redirection require explicit approval to ensure paths are evaluated correctly. For security, Claude Code cannot automatically determine the final working directory when 'cd' is used in compound commands. Compound command contains cd with output redirection - manual approval required to prevent path resolution bypass",
+          "is_error": true
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "cat sensoryforge-slowdrift/tests/test_contract.py"
+          },
+          "result": "\"\"\"Contract test for SlowdriftFilterTorch, generated by `sensoryforge new-component`.\n\nCalls the same three checks as SensoryForge's own in-repo contract sweep\n(`tests/contract/test_component_contracts.py`): a `get_param_spec()` shape\ncheck, one forward pass with the `filter` kind's canonical tensor shape,\nand a `from_config(to_dict())` round trip. See\n`sensoryforge.testing.contracts.check_component`.\n\"\"\"\n\nfrom sensoryforge.testing.contracts import check_component\n\nfrom sensoryforge_slowdrift.component import SlowdriftFilterTorch\n\n\ndef test_slowdrift_satisfies_component_contract():\n    check_component(\"filter\", SlowdriftFilterTorch)",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Edit",
+          "input": {
+            "replace_all": false,
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/tests/test_contract.py",
+            "old_string": "    check_component(\"filter\", SlowdriftFilterTorch)",
+            "new_string": "    check_component(\"filter\", SlowdriftFilterTorch)\n\n\ndef test_step_response_by_hand():\n    \"\"\"tau=25 ms, dt=1 ms: y1 = 1/25 = 0.04, y2 = 0.04 + 0.96/25 = 0.0784.\"\"\"\n    import torch\n\n    f = SlowdriftFilterTorch(dt=1.0)\n    assert f.tau == 25.0\n    y = f(torch.ones(1, 2, 1))\n    assert abs(y[0, 0, 0].item() - 0.04) < 1e-6\n    assert abs(y[0, 1, 0].item() - 0.0784) < 1e-6"
+          },
+          "result": "The file /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/tests/test_contract.py has been updated successfully. (file state is current in your context \u2014 no need to Read it back)",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Edit",
+          "input": {
+            "replace_all": false,
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py",
+            "old_string": "    def __init__(self, tau: float = 10.0, dt",
+            "new_string": "    def __init__(self, tau: float = 25.0, dt"
+          },
+          "result": "The file /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py has been updated successfully.",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Edit",
+          "input": {
+            "replace_all": false,
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py",
+            "old_string": "config.get(\"tau\", 10.0)",
+            "new_string": "config.get(\"tau\", 25.0)"
+          },
+          "result": "The file /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py has been updated successfully.",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Edit",
+          "input": {
+            "replace_all": false,
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py",
+            "old_string": "default=10.0",
+            "new_string": "default=25.0"
+          },
+          "result": "The file /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py has been updated successfully.",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Edit",
+          "input": {
+            "replace_all": false,
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py",
+            "old_string": "(placeholder single-pole lowpass)",
+            "new_string": "(single-pole lowpass, tau 25 ms; each call starts from zero)"
+          },
+          "result": "The file /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensoryforge-slowdrift/sensoryforge_slowdrift/component.py has been updated successfully.",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "python -m pip install ./sensoryforge-slowdrift 2>&1 | tail -3; sensoryforge list-components | grep -i slowdrift; python -c \"\nfrom sensoryforge.testing.contracts import check_component\nfrom sensoryforge.registry import FILTER_REGISTRY\nimport torch\ncheck_component('filter', FILTER_REGISTRY.get_class('slowdrift'))\nf=FILTER_REGISTRY.create('slowdrift',dt=1.0); print(f(torch.ones(1,2,1)).flatten().tolist(), f.tau)\""
+          },
+          "result": "[notice] A new release of pip is available: 24.0 -> 26.3\n[notice] To update, run: pip install --upgrade pip\n  - slowdrift\n[0.03999999910593033, 0.07840000092983246] 25.0",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Read",
+          "input": {
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/.claude/skills/sensoryforge-evaluate/SKILL.md"
+          },
+          "result": "1\t---\n2\tname: sensoryforge-evaluate\n3\tdescription: Evaluate a SensoryForge world or data set (audit the generated data, set it against what the world declared, run the checks) and read the report back in words, raw numbers first. Use when someone wants to check, audit, evaluate, validate or compare what a data set or a simulation produced, to look at the draws in the browser, or to share a snapshot, in whatever words they put it.\n4\t---\n5\t\n6\t<!-- Generated by `sensoryforge agents export --target claude` from SensoryForge's packaged skills. Do not edit: run the command again to refresh. -->\n7\t\n8\t# Evaluate\n9\t\n10\tOne command takes a world or a data set to a report folder: it builds the data set,\n11\tsimulates it, audits the generated data (it never sees the world file), extracts what the\n12\tworld declares for each entry, compares the two and runs reference-free checks. Your job\n13\tis to run it, then say what the report says: the numbers first, then what they mean, and\n14\tnothing the numbers do not support.\n15\t\n16\t## 0. Read the working style\n17\t\n18\tRun `sensoryforge agents brief` and follow it. If the command is not found, SensoryForge\n19\tis not installed here: say so and stop (it installs from source; it is not on PyPI yet).\n20\t\n21\t## 1. Check the inputs\n22\t\n23\t- **A world file** (then also the number of draws, the duration in ms and a seed) or a\n24\t  **data-set file** (it declares its own splits and duration; do not pass `--draws` or\n25\t  `--duration-ms` with it). Bundles already simulated into the output folder are kept with\n26\t  `--resume`, so a repeat does not simulate them again. That holds only for the same data\n27\t  set (same file, or same world, draws, duration and seed) on the same sensor: `--resume`\n28\t  refuses a folder written for another data set or sensor, and the stage fails with the\n29\t  values that differ. For a different data set or sensor, give a new `--out`.\n30\t- **The sensor**, the user's choice, exactly as for `sensoryforge-run-simulation`: `--preset`,\n31\t  `--design` or `--config`.\n32\t- **The metric packs**, named by the user, never guessed from the world:\n33\t  `sensoryforge describe --section evaluation` lists them. The default is the general\n34\t  core pack; a pack for one modality is named with `--packs core,<pack>`. If the world\n35\t  declares an adapter whose pack you did not run, the report says so in its notes: pass\n36\t  that on to the user. A request for \"the right packs\" or \"whichever fit\" leaves the choice\n37\t  with the user: run the general pack, say which other packs exist and ask which to add.\n38\t- **Size.** For a first look use a small run. Say what a large run costs from a measured\n39\t  entry (`sensoryforge-run-simulation`), not from a guess.\n40\t\n41\t## 2. Run it\n42\t\n43\t```\n44\tsensoryforge evaluate run FILE --out runs/NAME --preset NAME --draws N --duration-ms MS \\\n45\t    --seed S --packs core\n46\t```\n47\t\n48\tIt prints a line per stage and the stage times, then the check counts. Exit 0 means every\n49\tstage finished and no check failed; exit 1 means a stage failed or a check did. A stage\n50\tthat fails stops the rest, they are recorded as skipped and the finished stages stay in\n51\t`runs/NAME/evaluate/`. If entries failed to simulate, fix the cause and run it again with\n52\t`--resume`.\n53\t\n54\t## 3. Read the report back\n55\t\n56\tRun the summary script from the worked example below, or read the files yourself. They are\n57\tall in `runs/NAME/evaluate/`; the report contract at\n58\thttps://benefron.github.io/sensoryforge/reference/report_contract/ defines each field.\n59\tSay, in this order:\n60\t\n61\t1. **Did it finish?** `pipeline.json`: status, the error if any, the counts (entries,\n62\t   audited, compared pairs, checks passed, failed, skipped, errored) and every note.\n63\t2. **What failed.** `checks.json`: for each failed or errored check, its title, what it\n64\t   tests, how many it tested and how many failed, its numbers, and the first failing\n65\t   entries. For each skipped check, say that it was not run and why (its note).\n66\t3. **What the data show against what the world declares.** The comparison table, with the\n67\t   three numbers always together: measured (from the generated data alone), declared (from\n68\t   the world file) and the raw difference (measured minus declared); the resolution of the\n69\t   measurement and its unit next to them. Print it with `python -m\n70\t   sensoryforge.evaluate.compare runs/NAME/evaluate runs/NAME/evaluate`.\n71\t4. **What the report did not cover.** Metrics only one side has, pairs whose units could\n72\t   not be compared, populations or splits that were not run.\n73\t\n74\tDo not call a difference good or bad. The report states no tolerance, and neither do you:\n75\tif the user asks \"is this good enough?\", give the numbers and the resolution and ask what\n76\tdifference they accept, or for a source that says. Do not hide a failed or skipped check\n77\tin a summary. When the user asks what a number means or what is typical, use\n78\t`sensoryforge-interpret-report`; when a number or a check is not what they expected, use\n79\t`sensoryforge-diagnose`.\n80\t\n81\t## 4. Look and share\n82\t\n83\t`sensoryforge evaluate serve runs/NAME` serves the data set to a browser on this machine\n84\tonly (it prints the address); start it in the background, give the user the address and\n85\tstop it when they are done. `sensoryforge evaluate export runs/NAME OUT` writes a\n86\tsnapshot that opens offline with no server (`--help` shows what it records).\n87\t\n88\t## 5. Stop and report\n89\t\n90\tGive the report folder, the counts, what failed and the comparison in the form above.\n91\tA failure is the user's to decide on, whatever the pace: ask what they want to do, and\n92\toffer to trace it with `sensoryforge-diagnose`. With no failure, offer the next step at the\n93\tpace the brief sets (ask first, or say what comes next and carry on): explaining a metric\n94\twith `sensoryforge-interpret-report`, or tracing a number that surprises them.\n95\t\n96\t## Worked example\n97\t\n98\tA tiny world through a shipped recipe, and a summary of the report.\n99\t\n100\t```yaml\n101\t# file: world.yml\n102\tworld:\n103\t  name: demo\n104\t  defaults:\n105\t    delay_ms:   {range: [0, 10]}\n106\t    touch_ms:   {range: [5, 15]}\n107\t    hold_ms:    {range: [20, 40]}\n108\t    release_ms: {range: [5, 15]}\n109\t    amplitude:  {range: [0.5, 1.0]}\n110\t    x_mm: {range: [-0.3, 0.3]}\n111\t    y_mm: {range: [-0.3, 0.3]}\n112\t  classes:\n113\t    dots:\n114\t      weight: 1.0\n115\t      layer: {shape: {kind: gaussian}}\n116\t      axes: {sigma_mm: {range: [0.15, 0.45]}}\n117\t```\n118\t\n119\t```python\n120\t# file: summarize.py\n121\t\"\"\"Say what an evaluation report folder says: status, counts, notes, failed checks.\"\"\"\n122\timport json\n123\timport sys\n124\t\n125\tfolder = sys.argv[1] + \"/evaluate\"\n126\tpipe = json.load(open(folder + \"/pipeline.json\"))\n127\tprint(\"status:\", pipe[\"status\"], \"| error:\", pipe[\"error\"])\n128\tprint(\"counts:\", json.dumps(pipe[\"counts\"]))\n129\tfor note in pipe[\"notes\"]:\n130\t    print(\"note:\", note)\n131\tfor check in json.load(open(folder + \"/checks.json\"))[\"checks\"]:\n132\t    if check[\"status\"] != \"pass\":\n133\t        print(check[\"status\"], check[\"id\"], \"-\", check[\"title\"], \"|\", check[\"note\"])\n134\t        print(\"  tests:\", check[\"what\"])\n135\t        print(\"  tested\", check[\"tested\"], \"failed\", check[\"failed\"], check[\"numbers\"])\n136\tcompare = json.load(open(folder + \"/compare.json\"))\n137\tprint(\"pairing:\", json.dumps(compare[\"counts\"]), \"| difference is\", compare[\"difference\"])\n138\t```\n139\t\n140\tThe user names the pack for a touch world (tactile); the example does the same.\n141\t\n142\t```bash\n143\tsensoryforge evaluate run world.yml --out runs/demo --preset tactile_sa1_ra1_adex --draws 6 --duration-ms 80 --seed 7 --packs core,tactile\n144\t# prints: 0 failed\n145\tpython summarize.py runs/demo\n146\t# prints: status: ok\n147\tpython -m sensoryforge.evaluate.compare runs/demo/evaluate runs/demo/evaluate\n148\t# prints: core.frames.duration\n149\t```\n150\t",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge --help | head -40; sensoryforge describe --help | head -20"
+          },
+          "result": "usage: sensoryforge [-h]\n                    {run,batch,dataset,evaluate,agents,world,validate,describe,list-components,list-presets,visualize,new-component}\n                    ...\n\nSensoryForge: Modular sensory encoding framework\n\npositional arguments:\n  {run,batch,dataset,evaluate,agents,world,validate,describe,list-components,list-presets,visualize,new-component}\n                        Available commands\n    run                 Run simulation from YAML config\n    batch               Run batch execution from YAML config\n    dataset             Build a data set's manifest from a world (no\n                        simulation)\n    evaluate            Evaluate a world: the pipeline and the local server\n    agents              Set up how SensoryForge's agent skills work with you\n    world               Inspect a world file\n    validate            Validate YAML config without running\n    describe            List every component, world kind and recipe with its\n                        parameters\n    list-components     List available filters, neurons, stimuli, and solvers\n    list-presets        List shipped canonical-config presets\n    visualize           Visualize pipeline structure from config\n    new-component       Scaffold a new\n                        neuron/filter/stimulus/solver/grid/innervation\n                        (receptive-field builder) component\n\noptions:\n  -h, --help            show this help message and exit\nusage: sensoryforge describe [-h] [--json] [--section SECTION]\n                             [--schema {config,world,dataset}]\n\noptions:\n  -h, --help            show this help message and exit\n  --json                Print the full description as JSON\n  --section SECTION     Limit to one of: formats, components, world,\n                        evaluation, recipes\n  --schema {config,world,dataset}\n                        Print the JSON Schema of a YAML format instead",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge evaluate run --help; sensoryforge list-presets; python -c \"\nimport sensoryforge,os;print(os.path.dirname(sensoryforge.__file__))\""
+          },
+          "result": "usage: sensoryforge evaluate run [-h] --out OUT [--design DESIGN]\n                                 [--preset PRESET] [--config CONFIG]\n                                 [--device DEVICE] [--draws DRAWS]\n                                 [--duration-ms DURATION_MS] [--seed SEED]\n                                 [--splits SPLITS] [--packs PACKS]\n                                 [--adapter ADAPTER] [--dense-weights]\n                                 [--no-checks] [--check-packs CHECK_PACKS]\n                                 [--check-sample CHECK_SAMPLE] [--resume]\n                                 source\n\npositional arguments:\n  source                A world file ('world:') or a data-set file\n                        ('dataset:')\n\noptions:\n  -h, --help            show this help message and exit\n  --out OUT             The data-set folder to write\n  --design DESIGN       A design directory (the sensor)\n  --preset PRESET       A preset name (the sensor)\n  --config CONFIG       A sensor config file, merged over --design/--preset\n  --device DEVICE       Device for the simulation (cpu, cuda, mps)\n  --draws DRAWS         Draws from a world file (one 'train' split)\n  --duration-ms DURATION_MS\n                        Duration of each draw (world file)\n  --seed SEED           Seed of a world file's data set\n  --splits SPLITS       Comma-separated splits to simulate\n  --packs PACKS         Comma-separated metric packs of the audit, e.g.\n                        core,tactile (never detected from the world; default\n                        core)\n  --adapter ADAPTER     Declared adapter (default: the first that accepts the\n                        data set)\n  --dense-weights       Store receptive-field weights dense in every bundle\n                        (default: sparse)\n  --no-checks           Skip the reference-free checks\n  --check-packs CHECK_PACKS\n                        Comma-separated check packs\n  --check-sample CHECK_SAMPLE\n                        Entries the engine checks re-run\n  --resume              Skip entries that already have a bundle\nAvailable SensoryForge Presets:\n==================================================\n  - tactile_sa1_ra1: The pressure-simulation recipe: 80x80 grid at 0.15 mm, one SA and one RA population with template (designed) receptive fields at resolvable_distance_mm=0.40.\n  - tactile_sa1_ra1_adex: The pressure-simulation recipe on AdEx neurons: identical to tactile_sa1_ra1 but neuron_model=AdEx, resolving to the SA1_tonic and RA1_phasic presets by neuron_type.\n  - tactile_stochastic_control: Named control arm (D-019): identical to tactile_sa1_ra1 but with gaussian/use_distance_weights=false (stochastic, uniform-random weight) receptive fields instead of the designed template.\n  - vision_onoff_rgb: Wave M4 generality demo: one 3-channel (R, G, B) grid; one population reads R and G through OnOffLayer and sums, one reads all three and concatenates.\n\n\ud83d\udca1 Use 'sensoryforge run --preset <name>' to run one, or 'sensoryforge run --preset <name> config.yml' to override it\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "cd /var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge; grep -rl \"tactile_sa1_ra1_adex\" --include=*.yml --include=*.yaml --include=*.py . | head; "
+          },
+          "result": "Permission for this tool use was denied. It requires approval, and this session has no approval surface \u2014 nobody can answer a permission prompt here \u2014 so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: This Bash command contains multiple operations. The following part requires approval: cd /var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge; grep -rl \"tactile_sa1_ra1_adex\" --include=*.yml --include=*.yaml --include=*.py .",
+          "is_error": true
+        },
+        {
+          "turn": 0,
+          "name": "Grep",
+          "input": {
+            "pattern": "tactile_sa1_ra1_adex",
+            "path": "/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge",
+            "output_mode": "files_with_matches"
+          },
+          "result": "Found 9 files\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/presets/tactile_sa1_ra1_adex.yml\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/presets/__init__.py\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-workflow/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-run-simulation/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-interpret-report/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-extend-evaluation/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-evaluate/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-diagnose/SKILL.md\n/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/agents/skills/sensoryforge-design-and-plan/SKILL.md",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Read",
+          "input": {
+            "file_path": "/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/venv/lib/python3.11/site-packages/sensoryforge/presets/tactile_sa1_ra1_adex.yml"
+          },
+          "result": "1\t# tactile_sa1_ra1_adex -- the pressure-simulation recipe on AdEx neurons\n2\t#\n3\t# Identical to `tactile_sa1_ra1` (80x80 receptor grid at 0.15 mm, one SA and\n4\t# one RA population with `template` receptive fields at a single resolvable\n5\t# distance d = 0.40 mm, D-020) except that both populations run the adaptive\n6\t# exponential integrate-and-fire neuron (`neuron_model: AdEx`) instead of\n7\t# Izhikevich.\n8\t#\n9\t# Neuron parameters are left to the resolver (sensoryforge/config/defaults.py)\n10\t# exactly as they are for the Izhikevich preset: the SA population resolves to\n11\t# the `SA1_tonic` AdEx preset and the RA population to `RA1_phasic`, by\n12\t# neuron_type, through the same NEURON_PRESET_BY_TYPE mechanism. Filter\n13\t# parameters are unchanged (SA: `sa` defaults; RA: `ra` defaults, k3 = 2.0,\n14\t# D-Q1).\n15\t#\n16\t# Why a separate preset file: `tactile_sa1_ra1` is pinned by the golden parity\n17\t# test against pressure-simulation (tests/integration/test_pressure_sim_parity.py)\n18\t# and must keep its Izhikevich neurons. AdEx is the hardware-facing path\n19\t# (neuromorphic targets implement exponential integrate-and-fire natively), so\n20\t# it ships as its own preset.\n21\t#\n22\t# Usage:\n23\t#   sensoryforge run --preset tactile_sa1_ra1_adex\n24\t#\n25\t# The AdEx presets SA1_tonic and RA1_phasic have no adaptation, a 2 ms\n26\t# refractory period and no voltage clamp (D-ce22df3, D-f5853a4); set\n27\t# model_params.preset to SA1_adapting / RA1_adapting for the adaptation fitted\n28\t# to TouchSim's SA1/RA afferents (scripts/validation/fit_afferents.py).\n29\t# This is pressure-simulation's model (D-6bae4df). Input gains come from\n30\t# scripts/calibrate_recipe_gains.py's low-threshold rule (report:\n31\t# benchmarks/results/recipe_calibration/; D-8dde454, D-673e0ed): each puts the\n32\t# population's firing threshold at 10% of the benchmark stimulus -- SA fires\n33\t# from 10% of its pressure, RA from 10% of its rate of change -- so rates rise\n34\t# roughly in proportion above it. A held benchmark drives SA above P5's band.\n35\tmetadata:\n36\t  name: Pressure-simulation recipe on AdEx (SA1/RA1)\n37\t  version: '1.0'\n38\t  description: >-\n39\t    80x80 grid at 0.15 mm; one SA and one RA population with template\n40\t    (designed) receptive fields at resolvable_distance_mm=0.40, both running\n41\t    AdEx neurons (SA1_tonic / RA1_phasic, resolved by neuron_type).\n42\tgrids:\n43\t- name: Main Grid\n44\t  arrangement: grid\n45\t  rows: 80\n46\t  cols: 80\n47\t  spacing: 0.15\n48\t  center_x: 0.0\n49\t  center_y: 0.0\n50\tpopulations:\n51\t- name: SA Population\n52\t  neuron_type: SA\n53\t  target_grid: Main Grid\n54\t  innervation_method: template\n55\t  resolvable_distance_mm: 0.40\n56\t  innervation_params:\n57\t    k: 28\n58\t    normalize: l2\n59\t  neuron_model: AdEx\n60\t  filter_method: sa\n61\t  input_gain: 160.0\n62\t  seed: 42\n63\t- name: RA Population\n64\t  neuron_type: RA\n65\t  target_grid: Main Grid\n66\t  innervation_method: template\n67\t  resolvable_distance_mm: 0.40\n68\t  innervation_params:\n69\t    k: 28\n70\t    normalize: l2\n71\t  neuron_model: AdEx\n72\t  filter_method: ra\n73\t  input_gain: 270.0\n74\t  seed: 43\n75\tsimulation:\n76\t  device: cpu\n77\t  dt_ms: 1.0\n78\t",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Write",
+          "input": {
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensor_slowdrift.yml",
+            "content": "# Overlay on tactile_sa1_ra1_adex: first population's filter is slowdrift (tau 25 ms).\npopulations:\n- name: SA Population\n  neuron_type: SA\n  target_grid: Main Grid\n  innervation_method: template\n  resolvable_distance_mm: 0.40\n  innervation_params:\n    k: 28\n    normalize: l2\n  neuron_model: AdEx\n  filter_method: slowdrift\n  filter_params:\n    tau: 25.0\n  input_gain: 160.0\n  seed: 42\n- name: RA Population\n  neuron_type: RA\n  target_grid: Main Grid\n  innervation_method: template\n  resolvable_distance_mm: 0.40\n  innervation_params:\n    k: 28\n    normalize: l2\n  neuron_model: AdEx\n  filter_method: ra\n  input_gain: 270.0\n  seed: 43\n"
+          },
+          "result": "File created successfully at: /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/sensor_slowdrift.yml (file state is current in your context \u2014 no need to Read it back)",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge describe --section evaluation | head -30; sensoryforge validate --json sensor_slowdrift.yml 2>&1 | head -20"
+          },
+          "result": "SensoryForge description (use --json for the full parameter lists)\n  evaluation metric_packs: core, tactile\n  evaluation check_packs: core, tactile\n  evaluation declared_adapters: tactile\n{\n  \"format\": \"sensoryforge-validate/1\",\n  \"file\": \"sensor_slowdrift.yml\",\n  \"kind\": \"config\",\n  \"valid\": false,\n  \"errors\": [\n    {\n      \"path\": \"\",\n      \"message\": \"config needs at least one grid and one population\",\n      \"fix\": null,\n      \"source\": \"build\"\n    },\n    {\n      \"path\": \"populations.0.target_grid\",\n      \"message\": \"population 'SA Population': no grid named 'Main Grid'; known grids: []\",\n      \"fix\": null,\n      \"source\": \"build\"\n    },\n    {\n      \"path\": \"populations.1.target_grid\",",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "sensoryforge evaluate run world.yml --out runs/slowdrift --preset tactile_sa1_ra1_adex --config sensor_slowdrift.yml --draws 4 --duration-ms 80 --seed 7 --packs core 2>&1 | tail -40",
+            "timeout": 600000
+          },
+          "result": "[build] \u2026\n[build] done in 0.0 s\n4 entries on world w-bbbdbb38b8a1\n[batch] \u2026\n    ok  train/r0/00000  (0.28 s)\n    ok  train/r0/00001  (0.25 s)\n    ok  train/r0/00002  (0.28 s)\n    ok  train/r0/00003  (0.28 s)\n[batch] done in 1.5 s\n[audit] \u2026\naudited 4 entries (0 failed) -> runs/slowdrift/evaluate/audit.json\n[audit] done in 0.9 s\n[declared] \u2026\n[declared] done in 0.0 s\n[compare] \u2026\n[compare] done in 0.0 s\n[checks] \u2026\n[checks] done in 8.5 s\nreport folder: runs/slowdrift/evaluate\n  build    ok           0.0 s\n  batch    ok           1.5 s\n  audit    ok           0.9 s\n  declared ok           0.0 s\n  compare  ok           0.0 s\n  checks   ok           8.5 s\nnote: the declared adapter 'tactile' has a metric pack of the same name that was not run; add --packs core,tactile to compare its metrics\nchecks: 13 passed, 0 failed, 0 skipped, 0 errors",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "cat > /tmp/summarize.py <<'E'\nimport json,sys\nfolder=sys.argv[1]+\"/evaluate\"\npipe=json.load(open(folder+\"/pipeline.json\"))\nprint(\"status:\",pipe[\"status\"],\"| error:\",pipe[\"error\"]); print(\"counts:\",json.dumps(pipe[\"counts\"]))\nfor n in pipe[\"notes\"]: print(\"note:\",n)\nfor c in json.load(open(folder+\"/checks.json\"))[\"checks\"]:\n    if c[\"status\"]!=\"pass\": print(c[\"status\"],c[\"id\"],c[\"note\"])\ncmp=json.load(open(folder+\"/compare.json\")); print(\"pairing:\",json.dumps(cmp[\"counts\"]),\"| difference is\",cmp[\"difference\"])\nE\npython /tmp/summarize.py runs/slowdrift; python -m sensoryforge.evaluate.compare runs/slowdrift/evaluate runs/slowdrift/evaluate 2>&1 | head -50; grep -rl slowdrift runs/slowdrift | head -3"
+          },
+          "result": "Permission for this tool use was denied. It requires approval, and this session has no approval surface \u2014 nobody can answer a permission prompt here \u2014 so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: Output redirection to '/tmp/summarize.py' needs approval. The path is outside the working directories for this session ('/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b'). Allowing runs the command as written.",
+          "is_error": true
+        },
+        {
+          "turn": 0,
+          "name": "Write",
+          "input": {
+            "file_path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/summarize.py",
+            "content": "\"\"\"Say what an evaluation report folder says: status, counts, notes, failed checks.\"\"\"\nimport json\nimport sys\n\nfolder = sys.argv[1] + \"/evaluate\"\npipe = json.load(open(folder + \"/pipeline.json\"))\nprint(\"status:\", pipe[\"status\"], \"| error:\", pipe[\"error\"])\nprint(\"counts:\", json.dumps(pipe[\"counts\"]))\nfor note in pipe[\"notes\"]:\n    print(\"note:\", note)\nfor check in json.load(open(folder + \"/checks.json\"))[\"checks\"]:\n    if check[\"status\"] != \"pass\":\n        print(check[\"status\"], check[\"id\"], \"-\", check[\"title\"], \"|\", check[\"note\"])\ncompare = json.load(open(folder + \"/compare.json\"))\nprint(\"pairing:\", json.dumps(compare[\"counts\"]), \"| difference is\", compare[\"difference\"])\n"
+          },
+          "result": "File created successfully at: /private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/summarize.py (file state is current in your context \u2014 no need to Read it back)",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "python summarize.py runs/slowdrift; python -m sensoryforge.evaluate.compare runs/slowdrift/evaluate runs/slowdrift/evaluate 2>&1 | head -60"
+          },
+          "result": "status: ok | error: None\ncounts: {\"entries\": 4, \"compared_pairs\": 48, \"audited\": 4, \"checks\": {\"pass\": 13, \"fail\": 0, \"skipped\": 0, \"error\": 0}}\nnote: the declared adapter 'tactile' has a metric pack of the same name that was not run; add --packs core,tactile to compare its metrics\npairing: {\"ok\": 32, \"unit_unchecked\": 4, \"unit_mismatch\": 0, \"missing_measured\": 12, \"missing_declared\": 0, \"not_numeric\": 0} | difference is measured - declared\ncompared 4 entries (48 pairs) -> runs/slowdrift/evaluate/compare.json\nmetric                          stat  measured                declared                diff                     rel_diff                 unit   pairing\n------------------------------  ----  ----------------------  ----------------------  -----------------------  -----------------------  -----  ----------------\ncore.frames.duration            n     4                       4                       0                        0.0                      ms     ok\ncore.frames.duration            mean  80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            std   0.0                     0.0                     0.0                      -                        ms     ok\ncore.frames.duration            min   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            q05   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            q25   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            q50   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            q75   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            q95   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.duration            max   80.0                    80.0                    0.0                      0.0                      ms     ok\ncore.frames.onset_time          n     4                       4                       0                        0.0                      ms     ok\ncore.frames.onset_time          mean  6.25                    5.563094699154205       0.6869053008457948       0.1234753923837086       ms     ok\ncore.frames.onset_time          std   2.277608394786075       2.299091200748367       -0.02148280596229224     -0.00934404253093547     ms     ok\ncore.frames.onset_time          min   4.0                     3.1888784316975016      0.8111215683024984       0.2543595140661172       ms     ok\ncore.frames.onset_time          q05   4.15                    3.3458334193914054      0.8041665806085949       0.2403486605005188       ms     ok\ncore.frames.onset_time          q25   4.75                    3.9736533701670216      0.7763466298329784       0.195373515883784        ms     ok\ncore.frames.onset_time          q50   5.5                     4.896613908587282       0.6033860914127178       0.1232251720631983       ms     ok\ncore.frames.onset_time          q75   7.0                     6.486055237574466       0.5139447624255338       0.07923841897740748      ms     ok\ncore.frames.onset_time          q95   9.399999999999999       8.713429085710695       0.6865709142893035       0.07879457186553836      ms     ok\ncore.frames.onset_time          max   10.0                    9.270272547744753       0.729727452255247        0.07871693615230042      ms     ok\ncore.frames.offset_time         n     4                       4                       0                        0.0                      ms     ok\ncore.frames.offset_time         mean  51.75                   51.236118017855595      0.5138819821444045       0.01002968222466266      ms     ok\ncore.frames.offset_time         std   2.947456530637899       3.02529849050732        -0.0778419598694211      -0.025730340365974134    ms     ok\ncore.frames.offset_time         min   47.0                    46.41235096734481       0.5876490326551931       0.01266147955031746      ms     ok\ncore.frames.offset_time         q05   47.75                   47.18598992354111       0.5640100764588922       0.01195291393425885      ms     ok\ncore.frames.offset_time         q25   50.75                   50.280545748326325      0.4694542516736746       0.00933669761707591      ms     ok\ncore.frames.offset_time         q50   52.5                    51.89804415558588       0.6019558444141211       0.011598815604871528     ms     ok\ncore.frames.offset_time         q75   53.5                    52.85361642511515       0.646383574884851        0.012229694363500554     ms     ok\ncore.frames.offset_time         q95   54.7                    54.359549519347674      0.3404504806523292       0.006262937858437475     ms     ok\ncore.frames.offset_time         max   55.0                    54.7360327929058        0.26396720709419697      0.004822549125781894     ms     ok\ncore.frames.active_time         n     4                       4                       0                        0.0                      ms     ok\ncore.frames.active_time         mean  45.5                    45.67302331870139       -0.17302331870138943     -0.003788304476672182    ms     ok\ncore.frames.active_time         std   3.2015621187164243      3.227902239040411       -0.026340120323986582    -0.008160135708390276    ms     ok\ncore.frames.active_time         min   42.0                    42.29967146090875       -0.29967146090874763     -0.007084486724339907    ms     ok\ncore.frames.active_time         q05   42.15                   42.438241622119534      -0.28824162211953563     -0.006792025567084269    ms     ok\ncore.frames.active_time         q25   42.75                   42.992522266962666      -0.24252226696266632     -0.0056410337001565275   ms     ok\ncore.frames.active_time         q50   45.0                    44.945817018657266      0.05418298134273414      0.0012055177753302932    ms     ok\ncore.frames.active_time         q75   47.75                   47.62631807039599       0.12368192960401103      0.0025969240246789182    ms     ok\ncore.frames.active_time         q95   49.55                   49.925893835345015      -0.37589383534501764     -0.0075290356660355625   ms     ok\ncore.frames.active_time         max   50.0                    50.50078777658227       -0.5007877765822712      -0.009916434943505805    ms     ok\ncore.frames.active_fraction     n     4                       4                       0                        0.0                      1      ok\ncore.frames.active_fraction     mean  0.56875                 0.5709127914837673      -0.0021627914837673012   -0.0037883044766720657   1      ok\ncore.frames.active_fraction     std   0.040019526483955306    0.040348777988005104    -0.0003292515040497976   -0.008160135708389422    1      ok\ncore.frames.active_fraction     min   0.525                   0.5287458932613593      -0.003745893261359323    -0.007084486724339864    1      ok\ncore.frames.active_fraction     q05   0.526875                0.5304780202764942      -0.0036030202764941732   -0.006792025567084227    1      ok\ncore.frames.active_fraction     q25   0.534375                0.5374065283370333      -0.00303152833703324     -0.005641033700156363    1      ok\ncore.frames.active_fraction     q50   0.5625                  0.5618227127332158      0.0006772872667841767    0.0012055177753302932    1      ok\ncore.frames.active_fraction     q75   0.596875                0.5953289758799498      0.0015460241200502267    0.0025969240246790674    1      ok\ncore.frames.active_fraction     q95   0.619375                0.6240736729418126      -0.004698672941812587    -0.00752903566603535     1      ok\ncore.frames.active_fraction     max   0.625                   0.6312598472072783      -0.006259847207278346    -0.009916434943505735    1      ok\ncore.frames.bouts               n     4                       4                       0                        0.0                      count  ok\ncore.frames.bouts               mean  1.0                     1.0                     0.0                      0.0                      count  ok\ncore.frames.bouts               std   0.0                     0.0                     0.0                      -                        count  ok\ncore.frames.bouts               min   1.0                     1.0                     0.0                      0.0                      count  ok\ncore.frames.bouts               q05   1.0                     1.0                     0.0                      0.0                      count  ok\ncore.frames.bouts               q25   1.0                     1.0                     0.0                      0.0                      count  ok\ncore.frames.bouts               q50   1.0                     1.0                     0.0                      0.0                      count  ok",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Grep",
+          "input": {
+            "pattern": "slowdrift",
+            "path": "/private/var/folders/54/dtx0f27j3jz_vlnnrf94vz180000gn/T/sf-agent-runs-w57xqjgj/workspaces/sf-agent-plugin-end-to-end-79ea1b/runs/slowdrift",
+            "output_mode": "count",
+            "head_limit": 5
+          },
+          "result": "runs/slowdrift/batch.json:1\nruns/slowdrift/evaluate/audit.json:2\nruns/slowdrift/evaluate/checks.json:1\nruns/slowdrift/evaluate/declared.json:1\nruns/slowdrift/evaluate/pipeline.json:1\n\nFound 14 total occurrences across 13 files. with pagination = limit: 5",
+          "is_error": false
+        },
+        {
+          "turn": 0,
+          "name": "Bash",
+          "input": {
+            "command": "python -m sensoryforge.evaluate.compare runs/slowdrift/evaluate runs/slowdrift/evaluate 2>&1 | grep -v \" ok$\" | tail -20"
+          },
+          "result": "tactile.episode.plateau_time    n     0                       4                       -4                       -1.0                     -      unit_unchecked\ntactile.episode.plateau_time    mean  -                       23.494670835615224      -                        -                        -      missing_measured\ntactile.episode.plateau_time    std   -                       3.6705216053096548      -                        -                        -      missing_measured\ntactile.episode.plateau_time    min   -                       20.893236021662325      -                        -                        -      missing_measured\ntactile.episode.plateau_time    q05   -                       20.90709894642876       -                        -                        -      missing_measured\ntactile.episode.plateau_time    q25   -                       20.96255064549451       -                        -                        -      missing_measured\ntactile.episode.plateau_time    q50   -                       21.654648493266308      -                        -                        -      missing_measured\ntactile.episode.plateau_time    q75   -                       24.18676868338703       -                        -                        -      missing_measured\ntactile.episode.plateau_time    q95   -                       28.658274004090174      -                        -                        -      missing_measured\ntactile.episode.plateau_time    max   -                       29.776150334265964      -                        -                        -      missing_measured\ntactile.episode.fall_time       n     0                       4                       -4                       -1.0                     -      unit_unchecked\ntactile.episode.fall_time       mean  -                       11.114872133785367      -                        -                        -      missing_measured\ntactile.episode.fall_time       std   -                       2.5649049932159764      -                        -                        -      missing_measured\ntactile.episode.fall_time       min   -                       7.546588946654321       -                        -                        -      missing_measured\ntactile.episode.fall_time       q05   -                       7.893213999205008       -                        -                        -      missing_measured\ntactile.episode.fall_time       q25   -                       9.279714209407754       -                        -                        -      missing_measured\ntactile.episode.fall_time       q50   -                       11.481251918728015      -                        -                        -      missing_measured\ntactile.episode.fall_time       q75   -                       13.316409843105628      -                        -                        -      missing_measured\ntactile.episode.fall_time       q95   -                       13.823598569446022      -                        -                        -      missing_measured\ntactile.episode.fall_time       max   -                       13.95039575103112       -                        -                        -      missing_measured",
+          "is_error": false
+        }
+      ]
+    }
+  }
+]

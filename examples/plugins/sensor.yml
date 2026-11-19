@@ -1,0 +1,18 @@
+# A tiny sensor that uses the other two plugins: the leaky_threshold neuron
+# (sensoryforge-leaky-threshold) and the exp_smoother filter (sensoryforge-exp-smoother).
+metadata: {name: Reference plugins sensor, version: '1.0'}
+grids:
+- {name: Main Grid, arrangement: grid, rows: 8, cols: 8, spacing: 0.15, center_x: 0.0, center_y: 0.0}
+populations:
+- name: Plugin Population
+  neuron_type: SA
+  target_grid: Main Grid
+  innervation_method: gaussian
+  connections_per_neuron: 8
+  sigma_d_mm: 0.3
+  neurons_per_row: 4
+  filter_method: exp_smoother
+  neuron_model: leaky_threshold
+  input_gain: 1.0
+  seed: 1
+simulation: {dt_ms: 1.0}

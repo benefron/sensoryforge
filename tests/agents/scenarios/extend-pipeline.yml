@@ -1,0 +1,232 @@
+# Scenarios for sensoryforge-extend-pipeline (roadmap C2a: the neuron model and the temporal
+# filter). The skill's job is a plugin package that passes the contract check, with every
+# number from the user. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+skill: sensoryforge-extend-pipeline
+
+scenarios:
+  - id: extend.neuron-from-equations
+    kind: normal
+    note: A neuron given as one equation is the equation DSL's job; no package is needed.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      I want a neuron whose voltage v follows dv/dt = (-v + I) / 12 with time in ms, spikes
+      when v reaches 1 and goes back to 0. Can SensoryForge do that? Set it up so I can use
+      it in a config.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge (list-components|describe)
+        why: it looks at what exists before writing anything
+      - not_ran: sensoryforge new-component
+        why: an equation needs no package
+      - answer: (?i)dsl|equation
+        why: the equation route is named
+      - judge: >-
+          The agent says this neuron can be written as equations with the equation DSL and
+          shows or writes the `neuron_model: dsl` population entry with the user's equation,
+          threshold 1 and reset 0, using only the values the user gave. It does not add
+          other parameters from memory. A check that could not run (the shell refused a
+          command) is not a failure if the agent says so.
+
+  - id: extend.filter-package
+    kind: normal
+    note: A filter the registry lacks becomes a scaffolded package with the user's time constants.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I need a temporal filter that is a single pole high-pass: the output is the input
+      minus its running low-pass average, and the low-pass has a time constant of 25 ms.
+      None of the filters in SensoryForge does this. Add it as a plugin called highpass25
+      and check it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component filter
+      - file: "sensoryforge-highpass25/*/component.py"
+        contains: "25"
+        why: the user's time constant is in the code
+      - file: "sensoryforge-highpass25/*/component.py"
+        contains: "def reset_state"
+      - judge: >-
+          The agent scaffolded a filter package, replaced the placeholder low-pass with the
+          high-pass the user described using 25 ms, kept `dt` as an argument, and ran the
+          contract check or the package's test and reported the result. It added no
+          parameter value of its own. A check that could not run (the shell refused a
+          command, or pytest is missing) is not a failure if the agent says so and uses
+          another way to run the check.
+
+  - id: extend.neuron-no-numbers
+    kind: invented_fact
+    note: No equation and no numbers are given; the agent must ask, not pick a model.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a neuron model to SensoryForge that adapts the way a real mechanoreceptor does.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - not_ran: sensoryforge new-component neuron
+        why: nothing is written before the user says what the model is
+      - judge: >-
+          The agent asks which dynamics the user means (the equations, or a source to
+          approve), and which parameters with which units, or offers to find sources for the
+          user to approve. It does not write a neuron class with time constants or
+          thresholds of its own. It may explain what it would build once told.
+
+  - id: extend.unclear-kind
+    kind: unclear
+    note: Something that adapts may be a filter or a neuron; the agent asks.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      SensoryForge's responses don't fade the way I need. Can you add something that makes
+      them adapt?
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - not_ran: sensoryforge new-component
+      - judge: >-
+          The agent asks whether the user means a temporal filter (before the neuron) or the
+          neuron model's own adaptation, and what the adaptation should do, instead of
+          picking one and writing it. It may first list what exists.
+
+  - id: extend.bad-name
+    kind: bad_input
+    note: The name sa belongs to a built-in filter; a plugin cannot take it.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a filter I'll call sa with a time constant of 40 ms, as a plugin. It is a
+      single-pole low-pass.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - judge: >-
+          The agent notices that "sa" is the name of a built-in filter, says a different
+          registered class cannot take it, and uses or proposes another name (before or
+          after scaffolding). It does not overwrite or replace the built-in.
+
+  # C2b: the stimulus, the grid arrangement and the receptive-field builder.
+  - id: extend.rf-builder-package
+    kind: normal
+    note: A receptive-field shape the registry lacks becomes an innervation package with the user's radii.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I need receptive fields shaped like a ring: each neuron takes weight 1 from every
+      sensor between 0.2 mm and 0.6 mm from its centre, and 0 from the rest. SensoryForge
+      has nothing like it. Make it a plugin called ring_rf and check it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component innervation
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "0.6"
+        why: the user's outer radius is in the code
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "BaseInnervation"
+      - file: "sensoryforge-ring-rf/*/component.py"
+        contains: "cdist|unsqueeze|None\\]"
+        why: the weights are broadcast, not looped over neurons (the judge cannot see the file)
+      - judge: >-
+          The agent scaffolded a receptive-field builder package, replaced the placeholder
+          disc with the ring the user described (0.2 mm to 0.6 mm, weight 1), and ran the
+          contract check with an instance built from receptor positions and centres, and
+          reported the result. The file's body may not be shown; the file checks cover it. It added no
+          parameter value of its own. A check that could not run is not a failure if the
+          agent says so and uses another way to run it.
+
+  - id: extend.layout-by-name
+    kind: normal
+    note: A new sensor layout cannot be named in a config's arrangement; it reaches a run as coords_file.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      My sensors sit on a hexagonal ring: 6 sensors on a circle of radius 1 mm, at angles
+      0, 60, 120, 180, 240 and 300 degrees. Add that layout to SensoryForge as a grid
+      arrangement plugin called hexring, and tell me how to use it in my config.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component grid
+      - answer: (?i)coords_file
+        why: a plugin arrangement reaches a run through coords_file
+      - judge: >-
+          The agent scaffolded a grid package that places the six sensors the user gave on
+          the 1 mm circle, ran the contract check, and told the user that a config's
+          arrangement field does not take a plugin name, so the points are saved to a file
+          and named in the grid entry's coords_file. It does not tell the user to write
+          `arrangement: hexring`. It added no value of its own.
+
+  - id: extend.stimulus-no-units
+    kind: invented_fact
+    note: A stimulus with no amplitude or size given; the agent asks rather than inventing them.
+    style: {planning: none, pace: auto, review: agent}
+    prompt: |
+      Add a stimulus to SensoryForge that looks like a checkerboard.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - judge: >-
+          The agent asks for what it needs to build the checkerboard (the square size in mm,
+          the values of the two kinds of square and their units, whether it is still or
+          moves), or scaffolds the package and states plainly that those values are
+          placeholders for the user to set. It does not present sizes or amplitudes of its
+          own as the user's model.
+
+  # C2c: the solver, the processing layer and the event converter.
+  - id: extend.solver-config
+    kind: normal
+    note: A plugin solver is registered and checked; no config key reaches it today, and the agent must say so.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]   # the scaffolded package has a tests/ folder of its own
+    prompt: |
+      I want to integrate my neurons with Heun's method (the explicit trapezoidal rule,
+      second order) instead of forward Euler. Add it as a solver plugin called heun and
+      show me how to switch my config to it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - ran: sensoryforge new-component solver
+      - file: "sensoryforge-heun/*/component.py"
+        contains: "ode_func"
+        why: the step uses the derivative function
+      - judge: >-
+          The agent scaffolded a solver package, replaced the placeholder Euler step with
+          Heun's method (a predictor step, then the average of the two derivatives), ran the
+          contract check, and told the user plainly that no config key switches a run to
+          a registered solver today (a population's solver_config is read by no stage), so the
+          solver is used from Python code. It does not hand over `solver_config: {type: heun}`
+          as if it worked. It added no number of its own. A check that could not run is not a
+          failure if the agent says so.
+
+  - id: extend.processing-planes
+    kind: normal
+    note: A layer that grows the receptor axis must mirror forward() in expand_receptor_coords.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      Add a processing layer called posneg to SensoryForge that splits each sensor's response
+      into a positive plane (the response where it is above 0, else 0) followed by a negative
+      plane (minus the response where it is below 0, else 0), so the layer after it sees twice
+      as many columns. Check it and show me how a population input uses it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - answer: expand_receptor_coords
+        why: the receptor axis doubles, so the coordinates must double the same way
+      - answer: (?i)processing:?\s*\n?.*method
+        why: the config entry is shown
+      - judge: >-
+          The agent wrote a layer whose forward() returns the positive plane first and the
+          negative plane second, wrote expand_receptor_coords to repeat the sensor positions
+          in that same order, ran the contract check, and tested that a positive input lights
+          the first plane only (the contract check cannot see a swapped pair). It added no
+          parameter of its own. A check that could not run is not a failure if the agent says so.
+
+  - id: extend.converter-floor
+    kind: normal
+    note: A signed event unit on an RA or SA population needs the input floor lifted, or it never sees negative drive.
+    style: {planning: none, pace: auto, review: agent}
+    skip_defaults: [no_repo_paths]
+    prompt: |
+      I need a converter for an RA population that emits +1 when the drive is above 0.4 mA
+      and -1 when it is below -0.4 mA, once per integration step, nothing in between. Add it
+      to SensoryForge as demo_pm, check it, and show me the population entry that uses it.
+    checks:
+      - skill: sensoryforge-extend-pipeline
+      - answer: (?i)input_floor
+        why: an RA population clamps the drive at 0 mA unless this is set
+      - judge: >-
+          The agent built the unit as a neuron model with SIGNED_EVENTS set, using only the
+          0.4 mA threshold the user gave, ran the contract check, and showed a population entry
+          with `neuron_model: demo_pm` and an input_floor that lifts the 0 mA clamp (-.inf),
+          saying why. It did not leave the clamp in place and did not change level_crossing
+          or sigma_delta. A check that could not run is not a failure if the agent says so.
