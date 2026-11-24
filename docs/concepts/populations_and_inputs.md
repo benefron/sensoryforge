@@ -8,7 +8,7 @@ what makes SimulationEngine no longer tactile-only: see
 `sensoryforge/presets/vision_onoff_rgb.yml` and `examples/vision_rgb_onoff.py` for the concrete
 demo, a population reading R/G/B channels of one vision-style sensor array.
 
-See [Configuration Schema](../user_guide/configuration_schema.md#multi-input-populations-phase-2-wave-m1m2)
+See [Configuration Schema](../reference/configuration_schema.md#multi-input-populations-phase-2-wave-m1m2)
 for the field reference and [Sensor Arrays](sensor_arrays.md) for what a grid/channel is.
 
 ## One neuron, several inputs
@@ -83,7 +83,7 @@ why a processing layer that changes the receptor count (`OnOffLayer`'s ON/OFF sp
 only has to get the *bank* right: `BaseProcessingLayer.expand_receptor_coords` tells
 `_build_input_bank` how to grow the receptor coordinates so the bank's weight columns line up with
 the pipeline's output, column for column. See
-[Adding a Processing Layer](../extending/add_processing_layer.md) for the full worked example.
+[Adding a Processing Layer](../how-to/extend/add_processing_layer.md) for the full worked example.
 
 ## The sugar fields (single-input populations)
 

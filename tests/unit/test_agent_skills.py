@@ -1,7 +1,7 @@
 """The skills that ship with SensoryForge: their rules, install and examples.
 
 Every skill is a file an agent follows on a user's machine, so each one is held to the
-rules of ``docs/developer_guide/agent_files.md``, and each one's worked example is run
+rules of ``docs/reference/maintainers/agent_files.md``, and each one's worked example is run
 for real (roadmap B6).
 """
 
@@ -60,7 +60,7 @@ def test_the_core_skills_ship():
 
 
 def test_the_skills_stay_within_the_file_budget():
-    assert len(SKILLS) <= 14  # docs/developer_guide/agent_files.md
+    assert len(SKILLS) <= 14  # docs/reference/maintainers/agent_files.md
     extra = [
         p
         for p in SKILL_DIR.rglob("*")
@@ -459,7 +459,7 @@ def test_the_hand_written_agent_files_stay_within_the_budget():
     21 at most."""
     references = len(list(SKILL_DIR.glob("*/reference.md")))
     count = 2 + len(SKILLS) + len(PROMPTS) + references
-    assert count <= 21, count  # docs/developer_guide/agent_files.md
+    assert count <= 21, count  # docs/reference/maintainers/agent_files.md
 
 
 def test_python_dash_c_lines_in_the_skills_compile():

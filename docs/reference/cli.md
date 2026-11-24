@@ -1,0 +1,552 @@
+# Command-Line Interface (CLI)
+
+SensoryForge provides a comprehensive command-line interface for running simulations, validating configurations, and exploring available components.
+
+## Installation
+
+Not yet published to PyPI. The CLI is available after installing from source:
+
+```bash
+git clone https://github.com/benefron/sensoryforge.git
+cd sensoryforge
+pip install -e .
+```
+
+The `sensoryforge` command will be available in your terminal.
+
+## Available Commands
+
+### `sensoryforge run`
+
+Run a simulation from a YAML configuration file.
+
+**Usage:**
+```bash
+sensoryforge run <config.yml> [options]
+```
+
+**Options:**
+- `--preset NAME`: Start from a shipped preset (`sensoryforge list-presets`); the config file is then optional and, when given, overrides the preset
+- `--design DIR`: Start from a pressure-simulation design directory (not with `--preset`)
+- `--stimulus NAME`: Stimulus type from the registry (`sensoryforge list-components`); overrides the config's `stimulus.type`
+- `--bundle DIR`: Write a [data bundle](bundles.md) to this directory (canonical configs only)
+- `--seed N`: Run-level seed for torch, numpy and `random` (canonical configs only)
+- `--device cpu|cuda|mps`: Override the config's device
+- `--duration DURATION`: Simulation duration in milliseconds. Without it, the config's `simulation.duration_ms` is used, and 1000 ms if that is unset too.
+- `--output FILE`: Save results to file (PyTorch checkpoint `.pt` or `.pth`)
+- `--device DEVICE`: Override device from config (`cpu`, `cuda`, or `mps`)
+
+**Examples:**
+
+Run a basic simulation:
+```bash
+sensoryforge run my_config.yml
+```
+
+Run with custom duration and save results:
+```bash
+sensoryforge run my_config.yml --duration 2000 --output results.pt
+```
+
+Override device to use GPU:
+```bash
+sensoryforge run my_config.yml --device cuda
+```
+
+**Output:**
+
+Without `--output`, prints spike counts to console:
+```
+Loading pipeline from my_config.yml...
+Running simulation (duration: 1000ms)...
+
+Simulation completed successfully!
+SA spikes: 243
+RA spikes: 187
+SA2 spikes: 89
+```
+
+With `--output`, saves a PyTorch checkpoint containing:
+- `config`: Full configuration used
+- `results`: All pipeline outputs (spikes, voltages, filtered signals, etc.)
+- `pipeline_info`: Grid properties and neuron counts
+
+### `sensoryforge validate`
+
+Validate a YAML configuration file without running the simulation.
+
+**Usage:**
+```bash
+sensoryforge validate <config.yml>
+```
+
+**Examples:**
+
+Validate configuration:
+```bash
+sensoryforge validate my_config.yml
+```
+
+**Output:**
+
+Success:
+```
+Validating my_config.yml...
+✓ Configuration is valid!
+
+Pipeline info:
+  Device: cpu
+  Grid size: (80, 80)
+  SA neurons: 100
+  RA neurons: 196
+```
+
+Failure:
+```
+Validation error: Invalid grid type: bad_type
+❌ Configuration validation failed: my_config.yml
+```
+
+With `--json` the same command reports the problems of a config, world or data-set file as
+data, one `{path, message, fix, source}` record each, and exits 1 if there are any (see
+[Describing SensoryForge to a program](describe.md)):
+
+```bash
+sensoryforge validate --json my_world.yml          # --kind config|world|dataset to force
+```
+
+### `sensoryforge describe`
+
+`sensoryforge describe [--json] [--section NAME] [--schema {config,world,dataset}]` lists
+every registered component, the world language, the evaluation seams and the shipped recipes
+with their parameters, units and defaults, generated from the registries. See [Describing
+SensoryForge to a program](describe.md).
+
+### `sensoryforge list-components`
+
+List all available components (filters, neurons, stimuli, solvers).
+
+**Usage:**
+```bash
+sensoryforge list-components
+```
+
+**Output:**
+```
+Available SensoryForge Components:
+==================================================
+
+📊 Filters:
+  - SA (Slowly Adapting)
+  - RA (Rapidly Adapting)
+  - center_surround (for vision)
+
+🧠 Neuron Models:
+  - izhikevich (hand-written)
+  - adex (Adaptive Exponential)
+  - mqif (Multi-Quadratic Integrate-and-Fire)
+  - dsl (Equation DSL - custom models)
+
+🎯 Stimuli:
+  - gaussian (Static Gaussian blob)
+  - texture (Gabor, edge grating, perlin noise)
+  - moving (Linear, circular motion)
+  - trapezoidal (Ramp-plateau-ramp)
+  - step (Step function)
+  - ramp (Linear ramp)
+
+⚙️  Solvers:
+  - euler (Forward Euler - default)
+  - adaptive (Adaptive stepping - requires torchdiffeq/torchode)
+
+🌐 Grid Types:
+  - standard (Single population)
+  - composite (Multi-population mosaic)
+
+💡 Use 'sensoryforge run --help' for usage examples
+```
+
+### `sensoryforge visualize`
+
+Visualize pipeline structure from a configuration file.
+
+**Usage:**
+```bash
+sensoryforge visualize <config.yml> [--save FILE]
+```
+
+**Options:**
+- `--save FILE`: (Future) Save visualization to PNG file
+
+**Examples:**
+
+Display pipeline structure:
+```bash
+sensoryforge visualize my_config.yml
+```
+
+**Output:**
+```
+Loading pipeline from my_config.yml...
+
+============================================================
+PIPELINE STRUCTURE
+============================================================
+
+📍 Grid Configuration:
+  Size: (80, 80)
+  Spacing: 0.15 mm
+  Bounds: X=(-6.0, 6.0), Y=(-6.0, 6.0)
+
+🧠 Neuron Populations:
+  SA neurons: 100
+  RA neurons: 196
+  SA2 neurons: 25
+
+⚙️  Device: cpu
+
+🎯 Configured Stimuli:
+  1. gaussian
+  2. texture
+```
+
+### `sensoryforge list-presets`
+
+Print the shipped presets (`sensoryforge run --preset NAME` starts from one).
+
+### `sensoryforge examples`
+
+List the example configs that ship in the package, or copy one into a folder to edit and
+run. They are the configs a preset cannot give: a sweep batch file, which holds its own
+sensor, and a stimulus block to merge over a preset.
+
+```bash
+sensoryforge examples list
+sensoryforge examples copy amplitude_sweep        # writes ./amplitude_sweep.yml
+sensoryforge examples copy moving_edge --to configs
+sensoryforge batch amplitude_sweep.yml --dry-run
+sensoryforge run --preset tactile_sa1_ra1 configs/moving_edge.yml
+```
+
+`copy` will not replace a file that is already there unless you pass `--force`. Each file's
+header says how to run it.
+
+### `sensoryforge batch`
+
+Run a sweep from a batch YAML (`sensoryforge batch sweep.yml`), or a whole
+[data set](../how-to/worlds.md) of draws:
+
+```bash
+sensoryforge batch --dataset my_dataset.yml --preset tactile_sa1_ra1_adex --output runs/first
+```
+
+With `--dataset`, one bundle is written per entry. Useful options: `--design DIR` or `--preset
+NAME` (the sensor), `--splits a,b`, `--tasks N` with `--task-index I` (split the entries over N
+cluster tasks), `--entries a:b`, `--print-tasks` (print one command per task and exit),
+`--resume` (skip entries whose bundle is complete), `--dense-weights` (store receptive-field
+weights dense instead of sparse) and `--dry-run`. With `--dataset`, `--dry-run` builds the sensor
+and the data set, prints the entry count, the splits, the sensor and the output folder, and exits
+without simulating or writing anything (it honours `--splits`, `--entries` and `--tasks`, so it
+counts what that run would do).
+
+`--resume` continues the same data set on the same sensor and nothing else. Entry ids such as
+`train/r0/00000` repeat across data sets, so a resume into a folder whose `batch.json` names a
+different data set id, world id or sensor config (the device may differ) stops with an error
+that gives both values, before it writes anything. Use a new `--output` folder for a different
+data set or sensor; a plain rerun without `--resume` replaces the bundles it writes.
+`sensoryforge evaluate run --resume` follows the same rule and reports the refusal as a failed
+`batch` stage. Without `--dataset`, `--dry-run` validates the sweep and shows the plan,
+`--resume CHECKPOINT` continues from a `checkpoint.json` and `--task-index I` runs one stimulus
+of the sweep. See [Batch Processing](../how-to/batch_processing.md).
+
+### `sensoryforge dataset build`
+
+`sensoryforge dataset build my_dataset.yml --out DIR` writes the data set's manifest
+without simulating anything (see [Worlds and Data Sets](../how-to/worlds.md)).
+
+### `sensoryforge world`
+
+`sensoryforge world validate world.yml` prints a world's id, classes and axes.
+`sensoryforge world sample world.yml -n 10 --seed 0 [--classes a,b]` prints draws as JSON lines.
+
+### `sensoryforge new-component`
+
+`sensoryforge new-component {neuron,filter,stimulus,solver,grid,innervation} Name [--dest DIR]`
+writes an installable plugin package for a new component (`innervation` is a receptive-field
+builder); `--in-repo` writes into a SensoryForge checkout
+instead. See [Plugin Packages](../how-to/extend/plugins.md).
+
+### `sensoryforge agents`
+
+`sensoryforge agents {setup,brief,install,export,instructions,prompt}` sets up the agent skills: `setup`
+saves how they work with you, `brief` prints it, `install [--dest DIR]` copies the skills and
+the glossary into `DIR/.claude/skills/`, `export --target {claude,copilot,cursor,codex,generic}
+[--dest DIR] [--check]` writes them for another environment (or checks them), and
+`instructions --target ... [--file FILE] [--write|--check]` shows, writes or checks SensoryForge's
+section in the project's instruction file (`CLAUDE.md`, `AGENTS.md`, ...), and
+`prompt {install,generic,instructions}` prints a prompt to give an agent. See
+[Working with a Coding Agent](../agents/setup.md), [Skills for a Coding Agent](../agents/skills.md) and
+[Using the Skills in Another Agent](../agents/export.md).
+
+### `sensoryforge evaluate`
+
+`sensoryforge evaluate {run,serve,export}` evaluates a world or data set.
+`sensoryforge evaluate run SOURCE --out DIR` takes a world or a data-set file to a report
+folder (build, simulate, audit, declared side, comparison, checks), and `evaluate serve DIR`
+opens the result in the local browser; `evaluate export DIR OUT` writes a folder that opens
+offline for sharing. See [Evaluating a world in one command](../how-to/evaluate/evaluate_pipeline.md) and [Sharing a
+snapshot](../how-to/evaluate/evaluation_export.md).
+
+## Configuration File Format
+
+SensoryForge uses YAML for configuration. The CLI accepts both **canonical format** (recommended) and **legacy format** (backward compatible). See [YAML Configuration Guide](../how-to/yaml_configuration.md) for details.
+
+### Canonical Format (Recommended)
+
+The canonical format supports N populations and is exported by the GUI:
+
+```yaml
+# Canonical configuration format
+grids:
+  - name: "Main Grid"
+    arrangement: "grid"
+    rows: 80
+    cols: 80
+    spacing: 0.15
+
+populations:
+  - name: "SA Population"
+    neuron_type: "SA"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA Population"
+    neuron_type: "RA"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+```
+
+The `stimulus:` block above is what `sensoryforge run` actually renders (F-061) — the
+same renderer every GUI run uses, so a config run from the CLI and the same config run from the GUI
+produce byte-identical stimulus frames. Only the fields you write in the block are
+passed to the stimulus; a field you leave out takes that stimulus type's own default, so
+`stimulus: {type: moving_edge}` is a complete, moving edge.
+
+Every stimulus changes over time. A still image (`gaussian`, `texture`, `gabor`,
+`edge_grating`, `repeated_pattern`, `composite`, `static`) ramps up over the first
+eighth of the run, holds, and ramps down over the last eighth; set `ramp_up_ms`,
+`plateau_ms` and `ramp_down_ms` to change that (`ramp_up_ms: 0` is a step). Each part
+of a `timeline` ramps the same way over its own window. A stimulus with its own time
+course (`moving_edge`, `braille`, `drifting_grating`, `ramp_gaussian`) runs on the
+run's time step and spans the run's duration unless you set its `total_ms`. A config with no `stimulus:` block at
+all falls back to the legacy default trapezoidal (ramp/plateau/ramp) stimulus, with a notice. The top-level `stimuli:` list shown under
+"Legacy Format" below is **legacy**: if present and non-empty on a canonical config it still wins
+over `stimulus:` (with a deprecation notice printed to the console) for backward compatibility, but
+new configs should set `stimulus:` instead. `sensoryforge validate` prints which of the three
+sources (`stimulus:` block, legacy `stimuli:` list, or default trapezoid) a given config will use.
+
+### Legacy Format (Backward Compatible)
+
+Legacy format is still fully supported:
+
+```yaml
+# Legacy configuration format
+pipeline:
+  device: cpu
+  seed: 42
+  grid_size: 80
+  spacing: 0.15
+
+neurons:
+  sa_neurons: 10    # per row (10x10 = 100 neurons)
+  ra_neurons: 14    # per row (14x14 = 196 neurons)
+  dt: 0.5
+
+stimuli:
+  - type: gaussian
+    config:
+      sigma: 0.5
+      amplitude: 30.0
+
+solver:
+  type: euler
+  config:
+    dt: 0.001
+```
+
+**Note**: The CLI automatically detects the format and uses the appropriate adapter. Canonical format is recommended for new projects as it supports N populations and ensures GUI-CLI parity.
+
+### Advanced Example (Canonical Format with N Populations)
+
+```yaml
+# Canonical format with multiple populations and composite grid
+grids:
+  - name: "Composite Receptor Grid"
+    arrangement: "composite"
+    # Composite grid configuration...
+
+populations:
+  - name: "SA1 Population"
+    neuron_type: "SA"
+    target_grid: "Composite Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "sa"
+    innervation_method: "gaussian"
+    neurons_per_row: 10
+  - name: "RA1 Population"
+    neuron_type: "RA"
+    target_grid: "Composite Receptor Grid"
+    neuron_model: "izhikevich"
+    filter_method: "ra"
+    innervation_method: "gaussian"
+    neurons_per_row: 14
+  - name: "Custom Population"
+    neuron_type: "Custom"
+    neuron_model: "dsl"  # Equation DSL
+    dsl_config:
+      equations: |
+        dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
+        du/dt = (a * (b*v - u)) / ms
+      threshold: "v >= 30 * mV"
+      reset: |
+        v = c
+        u = u + d
+      parameters:
+        a: 0.02
+        b: 0.2
+        c: -65.0
+        d: 8.0
+
+stimulus:
+  type: "gaussian"
+  amplitude: 30.0
+  sigma: 0.5
+
+simulation:
+  device: "cpu"
+  dt: 0.5
+  solver_config:
+    type: "adaptive"
+    method: "dopri5"
+    rtol: 1.0e-5
+    atol: 1.0e-7
+```
+
+**Note**: Canonical format supports any number of populations, each with its own configuration. Legacy format is limited to SA/RA/SA2.
+
+## Error Handling
+
+The CLI provides informative error messages:
+
+### File Not Found
+```bash
+$ sensoryforge run nonexistent.yml
+❌ Config file not found: nonexistent.yml
+```
+
+### Invalid Configuration
+```bash
+$ sensoryforge validate bad_config.yml
+Validation error: Invalid grid type: wrong_type
+❌ Configuration validation failed: bad_config.yml
+```
+
+### Runtime Errors
+```bash
+$ sensoryforge run config.yml
+Error running simulation: CUDA out of memory
+[Traceback...]
+```
+
+## Tips and Best Practices
+
+### 1. Validate Before Running
+
+Always validate your configuration first:
+```bash
+sensoryforge validate config.yml && sensoryforge run config.yml
+```
+
+### 2. Start Small
+
+Begin with small grid sizes and short durations for testing:
+```yaml
+pipeline:
+  grid_size: 40  # Small for testing
+  
+temporal:
+  t_plateau: 100  # Short duration
+```
+
+### 3. Use Version Control
+
+Track your configuration files in git:
+```bash
+git add experiments/config_v1.yml
+git commit -m "Add baseline configuration"
+```
+
+### 4. Organize Configurations
+
+Keep configurations organized by experiment:
+```
+experiments/
+  baseline/
+    config.yml
+    results.pt
+  high_frequency/
+    config.yml
+    results.pt
+  composite_grid/
+    config.yml
+    results.pt
+```
+
+### 5. Save Results
+
+Always save important results:
+```bash
+sensoryforge run config.yml --output results_$(date +%Y%m%d).pt
+```
+
+## Integration with Python
+
+The CLI uses the same Python API available for scripting. Both canonical and legacy configs are supported:
+
+```python
+from sensoryforge.config.schema import SensoryForgeConfig
+from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+from sensoryforge.cli import load_config_file
+
+# Option 1: Load canonical config
+config = SensoryForgeConfig.from_yaml('canonical_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(config.to_dict())
+
+# Option 2: Load legacy config (auto-detected)
+legacy_config = load_config_file('legacy_config.yml')
+pipeline = GeneralizedTactileEncodingPipeline.from_config(legacy_config)
+
+# Run simulation
+results = pipeline.forward(stimulus_type='gaussian')
+```
+
+**Note**: The `load_config_file()` function automatically detects the format and loads appropriately. For canonical configs, use `SensoryForgeConfig.from_yaml()` directly.
+
+## See Also
+
+- [YAML Configuration Guide](../how-to/yaml_configuration.md) - Complete configuration reference
+- [Pipeline Documentation](api_pipeline.md) - Python API reference
+- [Tutorial: Your First Simulation](../tutorials/first_simulation.md) - Step-by-step guide
+- [User Guide Overview](../index.md) - CompositeGrid, DSL, extended stimuli, adaptive solvers

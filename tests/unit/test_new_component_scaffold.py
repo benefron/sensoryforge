@@ -39,7 +39,7 @@ def scaffold_repo(tmp_path):
     for sub in ("neurons", "filters", "stimuli", "solvers", "core"):
         (tmp_path / "sensoryforge" / sub).mkdir()
     (tmp_path / "tests" / "unit").mkdir(parents=True)
-    (tmp_path / "docs" / "developer_guide").mkdir(parents=True)
+    (tmp_path / "docs" / "how-to" / "extend").mkdir(parents=True)
     return tmp_path
 
 

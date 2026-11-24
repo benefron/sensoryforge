@@ -5,7 +5,7 @@ then run the command again. -->
 
 Every neuron model, filter, stimulus, solver, grid arrangement, receptive-field builder and processing layer that SensoryForge registers, with its parameters, defaults, ranges and units.
 
-This page is generated from the component registries and from each component's `ParamSpec` list, so a name, default, range or unit here is the component's own. `sensoryforge describe --json` prints the same data for a program ([Describing SensoryForge to a program](../user_guide/describe.md)). The page lists the components that ship with SensoryForge; a plugin's components appear in `sensoryforge describe` once the plugin is installed. A component you add to SensoryForge appears here after `python scripts/build_reference.py`, and a test fails until it does.
+This page is generated from the component registries and from each component's `ParamSpec` list, so a name, default, range or unit here is the component's own. `sensoryforge describe --json` prints the same data for a program ([Describing SensoryForge to a program](describe.md)). The page lists the components that ship with SensoryForge; a plugin's components appear in `sensoryforge describe` once the plugin is installed. A component you add to SensoryForge appears here after `python scripts/build_reference.py`, and a test fails until it does.
 
 ## Reading the tables { #reading }
 
@@ -255,7 +255,7 @@ Registered under more than one name: `SA`, `safilter`. They select the same clas
 
 Written as the `type` of the `stimulus`.
 
-The `layered` stimulus is built from the shapes, patterns, motions and modulations in the [World Language Reference](world_language.md); [Designing stimuli](../user_guide/designing_stimuli.md) explains how.
+The `layered` stimulus is built from the shapes, patterns, motions and modulations in the [World Language Reference](world_language.md); [Designing stimuli](../how-to/designing_stimuli.md) explains how.
 
 | Name | What it is |
 |---|---|

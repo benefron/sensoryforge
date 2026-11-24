@@ -1,7 +1,7 @@
 # Contributing to SensoryForge
 
 Adding a neuron, filter, stimulus, solver, grid or receptive-field builder does not need a fork: write it as a
-plugin package (`sensoryforge new-component`, see `docs/developer_guide/plugins.md`). To
+plugin package (`sensoryforge new-component`, see `docs/how-to/extend/plugins.md`). To
 change SensoryForge itself, fork the repository on GitHub, clone your fork and open a pull
 request from a branch.
 
@@ -85,7 +85,7 @@ mkdocs serve                                            # preview at http://loca
 mkdocs build --strict                                   # as CI builds the site
 ```
 
-The architecture overview is `docs/developer_guide/architecture_notes.md`; `AGENTS.md` is
+The architecture overview is `docs/concepts/architecture_notes.md`; `AGENTS.md` is
 the short map of the repository that coding agents start from.
 
 ## Adding a new component
@@ -93,10 +93,10 @@ the short map of the repository that coding agents start from.
 Components (neurons, filters, innervation methods, stimuli, solvers, grids) are registered by
 string name in `sensoryforge/register_components.py` and discovered dynamically — see:
 
-- `docs/developer_guide/add_neuron.md`
-- `docs/developer_guide/add_filter.md`
-- `docs/developer_guide/add_stimulus.md`
-- `docs/developer_guide/extensibility.md` for the registry pattern itself
+- `docs/how-to/extend/add_neuron.md`
+- `docs/how-to/extend/add_filter.md`
+- `docs/how-to/extend/add_stimulus.md`
+- `docs/how-to/extend/extensibility.md` for the registry pattern itself
 
 Every new component needs: a base-class subclass implementing `forward()`, `reset_state()`,
 `from_config()`, `to_dict()`; a `sensoryforge/register_components.py` entry; Google-style docstrings with tensor

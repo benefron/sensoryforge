@@ -4,7 +4,7 @@ A header is a block of ``Tag: value`` lines at the end of a module docstring. It
 an agent that opens the file what the file is for, which tests pin it and what not to
 change without. Every claim a program can check is checked here: tests and contract
 pages exist, named entry points are defined, topics come from one closed list. The
-convention, with the tags and topics, is ``docs/developer_guide/file_headers.md``.
+convention, with the tags and topics, is ``docs/reference/maintainers/file_headers.md``.
 
 Topic: testing
 Tests: tests/unit/test_file_headers.py

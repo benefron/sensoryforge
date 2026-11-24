@@ -16,7 +16,7 @@ import pytest
 from sensoryforge.testing import skill_examples as ex
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "user_guide" / "agent_design_loop.md"
+PAGE = REPO / "docs" / "agents" / "design_loop.md"
 SKILLS = REPO / "sensoryforge" / "agents" / "skills"
 GROUNDING = "sensoryforge-ground-assumptions"
 
@@ -58,10 +58,8 @@ def test_the_rule_is_stated_plainly_in_the_docs():
         "exactly one of",
     ):
         assert phrase in text, phrase
-    assert "agent_design_loop.md" in (REPO / "mkdocs.yml").read_text()
-    assert (
-        "agent_design_loop.md" in (REPO / "docs/user_guide/agent_skills.md").read_text()
-    )
+    assert "design_loop.md" in (REPO / "mkdocs.yml").read_text()
+    assert "design_loop.md" in (REPO / "docs/agents/skills.md").read_text()
     assert "Do not invent domain facts" in (REPO / "AGENTS.md").read_text()
 
 

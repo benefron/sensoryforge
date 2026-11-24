@@ -16,7 +16,7 @@ depend on your setup, so they hold in any environment.
    you approved, or "assumption: needs your OK" while nobody has approved it yet. The
    `sensoryforge-ground-assumptions` skill finds sources and writes a short report with
    links for you to approve; see
-   [Designing a World by Describing It](../user_guide/agent_design_loop.md) for three
+   [Designing a World by Describing It](design_loop.md) for three
    recorded sessions.
 2. **Meaning, not strings.** An agent reads your words by what you mean and by everything
    said in the session, not by matching them against SensoryForge's names. "Bumps",
@@ -29,7 +29,7 @@ depend on your setup, so they hold in any environment.
    Out of the box they use only SensoryForge's commands and the agent's basic file and
    shell tools.
 4. **Integration is opt-in.** Using your own skills and tools, the routing hook and your
-   working style are offered at [setup](../user_guide/agent_setup.md) and stay off until
+   working style are offered at [setup](setup.md) and stay off until
    you say yes. Nothing is installed into your environment's settings without that yes.
 5. **You set the pace.** Whether a chain of skills goes step by step or end to end is your
    choice, in the plan or in chat, and it holds until you change it. The pace changes only
@@ -58,5 +58,5 @@ setting that lets an agent invent a value.
 
 The rules were set when the agentic workflow was designed; [Design Decisions](decisions.md)
 lists each with the reasoning and the options that were turned down. The tests that hold
-them are described in [Skills for a Coding Agent](../user_guide/agent_skills.md#how-they-are-kept-honest)
-and, for agents tested live, in [Agent Scenarios](../developer_guide/agent_scenarios.md).
+them are described in [Skills for a Coding Agent](skills.md#how-they-are-kept-honest)
+and, for agents tested live, in [Agent Scenarios](../reference/maintainers/agent_scenarios.md).

@@ -12,7 +12,7 @@ Example:
 Topic: agents
 Tests: tests/unit/test_agents_style.py
 Entry points: main, render, skill_index
-Pinned by: docs/developer_guide/agent_files.md
+Pinned by: docs/reference/maintainers/agent_files.md
 Do not change without: standard library only: it runs as an agent's prompt hook on a
     machine with nothing else installed.
 """

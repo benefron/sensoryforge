@@ -1,7 +1,7 @@
 # sensoryforge-plugin-template
 
 A complete, standalone, installable SensoryForge plugin package -- the
-worked example for `docs/developer_guide/plugins.md`. Copy this directory
+worked example for `docs/how-to/extend/plugins.md`. Copy this directory
 as the starting point for your own plugin, or use it directly as a GitHub
 template repository (see below).
 
@@ -87,6 +87,6 @@ plugin authors:
    `tests/`'s imports), replace `RadialFalloffRFBuilder`/`GainThresholdLayer`
    with their own component(s), and `pip install -e .` to start developing.
 
-See `docs/developer_guide/plugins.md` for the full plugin-package reference
+See `docs/how-to/extend/plugins.md` for the full plugin-package reference
 (the `sensoryforge new-component` scaffold generator, the `plugins:` YAML
 alternative, and the component contract in detail).

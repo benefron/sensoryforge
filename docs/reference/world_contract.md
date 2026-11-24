@@ -24,7 +24,7 @@ from pip's `direct_url.json` in a pinned install.
 
 ## 1. A world
 
-A world file has one key, `world:`. The user guide ([Worlds and data sets](../user_guide/worlds.md))
+A world file has one key, `world:`. The user guide ([Worlds and data sets](../how-to/worlds.md))
 explains each part; the rules that matter to a caller:
 
 - **Classes** (`classes:`) carry a `weight`; **held-out classes** (`held_out:`) carry none
@@ -228,7 +228,7 @@ survives) and `innervation_weights_shape` (`[N, M]`), plain tensors
 that `torch.load(weights_only=True)` reads on torch 2.2.2. A bundle with such a file says 2.5.0 (it also
 covers probes); a bundle with only dense files is written as before. A reader picks the layout by the keys
 present. pressure-simulation's reader (`decoding/io/bank_weights.py`) expands it bit for bit. See
-`docs/user_guide/bundles.md`; `write_bundle(sparse_weights=False)` or `--dense-weights` writes dense.
+`docs/reference/bundles.md`; `write_bundle(sparse_weights=False)` or `--dense-weights` writes dense.
 
 Schema 2.4.0 (A6p, additive and opt-in) is written only by a run that sets `voltage_probes`
 (a data set's design config, or `simulation.voltage_probes`); such a bundle also holds
@@ -322,7 +322,7 @@ the batch records on any machine and any `--device`.
 Every addition is **invisible until used** (guarantee 9): a key appears in a normalised world,
 a draw record, a manifest row or a bundle only when the file uses it, and the format tags
 (`sensoryforge-world/1`, `sensoryforge-dataset/1`) and the bundle schema (2.2.0) are unchanged.
-The user guide ([Worlds and data sets](../user_guide/worlds.md)) has an example of each. None
+The user guide ([Worlds and data sets](../how-to/worlds.md)) has an example of each. None
 of §174's values is written into SensoryForge; the fixtures use placeholders.
 
 ### 10.1 The background and the floor (`background`, `clamp_min`)

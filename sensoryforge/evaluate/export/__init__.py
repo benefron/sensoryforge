@@ -3,7 +3,7 @@
 ``export_snapshot`` records what the local server would answer for the dashboard, the
 gallery, the checks and a few chosen draws, and writes it as a folder of HTML pages that
 open from disk with no server. The pages are the server's own; a small shim answers
-their requests from the recording. See ``docs/user_guide/evaluation_export.md``.
+their requests from the recording. See ``docs/how-to/evaluate/evaluation_export.md``.
 
 The names are loaded on first use so that importing a submodule (the CLI's argument
 list) does not pull in the server.

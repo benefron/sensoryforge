@@ -18,8 +18,8 @@ Guidance for Claude Code in this repository. The shared, agent-neutral front doo
   `/scientific-edit`, `/update-agent-docs`) are maintainer tools; they are not shipped.
 - **Skills for SensoryForge's users** are written in Claude's format under
   `sensoryforge/agents/skills/` and ship with the package. Where every agent file lives,
-  and the file-count budget: `docs/developer_guide/agent_files.md`.
+  and the file-count budget: `docs/reference/maintainers/agent_files.md`.
 - **Architecture in depth** (data flow, receptive fields, worlds, converters, engines,
   configs, registries, the GUI, known technical debt):
-  `docs/developer_guide/architecture_notes.md`. Read the section you are about to change.
+  `docs/concepts/architecture_notes.md`. Read the section you are about to change.
 - **Roadmap sessions** follow `docs_root/plan/PLAN.md`.

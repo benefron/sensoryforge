@@ -449,7 +449,7 @@ For 1000 stimuli at 3s each with 4 workers: ~12.5 minutes
 
 ## Next Steps
 
-- [Parameter Sweeps Guide](parameter_sweeps.md) — Advanced sweep strategies
-- [Custom Pipeline Tutorial](custom_pipeline.md) — Domain-specific batches
-- [User Guide: Batch Processing](../user_guide/batch_processing.md) — Complete reference
-- [CLI Reference](../user_guide/cli.md) — All command options
+- [Parameter Sweeps Guide](batch_processing_tutorial.md) — Advanced sweep strategies
+- [Custom Pipeline Tutorial](batch_processing_tutorial.md) — Domain-specific batches
+- [User Guide: Batch Processing](../how-to/batch_processing.md) — Complete reference
+- [CLI Reference](../reference/cli.md) — All command options

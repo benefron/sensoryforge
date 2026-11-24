@@ -5,7 +5,7 @@ user whenever a step is unclear instead of guessing.
 
 1. **Check SensoryForge is installed.** Run `sensoryforge agents brief`. If the command is
    not found, stop and tell the user: SensoryForge is not installed, and until it is on PyPI
-   the only install is from source (https://benefron.github.io/sensoryforge/getting_started/installation/).
+   the only install is from source (https://benefron.github.io/sensoryforge/tutorials/installation/).
 2. **Say which environment you are.** Answer from what you are, not from the folders you
    see. Pick the row that is you:
 

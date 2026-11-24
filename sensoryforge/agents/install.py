@@ -38,7 +38,7 @@ Entry points: install, check, instructions, detect_targets, register_target,
     packaged_section, glossary_path, packaged_report_contract,
     report_contract_from_page, EXPORT_TARGETS, Target, SKILLS_RELPATH, GLOSSARY_NAME,
     REFERENCE_NAME, REPORT_CONTRACT_NAME
-Pinned by: docs/developer_guide/agent_files.md, docs/user_guide/agent_export.md
+Pinned by: docs/reference/maintainers/agent_files.md, docs/agents/export.md
 Do not change without: the glossary sits beside the skill folders in the package and
     in every target, so a link from a skill to ``../sensoryforge-glossary.md`` works in
     all of them, and so does the report contract

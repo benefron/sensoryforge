@@ -14,7 +14,7 @@ biological mechanisms (D-2026-10-01, ``docs_root/DECISIONS.md``).
   sign is carried by the event; nothing downstream has to recover it. Its
   events are **signed counts**, so the engine returns them under the key
   ``"events"`` (never ``"spikes"``) and a bundle stores them in an ``events``
-  dataset (see ``docs/user_guide/bundles.md``). With ``reference_leak_tau_ms``
+  dataset (see ``docs/reference/bundles.md``). With ``reference_leak_tau_ms``
   set (v1.3.0) the reference also relaxes toward the input after each step's
   events, so a held level is forgotten and only changes faster than
   ``theta / reference_leak_tau_ms`` make events (a change-only RA); unset, the

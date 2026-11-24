@@ -1,5 +1,5 @@
 # Scenarios for sensoryforge-workflow (roadmap B9b), the master skill that chains the others.
-# The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# The format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-workflow
 
 files:

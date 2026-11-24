@@ -101,7 +101,7 @@ KIND_NOTES = {
     "stimulus": (
         "The `layered` stimulus is built from the shapes, patterns, motions and "
         "modulations in the [World Language Reference](world_language.md); "
-        "[Designing stimuli](../user_guide/designing_stimuli.md) explains how."
+        "[Designing stimuli](../how-to/designing_stimuli.md) explains how."
     ),
 }
 
@@ -434,7 +434,7 @@ def _components_page(data: Dict[str, Any]) -> str:
         "component's `ParamSpec` list, so a name, default, range or unit here is the "
         "component's own. `sensoryforge describe --json` prints the same data for a "
         "program ([Describing SensoryForge to a program]"
-        "(../user_guide/describe.md)). The page lists the components that ship with "
+        "(describe.md)). The page lists the components that ship with "
         "SensoryForge; a plugin's components appear in `sensoryforge describe` once "
         "the plugin is installed. A component you add to SensoryForge appears here "
         f"after `{REGENERATE}`, and a test fails until it does.",
@@ -492,7 +492,7 @@ def _world_page(data: Dict[str, Any]) -> str:
         "What a `world:` file and a data-set file may name: the shapes, patterns, "
         "modulations, distributions and class kinds, each with its parameters, and "
         "the keys a world, class, layer, axis and split may carry. "
-        "[Worlds and Data Sets](../user_guide/worlds.md) explains how a world is "
+        "[Worlds and Data Sets](../how-to/worlds.md) explains how a world is "
         "written; [World Engine Contract](world_contract.md) states what is "
         "guaranteed.",
         "",
@@ -589,7 +589,7 @@ def _evaluation_page(data: Dict[str, Any]) -> str:
     intro = [
         "The metric packs (`--packs`), check packs (`--check-packs`) and declared "
         "adapters (`--adapter`) that `sensoryforge evaluate run` can use. "
-        "[Evaluating a World](../user_guide/evaluate_pipeline.md) explains the "
+        "[Evaluating a World](../how-to/evaluate/evaluate_pipeline.md) explains the "
         "options, and [Evaluation Report Contract](report_contract.md) states what a "
         "report holds.",
         "",
@@ -621,9 +621,9 @@ def _recipes_page(data: Dict[str, Any]) -> str:
     intro = [
         "The recipes that ship with SensoryForge: complete canonical configs you "
         "can run with `sensoryforge run --preset NAME`. Each entry is a digest of "
-        "the recipe's grids and populations; [Presets](../user_guide/presets.md) "
+        "the recipe's grids and populations; [Presets](../how-to/presets.md) "
         "explains how to run one, override it and add one, and [Units and gains]"
-        "(../user_guide/units_and_gains.md) says how its gains were set.",
+        "(../how-to/units_and_gains.md) says how its gains were set.",
         "",
         "This page is generated from the shipped presets by " f"`{REGENERATE}`.",
     ]

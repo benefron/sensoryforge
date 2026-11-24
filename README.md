@@ -8,7 +8,7 @@ SensoryForge is a Python and PyTorch simulator of sensory encoding: a stimulus i
 
 ## Install
 
-Not yet on PyPI, so install from the git URL, with no clone ([all install options](https://benefron.github.io/sensoryforge/getting_started/installation/)). The same install runs SensoryForge and extends it; the tactile, world and evaluation workflow is one use of it.
+Not yet on PyPI, so install from the git URL, with no clone ([all install options](https://benefron.github.io/sensoryforge/tutorials/installation/)). The same install runs SensoryForge and extends it; the tactile, world and evaluation workflow is one use of it.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate    # or a conda environment
@@ -33,15 +33,15 @@ pytest tests/unit -q
 
 ## Three ways to work
 
-- **[CLI](https://benefron.github.io/sensoryforge/user_guide/cli/)**, for repeatable runs: `sensoryforge run --preset tactile_sa1_ra1 --duration 100`
-- **[GUI](https://benefron.github.io/sensoryforge/user_guide/gui_walkthrough/)**, to design an experiment by eye: `python -m sensoryforge.gui.main`
+- **[CLI](https://benefron.github.io/sensoryforge/reference/cli/)**, for repeatable runs: `sensoryforge run --preset tactile_sa1_ra1 --duration 100`
+- **[GUI](https://benefron.github.io/sensoryforge/how-to/gui_walkthrough/)**, to design an experiment by eye: `python -m sensoryforge.gui.main`
 - **[Agent](https://benefron.github.io/sensoryforge/agents/)**, in your own words: `sensoryforge agents install`, then `sensoryforge agents setup`
 
 ## Where to go next
 
-- [Quick Start](https://benefron.github.io/sensoryforge/getting_started/quickstart/), [Core Concepts](https://benefron.github.io/sensoryforge/getting_started/concepts/), the [User Guide](https://benefron.github.io/sensoryforge/user_guide/overview/) and [all the docs](https://benefron.github.io/sensoryforge/) (sources in [`docs/`](docs/)).
-- Extend it: [Plugin Packages](https://benefron.github.io/sensoryforge/developer_guide/plugins/) and [Extensibility](https://benefron.github.io/sensoryforge/developer_guide/extensibility/).
-- Stimuli at scale: [Worlds and Data Sets](https://benefron.github.io/sensoryforge/user_guide/worlds/) and [Evaluating a World](https://benefron.github.io/sensoryforge/user_guide/evaluate_pipeline/).
+- [Quick Start](https://benefron.github.io/sensoryforge/tutorials/quickstart/), [Core Concepts](https://benefron.github.io/sensoryforge/concepts/core_concepts/), the [how-to guides](https://benefron.github.io/sensoryforge/how-to/yaml_configuration/) and [all the docs](https://benefron.github.io/sensoryforge/) (sources in [`docs/`](docs/)).
+- Extend it: [Plugin Packages](https://benefron.github.io/sensoryforge/how-to/extend/plugins/) and [Extensibility](https://benefron.github.io/sensoryforge/how-to/extend/extensibility/).
+- Stimuli at scale: [Worlds and Data Sets](https://benefron.github.io/sensoryforge/how-to/worlds/) and [Evaluating a World](https://benefron.github.io/sensoryforge/how-to/evaluate/evaluate_pipeline/).
 
 ## How this project is tracked
 

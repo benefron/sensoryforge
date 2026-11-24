@@ -74,7 +74,7 @@ def _neuron_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new spiking neuron model.
 
 Implements the ``BaseNeuron`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_neuron/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_neuron/
 """
 
 from __future__ import annotations
@@ -211,7 +211,7 @@ def test_from_config_to_dict_round_trip():
 Scaffolded with `sensoryforge new-component neuron {{name}}`.
 
 Implements the `BaseNeuron` contract (see
-`docs/developer_guide/add_neuron.md`). Edit `{{module_path}}` to replace the
+`docs/how-to/extend/add_neuron.md`). Edit `{{module_path}}` to replace the
 placeholder leaky-integrate-and-fire dynamics with your model's equations.
 
 ## Registration
@@ -240,7 +240,7 @@ def _filter_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new temporal filter.
 
 Implements the ``BaseFilter`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_filter/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_filter/
 """
 
 from __future__ import annotations
@@ -343,7 +343,7 @@ def test_from_config_to_dict_round_trip():
 Scaffolded with `sensoryforge new-component filter {{name}}`.
 
 Implements the `BaseFilter` contract (see
-`docs/developer_guide/add_filter.md`). Edit `{{module_path}}` to replace the
+`docs/how-to/extend/add_filter.md`). Edit `{{module_path}}` to replace the
 placeholder single-pole lowpass with your filter's dynamics.
 
 ## Registration
@@ -372,7 +372,7 @@ def _stimulus_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new spatial stimulus.
 
 Implements the ``BaseStimulus`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_stimulus/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_stimulus/
 """
 
 from __future__ import annotations
@@ -486,7 +486,7 @@ def test_from_config_to_dict_round_trip():
 Scaffolded with `sensoryforge new-component stimulus {{name}}`.
 
 Implements the `BaseStimulus` contract (see
-`docs/developer_guide/add_stimulus.md`). Edit `{{module_path}}` to replace the
+`docs/how-to/extend/add_stimulus.md`). Edit `{{module_path}}` to replace the
 placeholder flat-top disc with your stimulus pattern.
 
 ## Registration
@@ -780,7 +780,7 @@ def _innervation_kind() -> _KindSpec:
     module_template = '''"""{{class_name}}: a new receptive-field builder.
 
 Implements the ``BaseInnervation`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_rf_builder/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_rf_builder/
 """
 
 from __future__ import annotations
@@ -885,7 +885,7 @@ def test_{{snake}}_satisfies_component_contract():
 Scaffolded with `sensoryforge new-component innervation {{name}}`.
 
 Implements the `BaseInnervation` contract (see
-`docs/developer_guide/add_rf_builder.md`). Edit `{{module_path}}` to replace
+`docs/how-to/extend/add_rf_builder.md`). Edit `{{module_path}}` to replace
 the placeholder flat disc with your receptive fields.
 
 ## Registration
@@ -1059,7 +1059,7 @@ def generate_in_repo_component(
 
     module_file = repo_root / spec.module_dir / f"{snake}.py"
     test_file = repo_root / "tests" / "unit" / f"test_{snake}_{kind}.py"
-    docs_file = repo_root / "docs" / "developer_guide" / "generated" / f"{snake}.md"
+    docs_file = repo_root / "docs" / "how-to" / "extend" / "generated" / f"{snake}.md"
 
     if module_file.exists():
         raise FileExistsError(f"{module_file} already exists")

@@ -18,7 +18,7 @@ depend on nothing but ``sensoryforge`` itself to run its own tests.
 Topic: testing, registry
 Tests: tests/contract/test_component_contracts.py, tests/unit/test_contract_checks.py
 Entry points: check_component, available_kinds
-Pinned by: docs/developer_guide/extensibility.md, docs/developer_guide/plugins.md, F-049
+Pinned by: docs/how-to/extend/extensibility.md, docs/how-to/extend/plugins.md, F-049
 Do not change without: every kind in _CHECKS runs the full to_dict() completeness check
     (a processing layer against its {method, params} shape); a kind added to _CHECKS
     must too. A shipped built-in that cannot pass is recorded as an open ledger item,

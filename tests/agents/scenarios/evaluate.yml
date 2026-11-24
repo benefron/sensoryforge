@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-evaluate (roadmap B9b). The one-command pipeline simulates a
 # small world in seconds on the 8x8 recipes. The format is in harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-evaluate
 
 files:

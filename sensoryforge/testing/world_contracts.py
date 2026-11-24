@@ -45,7 +45,7 @@ Topic: testing, world
 Tests: tests/unit/test_world_contracts.py,
     tests/contract/test_world_component_contracts.py
 Entry points: check_world_component, available_world_kinds
-Pinned by: docs/developer_guide/extensibility.md, docs/developer_guide/plugins.md,
+Pinned by: docs/how-to/extend/extensibility.md, docs/how-to/extend/plugins.md,
     docs/reference/world_contract.md, .claude/rules/world-engine.md
 Do not change without: a built-in shape, pattern, modulation, distribution or class
     kind that cannot pass is recorded as an open ledger item, never by weakening the

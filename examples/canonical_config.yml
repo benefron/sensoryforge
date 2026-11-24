@@ -20,7 +20,7 @@
 # `stimulus:` block at all falls back to the legacy default trapezoidal
 # (ramp/plateau/ramp) stimulus. No top-level `stimuli:` list is given here;
 # that key is legacy and, if present, would win over `stimulus:` with a deprecation
-# notice printed by `sensoryforge run`. See docs/user_guide/cli.md.
+# notice printed by `sensoryforge run`. See docs/reference/cli.md.
 #
 # Usage:
 #   sensoryforge validate examples/canonical_config.yml

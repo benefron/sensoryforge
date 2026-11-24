@@ -28,7 +28,7 @@ stop here if the user is content. Two routes need no new package:
 
 - **A neuron given by equations** needs no Python: the equation DSL compiles
   `dv/dt = ...` with a threshold and reset, or with none for an analog readout. The page
-  is https://benefron.github.io/sensoryforge/user_guide/equation_dsl/ and a config uses
+  is https://benefron.github.io/sensoryforge/how-to/equation_dsl/ and a config uses
   it as `neuron_model: dsl` with a `dsl_config:` entry. Offer this first for a neuron.
 - **A different value of an existing parameter** is a config change, not a component.
 - **A fixed set of sensor positions** (from a file or a drawing) needs no package: an

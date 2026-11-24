@@ -292,7 +292,7 @@ print(f"SA-RA correlation: {corr:.3f}")
 
 ## Next Steps
 
-- [Building a Custom Pipeline](custom_pipeline.md) — Advanced configuration
+- [Building a Custom Pipeline](batch_processing_tutorial.md) — Advanced configuration
 - [Batch Processing Tutorial](batch_processing_tutorial.md) — Large-scale runs
 - [Custom Neuron Models](custom_neurons.md) — Define your own models
-- [User Guide](../user_guide/overview.md) — Complete reference
+- [User Guide](../index.md) — Complete reference

@@ -17,7 +17,7 @@ from sensoryforge.agents import install as ins
 from sensoryforge.cli import main
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "user_guide" / "agent_export.md"
+PAGE = REPO / "docs" / "agents" / "export.md"
 
 #: Where each tool reads a project's skills, as its documentation says (checked on
 #: ``ins.FORMATS_CHECKED``). A change here is a change to what a user's tool reads.

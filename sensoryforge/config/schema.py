@@ -20,7 +20,7 @@ Tests: tests/unit/test_config_schema.py, tests/unit/test_gain_defaults.py,
     tests/unit/test_grid_channels.py
 Entry points: SensoryForgeConfig, GridConfig, PopulationConfig, StimulusConfig,
     SimulationConfig, validate_dt_ms
-Pinned by: docs/user_guide/configuration_schema.md, .claude/rules/engine-parity.md,
+Pinned by: docs/reference/configuration_schema.md, .claude/rules/engine-parity.md,
     C-130
 Do not change without: the JSON Schemas are rebuilt (python scripts/build_schemas.py);
     read noise through effective_sensor_noise_std() and effective_membrane_noise_std(),
@@ -1036,7 +1036,7 @@ class SimulationConfig:
             RNG state untouched. Distinct from ``PopulationConfig.seed``
             (innervation wiring, F-006 open) and ``PopulationConfig.noise_seed``
             (per-population membrane noise) -- see
-            ``docs/user_guide/units_and_gains.md``.
+            ``docs/how-to/units_and_gains.md``.
         receptor_noise_std: Standard deviation of the receptor (sensor)
             noise, in the **stimulus's own units** (pressure), not mA:
             independent Gaussian noise, one source per receptor and record

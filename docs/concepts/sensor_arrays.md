@@ -3,7 +3,7 @@
 A sensor array is a `GridConfig`: a set of receptor coordinates, optionally split into named
 channels and/or named layers. This page covers the geometry side; see
 [Units and Shapes](units_and_shapes.md) for the channel *tensor axis* and
-[Receptive Fields](../user_guide/receptive_fields.md) for how a population wires onto an array.
+[Receptive Fields](../how-to/receptive_fields.md) for how a population wires onto an array.
 
 ## Why receptor index is not pixel index
 
@@ -34,7 +34,7 @@ that point in space.
 The registered arrangements and their parameters are listed in the generated
 [Component Reference](../reference/components.md#grid). All five are registered grid-arrangement classes (`core/grid_arrangements.py`) discoverable via
 `GRID_REGISTRY`, so `sensoryforge list-components` shows them and a plugin can add a sixth (see
-[Adding a Grid Arrangement](../extending/add_grid_arrangement.md)).
+[Adding a Grid Arrangement](../how-to/extend/add_grid_arrangement.md)).
 
 ### `GridConfig.density`
 

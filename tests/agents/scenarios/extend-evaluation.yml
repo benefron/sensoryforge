@@ -1,7 +1,7 @@
 # Scenarios for sensoryforge-extend-evaluation (roadmap C2d: the metric pack and the declared
 # adapter). The skill's job is a plugin that passes the evaluation contract check on a data
 # set that was really built, with every definition from the user. Format: harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-extend-evaluation
 
 scenarios:

@@ -1,7 +1,7 @@
 """Reference-free checks: tests of the simulator that need no declaration (A8).
 
 ``python -m sensoryforge.evaluate.checks DATASET`` writes ``checks.json``. See
-``docs/developer_guide/checks_stage.md`` and the report contract, section 13.
+``docs/reference/evaluate/checks_stage.md`` and the report contract, section 13.
 """
 
 from sensoryforge.evaluate.checks.base import (

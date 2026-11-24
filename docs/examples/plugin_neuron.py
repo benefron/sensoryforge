@@ -1,6 +1,6 @@
 """Worked example: define, register, and run a minimal neuron component (U3).
 
-This is the runnable companion to ``docs/developer_guide/add_neuron.md``'s
+This is the runnable companion to ``docs/how-to/extend/add_neuron.md``'s
 leaky integrate-and-fire (LIF) walkthrough -- the guide's code block is
 excerpted from this file so what a reader copies is what actually runs.
 

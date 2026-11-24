@@ -1,7 +1,7 @@
 """Worked example: write a data bundle, then read it back (Wave J, J5).
 
 The smallest complete round trip through :mod:`sensoryforge.io.bundle`,
-described in ``docs/user_guide/bundles.md``:
+described in ``docs/reference/bundles.md``:
 
 1. Build a tiny canonical config and a :class:`SimulationEngine`.
 2. Run it with ``bundle_dir=`` set, so it writes a bundle to disk.

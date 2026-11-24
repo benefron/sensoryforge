@@ -21,7 +21,7 @@ Tests: tests/unit/test_registry_case_insensitive.py,
     tests/contract/test_component_contracts.py
 Entry points: ComponentRegistry, NEURON_REGISTRY, FILTER_REGISTRY, STIMULUS_REGISTRY,
     INNERVATION_REGISTRY, SOLVER_REGISTRY, GRID_REGISTRY, PROCESSING_REGISTRY
-Pinned by: docs/developer_guide/extensibility.md, F-046
+Pinned by: docs/how-to/extend/extensibility.md, F-046
 Do not change without: names match case-insensitively ("MyFilter" and "myfilter"
     collide), so never rely on case; a new registry kind also gets a check in
     sensoryforge/testing/contracts.py.

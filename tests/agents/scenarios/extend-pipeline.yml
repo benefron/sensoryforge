@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-extend-pipeline (roadmap C2a: the neuron model and the temporal
 # filter). The skill's job is a plugin package that passes the contract check, with every
-# number from the user. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# number from the user. The format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-extend-pipeline
 
 scenarios:

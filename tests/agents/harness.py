@@ -24,7 +24,7 @@ and a rubric. The harness runs each scenario the way a user would meet the skill
 The pieces are separate so the parts that cost nothing are tested on every run
 (``tests/agents/test_harness.py``) and the live runs are opt-in (``pytest --run-agents``
 or ``python tests/agents/run.py``). The developer guide is
-``docs/developer_guide/agent_scenarios.md``.
+``docs/reference/maintainers/agent_scenarios.md``.
 
 Example:
     >>> load_scenarios()[0].kind in KINDS

@@ -1,5 +1,5 @@
 # Scenarios for sensoryforge-build-dataset (roadmap B9a). Building writes a manifest and
-# simulates nothing. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# simulates nothing. The format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-build-dataset
 
 files:

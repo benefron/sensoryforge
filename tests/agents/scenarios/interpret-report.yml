@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-interpret-report (roadmap B9b). Each starts from a finished
 # report of a small world (10 draws, 80 ms, core pack). The format is in harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-interpret-report
 
 files:

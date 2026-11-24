@@ -20,7 +20,7 @@ Example:
 Topic: agents
 Tests: tests/unit/test_agents_style.py, tests/unit/test_agent_glossary.py
 Entry points: WorkingStyle, load_style, save_style, render_brief, ask_style, find_config
-Pinned by: docs/developer_guide/agent_files.md, docs/user_guide/agent_setup.md
+Pinned by: docs/reference/maintainers/agent_files.md, docs/agents/setup.md
 Do not change without: the brief names commands and pages and never copies parameter
     lists, defaults or units; integration and hooks stay off until the user approves
     them.
@@ -329,7 +329,7 @@ def save_style(style: WorkingStyle, path: Path) -> Path:
     header = (
         "# How SensoryForge's agent skills work with you. Written by "
         "`sensoryforge agents setup`;\n"
-        "# edit by hand if you like. Keys and values: docs/user_guide/agent_setup.md\n"
+        "# edit by hand if you like. Keys and values: docs/agents/setup.md\n"
     )
     body = yaml.safe_dump(style.to_dict(), sort_keys=False, default_flow_style=False)
     path.write_text(header + body, encoding="utf-8")

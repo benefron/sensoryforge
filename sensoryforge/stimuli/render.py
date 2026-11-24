@@ -19,7 +19,7 @@ Tests: tests/unit/test_render_stimulus_legacy_parity.py,
     tests/unit/test_render_moving.py, tests/unit/test_default_stimulus_amplitude.py,
     tests/integration/test_stimulus_parity.py
 Entry points: render_stimulus, render_for_config, effective_defaults
-Pinned by: docs/developer_guide/add_stimulus.md, D-0437899
+Pinned by: docs/how-to/extend/add_stimulus.md, D-0437899
 Do not change without: the GUI forms show effective_defaults(), so a default changed
     here changes what the Stimulus screen displays; every stimulus defaults to peak
     amplitude 1.0 and renders non-negative.

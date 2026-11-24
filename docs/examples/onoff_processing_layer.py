@@ -1,7 +1,7 @@
 """Worked example: processing layers, using OnOffLayer as the model (M3).
 
 The smallest complete example of the extension path described in
-``docs/extending/add_processing_layer.md``:
+``docs/how-to/extend/add_processing_layer.md``:
 
 1. Define a custom layer inheriting
    :class:`~sensoryforge.core.processing.BaseProcessingLayer` (a simple gain

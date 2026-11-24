@@ -11,9 +11,9 @@ receptive-field design so the two repositories' results are comparable.
 This page is the spine end to end: what pressure-simulation supplies, what
 SensoryForge supplies, and how the two meet at the bundle. It ties together three
 things documented elsewhere in more depth:
-[Receptive Fields](../user_guide/receptive_fields.md) (Phase 2, Wave I),
-[Data Bundles](../user_guide/bundles.md) (Phase 2, Wave J), and
-[Presets](../user_guide/presets.md) (Phase 2, Wave K).
+[Receptive Fields](../how-to/receptive_fields.md) (Phase 2, Wave I),
+[Data Bundles](../reference/bundles.md) (Phase 2, Wave J), and
+[Presets](../how-to/presets.md) (Phase 2, Wave K).
 
 ## What pressure-simulation supplies
 
@@ -24,7 +24,7 @@ pressure-simulation's contribution to this recipe is a *design*, not a simulator
   this recipe and in the `tactile_sa1_ra1` preset.
 - **A stimulus ensemble** — four canonical tactile stimuli it uses to probe the
   encoder: a ramping Gaussian blob, a moving oriented edge, a sliding braille
-  letter, and a drifting grating. See [Extended Stimuli](../user_guide/extended_stimuli.md)
+  letter, and a drifting grating. See [Extended Stimuli](../how-to/extended_stimuli.md)
   for the general stimulus system and `sensoryforge/stimuli/tactile.py` for these
   four specifically.
 - **Mutual-information scoring** — pressure-simulation's own decoding pipeline
@@ -47,7 +47,7 @@ model:
    template.py`, D-020) derives `sigma = d / pi`, `pitch = d`, and a neuron count
    from `d` alone: at `d = 0.40 mm` on this 80×80/0.15 mm grid, that is
    `sigma ≈ 0.1273 mm` and **900 neurons** per population (a 30×30 lattice at 0.40 mm
-   pitch). See [Receptive Fields](../user_guide/receptive_fields.md) for the full
+   pitch). See [Receptive Fields](../how-to/receptive_fields.md) for the full
    `d → sigma, pitch, N` chain and the designed-versus-stochastic distinction (D-019).
 3. **Filters and neurons** — an SA population (`sa` filter, regular-spiking
    Izhikevich preset) and an RA population (`ra` filter, fast-spiking preset,
@@ -60,7 +60,7 @@ model:
    `scripts/regenerate_stimulus_golden.py`).
 5. **The bundle** — `SimulationEngine.run(..., bundle_dir=...)` writes a Wave J
    bundle pressure-simulation's own viewer logic can open (a superset of its
-   `1.0.0` "mechanoreceptor bundle" format). See [Data Bundles](../user_guide/bundles.md).
+   `1.0.0` "mechanoreceptor bundle" format). See [Data Bundles](../reference/bundles.md).
 
 ## Running the recipe
 

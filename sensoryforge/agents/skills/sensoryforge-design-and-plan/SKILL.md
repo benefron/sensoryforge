@@ -88,11 +88,11 @@ Name what is missing in the glossary's words and check for something close first
 - A neuron model, filter, stimulus, solver or sensor array: `sensoryforge new-component
   --help`, then scaffold an installable plugin package with `sensoryforge new-component
   <kind> <Name>`. The plugin guide is
-  https://benefron.github.io/sensoryforge/developer_guide/plugins/.
+  https://benefron.github.io/sensoryforge/how-to/extend/plugins/.
 - A receptive-field builder or a processing layer: start from the plugin template,
   https://github.com/benefron/sensoryforge/tree/main/examples/plugin_template.
 - A world shape, pattern, modulation or distribution: it is registered from Python; see
-  https://benefron.github.io/sensoryforge/user_guide/worlds/#extending.
+  https://benefron.github.io/sensoryforge/how-to/worlds/#extending.
 
 Never write the component's physics yourself. Ask the user for the equations or a source,
 and put "component: waiting for your model" in the plan as a step that needs them.

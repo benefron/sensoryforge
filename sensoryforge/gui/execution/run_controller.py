@@ -22,7 +22,7 @@ Tests: tests/gui_v2/test_run_controller.py,
     tests/integration/test_gui_engine_equality.py
 Entry points: RunController, RunWorker, RunCancelled
 Pinned by: .claude/rules/engine-parity.md,
-    docs/developer_guide/architecture_notes.md
+    docs/concepts/architecture_notes.md
 Do not change without: the GUI runs through SimulationEngine.run() itself, never a
     private path (the equality test); cancel stays cooperative, never
     QThread.terminate().

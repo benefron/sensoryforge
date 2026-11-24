@@ -3,7 +3,7 @@
 # One SA population whose receptive fields come from the `template` builder: a single
 # resolvable distance d = 0.40 mm gives sigma = d/pi (0.1273 mm), a neuron lattice at
 # pitch d, and a derived neuron count (36 on this 16x16 grid at 0.15 mm; any
-# neurons_per_row is ignored). See docs/user_guide/receptive_fields.md.
+# neurons_per_row is ignored). See docs/how-to/receptive_fields.md.
 #
 # Usage:
 #   sensoryforge validate examples/canonical_template_config.yml

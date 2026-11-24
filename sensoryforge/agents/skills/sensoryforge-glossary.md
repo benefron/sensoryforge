@@ -4,7 +4,7 @@ The words SensoryForge uses, defined once, in neutral vocabulary. Every term the
 skills use is here; a term is defined by what it is in the code, so a definition names the
 class, command or page that holds the facts. **Parameter lists, defaults and units are not
 copied here**: read them with `sensoryforge describe --json` (see [Describing SensoryForge to
-a program](https://benefron.github.io/sensoryforge/user_guide/describe/)).
+a program](https://benefron.github.io/sensoryforge/reference/describe/)).
 
 ## Read the user's words by meaning
 
@@ -124,7 +124,7 @@ a duration and a seed.
 ### world
 A declaration of stimulus **classes** (`world:` YAML, format `sensoryforge-world/1`). The same
 world, seed and index always give the same draw. See [Worlds and Data
-Sets](https://benefron.github.io/sensoryforge/user_guide/worlds/) and the [world contract](https://benefron.github.io/sensoryforge/reference/world_contract/).
+Sets](https://benefron.github.io/sensoryforge/how-to/worlds/) and the [world contract](https://benefron.github.io/sensoryforge/reference/world_contract/).
 
 ### class
 A family of stimuli in a world: a layer plus **axes** that say how its fields vary. A
@@ -187,7 +187,7 @@ behaves there.
 ### bundle
 The folder one entry's run writes: the stimulus, each population's responses and receptive
 fields, the config and SensoryForge's sha (`io/bundle.py`; layout in [Data
-Bundles](https://benefron.github.io/sensoryforge/user_guide/bundles/)). pressure-simulation reads them.
+Bundles](https://benefron.github.io/sensoryforge/reference/bundles/)). pressure-simulation reads them.
 
 ### report
 What `sensoryforge evaluate run` writes for a world or data set: the audit, the declared

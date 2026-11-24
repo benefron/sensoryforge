@@ -23,11 +23,11 @@ python sensoryforge/gui/main.py            # the GUI
 ```
 
 GUI tests need `QT_QPA_PLATFORM=offscreen` without a display; set `OMP_NUM_THREADS=1` for
-reproducible timings. More commands: `CONTRIBUTING.md`, `docs/user_guide/cli.md`.
+reproducible timings. More commands: `CONTRIBUTING.md`, `docs/reference/cli.md`.
 
 To *use* SensoryForge through an agent rather than develop it, the skills ship in
 `sensoryforge/agents/`; start with `sensoryforge agents setup`
-(`docs/user_guide/agent_setup.md`).
+(`docs/agents/setup.md`).
 
 ## Where things live
 
@@ -36,20 +36,20 @@ tests and rules, is in `docs/agents/task_index.md`.
 
 | To work on | Code | Read first |
 |---|---|---|
-| Running a config (canonical engine, CLI, batch) | `sensoryforge/core/simulation_engine.py`, `sensoryforge/cli.py`, `sensoryforge/core/batch_executor.py` | `docs/developer_guide/architecture_notes.md` |
+| Running a config (canonical engine, CLI, batch) | `sensoryforge/core/simulation_engine.py`, `sensoryforge/cli.py`, `sensoryforge/core/batch_executor.py` | `docs/concepts/architecture_notes.md` |
 | Component, parameter, world-kind and recipe reference pages (generated) | `scripts/build_reference.py` | `docs/reference/components.md`; run the script after a component, `ParamSpec`, world kind or recipe changes |
-| Config schema and defaults | `sensoryforge/config/schema.py`, `sensoryforge/config/defaults.py` | `docs/user_guide/configuration_schema.md` |
-| A new neuron, filter, stimulus, grid, solver, receptive-field builder or processing layer | `sensoryforge/registry.py`, `sensoryforge/register_components.py`, `sensoryforge new-component` | `docs/developer_guide/extensibility.md`, `docs/developer_guide/plugins.md` |
-| Receptive fields | `sensoryforge/core/rf_bank.py`, `sensoryforge/core/rf_builders/` | `docs/user_guide/receptive_fields.md` |
+| Config schema and defaults | `sensoryforge/config/schema.py`, `sensoryforge/config/defaults.py` | `docs/reference/configuration_schema.md` |
+| A new neuron, filter, stimulus, grid, solver, receptive-field builder or processing layer | `sensoryforge/registry.py`, `sensoryforge/register_components.py`, `sensoryforge new-component` | `docs/how-to/extend/extensibility.md`, `docs/how-to/extend/plugins.md` |
+| Receptive fields | `sensoryforge/core/rf_bank.py`, `sensoryforge/core/rf_builders/` | `docs/how-to/receptive_fields.md` |
 | Event converters | `sensoryforge/neurons/event_encoders.py` | `docs/reference/converter_contract.md` |
-| Worlds, sampling, data sets | `sensoryforge/world/` | `docs/user_guide/worlds.md`, `docs/reference/world_contract.md` |
-| Data bundles (the files a run writes) | `sensoryforge/io/bundle.py` | `docs/user_guide/bundles.md` |
-| Evaluating a data set (audit, compare, checks, server, export) | `sensoryforge/evaluate/` | `docs/user_guide/evaluate_pipeline.md`, `docs/reference/report_contract.md` |
-| The GUI | `sensoryforge/gui/app.py`, `sensoryforge/gui/screens/`, `sensoryforge/gui/widgets/` | `docs/developer_guide/architecture_notes.md` |
-| Shipped recipes and their gains | `sensoryforge/presets/`, `scripts/calibrate_recipe_gains.py` | `docs/user_guide/units_and_gains.md` |
+| Worlds, sampling, data sets | `sensoryforge/world/` | `docs/how-to/worlds.md`, `docs/reference/world_contract.md` |
+| Data bundles (the files a run writes) | `sensoryforge/io/bundle.py` | `docs/reference/bundles.md` |
+| Evaluating a data set (audit, compare, checks, server, export) | `sensoryforge/evaluate/` | `docs/how-to/evaluate/evaluate_pipeline.md`, `docs/reference/report_contract.md` |
+| The GUI | `sensoryforge/gui/app.py`, `sensoryforge/gui/screens/`, `sensoryforge/gui/widgets/` | `docs/concepts/architecture_notes.md` |
+| Shipped recipes and their gains | `sensoryforge/presets/`, `scripts/calibrate_recipe_gains.py` | `docs/how-to/units_and_gains.md` |
 | Tests and fixtures | `tests/unit/`, `tests/integration/`, `tests/contract/`, `tests/gui_v2/`, `tests/scale/`, `tests/conftest.py` | `CONTRIBUTING.md` |
 | Performance | `benchmarks/` | `docs/reference/benchmarks.md` |
-| Agent skills, setup and this file's siblings | `sensoryforge/agents/` | `docs/developer_guide/agent_files.md` |
+| Agent skills, setup and this file's siblings | `sensoryforge/agents/` | `docs/reference/maintainers/agent_files.md` |
 | Decisions and open findings | `docs_root/LEDGER.md` | the ledger entries' ids (`F-`, `D-`) |
 
 ## Dangerous areas
@@ -72,7 +72,7 @@ tests and rules, is in `docs/agents/task_index.md`.
 - **Noise keys**: `sensor_noise_std` and `membrane_noise_std` are separate; `noise_std` is
   a deprecated alias (C-130).
 - Peak memory from the watchdog is noise below about 2x (F-056); use `benchmarks/`.
-- The rest, with reasons: `docs/developer_guide/architecture_notes.md` (Known Technical
+- The rest, with reasons: `docs/concepts/architecture_notes.md` (Known Technical
   Debt).
 
 ## Conventions
@@ -83,7 +83,7 @@ tests and rules, is in `docs/agents/task_index.md`.
   `assert`, for input checks. Catch specific exceptions, never a bare `except Exception`.
 - A module of 40 lines or more ends its docstring with tag lines (`Topic:`, `Tests:`,
   `Entry points:`, `Pinned by:`, `Do not change without:`); search them with `grep -rn
-  "^Topic:" sensoryforge/`. `docs/developer_guide/file_headers.md`.
+  "^Topic:" sensoryforge/`. `docs/reference/maintainers/file_headers.md`.
 - Extend by registry or plugin; every component passes
   `sensoryforge.testing.contracts.check_component`, and every world shape, pattern,
   modulation, distribution and class kind passes

@@ -9,8 +9,8 @@ subclass registered in ``INNERVATION_REGISTRY`` whose :meth:`build` returns a
 - :class:`~sensoryforge.core.rf_builders.imported.ImportedRFBuilder`
   (``"imported"``): receptive fields read from files.
 
-See ``docs/user_guide/receptive_fields.md`` and
-``docs/developer_guide/add_rf_builder.md``.
+See ``docs/how-to/receptive_fields.md`` and
+``docs/how-to/extend/add_rf_builder.md``.
 """
 
 from sensoryforge.core.rf_builders.imported import ImportedRFBuilder

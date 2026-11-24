@@ -187,7 +187,7 @@ class OnOffLayer(BaseProcessingLayer):
     (``[receptor_coords; receptor_coords]``) so a receptive-field bank built
     on the doubled coordinates lines up column-for-column with this output.
 
-    This is the worked example for ``docs/extending/add_processing_layer.md``
+    This is the worked example for ``docs/how-to/extend/add_processing_layer.md``
     and the vision demo (M4): with ``sigma_center_mm < sigma_surround_mm``,
     a bright spot on the stimulus drives the ON plane and a dark spot
     drives the OFF plane, never both at the same receptor.

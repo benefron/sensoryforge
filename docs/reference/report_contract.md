@@ -2,15 +2,15 @@
 
 !!! note "Status: accepted (reviewed and approved 2026-10-22)"
     This page fixes the formats the evaluation stages exchange before any of them is written.
-    The audit's reader layer (see the [audit reader](../developer_guide/audit_reader.md))
+    The audit's reader layer (see the [audit reader](evaluate/audit_reader.md))
     implements section 2; the core metrics, the summariser and `audit.json` (see
-    [the audit's metrics](../developer_guide/audit_metrics.md)) implement sections 4–6, the
+    [the audit's metrics](evaluate/audit_metrics.md)) implement sections 4–6, the
     tactile pack section 7, the declared side (see [the declared
-    side](../developer_guide/declared_adapter.md)) section 8, the comparison (see [the raw
-    comparison](../developer_guide/compare_stage.md)) section 9, the reference-free checks
-    (see [the checks stage](../developer_guide/checks_stage.md)) section 13, the run-to-run diff (see [the diff
-    stage](../developer_guide/diff_stage.md)) section 14, the one-command pipeline (see [the
-    pipeline](../developer_guide/pipeline_stage.md)) section 15. The JSON Schemas are in
+    side](evaluate/declared_adapter.md)) section 8, the comparison (see [the raw
+    comparison](evaluate/compare_stage.md)) section 9, the reference-free checks
+    (see [the checks stage](evaluate/checks_stage.md)) section 13, the run-to-run diff (see [the diff
+    stage](evaluate/diff_stage.md)) section 14, the one-command pipeline (see [the
+    pipeline](evaluate/pipeline_stage.md)) section 15. The JSON Schemas are in
     `schemas/evaluate/`. Section 11 lists the choices this page makes, all approved as
     written.
 
@@ -117,10 +117,10 @@ input before and after its filter), `state` (an analog readout), plus the fixed 
 (dimensionless) and `deg` (angles, counter-clockwise from the +x sensor axis, in [0, 360)).
 
 What a schema-2.3.0 bundle gives today: `time` = `ms` and `space` = `mm` (origin `data`), unless
-its `units` block names another (the [toy vision fixture](../developer_guide/toy_vision_fixture.md)
+its `units` block names another (the [toy vision fixture](toy_vision_fixture.md)
 gives `space` = `px`; see the world contract, 10.14). Without such a block it gives no unit for
 `frame`, `drive`, `filtered` or `state`. The tactile pack states `drive`
-and `filtered` in `mA` (source: `docs/user_guide/units_and_gains.md`). It states no frame unit:
+and `filtered` in `mA` (source: `docs/how-to/units_and_gains.md`). It states no frame unit:
 a world's `amplitude` is unitless in SensoryForge, so a tactile frame unit comes from the user
 or stays `null`.
 
@@ -372,7 +372,7 @@ name, unit or shape.
   not shorten it. It is null when the total length of the moving steps is not longer than
   `motion_tolerance` (with the default 0: when nothing moves), and its `resolution` is null.
 - **Units.** `drive` and `filtered` are stated as `mA` with the source
-  `docs/user_guide/units_and_gains.md`; a data set that names another unit for either fails
+  `docs/how-to/units_and_gains.md`; a data set that names another unit for either fails
   the audit with a unit conflict (section 3).
 
 ## 8. `declared.json`
@@ -612,7 +612,7 @@ import wall. A declared adapter lives in its own module, outside the wall, and m
 world package: `sensoryforge/evaluate/tactile/metrics.py` (inside) and
 `sensoryforge/evaluate/tactile/declared.py` (outside).
 
-A second modality that is not touch, for tests, is the [toy vision fixture](../developer_guide/toy_vision_fixture.md): three colour channels on a 16 × 16 array.
+A second modality that is not touch, for tests, is the [toy vision fixture](toy_vision_fixture.md): three colour channels on a 16 × 16 array.
 
 ## 11. Choices to review
 

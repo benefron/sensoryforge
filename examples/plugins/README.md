@@ -24,5 +24,5 @@ sensoryforge batch sensor.yml --dataset ring_dataset.yml --output runs/plugins
 
 That writes one bundle per entry to `runs/plugins/`. The same run is tested in
 `tests/integration/test_reference_plugins.py`, which loads the plugins by their `register()`
-functions instead. How to write your own: `docs/developer_guide/plugins.md` and
-`docs/developer_guide/reference_plugins.md`.
+functions instead. How to write your own: `docs/how-to/extend/plugins.md` and
+`docs/how-to/extend/reference_plugins.md`.

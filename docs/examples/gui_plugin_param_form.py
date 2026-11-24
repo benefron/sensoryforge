@@ -5,7 +5,7 @@ from its ``get_param_spec()`` (``sensoryforge.gui.widgets.param_form``), so a
 plugin builder registered with ``INNERVATION_REGISTRY`` appears in the RF
 builder list with its own settings form, and editing a field writes into the
 config that the engine runs. The same is true of filters, neuron models and
-stimuli. See ``docs/extending/gui_forms.md``.
+stimuli. See ``docs/how-to/extend/gui_forms.md``.
 
 Run it directly: ``QT_QPA_PLATFORM=offscreen python
 docs/examples/gui_plugin_param_form.py``. It is also executed by

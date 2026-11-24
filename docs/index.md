@@ -17,9 +17,9 @@ SensoryForge is a GPU-accelerated, PyTorch-based toolkit for simulating sensory 
 
 ## Quick Links
 
-- [User Guide](user_guide/overview.md) — Full documentation of all components
-- [CLI Reference](user_guide/cli.md) — Command-line interface usage
-- [YAML Configuration](user_guide/yaml_configuration.md) — Declarative pipeline setup
+- [User Guide](index.md) — Full documentation of all components
+- [CLI Reference](reference/cli.md) — Command-line interface usage
+- [YAML Configuration](how-to/yaml_configuration.md) — Declarative pipeline setup
 - [Agentic Workflow](agents/index.md) — Working with a coding agent: setup, skills, rules
 
 ## Core Components
@@ -46,11 +46,11 @@ Every registered component, with its parameters, defaults, ranges and units, is 
 
 ## Feature Guides
 
-- [Composite Grid](user_guide/composite_grid.md) — Multi-population spatial substrates
-- [Equation DSL](user_guide/equation_dsl.md) — Define neuron models via equations
-- [Solvers](user_guide/solvers.md) — ODE solver selection and configuration
-- [Extended Stimuli](user_guide/extended_stimuli.md) — Texture and moving stimuli
-- [GUI Walkthrough](user_guide/gui_walkthrough.md) — the five screens, from design to a CLI run
+- [Composite Grid](how-to/composite_grid.md) — Multi-population spatial substrates
+- [Equation DSL](how-to/equation_dsl.md) — Define neuron models via equations
+- [Solvers](how-to/solvers.md) — ODE solver selection and configuration
+- [Extended Stimuli](how-to/extended_stimuli.md) — Texture and moving stimuli
+- [GUI Walkthrough](how-to/gui_walkthrough.md) — the five screens, from design to a CLI run
 
 ## Getting Started
 

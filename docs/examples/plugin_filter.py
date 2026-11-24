@@ -2,7 +2,7 @@
 
 This is a runnable script (not a plugin package) that shows the smallest
 complete example of the in-process extension path described in
-``docs/developer_guide/add_filter.md`` and ``docs/developer_guide/plugins.md``:
+``docs/how-to/extend/add_filter.md`` and ``docs/how-to/extend/plugins.md``:
 
 1. Define a filter class inheriting :class:`~sensoryforge.filters.base.BaseFilter`.
 2. Implement ``get_param_spec()`` (required on every component, G1).

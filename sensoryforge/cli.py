@@ -20,9 +20,9 @@ Tests: tests/unit/test_cli_registries.py, tests/unit/test_cli_canonical_repoint.
     tests/integration/test_cli_duration_dt.py
 Entry points: create_parser, main, cmd_run, cmd_batch, cmd_validate, cmd_describe,
     cmd_evaluate_run
-Pinned by: docs/user_guide/cli.md
+Pinned by: docs/reference/cli.md
 Do not change without: a new command has --help text and a line in
-    docs/user_guide/cli.md; canonical configs route to SimulationEngine and legacy ones
+    docs/reference/cli.md; canonical configs route to SimulationEngine and legacy ones
     to the old pipeline.
 """
 
@@ -367,7 +367,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     f"'stimuli:' list (type={stimulus_type!r}); the canonical "
                     "'stimulus:' block is ignored while 'stimuli:' is present. "
                     "Remove 'stimuli:' to run the 'stimulus:' block instead "
-                    "(see docs/user_guide/cli.md)."
+                    "(see docs/reference/cli.md)."
                 )
                 use_legacy_default = True
             elif "stimulus" not in config:
@@ -897,7 +897,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 # Task 0.6 (F-061): tell the caller which stimulus source
                 # `sensoryforge run` will actually use for this config,
                 # since it is not always the 'stimulus:' block (see
-                # docs/user_guide/cli.md).
+                # docs/reference/cli.md).
                 legacy_stimuli_present = (
                     "stimuli" in config
                     and isinstance(config["stimuli"], list)

@@ -1,6 +1,6 @@
 """Worked example: define, register, and run a minimal solver component (U3).
 
-Runnable companion to ``docs/extending/add_solver.md``.
+Runnable companion to ``docs/how-to/extend/add_solver.md``.
 
 1. Define a solver class inheriting :class:`~sensoryforge.solvers.base.BaseSolver`,
    implementing Heun's method (explicit trapezoidal RK2) instead of the
