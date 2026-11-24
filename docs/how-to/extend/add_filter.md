@@ -17,7 +17,7 @@ There are two ways to ship a new filter — pick one before you start:
   into `sensoryforge/filters/`, `tests/`, `docs/`, and step 3 below (manual
   registration in `register_components.py`) applies.
 
-Component names are matched **case-insensitively** (F-046): `"Bandpass"`
+Component names are matched **case-insensitively**: `"Bandpass"`
 and `"bandpass"` are the same registration, so you don't need to worry
 about exact-case collisions with a built-in filter's name — though a
 genuine collision (same name, different class) still raises.
@@ -39,7 +39,7 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 | `reset_state()` | `→ None` | Clear filter state, for callers that run the filter step by step |
 | `from_config(config)` | `dict → cls` | Construct from YAML dict |
 | `to_dict()` | `→ dict` | Serialise for YAML round-trip |
-| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component (G1); GUI auto-discovery |
+| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component; GUI auto-discovery |
 
 `to_dict()` should include **every** `__init__` parameter, and
 `from_config(instance.to_dict())` should round-trip to an equal `to_dict()`.
@@ -48,7 +48,7 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 every `__init__` argument must be present in `to_dict()` (a name you list in
 `_TO_DICT_EXCLUDE_PARAMS` is the one exception), and
 `from_config(instance.to_dict()).to_dict()` must equal `instance.to_dict()`
-(F-049). `SAFilterTorch` and `RAFilterTorch` serialise all of theirs
+. `SAFilterTorch` and `RAFilterTorch` serialise all of theirs
 (`tau_r`/`tau_d`/`k1`/`k2`/`clip_to_positive`, `tau_RA`/`k3`), so that is the
 pattern to copy.
 
@@ -291,7 +291,7 @@ populations:
 - [ ] `reset_state()` (singular) clears all hidden state tensors
 - [ ] `clip_to_positive=True` default for SA/RA-type physiology (prevents negative drive)
 - [ ] `from_config()` merges with `DEFAULT_CONFIG` before passing to `__init__`
-- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3)
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()`
 - [ ] `get_param_spec()` implemented (required on every component, G1)
 - [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a lowercase snake_case key (in-repo route)
 - [ ] Unit tests cover: shape, non-negativity, state reset reproducibility, zero input, `check_component("filter", cls)`

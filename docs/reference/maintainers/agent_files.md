@@ -9,7 +9,7 @@ one is for, and how many there may be. Change the map here first, then the files
 - **Maintainers** work on SensoryForge itself. Their agent files live in the repository only
   and are never shipped: `CLAUDE.md`'s Claude-specific notes, the path-scoped rules in
   `.claude/rules/`, the slash commands in `.claude/commands/`, the living ledger
-  (`docs_root/LEDGER.md` and its hooks) and the roadmap in `docs_root/plan/`.
+  (the ledger and its hooks) and the roadmap in the roadmap files.
 - **Users** use SensoryForge as a tool: design a world, build a data set, run, evaluate,
   extend. Their agent files ship inside the package (`sensoryforge/agents/`), so a
   `pip install` brings them, and work on a machine that has nothing else installed.
@@ -33,7 +33,7 @@ one is for, and how many there may be. Change the map here first, then the files
 | `.claude/commands/*.md` | maintainers | Claude Code slash commands; `update-agent-docs` is the release-time check below |
 | `docs/` | everyone | people; agents follow links to it |
 | `docs/agents/glossary.md`, `docs/agents/task_index.md` | everyone | agents, through the link in `sensoryforge agents brief`; people |
-| `docs_root/LEDGER.md` | maintainers | the session digest hook |
+| the project ledger | maintainers | the session digest hook |
 | Tag lines at the end of a module docstring (`sensoryforge/`) | everyone | agents and people, by `grep` ([file headers](file_headers.md)) |
 
 ## Generated targets (never edited by hand)
@@ -62,7 +62,7 @@ Each target is written by one command and checked in CI against its source (see 
 | `.cursor/` (4 rules, 2 skills, 1 agent) | last changed 2026-09-14; repeats `CLAUDE.md` and predates plugins, worlds and evaluation | retired; `sensoryforge agents export` generates Cursor's skills from the packaged ones (`export --target cursor`) |
 | `.claude/hooks/`, `.claude/settings.json`, `.claude/ledger.conf` | the living ledger's install | maintainer-only, owned by the ledger skill, not edited by hand |
 | `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | for people | human-first; agents may read them, nothing points agents at them for facts |
-| `docs_root/plan/`, `docs/development/reviews/` | roadmap and audits | human and maintainer only, never shipped |
+| the roadmap files, `docs/development/reviews/` | roadmap and audits | human and maintainer only, never shipped |
 
 ## Rules for every agent file
 

@@ -1,14 +1,14 @@
 # Populations and inputs
 
-A population is a set of neurons. Before Phase 2 Wave M, each population read exactly one
-receptor bank: one grid, one channel, one receptive-field builder. Wave M generalises this --
+A population is a set of neurons. In earlier releases, each population read exactly one
+receptor bank: one grid, one channel, one receptive-field builder. Multi-input populations generalise this --
 a population's neurons can read from **several inputs**, each its own grid/channel/receptive
 field, with an optional processing stage per input, combined into one population drive. This is
 what makes SimulationEngine no longer tactile-only: see
 `sensoryforge/presets/vision_onoff_rgb.yml` and `examples/vision_rgb_onoff.py` for the concrete
 demo, a population reading R/G/B channels of one vision-style sensor array.
 
-See [Configuration Schema](../reference/configuration_schema.md#multi-input-populations-phase-2-wave-m1m2)
+See [Configuration Schema](../reference/configuration_schema.md#multi-input-populations)
 for the field reference and [Sensor Arrays](sensor_arrays.md) for what a grid/channel is.
 
 ## One neuron, several inputs
@@ -73,7 +73,7 @@ Stimulus  [batch, time, C, H, W]
     ↓  [batch, time, N_i]
     ↓  combine (sum | concat) across inputs
     ↓  [batch, time, N]
-    ↓  Filter -> Neuron  (population-level, same as before Wave M)
+    ↓  Filter -> Neuron  (population-level, same as in earlier releases)
 ```
 
 A processing layer sits strictly between receptor sampling and the receptive-field bank, per
@@ -87,11 +87,11 @@ the pipeline's output, column for column. See
 
 ## The sugar fields (single-input populations)
 
-Every population field that existed before Wave M -- `target_grid`, `target_layers`,
+Every population field that existed before multi-input populations -- `target_grid`, `target_layers`,
 `innervation_method`, `sigma_d_mm`, `connections_per_neuron`, `use_distance_weights`,
 `resolvable_distance_mm`, `innervation_params` -- still works exactly as before, and is what
 `PopulationConfig.effective_inputs()` expands into one implicit `PopulationInput` when `inputs`
 is empty. `to_dict()` does the reverse: a population with exactly one input that fits the sugar
 shape (default channel, gain `1.0`, no processing) serializes back to those same fields, so every
-config written before Wave M round-trips to byte-identical YAML. Setting both `inputs` and one of
+config written before multi-input populations round-trips to byte-identical YAML. Setting both `inputs` and one of
 the sugar fields on the same population raises `ValueError` -- pick one form.

@@ -360,4 +360,4 @@ See [Extensibility Guide](../how-to/extend/extensibility.md) for detailed instru
 
 - [First Simulation](../tutorials/first_simulation.md) — Build your first pipeline
 - [User Guide](../index.md) — Detailed component reference
-- [Tutorials](../tutorials/quickstart_tutorial.md) — Hands-on examples
+- [Tutorials](../tutorials/first_simulation.md) — Hands-on examples

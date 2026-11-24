@@ -1,6 +1,6 @@
 # World engine contract
 
-This page is what pressure-simulation's Phase 2b is written against: what SensoryForge
+This page is what pressure-simulation is written against: what SensoryForge
 **v1.3.0** guarantees about declared worlds, sampling, rendering, data sets and batch runs,
 and the SensoryForge test that pins each guarantee. Where this page and the code disagree,
 the tests decide. v1.2.0 added the world elements of pressure-simulation's charter world
@@ -275,7 +275,7 @@ A test named without a path is in `tests/contract/test_world_contract.py`.
 **Across machines:** uniform, integer and categorical values are bit-identical everywhere;
 `log_uniform` values and rendered frames may differ in the last bit between platforms (the
 platform maths library), so a manifest's stored record is the canonical draw (as for
-SensoryForge's golden fixtures, F-071). Added in v1.2.0: `biased_direction` values use `atan2`,
+SensoryForge's golden fixtures). Added in v1.2.0: `biased_direction` values use `atan2`,
 `sin`, `cos` and a root solve, and `self_affine`, `dot_array`, `curved_contact` and `step_edge`
 frames use `cos`, `exp` and `sqrt` (`self_affine`'s components also `expm1` and `log1p`, since
 v1.2.1), so they too may differ in the last bit between platforms
@@ -495,7 +495,7 @@ repeated presses) 42 % of sessions have no gap at all, because their episodes fi
 their contact reaches `f × D`. **A declared contact fraction and exponential gaps cannot both
 hold exactly in a session that holds only a few gaps:** the fraction fixes the gaps' total,
 and only many gaps per session make the conditioned gaps look exponential. Which of the two to
-keep exact is open (`docs_root/DECISIONS.md`, "Exact contact fraction or exponential gaps"):
+keep exact is open (the project's decision record, "Exact contact fraction or exponential gaps"):
 exponential gaps with the fraction met only on average (a renewal process, not built), or
 longer sessions, which hold more gaps.
 
@@ -532,7 +532,7 @@ order from a zero tensor (adding 0.0 leaves a float unchanged).
 
 These answers were taken on Ben's behalf by the supervisor on 2026-10-04 and are
 **provisional**; changing one changes only the named element. They are recorded in
-`docs_root/DECISIONS.md`.
+the project's decision record.
 
 | # | Decision |
 |---|---|

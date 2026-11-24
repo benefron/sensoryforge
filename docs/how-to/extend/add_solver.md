@@ -24,7 +24,7 @@ All solvers inherit from `BaseSolver` (`sensoryforge/solvers/base.py`):
 | `integrate(ode_func, state, t_span, dt)` | `[B, ...] -> [B, steps+1, ...]` | Repeated `step()` over `(t_start, t_end)`; the returned trajectory's first time slice is the initial state. |
 | `from_config(config)` | `dict -> cls` | Construct from a YAML dict (`{"type": ..., "dt": ...}`). |
 | `to_dict()` | `-> dict` | Serialise; must include a `"type"` key (`BaseSolver`'s default does `type(self).__name__.lower().replace("solver", "")`). |
-| `get_param_spec()` | `-> list[ParamSpec]` | Required on every component (G1); default `[]`. |
+| `get_param_spec()` | `-> list[ParamSpec]` | Required on every component; default `[]`. |
 
 **Tensor conventions:** `state` is `[batch, ...]` (a neuron model's membrane variables, one row per
 population member); `t` and `dt` are in **ms**, matching every other SensoryForge time value at the
@@ -35,7 +35,7 @@ to feed back in unchanged.
 `sensoryforge.testing.contracts.check_component("solver", cls)` checks `get_param_spec()`'s shape,
 one `step()` call preserving state shape, and the full `to_dict()`/`from_config()` round trip:
 every `__init__` argument must appear in `to_dict()` and `from_config(instance.to_dict())` must be a
-fixed point (F-049). `BaseSolver.to_dict()` holds only `type` and `dt`, so a solver with more
+fixed point. `BaseSolver.to_dict()` holds only `type` and `dt`, so a solver with more
 arguments overrides `to_dict()` to add them, as `AdaptiveSolver` does for `method`, `rtol` and `atol`.
 
 ## 2. Register it

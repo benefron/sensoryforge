@@ -87,10 +87,10 @@ point produces a `UserWarning` and is skipped
 ## 4. Verify the contract before publishing
 
 `sensoryforge.testing.contracts.check_component(kind, cls)` runs the same
-checks used across the project's own contract-test sweep (G4): it asserts
+checks used across the project's own contract-test sweep: it asserts
 `get_param_spec()` returns a list of `ParamSpec`, runs one `forward()` pass
 with the kind's canonical tensor shape, and checks the `to_dict()`/`from_config()`
-round trip is **complete** (F-049): every `__init__` parameter appears in
+round trip is **complete**: every `__init__` parameter appears in
 `to_dict()`, and `from_config(instance.to_dict())` gives back the same
 `to_dict()`. It has no Qt dependency and needs nothing but `torch` and
 `sensoryforge` itself, so it runs anywhere the plugin package runs.

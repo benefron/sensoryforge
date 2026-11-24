@@ -1,6 +1,6 @@
 # Event converter contract
 
-This page is what pressure-simulation's Phase 3 is written against: what SensoryForge
+This page is what pressure-simulation is written against: what SensoryForge
 **v1.3.0** guarantees about its two event converters, the signed level-crossing unit (RA) and
 the sigma-delta unit (SA), from a population's drive to the events a bundle stores, and the
 SensoryForge test that pins each guarantee. Pressure-simulation emulates both units bit for
@@ -199,7 +199,7 @@ SensoryForge wrote it.
 | # | Guarantee | Test |
 |---|---|---|
 | 1 | With the leak off (`None` or absent) the level-crossing unit, and the sigma-delta unit, give state traces and events equal (`torch.equal`) to v1.2.1's forward loops, kept frozen in the test, on seeded ramps, steps, a signed multi-scale drive and white noise at σ/θ = 0.3, dead time 0 and 2 ms, both initial references, float32 and float64, and with comparator noise from a seeded RNG | `test_1_leak_off_is_v1_2_1_bit_for_bit_unit`, `test_1_sigma_delta_is_v1_2_1_bit_for_bit_unit`, `test_1_comparator_noise_is_drawn_as_in_v1_2_1` |
-| 1 | `sensoryforge run --design` on a design with one level-crossing and one sigma-delta population, with receptor noise and a fixed seed, writes `drive`, `filtered`, `events` and `spikes` equal to a golden recorded at v1.2.1 (bit for bit on the recording machine, macOS arm64 with torch 2.5.1; SensoryForge's golden tolerance elsewhere, F-071), with the leak key absent and with it `null` | `test_1_leak_off_is_v1_2_1_bit_for_bit_engine` (golden: `tests/fixtures/converter_v1_2_1/`, recorded on `git archive v1.2.1` by `tests/fixtures/make_converter_v1_2_1_golden.py`) |
+| 1 | `sensoryforge run --design` on a design with one level-crossing and one sigma-delta population, with receptor noise and a fixed seed, writes `drive`, `filtered`, `events` and `spikes` equal to a golden recorded at v1.2.1 (bit for bit on the recording machine, macOS arm64 with torch 2.5.1; SensoryForge's golden tolerance elsewhere), with the leak key absent and with it `null` | `test_1_leak_off_is_v1_2_1_bit_for_bit_engine` (golden: `tests/fixtures/converter_v1_2_1/`, recorded on `git archive v1.2.1` by `tests/fixtures/make_converter_v1_2_1_golden.py`) |
 | 2 | A steady slope fires iff `s > θ(1 − 1e-5)/τ` (no event at `(θ/τ)(1 − 1e-3)` over 50τ; an event at `(θ/τ)(1 + 1e-3)`); for s from 1.3 to 20 times θ/τ the first event is at exactly `n*`; before it `uₙ` equals `(1 − λ)·sτ·(−expm1(n·log1p(−λ)))` to a relative 1e-9; `T′(1 − λ) ≤ n*δ < T′ + δ`; over a grid of θ and τ/δ from 2.5 to 400 | `test_2_a_steady_slope_fires_iff_faster_than_theta_over_tau` |
 | 2 | With the drive held over each bin, a slope fires iff `s·dt_ms/(1 − ρ) ≥ θ(1 − 1e-5)`, and events fall on a bin's first sub-step | `test_2_with_held_bins_the_threshold_is_theta_one_minus_rho_over_dt` |
 | 3 | A step of `Δx/θ` in {3, 3.5, 0.99, 1, −2, −4.25} fires `sign(Δx)·⌊|Δx|/θ + 1e-5⌋` on its sub-step and nothing over the next 50τ, leak off and on, float32; two steps of 0.6θ separated by 20τ make one ON event without the leak and none with it | `test_3_a_step_fires_its_quanta_at_once_then_falls_silent`, `test_3_the_leak_forgets_a_held_level` |

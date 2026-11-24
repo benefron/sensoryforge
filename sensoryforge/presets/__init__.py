@@ -1,8 +1,8 @@
-"""Shipped canonical-config presets (Phase 2, Wave K, K4).
+"""Shipped canonical-config presets.
 
 A preset is a YAML fragment under this package -- data, not code -- read
 through :mod:`importlib.resources` so it works from an installed wheel run
-outside the repository, never a cwd-relative path (Phase 1b, F-014).
+outside the repository, never a cwd-relative path.
 
 Four presets ship with SensoryForge:
 
@@ -17,20 +17,19 @@ Four presets ship with SensoryForge:
   resolver applies by ``neuron_type``. It ships separately so
   ``tactile_sa1_ra1`` stays pinned to Izhikevich for the
   pressure-simulation golden parity test.
-- ``tactile_stochastic_control``: the named control arm (D-019) -- identical
+- ``tactile_stochastic_control``: the named control arm -- identical
   except each population's receptive fields come from the ``gaussian``
   builder with ``use_distance_weights: false`` (pressure-simulation's
   uniform-random-weight "stochastic" innervation) instead of ``template``'s
   designed, analytic-Gaussian fields. There is no separate
   ``gaussian_stochastic`` builder registered under
-  ``INNERVATION_REGISTRY`` -- D-019 (``docs_root/LEDGER.md``) settles the
-  control arm as ``gaussian`` with ``use_distance_weights: false``, which
-  ``GaussianInnervation`` already implements.
-- ``vision_onoff_rgb`` (Phase 2, Wave M4): a 3-channel (R, G, B) grid with
+  ``INNERVATION_REGISTRY``: the control arm is ``gaussian`` with
+  ``use_distance_weights: false``, which ``GaussianInnervation`` already implements.
+- ``vision_onoff_rgb``: a 3-channel (R, G, B) grid with
   one population reading two channels through
   :class:`~sensoryforge.core.processing.OnOffLayer`
   and summing, and one reading all three channels and concatenating -- the
-  generality demo for multi-input populations (Wave M).
+  generality demo for multi-input populations.
 
 Example:
     >>> from sensoryforge.presets import list_presets, load_preset
@@ -64,12 +63,12 @@ _DESCRIPTIONS: Dict[str, str] = {
         "and RA1_phasic presets by neuron_type."
     ),
     "tactile_stochastic_control": (
-        "Named control arm (D-019): identical to tactile_sa1_ra1 but with "
+        "Named control arm: identical to tactile_sa1_ra1 but with "
         "gaussian/use_distance_weights=false (stochastic, uniform-random "
         "weight) receptive fields instead of the designed template."
     ),
     "vision_onoff_rgb": (
-        "Wave M4 generality demo: one 3-channel (R, G, B) grid; one "
+        "Generality demo: one 3-channel (R, G, B) grid; one "
         "population reads R and G through OnOffLayer and sums, one reads "
         "all three and concatenates."
     ),

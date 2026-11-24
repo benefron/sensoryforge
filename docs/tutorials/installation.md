@@ -156,7 +156,7 @@ pipeline:
   device: cuda  # Use GPU
 ```
 
-### Apple Silicon (M1/M2/M3)
+### Apple Silicon
 
 For Apple Silicon Macs, use MPS backend:
 

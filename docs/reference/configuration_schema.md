@@ -32,15 +32,15 @@ Configuration for a single receptor grid layer.
 | `rows` | int | `None` | Number of rows (for grid arrangement) |
 | `cols` | int | `None` | Number of columns (for grid arrangement) |
 | `spacing` | float | `0.15` | Spacing between receptors in mm |
-| `density` | float | `None` | Receptor density in receptors/mm², for `"poisson"`, `"hex"` and `"blue_noise"` (D-88b4b41): sets the receptor count to `density` x the `rows`/`cols`/`spacing` extent, overriding the `rows` x `cols` count; unset derives the count from `rows` x `cols` as before. `ValueError` if set on `"grid"`/`"jittered_grid"` (spacing already fixes their count) or if not positive |
+| `density` | float | `None` | Receptor density in receptors/mm², for `"poisson"`, `"hex"` and `"blue_noise"`: sets the receptor count to `density` x the `rows`/`cols`/`spacing` extent, overriding the `rows` x `cols` count; unset derives the count from `rows` x `cols` as before. `ValueError` if set on `"grid"`/`"jittered_grid"` (spacing already fixes their count) or if not positive |
 | `center_x` | float | `0.0` | X-coordinate of grid center in mm |
 | `center_y` | float | `0.0` | Y-coordinate of grid center in mm |
 | `color` | list[int] | `[66, 135, 245, 200]` | RGBA color tuple [r, g, b, a] for visualization |
 | `visible` | bool | `True` | Whether this grid layer is visible in the GUI |
-| `seed` | int | `None` | Seed for the random jitter of `jittered_grid`, `blue_noise` and `poisson` arrangements (F-050); `None` draws from the global RNG (not reproducible) |
-| `channels` | list[string] | `["value"]` | Named sensor channels/planes carried by this grid (Wave L1); the single-channel default is omitted from `to_dict()` output so existing configs are unchanged byte for byte; names must be non-empty, unique, valid Python identifiers |
-| `coords_file` | string | `None` | Path to an `[M, 2]` CSV or `.pt` file of receptor coordinates in mm (Wave L1); when set, the grid is built from these coordinates instead of `rows`/`cols`/`spacing` |
-| `layers` | list[dict] | `[]` | For `arrangement == "composite"` (Wave L4), the ordered list of layer specs building a `CompositeReceptorGrid`; each entry has a required `name` and either `density` (+ optional `arrangement`, `offset`, `seed`, `color`) or `coordinates` (an `[n, 2]` list) or `coords_file`; layer order is the receptor-index contract |
+| `seed` | int | `None` | Seed for the random jitter of `jittered_grid`, `blue_noise` and `poisson` arrangements; `None` draws from the global RNG (not reproducible) |
+| `channels` | list[string] | `["value"]` | Named sensor channels/planes carried by this grid; the single-channel default is omitted from `to_dict()` output so existing configs are unchanged byte for byte; names must be non-empty, unique, valid Python identifiers |
+| `coords_file` | string | `None` | Path to an `[M, 2]` CSV or `.pt` file of receptor coordinates in mm; when set, the grid is built from these coordinates instead of `rows`/`cols`/`spacing` |
+| `layers` | list[dict] | `[]` | For `arrangement == "composite"`, the ordered list of layer specs building a `CompositeReceptorGrid`; each entry has a required `name` and either `density` (+ optional `arrangement`, `offset`, `seed`, `color`) or `coordinates` (an `[n, 2]` list) or `coords_file`; layer order is the receptor-index contract |
 
 ### Example
 
@@ -98,7 +98,7 @@ Configuration for a single neuron population. Supports N populations with per-po
 | `edge_offset` | float | `0.0` | Edge offset in mm (auto-set to spacing by default) |
 | `target_layers` | list[string] | `None` | For a `"composite"` grid, the named layer subset this population/input reads (`None` = every layer) |
 
-#### Multi-Input Populations (Phase 2, Wave M1/M2)
+#### Multi-Input Populations
 
 A population may read from more than one grid/channel, with an optional processing stage per
 input. `target_grid`, `target_layers`, `innervation_method`, `sigma_d_mm`,
@@ -166,7 +166,7 @@ populations:
 | `neuron_model` | string | `"Izhikevich"` | A registered neuron model; the names are listed in the [Component Reference](components.md#neuron) |
 | `model_params` | dict | `{}` | Model-specific parameters dict |
 | `dsl_config` | dict | `None` | DSL configuration (equations, threshold, reset, parameters) |
-| `readout` | string | `"auto"` | How to read out a DSL population (Wave N): `"auto"` infers analog when `dsl_config` has no `threshold`, else spiking; `"spiking"`/`"analog"` force it, raising `ValueError` if incompatible with `dsl_config`; ignored for non-DSL `neuron_model` values. See [Analog Readouts](../how-to/analog_readouts.md) |
+| `readout` | string | `"auto"` | How to read out a DSL population: `"auto"` infers analog when `dsl_config` has no `threshold`, else spiking; `"spiking"`/`"analog"` force it, raising `ValueError` if incompatible with `dsl_config`; ignored for non-DSL `neuron_model` values. See [Analog Readouts](../how-to/analog_readouts.md) |
 
 #### Filter Configuration
 
@@ -183,7 +183,7 @@ filter_params:
   tau_r: 5.0    # Rise time constant (ms)
   tau_d: 30.0   # Decay time constant (ms)
   k1: 0.05      # Gain parameter 1
-  k2: 8.0       # Gain on the input's rate of change (default 8.0; was 3.0, D-f4d0967)
+  k2: 8.0       # Gain on the input's rate of change (default 8.0; was 3.0)
 ```
 
 For RA filter:
@@ -212,8 +212,8 @@ solver_config:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `sensor_noise_std` | float | `None` | Neuron input (current) noise, std in mA -- not the receptor (sensor) noise, which is `simulation.receptor_noise_std`: independent Gaussian noise added to each neuron's injected current after the filter and `input_gain`, once per record bin, before `input_floor`. It is part of the recorded `filtered` current. `None` falls back to `noise_std` (C-130) |
-| `membrane_noise_std` | float | `None` | The neuron model's own membrane (Langevin) noise, passed to it as its `noise_std` (AdEx/Izhikevich add N(0, `noise_std`·√dt) mV per integration step). Not part of `filtered`. `None` falls back to `noise_std` (C-130) |
+| `sensor_noise_std` | float | `None` | Neuron input (current) noise, std in mA -- not the receptor (sensor) noise, which is `simulation.receptor_noise_std`: independent Gaussian noise added to each neuron's injected current after the filter and `input_gain`, once per record bin, before `input_floor`. It is part of the recorded `filtered` current. `None` falls back to `noise_std` |
+| `membrane_noise_std` | float | `None` | The neuron model's own membrane (Langevin) noise, passed to it as its `noise_std` (AdEx/Izhikevich add N(0, `noise_std`·√dt) mV per integration step). Not part of `filtered`. `None` falls back to `noise_std` |
 | `noise_std` | float | `0.0` | **Deprecated alias** that sets both `sensor_noise_std` and `membrane_noise_std` to one value -- the only noise key before the two were separated. Still honoured (a `FutureWarning` when non-zero), so existing configs run bit-identically; an explicit `sensor_noise_std` or `membrane_noise_std` overrides it for that source |
 | `noise_mean` | float | `0.0` | Read only by the legacy pipeline adapter; `SimulationEngine` ignores it |
 | `noise_seed` | int | `None` | Seeds this population's noise independently of the run seed: a per-population generator draws the neuron input (current) noise, and the global RNG is reseeded from it (and restored afterwards) for the membrane noise. `None` draws both from the run's RNG (`simulation.seed`) |
@@ -231,7 +231,7 @@ solver_config:
 |-------|------|---------|-------------|
 | `enabled` | bool | `True` | Whether this population is enabled for simulation |
 | `input_gain` | float | `50.0` | Input gain multiplier |
-| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on any neuron model except `level_crossing` and the DSL (a plugin model included) and to no floor otherwise; `-.inf` disables it (D-43dc520) |
+| `input_floor` | float or null | `null` | Lower bound (mA) on the current the neuron receives, after gain and noise; the recorded `filtered` stays signed. `null` resolves to 0 mA for tactile afferents (SA, RA, SA2) on any neuron model except `level_crossing` and the DSL (a plugin model included) and to no floor otherwise; `-.inf` disables it |
 | `voltage_probes` | int, list of int, `"all"` or null | `null` | Opt-in: which neurons' membrane voltage the run's bundle keeps (a count `K` of evenly spaced neurons, a list of neuron ids, or `"all"`); overrides `simulation.voltage_probes` for this population. Raises `ValueError` at bundle time if the neuron model returns no voltage. See [Voltage probes](bundles.md#voltage-probes-schema-240) |
 | `seed` | int | `None` | Random seed for innervation generation |
 
@@ -325,7 +325,7 @@ Configuration for stimulus generation.
 | `motion_type` | string | `"linear"` | Motion type: `"linear"`, `"circular"` |
 | `center` | list[float] | `[0.0, 0.0]` | Center point [x, y] in mm, for circular motion |
 | `radius` | float | `2.0` | Radius in mm, for circular motion |
-| `channel` | string | `None` | Named channel/plane of the target grid's `channels` this stimulus drives (Wave L2); `None` means the single/first channel. Several stimuli with different `channel` values compose into one multi-channel tensor |
+| `channel` | string | `None` | Named channel/plane of the target grid's `channels` this stimulus drives; `None` means the single/first channel. Several stimuli with different `channel` values compose into one multi-channel tensor |
 
 ### Example
 
@@ -350,12 +350,12 @@ Configuration for simulation settings.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `device` | string | `"cpu"` | Device: `"cpu"`, `"cuda"`, `"mps"` |
-| `dt_ms` | float | `1.0` | Record step in ms — the time resolution of the filter, stimulus, and returned spike/voltage arrays. Must be a whole multiple of `integrate_dt_ms` (F-042) |
-| `integrate_dt_ms` | float | `0.05` | Neuron integration step in ms (F-008); the neuron model is stepped at this finer resolution, holding drive constant across `round(dt_ms / integrate_dt_ms)` sub-steps per record bin, matching pressure-simulation's `encode_runner.run_encoding` exactly |
+| `dt_ms` | float | `1.0` | Record step in ms — the time resolution of the filter, stimulus, and returned spike/voltage arrays. Must be a whole multiple of `integrate_dt_ms` |
+| `integrate_dt_ms` | float | `0.05` | Neuron integration step in ms; the neuron model is stepped at this finer resolution, holding drive constant across `round(dt_ms / integrate_dt_ms)` sub-steps per record bin, matching pressure-simulation's `encode_runner.run_encoding` exactly |
 | `solver` | dict | `{"type": "euler"}` | Global solver config (`type`, `method`, `rtol`, `atol`) |
 | `duration_ms` | float | `None` | Simulation duration in ms (optional; inferred from the stimulus when omitted) |
-| `dt` | float | `None` | Deprecated alias for `dt_ms` (F-008/E10); emits `DeprecationWarning`; raises `ValueError` if both `dt` and a differing, non-default `dt_ms` are given |
-| `seed` | int | `None` | Run-level seed (F-075). When set, `SimulationEngine.run()` seeds `torch`/`numpy`/`random` at the start of the run, before stimulus sampling and the population loop. `None` (default) leaves the ambient RNG state untouched. `sensoryforge run --seed` sets this field before running. Distinct from a population's own `noise_seed` (per-population neuron input and membrane noise) and `seed` (innervation wiring, F-006 open) — see [Reproducibility](../how-to/units_and_gains.md#reproducibility-seeds) |
+| `dt` | float | `None` | Deprecated alias for `dt_ms`; emits `DeprecationWarning`; raises `ValueError` if both `dt` and a differing, non-default `dt_ms` are given |
+| `seed` | int | `None` | Run-level seed. When set, `SimulationEngine.run()` seeds `torch`/`numpy`/`random` at the start of the run, before stimulus sampling and the population loop. `None` (default) leaves the ambient RNG state untouched. `sensoryforge run --seed` sets this field before running. Distinct from a population's own `noise_seed` (per-population neuron input and membrane noise) and `seed` (innervation wiring open) — see [Reproducibility](../how-to/units_and_gains.md#reproducibility-seeds) |
 | `receptor_noise_std` | float | `None` | Receptor (sensor) noise, std in the **stimulus's own units** (pressure), not mA: one independent Gaussian source per receptor and record bin, added to the stimulus sampled on the receptor grid before any population's receptive-field bank. Drawn once per run and shared by every population, so populations that pool the same receptors see the same realisation; pooling, filter and `input_gain` then propagate it (a neuron pooling receptors with weights `w` gets input noise of std `receptor_noise_std · ‖w‖₂` before its filter). `None`/`0` = none. The bundle's `stimulus` stays the clean input; this key (with its seed) is recorded in the bundle's `config.json` |
 | `receptor_noise_seed` | int | `None` | Seeds the receptor noise independently of the run seed (a CPU generator per grid and channel, seed `receptor_noise_seed + 7919·grid_index + channel_index`, so the first grid uses the seed itself and the draw is device-independent). `None` draws it from the run's RNG (`seed`) |
 | `voltage_probes` | int, list of int, `"all"` or null | `None` | Opt-in default for every population that does not set its own `voltage_probes` (below the population table): a population whose neuron model returns no voltage is skipped. `"all"` keeps every neuron's voltage, for a run archived in full. `None` keeps none and the key is dropped from `to_dict()` |

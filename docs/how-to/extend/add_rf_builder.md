@@ -93,7 +93,7 @@ centres, because `check_component` cannot construct a builder without them. **In
 INNERVATION_REGISTRY.register("ring", RingRFBuilder)
 ```
 
-Names are matched case-insensitively (F-046).
+Names are matched case-insensitively.
 
 ---
 
@@ -110,7 +110,7 @@ check_component("innervation", RingRFBuilder, RingRFBuilder(coords, centers))
 
 `check_component` asserts the `ParamSpec` list, one `compute_weights()` pass with the
 right shape, the `to_dict()`/`from_config()` fixed point over every constructor
-parameter, and, since Phase 2, that `build()` returns a `ReceptiveFieldBank` with
+parameter, and, now, that `build()` returns a `ReceptiveFieldBank` with
 `[N, M]` weights, `[N, 2]`/`[M, 2]` coordinates and a provenance naming the builder.
 
 Then use it from a config:

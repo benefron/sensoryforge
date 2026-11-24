@@ -66,7 +66,7 @@ After you register a component in the repository, run `python scripts/build_refe
 the [Component Reference](../../reference/components.md) is generated from the registries and each
 component's `ParamSpec` list, and a test fails until the committed page matches.
 
-Registry lookups are case-insensitive (H1, F-046): `"MyNeuron"` and
+Registry lookups are case-insensitive: `"MyNeuron"` and
 `"myneuron"` refer to the same registration; a genuine collision between
 two different classes under the same case-folded name still raises.
 
@@ -315,7 +315,7 @@ for every kind it supports (`available_kinds()`: `neuron`, `filter`, `grid`,
 1. `get_param_spec()` returns a list of `ParamSpec`.
 2. One forward pass with the kind's canonical tensor shape.
 3. `from_config(instance.to_dict())` returns an instance of the class.
-4. **The round trip is complete** (F-049): every `__init__` parameter appears
+4. **The round trip is complete**: every `__init__` parameter appears
    in `instance.to_dict()`, and `from_config(instance.to_dict()).to_dict()`
    equals `instance.to_dict()` (a fixed point). A name in the class's
    `_TO_DICT_EXCLUDE_PARAMS` is the one exception, for a parameter a bundle

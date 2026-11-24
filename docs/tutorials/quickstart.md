@@ -18,12 +18,11 @@ minute.
 
 ## From Python
 
-[First Simulation](first_simulation.md) builds a pipeline in a script, runs it and plots
-the spikes.
+[Your First Simulation](first_simulation.md) runs a recipe in a script, reads its spikes and plots them.
 
 ## Next
 
 - [Core Concepts](../concepts/core_concepts.md): sensor arrays, receptive fields, filters, neurons and
   populations, and how they connect.
 - [User Guide](../index.md): every feature in depth.
-- [Tutorials](quickstart_tutorial.md): longer worked examples.
+- [Tutorials](first_simulation.md): a longer worked example.

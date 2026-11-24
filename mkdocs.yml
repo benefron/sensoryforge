@@ -96,6 +96,7 @@ plugins:
         getting_started/quickstart_extend.md: tutorials/quickstart_extend.md
         getting_started/quickstart_gui.md: tutorials/quickstart_gui.md
         getting_started/quickstart_world.md: tutorials/quickstart_world.md
+        tutorials/quickstart_tutorial.md: tutorials/first_simulation.md
         tutorials/custom_pipeline.md: tutorials/batch_processing_tutorial.md
         tutorials/parameter_sweeps.md: tutorials/batch_processing_tutorial.md
         user_guide/agent_design_loop.md: agents/design_loop.md
@@ -171,7 +172,6 @@ nav:
       - The GUI: tutorials/quickstart_gui.md
       - World to Report: tutorials/quickstart_world.md
     - First Simulation: tutorials/first_simulation.md
-    - Interactive Quickstart: tutorials/quickstart_tutorial.md
     - Batch Processing: tutorials/batch_processing_tutorial.md
     - Custom Neuron Models: tutorials/custom_neurons.md
 

@@ -110,8 +110,7 @@ different aims:
 | `tactile_sa1_ra1` (Izhikevich) | TouchSim-fitted adaptation (`d` SA 15, RA 24) | 380 | 410 |
 | `tactile_stochastic_control` | as `tactile_sa1_ra1` | 380 | 410 (so the control arm differs only in its receptive fields) |
 
-**`tactile_sa1_ra1_adex` is pressure-simulation's model** (D-ce22df3,
-D-8dde454, D-673e0ed). Its neurons are kept simple, with no spike-frequency
+**`tactile_sa1_ra1_adex` is pressure-simulation's model**. Its neurons are kept simple, with no spike-frequency
 adaptation and no voltage clamp, so each rate follows its present drive, which
 the Kalman-filter inference assumes. Both gains put the firing threshold at
 10% of the benchmark stimulus:
@@ -125,8 +124,7 @@ Above threshold the rates are roughly proportional. Measured with a 1 mm probe:
 A held benchmark stimulus therefore fires SA at about 125 Hz, above P5's 20–100 Hz band. That is accepted, so that weak pressures are not invisible to SA.
 
 **`tactile_sa1_ra1` is fitted to TouchSim's SA1 and RA afferent models**
-(Saal et al. 2017; `benchmarks/results/touchsim_comparison/`, D-f4d0967,
-D-d9bd411):
+(Saal et al. 2017; `benchmarks/results/touchsim_comparison/`):
 - SA's gain puts a held stimulus at 45 Hz, the centre of P5's band.
 - RA's gain matches TouchSim's RA sensitivity.
 - Its adaptation makes SA's rate rise gradually from near zero. Without it, Izhikevich is too steep: SA would be silent below about 60% of the benchmark pressure.
@@ -138,14 +136,14 @@ shared default). The TouchSim-fitted AdEx adaptation is available as the
 opt-in presets `SA1_adapting` / `RA1_adapting` (`model_params: {preset:
 SA1_adapting}`).
 
-**RA answers release as strongly as indentation** (D-4e669b4). The RA filter
+**RA answers release as strongly as indentation**. The RA filter
 responds to the size of the rate of change (`|dI/dt|`), so lifting a probe
 drives RA as much as pressing it. That suits the pressure-simulation design.
 TouchSim's RA releases more weakly (0.67–0.8 of its onset) and is silent at
 0.2 mm.
 
 **A tactile afferent's neuron input is floored at 0 mA**
-(`PopulationConfig.input_floor`; D-43dc520). A negative mechanical drive,
+(`PopulationConfig.input_floor`). A negative mechanical drive,
 such as the SA filter's response to a trailing edge, silences the afferent
 instead of hyperpolarizing it. The recorded `filtered` drive stays signed:
 bundles store it, and pressure-simulation's decoder reads it. Other
@@ -207,21 +205,21 @@ With a Gaussian stimulus at `amplitude = 3.0 mA` and `sigma = 0.5 mm`:
 |---|---|---|---|
 | `input_gain` | `PopulationConfig`, GUI Populations → Readout & noise | 50 | Compensates for Parvizi-Fard N/mm² filter calibration vs SensoryForge mA convention |
 | SA filter `k1` | `SAFilterTorch.DEFAULT_CONFIG` | 0.05 | Parvizi-Fard et al. (2021) value — do not change |
-| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | 1.0 for every stimulus type: a unit peak, pressure-simulation's convention. `repeated_pattern`'s six overlapping copies each peak at 1.0 and sum to about 3.9 | At gain 50 a unit peak is borderline (table above): raise `amplitude` or `input_gain` if a population is silent (ledger F-083) |
+| Stimulus `amplitude` | `StimulusConfig`, GUI Stimulus screen | 1.0 for every stimulus type: a unit peak, pressure-simulation's convention. `repeated_pattern`'s six overlapping copies each peak at 1.0 and sum to about 3.9 | At gain 50 a unit peak is borderline (table above): raise `amplitude` or `input_gain` if a population is silent |
 
 ---
 
 ## Reproducibility (seeds) {: #reproducibility-seeds }
 
 SensoryForge has four independent seeds, each covering a different source of
-randomness (F-075):
+randomness:
 
 | Seed | Location | Controls |
 |---|---|---|
 | `SimulationConfig.seed` (run seed) | `simulation.seed` in the canonical config, or `sensoryforge run --seed` | Seeds `torch`/`numpy`/`random` once, at the start of `SimulationEngine.run()`, before stimulus sampling and the population loop. The broadest knob — reproduces anything in the run that draws from the *global* RNG and isn't independently seeded below. |
 | `SimulationConfig.receptor_noise_seed` | Once per run, in `simulation.receptor_noise_seed` | Reproduces the receptor (sensor) noise, `simulation.receptor_noise_std` (stimulus units, one source per receptor, added before innervation and shared by every population), independently of the run seed: a CPU `torch.Generator` per grid and channel seeded from it. `None` draws it from the global RNG, i.e. from the run seed. |
 | `PopulationConfig.noise_seed` | Per population, in `populations[].noise_seed` | Reproduces that one population's noise (`sensor_noise_std` and/or `membrane_noise_std` > 0; the deprecated `noise_std` sets both) independently of the run seed and of every other population: `SimulationEngine.run()` builds a `torch.Generator` from it and passes it into `_run_pop_from_drive`, which both draws the neuron input (current) noise, `sensor_noise_std` (post-filter, post-gain, additive on the current) from that generator and reseeds the global RNG from the same value immediately before the neuron call (the built-in neuron models' own Langevin noise, driven by `membrane_noise_std`, has no generator parameter of its own). `None` (default) leaves that population's noise on the ambient global RNG, uncontrolled by either seed. |
-| `PopulationConfig.seed` | Per population, in `populations[].seed` | Seeds that population's innervation (receptive-field) wiring at build time. **F-006 is open**: this reseeds the *global* RNG and consumes it in a different order from pressure-simulation, so the same seed gives different wiring across the two repos; it does not affect noise or the neuron. |
+| `PopulationConfig.seed` | Per population, in `populations[].seed` | Seeds that population's innervation (receptive-field) wiring at build time. **Known issue**: this reseeds the *global* RNG and consumes it in a different order from pressure-simulation, so the same seed gives different wiring across the two repos; it does not affect noise or the neuron. |
 
 None of the four imply the others. A fully reproducible noisy run needs the
 run seed for anything that isn't independently seeded, plus a `noise_seed`

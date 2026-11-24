@@ -19,20 +19,20 @@ Measured on: **macOS-15.7.1-arm64-arm-64bit** / **Apple M3 Pro**, generated 2026
 
 ## What these numbers are, and what they replace
 
-Every cell below is repeated (one discarded warm-up plus N timed repeats, N shown in the table) in its own fresh subprocess, and the table reports the **median and the observed min-max spread**, not a single sample. This exists because the project previously had no way to tell a real regression from run-to-run noise: the whole-suite memory watchdog (finding F-056, guardrail 6 of Phase 2) measured the *same commit* at 873 MB on one run and 1,517 MB on another. A single number here would be just as unusable; the spread column is the point.
+Every cell below is repeated (one discarded warm-up plus N timed repeats, N shown in the table) in its own fresh subprocess, and the table reports the **median and the observed min-max spread**, not a single sample. This exists because the project previously had no way to tell a real regression from run-to-run noise: the whole-suite memory watchdog (finding, a guardrail) measured the *same commit* at 873 MB on one run and 1,517 MB on another. A single number here would be just as unusable; the spread column is the point.
 
 Build time (constructing `SimulationEngine` -- grids and receptive-field banks) and run time (`engine.run()`) are reported separately because they scale differently: build time grows with grid size and neuron count, run time grows with grid size, neuron count *and* simulated duration.
 
 ## Memory: what is and is not captured
 
-`peak_rss_mb` is the peak of (subprocess RSS + all its children's RSS), sampled every 50 ms for the subprocess's whole lifetime -- the same ps-based sum-of-RSS technique as the Phase 1 memory watchdog (`docs/development/handover/phase1_tasks.md` appendix), applied to one benchmark cell instead of a whole test suite.
+`peak_rss_mb` is the peak of (subprocess RSS + all its children's RSS), sampled every 50 ms for the subprocess's whole lifetime -- the same ps-based sum-of-RSS technique as the earlier memory watchdog (`docs/development/handover/phase1_tasks.md` appendix), applied to one benchmark cell instead of a whole test suite.
 
 This measurement:
 
 - **Does** capture the peak of the whole worker process, including the warm-up iteration, Python/torch import, and every timed repeat -- it is a realistic peak for running that cell, not an isolated allocation figure.
 - **Does not** separate build-phase memory from run-phase memory (unlike wall-clock, which is timed separately in-process); a 50 ms sampling interval also means a peak narrower than 50 ms can be missed.
 - **Does not** use `tracemalloc`: SensoryForge's tensors are mostly torch-allocated (C++/native memory), which `tracemalloc` does not see, so it would under-report the figure that actually matters here. `resource.getrusage(RUSSELF_CHILDREN)` was considered and rejected for the same reason `ps`-sampling was kept: on macOS `ru_maxrss` is only available for the *current* process's own peak, not a child subprocess's, and the harness deliberately runs each cell in a fresh subprocess so a clean-slate peak is comparable across cells.
-- **Is noisy in the same way finding F-056 describes**, at a smaller scale: this machine slept and independently ran low on memory overnight during this wave's own measurement runs, and readings taken across such an event are not comparable (see `started_at`/`finished_at` timestamps in the JSON). Treat `peak_rss_mb` as a smoke alarm -- notice if it doubles -- not a precise gauge, exactly per guardrail 6.
+- **Is noisy in the same way describes**, at a smaller scale: this machine slept and independently ran low on memory overnight during this wave's own measurement runs, and readings taken across such an event are not comparable (see `started_at`/`finished_at` timestamps in the JSON). Treat `peak_rss_mb` as a smoke alarm -- notice if it doubles -- not a precise gauge, exactly per guardrail 6.
 
 ## Results
 
@@ -43,7 +43,7 @@ This measurement:
 | large_80x80 | 80x80 | 10 x 14 | 1000 | cpu | 3 | 40.21 | 3.77 | 1945.99 | 9.89 | 421 |
 | smoke_10x10_mps | 10x10 | 3 x 4 | 20 | mps | 7 | 17.13 | 2.23 | 1153.07 | 19.33 | 335 |
 
-`large_80x80` is the cell required by the Wave T spec (an 80x80 grid with both SA and RA populations); `smoke_10x10` is the fast smoke-test cell.
+`large_80x80` is the cell required by the benchmark spec (an 80x80 grid with both SA and RA populations); `smoke_10x10` is the fast smoke-test cell.
 
 ## Raw samples
 

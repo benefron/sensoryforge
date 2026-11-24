@@ -338,7 +338,7 @@ simulation:
   dt: 0.5
 ```
 
-The `stimulus:` block above is what `sensoryforge run` actually renders (F-061) — the
+The `stimulus:` block above is what `sensoryforge run` actually renders — the
 same renderer every GUI run uses, so a config run from the CLI and the same config run from the GUI
 produce byte-identical stimulus frames. Only the fields you write in the block are
 passed to the stimulus; a field you leave out takes that stimulus type's own default, so

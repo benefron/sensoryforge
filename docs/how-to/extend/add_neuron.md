@@ -17,7 +17,7 @@ There are two ways to ship a new neuron model — pick one before you start:
   into `sensoryforge/neurons/`, `tests/`, `docs/`, and step 3 below (manual
   registration in `register_components.py`) applies.
 
-Component names are matched **case-insensitively** (H1, F-046): `"LIF"`
+Component names are matched **case-insensitively**: `"LIF"`
 and `"lif"` are the same registration, so you don't need to worry about
 exact-case collisions with a built-in neuron's name — though a genuine
 collision (same name, different class) still raises.
@@ -45,12 +45,12 @@ All neuron models must inherit from `BaseNeuron`
 | `reset_state()` | `→ None` | Reset membrane state between runs |
 | `from_config(config)` | `dict → cls` | Construct from YAML dict |
 | `to_dict()` | `→ dict` | Serialise for YAML round-trip |
-| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component (G1); GUI auto-discovery |
+| `get_param_spec()` | `→ list[ParamSpec]` | Required on every component; GUI auto-discovery |
 
 `to_dict()` must include **every** `__init__` parameter, and
 `from_config(instance.to_dict())` must round-trip to an equal `to_dict()`
 (H3's completeness requirement — before H3 several built-in neurons only
-round-tripped `dt`, not `a`/`b`/`c`/`d`/`tau_m`/etc., F-045). Checked by
+round-tripped `dt`, not `a`/`b`/`c`/`d`/`tau_m`/etc.). Checked by
 `sensoryforge.testing.contracts.check_component("neuron", cls)`.
 
 **Tensor conventions:**
@@ -68,7 +68,7 @@ converts to seconds internally.
 `noise_std=pop_cfg.noise_std` to every neuron's constructor. Every neuron
 model — built-in or plugin — must therefore accept a `noise_std: float`
 constructor parameter, or it raises `TypeError` the moment it is used in
-an actual `SimulationEngine` simulation (F-046-adjacent gap fixed in the
+an actual `SimulationEngine` simulation (a gap fixed in the
 `sensoryforge new-component neuron` scaffold template; see
 `plugins.md`).
 
@@ -342,7 +342,7 @@ populations:
 - [ ] `v_floor` parameter guards against membrane runaway
 - [ ] `noise_std: float` constructor parameter accepted (required by `SimulationEngine`, see above)
 - [ ] `reset_state()` zeros internal hidden state
-- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3); default dict in `DEFAULT_CONFIG`
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()`; default dict in `DEFAULT_CONFIG`
 - [ ] `get_param_spec()` implemented (required on every component, G1)
 - [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a PascalCase key (in-repo route)
 - [ ] `dt` stored in ms; convert to seconds for ODE integration

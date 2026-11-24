@@ -35,4 +35,4 @@ prints them from the registries.
 | Make a run faster | `benchmarks/` | `benchmarks/` | `docs/reference/benchmarks.md` |
 | Add or change a module's header (topic, tests, entry points) | `sensoryforge/testing/file_headers.py`, the module's docstring | `tests/unit/test_file_headers.py` | `docs/reference/maintainers/file_headers.md`; remove a tagged module from `tests/unit/file_headers_untagged.txt` |
 | Change the agent files | `sensoryforge/agents/`, `AGENTS.md`, `docs/agents/` | `tests/unit/test_front_door.py`, `tests/unit/test_agents_style.py`, `tests/unit/test_agent_glossary.py` | `docs/reference/maintainers/agent_files.md` |
-| Find out whether something was already decided | `docs_root/LEDGER.md` | | the entry ids (`F-`, `D-`) |
+| Find out whether something was already decided | the project ledger | | the entry ids (`F-`, `D-`) |

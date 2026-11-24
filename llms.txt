@@ -14,7 +14,6 @@ Coding agents working in the repository start at [AGENTS.md](https://github.com/
   - [The GUI](https://benefron.github.io/sensoryforge/tutorials/quickstart_gui/)
   - [World to Report](https://benefron.github.io/sensoryforge/tutorials/quickstart_world/)
 - [First Simulation](https://benefron.github.io/sensoryforge/tutorials/first_simulation/)
-- [Interactive Quickstart](https://benefron.github.io/sensoryforge/tutorials/quickstart_tutorial/)
 - [Batch Processing](https://benefron.github.io/sensoryforge/tutorials/batch_processing_tutorial/)
 - [Custom Neuron Models](https://benefron.github.io/sensoryforge/tutorials/custom_neurons/)
 

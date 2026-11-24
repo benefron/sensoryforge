@@ -34,15 +34,15 @@ lists all of them.
   [Units and gains](units_and_gains.md#calibrated-gains-in-the-tactile-recipes)).
   `tactile_sa1_ra1_adex` is the same recipe on simple, non-adapting AdEx
   neurons, pressure-simulation's model (SA 160, RA 270).
-- **`tactile_stochastic_control`** — the named control arm (decision D-019 in
-  `docs_root/LEDGER.md`): identical grid and populations, but with
+- **`tactile_stochastic_control`** — the named control arm (decision in
+  the project ledger): identical grid and populations, but with
   `innervation_method: gaussian` and `use_distance_weights: false` instead of
   `template` — pressure-simulation's uniform-random-weight ("stochastic")
   innervation, for comparing designed against undesigned receptive fields on
   otherwise identical populations. There is no separate `gaussian_stochastic`
   builder name registered anywhere: `GaussianInnervation` already implements
   both the analytic (`use_distance_weights: true`, the default) and the
-  stochastic (`false`) weighting, and D-019 settles which one is "the control
+  stochastic (`false`) weighting settles which one is "the control
   arm."
 
 ## Overriding a preset

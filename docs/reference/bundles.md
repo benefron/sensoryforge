@@ -3,7 +3,7 @@
 A **data bundle** is a self-contained directory holding one completed run: the config,
 each population's receptive fields, the stimulus, and every population's drive/filtered/
 spikes arrays. It is the contract SensoryForge, pressure-simulation, and downstream
-learning pipelines share (Phase 2, Wave J; ledger `F-011`, `F-013`).
+learning pipelines share.
 
 ```
 bundle_dir/
@@ -213,7 +213,7 @@ against `config.json`'s `populations[*].name` and silently drops any entry that
 doesn't match, so `name` here is the *raw* population name, not the filesystem-safe
 form `population_NN_<NAME>.pt` uses. `noise_std` is the population's raw (deprecated)
 `noise_std` field; `sensor_noise_std` (the neuron input current noise) and `membrane_noise_std` are
-the two per-population noise levels the run actually used (C-130); the run-wide
+the two per-population noise levels the run actually used; the run-wide
 receptor noise is `config.json`'s `config.simulation.receptor_noise_std`.
 
 ## `data.h5`
@@ -225,7 +225,7 @@ receptor noise is `config.json`'s `config.simulation.receptor_noise_std`.
 | `/populations/<name>/drive` | `[T, N]` | float32 | mA, before the neuron model |
 | `/populations/<name>/filtered` | `[T, N]` | float32 | mA, after filter/gain/noise |
 | `/populations/<name>/spikes` | `[T, N]` | int16 | **counts**, see below |
-| `/populations/<name>/state` | `[T, N]` | float32 | analog readouts (Wave N; not yet populated) |
+| `/populations/<name>/state` | `[T, N]` | float32 | analog readouts (not yet populated) |
 
 Root attributes: `dt_ms`, `integrate_dt_ms`, `seed` (`-1` if none was given),
 `sensoryforge_version`, `sensoryforge_sha` (since 2.2.0). The `/meta` group carries `config_yaml` (the full config as
@@ -234,7 +234,7 @@ YAML text) and `provenance_json` (every population's bank provenance, JSON-encod
 ### Spikes are per-bin counts, not a binary raster
 
 `spikes[t, n]` is the number of sub-steps within record bin `t` that neuron `n` fired
-in (F-008: the neuron integrates at `integrate_dt_ms`, finer than the record step
+in (the neuron integrates at `integrate_dt_ms`, finer than the record step
 `dt_ms`, and each bin sums however many sub-step spikes landed in it). It can be
 greater than 1. To recover a conventional binary raster:
 
@@ -322,7 +322,7 @@ Absent (or `null`), there is no receptor noise. The bundle's `/stimulus/frames` 
 the clean stimulus; the std and seed are recorded in `config.json`'s
 `config.simulation`.
 
-The other two are per population (C-130):
+The other two are per population:
 
 | `design.json` population key | becomes | what it is |
 |---|---|---|

@@ -1,7 +1,7 @@
 # Adding a Processing Layer
 
 A processing layer sits between receptor sampling and the receptive-field bank, per population
-input (`PopulationInput.processing`, Phase 2 Wave M3) -- see
+input (`PopulationInput.processing`) -- see
 [Populations and Inputs](../../concepts/populations_and_inputs.md) for where it fits in the pipeline.
 The shipped `OnOffLayer` (`sensoryforge/core/processing.py`) is the worked example this page walks
 through, and the complete runnable script is `docs/examples/onoff_processing_layer.py`: it
@@ -98,12 +98,12 @@ assert off[0, 0, 3] > 0 and on[0, 0, 3] == 0   # dark -> OFF only
 `to_dict`/`from_config` round trip, and an engine-level check that a population input with
 `processing: [{method: onoff}]` builds its bank on the doubled receptor axis).
 
-### Also run the shared contract check (F-058)
+### Also run the shared contract check
 
 `sensoryforge.testing.contracts.check_component("processing", cls, instance=...)` covers the
 generic part of the contract above -- `get_param_spec()` shape, `forward()` preserving or growing
 the receptor axis, and a `to_dict()`/`from_config()` round trip in which every `__init__` parameter
-(but `receptor_coords`) appears in `to_dict()`, at the top level or under `"params"` (F-049) -- the
+(but `receptor_coords`) appears in `to_dict()`, at the top level or under `"params"` -- the
 same way it does for every other component kind. It does **not** replace the sign-logic check in section 3: shape and
 round-trip checks pass on a layer with its ON/OFF planes silently swapped, so write that assertion
 yourself for any layer whose correctness depends on more than shape.

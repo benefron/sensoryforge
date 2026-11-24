@@ -17,7 +17,7 @@ There are two ways to ship a new stimulus — pick one before you start:
   directly into `sensoryforge/stimuli/`, `tests/`, `docs/`, and step 3
   below (manual registration in `register_components.py`) applies.
 
-Component names are matched **case-insensitively** (H1, F-046): `"Ring"` and
+Component names are matched **case-insensitively**: `"Ring"` and
 `"ring"` are the same registration, so you don't need to worry about
 exact-case collisions with a built-in stimulus's name — though a genuine
 collision (same name, different class) still raises.
@@ -49,7 +49,7 @@ Every stimulus must satisfy the `BaseStimulus` interface
 every `__init__` argument must be present in `to_dict()` (a name you list in
 `_TO_DICT_EXCLUDE_PARAMS` is the one exception), and
 `from_config(instance.to_dict()).to_dict()` must equal `instance.to_dict()`
-(F-049). Pass an `instance` built with non-default values: a default instance
+. Pass an `instance` built with non-default values: a default instance
 reaches the fixed point even when `from_config` ignores a key.
 
 Tensor shapes and units:
@@ -60,7 +60,7 @@ Tensor shapes and units:
   ramp/plateau/ramp envelope) **or** a whole sequence `[T, H, W]` (a
   stimulus with its own internal motion or dynamics, like `MovingStimulus`
   or the ported pressure-simulation stimuli in `sensoryforge/stimuli/
-  tactile.py`) — both are valid (Phase 2, Wave K, Fact K-c). Units are
+  tactile.py`) — both are valid. Units are
   **mA** (or dimensionless if used as a mask).
 
 ---
@@ -230,7 +230,7 @@ Run: `pytest tests/unit/test_ring_stimulus.py -v`
 
 ## 5. Use from the CLI
 
-Before Phase 2 Wave K (F-052), the CLI's canonical `run` path dispatched
+In earlier releases, the CLI's canonical `run` path dispatched
 stimulus types through a hard-coded chain in
 `GeneralizedTactileEncodingPipeline.generate_stimulus` that only knew nine
 names — a registered stimulus like `ring` was reachable through
@@ -309,7 +309,7 @@ print([s.name for s in specs])
 - [ ] Class inherits from `BaseStimulus`
 - [ ] `forward()` returns `[H, W]` tensor in mA, on same device as inputs
 - [ ] `reset_state()` implemented (noop if stateless)
-- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()` (H3)
+- [ ] `to_dict()` includes every `__init__` parameter and is a round-trip fixed point with `from_config()`
 - [ ] `get_param_spec()` provides UI-ready descriptors with units and ranges (required on every component, G1)
 - [ ] Registered — either via a plugin package's entry point, or in `register_all()` with a lowercase snake_case key (in-repo route)
 - [ ] Unit tests cover shape, physics, roundtrip, and `check_component("stimulus", cls)`

@@ -20,7 +20,7 @@ is executed by `tests/docs/test_docs_examples.py`.
 |---|---|
 | `__init__(..., device="cpu")` | Compute coordinates once, store them, and call `super().__init__(xlim, ylim, device)` with the bounding box they span. |
 | `get_all_coordinates()` | Return the stored `[M, 2]` tensor. No Python loops over receptors for anything that can be vectorised (a per-point relaxation pass, as `blue_noise` uses, is the one built-in exception). |
-| `to_dict()` / `from_config()` | Every constructor parameter must round-trip (`_assert_to_dict_roundtrip_complete`, F-045); `from_config(instance.to_dict())` must be a fixed point. |
+| `to_dict()` / `from_config()` | Every constructor parameter must round-trip (`_assert_to_dict_roundtrip_complete`); `from_config(instance.to_dict())` must be a fixed point. |
 | `get_param_spec()` | A `ParamSpec` per user-facing parameter, for the GUI. |
 
 Two things worth knowing about the built-ins, so you don't have to rediscover them:
@@ -32,7 +32,7 @@ Two things worth knowing about the built-ins, so you don't have to rediscover th
   either file -- it is a standalone `BaseGrid` subclass, as the worked example is.
 - A random arrangement should draw jitter from a **per-instance** `torch.Generator` seeded by a
   `seed` constructor parameter, not `torch.manual_seed` — building a grid must never read or
-  advance the global RNG (F-050). See `core/grid.py`'s `_seeded_generator`/`_randn_seeded`/
+  advance the global RNG. See `core/grid.py`'s `_seeded_generator`/`_randn_seeded`/
   `_rand_seeded` helpers.
 
 ---
@@ -127,7 +127,7 @@ check_component("grid", SpiralArrangement, SpiralArrangement(n_points=50))
 A registered arrangement is not, by itself, something `GridConfig` can select directly --
 `GridConfig.arrangement` only knows the five built-in names. To drive a `SimulationEngine`
 run with your arrangement's coordinates, build an instance, save its coordinates, and point
-`GridConfig.coords_file` at them (Phase 2, Wave L1):
+`GridConfig.coords_file` at them:
 
 ```python
 import tempfile
@@ -152,5 +152,5 @@ with tempfile.TemporaryDirectory() as tmp:
 ```
 
 `SimulationEngine` samples the stimulus at each of those 64 coordinates -- real receptor
-sampling, not a pixel-index assumption (Wave L3) -- so a raster stimulus at any resolution
+sampling, not a pixel-index assumption -- so a raster stimulus at any resolution
 drives the population correctly regardless of how the points were arranged.

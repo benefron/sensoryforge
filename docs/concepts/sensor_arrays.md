@@ -8,7 +8,7 @@ channels and/or named layers. This page covers the geometry side; see
 ## Why receptor index is not pixel index
 
 A stimulus frame is a raster: `[H, W]` values on a regular pixel lattice. A receptor array is,
-in general, a *scattered set of points* -- and before Phase 2 Wave L, `SimulationEngine` assumed
+in general, a *scattered set of points* -- and In earlier releases, `SimulationEngine` assumed
 the two were the same thing: receptor `k` got pixel `k` of the flattened frame. That is only
 true for a `"grid"` arrangement whose resolution matches the frame exactly.
 
@@ -27,9 +27,9 @@ that point in space.
 |---|---|---|
 | `"grid"` | Regular rectangular lattice, `rows` x `cols` at `spacing` mm | N/A (deterministic) |
 | `"hex"` | Hexagonally packed, density-derived from `rows`/`cols`/`spacing` (or `density`, below) | N/A (deterministic) |
-| `"jittered_grid"` | Regular lattice plus Gaussian jitter | Yes, via `GridConfig.seed` (F-050) |
-| `"blue_noise"` | Jitter + Lloyd-style relaxation (blue-noise-like spacing), density-derived from `rows`/`cols`/`spacing` (or `density`, below) | Yes, via `GridConfig.seed` (F-050) |
-| `"poisson"` | Jittered grid at a target density-derived from `rows`/`cols`/`spacing` (or `density`, below); an approximation, not true Poisson-disk sampling | Yes, via `GridConfig.seed` (F-050) |
+| `"jittered_grid"` | Regular lattice plus Gaussian jitter | Yes, via `GridConfig.seed` |
+| `"blue_noise"` | Jitter + Lloyd-style relaxation (blue-noise-like spacing), density-derived from `rows`/`cols`/`spacing` (or `density`, below) | Yes, via `GridConfig.seed` |
+| `"poisson"` | Jittered grid at a target density-derived from `rows`/`cols`/`spacing` (or `density`, below); an approximation, not true Poisson-disk sampling | Yes, via `GridConfig.seed` |
 
 The registered arrangements and their parameters are listed in the generated
 [Component Reference](../reference/components.md#grid). All five are registered grid-arrangement classes (`core/grid_arrangements.py`) discoverable via
@@ -41,14 +41,14 @@ The registered arrangements and their parameters are listed in the generated
 `rows`/`cols`/`spacing` always set a grid's spatial extent (`(rows - 1) * spacing` by
 `(cols - 1) * spacing`, centred at `center_x`/`center_y`). For `"poisson"`, `"hex"` and
 `"blue_noise"`, `GridConfig.density` (receptors/mm²) additionally sets the receptor *count*
-within that extent, overriding the count `rows`/`cols` would otherwise imply (D-88b4b41): a
+within that extent, overriding the count `rows`/`cols` would otherwise imply: a
 `density` ten times larger gives about ten times the receptors, for the same `rows`/`cols`/
 `spacing`. Leaving `density` unset (the default) derives the count from `rows` x `cols` instead,
-exactly as before D-88b4b41.
+exactly as before.
 
 Setting `density` on `"grid"` or `"jittered_grid"` is a `ValueError` -- `spacing` already fixes
 the receptor count for those two arrangements, so a `density` value would have nowhere to act
-(closes F-081, which found that `density` was accepted and round-tripped but silently ignored by
+(closes, which found that `density` was accepted and round-tripped but silently ignored by
 every arrangement). It is likewise a `ValueError` for `density <= 0`.
 
 ```yaml
@@ -63,7 +63,7 @@ grids:
 
 ## Imported coordinates
 
-`GridConfig.coords_file` (Phase 2, Wave L1) points at an `[M, 2]` CSV (`x,y`, optional header) or
+`GridConfig.coords_file` points at an `[M, 2]` CSV (`x,y`, optional header) or
 `.pt` file of receptor coordinates in mm, instead of `rows`/`cols`/`spacing`/`arrangement`. The
 engine wraps the file's coordinates as a single-layer `CompositeReceptorGrid`, whose bounds are
 the coordinates' own bounding box. This is the path a hand-digitised layout, a fabrication file,
@@ -74,7 +74,7 @@ and imports it this way.
 
 ## Composite grids
 
-`GridConfig(arrangement="composite", layers=[...])` (Phase 2, Wave L4) builds a
+`GridConfig(arrangement="composite", layers=[...])` builds a
 `CompositeReceptorGrid` from an ordered list of layer specs. Each entry needs a `name` and
 exactly one of:
 
@@ -112,9 +112,9 @@ depends on layer B's density, arrangement, or receptor count -- changing B rebui
 
 ## Channels
 
-See [Units and Shapes](units_and_shapes.md#the-channel-axis-phase-2-wave-l) for the tensor-level
+See [Units and Shapes](units_and_shapes.md#the-channel-axis) for the tensor-level
 rule. Geometrically, `GridConfig.channels` just names the sensor planes an array carries (for
 example `["pressure", "temperature"]` on one physical patch); the receptor *coordinates* are
-shared across channels -- a channel is a value at each point, not a different point set. Wave L
-carries the axis through configuration and stimulus composition; which channel(s) a population
-reads is a Wave M concern (multi-input populations).
+shared across channels -- a channel is a value at each point, not a different point set. The channel axis
+is carried through configuration and stimulus composition; which channel(s) a population
+reads belongs to multi-input populations.

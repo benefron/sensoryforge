@@ -63,3 +63,31 @@ def test_every_docs_path_named_in_the_repo_exists():
     assert not missing, "docs paths that do not exist:\n" + "\n".join(
         sorted(set(missing))
     )
+
+
+# A public page carries no ledger id, roadmap label or internal path (Df2). The one
+# exception is the page that lists the design decisions with their ids.
+LABEL = re.compile(
+    r"\b[FDCRA]-(?:[0-9a-f]{7}|\d{2,3}|Q\d)\b|\bWave [A-Z]\d?\b|\bPhase \d|docs_root"
+)
+PUBLIC_EXCEPTIONS = {"docs/agents/decisions.md"}
+
+
+def test_no_public_page_carries_a_ledger_id_or_roadmap_label():
+    found = []
+    for path in sorted((ROOT / "docs").rglob("*.md")):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel.startswith("docs/development/") or rel in PUBLIC_EXCEPTIONS:
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            m = LABEL.search(line)
+            if m:
+                found.append(f"{rel}:{n}: {m.group(0)}")
+    assert not found, "\n".join(found)
+
+
+def test_the_preset_descriptions_carry_no_ledger_id_or_roadmap_label():
+    from sensoryforge.presets import preset_description, list_presets
+
+    for name in list_presets():
+        assert not LABEL.search(preset_description(name)), name

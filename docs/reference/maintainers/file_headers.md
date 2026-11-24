@@ -30,7 +30,7 @@ continues the tag above it. The tag block goes after the prose and the docstring
 | `Topic:` | yes | One or more topics from the table below | each is in the list |
 | `Tests:` | yes | The tests that pin this module (paths from the repository root) | each path exists |
 | `Entry points:` | yes | The names an agent searches for: classes, functions, constants, and `Class.method` | each is defined in the module |
-| `Pinned by:` | where one applies | A contract page, a path-scoped rule, a golden fixture, or a ledger id (`F-053`, `D-0437899`) that fixes how this module behaves | each is an existing path or a ledger id |
+| `Pinned by:` | where one applies | A contract page, a path-scoped rule, a golden fixture, or a ledger id  that fixes how this module behaves | each is an existing path or a ledger id |
 | `Do not change without:` | where one applies | One sentence: what must still hold, or what must change with it | not checked, so write only what you know is true |
 | `Shapes:` | for tensor code | Tensor shapes in and out, batch first | not checked |
 | `Units:` | for tensor code | Physical units | not checked |

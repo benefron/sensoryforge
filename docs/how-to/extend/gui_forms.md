@@ -39,5 +39,5 @@ A new **preview** (the plots beside a form) or a new **screen** is an in-repo ch
 screens are listed in `sensoryforge/gui/screens/__init__.py::SCREEN_FACTORIES` and
 previews are built in each screen. Draw plots through
 `sensoryforge.gui.widgets.plot_factory` and connect pyqtgraph signals only through
-`plot_factory.connect` (see the ledger's F-035), and build each plot once for the
+`plot_factory.connect` (see the ledger's), and build each plot once for the
 lifetime of its screen rather than discarding and rebuilding it.

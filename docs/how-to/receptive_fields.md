@@ -1,7 +1,7 @@
 # Receptive Fields
 
 A population's receptive fields are the weights that map receptor responses onto its
-neurons. Since Phase 2 they are one component: a **`ReceptiveFieldBank`** built by a
+neurons. Now they are one component: a **`ReceptiveFieldBank`** built by a
 registered **builder**. The engine, the CLI, the batch runner and the GUI all build banks
 through the same path, so a config exported from the GUI produces the same weights when
 run from the command line.
@@ -95,7 +95,7 @@ configuration, the seed and the SensoryForge version.
 sources:
 
 1. **A CSV folder** exported by the GUI: `manifest.json`, `neuron_positions.csv`
-   (`x_mm,y_mm`), `innervation_weights.csv` (N rows × M columns) and, since Phase 2,
+   (`x_mm,y_mm`), `innervation_weights.csv` (N rows × M columns) and, now,
    `bank.pt`.
 2. **A `.pt` file**: a bank saved with `ReceptiveFieldBank.save`, or a
    pressure-simulation population file (`innervation_weights` of shape `[N, H, W]` or
@@ -154,4 +154,4 @@ neuron drive. `SimulationEngine` stores each population's bank under
 `engine.populations[i]["bank"]`.
 
 The older `InnervationModule` and `FlatInnervationModule` classes still work but emit a
-`DeprecationWarning`; they build a bank internally and will be removed in Phase 4.
+`DeprecationWarning`; they build a bank internally and will be removed in a later release.

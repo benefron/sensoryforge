@@ -301,8 +301,7 @@ stimuli:
       center_y: 0.0
 ```
 
-### Texture Stimuli - Phase 2
-
+### Texture Stimuli
 #### Gabor Pattern
 
 Localized sinusoidal grating:
@@ -335,8 +334,7 @@ stimuli:
       amplitude: 1.0
 ```
 
-### Moving Stimuli - Phase 2
-
+### Moving Stimuli
 #### Linear Motion
 
 Stimulus moving along a straight path:
@@ -384,7 +382,7 @@ filters:
   sa_tau_r: 5.0    # Rise time constant (ms)
   sa_tau_d: 30.0   # Decay time constant (ms)
   sa_k1: 0.05      # Gain parameter 1
-  sa_k2: 8.0       # Gain on the rate of change (D-f4d0967)
+  sa_k2: 8.0       # Gain on the rate of change
   
   # RA filter (rapidly adapting)
   ra_tau_ra: 8.0  # RA time constant (ms)
@@ -421,8 +419,7 @@ neuron_params:
   ra_d: 8.0
 ```
 
-### DSL Neurons (Equation-Based) - Phase 2
-
+### DSL Neurons (Equation-Based)
 Define neuron models using mathematical equations:
 
 ```yaml
@@ -468,8 +465,7 @@ solver:
     dt: 0.001  # Time step in seconds
 ```
 
-### Adaptive Solver - Phase 2
-
+### Adaptive Solver
 Adaptive stepping with error control:
 
 ```yaml
@@ -551,7 +547,7 @@ Comprehensive configuration using all features:
 
 ```yaml
 metadata:
-  name: "Phase 2 Feature Showcase"
+  name: "Feature Showcase"
   version: "0.2"
 
 pipeline:

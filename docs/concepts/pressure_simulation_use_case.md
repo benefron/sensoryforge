@@ -11,9 +11,9 @@ receptive-field design so the two repositories' results are comparable.
 This page is the spine end to end: what pressure-simulation supplies, what
 SensoryForge supplies, and how the two meet at the bundle. It ties together three
 things documented elsewhere in more depth:
-[Receptive Fields](../how-to/receptive_fields.md) (Phase 2, Wave I),
-[Data Bundles](../reference/bundles.md) (Phase 2, Wave J), and
-[Presets](../how-to/presets.md) (Phase 2, Wave K).
+[Receptive Fields](../how-to/receptive_fields.md),
+[Data Bundles](../reference/bundles.md), and
+[Presets](../how-to/presets.md).
 
 ## What pressure-simulation supplies
 
@@ -44,21 +44,21 @@ model:
    `torch.meshgrid(x, y, indexing="ij")`, so frame element `[i, j]` is at
    `(x[i], y[j])` in both — there is no axis transpose to undo when comparing them.
 2. **Receptive fields** — the `template` builder (`sensoryforge/core/rf_builders/
-   template.py`, D-020) derives `sigma = d / pi`, `pitch = d`, and a neuron count
+   template.py`) derives `sigma = d / pi`, `pitch = d`, and a neuron count
    from `d` alone: at `d = 0.40 mm` on this 80×80/0.15 mm grid, that is
    `sigma ≈ 0.1273 mm` and **900 neurons** per population (a 30×30 lattice at 0.40 mm
    pitch). See [Receptive Fields](../how-to/receptive_fields.md) for the full
-   `d → sigma, pitch, N` chain and the designed-versus-stochastic distinction (D-019).
+   `d → sigma, pitch, N` chain and the designed-versus-stochastic distinction.
 3. **Filters and neurons** — an SA population (`sa` filter, regular-spiking
    Izhikevich preset) and an RA population (`ra` filter, fast-spiking preset,
-   `k3 = 2.0`, D-Q1), both resolver-owned defaults (`sensoryforge/config/
+   `k3 = 2.0`), both resolver-owned defaults (`sensoryforge/config/
    defaults.py`) so the GUI, CLI and this recipe agree.
 4. **The stimulus ensemble** — `sensoryforge/stimuli/tactile.py`'s four classes are
    transcriptions (not reimplementations) of pressure-simulation's own stimulus
    generators, checked bit-for-bit against a fixture exported directly from that
    repository (`tests/integration/test_stimulus_parity.py`,
    `scripts/regenerate_stimulus_golden.py`).
-5. **The bundle** — `SimulationEngine.run(..., bundle_dir=...)` writes a Wave J
+5. **The bundle** — `SimulationEngine.run(..., bundle_dir=...)` writes a
    bundle pressure-simulation's own viewer logic can open (a superset of its
    `1.0.0` "mechanoreceptor bundle" format). See [Data Bundles](../reference/bundles.md).
 
@@ -87,7 +87,7 @@ written bundle's `config.json` describe the same run.
 ## What is deliberately out of scope here
 
 - **Real receptor sampling for non-grid arrangements** (hex, Poisson, jittered,
-  blue-noise) and **composite grids in the engine** are Wave L, not this recipe —
+  blue-noise) and **composite grids in the engine** come later, not in this recipe —
   the pressure-simulation recipe uses a plain regular grid throughout.
 - **Mutual-information scoring, decoding, and the Kalman-filter readout** live in
   pressure-simulation itself; SensoryForge's contribution ends at the bundle.

@@ -3,7 +3,7 @@
 ## Overview
 
 A population's neuron model normally produces spikes: `[batch, time, num_neurons]` boolean
-events, reduced (Phase 2, F-008) to a sub-step spike **count** per record bin. Some models have no
+events, reduced to a sub-step spike **count** per record bin. Some models have no
 spike condition at all — a leaky integrator meant to be read out as a continuous membrane
 trajectory rather than a discrete event train. SensoryForge supports this as an **analog readout**:
 the same pipeline (innervation → filter → gain → noise → neuron), but the last stage returns a
