@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-c781195 · CLOSED · finding · - · 2026-11-24
+first_simulation.md raised ValueError (per-row counts, batch axis treated as time)
+→ commit 98a3e93
+
 ## D-0bb20ba · CLOSED · decision · - · 2026-11-24
 the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents
 → commit 308de0b
@@ -189,6 +193,7 @@ the docs-site restructure (four-kind layout, file moves with redirects, removal 
 → commit e2f6039
 ↔ 0ca32b3 docs: R-D review of phase D, and its small fixes
 ↔ 308de0b docs: restructure the site into tutorials, how-to, concepts and reference (Df1)
+↔ 98a3e93 docs: one first-simulation tutorial that runs, and no ledger ids on public pages (Df2)
 
 ## F-146f748 · CLOSED · finding · - · 2026-11-18
 the filter scaffold kept state across forward calls and failed the report's determinism check
