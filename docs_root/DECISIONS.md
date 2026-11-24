@@ -1154,4 +1154,5 @@ Do not hand-edit between the markers.
 | 2026-11-19 | D-fcf9f18 | the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6 | `f459ad2` |
 | 2026-11-24 | D-1cbafaf | phase D is not merged at R-D; the approved restructure (Df1) and the review's remaining fixes (Df2) come first, and the merge, push and site deploy happen at the end of Df2 | `0ca32b3` |
 | 2026-11-24 | D-0bb20ba | the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents | `308de0b` |
+| 2026-11-24 | D-fb17e20 | phase D is merged to main after the R-D review, Df1 and Df2 and a green full suite (4389 passed) | `ce6a4a5` |
 <!-- DECISIONS_LOG_END -->
