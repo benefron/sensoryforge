@@ -2,7 +2,7 @@
 # install, prove it was found). The skill's job is a package that is installed in the
 # environment SensoryForge runs in and listed by SensoryForge, with the version and the
 # release it needs agreed with the user, and nothing uploaded. Format: harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-plugin-lifecycle
 
 files:

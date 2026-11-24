@@ -19,7 +19,7 @@
 # summing or concatenating.
 #
 # See docs/concepts/populations_and_inputs.md and
-# docs/extending/add_processing_layer.md.
+# docs/how-to/extend/add_processing_layer.md.
 #
 # Usage:
 #   python examples/vision_rgb_onoff.py

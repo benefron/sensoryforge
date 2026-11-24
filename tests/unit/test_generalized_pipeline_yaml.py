@@ -56,7 +56,7 @@ neurons:
         config_path.write_text(minimal_yaml_config)
 
         # This is the documented API (from docs/index.md and
-        # docs/user_guide/gui_phase2_access.md)
+        # docs/reference/api_pipeline.md)
         pipeline = GeneralizedTactileEncodingPipeline.from_yaml(str(config_path))
 
         # Pipeline should be initialized and callable

@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-run-simulation (roadmap B9b). A run writes one bundle per entry;
 # the setups here build tiny data sets (4 entries, 80 ms) so each run takes seconds. The
-# format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-run-simulation
 
 files:

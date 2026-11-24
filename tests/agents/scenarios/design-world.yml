@@ -1,5 +1,5 @@
 # Scenarios for sensoryforge-design-world (roadmap B9a). The format is in harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-design-world
 
 files:

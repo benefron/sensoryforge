@@ -1,7 +1,7 @@
 """Worked example: define, register and simulate a receptive-field builder (I8).
 
 The smallest complete example of the extension path described in
-``docs/developer_guide/add_rf_builder.md``:
+``docs/how-to/extend/add_rf_builder.md``:
 
 1. Define a builder inheriting :class:`~sensoryforge.core.innervation.BaseInnervation`.
 2. Implement ``compute_weights()``, ``to_dict()`` and ``get_param_spec()``.

@@ -52,8 +52,9 @@ that fails stops the rest, they are recorded as skipped and the finished stages 
 ## 3. Read the report back
 
 Run the summary script from the worked example below, or read the files yourself. They are
-all in `runs/NAME/evaluate/`; the report contract at
-https://benefron.github.io/sensoryforge/reference/report_contract/ defines each field.
+all in `runs/NAME/evaluate/`; the report contract defines each field
+(`../sensoryforge-report-contract.md` beside this skill's folder, else
+https://benefron.github.io/sensoryforge/reference/report_contract/).
 Say, in this order:
 
 1. **Did it finish?** `pipeline.json`: status, the error if any, the counts (entries,

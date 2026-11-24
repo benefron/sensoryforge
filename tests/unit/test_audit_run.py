@@ -302,7 +302,7 @@ def test_the_command_line_reports_errors_with_status_2(tmp_path):
 
 
 def test_the_pack_example_in_the_docs_runs(toy_dataset, tmp_path):
-    text = (REPO / "docs" / "developer_guide" / "audit_metrics.md").read_text()
+    text = (REPO / "docs" / "reference" / "evaluate" / "audit_metrics.md").read_text()
     code = text.split("```python")[2].split("```")[0]
     namespace: dict = {}
     exec(compile(code, "audit_metrics.md", "exec"), namespace)  # noqa: S102

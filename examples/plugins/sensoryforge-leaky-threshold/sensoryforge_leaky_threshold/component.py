@@ -1,7 +1,7 @@
 """LeakyThresholdNeuronTorch: a new spiking neuron model.
 
 Implements the ``BaseNeuron`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_neuron/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_neuron/
 """
 
 from __future__ import annotations

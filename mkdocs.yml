@@ -12,10 +12,13 @@ edit_uri: edit/main/docs/
 # (F-029: the reviews move under docs/ added mkdocs build warnings from
 # their relative code links, which --strict would fail on).
 exclude_docs: |
+  development/agent_runs/
   development/reviews/
   development/handover/
   development/specs/
   development/plans/
+  development/roadmap_v1.md
+  development/EQUATION_DSL_IMPLEMENTATION.md
 
 theme:
   name: material
@@ -54,6 +57,74 @@ theme:
 
 plugins:
   - search
+  - redirects:
+      redirect_maps:
+        EQUATION_DSL_IMPLEMENTATION.md: how-to/equation_dsl.md
+        api_reference/neurons.md: reference/api_neurons.md
+        api_reference/pipeline.md: reference/api_pipeline.md
+        developer_guide/add_filter.md: how-to/extend/add_filter.md
+        developer_guide/add_neuron.md: how-to/extend/add_neuron.md
+        developer_guide/add_rf_builder.md: how-to/extend/add_rf_builder.md
+        developer_guide/add_stimulus.md: how-to/extend/add_stimulus.md
+        developer_guide/agent_files.md: reference/maintainers/agent_files.md
+        developer_guide/agent_scenarios.md: reference/maintainers/agent_scenarios.md
+        developer_guide/architecture_notes.md: concepts/architecture_notes.md
+        developer_guide/audit_metrics.md: reference/evaluate/audit_metrics.md
+        developer_guide/audit_reader.md: reference/evaluate/audit_reader.md
+        developer_guide/checks_stage.md: reference/evaluate/checks_stage.md
+        developer_guide/compare_stage.md: reference/evaluate/compare_stage.md
+        developer_guide/declared_adapter.md: reference/evaluate/declared_adapter.md
+        developer_guide/diff_stage.md: reference/evaluate/diff_stage.md
+        developer_guide/evaluation_server.md: reference/evaluate/evaluation_server.md
+        developer_guide/extensibility.md: how-to/extend/extensibility.md
+        developer_guide/file_headers.md: reference/maintainers/file_headers.md
+        developer_guide/pipeline_stage.md: reference/evaluate/pipeline_stage.md
+        developer_guide/plugins.md: how-to/extend/plugins.md
+        developer_guide/reference_plugins.md: how-to/extend/reference_plugins.md
+        developer_guide/release_checklist.md: reference/maintainers/release_checklist.md
+        developer_guide/roadmap_v1.md: index.md
+        developer_guide/toy_vision_fixture.md: reference/toy_vision_fixture.md
+        extending/add_grid_arrangement.md: how-to/extend/add_grid_arrangement.md
+        extending/add_processing_layer.md: how-to/extend/add_processing_layer.md
+        extending/add_solver.md: how-to/extend/add_solver.md
+        extending/gui_forms.md: how-to/extend/gui_forms.md
+        getting_started/concepts.md: concepts/core_concepts.md
+        getting_started/first_simulation.md: tutorials/first_simulation.md
+        getting_started/installation.md: tutorials/installation.md
+        getting_started/quickstart.md: tutorials/quickstart.md
+        getting_started/quickstart_cli.md: tutorials/quickstart_cli.md
+        getting_started/quickstart_extend.md: tutorials/quickstart_extend.md
+        getting_started/quickstart_gui.md: tutorials/quickstart_gui.md
+        getting_started/quickstart_world.md: tutorials/quickstart_world.md
+        tutorials/quickstart_tutorial.md: tutorials/first_simulation.md
+        tutorials/custom_pipeline.md: tutorials/batch_processing_tutorial.md
+        tutorials/parameter_sweeps.md: tutorials/batch_processing_tutorial.md
+        user_guide/agent_design_loop.md: agents/design_loop.md
+        user_guide/agent_export.md: agents/export.md
+        user_guide/agent_setup.md: agents/setup.md
+        user_guide/agent_skills.md: agents/skills.md
+        user_guide/analog_readouts.md: how-to/analog_readouts.md
+        user_guide/batch_processing.md: how-to/batch_processing.md
+        user_guide/bundles.md: reference/bundles.md
+        user_guide/cli.md: reference/cli.md
+        user_guide/composite_grid.md: how-to/composite_grid.md
+        user_guide/configuration_schema.md: reference/configuration_schema.md
+        user_guide/describe.md: reference/describe.md
+        user_guide/designing_stimuli.md: how-to/designing_stimuli.md
+        user_guide/equation_dsl.md: how-to/equation_dsl.md
+        user_guide/evaluate_pipeline.md: how-to/evaluate/evaluate_pipeline.md
+        user_guide/evaluation_browser.md: how-to/evaluate/evaluation_browser.md
+        user_guide/evaluation_export.md: how-to/evaluate/evaluation_export.md
+        user_guide/event_encoders.md: how-to/event_encoders.md
+        user_guide/extended_stimuli.md: how-to/extended_stimuli.md
+        user_guide/gui_walkthrough.md: how-to/gui_walkthrough.md
+        user_guide/overview.md: index.md
+        user_guide/presets.md: how-to/presets.md
+        user_guide/receptive_fields.md: how-to/receptive_fields.md
+        user_guide/solvers.md: how-to/solvers.md
+        user_guide/units_and_gains.md: how-to/units_and_gains.md
+        user_guide/worlds.md: how-to/worlds.md
+        user_guide/yaml_configuration.md: how-to/yaml_configuration.md
   - mkdocstrings:
       handlers:
         python:
@@ -91,100 +162,107 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  
-  - Getting Started:
-    - Installation: getting_started/installation.md
-    - Quick Start: getting_started/quickstart.md
-    - Core Concepts: getting_started/concepts.md
-    - First Simulation: getting_started/first_simulation.md
-    
+
   - Tutorials:
-    - Interactive Quickstart: tutorials/quickstart_tutorial.md
+    - Installation: tutorials/installation.md
+    - Quick Starts:
+      - Overview: tutorials/quickstart.md
+      - Extend SensoryForge: tutorials/quickstart_extend.md
+      - Command Line: tutorials/quickstart_cli.md
+      - The GUI: tutorials/quickstart_gui.md
+      - World to Report: tutorials/quickstart_world.md
+    - First Simulation: tutorials/first_simulation.md
     - Batch Processing: tutorials/batch_processing_tutorial.md
     - Custom Neuron Models: tutorials/custom_neurons.md
-    - Building a Custom Pipeline: tutorials/custom_pipeline.md
-    - Parameter Sweeps: tutorials/parameter_sweeps.md
 
-  - Concepts:
-    - Units and Shapes: concepts/units_and_shapes.md
-    - Sensor Arrays: concepts/sensor_arrays.md
-    - Populations and Inputs: concepts/populations_and_inputs.md
-    - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
-    - One Experiment, One Config: concepts/the_pipeline.md
-
-  - User Guide:
-    - Overview: user_guide/overview.md
-    - CLI Reference: user_guide/cli.md
-    - Describing SensoryForge to a Program: user_guide/describe.md
-    - YAML Configuration: user_guide/yaml_configuration.md
-    - Configuration Schema: user_guide/configuration_schema.md
-    - GUI Walkthrough: user_guide/gui_walkthrough.md
-    - Units and Gains: user_guide/units_and_gains.md
-    - Composite Grid: user_guide/composite_grid.md
-    - Receptive Fields: user_guide/receptive_fields.md
-    - Data Bundles: user_guide/bundles.md
-    - Equation DSL: user_guide/equation_dsl.md
-    - Analog Readouts: user_guide/analog_readouts.md
-    - Event Encoders: user_guide/event_encoders.md
-    - Designing Stimuli: user_guide/designing_stimuli.md
-    - Worlds and Data Sets: user_guide/worlds.md
-    - Extended Stimuli: user_guide/extended_stimuli.md
-    - Presets: user_guide/presets.md
-    - Solvers: user_guide/solvers.md
-    - Batch Processing: user_guide/batch_processing.md
-    - Evaluating a World: user_guide/evaluate_pipeline.md
-    - Evaluation Browser: user_guide/evaluation_browser.md
-    - Sharing a Snapshot: user_guide/evaluation_export.md
+  - How-to Guides:
+    - Run and Configure:
+      - YAML Configuration: how-to/yaml_configuration.md
+      - Presets: how-to/presets.md
+      - GUI Walkthrough: how-to/gui_walkthrough.md
+      - Batch Processing: how-to/batch_processing.md
+    - Design the Experiment:
+      - Composite Grid: how-to/composite_grid.md
+      - Receptive Fields: how-to/receptive_fields.md
+      - Designing Stimuli: how-to/designing_stimuli.md
+      - Extended Stimuli: how-to/extended_stimuli.md
+      - Worlds and Data Sets: how-to/worlds.md
+      - Units and Gains: how-to/units_and_gains.md
+      - Solvers: how-to/solvers.md
+      - Event Encoders: how-to/event_encoders.md
+      - Analog Readouts: how-to/analog_readouts.md
+      - Equation DSL: how-to/equation_dsl.md
+    - Evaluate:
+      - Evaluating a World: how-to/evaluate/evaluate_pipeline.md
+      - Evaluation Browser: how-to/evaluate/evaluation_browser.md
+      - Sharing a Snapshot: how-to/evaluate/evaluation_export.md
+    - Extend:
+      - Extensibility Overview: how-to/extend/extensibility.md
+      - Adding a Neuron: how-to/extend/add_neuron.md
+      - Adding a Filter: how-to/extend/add_filter.md
+      - Adding a Stimulus: how-to/extend/add_stimulus.md
+      - Adding a Receptive-Field Builder: how-to/extend/add_rf_builder.md
+      - Adding a Grid Arrangement: how-to/extend/add_grid_arrangement.md
+      - Adding a Processing Layer: how-to/extend/add_processing_layer.md
+      - GUI Forms for a Component: how-to/extend/gui_forms.md
+      - Adding a Solver: how-to/extend/add_solver.md
+      - Plugin Packages: how-to/extend/plugins.md
+      - Reference Plugins: how-to/extend/reference_plugins.md
 
   - Agentic Workflow:
     - Overview and Five-minute Start: agents/index.md
-    - Setup: user_guide/agent_setup.md
-    - Skills: user_guide/agent_skills.md
+    - Setup: agents/setup.md
+    - Skills: agents/skills.md
     - Skills Reference: agents/skills_reference.md
     - Rules for Agents: agents/rules.md
-    - Designing a World by Describing It: user_guide/agent_design_loop.md
-    - Using the Skills in Another Agent: user_guide/agent_export.md
+    - Designing a World by Describing It: agents/design_loop.md
+    - Using the Skills in Another Agent: agents/export.md
     - Glossary: agents/glossary.md
     - Task Index: agents/task_index.md
     - Design Decisions: agents/decisions.md
     - Extending It: agents/extending.md
 
-  - Developer Guide:
-    - Architecture Notes: developer_guide/architecture_notes.md
-    - Extensibility Overview: developer_guide/extensibility.md
-    - Adding a Neuron: developer_guide/add_neuron.md
-    - Adding a Filter: developer_guide/add_filter.md
-    - Adding a Stimulus: developer_guide/add_stimulus.md
-    - Adding a Receptive-Field Builder: developer_guide/add_rf_builder.md
-    - Adding a Grid Arrangement: extending/add_grid_arrangement.md
-    - Adding a Processing Layer: extending/add_processing_layer.md
-    - GUI Forms for a Component: extending/gui_forms.md
-    - Adding a Solver: extending/add_solver.md
-    - Plugin Packages: developer_guide/plugins.md
-    - Reference Plugins: developer_guide/reference_plugins.md
-    - Toy Vision Fixture: developer_guide/toy_vision_fixture.md
-    - Audit Reader: developer_guide/audit_reader.md
-    - Audit Metrics: developer_guide/audit_metrics.md
-    - Declared Adapter: developer_guide/declared_adapter.md
-    - Raw Comparison: developer_guide/compare_stage.md
-    - Reference-free Checks: developer_guide/checks_stage.md
-    - Run-to-run Diff: developer_guide/diff_stage.md
-    - Evaluation Pipeline: developer_guide/pipeline_stage.md
-    - Evaluation Server: developer_guide/evaluation_server.md
-    - Agent Files: developer_guide/agent_files.md
-    - Agent Scenarios: developer_guide/agent_scenarios.md
-    - File Headers: developer_guide/file_headers.md
-    - Release Checklist: developer_guide/release_checklist.md
-    - Equation DSL Implementation: EQUATION_DSL_IMPLEMENTATION.md
-    - Roadmap: developer_guide/roadmap_v1.md
+  - Concepts:
+    - Core Concepts: concepts/core_concepts.md
+    - Units and Shapes: concepts/units_and_shapes.md
+    - Sensor Arrays: concepts/sensor_arrays.md
+    - Populations and Inputs: concepts/populations_and_inputs.md
+    - One Experiment, One Config: concepts/the_pipeline.md
+    - Pressure-Simulation Use Case: concepts/pressure_simulation_use_case.md
+    - Architecture Notes: concepts/architecture_notes.md
 
-  - API Reference:
-    - Pipeline: api_reference/pipeline.md
-    - Neurons: api_reference/neurons.md
+  - Reference:
+    - CLI Reference: reference/cli.md
+    - Describing SensoryForge to a Program: reference/describe.md
+    - Configuration Schema: reference/configuration_schema.md
+    - Data Bundles: reference/bundles.md
+    - Component Reference: reference/components.md
+    - World Language Reference: reference/world_language.md
+    - Evaluation Packs Reference: reference/evaluation.md
+    - Recipe Reference: reference/recipes.md
+    - File Format Tags: reference/formats.md
     - Benchmarks: reference/benchmarks.md
-    - World Engine Contract: reference/world_contract.md
-    - Event Converter Contract: reference/converter_contract.md
-    - Evaluation Report Contract: reference/report_contract.md
+    - Pipeline API: reference/api_pipeline.md
+    - Neurons API: reference/api_neurons.md
+    - Contracts:
+      - World Engine Contract: reference/world_contract.md
+      - Event Converter Contract: reference/converter_contract.md
+      - Evaluation Report Contract: reference/report_contract.md
+    - Evaluation Internals:
+      - Toy Vision Fixture: reference/toy_vision_fixture.md
+      - Audit Reader: reference/evaluate/audit_reader.md
+      - Audit Metrics: reference/evaluate/audit_metrics.md
+      - Declared Adapter: reference/evaluate/declared_adapter.md
+      - Raw Comparison: reference/evaluate/compare_stage.md
+      - Reference-free Checks: reference/evaluate/checks_stage.md
+      - Run-to-run Diff: reference/evaluate/diff_stage.md
+      - Evaluation Pipeline: reference/evaluate/pipeline_stage.md
+      - Evaluation Server: reference/evaluate/evaluation_server.md
+    - Maintainers:
+      - Agent Files: reference/maintainers/agent_files.md
+      - Agent Scenarios: reference/maintainers/agent_scenarios.md
+      - File Headers: reference/maintainers/file_headers.md
+      - Release Checklist: reference/maintainers/release_checklist.md
 
   - Contributing: contributing.md
 
@@ -192,3 +270,11 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/benefron/sensoryforge
+
+# Broken links and anchors inside the site fail the strict build (the link check for the site's
+# own pages); `scripts/check_docs_links.py` checks the external ones.
+validation:
+  omitted_files: info
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

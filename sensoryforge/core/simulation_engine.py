@@ -23,7 +23,7 @@ Tests: tests/integration/test_gui_engine_equality.py,
     tests/unit/test_simulation_engine_features.py, tests/unit/test_engine_rf_banks.py
 Entry points: SimulationEngine, SimulationEngine.run, build_filter, build_neuron,
     build_grid
-Pinned by: .claude/rules/engine-parity.md, docs/developer_guide/architecture_notes.md,
+Pinned by: .claude/rules/engine-parity.md, docs/concepts/architecture_notes.md,
     F-026
 Do not change without: the GUI == engine == CLI equality test and pressure-simulation's
     parity (same config and seed, same spikes) still pass; defaults come from

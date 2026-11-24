@@ -1,7 +1,7 @@
 # The proof that the setup works (roadmap C6): a plain-language description becomes an
 # installed plugin, goes through the evaluation report on a world, and the user is told
 # what the report says. The agent has only the installed package and the skills. Format:
-# harness.py and docs/developer_guide/agent_scenarios.md.
+# harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-workflow
 
 files:

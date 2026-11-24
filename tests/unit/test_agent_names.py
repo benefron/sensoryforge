@@ -23,7 +23,6 @@ FILES = sorted(
     ]
     + [AGENTS / "section.md", AGENTS / "skills" / "sensoryforge-glossary.md"]
     + [REPO / "AGENTS.md", *sorted((REPO / "docs" / "agents").glob("*.md"))]
-    + sorted((REPO / "docs" / "user_guide").glob("agent_*.md"))
 )
 
 

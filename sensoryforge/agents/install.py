@@ -35,12 +35,15 @@ Topic: agents
 Tests: tests/unit/test_agent_skills.py, tests/unit/test_agent_export.py
 Entry points: install, check, instructions, detect_targets, register_target,
     packaged_skills, packaged_references, packaged_glossary, packaged_prompt,
-    packaged_section, glossary_path, EXPORT_TARGETS, Target, SKILLS_RELPATH,
-    GLOSSARY_NAME, REFERENCE_NAME
-Pinned by: docs/developer_guide/agent_files.md, docs/user_guide/agent_export.md
+    packaged_section, glossary_path, packaged_report_contract,
+    report_contract_from_page, EXPORT_TARGETS, Target, SKILLS_RELPATH, GLOSSARY_NAME,
+    REFERENCE_NAME, REPORT_CONTRACT_NAME
+Pinned by: docs/reference/maintainers/agent_files.md, docs/agents/export.md
 Do not change without: the glossary sits beside the skill folders in the package and
     in every target, so a link from a skill to ``../sensoryforge-glossary.md`` works in
-    all of them; export writes only SensoryForge's own files and never edits the user's;
+    all of them, and so does the report contract
+    (``../sensoryforge-report-contract.md``, the docs page with its links pointed at
+    the site); export writes only SensoryForge's own files and never edits the user's;
     the one place it edits a file the user owns is the marked section, only with
     ``--write``; a target's folders are checked against its tool's own documentation,
     with the date.
@@ -56,6 +59,12 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 GLOSSARY_NAME = "sensoryforge-glossary.md"
 """The glossary's file name, beside the skill folders (package and project)."""
+
+REPORT_CONTRACT_NAME = "sensoryforge-report-contract.md"
+"""The report contract's file name, beside the glossary (package and project)."""
+
+SITE = "https://benefron.github.io/sensoryforge"
+"""Where the published docs live."""
 
 REFERENCE_NAME = "reference.md"
 """A skill's reference file, beside its ``SKILL.md`` (a skill may have one)."""
@@ -228,6 +237,45 @@ def packaged_glossary() -> Path:
     return _PACKAGED / GLOSSARY_NAME
 
 
+def packaged_report_contract() -> Path:
+    """The report contract that ships with this release.
+
+    It is ``docs/reference/report_contract.md`` passed through
+    :func:`report_contract_from_page`, so the skills that explain a report read the
+    contract of the installed release, with no network and no clone.
+    """
+    return _PACKAGED / REPORT_CONTRACT_NAME
+
+
+_DOC_LINK = re.compile(r"\]\((?!https?://|#)([^)#\s]+)\.md(#[^)\s]*)?\)")
+
+
+def report_contract_from_page(text: str) -> str:
+    """The packaged report contract made from its docs page.
+
+    A link to another docs page (relative to ``docs/reference/``) is pointed at that
+    page on the published site, since the other pages are not in the package; the
+    rest of the text is unchanged.
+
+    Args:
+        text: The text of ``docs/reference/report_contract.md``.
+
+    Returns:
+        The text to ship as :data:`REPORT_CONTRACT_NAME`.
+    """
+
+    def to_site(match: "re.Match[str]") -> str:
+        parts = ["reference"]
+        for part in match.group(1).split("/"):
+            if part == "..":
+                parts.pop()
+            elif part not in ("", "."):
+                parts.append(part)
+        return f"]({SITE}/{'/'.join(parts)}/{match.group(2) or ''})"
+
+    return _DOC_LINK.sub(to_site, text)
+
+
 def packaged_prompt(name: str) -> Path:
     """One of the prompts that ship with this release.
 
@@ -388,6 +436,14 @@ def planned_files(target: str = "claude") -> List[Tuple[Path, str]]:
         (
             spec.skills_dir / GLOSSARY_NAME,
             render_glossary(packaged_glossary().read_text(encoding="utf-8"), spec),
+        )
+    )
+    files.append(
+        (
+            spec.skills_dir / REPORT_CONTRACT_NAME,
+            render_glossary(
+                packaged_report_contract().read_text(encoding="utf-8"), spec
+            ),
         )
     )
     if spec.index:

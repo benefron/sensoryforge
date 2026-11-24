@@ -13,7 +13,7 @@ from sensoryforge.testing import file_headers as fh
 
 REPO = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name("file_headers_untagged.txt")
-PAGE = REPO / "docs" / "developer_guide" / "file_headers.md"
+PAGE = REPO / "docs" / "reference" / "maintainers" / "file_headers.md"
 
 
 def _module(root, body, rel="pkg/mod.py"):

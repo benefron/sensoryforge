@@ -33,7 +33,7 @@ distributions and class kinds that are registered; `sensoryforge describe --json
 world` gives each one's parameters with their ranges and units; `sensoryforge describe
 --schema world` is the file's JSON Schema. Use those names, not names from memory. The
 page that teaches the format, with examples, is
-https://benefron.github.io/sensoryforge/user_guide/worlds/.
+https://benefron.github.io/sensoryforge/how-to/worlds/.
 
 Choose by meaning and tell the user what you chose and why ("a ridge is a bar shape with a
 gaussian profile"). If no registered kind fits, say so and follow the plan skill's "When a

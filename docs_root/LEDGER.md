@@ -108,6 +108,62 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-c781195 · CLOSED · finding · - · 2026-11-24
+first_simulation.md raised ValueError (per-row counts, batch axis treated as time)
+→ commit 98a3e93
+
+## D-0bb20ba · CLOSED · decision · - · 2026-11-24
+the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents
+→ commit 308de0b
+
+## D-1cbafaf · CLOSED · decision · - · 2026-11-24
+phase D is not merged at R-D; the approved restructure (Df1) and the review's remaining fixes (Df2) come first, and the merge, push and site deploy happen at the end of Df2
+→ commit 0ca32b3
+
+## F-e74ff58 · STANDING · finding · - · 2026-11-24
+docs/getting_started/first_simulation.md fails: its per-row counts (100, 196) exceed the dense-weight cap, and with them fixed it treats batch-first spikes [batch, time, neurons] as [time, neurons]; the snippet test parses Python blocks and does not run them
+→ commit 0ca32b3
+
+## F-f40a0c1 · STANDING · finding · - · 2026-11-24
+none of the docs restructure approved on 2026-11-02 is done: the nav is not in four kinds, no file has moved, mkdocs-redirects is absent, and 36 public pages carry 179 ledger ids, 103 Phase/Wave labels and 15 docs_root mentions
+→ commit 0ca32b3
+
+## F-784f025 · CLOSED · finding · - · 2026-11-24
+docs/development/agent_runs/ was missing from exclude_docs, so the C6 run's results, transcript and scores page were published on the site
+→ commit 0ca32b3
+
+## F-a838696 · CLOSED · finding · - · 2026-11-24
+the README and the extend quick start said a plugin solver or grid arrangement reaches a config, which F-74f5c58 and F-5f4e887 say it cannot
+→ commit 0ca32b3
+
+## D-fcf9f18 · CLOSED · decision · - · 2026-11-19
+the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6
+→ commit f459ad2
+
+## F-eef3e0b · OPEN · finding · - · 2026-11-19
+the site restructure (D-22e8a63, Ben's Q1-Q4 in D1_audit.md) is not done, and D3's timing by a new user is Ben's
+→ commit f459ad2
+
+## D-114d396 · CLOSED · decision · - · 2026-11-19
+the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site
+→ commit a6c7059
+
+## D-69afd06 · CLOSED · decision · - · 2026-11-19
+the packaged examples are amplitude_sweep (sweep batch file) and moving_edge (stimulus block over a preset), read through importlib.resources and written out by `sensoryforge examples copy`; the repository's examples/ folder stays out of the package
+→ commit 4cedcda
+
+## D-3a43fe5 · CLOSED · decision · - · 2026-11-19
+published docs pages are checked without running them: commands parse, python blocks compile, sensoryforge imports resolve; pseudocode goes in a text fence and a reader's own module is named my_*
+→ commit 4cedcda
+
+## F-0d9d3a9 · CLOSED · finding · - · 2026-11-19
+examples/scripts/example_pipeline.py failed on an unknown stimulus type and no test ran it; rewritten on SimulationEngine and run in CI with generalized_pipeline_demo.py
+→ commit 4cedcda
+
+## F-b83b5e6 · OPEN · finding · - · 2026-11-19
+the quick starts have not been timed by a person who has not used SensoryForge (D3's done-when); only the commands were run, from a wheel in a fresh environment
+→ commit a5b15a0
+
 ## D-5738304 · CLOSED · decision · - · 2026-11-19
 phase C is merged to main with --no-ff after the R-C review; the one full-suite failure (a stale llms.txt) was fixed and its test re-run rather than a third full run
 → commit 3883d7d
@@ -135,6 +191,9 @@ the add_stimulus config example used `stimuli:` where the schema takes a `stimul
 ## D-22e8a63 · CLOSED · decision · - · 2026-11-18
 the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
 → commit e2f6039
+↔ 0ca32b3 docs: R-D review of phase D, and its small fixes
+↔ 308de0b docs: restructure the site into tutorials, how-to, concepts and reference (Df1)
+↔ 98a3e93 docs: one first-simulation tutorial that runs, and no ledger ids on public pages (Df2)
 
 ## F-146f748 · CLOSED · finding · - · 2026-11-18
 the filter scaffold kept state across forward calls and failed the report's determinism check
@@ -185,6 +244,7 @@ recall threshold 2 → 2.25 — only 1 of 47 recalls scored 2–2.5 was cited, a
 a skill's extra detail goes in one reference.md exported beside it, and the agent-file budget rises from 18 to 19 for extend-pipeline's (20 and 21 follow with extend-evaluation and the plugin lifecycle); skills stay at 14
 → commit 400d5d8
 ↔ 87821a5 feat(agents): plugin-lifecycle skill, from scaffold to a plugin SensoryForge found (C3)
+↔ a6c7059 feat(agents): ship the report contract in the package and read it first (D5)
 
 ## F-567af3c · STANDING · finding · - · 2026-11-05
 an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except level_crossing and the DSL, a plugin converter included; a signed converter needs input_floor: -.inf
@@ -213,6 +273,7 @@ exports copy only SKILL.md, so a reference file inside a skill folder would not 
 ## F-85f1687 · OPEN · finding · - · 2026-11-03
 the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
 → commit 31422a5
+↔ 4cedcda feat(examples): ship two example configs, `sensoryforge examples`, and check every docs sn
 
 ## F-16f7ce4 · OPEN · finding · - · 2026-11-03
 main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
@@ -257,6 +318,22 @@ add_filter.md said the to_dict completeness check was neuron-only; _check_filter
 ## D-e0adcb7 · CLOSED · decision · - · 2026-11-03
 identical means the same function objects, specs and flags; a closure rebuilt on each call counts as a conflict, and the docs say to define plugin functions at module level.
 → commit 1957ef7
+
+## D-9ef798b · CLOSED · decision · - · 2026-11-03
+the component, world-kind, evaluation, recipe and format-tag reference pages are generated by scripts/build_reference.py from sensoryforge describe --json and never written by hand; tests/unit/test_reference_pages.py fails when a page is stale or a registered component is missing
+→ commit 808ff56
+
+## F-6165c83 · OPEN · finding · - · 2026-11-03
+ParamSpec help and tooltip text, class-docstring summaries and preset descriptions carry ledger ids and Wave labels that `sensoryforge describe --json` and `list-presets` print; the generated reference strips them, and the source strings should lose them
+→ commit 808ff56
+
+## F-296e39c · OPEN · finding · - · 2026-11-03
+`sensoryforge describe --json` gives the no-filter names none and identity the class builtins.NoneType and Python's own NoneType docstring as their summary; the generated reference special-cases it, describe should say what the name selects
+→ commit 808ff56
+
+## F-bff2ce4 · OPEN · finding · - · 2026-11-03
+cli.py's config validation lists the five grid arrangement names for neuron_arrangement by hand instead of reading GRID_REGISTRY, so a registered sixth arrangement would be refused there
+→ commit 808ff56
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
@@ -753,9 +830,10 @@ phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are
 the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
 → commit 3b78cef
 
-## F-dc0c574 · OPEN · finding · - · 2026-10-23
+## F-dc0c574 · CLOSED · finding · - · 2026-10-23
 report_contract.md still names roadmap rows (A1-A11, R-A4) in about 40 places, left because removing the parentheticals changes sentences in an accepted contract; needs a careful pass, with Ben's answer on Q2 (internal references in public pages).
 → commit 3b78cef
+✓ closed by a6c7059 feat(agents): ship the report contract in the package and read it first (D5)
 
 ## D-e7972cb · CLOSED · decision · - · 2026-10-23
 the export records the server's answers per request key (path plus sorted query as JSON) rather than re-implementing the pages, so a page change needs only a recording line if it asks for a new endpoint.
@@ -1054,6 +1132,22 @@ Ben's review of the nine choices Q1-Q9 in section 11 of the report contract befo
 a layer value an axis replaces is not checked, and a list-valued field is checked per element with its field's type, not its domain
 → commit 5ea6f7b
 
+## F-1458ac8 · STANDING · finding · - · 2026-10-22
+the published docs build strict-clean but carry sixteen drift items, two of which give a reader a wrong result (the Quick Start legacy example raises; the add-a-stimulus config silently drops the new stimulus); listed in docs_root/plan/D1_audit.md
+→ commit c02239c
+
+## F-6431443 · OPEN · finding · - · 2026-10-22
+SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning (checked with `stimuli:`), so a mistyped section is dropped silently
+→ commit c02239c
+
+## F-6816a05 · OPEN · finding · - · 2026-10-22
+mkdocs.yml loads polyfill.io on every page of the deployed site; remove it (D1b-A, or sooner if Ben says so)
+→ commit c02239c
+
+## F-ab4d01f · OPEN · finding · - · 2026-10-22
+the proposed docs site map and the policy on internal references in public pages wait for Ben's answers (Q1-Q6 in D1_audit.md)
+→ commit c02239c
+
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
 → commit c53ca39
@@ -1086,6 +1180,7 @@ each roadmap phase has its own worktree and branch and merges to main only after
 ## D-e73ad6c · CLOSED · decision · - · 2026-10-22
 docs are built throughout the roadmap, with an early audit, a checkpoint at the end of each phase and a final coherent, publishable story, and the README says the project is tracked with the living ledger
 → commit c53ca39
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-3a46fe4 · CLOSED · decision · - · 2026-10-22
 agent skills are built Claude-first and generalised in B8 into one neutral source with outputs for known environments
@@ -1103,16 +1198,19 @@ the roadmap keeps an append-only discussion record (requests, replies, page comm
 ## D-6f0c3cc · CLOSED · decision · - · 2026-10-22
 each roadmap task ships the docs it needs as part of its done-when, and the agentic workflow gets its own documented section (docs/agents) covering setup options, rules for agents, skills, exports and the decisions with their ledger links
 → commit 9471c8b
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 ↔ 5be54c0 docs(agents): the agentic workflow gets its own docs section (B11)
 ↔ 014725a docs: phase B docs checkpoint (D1b-B)
 
 ## D-fac4caa · CLOSED · decision · - · 2026-10-22
 agents never invent domain facts: physics, models, parameters and units come from the user or a linked, user-approved source, and every assumption is labelled with its origin
 → commit f44b0af
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 
 ## D-c889235 · CLOSED · decision · - · 2026-10-22
 the agent skills and files are self-contained by default and ship inside the package; integration with a user's tools, working style and hooks are offered at setup and off until approved, and hooks may route plain language to skills only with approval
 → commit f44b0af
+↔ c02239c docs: audit the published docs and propose a site map (D1, early)
 ↔ 4a97c48 docs(plan): no built-in RAG or embeddings for the agent skills
 
 ## D-76fdd8a · CLOSED · decision · - · 2026-10-22

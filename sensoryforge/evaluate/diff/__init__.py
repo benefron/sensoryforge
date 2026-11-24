@@ -1,7 +1,7 @@
 """Run-to-run diff: what moved between two runs of the same data set (A10).
 
 ``python -m sensoryforge.evaluate.diff BASELINE NEW`` writes ``diff.json``. See
-``docs/developer_guide/diff_stage.md`` and the report contract, section 14.
+``docs/reference/evaluate/diff_stage.md`` and the report contract, section 14.
 """
 
 from sensoryforge.evaluate.diff.arrays import compare_arrays

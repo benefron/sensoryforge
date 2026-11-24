@@ -4,7 +4,7 @@ Topic: world
 Tests: tests/unit/test_world_schema.py, tests/unit/test_world_v1_1_compat.py,
     tests/contract/test_world_contract.py
 Entry points: World, load_world, ClassSpec, SessionModel, FORMAT
-Pinned by: docs/reference/world_contract.md, docs/user_guide/worlds.md,
+Pinned by: docs/reference/world_contract.md, docs/how-to/worlds.md,
     .claude/rules/world-engine.md
 Do not change without: a world file that uses no newer key keeps its normalised dict and
     world_id bit for bit; a new key reaches to_dict() only when the file sets it, and a

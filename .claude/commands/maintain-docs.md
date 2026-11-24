@@ -2,7 +2,7 @@ Maintain SensoryForge documentation — update docstrings, user guides, and fix 
 
 $ARGUMENTS should specify the scope, e.g.:
 - `sensoryforge/filters/sa_ra.py` — update docstrings for a specific file
-- `docs/user_guide/composite_grid.md` — update a user guide
+- `docs/how-to/composite_grid.md` — update a user guide
 - `full` — audit the entire docs/ and docstrings
 
 ## Core principles

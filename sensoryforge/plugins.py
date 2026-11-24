@@ -34,7 +34,7 @@ Two discovery paths, both best-effort: a broken or missing plugin produces a
 Topic: plugin, registry
 Tests: tests/unit/test_plugin_discovery.py, tests/unit/test_config_plugin_loading.py
 Entry points: discover_entry_point_plugins, load_plugin_import_paths
-Pinned by: docs/developer_guide/plugins.md, F-5bd542f
+Pinned by: docs/how-to/extend/plugins.md, F-5bd542f
 Do not change without: a plugin registers through the sensoryforge.components
     entry-point group at import time, and its register() may be called more than once.
 """

@@ -106,7 +106,7 @@ registry gains a kind the glossary does not define. Ledger: `D-127f390`, `D-4a6f
 **Fresh agents test the skills.** Live scenario tests install a built wheel into an empty
 folder and give a fresh agent a request, refusing every permission prompt the scenario does
 not allow; they are opt-in, and a release re-runs those of every skill that changed
-([Agent Scenarios](../developer_guide/agent_scenarios.md)). The release-time update of the
+([Agent Scenarios](../reference/maintainers/agent_scenarios.md)). The release-time update of the
 agent files is a maintainer command, not a shipped skill, because it reads the repository's
 history. Ledger: `D-cab78f0`, `D-47468a5`.
 

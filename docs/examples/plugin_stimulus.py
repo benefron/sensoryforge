@@ -1,6 +1,6 @@
 """Worked example: define, register, and run a minimal stimulus component (U3).
 
-Runnable companion to ``docs/developer_guide/add_stimulus.md``.
+Runnable companion to ``docs/how-to/extend/add_stimulus.md``.
 
 1. Define a stimulus class inheriting :class:`~sensoryforge.stimuli.base.BaseStimulus`.
 2. Implement ``get_param_spec()`` (required on every component, G1).

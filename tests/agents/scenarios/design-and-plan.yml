@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-design-and-plan (roadmap B9a). The skill writes a plan and
 # runs only read-only commands. The format is in harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-design-and-plan
 
 scenarios:

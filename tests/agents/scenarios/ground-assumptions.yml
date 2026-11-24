@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-ground-assumptions (roadmap B9c). The skill's job is that no
 # value comes from memory: it is the user's, a source they approved, or still open. The
-# format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-ground-assumptions
 
 files:

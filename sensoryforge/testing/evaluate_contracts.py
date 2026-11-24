@@ -35,8 +35,8 @@ Checks, by kind:
 Topic: testing, evaluate
 Tests: tests/unit/test_evaluate_contracts.py
 Entry points: check_evaluation_component, available_evaluation_kinds
-Pinned by: docs/developer_guide/audit_metrics.md,
-    docs/developer_guide/declared_adapter.md, docs/reference/report_contract.md,
+Pinned by: docs/reference/evaluate/audit_metrics.md,
+    docs/reference/evaluate/declared_adapter.md, docs/reference/report_contract.md,
     sensoryforge/agents/skills/sensoryforge-extend-evaluation
 Do not change without: a built-in pack or adapter that cannot pass is recorded as an
     open ledger item, never by weakening a check here; the frame renderer is not

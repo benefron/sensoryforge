@@ -36,7 +36,7 @@ result is cached on the fields it depends on.
 Topic: gui, config
 Tests: tests/gui_v2/test_validation.py, tests/gui_v2/test_review_fixes.py
 Entry points: validate, errors_under
-Pinned by: .claude/rules/engine-parity.md, docs/developer_guide/architecture_notes.md
+Pinned by: .claude/rules/engine-parity.md, docs/concepts/architecture_notes.md
 Do not change without: it builds receptive fields, filters and neurons with the engine's
     own code, never a private copy of a default.
 """

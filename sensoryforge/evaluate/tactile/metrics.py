@@ -26,7 +26,7 @@ _METRICS: Tuple[Tuple[str, str, bool], ...] = (
     ("motion.speed", "space/time", False),
 )
 
-_UNITS_SOURCE = "docs/user_guide/units_and_gains.md"
+_UNITS_SOURCE = "docs/how-to/units_and_gains.md"
 
 
 def measure_channel(

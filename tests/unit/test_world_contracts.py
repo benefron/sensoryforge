@@ -58,7 +58,7 @@ RING_SPECS = [AMPLITUDE, RADIUS, WIDTH]
 
 
 def ring(x, y, p):
-    """The ring of docs/user_guide/worlds.md ("Extending")."""
+    """The ring of docs/how-to/worlds.md ("Extending")."""
     r = torch.sqrt(x**2 + y**2)
     return torch.exp(-((r - p["radius_mm"]) ** 2) / (2.0 * p["width_mm"] ** 2))
 

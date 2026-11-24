@@ -21,7 +21,7 @@ Topic: cli, config
 Tests: tests/unit/test_describe.py, tests/unit/test_agent_glossary.py
 Entry points: describe, validate_file, config_schema, world_schema, dataset_schema,
     suggest_fix, spec_to_dict
-Pinned by: docs/user_guide/describe.md, docs/agents/glossary.md,
+Pinned by: docs/reference/describe.md, docs/agents/glossary.md,
     scripts/build_schemas.py
 Do not change without: it reads the registries and ParamSpec, so it never holds its own
     copy of a parameter list, default or unit; the JSON Schemas are rebuilt with

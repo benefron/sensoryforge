@@ -21,7 +21,7 @@ EXAMPLE_SCRIPTS = sorted(DOCS_EXAMPLES_DIR.glob("*.py"))
 
 
 @pytest.mark.parametrize("script_path", EXAMPLE_SCRIPTS, ids=lambda p: p.name)
-def test_docs_example_runs(script_path):
+def test_docs_example_runs(script_path, tmp_path):
     """Every docs/examples/*.py must execute successfully as a script.
 
     The subprocess is given this checkout explicitly (F-053). Running a script
@@ -38,6 +38,9 @@ def test_docs_example_runs(script_path):
         if env.get("PYTHONPATH")
         else [str(REPO_ROOT)]
     )
+    # first_simulation.py: a short run, its figure in a temporary folder
+    env["SF_FIRST_SIM_MS"] = "100"
+    env["SF_FIRST_SIM_OUT"] = str(tmp_path / "first_simulation.png")
     result = subprocess.run(
         [sys.executable, str(script_path)],
         capture_output=True,

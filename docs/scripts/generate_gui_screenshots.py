@@ -1,4 +1,4 @@
-"""Regenerate the GUI screenshots used by ``docs/user_guide/gui_walkthrough.md``.
+"""Regenerate the GUI screenshots used by ``docs/how-to/gui_walkthrough.md``.
 
 Runs the GUI fully offscreen (``QT_QPA_PLATFORM=offscreen``, set automatically if
 not already set), loads the pressure-simulation recipe

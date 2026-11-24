@@ -40,14 +40,14 @@ registered, contract-checked component
 (`sensoryforge/registry.py`, `sensoryforge/testing/contracts.py`), so a
 third party can add a new component as a standalone, installable Python
 package with no changes to the SensoryForge checkout
-(`docs/developer_guide/plugins.md`; `examples/plugin_template/` is a
+(`docs/how-to/extend/plugins.md`; `examples/plugin_template/` is a
 complete, tested, installable worked example, verified in this release
 through the real Python entry-point discovery mechanism rather than an
 in-process registry call --
 `examples/plugin_template/tests/test_entry_point_discovery.py`). An
 analog readout is not a separate component kind: it is a neuron model
 defined through the equation DSL without a spike condition
-(`docs/user_guide/analog_readouts.md`). A
+(`docs/how-to/analog_readouts.md`). A
 canonical YAML configuration format (`sensoryforge/config/schema.py`)
 drives both a command-line interface and an interactive PyQt5 GUI from the
 same execution engine (`sensoryforge/core/simulation_engine.py`), so an
@@ -82,7 +82,7 @@ components, for a vision on/off-centre pathway
 (`sensoryforge/core/processing.py`'s `OnOffLayer`,
 `examples/vision_rgb_onoff.py`) -- built so a lab can add its own filter,
 neuron model, receptive-field builder, or entire sensor arrangement as an
-installable plugin (`docs/developer_guide/plugins.md`) rather than fork the
+installable plugin (`docs/how-to/extend/plugins.md`) rather than fork the
 project. It is designed to be driven identically from an interactive GUI
 (for experiment design) and from YAML configuration files (for
 reproducible batch runs and parameter sweeps,
@@ -176,8 +176,8 @@ neuron-model DSL (`sympy`). The documentation tree
 (`docs/`, built with `mkdocs` and `mkdocstrings`; `mkdocs build --strict`)
 covers concepts, getting-started, user-guide, developer-guide and
 API-reference sections, plus executable guides for adding most plugin kinds
-(`docs/developer_guide/add_filter.md`, `add_neuron.md`, `add_rf_builder.md`,
-`add_stimulus.md`; `docs/extending/add_grid_arrangement.md`,
+(`docs/how-to/extend/add_filter.md`, `add_neuron.md`, `add_rf_builder.md`,
+`add_stimulus.md`; `docs/how-to/extend/add_grid_arrangement.md`,
 `add_processing_layer.md`, `add_solver.md`; `add_gui_node.md` covers GUI
 nodes, which today are an in-repository change rather than a plugin
 hook), every

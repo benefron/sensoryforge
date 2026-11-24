@@ -56,11 +56,11 @@ def test_the_section_is_in_the_navigation_with_its_pages():
     pages = re.findall(r":\s*(\S+\.md)\s*$", block, re.M)
     for page in [
         "agents/index.md",
-        "user_guide/agent_setup.md",
-        "user_guide/agent_skills.md",
+        "agents/setup.md",
+        "agents/skills.md",
         "agents/skills_reference.md",
         "agents/rules.md",
-        "user_guide/agent_export.md",
+        "agents/export.md",
         "agents/decisions.md",
         "agents/extending.md",
     ]:

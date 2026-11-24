@@ -209,7 +209,7 @@ def test_every_shipped_skill_reads_the_brief_first_and_fits_the_budget():
     paths = sorted(SKILLS.glob("*/SKILL.md"))
     assert len(index) == len(paths) >= 1
     assert len({name for name, _ in index}) == len(index)
-    # docs/developer_guide/agent_files.md: at most 14 skills
+    # docs/reference/maintainers/agent_files.md: at most 14 skills
     assert len(index) <= 14
     for path in paths:
         text = path.read_text()
@@ -218,7 +218,7 @@ def test_every_shipped_skill_reads_the_brief_first_and_fits_the_budget():
 
 
 def test_the_user_guide_documents_every_option():
-    page = (REPO / "docs" / "user_guide" / "agent_setup.md").read_text()
+    page = (REPO / "docs" / "agents" / "setup.md").read_text()
     for opt in ws.OPTIONS:
         assert f"`{opt.key}`" in page, opt.key
         for choice in opt.choices or ():

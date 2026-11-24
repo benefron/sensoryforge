@@ -568,7 +568,7 @@ synapse_model = NeuronModel(
 
 ## Next Steps
 
-- [Equation DSL Reference](../user_guide/equation_dsl.md) — Full DSL syntax
-- [BaseNeuron API](../api_reference/neurons.md) — Interface documentation
-- [Solver Guide](../user_guide/solvers.md) — Choosing ODE solvers
+- [Equation DSL Reference](../how-to/equation_dsl.md) — Full DSL syntax
+- [BaseNeuron API](../reference/api_neurons.md) — Interface documentation
+- [Solver Guide](../how-to/solvers.md) — Choosing ODE solvers
 - [Contributing Guide](../contributing.md) — Submit custom models

@@ -1,252 +1,39 @@
-# SensoryForge Examples
+# Examples
 
-This directory contains example configurations, scripts, and notebooks demonstrating SensoryForge usage.
-
-## Quick Start
-
-### Using the CLI
+This folder is in the repository, not in the installed package. What you can run from a
+plain install ships in the package instead:
 
 ```bash
-# Validate a configuration (canonical format — start here)
-sensoryforge validate canonical_config.yml
-
-# Run a simulation
-sensoryforge run canonical_config.yml --duration 1000
-
-# Save results
-sensoryforge run canonical_config.yml --output results.pt
-
-# Run batch execution
-sensoryforge batch canonical_batch_config.yml --dry-run
-sensoryforge batch canonical_batch_config.yml --device cuda
-
-# List available components
-sensoryforge list-components
-
-# Visualize pipeline structure
-sensoryforge visualize canonical_config.yml
+sensoryforge list-presets                 # whole sensors to start from
+sensoryforge examples list                # configs a preset cannot give
+sensoryforge examples copy amplitude_sweep
 ```
 
-### Using Python API
+See the [quick starts](https://benefron.github.io/sensoryforge/) for where to begin.
 
-```python
-from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
+## What is here
 
-# Load from YAML file
-pipeline = GeneralizedTactileEncodingPipeline(config_path='example_config.yml')
+| Path | What it is | Checked by |
+|---|---|---|
+| `notebooks/01_quickstart.ipynb` | A notebook: the encoding workflow from grid to spikes | CI runs it (nbmake) |
+| `scripts/example_pipeline.py` | A preset, one stimulus, two spike rasters | `tests/integration/test_example_scripts.py` |
+| `scripts/generalized_pipeline_demo.py` | The YAML-driven pipeline with several stimulus types | `tests/integration/test_example_scripts.py` |
+| `pressure_simulation_recipe.py` | The pressure-simulation recipe: four stimuli, one bundle each | `tests/integration/test_pressure_simulation_recipe.py` |
+| `vision_rgb_onoff.py` | A three-channel (R, G, B) sensor with ON/OFF processing | `tests/integration/test_vision_rgb_onoff.py` |
+| `plugins/` | Three reference plugins: a neuron, a filter, a world shape ([guide](https://benefron.github.io/sensoryforge/how-to/extend/reference_plugins/)) | `tests/integration/test_reference_plugins.py` |
+| `plugin_template/` | A plugin package with a processing layer and a receptive-field builder | its own `tests/` |
+| `canonical_config.yml`, `canonical_batch_config.yml`, `canonical_template_config.yml` | Full configs written out field by field | `tests/integration/test_examples_smoke.py` |
+| `example_config.yml`, `batch_config.yml` | The legacy config format, kept only so its reader stays tested | `tests/integration/test_examples_smoke.py` |
 
-# Or from config dict ('sa_neurons'/'ra_neurons' are per row: 10x10=100, 14x14=196)
-config = {
-    'pipeline': {'device': 'cpu', 'grid_size': 80},
-    'neurons': {'sa_neurons': 10, 'ra_neurons': 14}
-}
-pipeline = GeneralizedTactileEncodingPipeline.from_config(config)
+Run a script from a clone with the package installed (`pip install -e ".[dev]"`):
 
-# Run simulation
-results = pipeline.forward(stimulus_type='gaussian', amplitude=30.0)
-
-# Access results
-print(f"SA spikes: {results['sa_spikes'].sum().item()}")
-print(f"RA spikes: {results['ra_spikes'].sum().item()}")
-```
-
-## Configuration Files
-
-### `canonical_config.yml` (start here)
-
-Canonical `SensoryForgeConfig` example — the format both the GUI and `SimulationEngine`
-(the canonical execution path, see `CLAUDE.md`) consume:
-- Standard grid (40x40 receptors)
-- SA and RA neuron populations (`neurons_per_row: 10` / `14`)
-- Trapezoidal stimulus (CLI default)
-- Izhikevich neuron model
-- Euler solver
-
-**Usage:**
 ```bash
-sensoryforge run canonical_config.yml --duration 1000 --output results.pt
+python examples/scripts/example_pipeline.py --save rasters.png
+python examples/pressure_simulation_recipe.py --quick
 ```
 
-### `canonical_batch_config.yml`
+## Adding an example
 
-Canonical-format batch sweep: a 3-value amplitude sweep over the same grid/populations
-as `canonical_config.yml`, run through `SimulationEngine` via `BatchExecutor`.
-
-**Usage:**
-```bash
-sensoryforge batch canonical_batch_config.yml --dry-run
-sensoryforge batch canonical_batch_config.yml
-```
-
-### `example_config.yml` (legacy format)
-
-Basic configuration demonstrating the legacy pipeline format with:
-- Standard grid (80x80 receptors)
-- SA, RA, and SA2 neuron populations (`sa_neurons`/`ra_neurons`/`sa2_neurons` are
-  **per row**, not totals — see `docs/user_guide/yaml_configuration.md`)
-- Gaussian stimulus
-- Izhikevich neuron model
-- Euler solver
-
-**Usage:**
-```bash
-sensoryforge run example_config.yml --duration 1000 --output results.pt
-```
-
-### `batch_config.yml` (legacy format)
-
-Batch execution configuration for large-scale dataset generation with:
-- Parameter sweeps (Cartesian product expansion)
-- Gaussian amplitude × sigma sweep (75 total stimuli)
-- Multiple repetitions for noise variability
-- PyTorch and HDF5 output format examples
-- Checkpoint/resume capability
-
-**Usage:**
-```bash
-# Validate (dry run)
-sensoryforge batch batch_config.yml --dry-run
-
-# Execute batch
-sensoryforge batch batch_config.yml
-
-# Execute on GPU
-sensoryforge batch batch_config.yml --device cuda
-
-# Resume interrupted batch
-sensoryforge batch batch_config.yml --resume batch_results/*/checkpoint.json
-```
-
-**Output:**
-```
-batch_results/
-└── tactile_encoding_v1/
-    ├── batch_metadata.json
-    ├── stimulus_index.json
-    ├── checkpoint.json
-    └── tactile_encoding_v1_YYYYMMDD_HHMMSS.pt
-```
-
-See [`batch_config.yml`](batch_config.yml) for detailed inline documentation.
-
-## Notebooks
-
-The `notebooks/` directory contains Jupyter notebooks with interactive examples:
-
-- [`01_quickstart.ipynb`](notebooks/01_quickstart.ipynb) — Complete encoding workflow from grid to spikes
-
-## Scripts
-
-The `scripts/` directory contains Python scripts for common tasks:
-
-- [`example_pipeline.py`](scripts/example_pipeline.py) — Basic touch encoding pipeline
-- [`generalized_pipeline_demo.py`](scripts/generalized_pipeline_demo.py) — YAML-driven generalized pipeline
-
-## Phase 2 Features
-
-SensoryForge supports advanced Phase 2 features via YAML configuration:
-
-### CompositeGrid (Multi-Population)
-
-```yaml
-grid:
-  type: composite
-  shape: [64, 64]
-  populations:
-    sa1:
-      density: 100.0  # receptors per mm²
-      arrangement: grid
-    ra1:
-      density: 70.0
-      arrangement: hex
-```
-
-### Equation DSL (Custom Neurons)
-
-```yaml
-neurons:
-  type: dsl
-  equations: |
-    dv/dt = (0.04*v**2 + 5*v + 140 - u + I) / ms
-    du/dt = (a * (b*v - u)) / ms
-  threshold: "v >= 30 * mV"
-  reset: |
-    v = c
-    u = u + d
-  parameters:
-    a: 0.02
-    b: 0.2
-    c: -65.0
-    d: 8.0
-```
-
-### Extended Stimuli
-
-```yaml
-stimuli:
-  # Texture stimulus
-  - type: texture
-    subtype: gabor
-    config:
-      wavelength: 0.5
-      orientation: 0.0
-  
-  # Moving stimulus
-  - type: moving
-    motion_type: linear
-    config:
-      start: [0.0, 0.0]
-      end: [2.0, 0.0]
-      num_steps: 100
-```
-
-### Adaptive Solvers
-
-```yaml
-solver:
-  type: adaptive
-  config:
-    method: dopri5
-    rtol: 1.0e-5
-    atol: 1.0e-7
-```
-
-All advanced features (CompositeGrid, Equation DSL, extended stimuli, adaptive solvers) are fully functional via CLI and Python API.
-
-## Documentation
-
-- **CLI Guide:** `docs/user_guide/cli.md`
-- **YAML Configuration:** `docs/user_guide/yaml_configuration.md`
-- **CompositeGrid:** `docs/user_guide/composite_grid.md`
-- **Equation DSL:** `docs/user_guide/equation_dsl.md`
-- **Extended Stimuli:** `docs/user_guide/extended_stimuli.md`
-- **Solvers:** `docs/user_guide/solvers.md`
-
-## Tips
-
-1. **Start simple:** Use `canonical_config.yml` as a template
-2. **Validate first:** Always run `sensoryforge validate` before running
-3. **Save results:** Use `--output` to save simulation results
-4. **Track configs:** Use version control for your configuration files
-5. **Experiment:** Modify parameters and observe effects on encoding
-
-## Getting Help
-
-- Run `sensoryforge --help` for command overview
-- Run `sensoryforge COMMAND --help` for command-specific help
-- Check documentation in `docs/`
-- Open an issue on GitHub
-
-## Contributing Examples
-
-Have a useful configuration or example? Please contribute!
-
-1. Create a well-documented example
-2. Test it thoroughly
-3. Submit a pull request
-4. Update this README
-
----
-
-**SensoryForge** – Extensible sensory encoding playground  
-Version 1.0.0 | [GitHub](https://github.com/benefron/sensoryforge)
+An example nobody runs stops working. Add a test that runs it (or add it to one above)
+in the same change. A config a user should be able to get without a clone belongs in
+`sensoryforge/examples/` instead, where `sensoryforge examples copy` finds it.

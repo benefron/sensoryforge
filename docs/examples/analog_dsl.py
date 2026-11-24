@@ -1,7 +1,7 @@
 """Worked example: an analog (non-spiking) DSL readout through the engine (N5).
 
 The smallest complete example of the analog readout path described in
-``docs/user_guide/analog_readouts.md``:
+``docs/how-to/analog_readouts.md``:
 
 1. Define a leaky-integrator DSL model with no ``threshold``/``reset`` --
    an analog readout (N1).

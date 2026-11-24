@@ -5,8 +5,8 @@ coding agent (Claude Code, GitHub Copilot, Cursor, Codex or another) do the Sens
 work with them. By the end of this page you will have the skills installed, your working
 style saved, and a first request made.
 
-The agentic workflow is a fourth way in, beside the [command line](../user_guide/cli.md),
-the [GUI](../user_guide/gui_walkthrough.md) and [batch runs](../user_guide/batch_processing.md).
+The agentic workflow is a fourth way in, beside the [command line](../reference/cli.md),
+the [GUI](../how-to/gui_walkthrough.md) and [batch runs](../how-to/batch_processing.md).
 It does not add a new engine: SensoryForge ships **skills**, short instruction files an agent
 follows, and every skill does its work with the same `sensoryforge` commands you could type
 yourself. What the agent adds is the path from a goal in your own words to those commands,
@@ -17,11 +17,11 @@ with you deciding at each point that is yours.
 | You want to | Use |
 |---|---|
 | Go from a question ("can this sensor tell dots from edges?") to a plan, a world, a data set, a simulation and a report, deciding as you go | the agent |
-| Describe stimuli in words and change them in words, with a preview each time | the agent ([an example](../user_guide/agent_design_loop.md)) |
+| Describe stimuli in words and change them in words, with a preview each time | the agent ([an example](design_loop.md)) |
 | Ask why a number in a report looks wrong, or what a metric means | the agent |
-| Run a config you already have, the same way every time, in a script or on a cluster | the [CLI](../user_guide/cli.md) and [batch](../user_guide/batch_processing.md) |
-| Look at a sensor, a receptive field or a spike raster and tune a parameter by eye | the [GUI](../user_guide/gui_walkthrough.md) |
-| Write new physics (a neuron, a filter, a stimulus) | a [plugin package](../developer_guide/plugins.md); the agent scaffolds it and waits for your model |
+| Run a config you already have, the same way every time, in a script or on a cluster | the [CLI](../reference/cli.md) and [batch](../how-to/batch_processing.md) |
+| Look at a sensor, a receptive field or a spike raster and tune a parameter by eye | the [GUI](../how-to/gui_walkthrough.md) |
+| Write new physics (a neuron, a filter, a stimulus) | a [plugin package](../how-to/extend/plugins.md); the agent scaffolds it and waits for your model |
 
 The ways in share one config format and one engine, so you can switch at any point: a
 world the agent wrote runs from the CLI, and a report the CLI wrote can be read back by the
@@ -30,7 +30,7 @@ agent.
 ## Five-minute start
 
 **1. Install SensoryForge.** It is not on PyPI yet, so install it from source (more options
-in [Installation](../getting_started/installation.md)):
+in [Installation](../tutorials/installation.md)):
 
 ```bash
 pip install "git+https://github.com/benefron/sensoryforge.git"
@@ -43,7 +43,7 @@ sensoryforge agents install        # Claude Code: writes .claude/skills/
 ```
 
 For another environment, `sensoryforge agents export --target copilot` (or `cursor`,
-`codex`, `generic`); see [Using the Skills in Another Agent](../user_guide/agent_export.md).
+`codex`, `generic`); see [Using the Skills in Another Agent](export.md).
 Run the command again after upgrading SensoryForge. It writes only its own files.
 
 **3. Say how you like to work.** Answer the questions, or press Enter to keep each
@@ -54,7 +54,7 @@ sensoryforge agents setup
 sensoryforge agents brief          # prints what every skill will follow
 ```
 
-What each question means and changes: [Setup](../user_guide/agent_setup.md).
+What each question means and changes: [Setup](setup.md).
 
 **4. Make a first request.** Open your agent in the same folder and say what you want, in
 your own words. For example:
@@ -79,15 +79,15 @@ you set.
 
 ## In this section
 
-- [Setup](../user_guide/agent_setup.md): every option, the saved file, the routing hook.
-- [Skills](../user_guide/agent_skills.md): the ten skills, what to say to reach each, and
+- [Setup](setup.md): every option, the saved file, the routing hook.
+- [Skills](skills.md): the ten skills, what to say to reach each, and
   how a chained run proceeds.
 - [Skills Reference](skills_reference.md): each skill's steps and worked example,
   generated from the skill files.
 - [Rules for Agents](rules.md): what an agent will and will not do, in plain words.
-- [Designing a World by Describing It](../user_guide/agent_design_loop.md): three recorded
+- [Designing a World by Describing It](design_loop.md): three recorded
   sessions.
-- [Using the Skills in Another Agent](../user_guide/agent_export.md): Copilot, Cursor,
+- [Using the Skills in Another Agent](export.md): Copilot, Cursor,
   Codex, an environment with no export, and the project's instruction file.
 - [Glossary](glossary.md): the terms the agent maps your words to.
 - [Design Decisions](decisions.md): why it is built this way, and what else was considered.

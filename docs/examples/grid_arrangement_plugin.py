@@ -1,7 +1,7 @@
 """Worked example: a new receptor grid arrangement as a plugin (Wave L5).
 
 The smallest complete example of the extension path described in
-``docs/extending/add_grid_arrangement.md``:
+``docs/how-to/extend/add_grid_arrangement.md``:
 
 1. Define a grid arrangement inheriting
    :class:`~sensoryforge.core.grid_base.BaseGrid`.

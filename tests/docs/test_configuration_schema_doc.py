@@ -1,7 +1,7 @@
 """Guard against configuration_schema.md drifting from the config dataclasses (F-059).
 
 Wave M added fields to ``GridConfig``/``PopulationConfig``/``StimulusConfig`` that
-``docs/user_guide/configuration_schema.md`` never documented, and separately the
+``docs/reference/configuration_schema.md`` never documented, and separately the
 stimulus/simulation tables named fields (``center_x``, ``duration``, ``dt``-as-primary)
 that never existed on those dataclasses. Rather than re-generating the page (it carries
 hand-written grouping, examples and cross-references that are worth keeping), this test
@@ -24,7 +24,7 @@ from sensoryforge.config.schema import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_DOC = REPO_ROOT / "docs" / "user_guide" / "configuration_schema.md"
+SCHEMA_DOC = REPO_ROOT / "docs" / "reference" / "configuration_schema.md"
 
 # A handful of fields are internal/deprecated bookkeeping that the page deliberately
 # doesn't give its own row (the deprecated `dt` alias IS documented; nothing is

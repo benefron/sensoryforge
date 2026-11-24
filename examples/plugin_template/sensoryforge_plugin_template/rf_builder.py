@@ -6,7 +6,7 @@ plugin-package analogue of ``docs/examples/rf_builder_plugin.py``'s
 ``RingRFBuilder`` (an indicator kernel) -- here the kernel decays smoothly
 instead of switching on/off, to show a second, independent worked example of
 the same extension point (``sensoryforge.core.innervation.BaseInnervation``,
-see ``docs/developer_guide/add_rf_builder.md``).
+see ``docs/how-to/extend/add_rf_builder.md``).
 """
 
 from __future__ import annotations

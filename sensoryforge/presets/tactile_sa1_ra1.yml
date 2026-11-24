@@ -9,7 +9,7 @@
 # the `ra` filter defaults (k3 = 2.0, D-Q1).
 #
 # See docs/concepts/pressure_simulation_use_case.md and
-# docs/user_guide/presets.md.
+# docs/how-to/presets.md.
 #
 # Usage:
 #   sensoryforge run --preset tactile_sa1_ra1

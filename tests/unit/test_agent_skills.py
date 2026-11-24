@@ -1,7 +1,7 @@
 """The skills that ship with SensoryForge: their rules, install and examples.
 
 Every skill is a file an agent follows on a user's machine, so each one is held to the
-rules of ``docs/developer_guide/agent_files.md``, and each one's worked example is run
+rules of ``docs/reference/maintainers/agent_files.md``, and each one's worked example is run
 for real (roadmap B6).
 """
 
@@ -60,11 +60,12 @@ def test_the_core_skills_ship():
 
 
 def test_the_skills_stay_within_the_file_budget():
-    assert len(SKILLS) <= 14  # docs/developer_guide/agent_files.md
+    assert len(SKILLS) <= 14  # docs/reference/maintainers/agent_files.md
     extra = [
         p
         for p in SKILL_DIR.rglob("*")
-        if p.is_file() and p.name not in ("SKILL.md", ins.GLOSSARY_NAME)
+        if p.is_file()
+        if p.name not in ("SKILL.md", ins.GLOSSARY_NAME, ins.REPORT_CONTRACT_NAME)
         if "__pycache__" not in p.parts
     ]
     # one reference file for the one skill that outgrew 300 lines (agent_files.md)
@@ -97,7 +98,7 @@ def test_a_skill_uses_nothing_that_exists_only_in_a_clone(path):
 def test_a_skill_names_only_skills_that_exist(path):
     text = ex.skill_text(path)
     named = set(re.findall(r"\bsensoryforge-[a-z][a-z-]*[a-z]\b", text))
-    named -= {ins.GLOSSARY_NAME[: -len(".md")]}
+    named -= {ins.GLOSSARY_NAME[: -len(".md")], ins.REPORT_CONTRACT_NAME[: -len(".md")]}
     named -= EXAMPLE_PLUGINS
     assert named <= NAMES, sorted(named - NAMES)
 
@@ -156,6 +157,28 @@ def test_the_worked_example_of_every_skill_runs(path, tmp_path):
 
 
 # ------------------------------------------------------------------- the install
+
+
+def test_the_report_contract_in_the_package_is_the_docs_page():
+    page = (REPO / "docs" / "reference" / "report_contract.md").read_text("utf-8")
+    assert ins.packaged_report_contract().read_text("utf-8") == (
+        ins.report_contract_from_page(page)
+    ), (
+        "docs/reference/report_contract.md changed: regenerate the packaged copy with "
+        'python -c "from pathlib import Path; from sensoryforge.agents import install '
+        "as i; i.packaged_report_contract().write_text(i.report_contract_from_page("
+        "Path('docs/reference/report_contract.md').read_text()))\""
+    )
+
+
+def test_the_packaged_report_contract_links_only_to_the_site():
+    page = "See [a](../developer_guide/x.md), [b](world_contract.md#s-2), [c](#local)."
+    assert ins.report_contract_from_page(page) == (
+        f"See [a]({ins.SITE}/developer_guide/x/), "
+        f"[b]({ins.SITE}/reference/world_contract/#s-2), [c](#local)."
+    )
+    packaged = ins.packaged_report_contract().read_text("utf-8")
+    assert not re.search(r"\]\((?!https?://|#)", packaged)
 
 
 def test_the_glossary_in_the_package_is_the_docs_page():
@@ -436,7 +459,7 @@ def test_the_hand_written_agent_files_stay_within_the_budget():
     21 at most."""
     references = len(list(SKILL_DIR.glob("*/reference.md")))
     count = 2 + len(SKILLS) + len(PROMPTS) + references
-    assert count <= 21, count  # docs/developer_guide/agent_files.md
+    assert count <= 21, count  # docs/reference/maintainers/agent_files.md
 
 
 def test_python_dash_c_lines_in_the_skills_compile():
@@ -598,6 +621,8 @@ def test_a_wheel_holds_every_skill_and_the_glossary(tmp_path):
             )
             assert inside in names, inside
             assert wheel.read(inside) == prompt.read_bytes()
+        contract = f"sensoryforge/agents/skills/{ins.REPORT_CONTRACT_NAME}"
+        assert wheel.read(contract) == ins.packaged_report_contract().read_bytes()
         glossary = f"sensoryforge/agents/skills/{ins.GLOSSARY_NAME}"
         assert glossary in names
         assert wheel.read(glossary) == ins.packaged_glossary().read_bytes()

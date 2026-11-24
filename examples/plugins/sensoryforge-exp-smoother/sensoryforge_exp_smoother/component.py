@@ -1,7 +1,7 @@
 """ExpSmootherFilterTorch: a new temporal filter.
 
 Implements the ``BaseFilter`` contract.
-Full guide: https://benefron.github.io/sensoryforge/developer_guide/add_filter/
+Full guide: https://benefron.github.io/sensoryforge/how-to/extend/add_filter/
 """
 
 from __future__ import annotations

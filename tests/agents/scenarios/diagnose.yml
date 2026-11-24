@@ -1,6 +1,6 @@
 # Scenarios for sensoryforge-diagnose (roadmap B9b). The main world starts every draw 30 to
 # 60 ms in, in a data set cut to 40 ms, so some entries are silent: the cause is in the data
-# set. The format is in harness.py and docs/developer_guide/agent_scenarios.md.
+# set. The format is in harness.py and docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-diagnose
 
 files:

@@ -3,7 +3,7 @@
 The GUI edits exactly one `SensoryForgeConfig` — the same object `sensoryforge run`,
 the batch executor and `SimulationEngine` read. There is no GUI-only format:
 **File > Save config** writes the YAML the CLI runs, and **File > Open config** reads
-any canonical YAML. See [the GUI walkthrough](../user_guide/gui_walkthrough.md) for
+any canonical YAML. See [the GUI walkthrough](../how-to/gui_walkthrough.md) for
 the screens.
 
 ## The session

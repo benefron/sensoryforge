@@ -1,7 +1,7 @@
 # Scenarios for sensoryforge-extend-world (roadmap C2c: world registries and a class kind for
 # another modality). The skill's job is a plugin that passes the world contract check, with
 # every formula and range from the user. Format: harness.py and
-# docs/developer_guide/agent_scenarios.md.
+# docs/reference/maintainers/agent_scenarios.md.
 skill: sensoryforge-extend-world
 
 scenarios:

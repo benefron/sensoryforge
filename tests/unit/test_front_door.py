@@ -9,12 +9,12 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 AGENTS = (REPO / "AGENTS.md").read_text(encoding="utf-8")
-AGENT_MAP = "docs/developer_guide/agent_files.md"
+AGENT_MAP = "docs/reference/maintainers/agent_files.md"
 
 # Ten sample tasks in a user's words, and the file AGENTS.md must name for each, so a
 # new agent reaches the right file in one hop.
 SAMPLE_TASKS = [
-    ("add a leaky integrate-and-fire neuron", "docs/developer_guide/extensibility.md"),
+    ("add a leaky integrate-and-fire neuron", "docs/how-to/extend/extensibility.md"),
     (
         "my YAML's filter time constant is not what runs",
         "sensoryforge/config/defaults.py",
@@ -33,7 +33,7 @@ SAMPLE_TASKS = [
         "docs/reference/converter_contract.md",
     ),
     ("make the simulation faster", "benchmarks/"),
-    ("set how the agent works with me", "docs/user_guide/agent_setup.md"),
+    ("set how the agent works with me", "docs/agents/setup.md"),
 ]
 
 
@@ -80,7 +80,7 @@ def test_llms_txt_is_generated_from_the_docs_nav():
     ) == module.build(), "llms.txt is out of date: run python scripts/build_llms_txt.py"
 
 
-EXPORT_FILES = ("docs/user_guide/agent_export.md", "tests/unit/test_agent_export.py")
+EXPORT_FILES = ("docs/agents/export.md", "tests/unit/test_agent_export.py")
 
 
 def test_nothing_points_at_retired_agent_files():

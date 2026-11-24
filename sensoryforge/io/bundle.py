@@ -50,7 +50,7 @@ without it is byte-for-byte what 2.3.0 wrote and still says 2.3.0. See
 bundle" format (``kind: "mechanoreceptor_bundle"``): its viewer
 (``GUIs/ebkf_viewer.py``) reads ``grid`` and ``populations[*].tensors`` unchanged.
 See ``docs/development/handover/phase2_tasks.md`` section 2 for the exact fields
-that loader reads, and ``docs/user_guide/bundles.md`` for the user-facing layout.
+that loader reads, and ``docs/reference/bundles.md`` for the user-facing layout.
 
 Schema 2.5.0 (2026-10-23, A11d): a population file whose receptive-field weights are
 under 10% nonzero stores them sparsely (``innervation_weights_indices`` /
@@ -67,7 +67,7 @@ Tests: tests/unit/test_bundle_io.py, tests/unit/test_bundle_voltage_probes.py,
     tests/unit/test_bundle_world_entry.py,
     tests/integration/test_bundle_pressure_sim_compat.py
 Entry points: Bundle, write_bundle, load_bundle, build_stimulus_payload, SCHEMA_VERSION
-Pinned by: docs/user_guide/bundles.md, docs/reference/world_contract.md,
+Pinned by: docs/reference/bundles.md, docs/reference/world_contract.md,
     .claude/rules/world-engine.md
 Do not change without: a field the run did not set must not appear, and a new field
     bumps the schema version and the contract page; all-dense bundles keep their older

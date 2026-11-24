@@ -28,7 +28,7 @@ currents.
 Topic: gui, config
 Tests: tests/gui_v2/test_session.py
 Entry points: Session, get_by_path, set_by_path
-Pinned by: docs/developer_guide/architecture_notes.md, F-085
+Pinned by: docs/concepts/architecture_notes.md, F-085
 Do not change without: exactly one SensoryForgeConfig lives here; screens write with
     set_by_path() and listen to configChanged and configReplaced, with signals connected
     to bound methods.

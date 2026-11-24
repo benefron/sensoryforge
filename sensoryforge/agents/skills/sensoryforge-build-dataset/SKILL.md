@@ -26,7 +26,7 @@ testing how far it generalises, comparing sensors, checking the pipeline itself.
 Map the purpose to the kinds of split by meaning. `sensoryforge describe --schema dataset`
 is the file's JSON Schema, `sensoryforge describe --json --section world` lists the split
 kinds that exist, and the page that teaches them is
-https://benefron.github.io/sensoryforge/user_guide/worlds/#data-sets. In plain words:
+https://benefron.github.io/sensoryforge/how-to/worlds/#data-sets. In plain words:
 
 - Training and validation splits: draws, optionally repeated with fresh noise.
 - A test split: balanced across classes and across each axis's range, so every part of a

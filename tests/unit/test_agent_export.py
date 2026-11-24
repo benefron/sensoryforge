@@ -17,7 +17,7 @@ from sensoryforge.agents import install as ins
 from sensoryforge.cli import main
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "user_guide" / "agent_export.md"
+PAGE = REPO / "docs" / "agents" / "export.md"
 
 #: Where each tool reads a project's skills, as its documentation says (checked on
 #: ``ins.FORMATS_CHECKED``). A change here is a change to what a user's tool reads.
@@ -106,7 +106,11 @@ def test_every_file_is_valid_headed_and_the_source_unchanged(tmp_path, target):
     glossary = (base / ins.GLOSSARY_NAME).read_text(encoding="utf-8")
     assert glossary.startswith("<!-- " + HEADER)
     assert glossary.endswith(ins.packaged_glossary().read_text(encoding="utf-8"))
-    extra = {p.name for p in base.iterdir()} - set(names) - {ins.GLOSSARY_NAME}
+    contract = (base / ins.REPORT_CONTRACT_NAME).read_text(encoding="utf-8")
+    assert contract.startswith("<!-- " + HEADER)
+    assert contract.endswith(ins.packaged_report_contract().read_text("utf-8"))
+    extra = set(names) | {ins.GLOSSARY_NAME, ins.REPORT_CONTRACT_NAME}
+    extra = {p.name for p in base.iterdir()} - extra
     assert extra == ({ins.INDEX_NAME} if spec.index else set())
     assert {p.name for p in tmp_path.iterdir()} == {spec.skills_dir.parts[0]}
 
@@ -236,7 +240,7 @@ def test_export_writes_the_chosen_targets_folder(tmp_path, monkeypatch, capsys):
     )
     out = capsys.readouterr().out
     assert (
-        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 1} added"
+        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 2} added"
         in out
         and str(tmp_path.resolve() / ".github" / "skills") in out
     )
@@ -288,7 +292,7 @@ def test_export_check_exits_nonzero_until_the_files_are_current(
     capsys.readouterr()
     assert run(monkeypatch, *args, "--check") == 0
     assert (
-        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 1} current"
+        f"{len(ins.packaged_skills()) + len(ins.packaged_references()) + 2} current"
         in capsys.readouterr().out
     )
     (tmp_path / ".agents" / "skills" / ins.GLOSSARY_NAME).write_text("x", "utf-8")

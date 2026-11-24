@@ -24,11 +24,12 @@ report does not hold it, say so; do not describe a metric the report did not mea
 
 ## 2. Say what it measures
 
-Read its definition in the report contract before you explain it:
-https://benefron.github.io/sensoryforge/reference/report_contract/. The core metrics are
-in section 6, a modality's own pack follows it (section 7 is the tactile pack), the
+Read its definition in the report contract before you explain it: the installed
+release's copy, `../sensoryforge-report-contract.md` beside this skill's folder, or, if it
+is not there, https://benefron.github.io/sensoryforge/reference/report_contract/. The
+core metrics are in section 6, a modality's own pack follows it (section 7 is the tactile pack), the
 comparison is section 9, the checks section 13, the run-to-run diff section 14 and
-`pipeline.json` section 15. If you cannot open the page, say so and give only what the
+`pipeline.json` section 15. If you cannot open either, say so and give only what the
 report folder itself shows (the unit, the resolution and the scope below); do not explain
 a definition from memory.
 

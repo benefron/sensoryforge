@@ -12,7 +12,7 @@ Pick what to run, build the install once, run, and read ``scores.md``::
 workspace and checks that both resolve into the throwaway environment (a shell profile
 that puts another Python first would make every scenario test the wrong install). Every
 run does it first unless ``--no-preflight`` is given. See
-``docs/developer_guide/agent_scenarios.md``.
+``docs/reference/maintainers/agent_scenarios.md``.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ from, and a provenance record saying how. Builders (the
 ``template``, ``imported``) produce banks; the engine, pipelines and GUI
 consume them through :meth:`ReceptiveFieldBank.forward`.
 
-Conventions (see ``docs/user_guide/receptive_fields.md``):
+Conventions (see ``docs/how-to/receptive_fields.md``):
 
 - Coordinates are ``(x, y)`` in mm everywhere inside SensoryForge.
 - Receptor index ``k`` of a ``[rows, cols]`` grid built with
@@ -23,7 +23,7 @@ Tests: tests/unit/test_rf_bank.py, tests/unit/test_sparse_weights.py,
     tests/validation/test_receptive_fields_analytic.py
 Entry points: ReceptiveFieldBank, ReceptiveFieldBank.save, ReceptiveFieldBank.load,
     encode_weights, decode_weights
-Pinned by: docs/user_guide/receptive_fields.md, docs/developer_guide/add_rf_builder.md,
+Pinned by: docs/how-to/receptive_fields.md, docs/how-to/extend/add_rf_builder.md,
     tests/fixtures/rf_engine_golden_weights.pt, D-9c33ec9
 Do not change without: gaussian weights stay bit-identical to earlier releases (the
     golden weights fixture); a builder returns a bank, the engine, pipelines and GUI
