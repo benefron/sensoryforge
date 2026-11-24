@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-0bb20ba · CLOSED · decision · - · 2026-11-24
+the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents
+→ commit 308de0b
+
 ## D-1cbafaf · CLOSED · decision · - · 2026-11-24
 phase D is not merged at R-D; the approved restructure (Df1) and the review's remaining fixes (Df2) come first, and the merge, push and site deploy happen at the end of Df2
 → commit 0ca32b3
@@ -184,6 +188,7 @@ the add_stimulus config example used `stimuli:` where the schema takes a `stimul
 the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
 → commit e2f6039
 ↔ 0ca32b3 docs: R-D review of phase D, and its small fixes
+↔ 308de0b docs: restructure the site into tutorials, how-to, concepts and reference (Df1)
 
 ## F-146f748 · CLOSED · finding · - · 2026-11-18
 the filter scaffold kept state across forward calls and failed the report's determinism check
