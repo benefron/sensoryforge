@@ -108,6 +108,26 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-1cbafaf · CLOSED · decision · - · 2026-11-24
+phase D is not merged at R-D; the approved restructure (Df1) and the review's remaining fixes (Df2) come first, and the merge, push and site deploy happen at the end of Df2
+→ commit 0ca32b3
+
+## F-e74ff58 · STANDING · finding · - · 2026-11-24
+docs/getting_started/first_simulation.md fails: its per-row counts (100, 196) exceed the dense-weight cap, and with them fixed it treats batch-first spikes [batch, time, neurons] as [time, neurons]; the snippet test parses Python blocks and does not run them
+→ commit 0ca32b3
+
+## F-f40a0c1 · STANDING · finding · - · 2026-11-24
+none of the docs restructure approved on 2026-11-02 is done: the nav is not in four kinds, no file has moved, mkdocs-redirects is absent, and 36 public pages carry 179 ledger ids, 103 Phase/Wave labels and 15 docs_root mentions
+→ commit 0ca32b3
+
+## F-784f025 · CLOSED · finding · - · 2026-11-24
+docs/development/agent_runs/ was missing from exclude_docs, so the C6 run's results, transcript and scores page were published on the site
+→ commit 0ca32b3
+
+## F-a838696 · CLOSED · finding · - · 2026-11-24
+the README and the extend quick start said a plugin solver or grid arrangement reaches a config, which F-74f5c58 and F-5f4e887 say it cannot
+→ commit 0ca32b3
+
 ## D-fcf9f18 · CLOSED · decision · - · 2026-11-19
 the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6
 → commit f459ad2
@@ -163,6 +183,7 @@ the add_stimulus config example used `stimuli:` where the schema takes a `stimul
 ## D-22e8a63 · CLOSED · decision · - · 2026-11-18
 the docs-site restructure (four-kind layout, file moves with redirects, removal of ledger ids and Phase/Wave labels from public pages) is done in phase D after phase C merges, not at D1b-C; D1b-C only audits the pages phase C added and makes small fixes. Reason: phase/d-docs already edits mkdocs.yml and many of the same pages, so moving files on phase/c-extensions would collide at merge.
 → commit e2f6039
+↔ 0ca32b3 docs: R-D review of phase D, and its small fixes
 
 ## F-146f748 · CLOSED · finding · - · 2026-11-18
 the filter scaffold kept state across forward calls and failed the report's determinism check
