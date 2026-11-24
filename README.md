@@ -1,6 +1,6 @@
 # SensoryForge
 
-SensoryForge is a Python and PyTorch simulator of sensory encoding: a stimulus is sampled by a sensor array, passed through receptive fields, temporal filters and neuron models, and comes out as population activity. Touch is the first use, not the only one: it is built to extend to other modalities, and a new neuron, filter, stimulus, solver or grid is a small plugin package that needs no fork. Worlds and data sets generate stimuli at scale, and an evaluation pipeline audits them.
+SensoryForge is a Python and PyTorch simulator of sensory encoding: a stimulus is sampled by a sensor array, passed through receptive fields, temporal filters and neuron models, and comes out as population activity. Touch is the first use, not the only one: it is built to extend to other modalities, and a new neuron, filter, stimulus or receptive-field builder is a small plugin package that needs no fork. Worlds and data sets generate stimuli at scale, and an evaluation pipeline audits them.
 
 <p align="center">
   <img src="docs/assets/gui/gui_results.png" width="420" alt="The SensoryForge GUI's Run and Results screen after a 300 ms run: an 80×80 sensor array read by an SA and an RA population, with the stimulus, a spike raster, firing rates and a neuron map.">

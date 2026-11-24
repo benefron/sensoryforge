@@ -3,7 +3,10 @@
 In five minutes you add a temporal filter of your own, check it against SensoryForge's
 contract, see it listed, and run a config that uses it. Nothing is forked or cloned: your
 filter is a small package of its own that SensoryForge finds when it is installed. The same
-steps work for a neuron model, stimulus, solver, grid or receptive-field builder.
+steps work for a neuron model, stimulus or receptive-field builder. A solver or a grid
+arrangement goes through steps 1 to 3 the same way, but a config cannot name it yet: see
+[Add a Solver](../extending/add_solver.md) and
+[Add a Grid Arrangement](../extending/add_grid_arrangement.md).
 
 You need SensoryForge installed ([Installation](installation.md); it is not yet on PyPI, so
 install from source) and a folder to work in.

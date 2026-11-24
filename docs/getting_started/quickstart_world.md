@@ -91,7 +91,9 @@ on a laptop CPU. `runs/first/` now holds the data set (its manifest and one
 
 ## 3. Look at it
 
-As a table in the terminal:
+As a table in the terminal: the comparison stage takes the audit's folder and then the
+declared side's, here the same folder, and prints the table as it writes `compare.json`
+again:
 
 ```bash
 python -m sensoryforge.evaluate.compare runs/first/evaluate runs/first/evaluate

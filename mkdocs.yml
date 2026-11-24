@@ -12,6 +12,7 @@ edit_uri: edit/main/docs/
 # (F-029: the reviews move under docs/ added mkdocs build warnings from
 # their relative code links, which --strict would fail on).
 exclude_docs: |
+  development/agent_runs/
   development/reviews/
   development/handover/
   development/specs/

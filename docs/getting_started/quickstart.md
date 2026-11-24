@@ -6,7 +6,7 @@ example file.
 
 | You want to | Quick start | You end with |
 |---|---|---|
-| Add your own neuron, filter, stimulus, solver, grid or receptive-field builder | [Extend SensoryForge](quickstart_extend.md) | a plugin package that passes the contract test and runs in a config |
+| Add your own neuron, filter, stimulus or receptive-field builder | [Extend SensoryForge](quickstart_extend.md) | a plugin package that passes the contract test and runs in a config |
 | Run a simulation from the terminal | [Command line](quickstart_cli.md) | a data bundle from a shipped recipe, with your own stimulus, read in Python |
 | Design an experiment by eye | [The GUI](quickstart_gui.md) | a run's raster, rates and traces, and its config saved for the command line |
 | Generate stimuli at scale and check them | [World to data set to report](quickstart_world.md) | a simulated data set and a report of measured against declared values |
