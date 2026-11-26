@@ -30,6 +30,11 @@ def _dot(cell_x, y0, pitch, dot):
     return (cell_x + (col - 0.5) * pitch, y0 + (1 - row) * pitch)
 
 
+def _assert_positions(got, want):
+    # pytest.approx refuses a list of tuples (newer pytest), so compare as arrays.
+    assert np.asarray(got) == pytest.approx(np.asarray(want), abs=1e-12)
+
+
 def test_two_lines_put_dots_at_known_positions():
     pattern = {
         "kind": "braille",
@@ -48,7 +53,7 @@ def test_two_lines_put_dots_at_known_positions():
         want.append(_dot(2.0 + 5.0, 3.0, 1.0, dot))
     for dot in _BRAILLE["c"]:  # line 1: the cell index restarts, y drops by 8
         want.append(_dot(2.0, 3.0 - 8.0, 1.0, dot))
-    assert positions == pytest.approx(want, abs=1e-12)
+    _assert_positions(positions, want)
     assert scales == [1.0] * len(want)
 
 
@@ -63,7 +68,7 @@ def test_dots_split_on_slash_too():
     positions, _ = pattern_positions(pattern)
     want = [_dot(0.0, 0.0, 1.0, "1"), _dot(5.0, 0.0, 1.0, "2")]
     want += [_dot(0.0, -4.0, 1.0, d) for d in "12"]
-    assert positions == pytest.approx(want, abs=1e-12)
+    _assert_positions(positions, want)
 
 
 def test_blank_cells_still_count_on_a_line():
@@ -78,7 +83,7 @@ def test_blank_cells_still_count_on_a_line():
     want = [_dot(0.0, 0.0, 1.0, "1")]
     want += [_dot(10.0, 0.0, 1.0, d) for d in "12"]
     want += [_dot(5.0, -6.0, 1.0, "1")]
-    assert positions == pytest.approx(want, abs=1e-12)
+    _assert_positions(positions, want)
 
 
 def test_single_line_braille_renders_as_before():
