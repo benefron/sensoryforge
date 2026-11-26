@@ -288,9 +288,10 @@ the scaffold has no processing-layer kind and no world kinds; the extend skills 
 main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
 → commit c90a1b4
 
-## F-439d607 · OPEN · finding · - · 2026-11-03
+## F-439d607 · CLOSED · finding · - · 2026-11-03
 tests/unit/test_world_braille_lines.py passes nested tuples to pytest.approx, which the CI runners' pytest refuses with TypeError (three tests); a test bug, not a model change
 → commit c90a1b4
+✓ closed by b894f11 test: compare braille dot positions as arrays
 
 ## D-6cf4332 · CLOSED · decision · docs · 2026-11-03
 cloud sessions' roadmap branches (C4 here; D2 and D5 into phase/d-docs) merge into their phase branch, not main, and go through that phase's Opus review
