@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-834be43 · CLOSED · finding · - · 2026-11-26
+CI lint failed on main after the phase D push: four docstring lines with moved docs paths exceeded 88 characters
+→ commit af6d05d
+
 ## D-fb17e20 · CLOSED · decision · - · 2026-11-24
 phase D is merged to main after the R-D review, Df1 and Df2 and a green full suite (4389 passed)
 → commit ce6a4a5
