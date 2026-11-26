@@ -190,10 +190,12 @@ BaseFilter and add_filter.md said reset_state() is called between sequences; the
 
 ## F-0006a08 · OPEN · finding · - · 2026-11-19
 check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
+· tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
 
 ## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
 install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
+· tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
 
 ## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
@@ -226,6 +228,7 @@ SensoryForge has no plugin version of its own and checks nothing when it loads a
 
 ## F-64ac196 · OPEN · finding · - · 2026-11-18
 no plugin API version or load-time compatibility check exists, so a plugin checked on one release loads silently on a later one that changed a contract; decide whether to add one
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 87821a5
 
 ## D-5a1841e · CLOSED · decision · - · 2026-11-09
@@ -235,14 +238,17 @@ check_evaluation_component(kind, name, example=folder) checks a metric pack and 
 
 ## F-70d3b00 · OPEN · finding · - · 2026-11-09
 the report contract lists a FRAME_RENDERER_REGISTRY (points, grid, tactile) that was never built; the evaluation server draws channel 0 as a heat map itself, so no plugin can add how a frame is drawn and a data set of three colour channels shows as grey
+· tidied 2026-11-26: kept open -- checked, still real
 → commit e0207bc
 
 ## F-f91c230 · OPEN · finding · - · 2026-11-09
 sensoryforge new-component has no template for a metric pack or a declared adapter, so the extend-evaluation skill has the agent write both by hand
+· tidied 2026-11-26: kept open -- checked, still real
 → commit e0207bc
 
 ## F-44f1c67 · OPEN · finding · - · 2026-11-09
 sensoryforge describe --section evaluation lists only the names of the metric packs, check packs and declared adapters, not their metric ids, so an agent has to read an audit.json to see what exists
+· tidied 2026-11-26: kept open -- checked, still real
 → commit e0207bc
 
 ## F-36f1dd9 · CLOSED · finding · - · 2026-11-09
@@ -265,10 +271,12 @@ an SA, RA or SA2 population clamps its neuron input at 0 mA for any model except
 
 ## F-74f5c58 · OPEN · finding · - · 2026-11-05
 no config key or stage builds a registered plugin solver (solver_config is unread by the engine, get_solver() ignores SOLVER_REGISTRY, NeuronModel.compile accepts only euler); a candidate for C4 or a later row
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 400d5d8
 
 ## F-8e2b55e · OPEN · finding · - · 2026-11-05
 new-component solver scaffolds to_dict()["type"] as the class name lowercased minus "solver" (demork2), not the registered name (demo_rk2), and new-component has no processing-layer kind
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 400d5d8
 
 ## F-e1c618e · STANDING · finding · - · 2026-11-03
@@ -285,6 +293,7 @@ exports copy only SKILL.md, so a reference file inside a skill folder would not 
 
 ## F-85f1687 · OPEN · finding · - · 2026-11-03
 the scaffold has no processing-layer kind and no world kinds; the extend skills tell the user to write those by hand.
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 31422a5
 ↔ 4cedcda feat(examples): ship two example configs, `sensoryforge examples`, and check every docs sn
 
@@ -320,6 +329,7 @@ the grid scaffold's placeholder used the global RNG, so a to_dict/from_config ro
 
 ## F-5f4e887 · OPEN · finding · - · 2026-11-03
 a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 953661e
 
 ## D-702cf20 · CLOSED · decision · - · 2026-11-03
@@ -340,14 +350,17 @@ the component, world-kind, evaluation, recipe and format-tag reference pages are
 
 ## F-6165c83 · OPEN · finding · - · 2026-11-03
 ParamSpec help and tooltip text, class-docstring summaries and preset descriptions carry ledger ids and Wave labels that `sensoryforge describe --json` and `list-presets` print; the generated reference strips them, and the source strings should lose them
+· tidied 2026-11-26: kept open -- checked, still real (describe --json still prints ledger ids and a Wave label; list-presets no longer does)
 → commit 808ff56
 
 ## F-296e39c · OPEN · finding · - · 2026-11-03
 `sensoryforge describe --json` gives the no-filter names none and identity the class builtins.NoneType and Python's own NoneType docstring as their summary; the generated reference special-cases it, describe should say what the name selects
+· tidied 2026-11-26: kept open -- checked, still real (describe still gives class builtins.NoneType for none and identity; summary now empty)
 → commit 808ff56
 
 ## F-bff2ce4 · OPEN · finding · - · 2026-11-03
 cli.py's config validation lists the five grid arrangement names for neuron_arrangement by hand instead of reading GRID_REGISTRY, so a registered sixth arrangement would be refused there
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 808ff56
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
@@ -428,6 +441,7 @@ the baseline of the 64 agent scenarios is 46 passing; the failures are one run o
 
 ## F-725b89c · OPEN · finding · - · 2026-10-30
 the ground-assumptions skill is not loaded for a number with no unit or a value far out of range, so the unit is guessed and written as given by the user (ground.no-unit, ground.out-of-range)
+· tidied 2026-11-26: kept open -- per the R-B review record, ground.out-of-range failed in the last recorded run; ground.no-unit passed it
 → commit 7d3db72
 ↔ 1744cbc docs(review): R-B, the review of phase B
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
@@ -470,13 +484,15 @@ flow.realistic-fingertip: under "carry on without asking" the agent wrote finger
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
 
-## F-bf830fd · OPEN · finding · - · 2026-10-28
+## F-bf830fd · STANDING · finding · - · 2026-10-28
 flow.resume: the workflow skill was not loaded for "where does my job stand, finish it"; its description does not cover picking up a part-done job
+· tidied 2026-11-26: settled -- the R-B review left this kind of scenario failure as it is; not rerun since (whether the workflow skill now loads is not shown by a newer result)
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
-## F-de2bdf1 · OPEN · finding · - · 2026-10-28
+## F-de2bdf1 · STANDING · finding · - · 2026-10-28
 interpret-report slips: report.typical-rate called 1 spike/s "too low", report.no-such-metric described what a missing metric would mean, report.latency cannot say what it measures without the contract page (the harness has no web)
+· tidied 2026-11-26: settled -- the R-B review left this kind of scenario failure as it is; not rerun since
 → commit 935ce5c
 
 ## F-4107108 · CLOSED · finding · - · 2026-10-28
@@ -486,8 +502,9 @@ run.how-long-gpu: the agent said a GPU "won't help"; run-simulation does not say
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ✓ closed by 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
 
-## F-2901a8e · OPEN · finding · - · 2026-10-28
+## F-2901a8e · STANDING · finding · - · 2026-10-28
 diagnose.something-off assumed a symptom the user had not named; flow.take-it-from-here left the validation step out of its repeat list and said "assumptions: none"; eval.demo said values "agree to about 1e-9 mm" (strict judge)
+· tidied 2026-11-26: settled -- the R-B review left this kind of scenario failure as it is; not rerun since (the review does not name every slip listed here)
 → commit 935ce5c
 ↔ 7d3db72 test(agents): scenarios for grounding, setup and the export prompts, and the baseline (B9c
 
@@ -696,6 +713,7 @@ examples/ does not reach a user on the default no-clone install; D4 decides betw
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
 · tidied 2026-11-09: kept open -- still real; no extend extra yet
+· tidied 2026-11-26: kept open -- checked, still real
 → commit 9873eb4
 ↔ b53dfd6 feat(agents): extend-pipeline skill, neuron model and temporal filter (C2a)
 
@@ -732,6 +750,7 @@ a module header is tag lines at the end of its docstring, with a closed topic li
 ## F-f324e8a · OPEN · finding · - · 2026-10-24
 127 modules of 40 lines or more still have no header (tests/unit/file_headers_untagged.txt); tag them as they are touched, starting with the GUI screens and the rest of evaluate
 · tidied 2026-11-09: kept open -- ratchet: tag modules as they are touched
+· tidied 2026-11-26: kept open -- ratchet; 126 lines in the untagged list
 → commit 0ce453c
 
 ## D-d97f27f · CLOSED · decision · - · 2026-10-24
@@ -858,9 +877,10 @@ the export records the server's answers per request key (path plus sorted query 
 pins are recorded for chosen points (default the middle sensor and each population's middle unit); other points answer "not in this snapshot" instead of being computed client-side, which would duplicate the server's decimation.
 → commit f6412d3
 
-## F-1844d82 · OPEN · finding · - · 2026-10-23
+## F-1844d82 · STANDING · finding · - · 2026-10-23
 the snapshot cannot answer combined filters, text or seed searches, Random draw, or an unticked gallery signal; each answers "not in this snapshot".
 · tidied 2026-11-09: kept open -- a known limit of the snapshot, not fixed
+· tidied 2026-11-26: a settled result, not an open problem: a known limit of the snapshot
 → commit f6412d3
 
 ## D-e76de48 · CLOSED · decision · - · 2026-10-23
@@ -1153,6 +1173,7 @@ the published docs build strict-clean but carry sixteen drift items, two of whic
 
 ## F-6431443 · OPEN · finding · - · 2026-10-22
 SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning (checked with `stimuli:`), so a mistyped section is dropped silently
+· tidied 2026-11-26: kept open -- checked, still real
 → commit c02239c
 
 ## F-6816a05 · OPEN · finding · - · 2026-10-22
