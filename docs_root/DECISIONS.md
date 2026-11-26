@@ -1156,4 +1156,5 @@ Do not hand-edit between the markers.
 | 2026-11-24 | D-0bb20ba | the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents | `308de0b` |
 | 2026-11-24 | D-fb17e20 | phase D is merged to main after the R-D review, Df1 and Df2 and a green full suite (4389 passed) | `ce6a4a5` |
 | 2026-11-26 | D-5bda111 | golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben) | `dd4330e` |
+| 2026-11-26 | D-dce1eff | an unknown neuron arrangement is an error now, and SensoryForge is to support custom layouts; the error is the first step, not the end state | `2c05ad0` |
 <!-- DECISIONS_LOG_END -->

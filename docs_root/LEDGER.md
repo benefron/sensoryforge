@@ -108,9 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
-## F-0c63fac · OPEN · finding · - · 2026-11-26
+## D-dce1eff · CLOSED · decision · - · 2026-11-26
+an unknown neuron arrangement is an error now, and SensoryForge is to support custom layouts; the error is the first step, not the end state
+→ commit 2c05ad0
+
+## F-a4d5f3b · OPEN · finding · - · 2026-11-26
+create_neuron_centers with arrangement hex still returns the plain square grid when the hex lattice has fewer points than rows x cols (80 of the 841 shapes from 2x2 to 30x30 on a square extent, e.g. 13x17)
+→ commit 2c05ad0
+
+## F-0c63fac · CLOSED · finding · - · 2026-11-26
 create_neuron_centers silently returns a plain square grid for an arrangement name it does not know (checked: demo_spiral, jittered, Hex), so the CLI's fixed list in F-bff2ce4 must stay until the engine builds registered arrangements or raises on unknown names
 → commit dd1ec04
+✓ closed by 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
 
 ## D-5bda111 · CLOSED · decision · - · 2026-11-26
 golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben)
@@ -339,6 +348,7 @@ the grid scaffold's placeholder used the global RNG, so a to_dict/from_config ro
 a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
 · tidied 2026-11-26: kept open -- checked, still real
 → commit 953661e
+↔ 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
 
 ## D-702cf20 · CLOSED · decision · - · 2026-11-03
 one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
@@ -371,6 +381,7 @@ cli.py's config validation lists the five grid arrangement names for neuron_arra
 · tidied 2026-11-26: kept open -- checked, still real
 → commit 808ff56
 ↔ dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
+↔ 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
