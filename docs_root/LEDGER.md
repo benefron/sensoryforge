@@ -128,9 +128,10 @@ first_simulation.md raised ValueError (per-row counts, batch axis treated as tim
 the evaluation stage pages go to reference/evaluate and the maintainer pages to reference/maintainers; the agent pages keep docs/agents
 → commit 308de0b
 
-## D-1cbafaf · CLOSED · decision · - · 2026-11-24
+## D-1cbafaf · SUPERSEDED · decision · - · 2026-11-24
 phase D is not merged at R-D; the approved restructure (Df1) and the review's remaining fixes (Df2) come first, and the merge, push and site deploy happen at the end of Df2
 → commit 0ca32b3
+⤳ superseded by D-fb17e20 in 6b9d7bd chore(ledger): tidy
 
 ## F-e74ff58 · STANDING · finding · - · 2026-11-24
 docs/getting_started/first_simulation.md fails: its per-row counts (100, 196) exceed the dense-weight cap, and with them fixed it treats batch-first spikes [batch, time, neurons] as [time, neurons]; the snippet test parses Python blocks and does not run them
@@ -152,9 +153,10 @@ the README and the extend quick start said a plugin solver or grid arrangement r
 the docs deploy is the existing deploy-docs workflow on push to main, so it happens at the R-D merge, not at D6
 → commit f459ad2
 
-## F-eef3e0b · OPEN · finding · - · 2026-11-19
+## F-eef3e0b · CLOSED · finding · - · 2026-11-19
 the site restructure (D-22e8a63, Ben's Q1-Q4 in D1_audit.md) is not done, and D3's timing by a new user is Ben's
 → commit f459ad2
+✓ closed by 6b9d7bd chore(ledger): tidy
 
 ## D-114d396 · CLOSED · decision · - · 2026-11-19
 the packaged report contract is the docs page with its relative links pointed at the published site, exported beside the glossary as sensoryforge-report-contract.md; skills read it before the site
@@ -367,9 +369,10 @@ cli.py's config validation lists the five grid arrangement names for neuron_arra
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
 → commit 8459dc6
 
-## D-b6a94f5 · CLOSED · decision · docs/development · 2026-11-02
+## D-b6a94f5 · SUPERSEDED · decision · docs/development · 2026-11-02
 phase B merges at the end of row Bf (Sonnet, S22b), after the R-B review's required changes 1-6 and a green full suite, with no second Opus pass
 → commit 1744cbc
+⤳ superseded by D-1ce0186 in 6b9d7bd chore(ledger): tidy
 
 ## F-3228621 · CLOSED · finding · docs/development · 2026-11-02
 `sensoryforge agents setup` takes the project as the style file's grandparent, so with --path, $SENSORYFORGE_AGENTS_CONFIG or a style file in a parent folder the routing hook is installed in (or removed from) another folder's .claude/settings.local.json
@@ -449,12 +452,13 @@ the ground-assumptions skill is not loaded for a number with no unit or a value 
 ↔ be4a4c8 fix(agents): extend-world skill covers asking and placeholder defaults; its four scenarios
 ↔ 400d5d8 feat(agents): extend-pipeline covers solver, processing layer and event converter (C2c)
 
-## F-a920f84 · OPEN · finding · - · 2026-10-30
+## F-a920f84 · CLOSED · finding · - · 2026-10-30
 the instructions prompt does not stop an agent deleting the user's text to get past damaged markers after a vague go-ahead (export-instructions.broken-markers), and the generic prompt lets an agent take "my editor" to be itself without asking (export-generic.which-editor)
 → commit 7d3db72
 ↔ 1744cbc docs(review): R-B, the review of phase B
 ↔ fc29329 fix(agents): seven one-sentence skill fixes from the R-B scenario run
 ↔ 6bff6ea fix(agents): second round of skill wording; five more R-B scenarios now pass
+✓ closed by 6b9d7bd chore(ledger): tidy
 
 ## D-47468a5 · CLOSED · decision · - · 2026-10-30
 the update step is a maintainer command (.claude/commands/update-agent-docs.md), not a shipped skill, because it reads git history and repo paths that a shipped skill may not name; the maintainer-command limit rises from 5 to 6 until add-component retires in C2.
@@ -670,10 +674,11 @@ the packaged glossary sits beside the skill folders (skills/sensoryforge-glossar
 D4 ships only the configs a preset cannot give (a canonical batch config and a stimulus-block config) as package data with `sensoryforge examples copy <name>`, tested from an unpacked wheel; the notebook and scripts stay in the repository and are linked on GitHub, the legacy configs stay out of user-facing docs, and plugin_template is retired once C2c covers its two kinds
 → commit e7f8d04
 
-## A-25817b1 · OPEN · action · - · 2026-10-25
+## A-25817b1 · CLOSED · action · - · 2026-10-25
 D4 builds the examples command and its wheel test, and the install page and README link the rest on GitHub; Due: with D4
 · tidied 2026-11-09: kept open -- waits for D4
 → commit e7f8d04
+✓ closed by 6b9d7bd chore(ledger): tidy
 
 ## D-7d2a70d · CLOSED · decision · docs/getting_started · 2026-10-24
 the examples/ folder is not shipped inside the package as it stands; a first run uses the packaged presets, and the rest of what an installed user needs from it is closed by D4 (batch and stimulus-block configs as small tested package data) and by C2c (scaffold or a skill for receptive-field builders and processing layers), not by copying the folder
@@ -704,11 +709,12 @@ a wheel holds only sensoryforge/ (232 files: the skills, the evaluation server's
 the scaffold's generated starter pointed at docs/developer_guide/add_<kind>.md, which does not exist in an installed copy
 → commit 9873eb4
 
-## F-c5e90d8 · OPEN · finding · - · 2026-10-24
+## F-c5e90d8 · CLOSED · finding · - · 2026-10-24
 examples/ does not reach a user on the default no-clone install; D4 decides between shipping them in the package and fetching them
 · tidied 2026-11-09: kept open -- D4 has not decided yet
 → commit 9873eb4
 ↔ e7f8d04 docs(plan): D4 ships the small configs a preset cannot give, and no more (Ben, 2026-10-25)
+✓ closed by 6b9d7bd chore(ledger): tidy
 
 ## F-cb6e407 · OPEN · finding · - · 2026-10-24
 the generated plugin's tests need pytest, which is only in the dev extra, so the install page tells the user to install it; an extend extra or a line in the scaffold's next steps would fix it at the source
@@ -855,10 +861,11 @@ in a worktree, flake8 checks nothing because .flake8 excludes .claude; the branc
 evaluate/export/static/snapshot_shim.js was missing from the wheel
 → commit 5937de9
 
-## D-637b872 · CLOSED · decision · - · 2026-10-23
+## D-637b872 · SUPERSEDED · decision · - · 2026-10-23
 phase A merges at the end of row Af (Sonnet, S12b), once review changes 1-10 are made and the full suite is green, with no second Opus pass
 → commit 5937de9
 ↔ 1744cbc docs(review): R-B, the review of phase B
+⤳ superseded by D-6bc58cd in 6b9d7bd chore(ledger): tidy
 
 ## F-0c5ca9c · CLOSED · finding · - · 2026-10-23
 the Quick Start legacy example raised ValueError (per-row neuron counts); cli.md named 4 of 9 subcommands; every docs page loaded polyfill.io.
@@ -1176,13 +1183,15 @@ SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning 
 · tidied 2026-11-26: kept open -- checked, still real
 → commit c02239c
 
-## F-6816a05 · OPEN · finding · - · 2026-10-22
+## F-6816a05 · CLOSED · finding · - · 2026-10-22
 mkdocs.yml loads polyfill.io on every page of the deployed site; remove it (D1b-A, or sooner if Ben says so)
 → commit c02239c
+✓ closed by 6b9d7bd chore(ledger): tidy
 
-## F-ab4d01f · OPEN · finding · - · 2026-10-22
+## F-ab4d01f · CLOSED · finding · - · 2026-10-22
 the proposed docs site map and the policy on internal references in public pages wait for Ben's answers (Q1-Q6 in D1_audit.md)
 → commit c02239c
+✓ closed by 6b9d7bd chore(ledger): tidy
 
 ## D-83bf844 · CLOSED · decision · - · 2026-10-22
 the evaluation server uses the Python standard library behind a small interface, with FastAPI and Uvicorn a possible later swap rather than part of this update
