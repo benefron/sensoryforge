@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-5bda111 · CLOSED · decision · - · 2026-11-26
+golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben)
+→ commit dd4330e
+
 ## F-834be43 · CLOSED · finding · - · 2026-11-26
 CI lint failed on main after the phase D push: four docstring lines with moved docs paths exceeded 88 characters
 → commit af6d05d
@@ -284,9 +288,10 @@ the scaffold has no processing-layer kind and no world kinds; the extend skills 
 → commit 31422a5
 ↔ 4cedcda feat(examples): ship two example configs, `sensoryforge examples`, and check every docs sn
 
-## F-16f7ce4 · OPEN · finding · - · 2026-11-03
+## F-16f7ce4 · CLOSED · finding · - · 2026-11-03
 main's CI non-gui jobs fail on the golden comparisons test_1_leak_off_is_v1_2_1_bit_for_bit_engine (ra__drive, 77 of 320 values, max 4.8e-7) and test_stimulus_matches_pressure_simulation_exactly[moving_edge] (max 3.6e-7), both beyond FLOAT32_GOLDEN_ATOL 2e-7, so F-071's closure does not hold on GitHub's runners; diagnose before loosening (pressure-simulation pins these values)
 → commit c90a1b4
+✓ closed by dd4330e test: exact events everywhere, a stated float tolerance off the recording machine
 
 ## F-439d607 · CLOSED · finding · - · 2026-11-03
 tests/unit/test_world_braille_lines.py passes nested tuples to pytest.approx, which the CI runners' pytest refuses with TypeError (three tests); a test bug, not a model change
