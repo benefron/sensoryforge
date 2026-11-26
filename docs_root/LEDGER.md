@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-0c63fac · OPEN · finding · - · 2026-11-26
+create_neuron_centers silently returns a plain square grid for an arrangement name it does not know (checked: demo_spiral, jittered, Hex), so the CLI's fixed list in F-bff2ce4 must stay until the engine builds registered arrangements or raises on unknown names
+→ commit dd1ec04
+
 ## D-5bda111 · CLOSED · decision · - · 2026-11-26
 golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben)
 → commit dd4330e
@@ -190,15 +194,17 @@ the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the
 BaseFilter and add_filter.md said reset_state() is called between sequences; the engine never calls it, so forward() must start from rest
 → commit f84db10
 
-## F-0006a08 · OPEN · finding · - · 2026-11-19
+## F-0006a08 · CLOSED · finding · - · 2026-11-19
 check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
 · tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
-## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
+## F-a7fe7d1 · CLOSED · finding · - · 2026-11-19
 install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
 · tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
 ## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
 the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
@@ -364,6 +370,7 @@ ParamSpec help and tooltip text, class-docstring summaries and preset descriptio
 cli.py's config validation lists the five grid arrangement names for neuron_arrangement by hand instead of reading GRID_REGISTRY, so a registered sixth arrangement would be refused there
 · tidied 2026-11-26: kept open -- checked, still real
 → commit 808ff56
+↔ dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
@@ -1178,10 +1185,11 @@ a layer value an axis replaces is not checked, and a list-valued field is checke
 the published docs build strict-clean but carry sixteen drift items, two of which give a reader a wrong result (the Quick Start legacy example raises; the add-a-stimulus config silently drops the new stimulus); listed in docs_root/plan/D1_audit.md
 → commit c02239c
 
-## F-6431443 · OPEN · finding · - · 2026-10-22
+## F-6431443 · CLOSED · finding · - · 2026-10-22
 SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning (checked with `stimuli:`), so a mistyped section is dropped silently
 · tidied 2026-11-26: kept open -- checked, still real
 → commit c02239c
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
 ## F-6816a05 · CLOSED · finding · - · 2026-10-22
 mkdocs.yml loads polyfill.io on every page of the deployed site; remove it (D1b-A, or sooner if Ben says so)
