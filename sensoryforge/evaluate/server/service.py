@@ -15,7 +15,8 @@ A draw's full record is read from its line on demand.
 Topic: server
 Tests: tests/unit/test_eval_server.py, tests/unit/test_eval_page_compare.py
 Entry points: DatasetService, ServiceError, FrameChunk, DrawRow, decimate
-Pinned by: docs/reference/evaluate/evaluation_server.md, docs/reference/report_contract.md
+Pinned by: docs/reference/evaluate/evaluation_server.md,
+    docs/reference/report_contract.md
 Do not change without: endpoints sit behind one small interface and no web framework is
     imported here, so a later FastAPI swap stays possible.
 """

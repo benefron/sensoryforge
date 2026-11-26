@@ -1,8 +1,8 @@
 """The skills that ship with SensoryForge: their rules, install and examples.
 
 Every skill is a file an agent follows on a user's machine, so each one is held to the
-rules of ``docs/reference/maintainers/agent_files.md``, and each one's worked example is run
-for real (roadmap B6).
+rules of ``docs/reference/maintainers/agent_files.md``, and each one's worked example
+is run for real (roadmap B6).
 """
 
 import contextlib

@@ -11,8 +11,9 @@ module is outside the audit's import wall.
 Topic: evaluate
 Tests: tests/unit/test_eval_pipeline.py, tests/scale/test_pipeline_small.py
 Entry points: run_pipeline, dataset_mapping
-Pinned by: docs/how-to/evaluate/evaluate_pipeline.md, docs/reference/evaluate/pipeline_stage.md,
-    docs/reference/report_contract.md, D-0f0dce2
+Pinned by: docs/how-to/evaluate/evaluate_pipeline.md,
+    docs/reference/evaluate/pipeline_stage.md, docs/reference/report_contract.md,
+    D-0f0dce2
 Do not change without: the report contract page; the pipeline never picks a metric pack
     from the world (--packs is the user's).
 """
