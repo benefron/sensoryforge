@@ -38,6 +38,7 @@ import yaml
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
+from sensoryforge.core.innervation import NEURON_ARRANGEMENTS
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
 from sensoryforge.config.defaults import resolve_duration_ms
@@ -149,13 +150,7 @@ def validate_config(config: Dict[str, Any]) -> bool:
 
             # Validate neuron arrangement
             arrangement = pop.get("neuron_arrangement", "grid")
-            valid_arrangements = [
-                "grid",
-                "poisson",
-                "hex",
-                "jittered_grid",
-                "blue_noise",
-            ]
+            valid_arrangements = list(NEURON_ARRANGEMENTS)
             if arrangement not in valid_arrangements:
                 errors.append(
                     f"Population '{pop.get('name', i)}': invalid neuron_arrangement "

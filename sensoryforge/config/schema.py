@@ -447,7 +447,7 @@ class PopulationConfig:
         decay_rate: Decay rate parameter.
         weight_range: [min, max] weight range.
         edge_offset: Edge offset in mm.
-        neuron_arrangement: Arrangement (grid, poisson, hex, jittered,
+        neuron_arrangement: Arrangement (grid, poisson, hex, jittered_grid,
             blue_noise).
         neurons_per_row: Neurons per row (for grid arrangement).
         neuron_rows: Number of rows (independent of neurons_per_row).

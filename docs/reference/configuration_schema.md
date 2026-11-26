@@ -153,7 +153,7 @@ populations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"` |
+| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`. Spelled exactly; any other name is an error |
 | `neurons_per_row` | int | `10` | Neurons per row (for grid arrangement) |
 | `neuron_rows` | int | `None` | Number of rows (independent of neurons_per_row) |
 | `neuron_cols` | int | `None` | Number of columns (independent of neurons_per_row) |

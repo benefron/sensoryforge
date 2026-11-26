@@ -8,6 +8,9 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ### Fixed
 
+- An unknown `neuron_arrangement` (a typo, `jittered`, `Hex`) now raises `ValueError`. Before,
+  the engine placed the neurons on a plain square grid without saying so. A config or script
+  that relied on that must now say `grid`. Layouts from the five valid names are unchanged.
 - Loading a config with an unknown top-level key now warns instead of dropping it silently.
 - `check_component("filter", ...)` now refuses a filter whose output changes on a second
   call with the same input. A plugin filter that passed before can now fail.
