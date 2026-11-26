@@ -149,14 +149,30 @@ def _check_neuron(cls: type, instance: Any) -> None:
 
 
 def _check_filter(cls: type, instance: Any) -> None:
-    """Canonical filter shape: [batch, time, neurons] -> same shape."""
+    """Canonical filter shape: [batch, time, neurons] -> same shape.
+
+    The same input goes through twice and must give the same output, since the
+    engine never calls ``reset_state()``. Both passes start from one global RNG
+    seed, so a filter drawing noise from it passes; the caller's RNG state is
+    restored.
+    """
     _assert_param_spec(cls)
     x = torch.randn(1, 5, 3)
-    out = instance(x)
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        out = instance(x.clone()).clone()
+        torch.manual_seed(0)
+        again = instance(x.clone())
     if tuple(out.shape) != tuple(x.shape):
         raise AssertionError(
             f"{cls.__name__} forward(): expected output shape {tuple(x.shape)}, "
             f"got {tuple(out.shape)}"
+        )
+    if again.shape != out.shape or not torch.allclose(out, again, equal_nan=True):
+        raise AssertionError(
+            f"{cls.__name__} forward(): the same input gave a different output on "
+            "the second call; it carries state between calls (every forward() "
+            "must start from rest), or draws noise from its own generator"
         )
     reconstructed = cls.from_config(instance.to_dict())
     if not isinstance(reconstructed, cls):
@@ -471,7 +487,9 @@ def check_component(kind: str, cls: type, instance: Optional[Any] = None) -> Non
     Checks (matching ``tests/contract/test_component_contracts.py``, G4):
 
     1. ``cls.get_param_spec()`` returns a list of ``ParamSpec`` instances.
-    2. One forward pass succeeds with ``kind``'s canonical tensor shape.
+    2. One forward pass succeeds with ``kind``'s canonical tensor shape. A
+       ``"filter"`` runs twice on one input, with the global RNG seeded alike,
+       and must give the same output both times.
     3. ``cls.from_config(instance.to_dict())`` round-trips to a ``cls`` instance.
     4. The round trip is complete, for every kind (F-049): every ``__init__``
        parameter appears in ``instance.to_dict()`` (except the names in the

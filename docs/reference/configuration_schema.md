@@ -534,6 +534,10 @@ except Exception as e:
     print(f"✗ Validation error: {e}")
 ```
 
+A top-level key that the schema does not have (a mistyped `simulaton:`, say) is ignored,
+and loading the config raises a `UserWarning` that names it. `plugins` is allowed. The older
+`stimuli:` list also warns: only `sensoryforge run` reads it.
+
 Or use CLI:
 ```bash
 sensoryforge validate config.yml

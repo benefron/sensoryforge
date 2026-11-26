@@ -610,6 +610,32 @@ def test_a_dropped_skill_takes_its_generated_reference_file_with_it(tmp_path):
     assert not old.exists()
 
 
+def test_a_reference_file_a_kept_skill_dropped_is_stale_and_install_removes_it(
+    tmp_path,
+):
+    ins.install(tmp_path)
+    with_reference = {name for name, _ in ins.packaged_references()}
+    name = next(n for n, _ in ins.packaged_skills() if n not in with_reference)
+    leftover = tmp_path / ".claude" / "skills" / name / "reference.md"
+    spec = ins.EXPORT_TARGETS["claude"]
+    leftover.write_text(ins.render_glossary("detail", spec))
+    assert dict(ins.check(tmp_path))[leftover] == "stale"
+    assert (leftover, "removed") in ins.install(tmp_path)
+    assert not leftover.exists()
+    assert (leftover.parent / "SKILL.md").is_file()
+
+
+def test_a_users_own_reference_file_beside_a_kept_skill_is_left_alone(tmp_path):
+    ins.install(tmp_path)
+    with_reference = {name for name, _ in ins.packaged_references()}
+    name = next(n for n, _ in ins.packaged_skills() if n not in with_reference)
+    theirs = tmp_path / ".claude" / "skills" / name / "reference.md"
+    theirs.write_text("my notes")
+    assert not any(s == "removed" for _, s in ins.install(tmp_path))
+    assert theirs not in dict(ins.check(tmp_path))
+    assert theirs.read_text() == "my notes"
+
+
 def test_a_skill_reference_file_is_exported_beside_its_skill(tmp_path):
     ins.install(tmp_path)
     name, source = ins.packaged_references()[0]

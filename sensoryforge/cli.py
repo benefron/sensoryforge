@@ -86,6 +86,17 @@ def _deep_merge_preset(
     return result
 
 
+def _schema_config(config: Dict[str, Any]) -> SensoryForgeConfig:
+    """Parse ``config`` without the older ``stimuli:`` list.
+
+    ``run`` and ``validate`` read that list themselves and say so, so the
+    schema's warning that it is ignored would be wrong here.
+    """
+    return SensoryForgeConfig.from_dict(
+        {k: v for k, v in config.items() if k != "stimuli"}
+    )
+
+
 def validate_config(config: Dict[str, Any]) -> bool:
     """Validate configuration structure and required fields.
 
@@ -113,7 +124,7 @@ def validate_config(config: Dict[str, Any]) -> bool:
     if is_canonical:
         # Validate canonical schema format
         try:
-            SensoryForgeConfig.from_dict(config)
+            _schema_config(config)
         except Exception as e:
             errors.append(f"Canonical schema validation failed: {e}")
 
@@ -344,7 +355,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     config["simulation"] = {}
                 config["simulation"]["seed"] = args.seed
 
-            sf_config = SensoryForgeConfig.from_dict(config)
+            sf_config = _schema_config(config)
 
             # Stimulus source (Task 0.6, F-061): the canonical 'stimulus:'
             # block is what runs, via render_for_config -- the same
@@ -883,7 +894,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(f"Validating {args.config}...")
         try:
             if is_canonical:
-                sf_config = SensoryForgeConfig.from_dict(config)
+                sf_config = _schema_config(config)
                 engine = SimulationEngine(sf_config)
 
                 print("✓ Configuration is valid!")

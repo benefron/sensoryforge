@@ -56,6 +56,9 @@ does this only for a file that carries the "generated, do not edit" header: a
 `sensoryforge-*` folder without the header is not one SensoryForge wrote, so `--check` lists
 it as `foreign` (not a failure) and the export never touches it.
 
+The same applies to a generated `reference.md` beside a skill that no longer ships one. A
+`reference.md` without the header is yours and is left alone.
+
 ## Let the agent do it
 
 Give your agent this prompt. It picks the right command for the environment it is running

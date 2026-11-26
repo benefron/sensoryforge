@@ -6,6 +6,13 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ## [Unreleased]
 
+### Fixed
+
+- Loading a config with an unknown top-level key now warns instead of dropping it silently.
+- `check_component("filter", ...)` now refuses a filter whose output changes on a second
+  call with the same input. A plugin filter that passed before can now fail.
+- Exporting the agent files removes a generated `reference.md` that its skill no longer ships.
+
 Four additions since 1.3.0: a way to evaluate a generated data set, agent skills and files that ship
 with the package, a way to extend every part of a run without editing the core, and a reworked docs
 site. Nothing changes for an existing design, world or data set: a world draw, frame, seed, entry id

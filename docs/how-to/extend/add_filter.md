@@ -44,7 +44,8 @@ All filters must inherit from `BaseFilter` (`sensoryforge/filters/base.py`):
 `to_dict()` should include **every** `__init__` parameter, and
 `from_config(instance.to_dict())` should round-trip to an equal `to_dict()`.
 `sensoryforge.testing.contracts.check_component("filter", cls)` checks
-`get_param_spec()`, a forward-pass shape check, and the **full round trip**:
+`get_param_spec()`, a forward-pass shape check, that a second call on the same input
+gives the same output, and the **full round trip**:
 every `__init__` argument must be present in `to_dict()` (a name you list in
 `_TO_DICT_EXCLUDE_PARAMS` is the one exception), and
 `from_config(instance.to_dict()).to_dict()` must equal `instance.to_dict()`

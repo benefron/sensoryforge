@@ -1,5 +1,9 @@
 """Unit tests for canonical configuration schema."""
 
+import warnings
+
+import pytest
+
 from sensoryforge.config.schema import (
     SensoryForgeConfig,
     GridConfig,
@@ -230,3 +234,32 @@ class TestFromYaml:
         p.write_text("grids: []\npopulations: []\nstimulus: {}\nsimulation: {}\n")
         config = SensoryForgeConfig.from_yaml_file(p)
         assert config.grids == []
+
+
+def test_an_unknown_top_level_key_is_warned_about_by_name():
+    """A mistyped section must not be dropped silently (F-6431443)."""
+    with pytest.warns(UserWarning, match="'simulaton'.*ignored"):
+        SensoryForgeConfig.from_dict({"simulaton": {"dt_ms": 0.5}})
+
+
+def test_the_legacy_stimuli_list_warning_says_what_reads_it():
+    with pytest.warns(UserWarning, match="'stimuli'.*sensoryforge run"):
+        SensoryForgeConfig.from_dict({"stimuli": [{"type": "gaussian"}]})
+
+
+def test_known_top_level_keys_and_plugins_do_not_warn():
+    data = {**SensoryForgeConfig().to_dict(), "plugins": []}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        SensoryForgeConfig.from_dict(data)
+
+
+def test_the_cli_does_not_call_the_stimuli_list_ignored_where_run_reads_it():
+    """`sensoryforge run` honours the older list, so it must not warn about it."""
+    from sensoryforge.cli import validate_config
+
+    config = {"grids": [], "populations": [], "stimuli": [{"type": "gaussian"}]}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        assert validate_config(config)
+    assert "stimuli" in config

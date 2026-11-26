@@ -1380,25 +1380,19 @@ class BandpassFilterTorch(BaseFilter):
             raise ValueError(f"tau must be positive, got {tau}")
         self.tau = tau
         self.gain = gain
-        self._state: Optional[torch.Tensor] = None
 
     def reset_state(self) -> None:
-        self._state = None
+        """Nothing to clear: every forward() call starts from rest."""
 
     def forward(self, x: torch.Tensor, dt: Optional[float] = None) -> torch.Tensor:
         """Filter the drive ``[batch, time, N_neurons]`` (mA); same shape out."""
         step = dt if dt is not None else self.dt
         batch, steps, n = x.shape
-        state = (
-            self._state
-            if self._state is not None
-            else torch.zeros(batch, n, device=x.device, dtype=x.dtype)
-        )
+        state = torch.zeros(batch, n, device=x.device, dtype=x.dtype)
         outputs = []
         for t in range(steps):
             state = state + (x[:, t, :] - state) / self.tau * step
             outputs.append(state.unsqueeze(1))
-        self._state = state.detach()
         return self.gain * torch.cat(outputs, dim=1)
 
     def to_dict(self) -> dict:

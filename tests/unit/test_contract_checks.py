@@ -141,3 +141,37 @@ def test_a_processing_layer_that_drops_a_parameter_names_it():
 
     with pytest.raises(AssertionError, match=r"missing.*sigma_surround_mm"):
         check_component("processing", Dropping, instance=Dropping(_ON_OFF_COORDS))
+
+
+class _Carrying(SAFilterTorch):
+    """A filter that keeps its output and adds it to the next call's."""
+
+    def forward(self, *args, **kwargs):
+        out = super().forward(*args, **kwargs)
+        previous = getattr(self, "_previous", None)
+        self._previous = out
+        return out if previous is None else out + previous
+
+
+class _Noisy(SAFilterTorch):
+    """A stateless filter that draws from the global RNG."""
+
+    def forward(self, *args, **kwargs):
+        out = super().forward(*args, **kwargs)
+        return out + torch.randn_like(out)
+
+
+def test_a_filter_that_carries_state_between_calls_is_refused():
+    with pytest.raises(AssertionError, match="state between calls"):
+        check_component("filter", _Carrying)
+
+
+def test_a_noisy_filter_passes_and_the_global_rng_is_left_alone():
+    torch.manual_seed(123)
+    expected = torch.get_rng_state()
+    torch.set_rng_state(expected)
+    check_component("filter", _Noisy)
+    drawn_by_input = torch.get_rng_state()
+    torch.set_rng_state(expected)
+    torch.randn(1, 5, 3)  # the one input the check itself draws
+    assert torch.equal(torch.get_rng_state(), drawn_by_input)
