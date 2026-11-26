@@ -10,9 +10,15 @@ brief states); nothing here is fitted.
 
 Test 1's engine golden was recorded on an export of tag v1.2.1 by
 ``tests/fixtures/make_converter_v1_2_1_golden.py``. **A failure in test 1
-means an old design's events changed.** Do not re-record the golden and do
-not loosen a tolerance: fix the change so that a unit with the leak off runs
-as v1.2.1 did.
+means an old design's events changed**, or its signals moved by more than
+rounding. Do not re-record the golden and do not loosen a tolerance: fix the
+change so that a unit with the leak off runs as v1.2.1 did.
+
+Events and spikes are exact on every machine. The float signals are bit for
+bit on the recording machine; elsewhere they are compared to
+``OFF_REFERENCE_RTOL``, because another processor rounds the filters'
+recurrence differently (GitHub's Linux x86_64 runners differ by up to 3.9e-6
+relative, with every event and spike equal; measured 2026-11-26).
 """
 
 import hashlib
@@ -55,6 +61,9 @@ ON_REFERENCE_PLATFORM = (
     and platform.machine() == GOLDEN["platform"]["machine"]
     and torch.__version__ == GOLDEN["platform"]["torch"]
 )
+
+#: Float signals off the recording machine; about 2.5 times the largest measured.
+OFF_REFERENCE_RTOL = 1e-5
 
 DELTA = 0.05  # ms: the converter sub-step pressure-simulation uses
 CROSSING = 1.0 - 1e-5  # a crossing is |d| >= theta * (1 - 1e-5)
@@ -355,8 +364,10 @@ def test_1_leak_off_is_v1_2_1_bit_for_bit_engine(tmp_path, leak_spelling):
             assert np.array_equal(got, want), key
             digest = hashlib.sha256(got.tobytes()).hexdigest()
             assert digest == GOLDEN["arrays"][key]["sha256"], key
+        elif np.issubdtype(want.dtype, np.integer):  # events and spikes
+            assert np.array_equal(got, want), key
         else:
-            assert_matches_golden(got, want, what=key)
+            assert_matches_golden(got, want, what=key, rtol=OFF_REFERENCE_RTOL)
 
 
 # --------------------------------------------------------------------------- #

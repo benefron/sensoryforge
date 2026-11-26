@@ -7,9 +7,13 @@ pressure-simulation's own functions (see
 ``scripts/regenerate_stimulus_golden.py`` and
 ``tests/fixtures/stimulus_golden.npz``), the way
 ``tests/integration/test_pressure_sim_parity.py`` (task E5) compares filtered
-responses. The comparison is exact (zero tolerance), matching that test's
-convention, since both sides do the identical floating-point arithmetic in
-the identical order -- the port is a transcription, not a reimplementation.
+responses. Both sides do the identical floating-point arithmetic in the
+identical order -- the port is a transcription, not a reimplementation -- but
+the maths library under it is not identical on every machine or torch
+version, so the comparison uses ``PARITY_ATOL``, the tolerance that test uses.
+On GitHub's macOS arm64 runners torch 2.15.0 moves ``moving_edge`` (unit
+peak) by up to 3.6e-7 where torch 2.14.1 matches exactly (measured
+2026-11-26).
 
 The fixture is subsampled to every 10th time sample (``TIME_STRIDE``) to keep
 it small; this test applies the same stride to SensoryForge's output before
@@ -31,6 +35,9 @@ from sensoryforge.stimuli.render import render_stimulus
 from sensoryforge.testing.golden import assert_matches_golden
 
 register_all()
+
+#: Absolute; the stimuli have unit peak.
+PARITY_ATOL = 1e-6
 
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "stimulus_golden.npz"
 
@@ -103,10 +110,8 @@ def test_stimulus_matches_pressure_simulation_exactly(golden, grid, name):
     assert (
         actual.shape == expected.shape
     ), f"{name}: shape {tuple(actual.shape)} != golden {tuple(expected.shape)}"
-    # Not torch.equal: on Linux x86_64 these differ from the macOS-generated
-    # fixture by at most one float32 step (5.96e-8), see
-    # sensoryforge/testing/golden.py for the measurement.
-    assert_matches_golden(actual, expected, what=f"{name} stimulus")
+    # Not torch.equal: platforms and torch versions round differently (see above).
+    assert_matches_golden(actual, expected, what=f"{name} stimulus", atol=PARITY_ATOL)
 
 
 # ---------------------------------------------------------------------------
