@@ -181,8 +181,14 @@ def build_layout_points(
     try:
         layout = GRID_REGISTRY.get_class(name)(**kwargs)
         points = layout.get_all_coordinates()
-    except (ValueError, TypeError, RuntimeError, KeyError) as exc:
-        raise ValueError(f"layout {name!r} failed: {exc}") from exc
+    # The one broad catch: this runs third-party plugin code, which may raise
+    # anything (ZeroDivisionError for a 0 setting, say). Callers, the GUI's
+    # validation on every edit among them, handle ValueError; anything else
+    # would escape a Qt slot and abort the app.
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(
+            f"layout {name!r} failed: {type(exc).__name__}: {exc}"
+        ) from exc
 
     if (
         not isinstance(points, torch.Tensor)

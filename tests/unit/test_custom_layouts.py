@@ -110,6 +110,8 @@ class Broken(_Layout):
         self.kind = kind
 
     def points(self):
+        if self.kind == "zero_division":
+            return torch.zeros(int(1.0 / 0), 2)  # a plugin's own bug
         return {
             "shape": torch.zeros(4, 3),
             "empty": torch.zeros(0, 2),
@@ -236,6 +238,12 @@ def test_bad_points_are_refused_and_never_moved(kind, expected):
 def test_a_setting_the_plugin_rejects_is_reported_with_its_name():
     with pytest.raises(ValueError, match="test_diagonal"):
         build_layout_points("test_diagonal", *AREA, params={"n": -1})
+
+
+def test_any_error_raised_by_plugin_code_becomes_a_value_error():
+    """The GUI validates on every edit and catches ValueError, not a plugin's bug."""
+    with pytest.raises(ValueError, match="test_broken.*ZeroDivisionError"):
+        build_layout_points("test_broken", *AREA, params={"kind": "zero_division"})
 
 
 # --------------------------------------------------------------- config keys
@@ -500,6 +508,26 @@ def test_validate_rejects_a_layout_a_run_could_not_use(
 
     assert not validate_config(raw)
     assert expected in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("grid", [None, _sensor_grid()], ids=["built-in", "plugin"])
+def test_validate_checks_every_dsl_population_whatever_the_grids(grid, capsys):
+    raw = _raw(_config(grid))
+    first = dict(raw["populations"][0], name="dsl_first", neuron_model="DSL (Custom)")
+    last = dict(raw["populations"][0], name="last")
+    raw["populations"] = [first, last]
+
+    assert not validate_config(raw)
+    err = capsys.readouterr().err
+    assert err.count("DSL neuron requires dsl_config") == 1
+    assert "'dsl_first'" in err
+
+
+def test_validate_accepts_a_config_with_no_populations():
+    raw = _raw(_config(_sensor_grid()))
+    raw["populations"] = []
+
+    validate_config(raw)  # must not raise NameError
 
 
 @pytest.mark.parametrize("use", ["sensor", "neuron"])
