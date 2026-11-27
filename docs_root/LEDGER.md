@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-b36f961 · STANDING · finding · - · 2026-11-27
+a plugin sensor grid wires like a position-file grid, with a 3-sigma cut-off the built-in grid arrangements do not apply, so the same positions and seed give different weights
+→ commit 64ac7d0
+
 ## D-15f66c2 · CLOSED · decision · docs/development · 2026-11-27
 the custom-layout design is approved and is built core first, then the app
 → commit 84c0821
