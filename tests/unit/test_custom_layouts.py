@@ -1,5 +1,6 @@
 """A registered grid plugin can be named as a sensor layout or a neuron layout."""
 
+import json
 import os
 import subprocess
 import sys
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import torch
+import yaml
 
 from sensoryforge.cli import validate_config
 from sensoryforge.config.schema import (
@@ -639,3 +641,147 @@ def test_a_scaffolded_grid_can_be_named_in_a_config(tmp_path, monkeypatch):
         GRID_REGISTRY._registry.pop("demo_cfg", None)
 
     assert points.shape == (100, 2)
+
+
+# ---------------------------------------------------------------- end to end
+
+REPO = Path(__file__).resolve().parents[2]
+
+_WORLD = """
+world:
+  name: demo
+  defaults:
+    delay_ms:   {range: [0, 5]}
+    touch_ms:   {range: [5, 10]}
+    hold_ms:    {range: [10, 20]}
+    release_ms: {range: [5, 10]}
+    amplitude:  {range: [0.5, 1.0]}
+    x_mm: {range: [-0.3, 0.3]}
+    y_mm: {range: [-0.3, 0.3]}
+  classes:
+    dots:
+      weight: 1.0
+      layer: {shape: {kind: gaussian}}
+      axes: {sigma_mm: {range: [0.15, 0.45]}}
+"""
+
+
+@pytest.fixture
+def spiral_package(tmp_path):
+    """The example spiral as an importable plugin outside SensoryForge."""
+    package = tmp_path / "pkg" / "demo_spiral_plugin"
+    package.mkdir(parents=True)
+    example = (REPO / "docs/examples/grid_arrangement_plugin.py").read_text()
+    (package / "__init__.py").write_text(
+        example
+        + "\n\ndef register():\n"
+        + '    GRID_REGISTRY.register("demo_pkg_spiral", SpiralArrangement)\n'
+    )
+    return tmp_path / "pkg"
+
+
+def _spiral_yaml(use):
+    grid = {"name": "skin", "rows": 20, "cols": 20, "spacing": 0.1}
+    population = {
+        "name": "SA",
+        "neurons_per_row": 10,
+        "innervation_method": "gaussian",
+        "filter_method": "sa",
+        "input_gain": 50.0,
+        "seed": 1,
+    }
+    if use in ("sensor", "both"):
+        grid.update(arrangement="demo_pkg_spiral", layout_params={"pitch_mm": 0.08})
+    if use in ("neuron", "both"):
+        population.update(
+            neuron_arrangement="demo_pkg_spiral",
+            neuron_layout_params={"pitch_mm": 0.25},
+        )
+    return {
+        "plugins": ["demo_spiral_plugin:register"],
+        "grids": [grid],
+        "populations": [population],
+        "stimulus": {"type": "gaussian", "amplitude": 30.0, "sigma": 0.4},
+        "simulation": {"device": "cpu", "dt_ms": 1.0},
+    }
+
+
+def _cli(args, cwd, plugin_dir):
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join([str(REPO), str(plugin_dir)]),
+        "OMP_NUM_THREADS": "1",
+    }
+    done = subprocess.run(
+        [sys.executable, "-m", "sensoryforge.cli", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+    return done
+
+
+@pytest.mark.parametrize("use", ["sensor", "neuron", "both"])
+def test_run_with_a_packaged_layout_and_rebuild_the_same_spikes(
+    use, tmp_path, spiral_package, monkeypatch
+):
+    (tmp_path / "config.yml").write_text(yaml.safe_dump(_spiral_yaml(use)))
+    _cli(["validate", "config.yml"], tmp_path, spiral_package)
+    _cli(
+        ["run", "config.yml", "--duration", "60", "--bundle", "out"],
+        tmp_path,
+        spiral_package,
+    )
+
+    bundle = load_bundle(tmp_path / "out")
+    saved = json.loads((tmp_path / "out" / "config.json").read_text())["config"]
+    monkeypatch.syspath_prepend(str(spiral_package))
+    load_plugin_import_paths(["demo_spiral_plugin:register"])
+    try:
+        engine = SimulationEngine(SensoryForgeConfig.from_dict(saved))
+        again = engine.run(bundle.stimulus.unsqueeze(0), return_intermediates=True)
+    finally:
+        GRID_REGISTRY._registry.pop("demo_pkg_spiral", None)
+        sys.modules.pop("demo_spiral_plugin", None)
+
+    stored = bundle.populations["SA"]["spikes"]
+    assert stored.sum() > 0
+    assert torch.equal(again["SA"]["spikes"].reshape(stored.shape), stored)
+    expected_neurons = 100 if use == "sensor" else stored.shape[-1]
+    assert stored.shape[-1] == expected_neurons
+    if use != "sensor":
+        assert stored.shape[-1] != 100
+
+
+def test_evaluate_checks_do_not_error_on_a_custom_layout(tmp_path, spiral_package):
+    (tmp_path / "config.yml").write_text(yaml.safe_dump(_spiral_yaml("both")))
+    (tmp_path / "world.yml").write_text(_WORLD)
+
+    _cli(
+        [
+            "evaluate",
+            "run",
+            "world.yml",
+            "--draws",
+            "2",
+            "--duration-ms",
+            "50",
+            "--seed",
+            "7",
+            "--config",
+            "config.yml",
+            "--out",
+            "report",
+        ],
+        tmp_path,
+        spiral_package,
+    )
+
+    found = next((tmp_path / "report").rglob("checks.json"))
+    checks = json.loads(found.read_text())["checks"]
+    assert checks
+    errors = [(c["id"], c["note"]) for c in checks if c["status"] == "error"]
+    assert not errors
+    assert not [c["id"] for c in checks if c["status"] == "fail"]
