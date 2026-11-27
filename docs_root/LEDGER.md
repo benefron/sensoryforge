@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-3e480a4 · CLOSED · finding · - · 2026-11-27
+the docs claimed GPU acceleration, a 5-20x speedup and end-to-end training that nothing supports, and scikit-learn was a dependency nothing imported
+→ commit 13fd202
+
 ## D-bcc59e2 · CLOSED · decision · - · 2026-11-27
 a hex neuron layout that cannot give rows x cols points is an error, not a square grid
 → commit 59dec9b
