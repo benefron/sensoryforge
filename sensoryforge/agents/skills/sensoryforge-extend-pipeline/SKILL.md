@@ -127,7 +127,7 @@ Inherit `BaseGrid`. It places the sensors.
   the points: test that `from_config(to_dict())` gives the same points.
 - **`from_config()`** keeps only constructor keys (`to_dict()` adds derived ones) and
   turns lists back into tuples, as the scaffold's does.
-- **Use.** One taking `xlim`, `ylim`, `device` (as scaffolded), points inside, is named in
+- **Use.** One built on the area it is given (as scaffolded), points inside, is named in
   `arrangement:`/`neuron_arrangement:` (settings: `layout_params:`/`neuron_layout_params:`).
   Warn: plugin sensors wire with a 3-sigma cut-off; no app list. Else use `coords_file:`.
 
