@@ -481,13 +481,15 @@ if failed:
 3. Set `save_intermediates: false`
 4. Process smaller batches
 
-### GPU Acceleration
+### Running on a GPU
 
 ```bash
 sensoryforge batch config.yml --device cuda
 ```
 
-Typical speedup: 5-20x depending on batch size and grid resolution.
+No GPU speedup has been measured, so do not assume one: time one run on each device. In the
+one accelerator case in [Benchmarks](../reference/benchmarks.md) (a very small run on Apple's
+MPS), the GPU was slower than the CPU.
 
 ### Parallel Execution
 

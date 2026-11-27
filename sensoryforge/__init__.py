@@ -1,7 +1,7 @@
 """SensoryForge: An extensible playground for sensory encoding and population
 activity generation.
 
-SensoryForge is a GPU-accelerated, PyTorch-based toolkit for exploring sensory
+SensoryForge is a PyTorch-based toolkit for exploring sensory
 encoding schemes across modalities (touch, vision, audition, fabricated). It enables
 interactive experiment design (GUI), scalable batch execution (CLI/YAML), and
 artificial dataset generation for ML and neuromorphic applications.

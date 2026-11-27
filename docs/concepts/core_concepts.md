@@ -8,7 +8,7 @@ SensoryForge is built around three core principles:
 
 1. **Modality-Agnostic Architecture** — Same framework for touch, vision, audition, and custom modalities
 2. **Biologically Grounded** — Components map to neuroscience concepts (receptive fields, adaptation, spike generation)
-3. **Production-Ready** — GPU-accelerated, differentiable, and suitable for ML training
+3. **Built on PyTorch** — Vectorised tensor code that writes data sets for downstream analysis and machine learning
 
 ## Architecture Overview
 
@@ -304,11 +304,11 @@ pipeline:
 
 ## Differentiability
 
-All components are PyTorch `nn.Module` instances, enabling:
-
-- **Gradient Computation** — Backprop through entire pipeline
-- **ML Integration** — Train encoding parameters end-to-end
-- **Adjoint Method** — Memory-efficient gradients through ODEs (via torchdiffeq)
+SensoryForge does not support training through its spike outputs. Spikes are true/false
+values with no surrogate gradient, so no gradient passes from them back to the input or to
+parameters. A built-in neuron model called directly on a tensor that requires gradients
+does pass them through its voltage output. Training through a whole run is not tested or
+supported.
 
 ## Extensibility Points
 
