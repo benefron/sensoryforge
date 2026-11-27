@@ -166,6 +166,28 @@ def test_choosing_another_sensor_layout_drops_the_old_settings(qtbot):
     assert screen.layout_form is None
 
 
+def test_settings_written_before_the_layout_is_named_are_kept(qtbot):
+    session = _session()
+    screen = _sensors(qtbot, session)  # held: an unreferenced screen is collected
+
+    session.set_by_path("grids.0.layout_params", {"n": 4})
+    session.set_by_path("grids.0.arrangement", "gui_line")
+
+    assert session.config.grids[0].layout_params == {"n": 4}
+    assert screen.layout_form.widget_for("n").value() == 4
+
+
+def test_one_plugin_layouts_settings_are_dropped_for_another(qtbot):
+    session = _session(
+        GridConfig(name="skin", arrangement="gui_line", layout_params={"n": 3})
+    )
+    screen = _sensors(qtbot, session)
+
+    _choose(_arrangement(screen), "gui_random")
+
+    assert session.config.grids[0].layout_params == {}
+
+
 def test_a_missing_sensor_plugin_keeps_its_name_and_is_reported(qtbot):
     session = _session(GridConfig(name="skin", arrangement="gone_layout"))
     screen = _sensors(qtbot, session)

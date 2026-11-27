@@ -131,6 +131,7 @@ class SensorsScreen(QtWidgets.QWidget):
         super().__init__(parent)
         self._session = session
         self._selected_index: Optional[int] = None
+        self._shown_arrangement: Optional[str] = None
         self._advanced = False
         self._param_form: Optional[ParamForm] = None
         self.layout_form: Optional[ParamForm] = None
@@ -286,6 +287,8 @@ class SensorsScreen(QtWidgets.QWidget):
         if hasattr(self, "problems"):
             self.problems.refresh()
         grid_cfg = self._grids()[index]
+        # Whose settings layout_params holds, for _on_arrangement_changed.
+        self._shown_arrangement = grid_cfg.arrangement
 
         self._suspend_name_edit = True
         self.name_edit.setText(grid_cfg.name)
@@ -378,8 +381,17 @@ class SensorsScreen(QtWidgets.QWidget):
 
     def _on_arrangement_changed(self, index: int, grid_cfg: GridConfig) -> None:
         """Drop what the newly chosen arrangement cannot take."""
-        # One layout's settings mean nothing to another.
-        if grid_cfg.layout_params:
+        previous = self._shown_arrangement
+        self._shown_arrangement = grid_cfg.arrangement
+        # One layout's settings mean nothing to another, and a built-in takes
+        # none. Settings written while a built-in was chosen were written for
+        # the layout now chosen (settings first, then the name), so they stay.
+        drop_settings = not _is_plugin_layout(grid_cfg.arrangement) or (
+            previous != grid_cfg.arrangement
+            and previous is not None
+            and _is_plugin_layout(previous)
+        )
+        if grid_cfg.layout_params and drop_settings:
             self._session.set_by_path(f"grids.{index}.layout_params", {})
         if _is_plugin_layout(grid_cfg.arrangement):
             if grid_cfg.density is not None:
