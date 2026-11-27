@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-82a6826 · CLOSED · decision · docs/development · 2026-11-27
+for custom layouts the layout decides the neuron count, and one plugin type serves both sensors and neurons
+→ commit 65ef3a3
+
 ## F-3e480a4 · CLOSED · finding · - · 2026-11-27
 the docs claimed GPU acceleration, a 5-20x speedup and end-to-end training that nothing supports, and scikit-learn was a dependency nothing imported
 → commit 13fd202

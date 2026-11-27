@@ -1158,4 +1158,5 @@ Do not hand-edit between the markers.
 | 2026-11-26 | D-5bda111 | golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben) | `dd4330e` |
 | 2026-11-26 | D-dce1eff | an unknown neuron arrangement is an error now, and SensoryForge is to support custom layouts; the error is the first step, not the end state | `2c05ad0` |
 | 2026-11-27 | D-bcc59e2 | a hex neuron layout that cannot give rows x cols points is an error, not a square grid | `59dec9b` |
+| 2026-11-27 | D-82a6826 | for custom layouts the layout decides the neuron count, and one plugin type serves both sensors and neurons | `65ef3a3` |
 <!-- DECISIONS_LOG_END -->
