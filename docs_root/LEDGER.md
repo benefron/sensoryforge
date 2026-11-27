@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-15f66c2 · CLOSED · decision · docs/development · 2026-11-27
+the custom-layout design is approved and is built core first, then the app
+→ commit 84c0821
+
 ## D-82a6826 · CLOSED · decision · docs/development · 2026-11-27
 for custom layouts the layout decides the neuron count, and one plugin type serves both sensors and neurons
 → commit 65ef3a3
