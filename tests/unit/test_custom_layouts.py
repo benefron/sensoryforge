@@ -5,6 +5,7 @@ import warnings
 import pytest
 import torch
 
+from sensoryforge.cli import validate_config
 from sensoryforge.config.schema import (
     GridConfig,
     PopulationConfig,
@@ -12,6 +13,11 @@ from sensoryforge.config.schema import (
     SimulationConfig,
 )
 from sensoryforge.core.simulation_engine import SimulationEngine, build_grid
+from sensoryforge.io.bundle import load_bundle
+from sensoryforge.core.batch_executor import BatchExecutor
+from sensoryforge.core.generalized_pipeline import (
+    GeneralizedTactileEncodingPipeline,
+)
 from sensoryforge.core.grid_base import BaseGrid
 from sensoryforge.core.layouts import (
     BUILTIN_LAYOUTS,
@@ -449,3 +455,88 @@ def test_a_layout_that_is_not_installed_is_named_in_the_error(use):
     )
     with pytest.raises(ValueError, match="gone_layout"):
         SimulationEngine(config)
+
+
+# ------------------------------------------------- CLI, older pipeline, batch
+
+
+def _raw(config):
+    """A config as it is read from YAML."""
+    return config.to_dict()
+
+
+def test_validate_accepts_registered_layouts_for_neurons_and_sensors():
+    config = _custom_neurons(grid=_sensor_grid())
+
+    assert validate_config(_raw(config))
+
+
+@pytest.mark.parametrize(
+    "section, key, value, expected",
+    [
+        ("populations", "neuron_arrangement", "demo_spiral", "Unknown layout"),
+        ("populations", "neuron_layout_params", {"m": 1}, "has no setting 'm'"),
+        ("grids", "arrangement", "demo_spiral", "Unknown layout"),
+        ("grids", "layout_params", {"m": 1}, "has no setting 'm'"),
+    ],
+)
+def test_validate_rejects_a_layout_a_run_could_not_use(
+    section, key, value, expected, capsys
+):
+    raw = _raw(_custom_neurons(grid=_sensor_grid()))
+    raw[section][0][key] = value
+    if key.endswith("arrangement"):
+        raw[section][0].pop(
+            "layout_params" if section == "grids" else "neuron_layout_params", None
+        )
+
+    assert not validate_config(raw)
+    assert expected in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("use", ["sensor", "neuron"])
+def test_the_older_pipeline_refuses_a_plugin_layout_by_name(use):
+    config = _config(_sensor_grid()) if use == "sensor" else _custom_neurons()
+    with pytest.raises(ValueError, match="older pipeline.*test_"):
+        GeneralizedTactileEncodingPipeline.from_config(_raw(config))
+
+
+def _two_grid_batch(tmp_path, arrangement):
+    second = GridConfig(name="b", arrangement=arrangement, rows=12, cols=8, spacing=0.2)
+    config = _config(neurons_per_row=3)
+    config.grids.append(second)
+    return {
+        "base_config": _raw(config),
+        "batch": {
+            "output_dir": str(tmp_path / arrangement),
+            "stimuli": [
+                {
+                    "type": "gaussian",
+                    "parameters": {"amplitude": [10.0]},
+                    "repetitions": 1,
+                }
+            ],
+        },
+    }
+
+
+def test_batch_runs_with_a_plugin_grid_beside_another_grid(tmp_path):
+    frames = {}
+    for arrangement in ("grid", "test_lattice"):
+        executor = BatchExecutor(_two_grid_batch(tmp_path, arrangement))
+        executor.execute()
+        bundle = load_bundle(executor.batch_root / "stim_0000")
+        frames[arrangement] = bundle.stimulus
+
+    assert torch.equal(frames["test_lattice"], frames["grid"])
+
+
+def test_batch_runs_two_grids_as_a_saved_config_writes_them(tmp_path):
+    """A saved config says ``density: null``; ``batch`` used to crash on two grids."""
+    raw = _two_grid_batch(tmp_path, "grid")
+    assert [g["density"] for g in raw["base_config"]["grids"]] == [None, None]
+
+    executor = BatchExecutor(raw)
+    executor.execute()
+
+    assert load_bundle(executor.batch_root / "stim_0000").stimulus.abs().sum() > 0

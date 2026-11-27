@@ -104,7 +104,11 @@ class BatchExecutor:
 
         # Always create the legacy pipeline — it is reused for stimulus generation
         # on canonical configs (SimulationEngine has no built-in stimulus module yet)
-        self.pipeline = GeneralizedTactileEncodingPipeline.from_config(self.base_config)
+        self.pipeline = GeneralizedTactileEncodingPipeline.from_config(
+            self._stimulus_only_config(self.base_config)
+            if self._is_canonical
+            else self.base_config
+        )
 
         # For canonical configs, also create a SimulationEngine for the actual run
         if self._is_canonical:
@@ -146,6 +150,35 @@ class BatchExecutor:
         self.batch_root = self.output_dir / self.batch_id
         if self._is_canonical:
             self.batch_root.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _stimulus_only_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """The part of a canonical config that stimulus generation needs.
+
+        The older pipeline only makes stimulus frames here, on the first grid's
+        rows, columns, spacing and centre. Handing it every grid made it build
+        a composite grid it never used, which failed on ``density: null`` and
+        cannot build a plugin layout.
+
+        Args:
+            config: The canonical base config.
+
+        Returns:
+            A copy with the first grid only and every layout left built-in.
+        """
+        grid_drop = ("arrangement", "layout_params")
+        population_drop = ("neuron_arrangement", "neuron_layout_params")
+        return {
+            **config,
+            "grids": [
+                {k: v for k, v in grid.items() if k not in grid_drop}
+                for grid in config.get("grids", [])[:1]
+            ],
+            "populations": [
+                {k: v for k, v in pop.items() if k not in population_drop}
+                for pop in config.get("populations", [])
+            ],
+        }
 
     def _generate_batch_id(self) -> str:
         """Generate unique batch identifier.
