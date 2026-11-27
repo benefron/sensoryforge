@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-f6e5ebe · CLOSED · finding · - · 2026-11-27
+batch crashed on a config with two or more grids and density: null, which is how saved configs write it (also on main)
+→ commit e32ada0
+
 ## F-b36f961 · STANDING · finding · - · 2026-11-27
 a plugin sensor grid wires like a position-file grid, with a 3-sigma cut-off the built-in grid arrangements do not apply, so the same positions and seed give different weights
 → commit 64ac7d0
