@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-843c72d · CLOSED · finding · - · 2026-11-27
+the Sensors screen wiped layout_params written just before a plugin arrangement was chosen; settings now drop only when they belonged to another plugin layout or the new arrangement is built in
+→ commit f3cdf5a
+
 ## F-72a8668 · CLOSED · finding · - · 2026-11-27
 an exception other than ValueError/TypeError/RuntimeError/KeyError raised by a plugin layout escaped build_layout_points and could abort the GUI from its validation slot
 → commit 5c8ecad
