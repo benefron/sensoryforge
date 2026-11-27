@@ -3,6 +3,7 @@
 import pytest
 import torch
 
+from sensoryforge.config.schema import GridConfig, PopulationConfig
 from sensoryforge.core.grid_base import BaseGrid
 from sensoryforge.core.layouts import (
     BUILTIN_LAYOUTS,
@@ -10,6 +11,7 @@ from sensoryforge.core.layouts import (
     custom_layout_names,
     layout_problem,
 )
+from sensoryforge.register_components import register_all
 from sensoryforge.registry import GRID_REGISTRY
 from sensoryforge.stimuli.base import ParamSpec
 
@@ -65,9 +67,7 @@ class Scatter(_Layout):
 class Lattice(_Layout):
     """The built-in grid's own points, ``nx`` along x by ``ny`` along y."""
 
-    def __init__(
-        self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", nx=12, ny=8
-    ):
+    def __init__(self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", nx=12, ny=8):
         super().__init__(xlim, ylim, device)
         self.nx, self.ny = nx, ny
 
@@ -83,9 +83,7 @@ class Lattice(_Layout):
 class Broken(_Layout):
     """Returns whatever ``kind`` says is wrong."""
 
-    def __init__(
-        self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", kind="shape"
-    ):
+    def __init__(self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", kind="shape"):
         super().__init__(xlim, ylim, device)
         self.kind = kind
 
@@ -120,15 +118,29 @@ class NoArea(BaseGrid):
         return cls()
 
 
-for _name, _cls in {
+_TEST_LAYOUTS = {
     "test_diagonal": Diagonal,
     "test_scatter": Scatter,
     "test_lattice": Lattice,
     "test_broken": Broken,
     "test_needs_setting": NeedsSetting,
     "test_no_area": NoArea,
-}.items():
-    GRID_REGISTRY.register(_name, _cls)
+}
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _registered_layouts():
+    """Register the test layouts for this module only.
+
+    The registry is process-wide, and other tests list everything in it.
+    """
+    register_all()
+    for name, cls in _TEST_LAYOUTS.items():
+        GRID_REGISTRY.register(name, cls)
+    yield
+    for name in _TEST_LAYOUTS:
+        GRID_REGISTRY._registry.pop(name.casefold(), None)
+
 
 AREA = ((-2.0, 2.0), (-1.0, 1.0))
 
@@ -163,9 +175,7 @@ def test_a_seed_reaches_a_layout_that_takes_one():
 def test_a_seed_for_a_layout_without_one_is_ignored_unless_required():
     build_layout_points("test_diagonal", *AREA, seed=3)
     with pytest.raises(ValueError, match="test_diagonal.*seed"):
-        build_layout_points(
-            "test_diagonal", *AREA, seed=3, require_seed_support=True
-        )
+        build_layout_points("test_diagonal", *AREA, seed=3, require_seed_support=True)
 
 
 @pytest.mark.parametrize(
@@ -204,3 +214,37 @@ def test_bad_points_are_refused_and_never_moved(kind, expected):
 def test_a_setting_the_plugin_rejects_is_reported_with_its_name():
     with pytest.raises(ValueError, match="test_diagonal"):
         build_layout_points("test_diagonal", *AREA, params={"n": -1})
+
+
+# --------------------------------------------------------------- config keys
+
+
+def test_layout_settings_round_trip_and_are_left_out_when_empty():
+    grid = GridConfig(name="g", arrangement="test_diagonal", layout_params={"n": 4})
+    pop = PopulationConfig(
+        name="p",
+        neuron_arrangement="test_diagonal",
+        neuron_layout_params={"n": 5},
+    )
+
+    assert GridConfig.from_dict(grid.to_dict()).layout_params == {"n": 4}
+    assert PopulationConfig.from_dict(pop.to_dict()).neuron_layout_params == {"n": 5}
+    assert "layout_params" not in GridConfig(name="g").to_dict()
+    assert "neuron_layout_params" not in PopulationConfig(name="p").to_dict()
+
+
+@pytest.mark.parametrize("arrangement", ["grid", "hex", "composite"])
+def test_sensor_settings_with_a_built_in_name_are_an_error(arrangement):
+    with pytest.raises(ValueError, match="layout_params.*built-in"):
+        GridConfig(name="g", arrangement=arrangement, layout_params={"n": 4})
+
+
+def test_neuron_settings_with_a_built_in_name_are_an_error():
+    with pytest.raises(ValueError, match="neuron_layout_params.*built-in"):
+        PopulationConfig(name="p", neuron_layout_params={"n": 4})
+
+
+def test_the_schema_and_the_engine_agree_on_the_built_in_names():
+    from sensoryforge.config import schema
+
+    assert schema._BUILTIN_LAYOUT_NAMES == BUILTIN_LAYOUTS
