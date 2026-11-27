@@ -47,6 +47,7 @@ import copy
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
+from sensoryforge.core.layouts import BUILTIN_LAYOUTS
 from sensoryforge.config.schema import (
     GridConfig,
     PopulationConfig,
@@ -216,8 +217,11 @@ def _grid_problem(grid: GridConfig) -> Optional[str]:
             value = getattr(grid, name)
             if value is not None and value < 1:
                 return f"grid {grid.name!r}: {name} must be at least 1, got {value}"
-    if grid.coords_file or (
-        grid.arrangement != "composite" and grid.density is not None
+    plugin = grid.arrangement not in BUILTIN_LAYOUTS + ("composite",)
+    if (
+        plugin
+        or grid.coords_file
+        or (grid.arrangement != "composite" and grid.density is not None)
     ):
         # Reading the file, or building with density set, is the only way to
         # know it is usable (D-88b4b41: density conflicts with 'grid' and

@@ -10,8 +10,9 @@ The complete runnable example is `docs/examples/grid_arrangement_plugin.py`: a s
 is registered, checked, and run as both the sensor and the neuron layout. It is executed by
 `tests/docs/test_docs_examples.py`.
 
-The app's lists show only the built-in names so far. Use a plugin layout from a YAML config
-(`sensoryforge run`, `batch`) or from Python.
+An installed layout also appears in the app's two arrangement lists, with a form built from its
+`get_param_spec()`. The app loads a plugin package through its entry point. For a config naming
+a layout that is not installed, the app keeps the name and reports the problem.
 
 ---
 
@@ -80,7 +81,14 @@ class SpiralArrangement(BaseGrid):
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:
         return [
-            ParamSpec("pitch_mm", dtype="float", default=0.1, min_val=1e-4, unit="mm"),
+            ParamSpec(
+                "pitch_mm",
+                label="Pitch",
+                dtype="float",
+                default=0.1,
+                min_val=1e-4,
+                unit="mm",
+            ),
         ]
 ```
 

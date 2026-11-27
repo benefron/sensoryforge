@@ -11,8 +11,8 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 - A grid plugin whose constructor takes the area (`xlim`, `ylim`, `device`) can be named in a
   config as a sensor layout (`grids[].arrangement`, settings in `layout_params`), as a neuron
   layout (`populations[].neuron_arrangement`, settings in `neuron_layout_params`), or both. The
-  layout decides the number of points. Built-in layouts are unchanged. The app's lists do not
-  show plugin layouts yet.
+  layout decides the number of points. Built-in layouts are unchanged.
+- The app lists installed layouts for sensors and neurons, with a form for their settings.
 - `check_component("grid", ...)` now also fails a layout that takes the area and puts a point
   outside it, or gives different points for the same seed.
 

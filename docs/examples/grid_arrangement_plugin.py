@@ -93,7 +93,14 @@ class SpiralArrangement(BaseGrid):
     @classmethod
     def get_param_spec(cls) -> List[ParamSpec]:
         return [
-            ParamSpec("pitch_mm", dtype="float", default=0.1, min_val=1e-4, unit="mm"),
+            ParamSpec(
+                "pitch_mm",
+                label="Pitch",
+                dtype="float",
+                default=0.1,
+                min_val=1e-4,
+                unit="mm",
+            ),
         ]
 
 

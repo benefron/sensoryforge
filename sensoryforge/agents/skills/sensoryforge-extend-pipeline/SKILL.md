@@ -129,7 +129,7 @@ Inherit `BaseGrid`. It places the sensors.
   turns lists back into tuples, as the scaffold's does.
 - **Use.** One built on the area it is given (as scaffolded), points inside, is named in
   `arrangement:`/`neuron_arrangement:` (settings: `layout_params:`/`neuron_layout_params:`).
-  Warn: plugin sensors wire with a 3-sigma cut-off; no app list. Else use `coords_file:`.
+  Warn: plugin sensors wire with a 3-sigma cut-off, unlike built-ins. Else use `coords_file:`.
 
 ## 8. A receptive-field builder
 

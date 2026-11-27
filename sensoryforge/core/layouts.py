@@ -10,7 +10,7 @@ keep their own code in ``core/grid.py`` and ``core/innervation.py``.
 Topic: grid, registry
 Tests: tests/unit/test_custom_layouts.py
 Entry points: build_layout_points, layout_problem, custom_layout_names,
-    BUILTIN_LAYOUTS
+    layout_setting_specs, layout_takes_seed, BUILTIN_LAYOUTS
 Pinned by: docs/how-to/extend/add_grid_arrangement.md
 Do not change without: points are checked, never moved or dropped, and a name is
     matched exactly as registered, so a config never gets a layout it did not ask for.
@@ -62,6 +62,28 @@ def custom_layout_names() -> List[str]:
         name
         for name in _registered_names()
         if name not in BUILTIN_LAYOUTS and _takes_area(name)
+    ]
+
+
+def layout_takes_seed(name: str) -> bool:
+    """Whether the installed layout ``name`` has a ``seed`` constructor argument."""
+    return name in custom_layout_names() and "seed" in _parameters(name)
+
+
+def layout_setting_specs(name: str) -> list:
+    """The ``ParamSpec`` of each setting a config may give layout ``name``.
+
+    Args:
+        name: An installed plugin layout.
+
+    Returns:
+        Its ``get_param_spec()`` without what SensoryForge supplies
+        (``xlim``, ``ylim``, ``device``, ``seed``).
+    """
+    return [
+        spec
+        for spec in GRID_REGISTRY.get_param_spec(name)
+        if spec.name not in _SUPPLIED
     ]
 
 
