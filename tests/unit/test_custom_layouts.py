@@ -128,6 +128,16 @@ class NeedsSetting(_Layout):
         return torch.zeros(1, 2)
 
 
+class Options(Diagonal):
+    """Takes its settings through ``**opts``."""
+
+    def __init__(self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", **opts):
+        unknown = set(opts) - {"n"}
+        if unknown:
+            raise TypeError(f"unknown option {sorted(unknown)}")
+        super().__init__(xlim, ylim, device, n=opts.get("n", 3))
+
+
 class NoArea(BaseGrid):
     """An older grid plugin: it cannot be told the area to fill."""
 
@@ -148,6 +158,7 @@ _TEST_LAYOUTS = {
     "test_lattice": Lattice,
     "test_broken": Broken,
     "test_needs_setting": NeedsSetting,
+    "test_options": Options,
     "test_no_area": NoArea,
 }
 
@@ -240,6 +251,14 @@ def test_a_setting_the_plugin_rejects_is_reported_with_its_name():
         build_layout_points("test_diagonal", *AREA, params={"n": -1})
 
 
+def test_a_layout_taking_kwargs_gets_its_settings_and_judges_them_itself():
+    assert layout_problem("test_options", {"n": 4}) is None
+    assert len(build_layout_points("test_options", *AREA, params={"n": 4})) == 4
+    with pytest.raises(ValueError, match="test_options.*unknown option"):
+        build_layout_points("test_options", *AREA, params={"m": 4})
+    assert "'seed'" in layout_problem("test_options", {"seed": 1})
+
+
 def test_any_error_raised_by_plugin_code_becomes_a_value_error():
     """The GUI validates on every edit and catches ValueError, not a plugin's bug."""
     with pytest.raises(ValueError, match="test_broken.*ZeroDivisionError"):
@@ -247,6 +266,14 @@ def test_any_error_raised_by_plugin_code_becomes_a_value_error():
 
 
 # --------------------------------------------------------------- config keys
+
+
+def test_a_bare_settings_key_in_yaml_loads_as_no_settings():
+    grid = yaml.safe_load("name: g\narrangement: test_diagonal\nlayout_params:\n")
+    pop = yaml.safe_load("name: p\nneuron_arrangement: hex\nneuron_layout_params:\n")
+
+    assert GridConfig.from_dict(grid).layout_params == {}
+    assert PopulationConfig.from_dict(pop).neuron_layout_params == {}
 
 
 def test_layout_settings_round_trip_and_are_left_out_when_empty():
@@ -333,6 +360,12 @@ def test_the_neuron_area_is_the_grid_shrunk_by_the_edge_offset():
     centres = engine.populations[0]["bank"].neuron_centers
     assert torch.allclose(centres[0], torch.tensor([-1.0, -0.6]), atol=1e-5)
     assert torch.allclose(centres[-1], torch.tensor([1.0, 0.6]), atol=1e-5)
+
+
+@pytest.mark.parametrize("offset", [0.7, 1.5])  # y spans -0.7..0.7
+def test_an_edge_offset_that_leaves_no_area_names_edge_offset(offset):
+    with pytest.raises(ValueError, match=f"'p'.*edge_offset={offset}"):
+        SimulationEngine(_custom_neurons(edge_offset=offset))
 
 
 @pytest.mark.parametrize(

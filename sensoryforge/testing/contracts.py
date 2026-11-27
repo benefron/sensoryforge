@@ -213,7 +213,8 @@ def _check_layout_area(cls: type, instance: Any) -> None:
     Applies to a class whose constructor accepts ``xlim``, ``ylim`` and
     ``device`` (:mod:`sensoryforge.core.layouts`); other grids are used through
     a coordinate file and are not checked here. The instance's own settings are
-    kept, and a layout that takes ``seed`` is given one.
+    kept, and a layout that takes ``seed`` is given one. They are passed as
+    ``to_dict()`` gives them (a tuple as a list), as a config's YAML would.
     """
     parameters = inspect.signature(cls.__init__).parameters
     if not {"xlim", "ylim", "device"} <= set(parameters):

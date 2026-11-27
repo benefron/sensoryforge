@@ -131,7 +131,8 @@ point falls outside, or if the same settings and seed give different points.
 
 Name the layout exactly as registered, and put its settings under `layout_params` (sensors) or
 `neuron_layout_params` (neurons). A plugin package is loaded through its entry point or the
-config's `plugins:` list.
+config's `plugins:` list. The settings reach the constructor as YAML reads them, not through
+`from_config`, so a pair arrives as a list: accept any sequence where you would write a tuple.
 
 ```yaml
 grids:

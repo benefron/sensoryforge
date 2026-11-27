@@ -109,6 +109,8 @@ class GridConfig:
                 or repeated -- named with the grid and the offending entry; or if
                 ``layout_params`` is set with a built-in ``arrangement``.
         """
+        if self.layout_params is None:  # a bare ``layout_params:`` in YAML
+            self.layout_params = {}
         if self.layout_params and self.arrangement in _BUILTIN_GRID_ARRANGEMENTS:
             raise ValueError(
                 f"Grid {self.name!r}: layout_params are settings of a plugin "
@@ -619,6 +621,8 @@ class PopulationConfig:
                 ``voltage_probes`` is not a valid value.
         """
         check_voltage_probes(self.voltage_probes, where=f"Population {self.name!r}")
+        if self.neuron_layout_params is None:  # a bare key in YAML
+            self.neuron_layout_params = {}
         if (
             self.neuron_layout_params
             and self.neuron_arrangement in _BUILTIN_LAYOUT_NAMES

@@ -115,13 +115,18 @@ def layout_problem(name: str, params: Mapping[str, Any]) -> Optional[str]:
             f"not accept {', '.join(missing_area)}. Add them, or save its points "
             "and use a grid's coords_file"
         )
+    # A constructor with **kwargs takes setting names its signature cannot list;
+    # the layout itself then rejects a bad one when it is built.
+    takes_any = any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
     for key in params:
         if key in _SUPPLIED:
             return (
                 f"layout {name!r}: {key!r} is supplied by SensoryForge and cannot "
                 "be a layout setting"
             )
-        if key not in parameters:
+        if key not in parameters and not takes_any:
             known = [k for k in parameters if k not in ("self",) + _SUPPLIED]
             return (
                 f"layout {name!r} has no setting {key!r}; its settings are "

@@ -547,10 +547,19 @@ class SimulationEngine:
                 stacklevel=2,
             )
         offset = pop_cfg.edge_offset or 0.0
+        area_x = (xlim[0] + offset, xlim[1] - offset)
+        area_y = (ylim[0] + offset, ylim[1] - offset)
+        if not (area_x[0] < area_x[1] and area_y[0] < area_y[1]):
+            raise ValueError(
+                f"Population {pop_cfg.name!r}: edge_offset={offset!r} mm leaves no "
+                f"area for neuron layout {pop_cfg.neuron_arrangement!r} inside the "
+                f"grid's x {tuple(xlim)}, y {tuple(ylim)} mm; it must be less than "
+                f"half the grid's smaller side"
+            )
         return build_layout_points(
             pop_cfg.neuron_arrangement,
-            (xlim[0] + offset, xlim[1] - offset),
-            (ylim[0] + offset, ylim[1] - offset),
+            area_x,
+            area_y,
             params=pop_cfg.neuron_layout_params,
             seed=pop_cfg.seed,
             device=self.device,
