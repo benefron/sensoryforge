@@ -52,6 +52,7 @@ from sensoryforge.register_components import register_all
 from sensoryforge.registry import NEURON_REGISTRY, FILTER_REGISTRY, INNERVATION_REGISTRY
 from sensoryforge.core.grid import ReceptorGrid, GridManager, load_receptor_coords_file
 from sensoryforge.core.composite_grid import CompositeReceptorGrid
+from sensoryforge.core.layouts import BUILTIN_LAYOUTS, build_layout_points
 from sensoryforge.core.innervation import (
     build_population_bank,
     create_neuron_centers,
@@ -254,6 +255,59 @@ def build_neuron(pop_cfg: Any, simulation: Any, *, device: Any = "cpu") -> Any:
     return neuron_model
 
 
+def _build_layout_grid(grid_cfg: Any, *, device: torch.device) -> CompositeReceptorGrid:
+    """Build the sensor grid of a plugin layout.
+
+    ``rows``, ``cols``, ``spacing`` and the centre give the area (rows along x),
+    which is also the grid's bounds and the stimulus canvas's extent; the layout
+    gives the positions and their number.
+
+    Args:
+        grid_cfg: A ``GridConfig`` whose ``arrangement`` is not built-in.
+        device: Device to build the grid on.
+
+    Returns:
+        A single-layer ``CompositeReceptorGrid`` bounded by the area.
+
+    Raises:
+        ValueError: If ``density`` is set, the area has no width or height, or
+            the layout cannot be built (:func:`~.layouts.build_layout_points`).
+    """
+    name = grid_cfg.name
+    if grid_cfg.density is not None:
+        raise ValueError(
+            f"Grid {name!r}: density does not apply to the plugin layout "
+            f"{grid_cfg.arrangement!r}; set its own settings in layout_params"
+        )
+    half_x = ((grid_cfg.rows or 40) - 1) * grid_cfg.spacing / 2
+    half_y = ((grid_cfg.cols or 40) - 1) * grid_cfg.spacing / 2
+    if half_x <= 0 or half_y <= 0:
+        raise ValueError(
+            f"Grid {name!r}: the area for the layout {grid_cfg.arrangement!r} "
+            "needs a width and a height: rows and cols of at least 2 and a "
+            "positive spacing"
+        )
+    xlim = (grid_cfg.center_x - half_x, grid_cfg.center_x + half_x)
+    ylim = (grid_cfg.center_y - half_y, grid_cfg.center_y + half_y)
+    coords = build_layout_points(
+        grid_cfg.arrangement,
+        xlim,
+        ylim,
+        params=grid_cfg.layout_params,
+        seed=grid_cfg.seed,
+        require_seed_support=True,
+        device=device,
+    )
+    composite = CompositeReceptorGrid(xlim=xlim, ylim=ylim, device=device)
+    composite.add_layer_with_coords(name, coords)
+    composite.provenance = {
+        "layers": [{"name": name, "count": coords.shape[0]}],
+        "source": "layout",
+        "layout": grid_cfg.arrangement,
+    }
+    return composite
+
+
 def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
     """Build one receptor grid from a :class:`~sensoryforge.config.schema.GridConfig`.
 
@@ -282,6 +336,13 @@ def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
     device = torch.device(device) if isinstance(device, str) else device
     grid_name = grid_cfg.name
     arrangement = grid_cfg.arrangement
+
+    custom = arrangement not in BUILTIN_LAYOUTS + ("composite",)
+    if custom and grid_cfg.coords_file:
+        raise ValueError(
+            f"Grid {grid_name!r}: coords_file and the plugin layout "
+            f"{arrangement!r} both set the sensor positions; use one"
+        )
 
     if grid_cfg.coords_file:
         # L1: an explicit [M, 2] coordinate file builds a single-layer
@@ -359,6 +420,9 @@ def build_grid(grid_cfg: Any, *, device: Any = "cpu") -> Any:
         }
         return composite
 
+    if custom:
+        return _build_layout_grid(grid_cfg, device=device)
+
     # Ordinary (non-composite) grid.
     rows = grid_cfg.rows or 40
     cols = grid_cfg.cols or 40
@@ -424,7 +488,7 @@ class SimulationEngine:
             self.grids.append(grid)
             self.grid_names[grid_name] = grid
 
-            if grid_cfg.arrangement != "composite" and not grid_cfg.coords_file:
+            if grid_cfg.arrangement in BUILTIN_LAYOUTS and not grid_cfg.coords_file:
                 # Regular GridManager: the receptor lattice the bank is built on
                 rows = grid_cfg.rows or 40
                 cols = grid_cfg.cols or 40
@@ -450,6 +514,47 @@ class SimulationEngine:
             if grid is None:
                 raise ValueError(f"No grid available for population {pop_cfg.name}")
         return target_grid_name, grid
+
+    def _plugin_neuron_centers(
+        self,
+        pop_cfg: Any,
+        xlim: Tuple[float, float],
+        ylim: Tuple[float, float],
+    ) -> torch.Tensor:
+        """Neuron centres from a plugin layout, which decides how many there are.
+
+        Args:
+            pop_cfg: The population's config.
+            xlim: The target grid's bounds along x, in mm.
+            ylim: The target grid's bounds along y, in mm.
+
+        Returns:
+            ``[N, 2]`` centres in mm inside the bounds shrunk by ``edge_offset``.
+
+        Raises:
+            ValueError: If the layout cannot be built.
+        """
+        ignored = _lattice_fields_set_by_user(pop_cfg)
+        if pop_cfg.neuron_jitter_factor > 0:
+            ignored.append(f"neuron_jitter_factor={pop_cfg.neuron_jitter_factor!r}")
+        if ignored:
+            warnings.warn(
+                f"Population {pop_cfg.name!r}: the neuron layout "
+                f"{pop_cfg.neuron_arrangement!r} decides where the neurons are and "
+                f"how many there are, so {', '.join(ignored)} "
+                f"{'is' if len(ignored) == 1 else 'are'} ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
+        offset = pop_cfg.edge_offset or 0.0
+        return build_layout_points(
+            pop_cfg.neuron_arrangement,
+            (xlim[0] + offset, xlim[1] - offset),
+            (ylim[0] + offset, ylim[1] - offset),
+            params=pop_cfg.neuron_layout_params,
+            seed=pop_cfg.seed,
+            device=self.device,
+        )
 
     def _build_input_bank(
         self,
@@ -566,6 +671,8 @@ class SimulationEngine:
             # lattice standing in for them.
             receptor_coords = grid.get_receptor_coordinates()
 
+        custom_layout = neuron_arrangement not in BUILTIN_LAYOUTS
+
         if builder_cls.DERIVES_NEURON_CENTERS:
             # Warn only about lattice sizes the user actually set (F-069).
             # These fields always exist on PopulationConfig, so warning
@@ -574,6 +681,8 @@ class SimulationEngine:
             # the shipped tactile preset, which never sets it. A warning that
             # fires on defaults teaches people to ignore warnings.
             ignored = _lattice_fields_set_by_user(pop_cfg)
+            if custom_layout:
+                ignored.append(f"neuron_arrangement={neuron_arrangement!r}")
             if ignored:
                 warnings.warn(
                     f"Population {pop_cfg.name!r}: innervation_method "
@@ -591,6 +700,8 @@ class SimulationEngine:
             # input's drive must land on the same N neurons) and harmless
             # for "concat" (each block still gets its own bank/provenance).
             neuron_centers = shared_neuron_centers.to(self.device)
+        elif custom_layout:
+            neuron_centers = self._plugin_neuron_centers(pop_cfg, xlim, ylim)
         else:
             neuron_centers = create_neuron_centers(
                 neurons_per_row=neuron_rows,  # Used if rows/cols not specified

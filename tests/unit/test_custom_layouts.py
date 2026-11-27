@@ -1,9 +1,17 @@
 """A registered grid plugin can be named as a sensor layout or a neuron layout."""
 
+import warnings
+
 import pytest
 import torch
 
-from sensoryforge.config.schema import GridConfig, PopulationConfig
+from sensoryforge.config.schema import (
+    GridConfig,
+    PopulationConfig,
+    SensoryForgeConfig,
+    SimulationConfig,
+)
+from sensoryforge.core.simulation_engine import SimulationEngine, build_grid
 from sensoryforge.core.grid_base import BaseGrid
 from sensoryforge.core.layouts import (
     BUILTIN_LAYOUTS,
@@ -248,3 +256,196 @@ def test_the_schema_and_the_engine_agree_on_the_built_in_names():
     from sensoryforge.config import schema
 
     assert schema._BUILTIN_LAYOUT_NAMES == BUILTIN_LAYOUTS
+
+
+# ------------------------------------------------------- neurons in the engine
+
+
+def _config(grid=None, **population):
+    population.setdefault("name", "p")
+    population.setdefault("seed", 1)
+    return SensoryForgeConfig(
+        grids=[grid or GridConfig(name="g", rows=12, cols=8, spacing=0.2)],
+        populations=[PopulationConfig(**population)],
+        simulation=SimulationConfig(device="cpu", dt_ms=1.0),
+    )
+
+
+def _custom_neurons(**population):
+    population.setdefault("neuron_arrangement", "test_diagonal")
+    population.setdefault("neuron_layout_params", {"n": 6})
+    return _config(**population)
+
+
+def _blob():
+    """A held Gaussian on the 12 x 8 canvas, wider in x than in y, off centre."""
+    x = torch.linspace(-1.1, 1.1, 12)
+    y = torch.linspace(-0.7, 0.7, 8)
+    xx, yy = torch.meshgrid(x, y, indexing="ij")
+    frame = torch.exp(-(((xx - 0.5) / 0.6) ** 2) - ((yy + 0.2) / 0.2) ** 2)
+    stimulus = torch.zeros(1, 40, 12, 8)
+    stimulus[:, 5:] = frame
+    return stimulus
+
+
+def _quiet_run(config, stimulus):
+    return SimulationEngine(config).run(stimulus, return_intermediates=True)
+
+
+def test_the_layout_places_the_neurons_and_decides_how_many():
+    engine = SimulationEngine(_custom_neurons())
+
+    # The grid spans x -1.1..1.1 (12 rows) and y -0.7..0.7 (8 cols).
+    expected = build_layout_points(
+        "test_diagonal", (-1.1, 1.1), (-0.7, 0.7), params={"n": 6}
+    )
+    centres = engine.populations[0]["bank"].neuron_centers
+    assert torch.allclose(centres, expected, atol=1e-5)
+    results = engine.run(_blob(), return_intermediates=True)
+    assert results["p"]["spikes"].shape[-1] == 6
+
+
+def test_the_neuron_area_is_the_grid_shrunk_by_the_edge_offset():
+    engine = SimulationEngine(_custom_neurons(edge_offset=0.1))
+
+    centres = engine.populations[0]["bank"].neuron_centers
+    assert torch.allclose(centres[0], torch.tensor([-1.0, -0.6]), atol=1e-5)
+    assert torch.allclose(centres[-1], torch.tensor([1.0, 0.6]), atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("neurons_per_row", 4),
+        ("neuron_rows", 3),
+        ("neuron_cols", 3),
+        ("neuron_jitter_factor", 0.5),
+    ],
+)
+def test_a_neuron_setting_a_custom_layout_ignores_is_warned_about(field, value):
+    with pytest.warns(UserWarning, match=f"test_diagonal.*{field}"):
+        SimulationEngine(_custom_neurons(**{field: value}))
+
+
+def test_no_warning_when_only_defaults_are_ignored():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        SimulationEngine(_custom_neurons())
+
+
+def test_a_builder_with_its_own_lattice_says_the_custom_layout_is_ignored():
+    config = _custom_neurons(innervation_method="template", resolvable_distance_mm=0.4)
+    with pytest.warns(UserWarning, match="derives its own neuron lattice.*test_"):
+        SimulationEngine(config)
+
+
+def test_inputs_of_one_population_share_the_custom_centres():
+    from sensoryforge.config.schema import PopulationInput
+
+    config = _custom_neurons(
+        inputs=[PopulationInput(grid="g"), PopulationInput(grid="g")]
+    )
+    pop = SimulationEngine(config).populations[0]
+
+    first, second = (entry["bank"].neuron_centers for entry in pop["inputs"])
+    assert torch.equal(first, second)
+
+
+# ------------------------------------------------------- sensors in the engine
+
+
+def _sensor_grid(name="test_lattice", **extra):
+    extra.setdefault("rows", 12)
+    extra.setdefault("cols", 8)
+    return GridConfig(name="g", arrangement=name, spacing=0.2, **extra)
+
+
+def test_sensors_are_the_layouts_points_inside_the_configured_area():
+    grid = build_grid(_sensor_grid("test_diagonal", layout_params={"n": 4}))
+
+    assert grid.xlim == pytest.approx((-1.1, 1.1))
+    assert grid.ylim == pytest.approx((-0.7, 0.7))
+    expected = build_layout_points(
+        "test_diagonal", grid.xlim, grid.ylim, params={"n": 4}
+    )
+    assert torch.equal(grid.get_all_coordinates(), expected)
+    assert grid.provenance["layout"] == "test_diagonal"
+
+
+def test_sensors_on_the_grid_points_read_exactly_what_the_grid_reads():
+    """x and y are not swapped: a lopsided stimulus on a 12 x 8 canvas.
+
+    A plugin grid wires like a position-file grid, with a 3-sigma cut-off the
+    built-in grid does not apply, so the cut-off is turned off here to compare
+    the two outputs.
+    """
+    wiring = {"innervation_params": {"max_sigma_distance": 0.0}}
+    engines = [
+        SimulationEngine(_config(_sensor_grid(name), **wiring))
+        for name in ("grid", "test_lattice")
+    ]
+    stimulus = _blob()
+    readings = [
+        e._stimulus_to_receptors(
+            stimulus,
+            e.grids[0],
+            e.populations[0]["bank"].receptor_coords,
+            e.grid_managers.get("g"),
+        )
+        for e in engines
+    ]
+    filtered = [e.run(stimulus, return_intermediates=True)["p"] for e in engines]
+
+    assert readings[0].abs().sum() > 0
+    assert torch.allclose(readings[1], readings[0], atol=1e-5)
+    assert torch.allclose(filtered[1]["filtered"], filtered[0]["filtered"], atol=1e-3)
+
+
+def test_a_plugin_sensor_grid_matches_the_same_points_from_a_file(tmp_path):
+    points = build_grid(_sensor_grid()).get_all_coordinates()
+    torch.save(points, tmp_path / "points.pt")
+    from_file = GridConfig(
+        name="g",
+        rows=12,
+        cols=8,
+        spacing=0.2,
+        coords_file=str(tmp_path / "points.pt"),
+    )
+
+    expected = _quiet_run(_config(from_file), _blob())["p"]
+    actual = _quiet_run(_config(_sensor_grid()), _blob())["p"]
+
+    assert expected["filtered"].abs().sum() > 0
+    assert torch.allclose(actual["filtered"], expected["filtered"], atol=1e-3)
+
+
+@pytest.mark.parametrize(
+    "grid, expected",
+    [
+        (dict(density=10.0), "density"),
+        (dict(coords_file="points.csv"), "coords_file"),
+        (dict(rows=1), "width and a height"),
+        (dict(seed=3), "takes no seed"),
+    ],
+)
+def test_sensor_settings_that_conflict_with_a_layout_are_errors(grid, expected):
+    with pytest.raises(ValueError, match=expected):
+        build_grid(_sensor_grid(**grid))
+
+
+def test_the_grid_seed_reaches_a_random_sensor_layout():
+    a = build_grid(_sensor_grid("test_scatter", seed=5)).get_all_coordinates()
+    b = build_grid(_sensor_grid("test_scatter", seed=5)).get_all_coordinates()
+
+    assert torch.equal(a, b)
+
+
+@pytest.mark.parametrize("use", ["sensor", "neuron"])
+def test_a_layout_that_is_not_installed_is_named_in_the_error(use):
+    config = (
+        _config(_sensor_grid("gone_layout"))
+        if use == "sensor"
+        else _config(neuron_arrangement="gone_layout")
+    )
+    with pytest.raises(ValueError, match="gone_layout"):
+        SimulationEngine(config)
