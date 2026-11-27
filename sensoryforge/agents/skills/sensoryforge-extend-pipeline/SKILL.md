@@ -127,9 +127,9 @@ Inherit `BaseGrid`. It places the sensors.
   the points: test that `from_config(to_dict())` gives the same points.
 - **`from_config()`** keeps only constructor keys (`to_dict()` adds derived ones) and
   turns lists back into tuples, as the scaffold's does.
-- **Use.** A config's `arrangement:` knows only the built-in names, so a new arrangement
-  reaches a run as a file: save its `[N, 2]` points (`torch.save`, or a CSV) and name the
-  file in the grid entry's `coords_file:`. Say so to the user.
+- **Use.** One taking `xlim`, `ylim`, `device` (as scaffolded), points inside, is named in
+  `arrangement:`/`neuron_arrangement:` (settings: `layout_params:`/`neuron_layout_params:`).
+  Warn: plugin sensors wire with a 3-sigma cut-off; no app list. Else use `coords_file:`.
 
 ## 8. A receptive-field builder
 

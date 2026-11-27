@@ -132,7 +132,8 @@ def build_layout_points(
         xlim: ``(min, max)`` of the area along x, in mm.
         ylim: ``(min, max)`` of the area along y, in mm.
         params: The layout's own settings.
-        seed: Passed to a layout whose constructor takes ``seed``.
+        seed: Passed to a layout whose constructor takes ``seed``; ``None``
+            leaves the layout's own default.
         require_seed_support: Refuse a ``seed`` the layout cannot take, for a
             seed that was set for the layout alone.
         device: Device of the returned tensor.
@@ -153,7 +154,7 @@ def build_layout_points(
     if seed is not None and not takes_seed and require_seed_support:
         raise ValueError(f"layout {name!r} takes no seed, but seed={seed} is set")
     kwargs = {**params, "xlim": tuple(xlim), "ylim": tuple(ylim), "device": device}
-    if takes_seed:
+    if takes_seed and seed is not None:
         kwargs["seed"] = seed
     try:
         layout = GRID_REGISTRY.get_class(name)(**kwargs)

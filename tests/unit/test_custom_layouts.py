@@ -1,6 +1,10 @@
 """A registered grid plugin can be named as a sensor layout or a neuron layout."""
 
+import os
+import subprocess
+import sys
 import warnings
+from pathlib import Path
 
 import pytest
 import torch
@@ -14,6 +18,7 @@ from sensoryforge.config.schema import (
 )
 from sensoryforge.core.simulation_engine import SimulationEngine, build_grid
 from sensoryforge.io.bundle import load_bundle
+from sensoryforge.plugins import load_plugin_import_paths
 from sensoryforge.core.batch_executor import BatchExecutor
 from sensoryforge.core.generalized_pipeline import (
     GeneralizedTactileEncodingPipeline,
@@ -28,6 +33,7 @@ from sensoryforge.core.layouts import (
 from sensoryforge.register_components import register_all
 from sensoryforge.registry import GRID_REGISTRY
 from sensoryforge.stimuli.base import ParamSpec
+from sensoryforge.testing.contracts import check_component
 
 
 class _Layout(BaseGrid):
@@ -540,3 +546,96 @@ def test_batch_runs_two_grids_as_a_saved_config_writes_them(tmp_path):
     executor.execute()
 
     assert load_bundle(executor.batch_root / "stim_0000").stimulus.abs().sum() > 0
+
+
+# ------------------------------------------- unset seeds and the plugin check
+
+
+class _IntSeed(Scatter):
+    """As the scaffold writes it: an integer ``seed`` with a default."""
+
+    def __init__(self, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), device="cpu", seed=0):
+        super().__init__(xlim, ylim, device, seed=int(seed))
+
+
+class _IgnoresSeed(Scatter):
+    def points(self):
+        low = torch.tensor([self.xlim[0], self.ylim[0]])
+        high = torch.tensor([self.xlim[1], self.ylim[1]])
+        return low + torch.rand(5, 2) * (high - low)
+
+
+class _IgnoresArea(Diagonal):
+    """Always fills the default square, whatever area it is given."""
+
+    def points(self):
+        x = torch.linspace(-1.0, 1.0, self.n)
+        return torch.stack([x, x], dim=1)
+
+
+class _Contract(Diagonal):
+    """A layout that passes the whole grid contract."""
+
+    def to_dict(self):
+        return {**super().to_dict(), "n": self.n}
+
+    @classmethod
+    def from_config(cls, config):
+        keys = ("xlim", "ylim", "device", "n")
+        return cls(**{k: v for k, v in config.items() if k in keys})
+
+
+def test_an_unset_seed_leaves_the_layouts_own_default():
+    GRID_REGISTRY.register("test_int_seed", _IntSeed)
+    try:
+        a = build_layout_points("test_int_seed", *AREA)
+        b = build_layout_points("test_int_seed", *AREA, seed=0)
+    finally:
+        GRID_REGISTRY._registry.pop("test_int_seed")
+
+    assert torch.equal(a, b)
+
+
+def test_the_plugin_check_passes_a_layout_that_fills_any_area():
+    check_component("grid", _Contract, _Contract(n=4))
+
+
+@pytest.mark.parametrize(
+    "broken, expected",
+    [(_IgnoresArea, "outside the area"), (_IgnoresSeed, "same seed")],
+)
+def test_the_plugin_check_fails_a_layout_a_config_could_not_trust(broken, expected):
+    class Checked(broken):
+        def to_dict(self):
+            own = {"n": self.n} if hasattr(self, "n") else {"seed": self.seed}
+            return {**BaseGrid.to_dict(self), **own}
+
+        @classmethod
+        def from_config(cls, config):
+            return cls(**{k: v for k, v in config.items() if k != "type"})
+
+    Checked.__init__ = broken.__init__
+    with pytest.raises(AssertionError, match=expected):
+        check_component("grid", Checked)
+
+
+def test_a_scaffolded_grid_can_be_named_in_a_config(tmp_path, monkeypatch):
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2])}
+    command = [sys.executable, "-m", "sensoryforge.cli"]
+    subprocess.run(
+        command + ["new-component", "grid", "demo_cfg", "--dest", str(tmp_path)],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    package = next(tmp_path.glob("*/pyproject.toml")).parent
+    monkeypatch.syspath_prepend(str(package))
+    load_plugin_import_paths(["sensoryforge_demo_cfg.component:register"])
+    try:
+        grid = build_grid(_sensor_grid("demo_cfg"))
+        points = grid.get_all_coordinates()
+        check_component("grid", GRID_REGISTRY.get_class("demo_cfg"))
+    finally:
+        GRID_REGISTRY._registry.pop("demo_cfg", None)
+
+    assert points.shape == (100, 2)
