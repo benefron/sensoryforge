@@ -161,19 +161,6 @@ def validate_config(config: Dict[str, Any]) -> bool:
                         f"neuron_arrangement: {problem}"
                     )
 
-        # Validate sensor layouts that are not built-in
-        for i, grid in enumerate(config.get("grids", [])):
-            if not isinstance(grid, dict):
-                continue
-            arrangement = grid.get("arrangement", "grid")
-            if arrangement in NEURON_ARRANGEMENTS + ("composite",):
-                continue
-            problem = layout_problem(arrangement, grid.get("layout_params") or {})
-            if problem:
-                errors.append(
-                    f"Grid '{grid.get('name', i)}': invalid arrangement: {problem}"
-                )
-
             # Validate DSL config if neuron_model is DSL
             if pop.get("neuron_model") == "DSL (Custom)":
                 dsl_cfg = pop.get("dsl_config")
@@ -190,6 +177,19 @@ def validate_config(config: Dict[str, Any]) -> bool:
                                 f"Population '{pop.get('name', i)}': DSL config "
                                 f"missing '{field}'"
                             )
+
+        # Validate sensor layouts that are not built-in
+        for i, grid in enumerate(config.get("grids", [])):
+            if not isinstance(grid, dict):
+                continue
+            arrangement = grid.get("arrangement", "grid")
+            if arrangement in NEURON_ARRANGEMENTS + ("composite",):
+                continue
+            problem = layout_problem(arrangement, grid.get("layout_params") or {})
+            if problem:
+                errors.append(
+                    f"Grid '{grid.get('name', i)}': invalid arrangement: {problem}"
+                )
     else:
         # Validate legacy format
         # Check for basic structure (lenient validation)
