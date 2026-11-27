@@ -108,13 +108,18 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## D-bcc59e2 · CLOSED · decision · - · 2026-11-27
+a hex neuron layout that cannot give rows x cols points is an error, not a square grid
+→ commit 59dec9b
+
 ## D-dce1eff · CLOSED · decision · - · 2026-11-26
 an unknown neuron arrangement is an error now, and SensoryForge is to support custom layouts; the error is the first step, not the end state
 → commit 2c05ad0
 
-## F-a4d5f3b · OPEN · finding · - · 2026-11-26
+## F-a4d5f3b · CLOSED · finding · - · 2026-11-26
 create_neuron_centers with arrangement hex still returns the plain square grid when the hex lattice has fewer points than rows x cols (80 of the 841 shapes from 2x2 to 30x30 on a square extent, e.g. 13x17)
 → commit 2c05ad0
+✓ closed by 59dec9b fix(neurons): refuse a hex neuron layout that cannot hold every neuron
 
 ## F-0c63fac · CLOSED · finding · - · 2026-11-26
 create_neuron_centers silently returns a plain square grid for an arrangement name it does not know (checked: demo_spiral, jittered, Hex), so the CLI's fixed list in F-bff2ce4 must stay until the engine builds registered arrangements or raises on unknown names
