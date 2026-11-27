@@ -488,6 +488,28 @@ def _dropped_skills(project: Path, target: str) -> List[Tuple[Path, bool]]:
     return out
 
 
+def _dropped_references(project: Path, target: str) -> List[Path]:
+    """Generated ``reference.md`` files beside a shipped skill that no longer has one.
+
+    A file without the generated header is someone else's and is not listed.
+    """
+    folder = Path(project) / _target(target).skills_dir
+    with_reference = {name for name, _ in packaged_references()}
+    out: List[Path] = []
+    for name, _ in packaged_skills():
+        path = folder / name / REFERENCE_NAME
+        if name not in with_reference and _is_generated(path):
+            out.append(path)
+    return out
+
+
+def _is_generated(path: Path) -> bool:
+    """Whether ``path`` is a file that carries the generated header."""
+    if not path.is_file():
+        return False
+    return GENERATED_MARK in path.read_text(encoding="utf-8", errors="replace")[:2000]
+
+
 def install(project: Path, target: str = "claude") -> List[Tuple[Path, str]]:
     """Write the skills and the glossary for ``target`` into ``project``.
 
@@ -497,7 +519,8 @@ def install(project: Path, target: str = "claude") -> List[Tuple[Path, str]]:
 
     A ``sensoryforge-*`` skill folder this release no longer ships is removed when its
     ``SKILL.md`` carries the generated header (the folder too, if nothing else is in
-    it); one without the header is not SensoryForge's and is left alone.
+    it); one without the header is not SensoryForge's and is left alone. A generated
+    ``reference.md`` beside a skill that no longer ships one is removed too.
 
     Returns:
         ``(path, state)`` for each file, ``state`` being ``"added"``, ``"updated"``,
@@ -528,17 +551,16 @@ def install(project: Path, target: str = "claude") -> List[Tuple[Path, str]]:
         if generated:
             path.unlink()
             extra = path.parent / REFERENCE_NAME
-            if (
-                extra.is_file()
-                and GENERATED_MARK
-                in extra.read_text(encoding="utf-8", errors="replace")[:2000]
-            ):
+            if _is_generated(extra):
                 extra.unlink()
             try:
                 path.parent.rmdir()  # only when nothing else is in it
             except OSError:
                 pass
             out.append((path, "removed"))
+    for path in _dropped_references(project, target):
+        path.unlink()
+        out.append((path, "removed"))
     return out
 
 
@@ -565,6 +587,7 @@ def check(project: Path, target: str = "claude") -> List[Tuple[Path, str]]:
         out.append((path, state))
     for path, generated in _dropped_skills(project, target):
         out.append((path, "stale" if generated else "foreign"))
+    out.extend((path, "stale") for path in _dropped_references(project, target))
     return out
 
 

@@ -122,7 +122,7 @@ batch:
   checkpoint_frequency: 50
 
 pipeline:
-  device: "cuda"  # Use GPU for speed
+  device: "cuda"  # Run on an NVIDIA GPU
   grid_size: 64
   duration_ms: 300.0
 
@@ -356,9 +356,13 @@ plt.tight_layout()
 plt.show()
 ```
 
-## Part 7: GPU Acceleration
+## Part 7: Running on a GPU
 
-### Maximize GPU Utilization
+No GPU speedup has been measured, so do not assume one: time one run on each device before a
+long batch. In the one accelerator case in [Benchmarks](../reference/benchmarks.md) (a very
+small run on Apple's MPS), the GPU was slower than the CPU.
+
+### A larger GPU run
 
 ```yaml
 batch:
@@ -367,7 +371,7 @@ batch:
 
 pipeline:
   device: "cuda"  # Use GPU
-  grid_size: 128  # Larger grid for GPU
+  grid_size: 128
   
 neurons:
   sa_neurons: 300  # More neurons
@@ -379,12 +383,6 @@ stimuli:
     sigma: [0.2, 0.4, 0.6, 0.8, 1.0]
     repetitions: 10
 ```
-
-**Tips for GPU efficiency:**
-- Use larger grids (64×64 or 128×128)
-- Increase neuron counts (> 200 per population)
-- Longer simulation durations (> 200ms)
-- Avoid frequent checkpointing (every 50+ stimuli)
 
 ### Monitor GPU Usage
 

@@ -12,8 +12,8 @@ Available Models:
     LevelCrossingNeuron: Signed level-crossing event encoder (RA, ON/OFF events)
     SigmaDeltaNeuron: Sigma-delta (non-leaky IF, subtractive reset) encoder (SA)
 
-All models inherit from torch.nn.Module and support batched processing,
-GPU acceleration, and configurable parameters.
+All models inherit from torch.nn.Module and support batched processing
+and configurable parameters.
 
 Example:
     >>> from sensoryforge.neurons import IzhikevichNeuronTorch

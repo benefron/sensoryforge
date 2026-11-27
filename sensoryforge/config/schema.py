@@ -447,7 +447,7 @@ class PopulationConfig:
         decay_rate: Decay rate parameter.
         weight_range: [min, max] weight range.
         edge_offset: Edge offset in mm.
-        neuron_arrangement: Arrangement (grid, poisson, hex, jittered,
+        neuron_arrangement: Arrangement (grid, poisson, hex, jittered_grid,
             blue_noise).
         neurons_per_row: Neurons per row (for grid arrangement).
         neuron_rows: Number of rows (independent of neurons_per_row).
@@ -1181,7 +1181,25 @@ class SensoryForgeConfig:
 
         Returns:
             SensoryForgeConfig instance.
+
+        Warns:
+            UserWarning: For each top-level key that is neither a field of this
+                class nor ``plugins``; the key is ignored.
         """
+        for key in data:
+            if key in cls.__dataclass_fields__ or key == "plugins":
+                continue
+            note = (
+                " (only `sensoryforge run` reads this older list; the section "
+                "here is 'stimulus')"
+                if key == "stimuli"
+                else ""
+            )
+            warnings.warn(
+                f"unknown top-level config key {key!r}; it is ignored{note}",
+                UserWarning,
+                stacklevel=2,
+            )
         grids = [GridConfig.from_dict(g) for g in data.get("grids", [])]
         populations = [
             PopulationConfig.from_dict(p) for p in data.get("populations", [])

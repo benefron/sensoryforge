@@ -89,7 +89,8 @@ point produces a `UserWarning` and is skipped
 `sensoryforge.testing.contracts.check_component(kind, cls)` runs the same
 checks used across the project's own contract-test sweep: it asserts
 `get_param_spec()` returns a list of `ParamSpec`, runs one `forward()` pass
-with the kind's canonical tensor shape, and checks the `to_dict()`/`from_config()`
+with the kind's canonical tensor shape (a filter runs twice and must give the same
+output), and checks the `to_dict()`/`from_config()`
 round trip is **complete**: every `__init__` parameter appears in
 `to_dict()`, and `from_config(instance.to_dict())` gives back the same
 `to_dict()`. It has no Qt dependency and needs nothing but `torch` and

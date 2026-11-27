@@ -153,7 +153,7 @@ populations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"` |
+| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`. Spelled exactly; any other name is an error. `"hex"` is also an error when its lattice has too few points for `rows` x `cols` |
 | `neurons_per_row` | int | `10` | Neurons per row (for grid arrangement) |
 | `neuron_rows` | int | `None` | Number of rows (independent of neurons_per_row) |
 | `neuron_cols` | int | `None` | Number of columns (independent of neurons_per_row) |
@@ -533,6 +533,10 @@ try:
 except Exception as e:
     print(f"✗ Validation error: {e}")
 ```
+
+A top-level key that the schema does not have (a mistyped `simulaton:`, say) is ignored,
+and loading the config raises a `UserWarning` that names it. `plugins` is allowed. The older
+`stimuli:` list also warns: only `sensoryforge run` reads it.
 
 Or use CLI:
 ```bash

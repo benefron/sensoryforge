@@ -1229,6 +1229,10 @@ def create_innervation(
 # ============================================================================
 
 
+NEURON_ARRANGEMENTS = ("grid", "poisson", "hex", "jittered_grid", "blue_noise")
+"""The neuron-centre layouts :func:`create_neuron_centers` can build."""
+
+
 def create_neuron_centers(
     neurons_per_row: int,
     xlim: Tuple[float, float],
@@ -1249,7 +1253,8 @@ def create_neuron_centers(
     - jittered_grid: Grid + small jitter (0.25 * spacing).
     - blue_noise: Grid + jitter (0.4 * spacing) + Lloyd relaxation.
     - poisson: Grid + moderate jitter (0.5 * spacing); grid-respecting, no clustering.
-    - hex: Hexagonal lattice (grid-like).
+    - hex: Hexagonal lattice (grid-like). Not every ``rows`` x ``cols`` shape
+      can be filled by it; those shapes are an error.
 
     Args:
         neurons_per_row: Default for square layout (rows=cols).
@@ -1260,14 +1265,23 @@ def create_neuron_centers(
         sigma: Optional spatial spread (mm) used by some heuristics.
         rows: Override rows (vertical). Default: neurons_per_row.
         cols: Override cols (horizontal). Default: neurons_per_row.
-        arrangement: 'grid', 'poisson', 'hex', 'jittered_grid', 'blue_noise'.
+        arrangement: One of :data:`NEURON_ARRANGEMENTS`, spelled exactly.
         seed: Random seed for jittered arrangements.
         jitter_factor: Scale for jitter magnitude (1.0 = default). Use >1 for more
             irregularity in advanced options.
 
     Returns:
         Tensor shaped ``(N, 2)`` containing ``(x, y)`` coordinate pairs.
+
+    Raises:
+        ValueError: If ``arrangement`` is not in :data:`NEURON_ARRANGEMENTS`, or
+            it is ``"hex"`` and the lattice has fewer than ``rows * cols`` points.
     """
+    if arrangement not in NEURON_ARRANGEMENTS:
+        raise ValueError(
+            f"Unknown neuron arrangement: {arrangement!r}. "
+            f"Valid: {', '.join(NEURON_ARRANGEMENTS)}"
+        )
     n_rows = rows if rows is not None else neurons_per_row
     n_cols = cols if cols is not None else neurons_per_row
     x_min, x_max = xlim
@@ -1351,11 +1365,13 @@ def create_neuron_centers(
         )
         hex_coords = grid.get_receptor_coordinates()
         expected = n_rows * n_cols
-        if hex_coords.shape[0] >= expected:
-            return hex_coords[:expected]
-        return base_coords
-    else:
-        return base_coords
+        if hex_coords.shape[0] < expected:
+            raise ValueError(
+                f"The hex neuron arrangement gives only {hex_coords.shape[0]} points "
+                f"for {n_rows} x {n_cols} = {expected} neurons on this area. "
+                "Use a different rows/cols shape or another arrangement."
+            )
+        return hex_coords[:expected]
 
     coords[:, 0] = torch.clamp(coords[:, 0], x_min_eff, x_max_eff)
     coords[:, 1] = torch.clamp(coords[:, 1], y_min_eff, y_max_eff)
@@ -1544,7 +1560,8 @@ def build_population_bank(
         The population's :class:`~sensoryforge.core.rf_bank.ReceptiveFieldBank`.
 
     Raises:
-        ValueError: If ``innervation_method`` is not registered.
+        ValueError: If ``innervation_method`` is not registered, or centres are
+            laid out here and ``neuron_arrangement`` is unknown.
     """
     from sensoryforge.register_components import register_all
     from sensoryforge.registry import INNERVATION_REGISTRY

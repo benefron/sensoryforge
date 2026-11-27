@@ -313,7 +313,10 @@ for every kind it supports (`available_kinds()`: `neuron`, `filter`, `grid`,
 `solver`, `innervation`, `stimulus`, `processing`):
 
 1. `get_param_spec()` returns a list of `ParamSpec`.
-2. One forward pass with the kind's canonical tensor shape.
+2. One forward pass with the kind's canonical tensor shape. A filter gets the same
+   input twice, with the global random seed set alike, and must give the same output:
+   the engine never calls `reset_state()`. Noise from PyTorch's global generator
+   passes; a filter that draws from its own generator or keeps state does not.
 3. `from_config(instance.to_dict())` returns an instance of the class.
 4. **The round trip is complete**: every `__init__` parameter appears
    in `instance.to_dict()`, and `from_config(instance.to_dict()).to_dict()`

@@ -108,6 +108,28 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-3e480a4 · CLOSED · finding · - · 2026-11-27
+the docs claimed GPU acceleration, a 5-20x speedup and end-to-end training that nothing supports, and scikit-learn was a dependency nothing imported
+→ commit 13fd202
+
+## D-bcc59e2 · CLOSED · decision · - · 2026-11-27
+a hex neuron layout that cannot give rows x cols points is an error, not a square grid
+→ commit 59dec9b
+
+## D-dce1eff · CLOSED · decision · - · 2026-11-26
+an unknown neuron arrangement is an error now, and SensoryForge is to support custom layouts; the error is the first step, not the end state
+→ commit 2c05ad0
+
+## F-a4d5f3b · CLOSED · finding · - · 2026-11-26
+create_neuron_centers with arrangement hex still returns the plain square grid when the hex lattice has fewer points than rows x cols (80 of the 841 shapes from 2x2 to 30x30 on a square extent, e.g. 13x17)
+→ commit 2c05ad0
+✓ closed by 59dec9b fix(neurons): refuse a hex neuron layout that cannot hold every neuron
+
+## F-0c63fac · CLOSED · finding · - · 2026-11-26
+create_neuron_centers silently returns a plain square grid for an arrangement name it does not know (checked: demo_spiral, jittered, Hex), so the CLI's fixed list in F-bff2ce4 must stay until the engine builds registered arrangements or raises on unknown names
+→ commit dd1ec04
+✓ closed by 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
+
 ## D-5bda111 · CLOSED · decision · - · 2026-11-26
 golden events and spikes must be exact on every platform; off the recording machine converter floats are held to 2e-7 + 1e-5 relative and stimulus parity to 1e-6 absolute (approved by Ben)
 → commit dd4330e
@@ -190,15 +212,17 @@ the reference-plugin test leaked leaky_threshold, exp_smoother and ring into the
 BaseFilter and add_filter.md said reset_state() is called between sequences; the engine never calls it, so forward() must start from rest
 → commit f84db10
 
-## F-0006a08 · OPEN · finding · - · 2026-11-19
+## F-0006a08 · CLOSED · finding · - · 2026-11-19
 check_component("filter") runs one forward pass and does not catch a filter that carries state between calls; a second pass compared with the first would (noise filters need an exemption or a seed)
 · tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
-## F-a7fe7d1 · OPEN · finding · - · 2026-11-19
+## F-a7fe7d1 · CLOSED · finding · - · 2026-11-19
 install removes a dropped skill's reference.md but leaves a stale generated reference.md beside a skill that keeps its SKILL.md and loses its reference file
 · tidied 2026-11-26: kept open -- checked, still real
 → commit f84db10
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
 ## F-d31e86b · CLOSED · finding · docs/developer_guide · 2026-11-18
 the add_stimulus config example used `stimuli:` where the schema takes a `stimulus:` mapping
@@ -333,6 +357,7 @@ the grid scaffold's placeholder used the global RNG, so a to_dict/from_config ro
 a config's grid `arrangement:` knows only the built-in names and GridConfig has no field for an arrangement's parameters, so a plugin grid arrangement reaches a run only by saving its points to a coords_file; candidate for C4
 · tidied 2026-11-26: kept open -- checked, still real
 → commit 953661e
+↔ 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
 
 ## D-702cf20 · CLOSED · decision · - · 2026-11-03
 one extend-pipeline skill holds every pipeline component kind as a section, so C2b and C2c add sections and the skill budget stays at 14; a population field the user did not give is left out or marked as a placeholder, never filled in.
@@ -364,6 +389,8 @@ ParamSpec help and tooltip text, class-docstring summaries and preset descriptio
 cli.py's config validation lists the five grid arrangement names for neuron_arrangement by hand instead of reading GRID_REGISTRY, so a registered sixth arrangement would be refused there
 · tidied 2026-11-26: kept open -- checked, still real
 → commit 808ff56
+↔ dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
+↔ 2c05ad0 fix(neurons): refuse an unknown neuron arrangement instead of using a square grid
 
 ## D-1ce0186 · CLOSED · decision · - · 2026-11-02
 phase B (the agentic layer) is merged to main with --no-ff after the R-B review and row Bf, full suite green; ground.out-of-range still fails and F-725b89c stays open
@@ -1178,10 +1205,11 @@ a layer value an axis replaces is not checked, and a list-valued field is checke
 the published docs build strict-clean but carry sixteen drift items, two of which give a reader a wrong result (the Quick Start legacy example raises; the add-a-stimulus config silently drops the new stimulus); listed in docs_root/plan/D1_audit.md
 → commit c02239c
 
-## F-6431443 · OPEN · finding · - · 2026-10-22
+## F-6431443 · CLOSED · finding · - · 2026-10-22
 SensoryForgeConfig.from_dict accepts an unknown top-level key without a warning (checked with `stimuli:`), so a mistyped section is dropped silently
 · tidied 2026-11-26: kept open -- checked, still real
 → commit c02239c
+✓ closed by dd1ec04 fix: warn on unknown config keys, catch stateful filters, remove stale references
 
 ## F-6816a05 · CLOSED · finding · - · 2026-10-22
 mkdocs.yml loads polyfill.io on every page of the deployed site; remove it (D1b-A, or sooner if Ben says so)

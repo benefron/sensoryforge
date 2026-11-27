@@ -169,7 +169,7 @@ rather than take it on faith.
 
 SensoryForge installs from source with `pip install -e .`
 (`README.md`; not yet published to PyPI) and declares Python 3.10+,
-PyTorch, NumPy, SciPy, scikit-learn, PyYAML, and plotting dependencies in
+PyTorch, NumPy, SciPy, PyYAML, and plotting dependencies in
 `pyproject.toml`, with optional extras for the GUI (`PyQt5`, `pyqtgraph`),
 HDF5 export, adaptive ODE solvers (`torchdiffeq`), and an equation-based
 neuron-model DSL (`sympy`). The documentation tree
