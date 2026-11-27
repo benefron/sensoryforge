@@ -108,6 +108,10 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-72a8668 · CLOSED · finding · - · 2026-11-27
+an exception other than ValueError/TypeError/RuntimeError/KeyError raised by a plugin layout escaped build_layout_points and could abort the GUI from its validation slot
+→ commit 5c8ecad
+
 ## F-e1a24ec · CLOSED · finding · sensoryforge · 2026-11-27
 sensoryforge validate checked no DSL population when every grid was built in, and only the last one beside a plugin grid, since the custom-layout grid loop swallowed the check (regression tests in test_custom_layouts.py)
 → commit 76a19b3
