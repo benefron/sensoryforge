@@ -38,6 +38,7 @@ import yaml
 from sensoryforge.core.generalized_pipeline import GeneralizedTactileEncodingPipeline
 from sensoryforge.core.simulation_engine import SimulationEngine
 from sensoryforge.core.batch_executor import BatchExecutor
+from sensoryforge.core.layouts import layout_problem
 from sensoryforge.core.innervation import NEURON_ARRANGEMENTS
 from sensoryforge.config.yaml_utils import load_config_file
 from sensoryforge.config.schema import SensoryForgeConfig
@@ -150,12 +151,15 @@ def validate_config(config: Dict[str, Any]) -> bool:
 
             # Validate neuron arrangement
             arrangement = pop.get("neuron_arrangement", "grid")
-            valid_arrangements = list(NEURON_ARRANGEMENTS)
-            if arrangement not in valid_arrangements:
-                errors.append(
-                    f"Population '{pop.get('name', i)}': invalid neuron_arrangement "
-                    f"'{arrangement}'. Valid: {valid_arrangements}"
+            if arrangement not in NEURON_ARRANGEMENTS:
+                problem = layout_problem(
+                    arrangement, pop.get("neuron_layout_params") or {}
                 )
+                if problem:
+                    errors.append(
+                        f"Population '{pop.get('name', i)}': invalid "
+                        f"neuron_arrangement: {problem}"
+                    )
 
             # Validate DSL config if neuron_model is DSL
             if pop.get("neuron_model") == "DSL (Custom)":
@@ -173,6 +177,19 @@ def validate_config(config: Dict[str, Any]) -> bool:
                                 f"Population '{pop.get('name', i)}': DSL config "
                                 f"missing '{field}'"
                             )
+
+        # Validate sensor layouts that are not built-in
+        for i, grid in enumerate(config.get("grids", [])):
+            if not isinstance(grid, dict):
+                continue
+            arrangement = grid.get("arrangement", "grid")
+            if arrangement in NEURON_ARRANGEMENTS + ("composite",):
+                continue
+            problem = layout_problem(arrangement, grid.get("layout_params") or {})
+            if problem:
+                errors.append(
+                    f"Grid '{grid.get('name', i)}': invalid arrangement: {problem}"
+                )
     else:
         # Validate legacy format
         # Check for basic structure (lenient validation)

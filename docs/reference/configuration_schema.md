@@ -41,6 +41,7 @@ Configuration for a single receptor grid layer.
 | `channels` | list[string] | `["value"]` | Named sensor channels/planes carried by this grid; the single-channel default is omitted from `to_dict()` output so existing configs are unchanged byte for byte; names must be non-empty, unique, valid Python identifiers |
 | `coords_file` | string | `None` | Path to an `[M, 2]` CSV or `.pt` file of receptor coordinates in mm; when set, the grid is built from these coordinates instead of `rows`/`cols`/`spacing` |
 | `layers` | list[dict] | `[]` | For `arrangement == "composite"`, the ordered list of layer specs building a `CompositeReceptorGrid`; each entry has a required `name` and either `density` (+ optional `arrangement`, `offset`, `seed`, `color`) or `coordinates` (an `[n, 2]` list) or `coords_file`; layer order is the receptor-index contract |
+| `layout_params` | dict | `{}` | Settings of a plugin layout named by `arrangement`; an error with a built-in arrangement. Omitted when empty |
 
 ### Example
 
@@ -153,7 +154,8 @@ populations:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`. Spelled exactly; any other name is an error. `"hex"` is also an error when its lattice has too few points for `rows` x `cols` |
+| `neuron_arrangement` | string | `"grid"` | Arrangement: `"grid"`, `"poisson"`, `"hex"`, `"jittered_grid"`, `"blue_noise"`, or a registered plugin layout ([guide](../how-to/extend/add_grid_arrangement.md)). Spelled exactly; any other name is an error. `"hex"` is also an error when its lattice has too few points for `rows` x `cols` |
+| `neuron_layout_params` | dict | `{}` | Settings of a plugin layout named by `neuron_arrangement`; an error with a built-in one. Omitted when empty |
 | `neurons_per_row` | int | `10` | Neurons per row (for grid arrangement) |
 | `neuron_rows` | int | `None` | Number of rows (independent of neurons_per_row) |
 | `neuron_cols` | int | `None` | Number of columns (independent of neurons_per_row) |

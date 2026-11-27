@@ -21,6 +21,7 @@ config; the screen rebuilds itself from ``session.configChanged``/
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 from typing import Any, List, Optional
 
@@ -28,11 +29,18 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from sensoryforge.gui.widgets.problem_list import ProblemList
 from sensoryforge.config.schema import GridConfig, grid_config_param_specs
+from sensoryforge.core.layouts import (
+    BUILTIN_LAYOUTS,
+    custom_layout_names,
+    layout_setting_specs,
+    layout_takes_seed,
+)
 from sensoryforge.core.simulation_engine import build_grid
 from sensoryforge.gui import theme
 from sensoryforge.gui.session import Session
 from sensoryforge.gui.widgets.grid_preview import GridPreview
 from sensoryforge.gui.widgets.param_form import ParamForm
+from sensoryforge.stimuli.base import ParamSpec
 
 #: Debounce for the preview rebuild after an edit (phase2-common.md /
 #: this screen's brief: typing in a spin box must not rebuild per keystroke).
@@ -48,6 +56,30 @@ _PREVIEW_DEBOUNCE_MS = 150
 # jittered_grid, where spacing already fixes the count (core/grid.py).
 _SEED_ARRANGEMENTS = {"jittered_grid", "blue_noise", "poisson"}
 _DENSITY_ARRANGEMENTS = {"hex", "poisson", "blue_noise"}
+
+
+def _is_plugin_layout(arrangement: str) -> bool:
+    """Whether ``arrangement`` names a plugin layout, installed here or not."""
+    return arrangement not in BUILTIN_LAYOUTS + ("composite",)
+
+
+def _grid_specs(arrangement: str) -> List[ParamSpec]:
+    """The grid form's specs, with installed layouts in the arrangement list.
+
+    The current name stays in the list even when its plugin is not installed;
+    a combo without it would show the first entry, a different layout.
+    """
+    specs = []
+    for spec in grid_config_param_specs():
+        if spec.name == "arrangement":
+            choices = list(spec.choices) + custom_layout_names()
+            if arrangement not in choices:
+                choices.append(arrangement)
+            spec = copy.copy(spec)
+            spec.choices = choices
+        specs.append(spec)
+    return specs
+
 
 _COMPOSITE_DISABLED_TOOLTIP = "A composite array is sized by its layers."
 _SEED_DISABLED_TOOLTIP = "This arrangement has no randomness to seed."
@@ -99,8 +131,10 @@ class SensorsScreen(QtWidgets.QWidget):
         super().__init__(parent)
         self._session = session
         self._selected_index: Optional[int] = None
+        self._shown_arrangement: Optional[str] = None
         self._advanced = False
         self._param_form: Optional[ParamForm] = None
+        self.layout_form: Optional[ParamForm] = None
         self._highlight_item: Optional[Any] = None
         self._suspend_name_edit = False
 
@@ -253,6 +287,8 @@ class SensorsScreen(QtWidgets.QWidget):
         if hasattr(self, "problems"):
             self.problems.refresh()
         grid_cfg = self._grids()[index]
+        # Whose settings layout_params holds, for _on_arrangement_changed.
+        self._shown_arrangement = grid_cfg.arrangement
 
         self._suspend_name_edit = True
         self.name_edit.setText(grid_cfg.name)
@@ -282,25 +318,32 @@ class SensorsScreen(QtWidgets.QWidget):
         in the same turn) would still invoke the discarded form's slots
         against a grid it no longer owns.
         """
-        if self._param_form is None:
-            return
+        self._teardown_layout_form()
+        if self._param_form is not None:
+            self._dispose_form(self._param_form)
+            self._param_form = None
+
+    def _teardown_layout_form(self) -> None:
+        """Dispose the plugin layout's settings form, if one is shown."""
+        if self.layout_form is not None:
+            self._dispose_form(self.layout_form)
+            self.layout_form = None
+
+    def _dispose_form(self, form: ParamForm) -> None:
         try:
-            self._session.configChanged.disconnect(self._param_form._on_config_changed)
+            self._session.configChanged.disconnect(form._on_config_changed)
         except TypeError:
             pass
         try:
-            self._session.configReplaced.disconnect(
-                self._param_form._on_config_replaced
-            )
+            self._session.configReplaced.disconnect(form._on_config_replaced)
         except TypeError:
             pass
-        self.form_container.removeWidget(self._param_form)
+        self.form_container.removeWidget(form)
         # Hidden first, then detached: detaching a visible widget makes it a
         # window of its own until Qt deletes it (seen as leftover windows).
-        self._param_form.hide()
-        self._param_form.setParent(None)
-        self._param_form.deleteLater()
-        self._param_form = None
+        form.hide()
+        form.setParent(None)
+        form.deleteLater()
 
     def _clear_form(self) -> None:
         self._teardown_param_form()
@@ -313,13 +356,51 @@ class SensorsScreen(QtWidgets.QWidget):
     def _rebuild_param_form(self, index: int, grid_cfg: GridConfig) -> None:
         self._teardown_param_form()
         self._param_form = ParamForm(
-            grid_config_param_specs(),
+            _grid_specs(grid_cfg.arrangement),
             grid_cfg,
             self._session,
             f"grids.{index}",
             advanced=self._advanced,
         )
         self.form_container.addWidget(self._param_form)
+        self._rebuild_layout_form(index, grid_cfg)
+
+    def _rebuild_layout_form(self, index: int, grid_cfg: GridConfig) -> None:
+        """Show the selected grid's plugin layout settings, if it has a layout."""
+        self._teardown_layout_form()
+        if grid_cfg.arrangement not in custom_layout_names():
+            return
+        self.layout_form = ParamForm(
+            layout_setting_specs(grid_cfg.arrangement),
+            grid_cfg.layout_params,
+            self._session,
+            f"grids.{index}.layout_params",
+            advanced=self._advanced,
+        )
+        self.form_container.addWidget(self.layout_form)
+
+    def _on_arrangement_changed(self, index: int, grid_cfg: GridConfig) -> None:
+        """Drop what the newly chosen arrangement cannot take."""
+        previous = self._shown_arrangement
+        self._shown_arrangement = grid_cfg.arrangement
+        # One layout's settings mean nothing to another, and a built-in takes
+        # none. Settings written while a built-in was chosen were written for
+        # the layout now chosen (settings first, then the name), so they stay.
+        drop_settings = not _is_plugin_layout(grid_cfg.arrangement) or (
+            previous != grid_cfg.arrangement
+            and previous is not None
+            and _is_plugin_layout(previous)
+        )
+        if grid_cfg.layout_params and drop_settings:
+            self._session.set_by_path(f"grids.{index}.layout_params", {})
+        if _is_plugin_layout(grid_cfg.arrangement):
+            if grid_cfg.density is not None:
+                self._session.set_by_path(f"grids.{index}.density", None)
+            takes_seed = layout_takes_seed(grid_cfg.arrangement)
+            if grid_cfg.seed is not None and not takes_seed:
+                self._session.set_by_path(f"grids.{index}.seed", None)
+        self._rebuild_layout_form(index, grid_cfg)
+        self._update_field_enablement(grid_cfg.arrangement)
 
     def _problem_prefix(self) -> Optional[str]:
         """The selected grid's validation key, for the problem list."""
@@ -334,8 +415,9 @@ class SensorsScreen(QtWidgets.QWidget):
             on: Whether Advanced mode is on.
         """
         self._advanced = bool(on)
-        if self._param_form is not None:
-            self._param_form.set_advanced(self._advanced)
+        for form in (self._param_form, self.layout_form):
+            if form is not None:
+                form.set_advanced(self._advanced)
 
     # -------------------------------------------------------------- list UI
 
@@ -401,7 +483,11 @@ class SensorsScreen(QtWidgets.QWidget):
         existing = [g.name for g in self._grids()]
         source = self._grids()[self._selected_index]
         new_name = _unique_name(source.name, existing)
-        new_grid = dataclasses.replace(source, name=new_name)
+        new_grid = dataclasses.replace(
+            source,
+            name=new_name,
+            layout_params=copy.deepcopy(source.layout_params),
+        )
         insert_index = self._selected_index + 1
         self._session.config.grids.insert(insert_index, new_grid)
         self._session.notify(f"grids.{insert_index}")
@@ -523,7 +609,9 @@ class SensorsScreen(QtWidgets.QWidget):
     def _update_field_enablement(self, arrangement: str) -> None:
         if self._param_form is None:
             return
-        seed_enabled = arrangement in _SEED_ARRANGEMENTS
+        seed_enabled = arrangement in _SEED_ARRANGEMENTS or layout_takes_seed(
+            arrangement
+        )
         density_enabled = arrangement in _DENSITY_ARRANGEMENTS
         is_composite = arrangement == "composite"
 
@@ -546,8 +634,13 @@ class SensorsScreen(QtWidgets.QWidget):
 
         self.layers_table.setVisible(is_composite)
         self.layers_label.setVisible(is_composite)
-        self.coords_file_edit.setEnabled(not is_composite)
-        self.btn_browse_coords.setEnabled(not is_composite)
+        # A plugin layout and a coordinate file both set the positions. A file
+        # already set stays editable, so it can be cleared.
+        takes_file = not is_composite and (
+            not _is_plugin_layout(arrangement) or bool(self.coords_file_edit.text())
+        )
+        self.coords_file_edit.setEnabled(takes_file)
+        self.btn_browse_coords.setEnabled(takes_file)
 
     def _update_layers_table(self, grid_cfg: GridConfig) -> None:
         layers = grid_cfg.layers or []
@@ -652,7 +745,7 @@ class SensorsScreen(QtWidgets.QWidget):
         ):
             grid_cfg = self._grids()[self._selected_index]
             if len(segments) >= 3 and segments[2] == "arrangement":
-                self._update_field_enablement(grid_cfg.arrangement)
+                self._on_arrangement_changed(changed_index, grid_cfg)
             if len(segments) >= 3 and segments[2] == "layers":
                 self._update_layers_table(grid_cfg)
             self._schedule_preview_update()

@@ -40,6 +40,11 @@ from sensoryforge.config.defaults import DEFAULT_INTEGRATE_DT_MS
 from sensoryforge.config.probes import check_voltage_probes
 from sensoryforge.stimuli.base import ParamSpec
 
+#: The layout names with their own code (a test keeps them equal to
+#: ``core.innervation.NEURON_ARRANGEMENTS``, which this module cannot import).
+_BUILTIN_LAYOUT_NAMES = ("grid", "poisson", "hex", "jittered_grid", "blue_noise")
+_BUILTIN_GRID_ARRANGEMENTS = _BUILTIN_LAYOUT_NAMES + ("composite",)
+
 
 @dataclass
 class GridConfig:
@@ -76,6 +81,8 @@ class GridConfig:
             ``density`` (+ optional ``arrangement``, ``offset``, ``seed``,
             ``color``) or ``coordinates`` (an ``[n, 2]`` list) or
             ``coords_file``. Layer order is the receptor-index contract.
+        layout_params: Settings of a plugin layout named by ``arrangement``;
+            an error with a built-in arrangement.
     """
 
     name: str
@@ -92,14 +99,23 @@ class GridConfig:
     channels: List[str] = field(default_factory=lambda: ["value"])
     coords_file: Optional[str] = None
     layers: List[Dict[str, Any]] = field(default_factory=list)
+    layout_params: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate channel names (Wave L1).
+        """Validate channel names (Wave L1) and where ``layout_params`` is used.
 
         Raises:
             ValueError: If a channel name is empty, not a valid identifier,
-                or repeated -- named with the grid and the offending entry.
+                or repeated -- named with the grid and the offending entry; or if
+                ``layout_params`` is set with a built-in ``arrangement``.
         """
+        if self.layout_params is None:  # a bare ``layout_params:`` in YAML
+            self.layout_params = {}
+        if self.layout_params and self.arrangement in _BUILTIN_GRID_ARRANGEMENTS:
+            raise ValueError(
+                f"Grid {self.name!r}: layout_params are settings of a plugin "
+                f"layout, but arrangement {self.arrangement!r} is built-in"
+            )
         seen: set = set()
         for entry in self.channels:
             if not isinstance(entry, str) or not entry:
@@ -132,6 +148,8 @@ class GridConfig:
             del result["coords_file"]
         if result.get("layers") == []:
             del result["layers"]
+        if result.get("layout_params") == {}:
+            del result["layout_params"]
         return result
 
     @classmethod
@@ -448,7 +466,9 @@ class PopulationConfig:
         weight_range: [min, max] weight range.
         edge_offset: Edge offset in mm.
         neuron_arrangement: Arrangement (grid, poisson, hex, jittered_grid,
-            blue_noise).
+            blue_noise), or a registered plugin layout.
+        neuron_layout_params: Settings of a plugin layout named by
+            ``neuron_arrangement``; an error with a built-in one.
         neurons_per_row: Neurons per row (for grid arrangement).
         neuron_rows: Number of rows (independent of neurons_per_row).
         neuron_cols: Number of columns (independent of neurons_per_row).
@@ -548,6 +568,7 @@ class PopulationConfig:
 
     # Neuron layout
     neuron_arrangement: str = "grid"  # grid, poisson, hex, etc.
+    neuron_layout_params: Dict[str, Any] = field(default_factory=dict)
     neurons_per_row: int = 10
     neuron_rows: Optional[int] = None
     neuron_cols: Optional[int] = None
@@ -600,6 +621,17 @@ class PopulationConfig:
                 ``voltage_probes`` is not a valid value.
         """
         check_voltage_probes(self.voltage_probes, where=f"Population {self.name!r}")
+        if self.neuron_layout_params is None:  # a bare key in YAML
+            self.neuron_layout_params = {}
+        if (
+            self.neuron_layout_params
+            and self.neuron_arrangement in _BUILTIN_LAYOUT_NAMES
+        ):
+            raise ValueError(
+                f"Population {self.name!r}: neuron_layout_params are settings of a "
+                f"plugin layout, but neuron_arrangement "
+                f"{self.neuron_arrangement!r} is built-in"
+            )
         if self.combine not in ("sum", "concat"):
             raise ValueError(
                 f"Population {self.name!r}: combine must be 'sum' or "
@@ -734,6 +766,8 @@ class PopulationConfig:
             result["inputs"] = [i.to_dict() for i in self.inputs]
         if result.get("combine") == "sum":
             del result["combine"]
+        if result.get("neuron_layout_params") == {}:
+            del result["neuron_layout_params"]
         # Remove None values for cleaner YAML
         return {k: v for k, v in result.items() if v is not None}
 

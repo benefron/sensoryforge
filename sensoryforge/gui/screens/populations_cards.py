@@ -38,6 +38,11 @@ from sensoryforge.config.schema import (
     PopulationInput,
     RFBuilderConfig,
 )
+from sensoryforge.core.layouts import (
+    BUILTIN_LAYOUTS,
+    custom_layout_names,
+    layout_setting_specs,
+)
 from sensoryforge.gui.bench import find_population, population_index
 from sensoryforge.gui.session import Session
 from sensoryforge.gui.widgets.param_form import ParamForm, specs_for
@@ -51,10 +56,6 @@ FILTER_CHOICES = ["none", "SA", "RA"]
 #: Curated neuron model choices (registry alias "dsl" collapsed to its GUI
 #: spelling "DSL (Custom)").
 NEURON_MODEL_CHOICES = ["Izhikevich", "AdEx", "MQIF", "FA", "SA", "DSL (Custom)"]
-
-#: Neuron-layout arrangement choices, same registry grid/hex/... names used
-#: for receptor grids (create_neuron_centers accepts the same vocabulary).
-ARRANGEMENT_CHOICES = ["grid", "poisson", "hex", "jittered_grid", "blue_noise"]
 
 
 def _is_dsl_model(name: str) -> bool:
@@ -436,6 +437,9 @@ class NeuronLayoutCard(_Card):
         super().__init__("Neuron layout", session, parent)
 
     def _is_structural(self, rel_path: str) -> bool:
+        # The whole settings dict being replaced, not one value inside it.
+        if rel_path == "neuron_layout_params":
+            return True
         return rel_path.split(".")[0] in (
             "neurons_per_row",
             "neuron_rows",
@@ -451,6 +455,7 @@ class NeuronLayoutCard(_Card):
         index = self._pop_index()
         content = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(content)
+        self.layout_form: Optional[ParamForm] = None
         if pop_cfg is None or index is None:
             self._set_content(content)
             return
@@ -478,10 +483,14 @@ class NeuronLayoutCard(_Card):
             )
             form.addRow(note)
 
+        arrangement = pop_cfg.neuron_arrangement or "grid"
+        # A plugin layout decides how many neurons there are.
+        counted = not derives and arrangement in BUILTIN_LAYOUTS
+
         per_row = QtWidgets.QSpinBox()
         per_row.setRange(1, 2000)
         per_row.setValue(pop_cfg.neurons_per_row)
-        per_row.setEnabled(not derives)
+        per_row.setEnabled(counted)
         per_row.valueChanged.connect(
             functools.partial(self._on_int, f"populations.{index}.neurons_per_row")
         )
@@ -493,7 +502,7 @@ class NeuronLayoutCard(_Card):
         rows_spin.setValue(
             pop_cfg.neuron_rows if pop_cfg.neuron_rows is not None else -1
         )
-        rows_spin.setEnabled(not derives)
+        rows_spin.setEnabled(counted)
         rows_spin.valueChanged.connect(
             functools.partial(self._on_optional_int, f"populations.{index}.neuron_rows")
         )
@@ -505,20 +514,22 @@ class NeuronLayoutCard(_Card):
         cols_spin.setValue(
             pop_cfg.neuron_cols if pop_cfg.neuron_cols is not None else -1
         )
-        cols_spin.setEnabled(not derives)
+        cols_spin.setEnabled(counted)
         cols_spin.valueChanged.connect(
             functools.partial(self._on_optional_int, f"populations.{index}.neuron_cols")
         )
         form.addRow("Cols:", cols_spin)
 
         arrangement_combo = QtWidgets.QComboBox()
-        _set_combo(
-            arrangement_combo, ARRANGEMENT_CHOICES, pop_cfg.neuron_arrangement or "grid"
-        )
+        installed = custom_layout_names()
+        choices = list(BUILTIN_LAYOUTS) + installed
+        if arrangement not in choices:
+            # Not installed here: keep the name; validation says what is wrong.
+            choices.append(arrangement)
+        arrangement_combo.addItems(choices)
+        arrangement_combo.setCurrentIndex(choices.index(arrangement))
         arrangement_combo.setEnabled(not derives)
-        arrangement_combo.currentTextChanged.connect(
-            functools.partial(self._on_text, f"populations.{index}.neuron_arrangement")
-        )
+        arrangement_combo.currentTextChanged.connect(self._on_arrangement_chosen)
         form.addRow("Arrangement:", arrangement_combo)
 
         seed_spin = QtWidgets.QSpinBox()
@@ -531,7 +542,29 @@ class NeuronLayoutCard(_Card):
         )
         form.addRow("Seed:", seed_spin)
 
+        if arrangement in installed and not derives:
+            self.layout_form = ParamForm(
+                layout_setting_specs(arrangement),
+                pop_cfg.neuron_layout_params,
+                self._session,
+                f"populations.{index}.neuron_layout_params",
+            )
+            form.addRow(self.layout_form)
+
+        self.per_row_spin = per_row
+        self.rows_spin = rows_spin
+        self.cols_spin = cols_spin
+        self.arrangement_combo = arrangement_combo
         self._set_content(content)
+
+    def _on_arrangement_chosen(self, name: str) -> None:
+        pop_cfg, index = self._pop_cfg(), self._pop_index()
+        if not name or pop_cfg is None or index is None:
+            return
+        # One layout's settings mean nothing to another.
+        if pop_cfg.neuron_layout_params:
+            self._session.set_by_path(f"populations.{index}.neuron_layout_params", {})
+        self._session.set_by_path(f"populations.{index}.neuron_arrangement", name)
 
     def _on_int(self, path: str, value: int) -> None:
         self._write(path, value)

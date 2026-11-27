@@ -21,7 +21,11 @@ import torch.nn as nn
 
 from .grid import GridManager
 from .composite_grid import CompositeReceptorGrid
-from .innervation import build_population_bank, _grid_lattice_coords
+from .innervation import (
+    NEURON_ARRANGEMENTS,
+    build_population_bank,
+    _grid_lattice_coords,
+)
 from .rf_bank import ReceptiveFieldBank
 from .processing import ProcessingPipeline
 from sensoryforge.config.defaults import resolve_filter_params, resolve_neuron_params
@@ -391,6 +395,32 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
             and "pipeline" not in config
         )
 
+    @staticmethod
+    def _refuse_plugin_layouts(canonical: dict) -> None:
+        """Refuse a config whose layouts this pipeline would silently replace.
+
+        Args:
+            canonical: A canonical-schema config dict.
+
+        Raises:
+            ValueError: If a grid or population names a layout that is not
+                built-in.
+        """
+        used = [
+            (g.get("arrangement", "grid"), NEURON_ARRANGEMENTS + ("composite",))
+            for g in canonical.get("grids", [])
+        ] + [
+            (p.get("neuron_arrangement", "grid"), NEURON_ARRANGEMENTS)
+            for p in canonical.get("populations", [])
+        ]
+        for name, built_in in used:
+            if name not in built_in:
+                raise ValueError(
+                    "The older pipeline supports only the built-in layouts, not "
+                    f"{name!r}; run this config with SimulationEngine "
+                    "(`sensoryforge run` or `batch`)."
+                )
+
     def _canonical_to_legacy_config(self, canonical: dict) -> dict:
         """Convert canonical schema config to legacy pipeline format.
 
@@ -407,6 +437,7 @@ class GeneralizedTactileEncodingPipeline(nn.Module):
         - Population selection based on neuron_type prefix matching
         - For N-population support, use SimulationEngine
         """
+        self._refuse_plugin_layouts(canonical)
         legacy = self._deep_copy_dict(self.DEFAULT_CONFIG)
 
         # Extract simulation config

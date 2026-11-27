@@ -204,6 +204,47 @@ def _check_grid(cls: type, instance: Any) -> None:
             "is not [N, 2]"
         )
     _assert_to_dict_roundtrip_complete(cls, instance)
+    _check_layout_area(cls, instance)
+
+
+def _check_layout_area(cls: type, instance: Any) -> None:
+    """A grid a config can name fills the area it is given, the same way twice.
+
+    Applies to a class whose constructor accepts ``xlim``, ``ylim`` and
+    ``device`` (:mod:`sensoryforge.core.layouts`); other grids are used through
+    a coordinate file and are not checked here. The instance's own settings are
+    kept, and a layout that takes ``seed`` is given one. They are passed as
+    ``to_dict()`` gives them (a tuple as a list), as a config's YAML would.
+    """
+    parameters = inspect.signature(cls.__init__).parameters
+    if not {"xlim", "ylim", "device"} <= set(parameters):
+        return
+    supplied = ("xlim", "ylim", "device", "seed")
+    settings = {
+        key: value
+        for key, value in instance.to_dict().items()
+        if key in parameters and key not in supplied
+    }
+    if "seed" in parameters:
+        settings["seed"] = 0
+    for xlim, ylim in (((-3.0, 3.0), (-1.0, 1.0)), ((0.5, 1.5), (2.0, 4.0))):
+        first, again = (
+            cls(**settings, xlim=xlim, ylim=ylim, device="cpu").get_all_coordinates()
+            for _ in range(2)
+        )
+        if first.shape != again.shape or not torch.allclose(first, again):
+            raise AssertionError(
+                f"{cls.__name__}: the same area, settings and same seed gave "
+                "different points; draw only from a generator seeded by 'seed'"
+            )
+        low = torch.tensor([xlim[0], ylim[0]]) - 1e-5
+        high = torch.tensor([xlim[1], ylim[1]]) + 1e-5
+        points = first.to("cpu", torch.float32)
+        if bool(((points < low) | (points > high)).any()):
+            raise AssertionError(
+                f"{cls.__name__} put points outside the area x {xlim}, y {ylim} "
+                "mm it was given"
+            )
 
 
 def _check_solver(cls: type, instance: Any) -> None:

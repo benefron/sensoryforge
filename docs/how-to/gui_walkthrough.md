@@ -46,8 +46,9 @@ YAML. A **project** (File > New project) is a folder holding `config.yml` and a
 The list holds the experiment's sensor arrays (grids); **Add**, **Duplicate** and
 **Remove** manage it. A grid still read by a population cannot be removed, and a
 renamed grid is renamed everywhere it is used. The form sets the arrangement (`grid`,
-`hex`, `poisson`, `jittered_grid`, `blue_noise`), rows and columns, spacing, centre and
-seed, the channel names (for a multi-channel array, see [sensor
+`hex`, `poisson`, `jittered_grid`, `blue_noise`, or an installed [plugin
+layout](extend/add_grid_arrangement.md), whose own settings appear below), rows and
+columns, spacing, centre and seed, the channel names (for a multi-channel array, see [sensor
 arrays](../concepts/sensor_arrays.md)) and an optional coordinates file. The preview
 is built with the engine's own grid code, so the receptor count and extent under it
 are the ones a run uses. **Save figure…** writes the preview as PNG or SVG.

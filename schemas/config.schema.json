@@ -88,6 +88,9 @@
             "items": {
               "type": "object"
             }
+          },
+          "layout_params": {
+            "type": "object"
           }
         },
         "required": [
@@ -252,6 +255,9 @@
           "neuron_arrangement": {
             "type": "string",
             "default": "grid"
+          },
+          "neuron_layout_params": {
+            "type": "object"
           },
           "neurons_per_row": {
             "type": "integer",

@@ -108,6 +108,50 @@ when there are real new entries.
 <!-- newest first; ledger-sync.sh inserts directly below this marker -->
 <!-- ENTRIES_START -->
 
+## F-209e6a4 · CLOSED · finding · - · 2026-11-27
+layout_problem refused every setting of a layout whose constructor takes **kwargs
+→ commit 7d39bd2
+
+## F-01d3583 · CLOSED · finding · - · 2026-11-27
+a bare layout_params or neuron_layout_params key in YAML loaded as None and broke the GUI settings form
+→ commit 7d39bd2
+
+## F-954649c · CLOSED · finding · - · 2026-11-27
+an edge_offset of half the grid's smaller side or more handed a plugin neuron layout inverted bounds; it is now an error naming edge_offset
+→ commit 7d39bd2
+
+## F-4055fa2 · STANDING · finding · - · 2026-11-27
+plugin layout settings reach the constructor as YAML reads them (a pair as a list), not through from_config, so a layout must accept any sequence where it would take a tuple
+→ commit 7d39bd2
+
+## F-843c72d · CLOSED · finding · - · 2026-11-27
+the Sensors screen wiped layout_params written just before a plugin arrangement was chosen; settings now drop only when they belonged to another plugin layout or the new arrangement is built in
+→ commit f3cdf5a
+
+## F-72a8668 · CLOSED · finding · - · 2026-11-27
+an exception other than ValueError/TypeError/RuntimeError/KeyError raised by a plugin layout escaped build_layout_points and could abort the GUI from its validation slot
+→ commit 5c8ecad
+
+## F-e1a24ec · CLOSED · finding · sensoryforge · 2026-11-27
+sensoryforge validate checked no DSL population when every grid was built in, and only the last one beside a plugin grid, since the custom-layout grid loop swallowed the check (regression tests in test_custom_layouts.py)
+→ commit 76a19b3
+
+## F-f6e5ebe · CLOSED · finding · - · 2026-11-27
+batch crashed on a config with two or more grids and density: null, which is how saved configs write it (also on main)
+→ commit e32ada0
+
+## F-b36f961 · STANDING · finding · - · 2026-11-27
+a plugin sensor grid wires like a position-file grid, with a 3-sigma cut-off the built-in grid arrangements do not apply, so the same positions and seed give different weights
+→ commit 64ac7d0
+
+## D-15f66c2 · CLOSED · decision · docs/development · 2026-11-27
+the custom-layout design is approved and is built core first, then the app
+→ commit 84c0821
+
+## D-82a6826 · CLOSED · decision · docs/development · 2026-11-27
+for custom layouts the layout decides the neuron count, and one plugin type serves both sensors and neurons
+→ commit 65ef3a3
+
 ## F-3e480a4 · CLOSED · finding · - · 2026-11-27
 the docs claimed GPU acceleration, a 5-20x speedup and end-to-end training that nothing supports, and scikit-learn was a dependency nothing imported
 → commit 13fd202

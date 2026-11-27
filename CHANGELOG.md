@@ -6,6 +6,16 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 
 ## [Unreleased]
 
+### Added: custom sensor and neuron layouts
+
+- A grid plugin whose constructor takes the area (`xlim`, `ylim`, `device`) can be named in a
+  config as a sensor layout (`grids[].arrangement`, settings in `layout_params`), as a neuron
+  layout (`populations[].neuron_arrangement`, settings in `neuron_layout_params`), or both. The
+  layout decides the number of points. Built-in layouts are unchanged.
+- The app lists installed layouts for sensors and neurons, with a form for their settings.
+- `check_component("grid", ...)` now also fails a layout that takes the area and puts a point
+  outside it, or gives different points for the same seed.
+
 ### Fixed
 
 - An unknown `neuron_arrangement` (a typo, `jittered`, `Hex`) now raises `ValueError`. Before,
@@ -17,6 +27,8 @@ All notable user-facing changes to SensoryForge are documented here. Format loos
 - The docs no longer call SensoryForge GPU-accelerated or ready for training through spikes, or
   state a GPU speedup: none has been measured to support them.
 - `scikit-learn` is no longer a dependency. SensoryForge does not import it.
+- `batch` no longer crashes on a config with two or more grids and `density: null`, which is how
+  saved configs are written.
 - Loading a config with an unknown top-level key now warns instead of dropping it silently.
 - `check_component("filter", ...)` now refuses a filter whose output changes on a second
   call with the same input. A plugin filter that passed before can now fail.
